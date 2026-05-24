@@ -9,9 +9,38 @@ App de finanzas personales para consolidar y analizar movimientos bancarios chil
 
 ---
 
+## Documentación de diseño (Obsidian)
+
+Todos los ADRs, User Stories, Sprint Planning y diseño viven en:
+
+```
+~/Library/Mobile Documents/iCloud~md~obsidian/Documents/JJ - Developer/0002 EL YO CREADOR/DEV PERSONAL/MoneyDiary/
+  Diseño/
+    ADR-001 Backend Framework.md
+    ADR-002 Base de Datos.md
+    ADR-003 Frontend.md
+    ADR-004 Hosting.md
+    ADR-005 Monolito-Modular-Clean-Architecture.md
+    ADR-006 Package Manager.md
+    ADR-007 Libreria Parseo Excel.md
+    INDEX DISEÑO.md
+  Product Backlog/
+    Epic - Ingesta de datos/
+      US-001 Carga de archivo XLSX.md        ← estado actual detallado
+      US-002 Validacion estructura.md
+      US-006 Deteccion banco.md
+      US-007 Normalizacion columnas.md
+  Sprints/
+    Sprint-1.md                              ← tareas y estado del sprint actual
+```
+
+Cuando trabajes en análisis o diseño, leer los archivos relevantes de esa ruta antes de proponer cambios.
+
+---
+
 ## Arquitectura
 
-**Patrón:** Monolito Modular + Clean Architecture (ver ADR-005)
+**Patrón:** Monolito Modular + Clean Architecture (ADR-005)
 
 ```
 src/
@@ -24,14 +53,13 @@ src/
 
 **Regla de dependencias:** `domain ← application ← infrastructure`. Nunca al revés.
 
-**Manejo de errores:** Se usa `Result<T,E>` (en `src/shared/result.ts`) en lugar de excepciones en domain/application. Los errores de infraestructura se propagan normalmente.
+**Manejo de errores:** `Result<T,E>` (en `src/shared/result.ts`) — nunca lanzar excepciones en domain/application.
+
+**Al implementar una nueva US:** empezar siempre por el dominio (value objects, errores), luego application (ports, use cases), luego infrastructure. No al revés.
 
 ---
 
 ## Decisiones Técnicas Clave (ADRs)
-
-Los ADRs completos están en:
-`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/JJ - Developer/0002 EL YO CREADOR/DEV PERSONAL/MoneyDiary/Diseño/`
 
 | ADR | Decisión |
 |-----|----------|
@@ -49,42 +77,38 @@ Los ADRs completos están en:
 
 **Sprint Goal:** Pipeline backend completo: recibir `.xlsx` → detectar banco → validar estructura → normalizar transacciones. Sin UI, sin persistencia.
 
-### US-001 — Carga de archivo XLSX ✅ (casi completo)
+### ✅ US-001 — Carga de archivo XLSX (completo salvo integration test HTTP)
 
-Archivos implementados:
 - `src/domain/value-objects/extension.ts` — solo acepta `.xlsx` (ADR-007)
 - `src/domain/errors/extension-no-permitida.error.ts`
 - `src/application/ports/file-reader.port.ts` — `IFileReader`
-- `src/application/use-cases/ingest-file.use-case.ts` + spec (9 tests ✅)
+- `src/application/use-cases/ingest-file.use-case.ts` — 9 tests ✅
 - `src/infrastructure/http/multer-file-reader.adapter.ts`
 - `src/infrastructure/http/ingesta.controller.ts` — `POST /api/ingestas`
 - `src/infrastructure/http/ingesta.module.ts`
 - `src/infrastructure/cli/fs-file-reader.adapter.ts`
-- `src/infrastructure/cli/ingestar.ts` — script CLI (`pnpm cli -- archivo.xlsx`)
+- `src/infrastructure/cli/ingestar.ts` — `pnpm cli -- archivo.xlsx`
 
-Pendiente: integration test del endpoint HTTP (Tarea 1.7).
+Pendiente: **Tarea 1.7** — integration test del endpoint HTTP.
 
-### US-006 — Detección de banco ✅ (implementado, pendiente verificar fixtures)
+### ✅ US-006 — Detección de banco (completo, verificado con fixtures reales)
 
-Archivos implementados:
 - `src/domain/value-objects/nombre-banco.ts` — `BancoConocido` enum
 - `src/domain/value-objects/tipo-cuenta.ts` — `TipoCuentaConocido` enum
 - `src/domain/errors/banco-no-reconocido.error.ts`
 - `src/application/ports/bank-detector.port.ts` — `IBankDetector` (async)
 - `src/application/use-cases/detect-bank.use-case.ts`
-- `src/infrastructure/excel/excel-bank-detector.service.ts` — usa ExcelJS
-- `src/infrastructure/excel/strategies/banco-chile.strategy.ts`
-- `src/infrastructure/excel/strategies/banco-estado.strategy.ts`
-- `src/infrastructure/excel/strategies/bci.strategy.ts`
-- `src/infrastructure/excel/strategies/santander.strategy.ts`
+- `src/infrastructure/excel/excel-bank-detector.service.ts` — ExcelJS
+- `src/infrastructure/excel/strategies/` — 4 estrategias (BancoChile, BancoEstado, BCI, Santander)
 
-Pendiente: correr `pnpm cli` con los fixtures `.xlsx` y confirmar detección correcta.
+Verificado con `pnpm cli` para BancoEstado, BCI y Santander ✅. Banco de Chile pendiente (solo tiene fixtures `.xls` — descargar `.xlsx` del portal).
 
-### Pendiente en Sprint 1
+### ⬜ Pendiente en Sprint 1
 
-- US-002 — Validación de estructura del archivo
-- US-007 — Normalización de columnas de transacciones
-- Supabase/Prisma — deferred al final del sprint
+- **US-002** — Validación de estructura del archivo
+- **US-007** — Normalización de columnas de transacciones
+- **Tarea 1.7** — Integration test endpoint HTTP
+- **Supabase/Prisma** — deferred al final del sprint
 
 ---
 
@@ -92,11 +116,11 @@ Pendiente: correr `pnpm cli` con los fixtures `.xlsx` y confirmar detección cor
 
 ```
 test/fixtures/
-  Últimos_Movimientos_CuentaRUT_1778764122306.xlsx  ← BancoEstado
-  movimientos.xlsx                                   ← BCI
-  ultimos movimientos-Cuenta Corriente.xlsx          ← Santander
-  cartola.xls          ← Banco de Chile (NO soportado — descargar como .xlsx)
-  cartola_30042026.xls ← Banco de Chile (NO soportado — descargar como .xlsx)
+  Últimos_Movimientos_CuentaRUT_1778764122306.xlsx  ← BancoEstado ✅ detectado
+  movimientos.xlsx                                   ← BCI ✅ detectado
+  ultimos movimientos-Cuenta Corriente.xlsx          ← Santander ✅ detectado
+  cartola.xls          ← Banco de Chile ❌ formato no soportado (descargar .xlsx)
+  cartola_30042026.xls ← Banco de Chile ❌ formato no soportado (descargar .xlsx)
 ```
 
 ---
@@ -134,7 +158,7 @@ pnpm exec tsc --noEmit
 
 ---
 
-## Patrones de detección bancaria (para reference)
+## Patrones de detección bancaria
 
 | Banco | Celda clave | Valor |
 |-------|-------------|-------|
@@ -151,3 +175,4 @@ pnpm exec tsc --noEmit
 - `.npmrc` tiene `minimum-release-age=10080`, `audit-level=high`, `block-exotic-subdeps=true`
 - SheetJS descartado (CVEs sin parche en npm) — ver ADR-007
 - `pnpm approve-builds` requerido para `@nestjs/core` y `unrs-resolver` en instalación limpia
+- `@types/node` fijado en `^22` — no subir a v24 (incompatibilidad de tipos con ExcelJS)
