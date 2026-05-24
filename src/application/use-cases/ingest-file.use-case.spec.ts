@@ -34,15 +34,6 @@ describe('IngestFileUseCase', () => {
       expect(data.sizeInBytes).toBe(2048);
     });
 
-    it('retorna Ok para extensión .xls (mayúsculas)', () => {
-      const reader = makeFileReader({ originalName: 'movimientos.XLS' });
-
-      const result = useCase.execute(reader);
-
-      expect(result.isOk()).toBe(true);
-      expect(result.getValue().extension).toBe('.xls');
-    });
-
     it('retorna Ok para extensión .xlsx en mayúsculas', () => {
       const reader = makeFileReader({ originalName: 'Cartola_BCI.XLSX' });
 
@@ -64,6 +55,16 @@ describe('IngestFileUseCase', () => {
   });
 
   describe('cuando el archivo no es válido', () => {
+    // ADR-007: .xls ya no está soportado — usar .xlsx desde el portal del banco
+    it('retorna Fail para extensión .xls (formato legacy eliminado — ADR-007)', () => {
+      const reader = makeFileReader({ originalName: 'cartola.xls' });
+
+      const result = useCase.execute(reader);
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(InvalidFileExtensionError);
+    });
+
     it('retorna Fail para extensión .csv', () => {
       const reader = makeFileReader({ originalName: 'movimientos.csv' });
 
@@ -92,14 +93,13 @@ describe('IngestFileUseCase', () => {
       expect(result.getError()).toBeInstanceOf(InvalidFileExtensionError);
     });
 
-    it('el mensaje de error menciona las extensiones permitidas', () => {
+    it('el mensaje de error menciona la extensión permitida', () => {
       const reader = makeFileReader({ originalName: 'datos.txt' });
 
       const result = useCase.execute(reader);
 
       expect(result.isFail()).toBe(true);
       const message = result.getError().message;
-      expect(message).toContain('.xls');
       expect(message).toContain('.xlsx');
     });
   });

@@ -1,7 +1,10 @@
 import { ExtensionNoPermitidaError } from '../errors/extension-no-permitida.error';
 
-/** Extensiones aceptadas para archivos bancarios. */
-const EXTENSIONES_PERMITIDAS = ['.xls', '.xlsx'] as const;
+/**
+ * Extensiones aceptadas para archivos bancarios.
+ * Solo .xlsx — ver ADR-007 para el razonamiento de eliminar .xls.
+ */
+const EXTENSIONES_PERMITIDAS = ['.xlsx'] as const;
 
 export type ExtensionPermitida = (typeof EXTENSIONES_PERMITIDAS)[number];
 
@@ -9,7 +12,7 @@ export type ExtensionPermitida = (typeof EXTENSIONES_PERMITIDAS)[number];
  * Extension — value object de dominio.
  *
  * Encapsula la regla de negocio: un archivo bancario válido debe tener
- * extensión .xls o .xlsx (case-insensitive).
+ * extensión .xlsx (case-insensitive). Soporte .xls eliminado — ver ADR-007.
  *
  * Invariantes garantizadas en construcción:
  *   - El valor siempre está en minúsculas.
