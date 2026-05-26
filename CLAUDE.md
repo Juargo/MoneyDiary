@@ -102,9 +102,24 @@ src/
 
 Verificado con `pnpm cli` para BancoEstado, BCI y Santander ✅. Banco de Chile pendiente (solo tiene fixtures `.xls` — descargar `.xlsx` del portal).
 
+> Nota: las strategies leen celdas vía `cell.text` (no `String(cell.value)`) — necesario para BCI que usa `richText`. El fix se hizo junto con US-002.
+
+### ✅ US-002 — Validación de estructura (completo, verificado con fixtures reales)
+
+- `src/domain/value-objects/tipo-columna.ts` — enum `TipoColumna` (`Fecha|Numero|Texto`)
+- `src/domain/value-objects/columna-esperada.ts` — VO `{ letra, nombre, tipo }`
+- `src/domain/errors/estructura-invalida.error.ts` — agrupa todos los problemas en una pasada
+- `src/application/ports/structure-validator.port.ts` — `IStructureValidator` (async)
+- `src/application/use-cases/validate-structure.use-case.ts` — 3 tests ✅
+- `src/infrastructure/excel/strategies/estructura-banco.ts` — interfaz `EstructuraBanco`
+- Cada strategy expone `getEstructura()` con fila de encabezados + columnas esperadas
+- `src/infrastructure/excel/excel-structure-validator.service.ts` — 11 tests ✅ (CA-01/02/03 + fixtures reales)
+- CLI muestra `Encabezados : fila N` + `Filas datos : N`
+
+**Formatos de fecha aceptados:** `DD/MM/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY` (este último agregado para Santander).
+
 ### ⬜ Pendiente en Sprint 1
 
-- **US-002** — Validación de estructura del archivo
 - **US-007** — Normalización de columnas de transacciones
 - **Supabase/Prisma** — deferred al final del sprint
 

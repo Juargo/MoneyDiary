@@ -13,7 +13,9 @@
 import 'reflect-metadata';
 import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
+import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
+import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
 function formatBytes(bytes: number): string {
@@ -65,6 +67,18 @@ async function main(): Promise<void> {
 
   const bankData = detectResult.getValue();
 
+  // Use case 3: validar estructura del archivo (US-002)
+  const structureValidator = new ExcelStructureValidatorService();
+  const validateUseCase = new ValidateStructureUseCase(structureValidator);
+  const validateResult = await validateUseCase.execute(fileData.buffer, bankData.banco);
+
+  if (validateResult.isFail()) {
+    console.error(`\n❌  ${validateResult.getError().message}\n`);
+    process.exit(1);
+  }
+
+  const structureData = validateResult.getValue();
+
   console.log('\n✅  Archivo procesado correctamente');
   console.log('─────────────────────────────────────');
   console.log(`  Nombre       : ${fileData.originalName}`);
@@ -74,6 +88,9 @@ async function main(): Promise<void> {
   console.log(`  Banco        : ${bankData.banco}`);
   console.log(`  Tipo cuenta  : ${bankData.tipoCuenta}`);
   console.log(`  N° cuenta    : ${bankData.numeroCuenta || '(no disponible)'}`);
+  console.log('  ─────────────────────────────────');
+  console.log(`  Encabezados  : fila ${structureData.filaEncabezados}`);
+  console.log(`  Filas datos  : ${structureData.totalFilasDatos}`);
   console.log('─────────────────────────────────────\n');
 }
 
