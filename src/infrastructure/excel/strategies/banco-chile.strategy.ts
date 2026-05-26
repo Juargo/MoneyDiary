@@ -5,6 +5,7 @@ import { TipoColumna } from '../../../domain/value-objects/tipo-columna';
 import { ColumnaEsperada } from '../../../domain/value-objects/columna-esperada';
 import { DetectedBank } from '../../../application/ports/bank-detector.port';
 import { EstructuraBanco } from './estructura-banco';
+import { MapeoCanonico } from './mapeo-canonico';
 
 /**
  * Patrón Banco de Chile:
@@ -43,5 +44,16 @@ export class BancoChileStrategy {
       { letra: 'F', nombre: 'Saldo ($)', tipo: TipoColumna.Numero },
     ];
     return { banco: BancoConocido.BancoChile, filaEncabezados: 12, columnas };
+  }
+
+  getMapeoCanonico(): MapeoCanonico {
+    return {
+      banco: BancoConocido.BancoChile,
+      fecha: 'A',
+      descripcion: 'B',
+      cargo: 'D',
+      abono: 'E',
+      cargoNegativo: false,
+    };
   }
 }

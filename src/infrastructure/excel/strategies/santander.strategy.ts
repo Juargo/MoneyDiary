@@ -5,6 +5,7 @@ import { TipoColumna } from '../../../domain/value-objects/tipo-columna';
 import { ColumnaEsperada } from '../../../domain/value-objects/columna-esperada';
 import { DetectedBank } from '../../../application/ports/bank-detector.port';
 import { EstructuraBanco } from './estructura-banco';
+import { MapeoCanonico } from './mapeo-canonico';
 
 /**
  * Patrón Santander:
@@ -39,5 +40,16 @@ export class SantanderStrategy {
       { letra: 'E', nombre: 'Saldo ($)', tipo: TipoColumna.Numero },
     ];
     return { banco: BancoConocido.Santander, filaEncabezados: 3, columnas };
+  }
+
+  getMapeoCanonico(): MapeoCanonico {
+    return {
+      banco: BancoConocido.Santander,
+      fecha: 'A',
+      descripcion: 'B',
+      cargo: 'C',
+      abono: 'D',
+      cargoNegativo: false,
+    };
   }
 }

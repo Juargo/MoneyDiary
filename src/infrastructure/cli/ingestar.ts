@@ -14,9 +14,15 @@ import 'reflect-metadata';
 import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
+import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
+import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
+
+function formatCLP(n: number): string {
+  return n.toLocaleString('es-CL');
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -79,6 +85,22 @@ async function main(): Promise<void> {
 
   const structureData = validateResult.getValue();
 
+  // Use case 4: normalizar transacciones al esquema canónico (US-007)
+  const normalizer = new ExcelTransactionNormalizerService();
+  const normalizeUseCase = new NormalizeTransactionsUseCase(normalizer);
+  const normalizeResult = await normalizeUseCase.execute(fileData.buffer, bankData.banco);
+
+  if (normalizeResult.isFail()) {
+    console.error(`\n❌  ${normalizeResult.getError().message}\n`);
+    process.exit(1);
+  }
+
+  const transacciones = normalizeResult.getValue();
+  const totalCargos = transacciones.reduce((s, t) => s + t.cargo, 0);
+  const totalAbonos = transacciones.reduce((s, t) => s + t.abono, 0);
+  const cantCargos = transacciones.filter((t) => t.cargo > 0).length;
+  const cantAbonos = transacciones.filter((t) => t.abono > 0).length;
+
   console.log('\n✅  Archivo procesado correctamente');
   console.log('─────────────────────────────────────');
   console.log(`  Nombre       : ${fileData.originalName}`);
@@ -91,6 +113,10 @@ async function main(): Promise<void> {
   console.log('  ─────────────────────────────────');
   console.log(`  Encabezados  : fila ${structureData.filaEncabezados}`);
   console.log(`  Filas datos  : ${structureData.totalFilasDatos}`);
+  console.log('  ─────────────────────────────────');
+  console.log(`  Transacciones: ${transacciones.length}`);
+  console.log(`  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`);
+  console.log(`  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`);
   console.log('─────────────────────────────────────\n');
 }
 
