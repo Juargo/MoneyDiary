@@ -5,6 +5,7 @@ import { TipoColumna } from '../../../domain/value-objects/tipo-columna';
 import { ColumnaEsperada } from '../../../domain/value-objects/columna-esperada';
 import { DetectedBank } from '../../../application/ports/bank-detector.port';
 import { EstructuraBanco } from './estructura-banco';
+import { MapeoCanonico } from './mapeo-canonico';
 
 /**
  * Patrón BancoEstado (CuentaRUT):
@@ -39,5 +40,16 @@ export class BancoEstadoStrategy {
       { letra: 'F', nombre: 'Saldo $', tipo: TipoColumna.Numero },
     ];
     return { banco: BancoConocido.BancoEstado, filaEncabezados: 14, columnas };
+  }
+
+  getMapeoCanonico(): MapeoCanonico {
+    return {
+      banco: BancoConocido.BancoEstado,
+      fecha: 'A',
+      descripcion: 'C',
+      cargo: 'D',
+      abono: 'E',
+      cargoNegativo: true,
+    };
   }
 }

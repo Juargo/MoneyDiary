@@ -5,6 +5,7 @@ import { TipoColumna } from '../../../domain/value-objects/tipo-columna';
 import { ColumnaEsperada } from '../../../domain/value-objects/columna-esperada';
 import { DetectedBank } from '../../../application/ports/bank-detector.port';
 import { EstructuraBanco } from './estructura-banco';
+import { MapeoCanonico } from './mapeo-canonico';
 
 /**
  * Patrón BCI:
@@ -36,5 +37,16 @@ export class BciStrategy {
       { letra: 'H', nombre: 'Abono $', tipo: TipoColumna.Numero },
     ];
     return { banco: BancoConocido.BCI, filaEncabezados: 8, columnas };
+  }
+
+  getMapeoCanonico(): MapeoCanonico {
+    return {
+      banco: BancoConocido.BCI,
+      fecha: 'A',
+      descripcion: 'C',
+      cargo: 'G',
+      abono: 'H',
+      cargoNegativo: false,
+    };
   }
 }
