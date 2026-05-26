@@ -77,7 +77,7 @@ src/
 
 **Sprint Goal:** Pipeline backend completo: recibir `.xlsx` → detectar banco → validar estructura → normalizar transacciones. Sin UI, sin persistencia.
 
-### ✅ US-001 — Carga de archivo XLSX (completo salvo integration test HTTP)
+### ✅ US-001 — Carga de archivo XLSX (completo)
 
 - `src/domain/value-objects/extension.ts` — solo acepta `.xlsx` (ADR-007)
 - `src/domain/errors/extension-no-permitida.error.ts`
@@ -88,8 +88,7 @@ src/
 - `src/infrastructure/http/ingesta.module.ts`
 - `src/infrastructure/cli/fs-file-reader.adapter.ts`
 - `src/infrastructure/cli/ingestar.ts` — `pnpm cli -- archivo.xlsx`
-
-Pendiente: **Tarea 1.7** — integration test del endpoint HTTP.
+- `test/ingesta.e2e-spec.ts` — integration test HTTP (3 casos: .xlsx ok, .xls rechazado, sin archivo) ✅
 
 ### ✅ US-006 — Detección de banco (completo, verificado con fixtures reales)
 
@@ -107,7 +106,6 @@ Verificado con `pnpm cli` para BancoEstado, BCI y Santander ✅. Banco de Chile 
 
 - **US-002** — Validación de estructura del archivo
 - **US-007** — Normalización de columnas de transacciones
-- **Tarea 1.7** — Integration test endpoint HTTP
 - **Supabase/Prisma** — deferred al final del sprint
 
 ---
