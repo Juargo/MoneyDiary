@@ -31,3 +31,28 @@ export function formatFechaCorta(iso: string): string {
   const year = d.getUTCFullYear()
   return `${day} ${month}, ${year}`
 }
+
+const monthsLong = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
+
+export function formatMesAno(iso: string): string {
+  const d = new Date(iso)
+  return `${monthsLong[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+}
+
+export function mesAnoKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}

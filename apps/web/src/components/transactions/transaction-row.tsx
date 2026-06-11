@@ -12,27 +12,27 @@ export function TransactionRow({ transaccion }: TransactionRowProps) {
   const isPositive = amount > 0
 
   return (
-    <tr className="border-t border-outline-variant/40">
-      <td className="whitespace-nowrap px-6 py-4 text-sm text-on-surface-variant">
+    <div className="grid grid-cols-[18%_42%_22%_18%] items-center border-t border-outline-variant/40 px-6 py-4">
+      <div className="whitespace-nowrap text-sm text-on-surface-variant">
         {formatFechaCorta(transaccion.fecha)}
-      </td>
-      <td className="px-6 py-4 text-sm font-semibold text-on-surface">
+      </div>
+      <div className="pr-4 text-sm font-semibold text-on-surface">
         <span className="line-clamp-1">{transaccion.descripcion}</span>
-      </td>
-      <td className="px-6 py-4">
+      </div>
+      <div>
         <CategoryChip
           label={transaccion.categoria.nombre}
           grupo={transaccion.categoria.grupo}
         />
-      </td>
-      <td
+      </div>
+      <div
         className={cn(
-          'whitespace-nowrap px-6 py-4 text-right text-sm font-bold',
+          'whitespace-nowrap text-right text-sm font-bold',
           isPositive ? 'text-tertiary' : 'text-error',
         )}
       >
         {formatCLPSigned(amount)}
-      </td>
-    </tr>
+      </div>
+    </div>
   )
 }
