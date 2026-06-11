@@ -67,6 +67,7 @@ class FakeRepository implements ITransactionRepository {
       banco: input.banco,
       tipoCuenta: input.tipoCuenta,
       numeroCuenta: input.numeroCuenta,
+      bucketName: 'SinCategorizar',
     }));
     this.saved.push(...almacenadas);
     return Promise.resolve(Result.ok({ ingestaId, count: almacenadas.length }));
@@ -74,6 +75,10 @@ class FakeRepository implements ITransactionRepository {
 
   findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>> {
     return Promise.resolve([...this.saved]);
+  }
+
+  updateBucket(): Promise<Result<void, Error>> {
+    return Promise.resolve(Result.ok(undefined));
   }
 }
 

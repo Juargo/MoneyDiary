@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { formatCLPSigned, formatFechaCorta } from '@/lib/format'
 import type { Transaccion } from '@/api/types'
-import { CategoryChip } from './category-chip'
+import { EditableCategoryChip } from './category-chip'
 
 type TransactionRowProps = {
   transaccion: Transaccion
@@ -20,7 +20,8 @@ export function TransactionRow({ transaccion }: TransactionRowProps) {
         <span className="line-clamp-1">{transaccion.descripcion}</span>
       </div>
       <div>
-        <CategoryChip
+        <EditableCategoryChip
+          transactionId={transaccion.id}
           label={transaccion.categoria.nombre}
           grupo={transaccion.categoria.grupo}
         />

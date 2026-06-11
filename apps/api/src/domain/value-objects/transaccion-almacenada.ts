@@ -16,4 +16,10 @@ export interface TransaccionAlmacenada extends Transaccion {
   readonly banco: BancoConocido;
   readonly tipoCuenta: TipoCuentaConocido;
   readonly numeroCuenta: string;
+  /**
+   * Nombre del bucket persistido. Si difiere de `SinCategorizar` representa
+   * un override manual del usuario y tiene prioridad sobre las reglas de
+   * categorización por descripción en read-time.
+   */
+  readonly bucketName: string;
 }

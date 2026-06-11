@@ -11,7 +11,9 @@ import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { TransaccionAlmacenada } from '../../domain/value-objects/transaccion-almacenada';
 import { PrismaService } from './prisma.service';
 
-const DEFAULT_BUCKET_NAME = 'Sin clasificar';
+// Nombres de bucket = strings de GrupoPresupuesto (SinCategorizar, Necesidades,
+// Gustos, Ahorro, Ingresos). La capa de UI mapea cada uno a su label visible.
+const DEFAULT_BUCKET_NAME = 'SinCategorizar';
 
 /**
  * PrismaTransactionRepository — persistencia real contra Postgres (Supabase).
@@ -79,7 +81,7 @@ export class PrismaTransactionRepository implements ITransactionRepository {
 
   async findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>> {
     const rows = await this.prisma.transaccion.findMany({
-      include: { account: true },
+      include: { account: true, bucket: true },
       orderBy: { date: 'desc' },
     });
 
@@ -96,8 +98,33 @@ export class PrismaTransactionRepository implements ITransactionRepository {
         banco: (r.account?.bank ?? '') as BancoConocido,
         tipoCuenta: (r.account?.accountType ?? '') as TipoCuentaConocido,
         numeroCuenta: r.account?.accountNumber ?? '',
+        bucketName: r.bucket.name,
       };
     });
+  }
+
+  async updateBucket(
+    transactionId: string,
+    bucketName: string,
+  ): Promise<Result<void, Error>> {
+    try {
+      const id = BigInt(transactionId);
+      await this.prisma.$transaction(async (tx) => {
+        const bucket = await tx.bucketPresupuesto.upsert({
+          where: { name: bucketName },
+          create: { name: bucketName },
+          update: {},
+        });
+        await tx.transaccion.update({
+          where: { id },
+          data: { bucketId: bucket.id },
+        });
+      });
+      return Result.ok(undefined);
+    } catch (error) {
+      this.logger.error('Error actualizando bucket', error as Error);
+      return Result.fail(error as Error);
+    }
   }
 
   private async upsertAccount(

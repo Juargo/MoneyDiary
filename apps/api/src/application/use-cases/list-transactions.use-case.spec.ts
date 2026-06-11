@@ -26,6 +26,10 @@ class FakeRepository implements ITransactionRepository {
   findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>> {
     return Promise.resolve([...this.data]);
   }
+
+  updateBucket(): Promise<Result<void, Error>> {
+    return Promise.resolve(Result.ok(undefined));
+  }
 }
 
 class FakeRuleProvider implements ICategoryRuleProvider {
@@ -48,6 +52,7 @@ function makeTransaccion(
     banco: BancoConocido.BCI,
     tipoCuenta: TipoCuentaConocido.CuentaCorriente,
     numeroCuenta: '12345678',
+    bucketName: 'SinCategorizar',
     ...overrides,
   };
 }

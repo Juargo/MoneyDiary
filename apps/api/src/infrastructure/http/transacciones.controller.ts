@@ -1,18 +1,30 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Patch,
+} from '@nestjs/common';
 import { ListTransactionsUseCase } from '../../application/use-cases/list-transactions.use-case';
+import {
+  InvalidGrupoError,
+  UpdateTransactionBucketUseCase,
+} from '../../application/use-cases/update-transaction-bucket.use-case';
+import { GrupoPresupuesto } from '../../domain/value-objects/grupo-presupuesto';
 
-/**
- * TransaccionesController — GET /api/transacciones.
- *
- * Devuelve todas las transacciones almacenadas, ya categorizadas según
- * las reglas vigentes (ver DefaultCategoryRuleProvider).
- *
- * Las fechas se serializan como ISO 8601. Las transacciones sin match
- * de regla traen categoria.grupo = "SinCategorizar".
- */
+interface UpdateBucketBody {
+  grupo?: string;
+}
+
 @Controller('api/transacciones')
 export class TransaccionesController {
-  constructor(private readonly listTransactions: ListTransactionsUseCase) {}
+  constructor(
+    private readonly listTransactions: ListTransactionsUseCase,
+    private readonly updateBucket: UpdateTransactionBucketUseCase,
+  ) {}
 
   @Get()
   async listar() {
@@ -36,5 +48,28 @@ export class TransaccionesController {
         },
       })),
     };
+  }
+
+  @Patch(':id')
+  @HttpCode(200)
+  async actualizarBucket(
+    @Param('id') id: string,
+    @Body() body: UpdateBucketBody,
+  ) {
+    const grupo = body.grupo;
+    if (!grupo || !Object.values(GrupoPresupuesto).includes(grupo as GrupoPresupuesto)) {
+      throw new BadRequestException('Campo "grupo" inválido o ausente.');
+    }
+
+    const result = await this.updateBucket.execute(id, grupo as GrupoPresupuesto);
+    if (result.isFail()) {
+      const error = result.getError();
+      if (error instanceof InvalidGrupoError) {
+        throw new BadRequestException(error.message);
+      }
+      throw new NotFoundException(error.message);
+    }
+
+    return { message: 'Categoría actualizada.', id, grupo };
   }
 }

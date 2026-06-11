@@ -9,7 +9,12 @@ import {
 } from 'lucide-react'
 import type { GrupoPresupuesto, Transaccion } from '@/api/types'
 import { cn } from '@/lib/utils'
-import { formatCLP, formatCLPSigned, formatMesAno, mesAnoKey } from '@/lib/format'
+import { formatCLP, formatCLPSigned } from '@/lib/format'
+import {
+  agruparPorMes,
+  BUDGET_PERCENTAGES,
+  type MesAggregate,
+} from '@/lib/transactions-aggregation'
 import { TransactionRow } from './transaction-row'
 
 type GroupConfig = {
@@ -34,61 +39,6 @@ const grupoStyles: Record<GrupoPresupuesto, string> = {
   SinCategorizar: 'text-on-surface-variant',
 }
 
-// Regla 50/30/20. Ingresos y SinCategorizar no participan del presupuesto.
-const BUDGET_PERCENTAGES: Partial<Record<GrupoPresupuesto, number>> = {
-  Necesidades: 0.5,
-  Gustos: 0.3,
-  Ahorro: 0.2,
-}
-
-type MesGroup = {
-  key: string
-  label: string
-  items: Transaccion[]
-  totalNeto: number
-  ingresoMes: number
-  ingresoBase: number
-}
-
-function netoTransaccion(t: Transaccion): number {
-  return t.abono > 0 ? t.abono : -t.cargo
-}
-
-function agruparPorMes(transacciones: Transaccion[]): MesGroup[] {
-  const grupos = new Map<string, Transaccion[]>()
-  for (const t of transacciones) {
-    const key = mesAnoKey(t.fecha)
-    const arr = grupos.get(key) ?? []
-    arr.push(t)
-    grupos.set(key, arr)
-  }
-
-  const baseMeses = [...grupos.entries()]
-    .map(([key, items]) => {
-      const sorted = [...items].sort(
-        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-      )
-      const totalNeto = sorted.reduce((sum, t) => sum + netoTransaccion(t), 0)
-      const ingresoMes = sorted.reduce((sum, t) => sum + t.abono, 0)
-      return {
-        key,
-        label: formatMesAno(sorted[0].fecha),
-        items: sorted,
-        totalNeto,
-        ingresoMes,
-      }
-    })
-    .sort((a, b) => (a.key < b.key ? 1 : -1))
-
-  // Si un mes no tiene ingresos, usa los del mes calendario anterior
-  // (siguiente en el array, porque está ordenado desc) como fallback.
-  return baseMeses.map((mes, idx) => {
-    const fallback = baseMeses[idx + 1]?.ingresoMes ?? 0
-    const ingresoBase = mes.ingresoMes > 0 ? mes.ingresoMes : fallback
-    return { ...mes, ingresoBase }
-  })
-}
-
 type TransactionsTableProps = {
   transacciones: Transaccion[]
 }
@@ -109,7 +59,7 @@ function MesAccordion({
   mes,
   defaultOpen,
 }: {
-  mes: MesGroup
+  mes: MesAggregate
   defaultOpen: boolean
 }) {
   return (
@@ -194,7 +144,10 @@ function CategoryAccordion({
       : null
 
   return (
-    <details className="group/cat border-b border-outline-variant/40 last:border-b-0">
+    <details
+      open
+      className="group/cat border-b border-outline-variant/40 last:border-b-0"
+    >
       <summary className="flex cursor-pointer list-none flex-col gap-2 bg-surface-container-low px-6 py-3 hover:bg-surface-container">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">

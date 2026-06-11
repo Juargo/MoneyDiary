@@ -31,4 +31,14 @@ export interface ITransactionRepository {
   ): Promise<Result<SaveIngestaResult, Error>>;
 
   findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>>;
+
+  /**
+   * Cambia el bucket de una transacción persistida. El bucket se identifica
+   * por su nombre (mismo string que el enum GrupoPresupuesto del dominio);
+   * la implementación es responsable de upsert el bucket si no existe.
+   */
+  updateBucket(
+    transactionId: string,
+    bucketName: string,
+  ): Promise<Result<void, Error>>;
 }
