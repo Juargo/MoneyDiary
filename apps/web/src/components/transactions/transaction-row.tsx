@@ -1,34 +1,27 @@
 import { cn } from '@/lib/utils'
-import { formatCLPSigned } from '@/lib/format'
-import { CategoryChip, type CategoryVariant } from './category-chip'
-
-export type Transaction = {
-  id: string
-  date: string
-  merchant: string
-  category: { label: string; variant: CategoryVariant }
-  amount: number
-}
+import { formatCLPSigned, formatFechaCorta } from '@/lib/format'
+import type { Transaccion } from '@/api/types'
 
 type TransactionRowProps = {
-  transaction: Transaction
+  transaccion: Transaccion
 }
 
-export function TransactionRow({ transaction }: TransactionRowProps) {
-  const isPositive = transaction.amount > 0
+export function TransactionRow({ transaccion }: TransactionRowProps) {
+  const amount = transaccion.abono > 0 ? transaccion.abono : -transaccion.cargo
+  const isPositive = amount > 0
+
   return (
     <tr className="border-t border-outline-variant/40">
       <td className="whitespace-nowrap px-6 py-4 text-sm text-on-surface-variant">
-        {transaction.date}
+        {formatFechaCorta(transaccion.fecha)}
       </td>
       <td className="px-6 py-4 text-sm font-semibold text-on-surface">
-        {transaction.merchant}
+        <span className="line-clamp-1">{transaccion.descripcion}</span>
       </td>
       <td className="px-6 py-4">
-        <CategoryChip
-          label={transaction.category.label}
-          variant={transaction.category.variant}
-        />
+        <span className="inline-flex items-center rounded-full bg-surface-container-high px-3 py-1 text-xs font-medium text-on-surface-variant">
+          {transaccion.banco}
+        </span>
       </td>
       <td
         className={cn(
@@ -36,7 +29,7 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
           isPositive ? 'text-tertiary' : 'text-error',
         )}
       >
-        {formatCLPSigned(transaction.amount)}
+        {formatCLPSigned(amount)}
       </td>
     </tr>
   )

@@ -8,3 +8,26 @@ export function formatCLPSigned(value: number): string {
   const sign = value < 0 ? '-' : '+'
   return `${sign}$${clpFormatter.format(Math.abs(value))}`
 }
+
+const monthsShort = [
+  'Ene',
+  'Feb',
+  'Mar',
+  'Abr',
+  'May',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dic',
+]
+
+export function formatFechaCorta(iso: string): string {
+  const d = new Date(iso)
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  const month = monthsShort[d.getUTCMonth()]
+  const year = d.getUTCFullYear()
+  return `${day} ${month}, ${year}`
+}

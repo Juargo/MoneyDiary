@@ -9,6 +9,23 @@ export type TipoCuentaConocido =
   | 'Cuenta Corriente'
   | 'Cuenta Vista'
 
+export interface Transaccion {
+  id: string
+  ingestaId: string
+  fecha: string // ISO 8601
+  descripcion: string
+  cargo: number
+  abono: number
+  banco: BancoConocido
+  tipoCuenta: TipoCuentaConocido
+  numeroCuenta: string
+}
+
+export interface ListTransaccionesResponse {
+  total: number
+  transacciones: Transaccion[]
+}
+
 export interface UploadIngestaResponse {
   message: string
   ingestaId: string
