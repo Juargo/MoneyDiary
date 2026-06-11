@@ -1,27 +1,41 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Result } from '../../shared/result';
-import { ITransactionRepository } from '../../application/ports/transaction-repository.port';
+import {
+  ITransactionRepository,
+  SaveIngestaInput,
+  SaveIngestaResult,
+} from '../../application/ports/transaction-repository.port';
 import { TransaccionAlmacenada } from '../../domain/value-objects/transaccion-almacenada';
 
 /**
  * InMemoryTransactionRepository — adapter de persistencia in-memory.
  *
- * Almacena transacciones en un arreglo del propio proceso.
- * Útil para el MVP y los tests; se reemplaza por una implementación basada
- * en Prisma/Supabase sin modificar el puerto ni los use cases.
- *
- * Importante: como NestJS instancia providers como singletons por defecto,
- * el estado persiste entre requests dentro de la misma vida del proceso.
+ * Usado en tests unitarios y e2e que no requieren una DB real.
+ * En producción se reemplaza por PrismaTransactionRepository sin tocar el port.
  */
 @Injectable()
 export class InMemoryTransactionRepository implements ITransactionRepository {
   private readonly store: TransaccionAlmacenada[] = [];
 
-  saveMany(
-    transactions: ReadonlyArray<TransaccionAlmacenada>,
-  ): Promise<Result<number, Error>> {
-    this.store.push(...transactions);
-    return Promise.resolve(Result.ok(transactions.length));
+  saveIngesta(
+    input: SaveIngestaInput,
+  ): Promise<Result<SaveIngestaResult, Error>> {
+    const ingestaId = randomUUID();
+    const almacenadas: TransaccionAlmacenada[] = input.transacciones.map(
+      (t) => ({
+        ...t,
+        id: randomUUID(),
+        ingestaId,
+        banco: input.banco,
+        tipoCuenta: input.tipoCuenta,
+        numeroCuenta: input.numeroCuenta,
+      }),
+    );
+    this.store.push(...almacenadas);
+    return Promise.resolve(
+      Result.ok({ ingestaId, count: almacenadas.length }),
+    );
   }
 
   findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>> {

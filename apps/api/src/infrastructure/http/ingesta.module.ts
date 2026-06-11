@@ -8,7 +8,8 @@ import { ProcessIngestaUseCase } from '../../application/use-cases/process-inges
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
 import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
-import { InMemoryTransactionRepository } from '../persistence/in-memory-transaction.repository';
+import { PrismaService } from '../persistence/prisma.service';
+import { PrismaTransactionRepository } from '../persistence/prisma-transaction.repository';
 
 /**
  * Tokens para inyectar implementaciones de puertos (las interfaces no
@@ -35,7 +36,8 @@ export const TRANSACTION_REPOSITORY = Symbol.for('ITransactionRepository');
     { provide: BANK_DETECTOR, useClass: ExcelBankDetectorService },
     { provide: STRUCTURE_VALIDATOR, useClass: ExcelStructureValidatorService },
     { provide: TRANSACTION_NORMALIZER, useClass: ExcelTransactionNormalizerService },
-    { provide: TRANSACTION_REPOSITORY, useClass: InMemoryTransactionRepository },
+    PrismaService,
+    { provide: TRANSACTION_REPOSITORY, useClass: PrismaTransactionRepository },
 
     // Use cases: armados con sus puertos
     IngestFileUseCase,

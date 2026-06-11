@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Result } from '../../shared/result';
 import { IFileReader } from '../ports/file-reader.port';
 import { ITransactionRepository } from '../ports/transaction-repository.port';
@@ -8,7 +7,6 @@ import { ValidateStructureUseCase } from './validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
-import { TransaccionAlmacenada } from '../../domain/value-objects/transaccion-almacenada';
 
 export interface ProcessIngestaResult {
   ingestaId: string;
@@ -34,19 +32,15 @@ export interface ProcessIngestaResult {
 /**
  * ProcessIngestaUseCase — orquesta el pipeline completo de ingesta + persistencia.
  *
- * Encadena los cuatro use cases existentes y, si todo va bien, persiste las
- * transacciones normalizadas en el repositorio. Cada transacción almacenada
- * se enriquece con id propio + ingestaId común para poder agruparlas.
- *
  * Pipeline:
  *   1. IngestFileUseCase           — valida extensión (.xlsx)
  *   2. DetectBankUseCase           — identifica banco, tipo y número de cuenta
  *   3. ValidateStructureUseCase    — valida encabezados y columnas
  *   4. NormalizeTransactionsUseCase → esquema canónico
- *   5. ITransactionRepository.saveMany — persiste
+ *   5. ITransactionRepository.saveIngesta — persiste el contexto + transacciones
  *
- * No lanza excepciones — devuelve Result<T,E>. El tipo de error es genérico
- * (Error) porque cada paso puede fallar con un error distinto.
+ * El `ingestaId` lo genera el storage (BigInt → string). El use case ya no
+ * fabrica UUIDs propios.
  */
 export class ProcessIngestaUseCase {
   constructor(
@@ -87,19 +81,17 @@ export class ProcessIngestaUseCase {
       return Result.fail(normalizeResult.getError());
 
     const transacciones = normalizeResult.getValue();
-    const ingestaId = randomUUID();
 
-    const almacenadas: TransaccionAlmacenada[] = transacciones.map((t) => ({
-      ...t,
-      id: randomUUID(),
-      ingestaId,
+    const saveResult = await this.repository.saveIngesta({
+      filename: fileData.originalName,
       banco: bankData.banco,
       tipoCuenta: bankData.tipoCuenta,
       numeroCuenta: bankData.numeroCuenta,
-    }));
-
-    const saveResult = await this.repository.saveMany(almacenadas);
+      transacciones,
+    });
     if (saveResult.isFail()) return Result.fail(saveResult.getError());
+
+    const { ingestaId } = saveResult.getValue();
 
     const totalCargos = transacciones.reduce((s, t) => s + t.cargo, 0);
     const totalAbonos = transacciones.reduce((s, t) => s + t.abono, 0);

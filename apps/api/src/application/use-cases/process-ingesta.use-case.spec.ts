@@ -5,7 +5,12 @@ import { ValidateStructureUseCase } from './validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case';
 import { Result } from '../../shared/result';
 import { IFileReader } from '../ports/file-reader.port';
-import { ITransactionRepository } from '../ports/transaction-repository.port';
+import {
+  ITransactionRepository,
+  SaveIngestaInput,
+  SaveIngestaResult,
+} from '../ports/transaction-repository.port';
+import { randomUUID } from 'node:crypto';
 import { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
 import {
   IStructureValidator,
@@ -50,10 +55,21 @@ function makeNormalizer(
 
 class FakeRepository implements ITransactionRepository {
   readonly saved: TransaccionAlmacenada[] = [];
+  lastInput?: SaveIngestaInput;
 
-  saveMany(transactions: ReadonlyArray<TransaccionAlmacenada>): Promise<Result<number, Error>> {
-    this.saved.push(...transactions);
-    return Promise.resolve(Result.ok(transactions.length));
+  saveIngesta(input: SaveIngestaInput): Promise<Result<SaveIngestaResult, Error>> {
+    this.lastInput = input;
+    const ingestaId = randomUUID();
+    const almacenadas: TransaccionAlmacenada[] = input.transacciones.map((t) => ({
+      ...t,
+      id: randomUUID(),
+      ingestaId,
+      banco: input.banco,
+      tipoCuenta: input.tipoCuenta,
+      numeroCuenta: input.numeroCuenta,
+    }));
+    this.saved.push(...almacenadas);
+    return Promise.resolve(Result.ok({ ingestaId, count: almacenadas.length }));
   }
 
   findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>> {

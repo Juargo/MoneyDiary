@@ -6,6 +6,7 @@ import { join } from 'path';
 import { AppModule } from '../src/app.module';
 import { TRANSACTION_REPOSITORY } from '../src/infrastructure/http/ingesta.module';
 import { ITransactionRepository } from '../src/application/ports/transaction-repository.port';
+import { InMemoryTransactionRepository } from '../src/infrastructure/persistence/in-memory-transaction.repository';
 
 describe('IngestaController (e2e) — POST /api/ingestas', () => {
   let app: INestApplication<App>;
@@ -18,7 +19,10 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(TRANSACTION_REPOSITORY)
+      .useClass(InMemoryTransactionRepository)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();

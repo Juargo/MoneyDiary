@@ -1,6 +1,10 @@
 import { ListTransactionsUseCase } from './list-transactions.use-case';
 import { Result } from '../../shared/result';
-import { ITransactionRepository } from '../ports/transaction-repository.port';
+import {
+  ITransactionRepository,
+  SaveIngestaInput,
+  SaveIngestaResult,
+} from '../ports/transaction-repository.port';
 import { ICategoryRuleProvider } from '../ports/category-rule-provider.port';
 import { TransaccionAlmacenada } from '../../domain/value-objects/transaccion-almacenada';
 import { ReglaCategorizacion } from '../../domain/value-objects/regla-categorizacion';
@@ -11,11 +15,12 @@ import { GrupoPresupuesto } from '../../domain/value-objects/grupo-presupuesto';
 class FakeRepository implements ITransactionRepository {
   constructor(private readonly data: TransaccionAlmacenada[]) {}
 
-  saveMany(
-    transactions: ReadonlyArray<TransaccionAlmacenada>,
-  ): Promise<Result<number, Error>> {
-    this.data.push(...transactions);
-    return Promise.resolve(Result.ok(transactions.length));
+  saveIngesta(
+    _input: SaveIngestaInput,
+  ): Promise<Result<SaveIngestaResult, Error>> {
+    return Promise.resolve(
+      Result.ok({ ingestaId: 'fake', count: this.data.length }),
+    );
   }
 
   findAll(): Promise<ReadonlyArray<TransaccionAlmacenada>> {
