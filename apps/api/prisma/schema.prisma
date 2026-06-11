@@ -6,13 +6,135 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum IngestaStatus {
+  pending
+  processed
+  failed
+}
+
+enum MatchType {
+  CONTAINS
+  STARTS_WITH
+  REGEX
+}
+
+enum TipoTransaccion {
+  cargo
+  abono
+}
+
+model User {
+  id                BigInt   @id @default(autoincrement())
+  email             String   @unique
+  passwordHash      String   @map("password_hash")
+  defaultIncome     Decimal  @map("default_income") @db.Decimal(12, 2)
+  needsPercentage   Decimal? @default(50.00) @map("needs_percentage") @db.Decimal(5, 2)
+  wantsPercentage   Decimal? @default(30.00) @map("wants_percentage") @db.Decimal(5, 2)
+  savingsPercentage Decimal? @default(20.00) @map("savings_percentage") @db.Decimal(5, 2)
+
+  accounts Account[]
+  periodos PeriodoPresupuesto[]
+
+  @@map("users")
+}
+
+model Account {
+  id            BigInt  @id @default(autoincrement())
+  userId        BigInt? @map("user_id")
+  bank          String
+  accountType   String  @map("account_type")
+  accountNumber String? @map("account_number")
+
+  user          User?         @relation(fields: [userId], references: [id])
+  ingestas      Ingesta[]
+  transacciones Transaccion[]
+
+  @@map("accounts")
+}
+
+model Ingesta {
+  id          BigInt        @id @default(autoincrement())
+  accountId   BigInt?       @map("account_id")
+  status      IngestaStatus
+  filename    String
+  processedAt DateTime?     @map("processed_at") @db.Timestamptz
+
+  account       Account?      @relation(fields: [accountId], references: [id])
+  transacciones Transaccion[]
+
+  @@map("ingestas")
+}
+
+model BucketPresupuesto {
+  id   BigInt @id @default(autoincrement())
+  name String @unique
+
+  patrones      PatronClasificacion[]
+  transacciones Transaccion[]
+  resumenes     ResumenPeriodo[]
+
+  @@map("bucket_presupuestos")
+}
+
+model PatronClasificacion {
+  id         BigInt    @id @default(autoincrement())
+  bucketId   BigInt?   @map("bucket_id")
+  expression String
+  matchType  MatchType @map("match_type")
+  priority   Int
+  active     Boolean?  @default(true)
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime? @default(now()) @map("updated_at") @db.Timestamptz
+
+  bucket BucketPresupuesto? @relation(fields: [bucketId], references: [id])
+
+  @@index([bucketId, priority], map: "idx_patrones_bucket_priority")
+  @@map("patrones_clasificacion")
+}
+
 model Transaccion {
-  id          String   @id @default(cuid())
-  fecha       DateTime
-  descripcion String
-  monto       Decimal  @db.Decimal(12, 2)
-  tipo        String
-  banco       String
-  cuentaTipo  String
-  creadoEn    DateTime @default(now())
+  id          BigInt          @id @default(autoincrement())
+  ingestaId   BigInt?         @map("ingesta_id")
+  accountId   BigInt?         @map("account_id")
+  bucketId    BigInt          @map("bucket_id")
+  date        DateTime        @db.Date
+  description String
+  amount      Decimal         @db.Decimal(12, 2)
+  type        TipoTransaccion
+
+  ingesta Ingesta?          @relation(fields: [ingestaId], references: [id])
+  account Account?          @relation(fields: [accountId], references: [id])
+  bucket  BucketPresupuesto @relation(fields: [bucketId], references: [id])
+
+  @@unique([date, description, amount, accountId])
+  @@index([date], map: "idx_transacciones_date")
+  @@index([bucketId], map: "idx_transacciones_bucket")
+  @@map("transacciones")
+}
+
+model PeriodoPresupuesto {
+  id             BigInt  @id @default(autoincrement())
+  userId         BigInt? @map("user_id")
+  month          Int
+  year           Int
+  declaredIncome Decimal @map("declared_income") @db.Decimal(12, 2)
+
+  user      User?            @relation(fields: [userId], references: [id])
+  resumenes ResumenPeriodo[]
+
+  @@map("periodos_presupuesto")
+}
+
+model ResumenPeriodo {
+  id             BigInt  @id @default(autoincrement())
+  periodoId      BigInt? @map("periodo_id")
+  bucketId       BigInt? @map("bucket_id")
+  totalSpent     Decimal @map("total_spent") @db.Decimal(12, 2)
+  budgetLimit    Decimal @map("budget_limit") @db.Decimal(12, 2)
+  percentageUsed Decimal @map("percentage_used") @db.Decimal(5, 2)
+
+  periodo PeriodoPresupuesto? @relation(fields: [periodoId], references: [id])
+  bucket  BucketPresupuesto?  @relation(fields: [bucketId], references: [id])
+
+  @@map("resumenes_periodo")
 }
