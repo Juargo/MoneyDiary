@@ -9,6 +9,17 @@ export type TipoCuentaConocido =
   | 'Cuenta Corriente'
   | 'Cuenta Vista'
 
+export type GrupoPresupuesto =
+  | 'Necesidades'
+  | 'Gustos'
+  | 'Ahorro'
+  | 'SinCategorizar'
+
+export interface Categoria {
+  nombre: string
+  grupo: GrupoPresupuesto
+}
+
 export interface Transaccion {
   id: string
   ingestaId: string
@@ -19,6 +30,7 @@ export interface Transaccion {
   banco: BancoConocido
   tipoCuenta: TipoCuentaConocido
   numeroCuenta: string
+  categoria: Categoria
 }
 
 export interface ListTransaccionesResponse {

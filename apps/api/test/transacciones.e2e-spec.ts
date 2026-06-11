@@ -57,5 +57,29 @@ describe('TransaccionesController (e2e) — GET /api/transacciones', () => {
     expect(typeof first.abono).toBe('number');
     expect(first.banco).toBe('BCI');
     expect(first.tipoCuenta).toBe('Cuenta Corriente');
+    expect(first.categoria.nombre).toEqual(expect.any(String));
+    expect(['Necesidades', 'Gustos', 'Ahorro', 'SinCategorizar']).toContain(
+      first.categoria.grupo,
+    );
+  });
+
+  it('cada transacción cae en uno de los 4 grupos (incluyendo SinCategorizar)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/ingestas')
+      .attach('file', xlsxFixture)
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/transacciones')
+      .expect(200);
+
+    const grupos = new Set(
+      response.body.transacciones.map(
+        (t: { categoria: { grupo: string } }) => t.categoria.grupo,
+      ),
+    );
+    for (const grupo of grupos) {
+      expect(['Necesidades', 'Gustos', 'Ahorro', 'SinCategorizar']).toContain(grupo);
+    }
   });
 });

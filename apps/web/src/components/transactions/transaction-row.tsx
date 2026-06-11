@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { formatCLPSigned, formatFechaCorta } from '@/lib/format'
 import type { Transaccion } from '@/api/types'
+import { CategoryChip } from './category-chip'
 
 type TransactionRowProps = {
   transaccion: Transaccion
@@ -19,9 +20,10 @@ export function TransactionRow({ transaccion }: TransactionRowProps) {
         <span className="line-clamp-1">{transaccion.descripcion}</span>
       </td>
       <td className="px-6 py-4">
-        <span className="inline-flex items-center rounded-full bg-surface-container-high px-3 py-1 text-xs font-medium text-on-surface-variant">
-          {transaccion.banco}
-        </span>
+        <CategoryChip
+          label={transaccion.categoria.nombre}
+          grupo={transaccion.categoria.grupo}
+        />
       </td>
       <td
         className={cn(

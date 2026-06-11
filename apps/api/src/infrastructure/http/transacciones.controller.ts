@@ -4,9 +4,11 @@ import { ListTransactionsUseCase } from '../../application/use-cases/list-transa
 /**
  * TransaccionesController — GET /api/transacciones.
  *
- * Devuelve todas las transacciones almacenadas en el repositorio actual
- * (InMemoryTransactionRepository en el MVP). Las fechas se serializan como
- * ISO 8601 para que el frontend las parsee con `new Date(iso)`.
+ * Devuelve todas las transacciones almacenadas, ya categorizadas según
+ * las reglas vigentes (ver DefaultCategoryRuleProvider).
+ *
+ * Las fechas se serializan como ISO 8601. Las transacciones sin match
+ * de regla traen categoria.grupo = "SinCategorizar".
  */
 @Controller('api/transacciones')
 export class TransaccionesController {
@@ -28,6 +30,10 @@ export class TransaccionesController {
         banco: t.banco,
         tipoCuenta: t.tipoCuenta,
         numeroCuenta: t.numeroCuenta,
+        categoria: {
+          nombre: t.categoria.nombre,
+          grupo: t.categoria.grupo,
+        },
       })),
     };
   }
