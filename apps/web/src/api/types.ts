@@ -10,6 +10,7 @@ export type TipoCuentaConocido =
   | 'Cuenta Vista'
 
 export type GrupoPresupuesto =
+  | 'Ingresos'
   | 'Necesidades'
   | 'Gustos'
   | 'Ahorro'

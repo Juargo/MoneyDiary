@@ -104,4 +104,21 @@ describe('ListTransactionsUseCase', () => {
     expect(result[0].categoria.grupo).toBe(GrupoPresupuesto.SinCategorizar);
     expect(result[0].categoria.nombre).toBe('Sin categorizar');
   });
+
+  it('clasifica cualquier abono > 0 como Ingreso sin aplicar reglas por descripción', async () => {
+    const t = makeTransaccion({
+      descripcion: 'Comercio Desconocido SPA',
+      cargo: 0,
+      abono: 500_000,
+    });
+    const useCase = new ListTransactionsUseCase(
+      new FakeRepository([t]),
+      new FakeRuleProvider(reglas),
+    );
+
+    const result = await useCase.execute();
+
+    expect(result[0].categoria.grupo).toBe(GrupoPresupuesto.Ingresos);
+    expect(result[0].categoria.nombre).toBe('Ingreso');
+  });
 });

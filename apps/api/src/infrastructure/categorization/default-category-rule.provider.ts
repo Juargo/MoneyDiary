@@ -74,11 +74,10 @@ export class DefaultCategoryRuleProvider implements ICategoryRuleProvider {
       categoria: { nombre: 'Ahorro', grupo: GrupoPresupuesto.Ahorro },
     },
 
-    // ── Ahorro — Ingresos
-    {
-      patron: /sueldo|remuneraci|honorarios|transferencia recibida|abono recibido|deposito/i,
-      categoria: { nombre: 'Ingreso', grupo: GrupoPresupuesto.Ahorro },
-    },
+    // Ingresos: cualquier transacción con `abono > 0` se clasifica
+    // automáticamente como Ingreso en ListTransactionsUseCase — sin reglas
+    // por descripción (los nombres de "sueldo"/"deposito" varían demasiado
+    // entre bancos para confiarse de un patrón).
   ];
 
   getReglas(): ReadonlyArray<ReglaCategorizacion> {

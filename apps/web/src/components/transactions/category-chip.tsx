@@ -7,9 +7,10 @@ type CategoryChipProps = {
 }
 
 const grupoStyles: Record<GrupoPresupuesto, string> = {
+  Ingresos: 'bg-tertiary-fixed text-on-tertiary-fixed-variant',
   Necesidades: 'bg-primary-fixed text-on-primary-fixed-variant',
   Gustos: 'bg-secondary-fixed text-on-secondary-fixed-variant',
-  Ahorro: 'bg-tertiary-fixed text-on-tertiary-fixed-variant',
+  Ahorro: 'bg-surface-container-highest text-on-surface',
   SinCategorizar: 'bg-surface-container-high text-on-surface-variant',
 }
 

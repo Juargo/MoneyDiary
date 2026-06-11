@@ -1,7 +1,7 @@
 import { ITransactionRepository } from '../ports/transaction-repository.port';
 import { ICategoryRuleProvider } from '../ports/category-rule-provider.port';
 import { TransaccionAlmacenada } from '../../domain/value-objects/transaccion-almacenada';
-import { Categoria } from '../../domain/value-objects/categoria';
+import { Categoria, CATEGORIA_INGRESO } from '../../domain/value-objects/categoria';
 import { categorizar } from '../../domain/value-objects/regla-categorizacion';
 
 export interface TransaccionCategorizada extends TransaccionAlmacenada {
@@ -27,7 +27,7 @@ export class ListTransactionsUseCase {
     const reglas = this.ruleProvider.getReglas();
     return transacciones.map((t) => ({
       ...t,
-      categoria: categorizar(t, reglas),
+      categoria: t.abono > 0 ? CATEGORIA_INGRESO : categorizar(t, reglas),
     }));
   }
 }

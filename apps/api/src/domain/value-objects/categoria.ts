@@ -22,3 +22,13 @@ export const CATEGORIA_SIN_CATEGORIZAR: Categoria = {
   nombre: 'Sin categorizar',
   grupo: GrupoPresupuesto.SinCategorizar,
 };
+
+/**
+ * Categoría asignada automáticamente a cualquier transacción con `abono > 0`.
+ * Los ingresos no se clasifican por descripción — se detectan por la dirección
+ * del movimiento (entrada de dinero).
+ */
+export const CATEGORIA_INGRESO: Categoria = {
+  nombre: 'Ingreso',
+  grupo: GrupoPresupuesto.Ingresos,
+};

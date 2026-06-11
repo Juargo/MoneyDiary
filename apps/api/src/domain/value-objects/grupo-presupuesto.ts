@@ -6,6 +6,7 @@
  * todavía no tienen regla y agregar nuevas reglas personales después.
  */
 export enum GrupoPresupuesto {
+  Ingresos = 'Ingresos',
   Necesidades = 'Necesidades',
   Gustos = 'Gustos',
   Ahorro = 'Ahorro',
