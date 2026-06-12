@@ -19,6 +19,7 @@ export type GrupoPresupuesto =
 export interface Categoria {
   nombre: string
   grupo: GrupoPresupuesto
+  icon: string | null
 }
 
 export interface Transaccion {

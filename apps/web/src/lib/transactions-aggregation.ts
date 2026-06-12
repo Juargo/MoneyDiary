@@ -144,6 +144,7 @@ export function resumenBuckets(mes: MesAggregate): BucketSummary[] {
 export type CategoriaSummary = {
   nombre: string
   grupo: GrupoPresupuesto
+  icon: string | null
   gastado: number
   conteo: number
 }
@@ -171,6 +172,7 @@ export function topCategoriasGasto(
       map.set(key, {
         nombre: t.categoria.nombre,
         grupo: t.categoria.grupo,
+        icon: t.categoria.icon,
         gastado: t.cargo,
         conteo: 1,
       })

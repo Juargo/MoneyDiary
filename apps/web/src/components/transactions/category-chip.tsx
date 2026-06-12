@@ -4,11 +4,13 @@ import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GrupoPresupuesto } from '@/api/types'
 import { useUpdateGrupo } from '@/api/use-update-grupo'
+import { LucideIcon } from '@/components/patrones/lucide-icon'
 
 type EditableCategoryChipProps = {
   transactionId: string
   label: string
   grupo: GrupoPresupuesto
+  icon?: string | null
 }
 
 const grupoStyles: Record<GrupoPresupuesto, string> = {
@@ -48,17 +50,20 @@ const MENU_GAP = 4
 export function CategoryChip({
   label,
   grupo,
+  icon,
 }: {
   label: string
   grupo: GrupoPresupuesto
+  icon?: string | null
 }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
         grupoStyles[grupo],
       )}
     >
+      {icon && <LucideIcon name={icon} className="size-3.5" />}
       {label}
     </span>
   )
@@ -68,6 +73,7 @@ export function EditableCategoryChip({
   transactionId,
   label,
   grupo,
+  icon,
 }: EditableCategoryChipProps) {
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
@@ -120,7 +126,7 @@ export function EditableCategoryChip({
   }, [open])
 
   if (!editable) {
-    return <CategoryChip label={label} grupo={grupo} />
+    return <CategoryChip label={label} grupo={grupo} icon={icon} />
   }
 
   const handleSelect = (nuevoGrupo: GrupoPresupuesto) => {
@@ -137,11 +143,12 @@ export function EditableCategoryChip({
         onClick={() => setOpen((v) => !v)}
         disabled={mutation.isPending}
         className={cn(
-          'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-opacity',
+          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-opacity',
           grupoStyles[grupo],
           'hover:ring-1 hover:ring-outline-variant disabled:opacity-60',
         )}
       >
+        {icon && <LucideIcon name={icon} className="size-3.5" />}
         <span>{label}</span>
         <ChevronDown className="size-3" strokeWidth={2.5} />
       </button>

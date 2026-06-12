@@ -2,6 +2,7 @@ import type { GrupoPresupuesto } from '@/api/types'
 import { cn } from '@/lib/utils'
 import { formatCLP } from '@/lib/format'
 import type { CategoriaSummary } from '@/lib/transactions-aggregation'
+import { LucideIcon } from '@/components/patrones/lucide-icon'
 
 type TopCategoriasCardProps = {
   categorias: CategoriaSummary[]
@@ -70,10 +71,11 @@ export function TopCategoriasCard({
                   </span>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium',
+                      'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium',
                       grupoStyles[cat.grupo],
                     )}
                   >
+                    {cat.icon && <LucideIcon name={cat.icon} className="size-3" />}
                     {cat.nombre}
                   </span>
                   <span className="truncate text-xs text-on-surface-variant">

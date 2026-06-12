@@ -33,7 +33,7 @@ export function useUpdateGrupo() {
             ...snapshot,
             transacciones: snapshot.transacciones.map((t) =>
               t.id === id
-                ? { ...t, categoria: { nombre: grupoLabels[grupo], grupo } }
+                ? { ...t, categoria: { nombre: grupoLabels[grupo], grupo, icon: t.categoria.icon } }
                 : t,
             ),
           },

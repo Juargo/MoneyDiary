@@ -11,6 +11,7 @@ import { GrupoPresupuesto } from './grupo-presupuesto';
 export interface Categoria {
   readonly nombre: string;
   readonly grupo: GrupoPresupuesto;
+  readonly icon?: string | null;
 }
 
 /**

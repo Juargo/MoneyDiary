@@ -24,6 +24,7 @@ export function TransactionRow({ transaccion }: TransactionRowProps) {
           transactionId={transaccion.id}
           label={transaccion.categoria.nombre}
           grupo={transaccion.categoria.grupo}
+          icon={transaccion.categoria.icon}
         />
       </div>
       <div

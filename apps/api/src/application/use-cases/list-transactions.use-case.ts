@@ -41,7 +41,7 @@ function resolverCategoria(
   const grupoOverride = t.bucketName as GrupoPresupuesto;
   if (ruleMatch.grupo === grupoOverride) return ruleMatch;
   if (ruleMatch !== CATEGORIA_SIN_CATEGORIZAR) {
-    return { nombre: ruleMatch.nombre, grupo: grupoOverride };
+    return { nombre: ruleMatch.nombre, grupo: grupoOverride, icon: ruleMatch.icon };
   }
   return { nombre: grupoOverride, grupo: grupoOverride };
 }

@@ -62,6 +62,7 @@ export class PrismaCategoryRuleProvider implements ICategoryRuleProvider {
       categoria: {
         nombre: p.label?.trim() || p.bucketName,
         grupo: p.bucketName as GrupoPresupuesto,
+        icon: p.icon ?? null,
       },
     };
   }

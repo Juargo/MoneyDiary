@@ -45,6 +45,7 @@ export class TransaccionesController {
         categoria: {
           nombre: t.categoria.nombre,
           grupo: t.categoria.grupo,
+          icon: t.categoria.icon ?? null,
         },
       })),
     };
