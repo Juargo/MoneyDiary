@@ -60,12 +60,21 @@ const seedPatrones: Array<{
       'enel|chilectra|aguas|esval|metrogas|lipigas|abastible|movistar|entel|wom|claro|vtr|gtd|directv',
     priority: 50,
   },
+  // Apps de transporte aparte: para muchos usuarios Uber/Cabify/Didi son Gusto,
+  // no Necesidad. Va antes que el patrón Transporte (priority 60) para ganar.
+  {
+    bucket: 'Gustos',
+    label: 'Apps de transporte',
+    icon: 'Car',
+    expression: 'uber\\b|cabify|didi',
+    priority: 55,
+  },
   {
     bucket: 'Necesidades',
     label: 'Transporte',
-    icon: null,
+    icon: 'Bus',
     expression:
-      'uber\\b|cabify|didi|metro\\b|bencina|copec|shell|petrobras|enex|tag|autopista|bip',
+      'metro\\b|bencina|copec|shell|petrobras|enex|tag|autopista|bip',
     priority: 60,
   },
   {
