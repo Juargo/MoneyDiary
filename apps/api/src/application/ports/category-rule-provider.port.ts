@@ -8,5 +8,5 @@ import { ReglaCategorizacion } from '../../domain/value-objects/regla-categoriza
  * con (o reemplazan) las reglas default — sin cambiar este contrato.
  */
 export interface ICategoryRuleProvider {
-  getReglas(): ReadonlyArray<ReglaCategorizacion>;
+  getReglas(): Promise<ReadonlyArray<ReglaCategorizacion>>;
 }

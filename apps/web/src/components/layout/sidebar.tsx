@@ -6,6 +6,7 @@ import {
   Settings,
   HelpCircle,
   Plus,
+  Tag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +20,7 @@ const navItems: NavItem[] = [
   { label: 'Inicio / Subir', to: '/', icon: Upload },
   { label: 'Panel', to: '/panel', icon: LayoutGrid },
   { label: 'Transacciones', to: '/transacciones', icon: Receipt },
+  { label: 'Patrones', to: '/patrones', icon: Tag },
 ]
 
 const secondaryItems: NavItem[] = [

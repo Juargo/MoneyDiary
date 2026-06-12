@@ -54,7 +54,7 @@ export class ListTransactionsUseCase {
 
   async execute(): Promise<ReadonlyArray<TransaccionCategorizada>> {
     const transacciones = await this.repository.findAll();
-    const reglas = this.ruleProvider.getReglas();
+    const reglas = await this.ruleProvider.getReglas();
     return transacciones.map((t) => ({
       ...t,
       categoria: resolverCategoria(t, reglas),

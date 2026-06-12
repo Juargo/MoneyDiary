@@ -80,7 +80,7 @@ export class DefaultCategoryRuleProvider implements ICategoryRuleProvider {
     // entre bancos para confiarse de un patrón).
   ];
 
-  getReglas(): ReadonlyArray<ReglaCategorizacion> {
-    return this.reglas;
+  getReglas(): Promise<ReadonlyArray<ReglaCategorizacion>> {
+    return Promise.resolve(this.reglas);
   }
 }

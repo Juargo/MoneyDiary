@@ -34,8 +34,8 @@ class FakeRepository implements ITransactionRepository {
 
 class FakeRuleProvider implements ICategoryRuleProvider {
   constructor(private readonly reglas: ReglaCategorizacion[]) {}
-  getReglas(): ReadonlyArray<ReglaCategorizacion> {
-    return this.reglas;
+  getReglas(): Promise<ReadonlyArray<ReglaCategorizacion>> {
+    return Promise.resolve(this.reglas);
   }
 }
 

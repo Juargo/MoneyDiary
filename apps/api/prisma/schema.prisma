@@ -79,6 +79,8 @@ model BucketPresupuesto {
 model PatronClasificacion {
   id         BigInt    @id @default(autoincrement())
   bucketId   BigInt?   @map("bucket_id")
+  label      String?
+  icon       String?
   expression String
   matchType  MatchType @map("match_type")
   priority   Int
