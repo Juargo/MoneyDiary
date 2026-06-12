@@ -5,9 +5,9 @@ import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-c
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
-import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
-import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
-import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
+import { CompositeBankDetectorService } from '../composite/composite-bank-detector.service';
+import { CompositeStructureValidatorService } from '../composite/composite-structure-validator.service';
+import { CompositeTransactionNormalizerService } from '../composite/composite-transaction-normalizer.service';
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaTransactionRepository } from '../persistence/prisma-transaction.repository';
 
@@ -33,9 +33,9 @@ export const TRANSACTION_REPOSITORY = Symbol.for('ITransactionRepository');
   controllers: [IngestaController],
   providers: [
     // Adapters de infrastructure (implementaciones concretas)
-    { provide: BANK_DETECTOR, useClass: ExcelBankDetectorService },
-    { provide: STRUCTURE_VALIDATOR, useClass: ExcelStructureValidatorService },
-    { provide: TRANSACTION_NORMALIZER, useClass: ExcelTransactionNormalizerService },
+    { provide: BANK_DETECTOR, useClass: CompositeBankDetectorService },
+    { provide: STRUCTURE_VALIDATOR, useClass: CompositeStructureValidatorService },
+    { provide: TRANSACTION_NORMALIZER, useClass: CompositeTransactionNormalizerService },
     PrismaService,
     { provide: TRANSACTION_REPOSITORY, useClass: PrismaTransactionRepository },
 

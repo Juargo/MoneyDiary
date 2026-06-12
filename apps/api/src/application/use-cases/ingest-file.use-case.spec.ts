@@ -52,6 +52,25 @@ describe('IngestFileUseCase', () => {
       expect(result.isOk()).toBe(true);
       expect(result.getValue().buffer).toBe(buffer);
     });
+
+    // ADR-009: PDF convive con XLSX
+    it('retorna Ok para extensión .pdf', () => {
+      const reader = makeFileReader({ originalName: 'cartola.pdf' });
+
+      const result = useCase.execute(reader);
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().extension).toBe('.pdf');
+    });
+
+    it('retorna Ok para extensión .PDF en mayúsculas', () => {
+      const reader = makeFileReader({ originalName: 'Cartola_BCI.PDF' });
+
+      const result = useCase.execute(reader);
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().extension).toBe('.pdf');
+    });
   });
 
   describe('cuando el archivo no es válido', () => {
@@ -75,15 +94,6 @@ describe('IngestFileUseCase', () => {
       expect(result.getError().message).toContain('.csv');
     });
 
-    it('retorna Fail para extensión .pdf', () => {
-      const reader = makeFileReader({ originalName: 'cartola.pdf' });
-
-      const result = useCase.execute(reader);
-
-      expect(result.isFail()).toBe(true);
-      expect(result.getError()).toBeInstanceOf(InvalidFileExtensionError);
-    });
-
     it('retorna Fail para archivo sin extensión', () => {
       const reader = makeFileReader({ originalName: 'archivo-sin-extension' });
 
@@ -93,7 +103,7 @@ describe('IngestFileUseCase', () => {
       expect(result.getError()).toBeInstanceOf(InvalidFileExtensionError);
     });
 
-    it('el mensaje de error menciona la extensión permitida', () => {
+    it('el mensaje de error menciona las extensiones permitidas', () => {
       const reader = makeFileReader({ originalName: 'datos.txt' });
 
       const result = useCase.execute(reader);
@@ -101,6 +111,7 @@ describe('IngestFileUseCase', () => {
       expect(result.isFail()).toBe(true);
       const message = result.getError().message;
       expect(message).toContain('.xlsx');
+      expect(message).toContain('.pdf');
     });
   });
 });

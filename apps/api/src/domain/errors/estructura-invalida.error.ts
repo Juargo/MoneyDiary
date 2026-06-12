@@ -14,7 +14,8 @@ export type ProblemaEstructura =
       tipoEsperado: string;
       valor: string;
     }
-  | { tipo: 'SinEncabezados'; fila: number };
+  | { tipo: 'SinEncabezados'; fila: number }
+  | { tipo: 'OrigenPdf'; mensaje: string };
 
 /**
  * Error de dominio: el archivo no cumple la estructura esperada para el banco.
@@ -43,6 +44,8 @@ export class EstructuraInvalidaError extends Error {
           return `Fila ${p.fila}, columna "${p.columna}": se esperaba ${p.tipoEsperado} y se encontró "${p.valor}".`;
         case 'SinEncabezados':
           return `La fila de encabezados (${p.fila}) está vacía.`;
+        case 'OrigenPdf':
+          return p.mensaje;
       }
     });
     return `Estructura inválida para ${banco}:\n  - ${partes.join('\n  - ')}`;

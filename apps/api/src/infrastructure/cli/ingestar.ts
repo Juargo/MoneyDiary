@@ -4,9 +4,10 @@
  * Uso:
  *   pnpm cli -- ./cartola.xlsx
  *   pnpm cli -- /ruta/absoluta/movimientos.xlsx
+ *   pnpm cli -- ./cartola.pdf
  *
  * Encadena dos use cases:
- *   1. IngestFileUseCase  — valida extensión (.xlsx únicamente) y carga el buffer
+ *   1. IngestFileUseCase  — valida extensión (.xlsx o .pdf) y carga el buffer
  *   2. DetectBankUseCase  — identifica banco, tipo y número de cuenta
  */
 
@@ -15,9 +16,9 @@ import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-c
 import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
-import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
-import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
-import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
+import { CompositeBankDetectorService } from '../composite/composite-bank-detector.service';
+import { CompositeStructureValidatorService } from '../composite/composite-structure-validator.service';
+import { CompositeTransactionNormalizerService } from '../composite/composite-transaction-normalizer.service';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
 function formatCLP(n: number): string {
@@ -37,7 +38,7 @@ async function main(): Promise<void> {
 
   if (!filePath) {
     console.error('\n❌  Falta la ruta del archivo.');
-    console.error('   Uso: pnpm cli -- <ruta-del-archivo.xlsx>\n');
+    console.error('   Uso: pnpm cli -- <ruta-del-archivo.xlsx|.pdf>\n');
     process.exit(1);
   }
 
@@ -61,8 +62,8 @@ async function main(): Promise<void> {
 
   const fileData = ingestResult.getValue();
 
-  // Use case 2: detectar banco (async — ExcelJS es Promise-based)
-  const bankDetector = new ExcelBankDetectorService();
+  // Use case 2: detectar banco — composite despacha Excel/PDF por firma binaria.
+  const bankDetector = new CompositeBankDetectorService();
   const detectUseCase = new DetectBankUseCase(bankDetector);
   const detectResult = await detectUseCase.execute(fileData.buffer, fileData.originalName);
 
@@ -73,8 +74,8 @@ async function main(): Promise<void> {
 
   const bankData = detectResult.getValue();
 
-  // Use case 3: validar estructura del archivo (US-002)
-  const structureValidator = new ExcelStructureValidatorService();
+  // Use case 3: validar estructura del archivo (US-002 / US-009)
+  const structureValidator = new CompositeStructureValidatorService();
   const validateUseCase = new ValidateStructureUseCase(structureValidator);
   const validateResult = await validateUseCase.execute(fileData.buffer, bankData.banco);
 
@@ -85,8 +86,8 @@ async function main(): Promise<void> {
 
   const structureData = validateResult.getValue();
 
-  // Use case 4: normalizar transacciones al esquema canónico (US-007)
-  const normalizer = new ExcelTransactionNormalizerService();
+  // Use case 4: normalizar transacciones al esquema canónico (US-007 / US-010)
+  const normalizer = new CompositeTransactionNormalizerService();
   const normalizeUseCase = new NormalizeTransactionsUseCase(normalizer);
   const normalizeResult = await normalizeUseCase.execute(fileData.buffer, bankData.banco);
 
@@ -111,8 +112,13 @@ async function main(): Promise<void> {
   console.log(`  Tipo cuenta  : ${bankData.tipoCuenta}`);
   console.log(`  N° cuenta    : ${bankData.numeroCuenta || '(no disponible)'}`);
   console.log('  ─────────────────────────────────');
-  console.log(`  Encabezados  : fila ${structureData.filaEncabezados}`);
-  console.log(`  Filas datos  : ${structureData.totalFilasDatos}`);
+  if (structureData.filaEncabezados >= 0) {
+    console.log(`  Encabezados  : fila ${structureData.filaEncabezados}`);
+    console.log(`  Filas datos  : ${structureData.totalFilasDatos}`);
+  } else {
+    // PDF: el validador no expone fila/total — los campos quedan en -1 (centinela).
+    console.log(`  Estructura   : validada (PDF)`);
+  }
   console.log('  ─────────────────────────────────');
   console.log(`  Transacciones: ${transacciones.length}`);
   console.log(`  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`);
