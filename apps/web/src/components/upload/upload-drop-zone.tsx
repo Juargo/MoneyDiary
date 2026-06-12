@@ -104,7 +104,7 @@ export function UploadDropZone() {
         <h2 className="text-2xl font-bold text-on-surface md:text-3xl">
           {upload.isPending
             ? 'Procesando tu archivo…'
-            : 'Arrastra tu archivo .xlsx aquí'}
+            : 'Arrastra tu cartola (.xlsx o .pdf) aquí'}
         </h2>
         <p className="mt-2 text-sm text-on-surface-variant">
           {upload.isPending
@@ -130,7 +130,7 @@ export function UploadDropZone() {
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx"
+          accept=".xlsx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
