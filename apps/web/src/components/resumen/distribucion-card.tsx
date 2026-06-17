@@ -5,12 +5,9 @@ import {
   OctagonAlert,
   type LucideIcon,
 } from 'lucide-react'
+import type { BucketGrupo, BucketSlice } from '@/lib/transactions-aggregation'
 
-export type BucketSlice = {
-  grupo: 'Necesidades' | 'Gustos' | 'Ahorro'
-  /** Porcentaje real del gasto (0–100). */
-  pct: number
-}
+export type { BucketSlice }
 
 type DistribucionCardProps = {
   slices: BucketSlice[]
@@ -21,21 +18,21 @@ type DistribucionCardProps = {
 }
 
 // Paleta del modelo 50/30/20 (consistente con el panel).
-const BUCKET_COLOR: Record<BucketSlice['grupo'], string> = {
+export const BUCKET_COLOR: Record<BucketGrupo, string> = {
   Necesidades: '#4b5575',
   Gustos: '#ece3b0',
   Ahorro: '#cdc2ec',
 }
 
 // Color del texto del % dentro de cada porción (contraste sobre el color).
-const BUCKET_LABEL_COLOR: Record<BucketSlice['grupo'], string> = {
+const BUCKET_LABEL_COLOR: Record<BucketGrupo, string> = {
   Necesidades: '#ffffff',
   Gustos: '#4b4636',
   Ahorro: '#46407a',
 }
 
 // Modelo ideal por bucket — referencia para evaluar la distribución.
-const IDEAL: Record<BucketSlice['grupo'], number> = {
+const IDEAL: Record<BucketGrupo, number> = {
   Necesidades: 50,
   Gustos: 30,
   Ahorro: 20,
@@ -45,18 +42,22 @@ const IDEAL: Record<BucketSlice['grupo'], number> = {
 // la distribución "bien repartida".
 const TOLERANCIA_PP = 10
 
-type Estado = {
+export type Estado = {
   icon: LucideIcon
   color: string
   label: string
 }
 
 /**
- * Elige el ícono superior según el estado de la distribución.
+ * Elige el ícono de estado según la distribución.
  * Prioridad: datos sin categorizar → ahorro sobre meta → bien repartido →
  * demasiado dispar.
  */
-function evaluarEstado(slices: BucketSlice[], ahorroPct: number, sinCategorizarCount: number): Estado {
+export function evaluarEstado(
+  slices: BucketSlice[],
+  ahorroPct: number,
+  sinCategorizarCount: number,
+): Estado {
   if (sinCategorizarCount > 0) {
     return {
       icon: Annoyed,
@@ -105,14 +106,17 @@ function slicePath(cx: number, cy: number, r: number, start: number, end: number
   return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`
 }
 
-export function DistribucionCard({
-  slices,
-  ahorroPct,
-  sinCategorizarCount,
-}: DistribucionCardProps) {
+type PieTortaProps = {
+  slices: BucketSlice[]
+  /** Muestra el % dentro de cada porción. */
+  withLabels?: boolean
+  className?: string
+}
+
+/** Gráfico de torta de la distribución del gasto. SVG sin dependencias. */
+export function PieTorta({ slices, withLabels = false, className }: PieTortaProps) {
   const total = slices.reduce((s, x) => s + x.pct, 0)
-  const estado = evaluarEstado(slices, ahorroPct, sinCategorizarCount)
-  const EstadoIcon = estado.icon
+  if (total === 0) return null
 
   const cx = 50
   const cy = 50
@@ -132,6 +136,52 @@ export function DistribucionCard({
     })
 
   const unicaPorcion = arcs.length === 1
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className={className}
+      role="img"
+      aria-label="Distribución del gasto por bucket"
+    >
+      {unicaPorcion ? (
+        <circle cx={cx} cy={cy} r={r} fill={BUCKET_COLOR[arcs[0].grupo]} />
+      ) : (
+        arcs.map((a) => (
+          <path
+            key={a.grupo}
+            d={slicePath(cx, cy, r, a.start, a.end)}
+            fill={BUCKET_COLOR[a.grupo]}
+          />
+        ))
+      )}
+      {withLabels &&
+        arcs.map((a) => (
+          <text
+            key={`${a.grupo}-label`}
+            x={a.lx}
+            y={a.ly}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="7"
+            fontWeight="700"
+            fill={BUCKET_LABEL_COLOR[a.grupo]}
+          >
+            {Math.round(a.pct)}%
+          </text>
+        ))}
+    </svg>
+  )
+}
+
+export function DistribucionCard({
+  slices,
+  ahorroPct,
+  sinCategorizarCount,
+}: DistribucionCardProps) {
+  const total = slices.reduce((s, x) => s + x.pct, 0)
+  const estado = evaluarEstado(slices, ahorroPct, sinCategorizarCount)
+  const EstadoIcon = estado.icon
 
   return (
     <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest px-6 py-6 shadow-sm">
@@ -155,38 +205,11 @@ export function DistribucionCard({
         </p>
       ) : (
         <>
-          <svg
-            viewBox="0 0 100 100"
+          <PieTorta
+            slices={slices}
+            withLabels
             className="mx-auto block size-56"
-            role="img"
-            aria-label="Gráfico de distribución del gasto por bucket"
-          >
-            {unicaPorcion ? (
-              <circle cx={cx} cy={cy} r={r} fill={BUCKET_COLOR[arcs[0].grupo]} />
-            ) : (
-              arcs.map((a) => (
-                <path
-                  key={a.grupo}
-                  d={slicePath(cx, cy, r, a.start, a.end)}
-                  fill={BUCKET_COLOR[a.grupo]}
-                />
-              ))
-            )}
-            {arcs.map((a) => (
-              <text
-                key={`${a.grupo}-label`}
-                x={a.lx}
-                y={a.ly}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize="7"
-                fontWeight="700"
-                fill={BUCKET_LABEL_COLOR[a.grupo]}
-              >
-                {Math.round(a.pct)}%
-              </text>
-            ))}
-          </svg>
+          />
 
           <ul className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
             {slices.map((s) => (

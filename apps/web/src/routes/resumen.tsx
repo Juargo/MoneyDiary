@@ -2,14 +2,12 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { AlertCircle, Menu } from 'lucide-react'
 import { MobileNav } from '@/components/layout/mobile-nav'
-import {
-  DistribucionCard,
-  type BucketSlice,
-} from '@/components/resumen/distribucion-card'
+import { DistribucionCard } from '@/components/resumen/distribucion-card'
+import { ResumenAnualCard } from '@/components/resumen/resumen-anual-card'
 import { useTransacciones } from '@/api/use-transacciones'
 import {
   agruparPorMes,
-  resumenBuckets,
+  distribucionMensual,
 } from '@/lib/transactions-aggregation'
 import { formatCLP, formatMesAno, mesAnoKey } from '@/lib/format'
 
@@ -24,40 +22,18 @@ function ResumenPage() {
   const ahora = new Date()
   const mesActualKey = mesAnoKey(ahora.toISOString())
   const mesActualLabel = formatMesAno(ahora.toISOString())
+  const anioActual = ahora.getFullYear()
+  const mesActualIndex = ahora.getMonth()
 
-  const { ingresosMes, slices, ahorroPct, sinCategorizarCount } = useMemo(() => {
+  const { ingresosMes, dist, meses } = useMemo(() => {
     const transacciones = query.data?.transacciones ?? []
     const meses = agruparPorMes(transacciones)
     const mesActual = meses.find((m) => m.key === mesActualKey)
 
-    if (!mesActual) {
-      return {
-        ingresosMes: 0,
-        slices: [] as BucketSlice[],
-        ahorroPct: 0,
-        sinCategorizarCount: 0,
-      }
-    }
-
-    const buckets = resumenBuckets(mesActual)
-    const gastoPorGrupo = (grupo: BucketSlice['grupo']) =>
-      buckets.find((b) => b.grupo === grupo)?.gastado ?? 0
-
-    const grupos: BucketSlice['grupo'][] = ['Necesidades', 'Gustos', 'Ahorro']
-    const totalMetodo = grupos.reduce((s, g) => s + gastoPorGrupo(g), 0)
-
-    const slices: BucketSlice[] = grupos.map((grupo) => ({
-      grupo,
-      pct: totalMetodo > 0 ? (gastoPorGrupo(grupo) / totalMetodo) * 100 : 0,
-    }))
-
     return {
-      ingresosMes: mesActual.ingresoBase,
-      slices,
-      ahorroPct: slices.find((s) => s.grupo === 'Ahorro')?.pct ?? 0,
-      sinCategorizarCount: mesActual.items.filter(
-        (t) => t.cargo > 0 && t.categoria.grupo === 'SinCategorizar',
-      ).length,
+      ingresosMes: mesActual?.ingresoBase ?? 0,
+      dist: mesActual ? distribucionMensual(mesActual) : null,
+      meses,
     }
   }, [query.data, mesActualKey])
 
@@ -99,9 +75,14 @@ function ResumenPage() {
           <div className="flex flex-col gap-6">
             <IngresosCard amount={ingresosMes} />
             <DistribucionCard
-              slices={slices}
-              ahorroPct={ahorroPct}
-              sinCategorizarCount={sinCategorizarCount}
+              slices={dist?.slices ?? []}
+              ahorroPct={dist?.ahorroPct ?? 0}
+              sinCategorizarCount={dist?.sinCategorizarCount ?? 0}
+            />
+            <ResumenAnualCard
+              year={anioActual}
+              mesActualIndex={mesActualIndex}
+              meses={meses}
             />
           </div>
         )}

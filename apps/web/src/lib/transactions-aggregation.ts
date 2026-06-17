@@ -141,6 +141,51 @@ export function resumenBuckets(mes: MesAggregate): BucketSummary[] {
     .filter((b) => b.gastado > 0 || b.presupuesto !== null)
 }
 
+export type BucketGrupo = 'Necesidades' | 'Gustos' | 'Ahorro'
+
+export type BucketSlice = {
+  grupo: BucketGrupo
+  /** Porcentaje real del gasto del mes (0–100), normalizado a los 3 buckets. */
+  pct: number
+}
+
+export type DistribucionResumen = {
+  slices: BucketSlice[]
+  /** Porcentaje real destinado a Ahorro (0–100). */
+  ahorroPct: number
+  /** Transacciones de gasto sin categorizar en el mes. */
+  sinCategorizarCount: number
+  /** Gasto total sumado de los 3 buckets del modelo. */
+  totalMetodo: number
+}
+
+const BUCKET_GRUPOS: BucketGrupo[] = ['Necesidades', 'Gustos', 'Ahorro']
+
+/**
+ * Distribución del gasto del mes entre los 3 buckets del modelo 50/30/20,
+ * normalizada a 100%. Usada por la tarjeta de distribución y el calendario.
+ */
+export function distribucionMensual(mes: MesAggregate): DistribucionResumen {
+  const buckets = resumenBuckets(mes)
+  const gastoDe = (grupo: BucketGrupo) =>
+    buckets.find((b) => b.grupo === grupo)?.gastado ?? 0
+
+  const totalMetodo = BUCKET_GRUPOS.reduce((s, g) => s + gastoDe(g), 0)
+  const slices: BucketSlice[] = BUCKET_GRUPOS.map((grupo) => ({
+    grupo,
+    pct: totalMetodo > 0 ? (gastoDe(grupo) / totalMetodo) * 100 : 0,
+  }))
+
+  return {
+    slices,
+    ahorroPct: slices.find((s) => s.grupo === 'Ahorro')?.pct ?? 0,
+    sinCategorizarCount: mes.items.filter(
+      (t) => t.cargo > 0 && t.categoria.grupo === 'SinCategorizar',
+    ).length,
+    totalMetodo,
+  }
+}
+
 export type CategoriaSummary = {
   nombre: string
   grupo: GrupoPresupuesto
