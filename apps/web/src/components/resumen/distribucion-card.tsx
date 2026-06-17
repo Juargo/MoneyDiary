@@ -21,14 +21,14 @@ type DistribucionCardProps = {
 export const BUCKET_COLOR: Record<BucketGrupo, string> = {
   Necesidades: '#4b5575',
   Gustos: '#ece3b0',
-  Ahorro: '#cdc2ec',
+  Ahorro: '#16a34a',
 }
 
 // Color del texto del % dentro de cada porción (contraste sobre el color).
 const BUCKET_LABEL_COLOR: Record<BucketGrupo, string> = {
   Necesidades: '#ffffff',
   Gustos: '#4b4636',
-  Ahorro: '#46407a',
+  Ahorro: '#ffffff',
 }
 
 // Modelo ideal por bucket — referencia para evaluar la distribución.
