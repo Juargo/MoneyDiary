@@ -7,6 +7,7 @@ import {
   HelpCircle,
   Plus,
   Tag,
+  PieChart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: 'Inicio / Subir', to: '/', icon: Upload },
+  { label: 'Resumen', to: '/resumen', icon: PieChart },
   { label: 'Panel', to: '/panel', icon: LayoutGrid },
   { label: 'Transacciones', to: '/transacciones', icon: Receipt },
   { label: 'Patrones', to: '/patrones', icon: Tag },
