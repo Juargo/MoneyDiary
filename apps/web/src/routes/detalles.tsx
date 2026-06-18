@@ -2,14 +2,9 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { AlertCircle, Menu } from 'lucide-react'
 import { MobileNav } from '@/components/layout/mobile-nav'
-import { BucketsDetalleCard } from '@/components/detalles/buckets-detalle-card'
 import { DetallePorBucket } from '@/components/detalles/detalle-por-bucket'
 import { useTransacciones } from '@/api/use-transacciones'
-import {
-  agruparPorMes,
-  detallePorBucket,
-  resumenBuckets,
-} from '@/lib/transactions-aggregation'
+import { agruparPorMes, detallePorBucket } from '@/lib/transactions-aggregation'
 import { formatMesAno, mesAnoKey } from '@/lib/format'
 
 export const Route = createFileRoute('/detalles')({
@@ -24,15 +19,12 @@ function DetallesPage() {
   const mesActualKey = mesAnoKey(ahora.toISOString())
   const mesActualLabel = formatMesAno(ahora.toISOString())
 
-  const { buckets, detalle } = useMemo(() => {
+  const detalle = useMemo(() => {
     const transacciones = query.data?.transacciones ?? []
     const meses = agruparPorMes(transacciones)
     const mesActual = meses.find((m) => m.key === mesActualKey)
-    if (!mesActual) return { buckets: [], detalle: [] }
-    return {
-      buckets: resumenBuckets(mesActual),
-      detalle: detallePorBucket(mesActual),
-    }
+    if (!mesActual) return []
+    return detallePorBucket(mesActual)
   }, [query.data, mesActualKey])
 
   return (
@@ -51,7 +43,7 @@ function DetallesPage() {
 
         <div className="flex flex-col items-center">
           <h1 className="text-xl font-bold tracking-tight">{mesActualLabel}</h1>
-          <p className="text-xs text-on-surface-variant">Vista de buckets</p>
+          <p className="text-xs text-on-surface-variant">Detalle por bucket</p>
         </div>
 
         <div className="flex size-10 items-center justify-center rounded-full bg-primary-container text-sm font-bold text-on-primary-container">
@@ -74,7 +66,6 @@ function DetallesPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            <BucketsDetalleCard buckets={buckets} />
             <DetallePorBucket buckets={detalle} />
           </div>
         )}
