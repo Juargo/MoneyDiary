@@ -64,3 +64,12 @@ export function mesAnoKey(iso: string): string {
   const d = new Date(iso)
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
+
+/** Fecha con mes corto y año, sin coma. Ej: "12 mar 2026" */
+export function formatFechaMes(iso: string): string {
+  const d = new Date(iso)
+  const day = d.getUTCDate()
+  const month = monthsShort[d.getUTCMonth()]!.toLowerCase()
+  const year = d.getUTCFullYear()
+  return `${day} ${month} ${year}`
+}

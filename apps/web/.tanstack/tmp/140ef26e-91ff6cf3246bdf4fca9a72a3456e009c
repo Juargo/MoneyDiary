@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransaccionesRouteImport } from './routes/transacciones'
 import { Route as ResumenRouteImport } from './routes/resumen'
+import { Route as ProductosRouteImport } from './routes/productos'
 import { Route as PatronesRouteImport } from './routes/patrones'
 import { Route as PanelRouteImport } from './routes/panel'
 import { Route as DetallesRouteImport } from './routes/detalles'
@@ -24,6 +25,11 @@ const TransaccionesRoute = TransaccionesRouteImport.update({
 const ResumenRoute = ResumenRouteImport.update({
   id: '/resumen',
   path: '/resumen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductosRoute = ProductosRouteImport.update({
+  id: '/productos',
+  path: '/productos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PatronesRoute = PatronesRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/detalles': typeof DetallesRoute
   '/panel': typeof PanelRoute
   '/patrones': typeof PatronesRoute
+  '/productos': typeof ProductosRoute
   '/resumen': typeof ResumenRoute
   '/transacciones': typeof TransaccionesRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/detalles': typeof DetallesRoute
   '/panel': typeof PanelRoute
   '/patrones': typeof PatronesRoute
+  '/productos': typeof ProductosRoute
   '/resumen': typeof ResumenRoute
   '/transacciones': typeof TransaccionesRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/detalles': typeof DetallesRoute
   '/panel': typeof PanelRoute
   '/patrones': typeof PatronesRoute
+  '/productos': typeof ProductosRoute
   '/resumen': typeof ResumenRoute
   '/transacciones': typeof TransaccionesRoute
 }
@@ -79,16 +88,25 @@ export interface FileRouteTypes {
     | '/detalles'
     | '/panel'
     | '/patrones'
+    | '/productos'
     | '/resumen'
     | '/transacciones'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/detalles' | '/panel' | '/patrones' | '/resumen' | '/transacciones'
+  to:
+    | '/'
+    | '/detalles'
+    | '/panel'
+    | '/patrones'
+    | '/productos'
+    | '/resumen'
+    | '/transacciones'
   id:
     | '__root__'
     | '/'
     | '/detalles'
     | '/panel'
     | '/patrones'
+    | '/productos'
     | '/resumen'
     | '/transacciones'
   fileRoutesById: FileRoutesById
@@ -98,6 +116,7 @@ export interface RootRouteChildren {
   DetallesRoute: typeof DetallesRoute
   PanelRoute: typeof PanelRoute
   PatronesRoute: typeof PatronesRoute
+  ProductosRoute: typeof ProductosRoute
   ResumenRoute: typeof ResumenRoute
   TransaccionesRoute: typeof TransaccionesRoute
 }
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/resumen'
       fullPath: '/resumen'
       preLoaderRoute: typeof ResumenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/productos': {
+      id: '/productos'
+      path: '/productos'
+      fullPath: '/productos'
+      preLoaderRoute: typeof ProductosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/patrones': {
@@ -154,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   DetallesRoute: DetallesRoute,
   PanelRoute: PanelRoute,
   PatronesRoute: PatronesRoute,
+  ProductosRoute: ProductosRoute,
   ResumenRoute: ResumenRoute,
   TransaccionesRoute: TransaccionesRoute,
 }

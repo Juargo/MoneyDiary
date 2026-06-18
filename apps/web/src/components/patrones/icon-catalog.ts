@@ -7,6 +7,7 @@ import {
   Bus,
   Car,
   Coffee,
+  CookingPot,
   CreditCard,
   Film,
   Fuel,
@@ -16,6 +17,7 @@ import {
   HeartPulse,
   Home,
   Hospital,
+  Leaf,
   Lightbulb,
   Music,
   PiggyBank,
@@ -29,6 +31,7 @@ import {
   Smartphone,
   Sparkles,
   Stethoscope,
+  Store,
   Tag,
   Ticket,
   Train,
@@ -37,6 +40,7 @@ import {
   Utensils,
   UtensilsCrossed,
   Wallet,
+  Wheat,
   Wifi,
   Wrench,
   type LucideIcon,
@@ -83,11 +87,12 @@ export const ICON_CATALOG: ReadonlyArray<IconGroup> = [
 ]
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  Banknote, Beef, Bike, BookOpen, Briefcase, Bus, Car, Coffee, CreditCard,
-  Film, Fuel, Gamepad2, Gift, Heart, HeartPulse, Home, Hospital, Lightbulb,
-  Music, PiggyBank, Pill, Pizza, Plane, Shirt, ShoppingBag, ShoppingBasket,
-  ShoppingCart, Smartphone, Sparkles, Stethoscope, Tag, Ticket, Train,
-  TrendingUp, Tv, Utensils, UtensilsCrossed, Wallet, Wifi, Wrench,
+  Banknote, Beef, Bike, BookOpen, Briefcase, Bus, Car, Coffee, CookingPot,
+  CreditCard, Film, Fuel, Gamepad2, Gift, Heart, HeartPulse, Home, Hospital,
+  Leaf, Lightbulb, Music, PiggyBank, Pill, Pizza, Plane, Shirt, ShoppingBag,
+  ShoppingBasket, ShoppingCart, Smartphone, Sparkles, Stethoscope, Store,
+  Tag, Ticket, Train, TrendingUp, Tv, Utensils, UtensilsCrossed, Wallet,
+  Wheat, Wifi, Wrench,
 }
 
 export function getIconComponent(name: string | null | undefined): LucideIcon | null {

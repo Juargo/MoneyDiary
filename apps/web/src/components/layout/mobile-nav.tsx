@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   Receipt,
   Tag,
+  ShoppingBasket,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Panel', to: '/panel', icon: LayoutGrid },
   { label: 'Transacciones', to: '/transacciones', icon: Receipt },
   { label: 'Patrones', to: '/patrones', icon: Tag },
+  { label: 'Productos', to: '/productos', icon: ShoppingBasket },
 ]
 
 type MobileNavProps = {
