@@ -38,6 +38,13 @@ const IDEAL: Record<BucketGrupo, number> = {
   Ahorro: 20,
 }
 
+// Distribución ideal como slices, para la mini-torta de referencia.
+const IDEAL_SLICES: BucketSlice[] = [
+  { grupo: 'Necesidades', pct: IDEAL.Necesidades },
+  { grupo: 'Gustos', pct: IDEAL.Gustos },
+  { grupo: 'Ahorro', pct: IDEAL.Ahorro },
+]
+
 // Desviación máxima tolerada (en puntos porcentuales) para considerar
 // la distribución "bien repartida".
 const TOLERANCIA_PP = 10
@@ -205,11 +212,18 @@ export function DistribucionCard({
         </p>
       ) : (
         <>
-          <PieTorta
-            slices={slices}
-            withLabels
-            className="mx-auto block size-56"
-          />
+          <div className="relative mx-auto w-56">
+            <PieTorta slices={slices} withLabels className="block size-56" />
+
+            <div className="absolute -bottom-1 -right-1 flex flex-col items-center gap-0.5">
+              <span className="rounded-full bg-surface-container-lowest p-1 shadow ring-1 ring-outline-variant">
+                <PieTorta slices={IDEAL_SLICES} className="block size-12" />
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                Ideal
+              </span>
+            </div>
+          </div>
 
           <ul className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
             {slices.map((s) => (
