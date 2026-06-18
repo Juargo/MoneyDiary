@@ -3,8 +3,13 @@ import { createFileRoute } from '@tanstack/react-router'
 import { AlertCircle, Menu } from 'lucide-react'
 import { MobileNav } from '@/components/layout/mobile-nav'
 import { BucketsDetalleCard } from '@/components/detalles/buckets-detalle-card'
+import { DetallePorBucket } from '@/components/detalles/detalle-por-bucket'
 import { useTransacciones } from '@/api/use-transacciones'
-import { agruparPorMes, resumenBuckets } from '@/lib/transactions-aggregation'
+import {
+  agruparPorMes,
+  detallePorBucket,
+  resumenBuckets,
+} from '@/lib/transactions-aggregation'
 import { formatMesAno, mesAnoKey } from '@/lib/format'
 
 export const Route = createFileRoute('/detalles')({
@@ -19,12 +24,15 @@ function DetallesPage() {
   const mesActualKey = mesAnoKey(ahora.toISOString())
   const mesActualLabel = formatMesAno(ahora.toISOString())
 
-  const buckets = useMemo(() => {
+  const { buckets, detalle } = useMemo(() => {
     const transacciones = query.data?.transacciones ?? []
     const meses = agruparPorMes(transacciones)
     const mesActual = meses.find((m) => m.key === mesActualKey)
-    if (!mesActual) return []
-    return resumenBuckets(mesActual)
+    if (!mesActual) return { buckets: [], detalle: [] }
+    return {
+      buckets: resumenBuckets(mesActual),
+      detalle: detallePorBucket(mesActual),
+    }
   }, [query.data, mesActualKey])
 
   return (
@@ -67,6 +75,7 @@ function DetallesPage() {
         ) : (
           <div className="flex flex-col gap-6">
             <BucketsDetalleCard buckets={buckets} />
+            <DetallePorBucket buckets={detalle} />
           </div>
         )}
       </main>

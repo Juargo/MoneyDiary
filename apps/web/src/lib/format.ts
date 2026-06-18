@@ -32,6 +32,14 @@ export function formatFechaCorta(iso: string): string {
   return `${day} ${month}, ${year}`
 }
 
+/** Fecha compacta sin año. Ej: "14 jun" */
+export function formatDiaMes(iso: string): string {
+  const d = new Date(iso)
+  const day = d.getUTCDate()
+  const month = monthsShort[d.getUTCMonth()]!.toLowerCase()
+  return `${day} ${month}`
+}
+
 const monthsLong = [
   'Enero',
   'Febrero',

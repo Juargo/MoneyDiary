@@ -227,3 +227,108 @@ export function topCategoriasGasto(
     .sort((a, b) => b.gastado - a.gastado)
     .slice(0, limit)
 }
+
+// ─────────────────────────────────────────────
+// Detalle por bucket — árbol expandible 3 niveles
+// ─────────────────────────────────────────────
+
+export type TransaccionDetalle = {
+  id: string
+  descripcion: string
+  fecha: string // ISO
+  monto: number // = cargo
+}
+
+export type CategoriaDetalle = {
+  nombre: string
+  icon: string | null
+  total: number
+  transacciones: TransaccionDetalle[]
+}
+
+export type BucketDetalle = {
+  grupo: GrupoPresupuesto
+  total: number
+  conteoTransacciones: number
+  categorias: CategoriaDetalle[]
+}
+
+const BUCKET_ORDEN: GrupoPresupuesto[] = [
+  'Necesidades',
+  'Gustos',
+  'Ahorro',
+  'SinCategorizar',
+]
+
+/**
+ * Agrega las transacciones de gasto del mes en un árbol de 3 niveles:
+ * Bucket → Categoría → Transacción.
+ * - Solo considera cargos (t.cargo > 0).
+ * - Buckets ordenados: Necesidades, Gustos, Ahorro, SinCategorizar (Ingresos excluido).
+ * - Categorías dentro del bucket ordenadas por total desc.
+ * - Transacciones dentro de la categoría ordenadas por fecha desc.
+ */
+export function detallePorBucket(mes: MesAggregate): BucketDetalle[] {
+  // Acumular por bucket → categoría
+  const bucketMap = new Map<GrupoPresupuesto, Map<string, CategoriaDetalle>>()
+
+  for (const t of mes.items) {
+    if (t.cargo <= 0) continue
+    const grupo = t.categoria.grupo
+    if (grupo === 'Ingresos') continue
+
+    if (!bucketMap.has(grupo)) {
+      bucketMap.set(grupo, new Map())
+    }
+    const catMap = bucketMap.get(grupo)!
+    const catKey = t.categoria.nombre
+
+    const existing = catMap.get(catKey)
+    const txDetalle: TransaccionDetalle = {
+      id: t.id,
+      descripcion: t.descripcion,
+      fecha: t.fecha,
+      monto: t.cargo,
+    }
+
+    if (existing) {
+      existing.total += t.cargo
+      existing.transacciones.push(txDetalle)
+    } else {
+      catMap.set(catKey, {
+        nombre: t.categoria.nombre,
+        icon: t.categoria.icon,
+        total: t.cargo,
+        transacciones: [txDetalle],
+      })
+    }
+  }
+
+  const resultado: BucketDetalle[] = []
+
+  for (const grupo of BUCKET_ORDEN) {
+    const catMap = bucketMap.get(grupo)
+    if (!catMap) continue
+
+    // Ordenar transacciones dentro de cada categoría por fecha desc
+    const categorias: CategoriaDetalle[] = [...catMap.values()].map((cat) => ({
+      ...cat,
+      transacciones: [...cat.transacciones].sort(
+        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+      ),
+    }))
+
+    // Ordenar categorías por total desc
+    categorias.sort((a, b) => b.total - a.total)
+
+    const total = categorias.reduce((s, c) => s + c.total, 0)
+    const conteoTransacciones = categorias.reduce(
+      (s, c) => s + c.transacciones.length,
+      0,
+    )
+
+    resultado.push({ grupo, total, conteoTransacciones, categorias })
+  }
+
+  return resultado
+}
