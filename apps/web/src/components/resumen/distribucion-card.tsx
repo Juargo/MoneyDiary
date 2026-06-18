@@ -1,10 +1,12 @@
 import {
   Annoyed,
   BanknoteArrowUp,
+  ChevronRight,
   Laugh,
   OctagonAlert,
   type LucideIcon,
 } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import type { BucketGrupo, BucketSlice } from '@/lib/transactions-aggregation'
 
 export type { BucketSlice }
@@ -239,6 +241,14 @@ export function DistribucionCard({
               </li>
             ))}
           </ul>
+
+          <Link
+            to="/detalles"
+            className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
+          >
+            Ver detalles
+            <ChevronRight className="size-4" strokeWidth={2} />
+          </Link>
         </>
       )}
     </section>
