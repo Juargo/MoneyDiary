@@ -211,7 +211,9 @@ pnpm audit                                   # auditoría de seguridad
 - **No lanzar excepciones** en domain/application — usar `Result.fail(error)`
 - **Ports** son interfaces en `application/ports/`, implementaciones en `infrastructure/`
 
-> **Proceso (Scrum):** la **Definition of Done** y **Definition of Ready** canónicas viven en el vault Obsidian bajo `00 Metodología/`. Antes de dar una US por terminada, verificar la DoD (capa correcta, tests + `tsc`, sin secretos/cifrado por env, verificación con fixtures reales, Conventional Commits).
+> **Fuentes de verdad:** este `CLAUDE.md` es canónico para lo **técnico del repo** (convenciones de código, arquitectura, comandos, seguridad). El **proceso** (Definition of Done, Definition of Ready, ceremonias, ciclo de vida) es canónico en el vault Obsidian bajo `00 Metodología/`. La nota `Convenciones de código y commits.md` del vault es solo un espejo legible: si diverge, manda este archivo.
+>
+> **Proceso (Scrum):** antes de dar una US por terminada, verificar la DoD del vault (capa correcta, tests + `tsc`, sin secretos/cifrado por env, verificación con fixtures reales, Conventional Commits).
 
 ---
 
