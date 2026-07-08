@@ -4,6 +4,8 @@ Personal-finance app that ingests Chilean bank `.xlsx` files. pnpm monorepo: `ap
 
 Read `CLAUDE.md` for full project context (architecture, ADRs, per-US status, bank-detection patterns). `DESIGN.md` covers design rationale. This file only lists what an agent would otherwise get wrong.
 
+Process artifacts (Scrum) live in the Obsidian vault under `00 Metodología/` (path in `CLAUDE.md`): the canonical **Definition of Done** and **Definition of Ready**. Before marking a US done, check the DoD — its code-facing criteria are the ones below (correct layer, unit tests + `tsc` clean, no secrets/encryption via env, real-fixture verification for pipeline work, Conventional Commits).
+
 ## Commands (run from repo root)
 
 Root shortcuts: `pnpm api <x>` → `pnpm --filter @moneydiary/api <x>`, same for `pnpm web`.

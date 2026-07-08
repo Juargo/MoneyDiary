@@ -13,31 +13,33 @@ App de finanzas personales para consolidar y analizar movimientos bancarios chil
 
 ## Documentación de diseño (Obsidian)
 
-Todos los ADRs, User Stories, Sprint Planning y diseño viven en:
+Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en el vault de Obsidian. **La estructura de carpetas está numerada para reflejar la secuencia del ciclo de vida (SDLC + Scrum)** — Obsidian ordena alfabéticamente, así que el número = fase.
 
 ```
 ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/JJ - Developer/0002 EL YO CREADOR/DEV PERSONAL/MoneyDiary/
-  Diseño/
-    ADR-001 Backend Framework.md
-    ADR-002 Base de Datos.md
-    ADR-003 Frontend.md
-    ADR-004 Hosting.md
-    ADR-005 Monolito-Modular-Clean-Architecture.md
-    ADR-006 Package Manager.md
-    ADR-007 Libreria Parseo Excel.md
-    ADR-008 Frontend Stack.md
-    INDEX DISEÑO.md
-  Product Backlog/
-    Epic - Ingesta de datos/
-      US-001 Carga de archivo XLSX.md        ← estado actual detallado
-      US-002 Validacion estructura.md
-      US-006 Deteccion banco.md
-      US-007 Normalizacion columnas.md
-  Sprints/
-    Sprint-1.md                              ← tareas y estado del sprint actual
+  000 INDEX MONEYDIARY.md
+  00 Metodología/                                    ← el "proceso" en sí
+    Ciclo de Vida y Metodología — Fases + Scrum.md   ← diagrama SDLC+Scrum (Mermaid)
+    Definition of Done (DoD).md                      ← DoD canónica (fuente única, go-forward)
+    Definition of Ready (DoR).md                     ← DoR (ligera)
+    Convenciones de código y commits.md              ← espejo Obsidian de este CLAUDE.md
+  01 Análisis de Requisitos/                         ← Casos de Uso, RF/RNF/RES/RN, Reuniones, INDEX
+  02 Diseño/
+    ADRs/                                            ← ADR-001 … ADR-013 (subcarpeta)
+    Design Doc · ERD · API Design · Threat Model · Wireframes · INDEX DISEÑO.md
+  03 Product Backlog/
+    000 INDEX Product Backlog.md
+    01 Epic - Ingesta de datos/     US-001 … US-011  ← estado detallado por US
+    02 Epic - Categorización/       US-012, US-013
+    03 Epic - Visualización/        US-014 … US-017
+    04 Epic - Gestión de datos/     US-018
+  04 Sprints/
+    Sprint-1/Sprint-1.md                             ← cerrado (may 2026)
+    Sprint-2/Sprint-2.md                             ← en curso (7–18 jul 2026)
+  99 Archivo/                                        ← fichas obsoletas (Epic A–D descartados)
 ```
 
-Cuando trabajes en análisis o diseño, leer los archivos relevantes de esa ruta antes de proponer cambios.
+Cuando trabajes en análisis o diseño, leer los archivos relevantes de esa ruta antes de proponer cambios. Los IDs de US son **globales y secuenciales** (no se reinician por épica). La **DoD/DoR canónicas viven en `00 Metodología/`**: cada US se cierra solo si cumple la DoD.
 
 ---
 
@@ -85,17 +87,24 @@ apps/
 | ADR-005 | Arquitectura: Monolito Modular + Clean Architecture |
 | ADR-006 | Package manager: pnpm v11+ (security by default) |
 | ADR-007 | Parseo Excel: ExcelJS únicamente `.xlsx` — SheetJS descartado por CVEs en npm |
-| ADR-008 | Frontend Stack: Monorepo pnpm + Tailwind/shadcn + TanStack Query/Zustand + TanStack Router |
+| ADR-008 | Frontend Stack: Monorepo pnpm + Tailwind/shadcn + TanStack Query/Zustand + TanStack Router — ⚠️ parcialmente reemplazado por ADR-011/012 |
+| ADR-009 | Parseo PDF: pdfjs-dist (build legacy) |
+| ADR-010 | Mobile: React Native + Expo + Expo Router + NativeWind (post-MVP) |
+| ADR-011 | Contrato-first: `openapi.json` como fuente única del contrato HTTP |
+| ADR-012 | `@moneydiary/api-client`: cliente HTTP agnóstico de plataforma |
+| ADR-013 | Cifrado de datos en reposo (todo) + a nivel de app en columnas sensibles |
 
 ---
 
 ## Estado actual
 
-**Sprint 1 (26–30 mayo 2026) — CERRADO.** Pipeline backend completo + Supabase/Prisma integrado.
+**Sprint 1 (26–30 mayo 2026) — CERRADO.** Pipeline backend de parseo completo (detectar → validar → normalizar) + Supabase/Prisma integrado.
 
 **Hito post-Sprint 1 (2026-06-10):** scaffold frontend completado en rama `feature/frontend-scaffold` — monorepo `apps/api`+`apps/web`, Vite + React 19 + Tailwind 4 + TanStack + Zustand. PR pendiente.
 
-**Roadmap MVP (siguiente):** US de persistencia (backend ↔ DB) → UI de carga (basada en mockups de Stitch) → MVP funcional end-to-end.
+**Sprint 2 (7–18 julio 2026) — EN CURSO.** Cierra el pipeline backend `… → persistir → categorizar → consultar consolidado` para un usuario fijo: US-011 (persistencia), US-012 (categorización 50/30/20) y US-014 (consolidación mensual) + Tarea 0 mono-usuario. Estado detallado y contexto de partida en `04 Sprints/Sprint-2/Sprint-2.md` del vault. Nota: al arrancar, `apps/api/src/infrastructure/persistence/` está vacío y `Transaccion` aún no tiene sus FK — ver el sprint.
+
+**Roadmap MVP (siguiente):** completar Sprint 2 (persistencia + categorización + consolidación) → Sprint 3 UI de visualización (semáforo, detalle de bucket) basada en mockups de Stitch → MVP funcional end-to-end.
 
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
@@ -201,6 +210,8 @@ pnpm audit                                   # auditoría de seguridad
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`)
 - **No lanzar excepciones** en domain/application — usar `Result.fail(error)`
 - **Ports** son interfaces en `application/ports/`, implementaciones en `infrastructure/`
+
+> **Proceso (Scrum):** la **Definition of Done** y **Definition of Ready** canónicas viven en el vault Obsidian bajo `00 Metodología/`. Antes de dar una US por terminada, verificar la DoD (capa correcta, tests + `tsc`, sin secretos/cifrado por env, verificación con fixtures reales, Conventional Commits).
 
 ---
 
