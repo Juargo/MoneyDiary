@@ -3,8 +3,6 @@ import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { IIngestaRepository } from '../ports/ingesta-repository.port';
 
-export { PersistenciaFallidaError };
-
 /** Entrada del use case (account-agnostic: recibe accountId ya resuelto). */
 export interface PersistTransactionsInput {
   accountId: string;
@@ -56,7 +54,17 @@ export class PersistTransactionsUseCase {
     );
     if (committed.isFail()) {
       const error = committed.getError();
-      await this.ingestaRepository.markFailed(ingestaId, error.motivo);
+      // Defensivo: la misma caída de DB que abortó el commit puede hacer que
+      // markFailed también falle o RECHACE. Nunca debe propagarse: execute
+      // jamás lanza. Pase lo que pase con markFailed, devolvemos el error
+      // ORIGINAL del commit (el relevante para el caller). Si markFailed no
+      // completa, la Ingesta puede quedar PENDIENTE — se resolverá con el
+      // seguimiento de reconciliación de PR3 (test de atomicidad real).
+      try {
+        await this.ingestaRepository.markFailed(ingestaId, error.motivo);
+      } catch {
+        // markFailed rechazó; preservamos "nunca lanza" y el error original.
+      }
       return Result.fail(error);
     }
 

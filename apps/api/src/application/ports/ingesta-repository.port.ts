@@ -39,8 +39,16 @@ export interface IIngestaRepository {
     transacciones: ReadonlyArray<Transaccion>,
   ): Promise<Result<{ total: number }, PersistenciaFallidaError>>;
 
-  /** Marca la Ingesta como FALLIDA registrando el motivo del fallo. */
-  markFailed(ingestaId: string, motivo: string): Promise<void>;
+  /**
+   * Marca la Ingesta como FALLIDA registrando el motivo del fallo.
+   * Retorna Result (NUNCA lanza): la misma caída de DB que abortó el commit
+   * puede hacer fallar también este marcado, y el orquestador debe poder
+   * manejarlo sin propagar excepciones.
+   */
+  markFailed(
+    ingestaId: string,
+    motivo: string,
+  ): Promise<Result<void, PersistenciaFallidaError>>;
 }
 
 /** Token de inyección — las interfaces se borran en runtime. */

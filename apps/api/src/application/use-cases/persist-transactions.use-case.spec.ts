@@ -44,13 +44,19 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
 
   failCreatePendingWith?: PersistenciaFallidaError;
   failCommitWith?: PersistenciaFallidaError;
+  /** Cuando está seteado, markFailed devuelve Result.fail (fallo controlado). */
+  failMarkFailedWith?: PersistenciaFallidaError;
+  /** Cuando está seteado, markFailed RECHAZA (simula DB caída que lanza). */
+  throwOnMarkFailed?: Error;
 
   readonly markFailedCalls: Array<{ ingestaId: string; motivo: string }> = [];
+  readonly calls: string[] = [];
   commitCalls = 0;
 
   async createPending(
     input: CrearIngestaInput,
   ): Promise<Result<{ ingestaId: string }, PersistenciaFallidaError>> {
+    this.calls.push('createPending');
     if (this.failCreatePendingWith) {
       return Result.fail(this.failCreatePendingWith);
     }
@@ -73,6 +79,7 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
     accountId: string,
     transacciones: ReadonlyArray<Transaccion>,
   ): Promise<Result<{ total: number }, PersistenciaFallidaError>> {
+    this.calls.push('commit');
     this.commitCalls++;
     if (this.failCommitWith) {
       // Atómico: nada se persiste; el estado NO se toca aquí (lo hace markFailed).
@@ -90,13 +97,25 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
     return Result.ok({ total: transacciones.length });
   }
 
-  async markFailed(ingestaId: string, motivo: string): Promise<void> {
+  async markFailed(
+    ingestaId: string,
+    motivo: string,
+  ): Promise<Result<void, PersistenciaFallidaError>> {
+    this.calls.push('markFailed');
     this.markFailedCalls.push({ ingestaId, motivo });
+    if (this.throwOnMarkFailed) {
+      // DB caída: ni siquiera podemos marcar FALLIDA — la fila queda PENDIENTE.
+      throw this.throwOnMarkFailed;
+    }
     const rec = this.ingestas.get(ingestaId);
     if (rec) {
       rec.estado = 'FALLIDA';
       rec.motivoFallo = motivo;
     }
+    if (this.failMarkFailedWith) {
+      return Result.fail(this.failMarkFailedWith);
+    }
+    return Result.ok(undefined);
   }
 
   async findByIngesta(ingestaId: string): Promise<ReadonlyArray<Transaccion>> {
@@ -209,13 +228,45 @@ describe('PersistTransactionsUseCase', () => {
     expect(store.markFailedCalls).toHaveLength(0);
   });
 
-  it('nunca lanza: ante un fallo de commit devuelve un Result.fail resoluble', async () => {
+  it('markFailed RECHAZA (DB caída): execute NO lanza, resuelve al error ORIGINAL del commit', async () => {
     const store = new FakeIngestaStore();
-    store.failCommitWith = new PersistenciaFallidaError('rollback');
+    const commitError = new PersistenciaFallidaError('base de datos no disponible');
+    store.failCommitWith = commitError;
+    store.throwOnMarkFailed = new Error('connection refused durante markFailed');
     const useCase = new PersistTransactionsUseCase(store);
 
-    await expect(
-      useCase.execute({ ...baseInput, transacciones: TXS }),
-    ).resolves.toBeDefined();
+    // No debe rechazar aunque markFailed lance.
+    const result = await useCase.execute({ ...baseInput, transacciones: TXS });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBe(commitError); // el error ORIGINAL, no el de markFailed
+    expect(store.markFailedCalls).toHaveLength(1);
+    // markFailed no pudo completar → la Ingesta quedó PENDIENTE (no hay filas).
+    const ingestaId = store.markFailedCalls[0].ingestaId;
+    expect(store.ingestas.get(ingestaId)?.estado).toBe('PENDIENTE');
+    expect(store.filasFor(ingestaId)).toHaveLength(0);
+  });
+
+  it('markFailed devuelve Result.fail: execute NO lanza, resuelve al error ORIGINAL del commit', async () => {
+    const store = new FakeIngestaStore();
+    const commitError = new PersistenciaFallidaError('rollback');
+    store.failCommitWith = commitError;
+    store.failMarkFailedWith = new PersistenciaFallidaError('markFailed también falló');
+    const useCase = new PersistTransactionsUseCase(store);
+
+    const result = await useCase.execute({ ...baseInput, transacciones: TXS });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBe(commitError);
+    expect(store.markFailedCalls).toHaveLength(1);
+  });
+
+  it('respeta el orden del ciclo de vida: createPending ANTES de commit', async () => {
+    const store = new FakeIngestaStore();
+    const useCase = new PersistTransactionsUseCase(store);
+
+    await useCase.execute({ ...baseInput, transacciones: TXS });
+
+    expect(store.calls).toEqual(['createPending', 'commit']);
   });
 });
