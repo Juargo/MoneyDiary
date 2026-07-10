@@ -5,6 +5,7 @@ import {
   USER_ID_FIJO,
   ACCOUNT_ID_FIJO,
 } from '../src/infrastructure/persistence/constants';
+import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 
 /**
  * Seed mono-usuario (US-011, tareas 0.1-0.3).
@@ -45,6 +46,8 @@ async function main(): Promise<void> {
   if (!connectionString) {
     throw new Error('seed requiere DATABASE_URL o DIRECT_URL en el entorno.');
   }
+  // El seed muta la BD: exige opt-in explícito y rechaza cadenas de producción.
+  assertDestructiveDbAllowed({ connectionString });
   const prisma = new PrismaClient({ adapter: new PrismaPg(connectionString) });
   try {
     await runSeed(prisma);

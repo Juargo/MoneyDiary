@@ -6,6 +6,6 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "setupFiles": ["dotenv/config"],
+  "setupFiles": ["dotenv/config", "<rootDir>/integration.setup.ts"],
   "testTimeout": 30000
 }

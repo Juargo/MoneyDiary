@@ -14,12 +14,14 @@ describe('seed idempotency integration (real dev DB)', () => {
   });
 
   afterAll(async () => {
-    await prisma.account.deleteMany({ where: { id: ACCOUNT_ID_FIJO } });
-    await prisma.user.deleteMany({ where: { id: USER_ID_FIJO } });
+    // NO borramos la identidad canónica (USER_ID_FIJO/ACCOUNT_ID_FIJO): es el
+    // estado semilla intencional de la BD de desarrollo compartida, y borrarla
+    // dispararía errores FK-RESTRICT si hay filas dependientes.
     await prisma.$disconnect();
   });
 
   it('correr el seed dos veces no crea duplicados (mismo User/Account fijo)', async () => {
+    // Idempotencia por upsert: el conteo es 1 exista o no previamente.
     await runSeed(prisma);
     await runSeed(prisma);
 
