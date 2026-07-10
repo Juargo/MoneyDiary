@@ -147,5 +147,114 @@ describe('Prisma persistence integration (real dev DB)', () => {
       expect(afterFail?.estado).toBe('FALLIDA');
       expect(afterFail?.motivoFallo).toBe('fallo atómico de prueba');
     });
+
+    it('rollback de DOS sentencias: si la 2da (update) falla DESPUÉS de createMany, se revierten las filas insertadas', async () => {
+      const pending = await ingestaRepo.createPending({
+        accountId,
+        banco: 'BancoEstado',
+        nombreArchivo: 'twostmt.xlsx',
+      });
+      const ingestaId = pending.getValue().ingestaId;
+      createdIngestaIds.push(ingestaId);
+
+      // Fuerza que la SEGUNDA operación (ingesta.update) falle a nivel de BD
+      // DESPUÉS de que createMany ya insertó dentro del $transaction: el update
+      // apunta a un id inexistente → P2025 en ejecución → rollback de TODO.
+      // Esto distingue "$transaction se usa" de "orden afortunado".
+      const realUpdate = prisma.ingesta.update.bind(prisma.ingesta);
+      const spy = jest
+        .spyOn(prisma.ingesta, 'update')
+        .mockImplementationOnce(() =>
+          realUpdate({
+            where: { id: `inexistente-${ingestaId}` },
+            data: { motivoFallo: 'forzado' },
+          }),
+        );
+
+      try {
+        const txs: Transaccion[] = [
+          { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'a', cargo: 100, abono: 0 },
+          { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'b', cargo: 200, abono: 0 },
+        ];
+
+        const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
+        expect(committed.isFail()).toBe(true);
+        expect(committed.getError()).toBeInstanceOf(PersistenciaFallidaError);
+
+        // Prueba REAL de atomicidad de dos sentencias: createMany insertó dentro
+        // de la tx, pero el fallo del update revirtió TODO → 0 filas.
+        expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
+        const ingesta = await prisma.ingesta.findUnique({ where: { id: ingestaId } });
+        expect(ingesta?.estado).toBe('PENDIENTE');
+      } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
+  describe('R3 — mapeo de errores de infraestructura a Result.fail', () => {
+    it('markFailed con ingestaId inexistente → Result.fail(PersistenciaFallidaError), sin lanzar', async () => {
+      const result = await ingestaRepo.markFailed(`inexistente-${RUN_ID}`, 'motivo');
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+    });
+
+    it('createPending con accountId inexistente (FK) → Result.fail(PersistenciaFallidaError), sin lanzar', async () => {
+      const result = await ingestaRepo.createPending({
+        accountId: `cuenta-inexistente-${RUN_ID}`,
+        banco: 'BancoEstado',
+        nombreArchivo: 'fk.xlsx',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+    });
+  });
+
+  describe('CHECK cargo/abono no negativos', () => {
+    it('un abono negativo es rechazado por la CHECK (0 filas, commit falla)', async () => {
+      const pending = await ingestaRepo.createPending({
+        accountId,
+        banco: 'BancoEstado',
+        nombreArchivo: 'negabono.xlsx',
+      });
+      const ingestaId = pending.getValue().ingestaId;
+      createdIngestaIds.push(ingestaId);
+
+      const txs: Transaccion[] = [
+        { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'neg', cargo: 0, abono: -5 },
+      ];
+
+      const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
+      expect(committed.isFail()).toBe(true);
+      expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
+    });
+  });
+
+  describe('read-path BigInt overflow guard (DB boundary)', () => {
+    it('un valor > 2^53-1 insertado por SQL crudo hace que findByIngesta lance RangeError', async () => {
+      const pending = await ingestaRepo.createPending({
+        accountId,
+        banco: 'BancoEstado',
+        nombreArchivo: 'overflow.xlsx',
+      });
+      const ingestaId = pending.getValue().ingestaId;
+      createdIngestaIds.push(ingestaId);
+
+      // Inserta directamente (sin el mapper) un cargo por encima de MAX_SAFE_INTEGER.
+      await prisma.transaccion.create({
+        data: {
+          ingestaId,
+          accountId,
+          fecha: new Date('2026-05-14T00:00:00.000Z'),
+          descripcion: 'overflow',
+          cargo: BigInt('9007199254740993'), // 2^53 + 1
+          abono: 0n,
+        },
+      });
+
+      await expect(transaccionRepo.findByIngesta(ingestaId)).rejects.toThrow(RangeError);
+    });
   });
 });
