@@ -6,9 +6,8 @@ import { ValidateStructureUseCase } from '../../application/use-cases/validate-s
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
-import { ACCOUNT_REPOSITORY } from '../../application/ports/account-repository.port';
-import { INGESTA_REPOSITORY } from '../../application/ports/ingesta-repository.port';
-import { TRANSACCION_REPOSITORY } from '../../application/ports/transaccion-repository.port';
+import { ACCOUNT_REPOSITORY, IAccountRepository } from '../../application/ports/account-repository.port';
+import { INGESTA_REPOSITORY, IIngestaRepository } from '../../application/ports/ingesta-repository.port';
 import { CRYPTO_SERVICE } from '../../application/ports/crypto-service.port';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
@@ -16,7 +15,6 @@ import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-no
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
-import { PrismaTransaccionRepository } from '../persistence/prisma-transaccion.repository';
 import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
 
 /**
@@ -24,7 +22,10 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
  *
  * Actúa como Composition Root: registra los adapters Prisma/Excel detrás de
  * los tokens de los ports de application, y compone los use cases (incluido
- * el orquestador ProcessIngestaUseCase) como providers.
+ * el orquestador ProcessIngestaUseCase) como providers. IngestaController
+ * TODAVÍA no consume ProcessIngestaUseCase (solo inyecta IngestFileUseCase);
+ * queda registrado aquí para que la siguiente porción (PR4) solo tenga que
+ * cablear el controller, sin tocar este módulo.
  *
  * Los adapters (repos Prisma, NoOpCryptoService, use cases) son clases planas
  * sin decoradores — se registran vía `useFactory` para mantener el dominio y
@@ -47,12 +48,6 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         new PrismaIngestaRepository(prisma, crypto),
       inject: [PrismaService, CRYPTO_SERVICE],
     },
-    {
-      provide: TRANSACCION_REPOSITORY,
-      useFactory: (prisma: PrismaService, crypto: NoOpCryptoService) =>
-        new PrismaTransaccionRepository(prisma, crypto),
-      inject: [PrismaService, CRYPTO_SERVICE],
-    },
     IngestFileUseCase,
     {
       provide: DetectBankUseCase,
@@ -68,7 +63,7 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
     },
     {
       provide: PersistTransactionsUseCase,
-      useFactory: (ingestaRepository: PrismaIngestaRepository) =>
+      useFactory: (ingestaRepository: IIngestaRepository) =>
         new PersistTransactionsUseCase(ingestaRepository),
       inject: [INGESTA_REPOSITORY],
     },
@@ -77,7 +72,7 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
       useFactory: (
         ingestFileUseCase: IngestFileUseCase,
         detectBankUseCase: DetectBankUseCase,
-        accountRepository: PrismaAccountRepository,
+        accountRepository: IAccountRepository,
         validateStructureUseCase: ValidateStructureUseCase,
         normalizeTransactionsUseCase: NormalizeTransactionsUseCase,
         persistTransactionsUseCase: PersistTransactionsUseCase,
