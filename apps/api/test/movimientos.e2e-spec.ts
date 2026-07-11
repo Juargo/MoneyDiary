@@ -34,6 +34,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
   // Track seeded IDs for cleanup
   const seededIngestaIds: string[] = [];
+  const seededAccountIds: string[] = [];
   // USER_ID_FIJO is the constant; we need a user record to satisfy FK
   const FIXED_USER_ID = 'usuario-fijo-moneydiary';
 
@@ -55,6 +56,11 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
       });
       await prisma.ingesta.deleteMany({
         where: { id: { in: seededIngestaIds } },
+      });
+    }
+    if (seededAccountIds.length > 0) {
+      await prisma.account.deleteMany({
+        where: { id: { in: seededAccountIds } },
       });
     }
     await app.close();
@@ -107,13 +113,18 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
   // ── Absent periodo defaults to current UTC month ──────────────────────────
 
-  it('AC-12: GET /api/movimientos (no param) → 200, periodo equals current UTC month format', async () => {
+  it('AC-12: GET /api/movimientos (no param) → 200, periodo equals current UTC month', async () => {
+    // Compute the expected period from the test-side clock (same source as the server).
+    // This is the correct approach for full-app e2e: freeze is not possible across
+    // process boundaries, but computing expected on both sides is deterministic.
+    const now = new Date();
+    const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
     const response = await request(app.getHttpServer())
       .get('/api/movimientos')
       .expect(200);
 
-    // Assert format only (YYYY-MM) to avoid month-boundary flakiness
-    expect(response.body.periodo).toMatch(/^\d{4}-\d{2}$/);
+    expect(response.body.periodo).toBe(expectedPeriodo);
     expect(typeof response.body.totalTransacciones).toBe('number');
     expect(Array.isArray(response.body.transacciones)).toBe(true);
   });
@@ -140,6 +151,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
         numeroCuenta: `e2e-${RUN_ID}`,
       },
     });
+    seededAccountIds.push(account.id);
 
     const ingesta = await prisma.ingesta.create({
       data: {

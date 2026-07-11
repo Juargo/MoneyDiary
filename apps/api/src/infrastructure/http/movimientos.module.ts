@@ -7,7 +7,7 @@ import {
 } from '../../application/ports/movimientos-mes.port';
 import { PrismaMovimientosMesRepository } from '../persistence/prisma-movimientos-mes.repository';
 import { PrismaService } from '../persistence/prisma.service';
-import { USER_ID_FIJO } from '../persistence/constants';
+import { USER_ID_FIJO, USER_ID_FIJO_TOKEN } from '../persistence/constants';
 
 /**
  * MovimientosModule — módulo NestJS para la consulta mensual consolidada (US-014).
@@ -34,7 +34,7 @@ import { USER_ID_FIJO } from '../persistence/constants';
       inject: [MOVIMIENTOS_MES_READER],
     },
     {
-      provide: 'USER_ID_FIJO',
+      provide: USER_ID_FIJO_TOKEN,
       useValue: USER_ID_FIJO,
     },
   ],

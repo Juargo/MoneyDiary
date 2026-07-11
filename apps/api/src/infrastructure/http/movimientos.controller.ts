@@ -9,7 +9,7 @@ import {
 import { ObtenerMovimientosMesUseCase } from '../../application/use-cases/obtener-movimientos-mes.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { aMovimientosMesDto } from './dto/movimiento-mes.dto';
-import { USER_ID_FIJO } from '../persistence/constants';
+import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
 
 /**
  * MovimientosController — endpoint de consulta de movimientos mensuales.
@@ -24,12 +24,15 @@ import { USER_ID_FIJO } from '../persistence/constants';
  * Cuando `periodo` está ausente → use case usa PeriodoMes.actual() → 200.
  * Cuando `periodo` es inválido → PeriodoInvalidoError → 400.
  * Lista vacía → 200 con envelope vacío (no es un error — REQ-06).
+ *
+ * NOTE: This endpoint is intentionally unauthenticated for the MVP mono-user phase.
+ * Authentication (multi-user, JWT) is a post-MVP concern (ADR-001 / Sprint 3+).
  */
 @Controller('api/movimientos')
 export class MovimientosController {
   constructor(
     private readonly obtenerMovimientosMesUseCase: ObtenerMovimientosMesUseCase,
-    @Inject('USER_ID_FIJO') private readonly userId: string,
+    @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
   ) {}
 
   @Get()
@@ -51,11 +54,16 @@ export class MovimientosController {
     if (result.isFail()) {
       const error = result.getError();
       if (error instanceof PeriodoInvalidoError) {
-        throw new BadRequestException(error.message);
+        // Use a static scrubbed message so raw user input is never reflected in the HTTP 400 body.
+        // The full error (with the raw value) is available server-side in error.message if needed for logging.
+        throw new BadRequestException(
+          'El período no es válido. Formato esperado: YYYY-MM (ej: 2026-07).',
+        );
       }
       // Exhaustiveness guard — future error types will fail to compile here
       const _exhaustive: never = error;
-      throw new InternalServerErrorException(`Error no manejado: ${String(_exhaustive)}`);
+      void _exhaustive;
+      throw new InternalServerErrorException('Error inesperado');
     }
 
     return aMovimientosMesDto(result.getValue());

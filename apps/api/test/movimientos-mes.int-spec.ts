@@ -174,15 +174,90 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
   });
 
   it('ordering: rows ordered by fecha asc then id asc as tiebreak', async () => {
-    // Create 3 rows: two same-date, one different date
-    const txLater = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-20T00:00:00.000Z'), 100n, 0n, 'Later');
-    const txEarlier = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-05T00:00:00.000Z'), 200n, 0n, 'Earlier');
+    // Self-contained: use a dedicated period (2026-06) and a dedicated account so
+    // results are unaffected by rows seeded in other tests.
+    const ORDER_USER_ID = `${USER_ID_FIJO}-order-${RUN_ID}`;
+    const periodoJunio = PeriodoMes.crear('2026-06').getValue();
 
-    const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
+    await prisma.user.create({ data: { id: ORDER_USER_ID, nombre: `Order User ${RUN_ID}` } });
 
-    const earlierIdx = rows.findIndex((r) => r.id === txEarlier.id);
-    const laterIdx = rows.findIndex((r) => r.id === txLater.id);
-    expect(earlierIdx).toBeLessThan(laterIdx);
+    const orderAccount = await prisma.account.create({
+      data: {
+        userId: ORDER_USER_ID,
+        banco: 'BCI',
+        tipoCuenta: 'Cuenta Corriente',
+        numeroCuenta: `order-${RUN_ID}`,
+      },
+    });
+
+    const orderIngesta = await prisma.ingesta.create({
+      data: {
+        accountId: orderAccount.id,
+        banco: 'BCI',
+        nombreArchivo: `order-${RUN_ID}.xlsx`,
+        estado: 'PROCESADA',
+      },
+    });
+
+    // Clean up order-specific data after this test's afterAll (piggyback cleanup)
+    // by using a try/finally block — or capture IDs for the parent afterAll.
+    // We use a nested try/finally for self-containment.
+    try {
+      // Three rows: earlier date, later date, SAME date as txEarlier (tiebreak pair)
+      const txEarlier = await prisma.transaccion.create({
+        data: {
+          accountId: orderAccount.id,
+          ingestaId: orderIngesta.id,
+          fecha: new Date('2026-06-05T00:00:00.000Z'),
+          cargo: 200n,
+          abono: 0n,
+          descripcion: 'Earlier',
+        },
+      });
+
+      // Same fecha as txEarlier — must come AFTER it because its id will be > txEarlier.id
+      const txSameDate = await prisma.transaccion.create({
+        data: {
+          accountId: orderAccount.id,
+          ingestaId: orderIngesta.id,
+          fecha: new Date('2026-06-05T00:00:00.000Z'),
+          cargo: 150n,
+          abono: 0n,
+          descripcion: 'SameDate',
+        },
+      });
+
+      const txLater = await prisma.transaccion.create({
+        data: {
+          accountId: orderAccount.id,
+          ingestaId: orderIngesta.id,
+          fecha: new Date('2026-06-20T00:00:00.000Z'),
+          cargo: 100n,
+          abono: 0n,
+          descripcion: 'Later',
+        },
+      });
+
+      const rows = await repo.findByPeriodo(ORDER_USER_ID, periodoJunio);
+
+      expect(rows.length).toBe(3);
+
+      const earlierIdx = rows.findIndex((r) => r.id === txEarlier.id);
+      const sameDateIdx = rows.findIndex((r) => r.id === txSameDate.id);
+      const laterIdx = rows.findIndex((r) => r.id === txLater.id);
+
+      // fecha asc: earlier (2026-06-05) before later (2026-06-20)
+      expect(earlierIdx).toBeLessThan(laterIdx);
+      // id asc tiebreak: txEarlier.id < txSameDate.id (both on 2026-06-05)
+      expect(earlierIdx).toBeLessThan(sameDateIdx);
+      // same-date pair both before the later-date row
+      expect(sameDateIdx).toBeLessThan(laterIdx);
+    } finally {
+      await prisma.transaccion.deleteMany({ where: { ingestaId: orderIngesta.id } });
+      await prisma.ingesta.delete({ where: { id: orderIngesta.id } });
+      await prisma.account.delete({ where: { id: orderAccount.id } });
+      await prisma.user.delete({ where: { id: ORDER_USER_ID } });
+    }
   });
 
   it('AC-08: money exactness — cargo > MAX_SAFE_INTEGER is returned as exact bigint', async () => {
@@ -198,14 +273,16 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
   });
 
   it('AC-10 (user isolation): user B transactions in July NEVER appear in user A results', async () => {
-    // Seed a user B transaction in July
-    await createTx(accountIdB, ingestaIdB, new Date('2026-07-12T00:00:00.000Z'), 99000n, 0n, 'UserB tx');
+    // Seed a user B transaction in July and capture its id
+    const userBTx = await createTx(accountIdB, ingestaIdB, new Date('2026-07-12T00:00:00.000Z'), 99000n, 0n, 'UserB tx');
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
 
-    // None of the returned rows should belong to user B's account
-    const hasUserBRow = rows.some((r) => r.numeroCuenta === `san-${RUN_ID}`);
-    expect(hasUserBRow).toBe(false);
+    // Assert by transaction identity — the specific seeded user-B tx must not appear.
+    // This is stronger than checking numeroCuenta (an incidental field) because it
+    // verifies isolation at the row-identity level regardless of account attributes.
+    const returnedIds = rows.map((r) => r.id);
+    expect(returnedIds).not.toContain(userBTx.id);
   });
 
   it('bucketId is null when transaction has no bucket assigned', async () => {

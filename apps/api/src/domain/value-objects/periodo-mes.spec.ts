@@ -90,16 +90,29 @@ describe('PeriodoMes', () => {
       expect(result.getError()).toBeInstanceOf(PeriodoInvalidoError);
     });
 
-    it('error message contains the invalid raw value', () => {
+    it('rawValue preserves the invalid input (for server-side logging only)', () => {
       const result = PeriodoMes.crear('abc');
       expect(result.isFail()).toBe(true);
-      expect(result.getError().message).toContain('abc');
+      // The raw input is stored in rawValue, NOT in message (message is scrubbed for HTTP safety).
+      expect(result.getError().rawValue).toBe('abc');
+    });
+
+    it('error message does NOT contain raw input (scrubbed for HTTP safety)', () => {
+      const result = PeriodoMes.crear('abc');
+      expect(result.isFail()).toBe(true);
+      expect(result.getError().message).not.toContain('abc');
     });
 
     it('error message contains format hint YYYY-MM', () => {
       const result = PeriodoMes.crear('bad');
       expect(result.isFail()).toBe(true);
       expect(result.getError().message).toContain('YYYY-MM');
+    });
+
+    it('whitespace-padded input (e.g. " 2026-07") is rejected — valor must be canonical', () => {
+      const result = PeriodoMes.crear(' 2026-07');
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PeriodoInvalidoError);
     });
   });
 
