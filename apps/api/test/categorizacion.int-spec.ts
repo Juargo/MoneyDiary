@@ -49,23 +49,34 @@ async function runCategorizacionStep(
 ): Promise<{ asignadas: number; sinCategoria: number } | undefined> {
   try {
     let patrones: ReadonlyArray<PatronClasificacion> = [];
+    let catalogoDisponible = true;
     const catalogResult = await catalogo.findAll();
     if (catalogResult.isOk()) {
       patrones = catalogResult.getValue();
+    } else {
+      catalogoDisponible = false;
     }
-    // catalog failed → patrones stays [] — degrade path, Ingreso rule still runs
 
     const txs = await txReader.findParaClasificar(ingestaId);
     if (txs.length === 0) return { asignadas: 0, sinCategoria: 0 };
 
-    const asignaciones = txs.map((tx) => ({
+    const clasificadas = txs.map((tx) => ({
       transaccionId: tx.id,
       bucket: categorizarUseCase
         .execute({ descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono }, patrones)
         .getValue().bucket,
     }));
 
-    const sinCategoria = asignaciones.filter((a) => a.bucket === Bucket.SinCategoria).length;
+    // Espeja runCategorizacion: catálogo caído → solo se escriben filas de Ingreso;
+    // el resto queda null (pendiente). Catálogo disponible → se escribe todo.
+    const asignaciones = catalogoDisponible
+      ? clasificadas
+      : clasificadas.filter((a) => a.bucket === Bucket.Ingreso);
+
+    const sinCategoria = catalogoDisponible
+      ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
+      : 0;
+
     const writeResult = await bucketWriter.asignarBuckets(ingestaId, asignaciones);
     if (writeResult.isFail()) return undefined;
 

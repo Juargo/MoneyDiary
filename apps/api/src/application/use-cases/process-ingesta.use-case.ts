@@ -181,8 +181,10 @@ export class ProcessIngestaUseCase {
    * Categorización post-persistencia (best-effort).
    *
    * Flujo de degradación:
-   *   - Catálogo falla → pasa [] a CategorizarTransaccionUseCase. La Ingreso rule
-   *     TODAVÍA corre (abono>0, cargo=0 → Ingreso); el resto → SinCategoria.
+   *   - Catálogo falla → la Ingreso rule (dominio puro) TODAVÍA corre
+   *     (abono>0, cargo=0 → Ingreso), pero SOLO se escriben las filas de Ingreso.
+   *     El resto queda bucketId=null (pendiente/reintentable), NUNCA SinCategoria:
+   *     así US-013 distingue "no se pudo consultar el catálogo" de "no matcheó".
    *   - Writer falla → deja bucketId en null en BD; log + continúa.
    *   - Cualquier excepción imprevista → captura, degrada, continúa.
    *
@@ -192,15 +194,17 @@ export class ProcessIngestaUseCase {
     ingestaId: string,
   ): Promise<CategorizacionResumen | undefined> {
     try {
-      // 1. Cargar catálogo (fallo → patrones vacíos, Ingreso rule aún corre)
+      // 1. Cargar catálogo. Si falla, la Ingreso rule (dominio puro) todavía
+      //    corre, pero solo se escriben filas de Ingreso; el resto queda null.
       let patrones: ReadonlyArray<PatronClasificacion> = [];
+      let catalogoDisponible = true;
       const catalogResult = await this.catalogoClasificacion.findAll();
       if (catalogResult.isOk()) {
         patrones = catalogResult.getValue();
       } else {
-        // Degradación controlada: log + continúa con patrones vacíos
+        catalogoDisponible = false;
         console.error(
-          '[ProcessIngestaUseCase] Catálogo de clasificación no disponible (degradando a Ingreso/SinCategoria):',
+          '[ProcessIngestaUseCase] Catálogo de clasificación no disponible (solo se escriben filas de Ingreso; el resto queda null):',
           catalogResult.getError().message,
         );
       }
@@ -213,7 +217,7 @@ export class ProcessIngestaUseCase {
       }
 
       // 3. Clasificar cada transacción (nunca lanza, siempre retorna Result.ok)
-      const asignaciones = txsParaClasificar.map((tx) => {
+      const clasificadas = txsParaClasificar.map((tx) => {
         const { bucket } = this.categorizarTransaccionUseCase
           .execute(
             { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
@@ -223,11 +227,20 @@ export class ProcessIngestaUseCase {
         return { transaccionId: tx.id, bucket };
       });
 
-      const sinCategoria = asignaciones.filter(
-        (a) => a.bucket === Bucket.SinCategoria,
-      ).length;
+      // 4. Elegir qué escribir:
+      //    - catálogo disponible → todo (SinCategoria es estado definitivo).
+      //    - catálogo caído → solo filas de Ingreso; el resto queda null (pendiente).
+      const asignaciones = catalogoDisponible
+        ? clasificadas
+        : clasificadas.filter((a) => a.bucket === Bucket.Ingreso);
 
-      // 4. Escribir buckets en BD (fallo → deja null, log + continúa)
+      // SinCategoria solo se cuenta con el catálogo disponible: en la degradación
+      // las filas no escritas no son SinCategoria, son null pendiente.
+      const sinCategoria = catalogoDisponible
+        ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
+        : 0;
+
+      // 5. Escribir buckets en BD (fallo → deja null, log + continúa)
       // ingestaId threads through for structural scope isolation (RNF-SEC-006).
       const writeResult = await this.transaccionBucketWriter.asignarBuckets(ingestaId, asignaciones);
       if (writeResult.isFail()) {

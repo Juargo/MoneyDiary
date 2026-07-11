@@ -372,7 +372,7 @@ describe('ProcessIngestaUseCase', () => {
 
   // T16 — Categorization orchestration tests (US-012, SC-13, SC-14, SC-15)
   describe('categorización post-persistencia', () => {
-    it('SC-13: falla el catálogo → ingesta PROCESADA, buckets degradados (SinCategoria/null)', async () => {
+    it('SC-13: falla el catálogo → ingesta PROCESADA; filas no-Ingreso quedan null (no se escriben)', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.failWith = new CategorizacionFallidaError('db error al cargar catálogo');
       const bucketWriter = new FakeBucketWriter();
@@ -385,14 +385,14 @@ describe('ProcessIngestaUseCase', () => {
       const [record] = Array.from(ingestaStore.ingestas.values());
       expect(record.estado).toBe('PROCESADA');
 
-      // NEGATIVE assertion (FIX 5): an expense tx (cargo>0, abono=0) must NOT be Ingreso
-      // even under catalog failure (proves the Ingreso boundary holds when degraded).
-      // TX_PARA_CLASIFICAR[0] = { cargo: 8103n, abono: 0n } → must be SinCategoria, NOT Ingreso.
+      // Bajo fallo de catálogo, una tx de gasto (cargo>0, abono=0) NO se escribe:
+      // queda bucketId null (pendiente/reintentable), nunca SinCategoria.
+      // TX_PARA_CLASIFICAR[0] = { cargo: 8103n, abono: 0n }.
       const allAsignaciones = bucketWriter.calls.flat();
       const expenseAsig = allAsignaciones.find((a) => a.transaccionId === 'tx-persisted-1');
-      expect(expenseAsig).toBeDefined();
-      expect(expenseAsig!.bucket).not.toBe(Bucket.Ingreso);
-      expect(expenseAsig!.bucket).toBe(Bucket.SinCategoria);
+      expect(expenseAsig).toBeUndefined();
+      // Ninguna asignación SinCategoria se escribe durante la degradación.
+      expect(allAsignaciones.some((a) => a.bucket === Bucket.SinCategoria)).toBe(false);
     });
 
     it('SC-14: falla el catálogo pero una tx tiene abono>0, cargo=0 → esa tx recibe Ingreso, ingesta PROCESADA', async () => {
