@@ -38,7 +38,7 @@ describe('IngestaController', () => {
 
   it('monto ininterpretable: 400 y el mensaje NUNCA filtra el valor crudo de la celda (podría ser dinero)', async () => {
     const error = new NormalizacionInvalidaError('BancoEstado', [
-      { tipo: 'MontoIninterpretable', fila: 9, columna: 'Cargo', valor: '1.500.000,00' },
+      { tipo: 'MontoIninterpretable', fila: 9, columna: 'Cargo' },
     ]);
     const controller = controllerWithResult(Result.fail(error));
 
