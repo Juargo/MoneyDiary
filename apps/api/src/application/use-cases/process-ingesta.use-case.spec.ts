@@ -165,8 +165,8 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
 
 /** Filas persistidas que el lector de clasificación devuelve (con ids). */
 const TX_PARA_CLASIFICAR: TransaccionParaClasificar[] = [
-  { id: 'tx-persisted-1', descripcion: 'Compra', cargo: 8103, abono: 0 },
-  { id: 'tx-persisted-2', descripcion: 'Sueldo', cargo: 0, abono: 1500000 },
+  { id: 'tx-persisted-1', descripcion: 'Compra', cargo: 8103n, abono: 0n },
+  { id: 'tx-persisted-2', descripcion: 'Sueldo', cargo: 0n, abono: 1500000n },
 ];
 
 class FakeCatalogo implements ICatalogoClasificacion {
@@ -181,11 +181,14 @@ class FakeCatalogo implements ICatalogoClasificacion {
 
 class FakeBucketWriter implements ITransaccionBucketWriter {
   calls: Array<ReadonlyArray<{ transaccionId: string; bucket: Bucket }>> = [];
+  receivedIngestaIds: string[] = [];
   failWith?: CategorizacionFallidaError;
 
   async asignarBuckets(
+    ingestaId: string,
     asignaciones: ReadonlyArray<{ transaccionId: string; bucket: Bucket }>,
   ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>> {
+    this.receivedIngestaIds.push(ingestaId);
     this.calls.push(asignaciones);
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok({ actualizadas: asignaciones.length });
@@ -194,8 +197,10 @@ class FakeBucketWriter implements ITransaccionBucketWriter {
 
 class FakeTxParaClasificarReader implements ITransaccionParaClasificarReader {
   rows: TransaccionParaClasificar[] = TX_PARA_CLASIFICAR;
+  receivedIngestaId: string | undefined;
 
-  async findParaClasificar(): Promise<ReadonlyArray<TransaccionParaClasificar>> {
+  async findParaClasificar(ingestaId: string): Promise<ReadonlyArray<TransaccionParaClasificar>> {
+    this.receivedIngestaId = ingestaId;
     return this.rows;
   }
 }
@@ -379,6 +384,15 @@ describe('ProcessIngestaUseCase', () => {
       expect(result.isOk()).toBe(true);
       const [record] = Array.from(ingestaStore.ingestas.values());
       expect(record.estado).toBe('PROCESADA');
+
+      // NEGATIVE assertion (FIX 5): an expense tx (cargo>0, abono=0) must NOT be Ingreso
+      // even under catalog failure (proves the Ingreso boundary holds when degraded).
+      // TX_PARA_CLASIFICAR[0] = { cargo: 8103n, abono: 0n } → must be SinCategoria, NOT Ingreso.
+      const allAsignaciones = bucketWriter.calls.flat();
+      const expenseAsig = allAsignaciones.find((a) => a.transaccionId === 'tx-persisted-1');
+      expect(expenseAsig).toBeDefined();
+      expect(expenseAsig!.bucket).not.toBe(Bucket.Ingreso);
+      expect(expenseAsig!.bucket).toBe(Bucket.SinCategoria);
     });
 
     it('SC-14: falla el catálogo pero una tx tiene abono>0, cargo=0 → esa tx recibe Ingreso, ingesta PROCESADA', async () => {
@@ -406,8 +420,8 @@ describe('ProcessIngestaUseCase', () => {
       const txReader = new FakeTxParaClasificarReader();
       // Solo 2 ids de la ingesta actual
       txReader.rows = [
-        { id: 'tx-current-1', descripcion: 'Compra', cargo: 5000, abono: 0 },
-        { id: 'tx-current-2', descripcion: 'Sueldo', cargo: 0, abono: 800000 },
+        { id: 'tx-current-1', descripcion: 'Compra', cargo: 5000n, abono: 0n },
+        { id: 'tx-current-2', descripcion: 'Sueldo', cargo: 0n, abono: 800000n },
       ];
       const { useCase } = buildUseCase({ bucketWriter, txReader });
 
@@ -460,6 +474,41 @@ describe('ProcessIngestaUseCase', () => {
       // tx-persisted-2 (Sueldo, abono>0 cargo=0) → Ingreso rule
       const sueldoAsig = allAsignaciones.find((a) => a.transaccionId === 'tx-persisted-2');
       expect(sueldoAsig?.bucket).toBe(Bucket.Ingreso);
+    });
+
+    it('ingestaId thread-through: findParaClasificar and asignarBuckets receive the SAME ingestaId from persist', async () => {
+      // Verifies that the ingestaId produced by PersistTransactions is correctly
+      // threaded all the way through the categorization step to both the reader
+      // and the writer (proves end-to-end scope correctness, not just local wiring).
+      const bucketWriter = new FakeBucketWriter();
+      const txReader = new FakeTxParaClasificarReader();
+      const { useCase, ingestaStore } = buildUseCase({ bucketWriter, txReader });
+
+      const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      expect(result.isOk()).toBe(true);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      const ingestaId = record.id;
+
+      // Reader received the same ingestaId that PersistTransactions produced
+      expect(txReader.receivedIngestaId).toBe(ingestaId);
+      // Writer also received that same ingestaId (structural scope lock)
+      expect(bucketWriter.receivedIngestaIds[0]).toBe(ingestaId);
+    });
+
+    it('ingesta vacía (reader devuelve []): resultado { asignadas: 0, sinCategoria: 0 }, writer NO invocado', async () => {
+      const bucketWriter = new FakeBucketWriter();
+      const txReader = new FakeTxParaClasificarReader();
+      txReader.rows = [];
+      const { useCase } = buildUseCase({ bucketWriter, txReader });
+
+      const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      expect(result.isOk()).toBe(true);
+      const { categorizacion } = result.getValue();
+      expect(categorizacion).toEqual({ asignadas: 0, sinCategoria: 0 });
+      // Writer must NOT be called when there are no transactions to classify
+      expect(bucketWriter.calls.length).toBe(0);
     });
   });
 });

@@ -19,6 +19,7 @@ export class PrismaTransaccionBucketRepository implements ITransaccionBucketWrit
   constructor(private readonly prisma: PrismaService) {}
 
   async asignarBuckets(
+    ingestaId: string,
     asignaciones: ReadonlyArray<{ transaccionId: string; bucket: Bucket }>,
   ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>> {
     if (asignaciones.length === 0) {
@@ -35,11 +36,13 @@ export class PrismaTransaccionBucketRepository implements ITransaccionBucketWrit
         porBucket.set(bucket, ids);
       }
 
+      // Double-lock scope isolation (RNF-SEC-006): WHERE id IN (...) AND ingestaId = ?
+      // ensures a bad id list can never bleed into another ingesta's rows.
       const operaciones = Array.from(porBucket.entries()).map(
         ([bucket, ids]) =>
           () =>
             this.prisma.transaccion.updateMany({
-              where: { id: { in: ids } },
+              where: { id: { in: ids }, ingestaId },
               data: { bucketId: BUCKET_IDS[bucket] },
             }),
       );

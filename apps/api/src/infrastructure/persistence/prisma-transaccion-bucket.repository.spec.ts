@@ -27,14 +27,14 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = makePrismaMock();
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
-      const result = await repo.asignarBuckets([]);
+      const result = await repo.asignarBuckets('ingesta-1', []);
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().actualizadas).toBe(0);
       expect((prisma.$transaction as jest.Mock).mock.calls.length).toBe(0);
     });
 
-    it('calls $transaction with updateMany calls grouped by bucket', async () => {
+    it('calls $transaction with updateMany calls grouped by bucket, with ingestaId scope lock', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 2 });
       const txFn = jest.fn(async (promises: Promise<unknown>[]) => {
         return Promise.all(promises);
@@ -45,13 +45,14 @@ describe('PrismaTransaccionBucketRepository', () => {
       } as unknown as PrismaService;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
+      const ingestaId = 'ingesta-abc-123';
       const asignaciones = [
         { transaccionId: 'tx-1', bucket: Bucket.Necesidades },
         { transaccionId: 'tx-2', bucket: Bucket.Necesidades },
         { transaccionId: 'tx-3', bucket: Bucket.Ingreso },
       ];
 
-      const result = await repo.asignarBuckets(asignaciones);
+      const result = await repo.asignarBuckets(ingestaId, asignaciones);
 
       expect(result.isOk()).toBe(true);
       // Should have called $transaction once
@@ -64,12 +65,15 @@ describe('PrismaTransaccionBucketRepository', () => {
       );
       expect(necesidadesCall).toBeDefined();
       expect(necesidadesCall![0].where.id.in).toEqual(['tx-1', 'tx-2']);
+      // SCOPE ISOLATION: ingestaId must be in the WHERE clause (double-lock)
+      expect(necesidadesCall![0].where.ingestaId).toBe(ingestaId);
       // Check updateMany called with correct args for Ingreso group
       const ingresoCall = updateMany.mock.calls.find(
         (call) => call[0].data.bucketId === BUCKET_IDS[Bucket.Ingreso],
       );
       expect(ingresoCall).toBeDefined();
       expect(ingresoCall![0].where.id.in).toEqual(['tx-3']);
+      expect(ingresoCall![0].where.ingestaId).toBe(ingestaId);
     });
 
     it('returns correct total actualizadas count across all groups', async () => {
@@ -91,7 +95,7 @@ describe('PrismaTransaccionBucketRepository', () => {
         { transaccionId: 'tx-5', bucket: Bucket.Deseos },
       ];
 
-      const result = await repo.asignarBuckets(asignaciones);
+      const result = await repo.asignarBuckets('ingesta-xyz', asignaciones);
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().actualizadas).toBe(5);
@@ -103,7 +107,7 @@ describe('PrismaTransaccionBucketRepository', () => {
 
       const asignaciones = [{ transaccionId: 'tx-1', bucket: Bucket.Necesidades }];
 
-      const result = await repo.asignarBuckets(asignaciones);
+      const result = await repo.asignarBuckets('ingesta-1', asignaciones);
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
@@ -115,12 +119,12 @@ describe('PrismaTransaccionBucketRepository', () => {
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [{ transaccionId: 'tx-1', bucket: Bucket.SinCategoria }];
-      await expect(repo.asignarBuckets(asignaciones)).resolves.toBeDefined();
-      const result = await repo.asignarBuckets(asignaciones);
+      await expect(repo.asignarBuckets('ingesta-1', asignaciones)).resolves.toBeDefined();
+      const result = await repo.asignarBuckets('ingesta-1', asignaciones);
       expect(result.isFail()).toBe(true);
     });
 
-    it('maps Bucket enum to correct BUCKET_IDS string in updateMany call', async () => {
+    it('maps Bucket enum to correct BUCKET_IDS string in updateMany call, with ingestaId scope lock', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
       const txFn = jest.fn(async (promises: Promise<unknown>[]) => Promise.all(promises));
       const prisma = {
@@ -129,10 +133,10 @@ describe('PrismaTransaccionBucketRepository', () => {
       } as unknown as PrismaService;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
-      await repo.asignarBuckets([{ transaccionId: 'tx-1', bucket: Bucket.Ahorro }]);
+      await repo.asignarBuckets('ingesta-scope-test', [{ transaccionId: 'tx-1', bucket: Bucket.Ahorro }]);
 
       expect(updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['tx-1'] } },
+        where: { id: { in: ['tx-1'] }, ingestaId: 'ingesta-scope-test' },
         data: { bucketId: BUCKET_IDS[Bucket.Ahorro] },
       });
     });

@@ -8,8 +8,8 @@
 export interface TransaccionParaClasificar {
   readonly id: string;
   readonly descripcion: string;
-  readonly cargo: number;
-  readonly abono: number;
+  readonly cargo: bigint;
+  readonly abono: bigint;
 }
 
 /**

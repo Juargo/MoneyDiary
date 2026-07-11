@@ -27,11 +27,56 @@ export const SEED_ACCOUNT = {
   numeroCuenta: '000000000',
 } as const;
 
-/** Número total de patrones en el catálogo chileno (exportado para tests). */
-export const PATRON_CATALOG_SIZE = 20;
-
 /** Cliente mínimo requerido por el seed (facilita el test de idempotencia). */
 type SeedClient = Pick<PrismaClient, 'user' | 'account' | 'bucketPresupuesto' | 'patronClasificacion'>;
+
+// ── US-012: Catálogo de patrones chilenos (module-level so PATRON_CATALOG_SIZE derives from it) ──
+// Prefer CONTAINS (sin superficie ReDoS). REGEX solo para casos que lo requieren
+// explícitamente — siempre anclado/acotado. Todos los ids son fijos (idempotencia).
+// prioridad: valor más bajo = más prioritario. Dentro de la misma prioridad, el
+// tiebreak es por id lexicográfico.
+const PATRON_CATALOG: Array<{
+  id: string;
+  patron: string;
+  matchType: string;
+  bucketId: string;
+  prioridad: number;
+}> = [
+  // ── Necesidades (alimentos, transporte, salud, servicios básicos) ──
+  { id: 'pat-lider',         patron: 'lider',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
+  { id: 'pat-jumbo',         patron: 'jumbo',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
+  { id: 'pat-unimarc',       patron: 'unimarc',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
+  { id: 'pat-santa-isabel',  patron: 'santa isabel',   matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
+  { id: 'pat-tottus',        patron: 'tottus',         matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
+  { id: 'pat-copec',         patron: 'copec',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 15 },
+  { id: 'pat-shell',         patron: 'shell',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 15 },
+  { id: 'pat-farmacia',      patron: 'farmacia',       matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
+  { id: 'pat-isapre',        patron: 'isapre',         matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
+  { id: 'pat-transantiago',  patron: 'transantiago',   matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
+  { id: 'pat-bip',           patron: 'bip',            matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 25 },
+
+  // ── Deseos (entretenimiento, restaurantes, suscripciones) ──
+  { id: 'pat-netflix',       patron: 'netflix',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
+  { id: 'pat-spotify',       patron: 'spotify',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
+  { id: 'pat-amazon-prime',  patron: 'prime video',    matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
+  { id: 'pat-uber-eats',     patron: 'uber eats',      matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 15 },
+  { id: 'pat-rappi',         patron: 'rappi',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 15 },
+
+  // ── Ahorro (transferencias a fintech / ahorro / inversión) ──
+  { id: 'pat-fintual',       patron: 'fintual',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 10 },
+  { id: 'pat-bci-ahorro',    patron: 'cuenta ahorro',  matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 20 },
+  // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
+  { id: 'pat-afp',           patron: 'afp ',           matchType: 'STARTS_WITH', bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 15 },
+  // Transferencia a cuenta propia o de ahorro: REGEX acotado
+  { id: 'pat-transferencia-ahorro', patron: '^transf(?:erencia)?.*ahorro', matchType: 'REGEX', bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 25 },
+];
+
+/**
+ * Número total de patrones en el catálogo chileno — derivado del array real.
+ * Exportado para los tests de idempotencia: seed count and test expectation share
+ * the same source of truth, so they can never silently drift apart.
+ */
+export const PATRON_CATALOG_SIZE = PATRON_CATALOG.length;
 
 export async function runSeed(prisma: SeedClient): Promise<void> {
   // ── US-011: usuario y cuenta fija ──
@@ -64,48 +109,8 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
     });
   }
 
-  // ── US-012: Catálogo de patrones chilenos ──
-  // Prefer CONTAINS (sin superficie ReDoS). REGEX solo para casos que lo requieren
-  // explícitamente — siempre anclado/acotado. Todos los ids son fijos (idempotencia).
-  // prioridad: valor más bajo = más prioritario. Dentro de la misma prioridad, el
-  // tiebreak es por id lexicográfico.
-  const patrones: Array<{
-    id: string;
-    patron: string;
-    matchType: string;
-    bucketId: string;
-    prioridad: number;
-  }> = [
-    // ── Necesidades (alimentos, transporte, salud, servicios básicos) ──
-    { id: 'pat-lider',         patron: 'lider',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-    { id: 'pat-jumbo',         patron: 'jumbo',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-    { id: 'pat-unimarc',       patron: 'unimarc',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-    { id: 'pat-santa-isabel',  patron: 'santa isabel',   matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-    { id: 'pat-tottus',        patron: 'tottus',         matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-    { id: 'pat-copec',         patron: 'copec',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 15 },
-    { id: 'pat-shell',         patron: 'shell',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 15 },
-    { id: 'pat-farmacia',      patron: 'farmacia',       matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
-    { id: 'pat-isapre',        patron: 'isapre',         matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
-    { id: 'pat-transantiago',  patron: 'transantiago',   matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
-    { id: 'pat-bip',           patron: 'bip',            matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 25 },
-
-    // ── Deseos (entretenimiento, restaurantes, suscripciones) ──
-    { id: 'pat-netflix',       patron: 'netflix',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
-    { id: 'pat-spotify',       patron: 'spotify',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
-    { id: 'pat-amazon-prime',  patron: 'prime video',    matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
-    { id: 'pat-uber-eats',     patron: 'uber eats',      matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 15 },
-    { id: 'pat-rappi',         patron: 'rappi',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 15 },
-
-    // ── Ahorro (transferencias a fintech / ahorro / inversión) ──
-    { id: 'pat-fintual',       patron: 'fintual',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 10 },
-    { id: 'pat-bci-ahorro',    patron: 'cuenta ahorro',  matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 20 },
-    // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
-    { id: 'pat-afp',           patron: 'afp ',           matchType: 'STARTS_WITH', bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 15 },
-    // Transferencia a cuenta propia o de ahorro: REGEX acotado
-    { id: 'pat-transferencia-ahorro', patron: '^transf(?:erencia)?.*ahorro', matchType: 'REGEX', bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 25 },
-  ];
-
-  for (const patron of patrones) {
+  // ── US-012: Catálogo de patrones chilenos (from module-level PATRON_CATALOG) ──
+  for (const patron of PATRON_CATALOG) {
     await prisma.patronClasificacion.upsert({
       where: { id: patron.id },
       create: {

@@ -228,7 +228,8 @@ export class ProcessIngestaUseCase {
       ).length;
 
       // 4. Escribir buckets en BD (fallo → deja null, log + continúa)
-      const writeResult = await this.transaccionBucketWriter.asignarBuckets(asignaciones);
+      // ingestaId threads through for structural scope isolation (RNF-SEC-006).
+      const writeResult = await this.transaccionBucketWriter.asignarBuckets(ingestaId, asignaciones);
       if (writeResult.isFail()) {
         console.error(
           '[ProcessIngestaUseCase] No se pudieron escribir los buckets (degradando):',
@@ -238,11 +239,12 @@ export class ProcessIngestaUseCase {
       }
 
       return { asignadas: writeResult.getValue().actualizadas, sinCategoria };
-    } catch (error) {
-      // Cualquier excepción imprevista en la isla de categorización no propaga
+    } catch {
+      // Cualquier excepción imprevista en la isla de categorización no propaga.
+      // Raw error is NOT logged — it may contain Prisma SQL/table details or
+      // sensitive amounts from transaction data. Fixed message only.
       console.error(
-        '[ProcessIngestaUseCase] Error inesperado en categorización (degradando):',
-        error,
+        '[ProcessIngestaUseCase] categorización falló; ingesta continúa PROCESADA',
       );
       return undefined;
     }
