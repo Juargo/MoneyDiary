@@ -4,15 +4,19 @@ import { DetectBankUseCase } from './detect-bank.use-case';
 import { ValidateStructureUseCase } from './validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case';
 import { PersistTransactionsUseCase } from './persist-transactions.use-case';
+import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
+import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-permitida.error';
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
 import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida.error';
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
+import { Bucket } from '../../domain/value-objects/bucket';
+import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { IFileReader } from '../ports/file-reader.port';
 import { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
 import { IStructureValidator, ValidatedStructure } from '../ports/structure-validator.port';
@@ -23,6 +27,12 @@ import {
   IIngestaRepository,
 } from '../ports/ingesta-repository.port';
 import { ITransaccionRepository } from '../ports/transaccion-repository.port';
+import { ICatalogoClasificacion } from '../ports/catalogo-clasificacion.port';
+import { ITransaccionBucketWriter } from '../ports/transaccion-bucket-writer.port';
+import {
+  ITransaccionParaClasificarReader,
+  TransaccionParaClasificar,
+} from '../ports/transaccion-para-clasificar.port';
 
 class FakeFileReader implements IFileReader {
   constructor(
@@ -153,12 +163,58 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
   }
 }
 
-function buildUseCase() {
+/** Filas persistidas que el lector de clasificación devuelve (con ids). */
+const TX_PARA_CLASIFICAR: TransaccionParaClasificar[] = [
+  { id: 'tx-persisted-1', descripcion: 'Compra', cargo: 8103, abono: 0 },
+  { id: 'tx-persisted-2', descripcion: 'Sueldo', cargo: 0, abono: 1500000 },
+];
+
+class FakeCatalogo implements ICatalogoClasificacion {
+  failWith?: CategorizacionFallidaError;
+  patrones: ReadonlyArray<PatronClasificacion> = [];
+
+  async findAll(): Promise<Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>> {
+    if (this.failWith) return Result.fail(this.failWith);
+    return Result.ok(this.patrones);
+  }
+}
+
+class FakeBucketWriter implements ITransaccionBucketWriter {
+  calls: Array<ReadonlyArray<{ transaccionId: string; bucket: Bucket }>> = [];
+  failWith?: CategorizacionFallidaError;
+
+  async asignarBuckets(
+    asignaciones: ReadonlyArray<{ transaccionId: string; bucket: Bucket }>,
+  ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>> {
+    this.calls.push(asignaciones);
+    if (this.failWith) return Result.fail(this.failWith);
+    return Result.ok({ actualizadas: asignaciones.length });
+  }
+}
+
+class FakeTxParaClasificarReader implements ITransaccionParaClasificarReader {
+  rows: TransaccionParaClasificar[] = TX_PARA_CLASIFICAR;
+
+  async findParaClasificar(): Promise<ReadonlyArray<TransaccionParaClasificar>> {
+    return this.rows;
+  }
+}
+
+interface BuildOptions {
+  catalogo?: FakeCatalogo;
+  bucketWriter?: FakeBucketWriter;
+  txReader?: FakeTxParaClasificarReader;
+}
+
+function buildUseCase(opts?: BuildOptions) {
   const bankDetector = new FakeBankDetector();
   const structureValidator = new FakeStructureValidator();
   const normalizer = new FakeTransactionNormalizer();
   const accountRepository = new FakeAccountRepository();
   const ingestaStore = new FakeIngestaStore();
+  const catalogo = opts?.catalogo ?? new FakeCatalogo();
+  const bucketWriter = opts?.bucketWriter ?? new FakeBucketWriter();
+  const txReader = opts?.txReader ?? new FakeTxParaClasificarReader();
 
   const useCase = new ProcessIngestaUseCase(
     new IngestFileUseCase(),
@@ -167,9 +223,13 @@ function buildUseCase() {
     new ValidateStructureUseCase(structureValidator),
     new NormalizeTransactionsUseCase(normalizer),
     new PersistTransactionsUseCase(ingestaStore),
+    catalogo,
+    bucketWriter,
+    new CategorizarTransaccionUseCase(),
+    txReader,
   );
 
-  return { useCase, bankDetector, structureValidator, normalizer, accountRepository, ingestaStore };
+  return { useCase, bankDetector, structureValidator, normalizer, accountRepository, ingestaStore, catalogo, bucketWriter, txReader };
 }
 
 const USER_ID = 'usuario-fijo-moneydiary';
@@ -303,5 +363,103 @@ describe('ProcessIngestaUseCase', () => {
     // El mensaje descriptivo NO debe interpolar el mensaje crudo del error
     // (podría filtrar montos u otros datos sensibles).
     expect(result.getError().message).not.toContain('1500000');
+  });
+
+  // T16 — Categorization orchestration tests (US-012, SC-13, SC-14, SC-15)
+  describe('categorización post-persistencia', () => {
+    it('SC-13: falla el catálogo → ingesta PROCESADA, buckets degradados (SinCategoria/null)', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.failWith = new CategorizacionFallidaError('db error al cargar catálogo');
+      const bucketWriter = new FakeBucketWriter();
+      const { useCase, ingestaStore } = buildUseCase({ catalogo, bucketWriter });
+
+      const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      // Ingesta SIEMPRE PROCESADA
+      expect(result.isOk()).toBe(true);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      expect(record.estado).toBe('PROCESADA');
+    });
+
+    it('SC-14: falla el catálogo pero una tx tiene abono>0, cargo=0 → esa tx recibe Ingreso, ingesta PROCESADA', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.failWith = new CategorizacionFallidaError('db error al cargar catálogo');
+      const bucketWriter = new FakeBucketWriter();
+      // TX_PARA_CLASIFICAR[1] = { cargo: 0, abono: 1500000 } → debe ser Ingreso
+      const { useCase } = buildUseCase({ catalogo, bucketWriter });
+
+      const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      expect(result.isOk()).toBe(true);
+      // bucketWriter debe haber sido llamado con la tx de Ingreso
+      expect(bucketWriter.calls.length).toBeGreaterThan(0);
+      const todasLasAsignaciones = bucketWriter.calls.flat();
+      const ingresoAsignacion = todasLasAsignaciones.find(
+        (a) => a.transaccionId === 'tx-persisted-2',
+      );
+      expect(ingresoAsignacion).toBeDefined();
+      expect(ingresoAsignacion!.bucket).toBe(Bucket.Ingreso);
+    });
+
+    it('SC-15 (scope isolation): asignarBuckets solo se llama con ids de la ingesta actual', async () => {
+      const bucketWriter = new FakeBucketWriter();
+      const txReader = new FakeTxParaClasificarReader();
+      // Solo 2 ids de la ingesta actual
+      txReader.rows = [
+        { id: 'tx-current-1', descripcion: 'Compra', cargo: 5000, abono: 0 },
+        { id: 'tx-current-2', descripcion: 'Sueldo', cargo: 0, abono: 800000 },
+      ];
+      const { useCase } = buildUseCase({ bucketWriter, txReader });
+
+      await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      expect(bucketWriter.calls.length).toBeGreaterThan(0);
+      const allIds = bucketWriter.calls.flat().map((a) => a.transaccionId);
+      // Solo ids de la ingesta actual (no ids externos)
+      expect(allIds).toContain('tx-current-1');
+      expect(allIds).toContain('tx-current-2');
+      expect(allIds).not.toContain('tx-persisted-1');
+      expect(allIds).not.toContain('tx-persisted-2');
+    });
+
+    it('falla el writer → ingesta PROCESADA, no propaga el error al caller', async () => {
+      const bucketWriter = new FakeBucketWriter();
+      bucketWriter.failWith = new CategorizacionFallidaError('error al escribir buckets');
+      const { useCase, ingestaStore } = buildUseCase({ bucketWriter });
+
+      const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      // Ingesta sigue PROCESADA aunque el writer falle
+      expect(result.isOk()).toBe(true);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      expect(record.estado).toBe('PROCESADA');
+    });
+
+    it('happy path con catálogo: asignarBuckets llamado con el mapeo correcto por tx', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.patrones = [
+        new PatronClasificacion({
+          id: 'p-1',
+          patron: 'compra',
+          matchType: 'CONTAINS',
+          bucket: Bucket.Necesidades,
+          prioridad: 10,
+        }),
+      ];
+      const bucketWriter = new FakeBucketWriter();
+      const { useCase } = buildUseCase({ catalogo, bucketWriter });
+
+      const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+      expect(result.isOk()).toBe(true);
+      expect(bucketWriter.calls.length).toBeGreaterThan(0);
+      const allAsignaciones = bucketWriter.calls.flat();
+      // tx-persisted-1 (Compra, cargo>0) → Necesidades via patron CONTAINS 'compra'
+      const compraAsig = allAsignaciones.find((a) => a.transaccionId === 'tx-persisted-1');
+      expect(compraAsig?.bucket).toBe(Bucket.Necesidades);
+      // tx-persisted-2 (Sueldo, abono>0 cargo=0) → Ingreso rule
+      const sueldoAsig = allAsignaciones.find((a) => a.transaccionId === 'tx-persisted-2');
+      expect(sueldoAsig?.bucket).toBe(Bucket.Ingreso);
+    });
   });
 });
