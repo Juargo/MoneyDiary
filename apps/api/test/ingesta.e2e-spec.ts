@@ -4,45 +4,91 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { join } from 'path';
 import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
 
+/**
+ * E2E de POST /api/ingestas contra una BD real de desarrollo (US-011, PR4).
+ *
+ * Corre el pipeline HTTP completo vía ProcessIngestaUseCase — el mismo
+ * orquestador que usa el CLI —, así que estos tests PERSISTEN filas reales.
+ * Requiere ALLOW_DESTRUCTIVE_DB=1 (gate compartido con test:integration, ver
+ * test/integration.setup.ts); `pnpm api test:e2e` ya lo exporta. Cada test
+ * limpia sus propias filas (Ingesta/Transaccion) en afterAll — la cuenta
+ * (Account) es idempotente por clave natural, no se borra.
+ */
 describe('IngestaController (e2e) — POST /api/ingestas', () => {
   let app: INestApplication<App>;
+  let moduleFixture: TestingModule;
+  let prisma: PrismaService;
 
   const fixturesDir = join(__dirname, 'fixtures');
   const xlsxFixture = join(fixturesDir, 'movimientos.xlsx');
   const xlsFixture = join(fixturesDir, 'cartola.xls');
 
+  const createdIngestaIds: string[] = [];
+
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    prisma = moduleFixture.get(PrismaService);
   });
 
   afterEach(async () => {
     await app.close();
   });
 
-  it('acepta un archivo .xlsx y retorna 200 con metadata', async () => {
+  afterAll(async () => {
+    if (createdIngestaIds.length === 0) return;
+    const cleanupPrisma = new PrismaService();
+    await cleanupPrisma.$connect();
+    await cleanupPrisma.transaccion.deleteMany({
+      where: { ingestaId: { in: createdIngestaIds } },
+    });
+    await cleanupPrisma.ingesta.deleteMany({
+      where: { id: { in: createdIngestaIds } },
+    });
+    await cleanupPrisma.$disconnect();
+  });
+
+  it('acepta un archivo .xlsx válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/ingestas')
       .attach('file', xlsxFixture)
       .expect(200);
 
-    expect(response.body).toEqual({
-      message: 'Archivo recibido correctamente.',
-      archivo: {
-        nombre: 'movimientos.xlsx',
-        extension: '.xlsx',
-        tamano_bytes: expect.any(Number),
-      },
+    expect(typeof response.body.ingestaId).toBe('string');
+    expect(response.body.ingestaId.length).toBeGreaterThan(0);
+    expect(response.body.banco).toBe('BCI');
+    expect(response.body.tipoCuenta).toBe('Cuenta Corriente');
+    expect(response.body.archivo).toEqual({
+      nombre: 'movimientos.xlsx',
+      extension: '.xlsx',
+      tamanoBytes: expect.any(Number),
     });
-    expect(response.body.archivo.tamano_bytes).toBeGreaterThan(0);
+    expect(response.body.totalTransacciones).toBe(response.body.transacciones.length);
+    expect(response.body.transacciones.length).toBeGreaterThan(0);
+    // cargo/abono viajan como STRING — JSON no serializa BigInt nativamente.
+    for (const tx of response.body.transacciones) {
+      expect(typeof tx.cargo).toBe('string');
+      expect(typeof tx.abono).toBe('string');
+      expect(typeof tx.fecha).toBe('string');
+      expect(typeof tx.descripcion).toBe('string');
+    }
+
+    createdIngestaIds.push(response.body.ingestaId);
+
+    // La fila realmente quedó PROCESADA en la BD (no solo en la respuesta).
+    const ingesta = await prisma.ingesta.findUnique({
+      where: { id: response.body.ingestaId },
+    });
+    expect(ingesta?.estado).toBe('PROCESADA');
   });
 
-  it('rechaza un archivo .xls con 400', async () => {
+  it('rechaza un archivo .xls con 400 (falla en IngestFile, antes de crear ninguna Ingesta)', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/ingestas')
       .attach('file', xlsFixture)
@@ -57,5 +103,44 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       .expect(400);
 
     expect(response.body.message).toMatch(/archivo/i);
+  });
+
+  it('si falla la escritura atómica en persistencia, retorna 500 con mensaje descriptivo y la Ingesta queda FALLIDA', async () => {
+    // Misma técnica que el int-spec de PR3a: fuerza que la 2da sentencia del
+    // $transaction (ingesta.update) apunte a un id inexistente → P2025 →
+    // rollback de TODO el commit. La llamada real de markFailed (fuera del
+    // $transaction) NO está mockeada, así que sí marca FALLIDA.
+    const realUpdate = prisma.ingesta.update.bind(prisma.ingesta);
+    const spy = jest
+      .spyOn(prisma.ingesta, 'update')
+      .mockImplementationOnce((args) =>
+        realUpdate({
+          where: { id: `inexistente-${Date.now()}` },
+          data: args.data,
+        }),
+      );
+
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/api/ingestas')
+        .attach('file', xlsxFixture)
+        .expect(500);
+
+      // Mensaje fijo y genérico: nunca interpola montos ni datos crudos.
+      expect(response.body.message).toBe(
+        'Persistencia fallida: falló la escritura atómica de transacciones',
+      );
+      expect(response.body.message).not.toMatch(/\d/);
+
+      const fallida = await prisma.ingesta.findFirst({
+        where: { nombreArchivo: 'movimientos.xlsx', estado: 'FALLIDA' },
+        orderBy: { creadoEn: 'desc' },
+      });
+      expect(fallida).not.toBeNull();
+      expect(fallida?.motivoFallo).toBeTruthy();
+      if (fallida) createdIngestaIds.push(fallida.id);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
