@@ -25,7 +25,7 @@ Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en e
     Convenciones de código y commits.md              ← espejo Obsidian de este CLAUDE.md
   01 Análisis de Requisitos/                         ← Casos de Uso, RF/RNF/RES/RN, Reuniones, INDEX
   02 Diseño/
-    ADRs/                                            ← ADR-001 … ADR-013 (subcarpeta)
+    ADRs/                                            ← ADR-001 … ADR-015 (subcarpeta)
     Design Doc · ERD · API Design · Threat Model · Wireframes · INDEX DISEÑO.md
   03 Product Backlog/
     000 INDEX Product Backlog.md
@@ -93,6 +93,8 @@ apps/
 | ADR-011 | Contrato-first: `openapi.json` como fuente única del contrato HTTP |
 | ADR-012 | `@moneydiary/api-client`: cliente HTTP agnóstico de plataforma |
 | ADR-013 | Cifrado de datos en reposo (todo) + a nivel de app en columnas sensibles |
+| ADR-014 | Validación de requisitos: 3 técnicas cualitativas de bajo coste (demos → usabilidad → piloto); métricas de negocio y test A/B diferidas como trabajo futuro |
+| ADR-015 | Verificación de requisitos: verificación por capas con énfasis en dinero (unit) y control de acceso (integración) + criterios ejecutables BDD + peer review con checklist de seguridad + UAT |
 
 ---
 
@@ -214,6 +216,19 @@ pnpm audit                                   # auditoría de seguridad
 > **Fuentes de verdad:** este `CLAUDE.md` es canónico para lo **técnico del repo** (convenciones de código, arquitectura, comandos, seguridad). El **proceso** (Definition of Done, Definition of Ready, ceremonias, ciclo de vida) es canónico en el vault Obsidian bajo `00 Metodología/`. La nota `Convenciones de código y commits.md` del vault es solo un espejo legible: si diverge, manda este archivo.
 >
 > **Proceso (Scrum):** antes de dar una US por terminada, verificar la DoD del vault (capa correcta, tests + `tsc`, sin secretos/cifrado por env, verificación con fixtures reales, Conventional Commits).
+
+---
+
+## Plan de pruebas — verificación y validación (ADR-014, ADR-015)
+
+El plan de pruebas separa **verificación** (*¿lo construimos correctamente?*, ADR-015) de **validación** (*¿construimos el producto correcto?*, ADR-014). Ambas se apoyan en la testabilidad de la Clean Architecture (ADR-005). Al escribir código o tests para una US, aplicar estas reglas de énfasis (el riesgo se concentra en el dinero y en el control de acceso, no en cobertura homogénea):
+
+- **Dinero con tipos exactos, nunca `float`.** Los tests unitarios del dominio cubren explícitamente redondeo, decimales y signo ingreso/gasto del cálculo 50/30/20 (RF-VIS-001/008).
+- **Aislamiento por `user_id` (RNF-SEC-006).** Todo endpoint que devuelve datos de usuario lleva un test de integración que verifica que un usuario no accede a transacciones de otro.
+- **`CryptoService` (ADR-013)** se verifica aislado: cifra/descifra correctamente y la clave vive fuera de la BD.
+- **Peer review con checklist de seguridad fijo** antes de integrar (inyección, gestión de secretos, validación de entrada, no commitear claves — RNF-SEC-005).
+- **BDD / criterios de aceptación ejecutables** dan la trazabilidad requisito → prueba; la cobertura es guía para detectar huecos en lógica crítica, no una meta.
+- **Validación (ADR-014):** demos al cierre de sprint, pruebas de usabilidad (5 usuarios, think-aloud, SUS) y prueba piloto con datos reales en entorno tipo producción (ADR-004). Métricas de negocio y test A/B quedan como trabajo futuro.
 
 ---
 
