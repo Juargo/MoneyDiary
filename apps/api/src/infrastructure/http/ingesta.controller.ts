@@ -10,8 +10,15 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
+import {
+  ProcessIngestaUseCase,
+  ProcessIngestaError,
+} from '../../application/use-cases/process-ingesta.use-case';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
+import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-permitida.error';
+import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
+import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida.error';
+import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { MulterFileReaderAdapter } from './multer-file-reader.adapter';
 import { aIngestaResponseDto } from './dto/ingesta-response.dto';
 import { USER_ID_FIJO } from '../persistence/constants';
@@ -56,18 +63,41 @@ export class IngestaController {
     });
 
     if (result.isFail()) {
-      const error = result.getError();
-      // PersistenciaFallidaError es un fallo de infraestructura (DB) → 500.
-      // El resto son errores de validación del archivo enviado → 400. Ambos
-      // mensajes son seguros: ningún error de este pipeline interpola
-      // montos u otros datos sensibles (ver PersistenciaFallidaError y los
-      // errores de dominio de extensión/banco/estructura/normalización).
-      if (error instanceof PersistenciaFallidaError) {
-        throw new InternalServerErrorException(error.message);
-      }
-      throw new BadRequestException(error.message);
+      throw this.aHttpException(result.getError());
     }
 
     return aIngestaResponseDto(result.getValue());
+  }
+
+  /**
+   * Mapea cada variante de ProcessIngestaError a su HttpException. Explícito
+   * por tipo (no un `instanceof X ? 500 : 400` genérico) con un chequeo de
+   * exhaustividad en tiempo de compilación: si ProcessIngestaError gana una
+   * variante nueva sin mapearla aquí, esta función deja de compilar en vez
+   * de caer silenciosamente a un status equivocado.
+   *
+   * Todos los mensajes son seguros: ningún error de este pipeline interpola
+   * montos u otros datos sensibles (ver PersistenciaFallidaError y los
+   * errores de dominio de extensión/banco/estructura/normalización — sus
+   * mensajes reportan solo fila/columna/campo, nunca el valor crudo).
+   */
+  private aHttpException(
+    error: ProcessIngestaError,
+  ): BadRequestException | InternalServerErrorException {
+    if (error instanceof PersistenciaFallidaError) {
+      // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
+      return new InternalServerErrorException(error.message);
+    }
+    if (
+      error instanceof ExtensionNoPermitidaError ||
+      error instanceof BancoNoReconocidoError ||
+      error instanceof EstructuraInvalidaError ||
+      error instanceof NormalizacionInvalidaError
+    ) {
+      // Errores de validación del archivo enviado por el cliente.
+      return new BadRequestException(error.message);
+    }
+    const exhaustivo: never = error;
+    return exhaustivo;
   }
 }
