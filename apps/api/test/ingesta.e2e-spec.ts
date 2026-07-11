@@ -6,6 +6,8 @@ import { join } from 'path';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
 
+const RUN_ID = `e2e-${Date.now()}`;
+
 /**
  * E2E de POST /api/ingestas contra una BD real de desarrollo (US-011, PR4).
  *
@@ -15,6 +17,10 @@ import { PrismaService } from '../src/infrastructure/persistence/prisma.service'
  * test/integration.setup.ts); `pnpm api test:e2e` ya lo exporta. Cada test
  * limpia sus propias filas (Ingesta/Transaccion) en afterAll — la cuenta
  * (Account) es idempotente por clave natural, no se borra.
+ *
+ * Cada test sube el mismo fixture bajo un NOMBRE ÚNICO por corrida (RUN_ID),
+ * para poder correlacionar su propia Ingesta en la BD compartida sin
+ * ambigüedad (en vez de "la más reciente con este nombre").
  */
 describe('IngestaController (e2e) — POST /api/ingestas', () => {
   let app: INestApplication<App>;
@@ -55,17 +61,23 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   });
 
   it('acepta un archivo .xlsx válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo', async () => {
+    const nombreArchivo = `movimientos-${RUN_ID}-ok.xlsx`;
+
     const response = await request(app.getHttpServer())
       .post('/api/ingestas')
-      .attach('file', xlsxFixture)
+      .attach('file', xlsxFixture, nombreArchivo)
       .expect(200);
+
+    // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
+    // no debe dejar la fila huérfana en la BD compartida de desarrollo.
+    createdIngestaIds.push(response.body.ingestaId);
 
     expect(typeof response.body.ingestaId).toBe('string');
     expect(response.body.ingestaId.length).toBeGreaterThan(0);
     expect(response.body.banco).toBe('BCI');
     expect(response.body.tipoCuenta).toBe('Cuenta Corriente');
     expect(response.body.archivo).toEqual({
-      nombre: 'movimientos.xlsx',
+      nombre: nombreArchivo,
       extension: '.xlsx',
       tamanoBytes: expect.any(Number),
     });
@@ -79,13 +91,37 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       expect(typeof tx.descripcion).toBe('string');
     }
 
-    createdIngestaIds.push(response.body.ingestaId);
-
     // La fila realmente quedó PROCESADA en la BD (no solo en la respuesta).
     const ingesta = await prisma.ingesta.findUnique({
       where: { id: response.body.ingestaId },
     });
     expect(ingesta?.estado).toBe('PROCESADA');
+
+    // Equivalencia con lo REALMENTE persistido (ADR-015, énfasis en dinero):
+    // la respuesta HTTP viene del output de normalize (antes del mapper
+    // BigInt de escritura), así que "no lanzó" no prueba que el dinero haya
+    // llegado intacto a `transaccion`. Comparamos como multiset (no por
+    // posición): createMany + un único `now()` por statement no garantiza
+    // que leer por creadoEn ASC devuelva el mismo orden de inserción.
+    const filas = await prisma.transaccion.findMany({
+      where: { ingestaId: response.body.ingestaId },
+    });
+    expect(filas).toHaveLength(response.body.transacciones.length);
+
+    const canon = (t: { fecha: string; descripcion: string; cargo: string; abono: string }) =>
+      `${t.fecha}|${t.descripcion}|${t.cargo}|${t.abono}`;
+    const enRespuesta = response.body.transacciones.map(canon).sort();
+    const enBd = filas
+      .map((f) =>
+        canon({
+          fecha: f.fecha.toISOString(),
+          descripcion: f.descripcion,
+          cargo: f.cargo.toString(),
+          abono: f.abono.toString(),
+        }),
+      )
+      .sort();
+    expect(enBd).toEqual(enRespuesta);
   });
 
   it('rechaza un archivo .xls con 400 (falla en IngestFile, antes de crear ninguna Ingesta)', async () => {
@@ -106,6 +142,8 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   });
 
   it('si falla la escritura atómica en persistencia, retorna 500 con mensaje descriptivo y la Ingesta queda FALLIDA', async () => {
+    const nombreArchivo = `movimientos-${RUN_ID}-fail.xlsx`;
+
     // Misma técnica que el int-spec de PR3a: fuerza que la 2da sentencia del
     // $transaction (ingesta.update) apunte a un id inexistente → P2025 →
     // rollback de TODO el commit. La llamada real de markFailed (fuera del
@@ -123,22 +161,26 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     try {
       const response = await request(app.getHttpServer())
         .post('/api/ingestas')
-        .attach('file', xlsxFixture)
+        .attach('file', xlsxFixture, nombreArchivo)
         .expect(500);
+
+      // Correlación por nombre de archivo ÚNICO de esta corrida (no por "la
+      // más reciente FALLIDA con ese nombre" — ambiguo en una BD compartida).
+      const fallida = await prisma.ingesta.findFirst({
+        where: { nombreArchivo, estado: 'FALLIDA' },
+      });
+
+      // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
+      // no debe dejar la fila huérfana.
+      if (fallida) createdIngestaIds.push(fallida.id);
 
       // Mensaje fijo y genérico: nunca interpola montos ni datos crudos.
       expect(response.body.message).toBe(
         'Persistencia fallida: falló la escritura atómica de transacciones',
       );
       expect(response.body.message).not.toMatch(/\d/);
-
-      const fallida = await prisma.ingesta.findFirst({
-        where: { nombreArchivo: 'movimientos.xlsx', estado: 'FALLIDA' },
-        orderBy: { creadoEn: 'desc' },
-      });
       expect(fallida).not.toBeNull();
       expect(fallida?.motivoFallo).toBeTruthy();
-      if (fallida) createdIngestaIds.push(fallida.id);
     } finally {
       spy.mockRestore();
     }

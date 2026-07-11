@@ -1,13 +1,20 @@
 import { ProcessIngestaResult } from '../../../application/use-cases/process-ingesta.use-case';
 
 /**
- * TransaccionResponseDto — forma HTTP de una transacción persistida.
+ * TransaccionResponseDto — forma HTTP de una transacción normalizada y ya
+ * persistida.
  *
- * cargo/abono viajan como STRING (nunca number): el dinero se persiste en
- * columnas BigInt (US-011) y JSON no puede serializar BigInt de forma
- * nativa. Formatearlas como string en el mapper de respuesta evita tanto el
- * crash de serialización como la pérdida de precisión, sin necesidad de un
- * monkeypatch global de BigInt.prototype.toJSON (decisión de diseño).
+ * cargo/abono viajan como STRING, aunque en este punto del pipeline
+ * (ProcessIngestaResult.transacciones viene directo de
+ * NormalizeTransactionsUseCase, ANTES del mapper BigInt de persistencia)
+ * todavía son `number`, no BigInt. El dinero SÍ se persiste en columnas
+ * BigInt (US-011) — este DTO adelanta ese mismo contrato string-siempre al
+ * límite HTTP para que el cliente nunca dependa de que un `number` de
+ * dinero quepa en un entero seguro de JS, hoy o si el pipeline cambia a
+ * futuro para leer de vuelta desde la BD. La equivalencia con lo realmente
+ * persistido la prueba el e2e (round-trip contra `prisma.transaccion`), no
+ * este mapper. Formatear en este único punto evita un monkeypatch global de
+ * BigInt.prototype.toJSON (decisión de diseño).
  */
 export interface TransaccionResponseDto {
   fecha: string;
