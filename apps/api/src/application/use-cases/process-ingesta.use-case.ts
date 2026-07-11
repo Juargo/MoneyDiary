@@ -43,11 +43,14 @@ export type ProcessIngestaError =
  *   IngestFile → DetectBank → AccountRepository.ensure
  *     → ValidateStructure → NormalizeTransactions → PersistTransactionsUseCase
  *
- * CLI y HTTP comparten este único pipeline (antes CLI encadenaba manualmente
- * hasta normalizar y HTTP solo llegaba a IngestFile). Cualquier fallo en
- * cualquier paso corta la cadena y retorna Result.fail con un error
- * descriptivo; solo el paso de persistencia puede dejar una Ingesta FALLIDA
- * (los pasos previos no crean fila de Ingesta). NUNCA lanza.
+ * Pensado para que CLI y HTTP compartan este único pipeline (antes CLI
+ * encadenaba manualmente hasta normalizar y HTTP solo llegaba a IngestFile).
+ * Por ahora solo el CLI lo usa; conectar IngestaController a este orquestador
+ * queda para la siguiente porción (PR4). Cualquier fallo en cualquier paso
+ * corta la cadena y retorna Result.fail con un error descriptivo; solo el
+ * paso de persistencia puede dejar una Ingesta FALLIDA (los pasos previos no
+ * crean fila de Ingesta). NUNCA lanza — cualquier excepción de un
+ * colaborador se captura y se traduce a Result.fail.
  */
 export class ProcessIngestaUseCase {
   constructor(
@@ -60,6 +63,26 @@ export class ProcessIngestaUseCase {
   ) {}
 
   async execute(
+    input: ProcessIngestaInput,
+  ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
+    try {
+      return await this.runPipeline(input);
+    } catch (error) {
+      // Defensivo: un colaborador (adapters ExcelJS/Prisma) puede lanzar en
+      // lugar de retornar Result. NUNCA propagamos — el motivo es fijo y
+      // genérico a propósito: el mensaje crudo del error podría contener
+      // datos sensibles (p. ej. un monto leído de una celda). La causa se
+      // conserva aparte, sin interpolarla en el mensaje.
+      return Result.fail(
+        new PersistenciaFallidaError(
+          'fallo inesperado durante el pipeline de ingesta',
+          error instanceof Error ? error : undefined,
+        ),
+      );
+    }
+  }
+
+  private async runPipeline(
     input: ProcessIngestaInput,
   ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
     const ingestResult = this.ingestFileUseCase.execute(input.fileReader);

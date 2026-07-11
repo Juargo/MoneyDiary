@@ -49,8 +49,10 @@ const BANCO: DetectedBank = {
 class FakeBankDetector implements IBankDetector {
   called = false;
   failWith?: BancoNoReconocidoError;
+  throwWith?: Error;
   async detect(): Promise<Result<DetectedBank, BancoNoReconocidoError>> {
     this.called = true;
+    if (this.throwWith) throw this.throwWith;
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(BANCO);
   }
@@ -81,10 +83,11 @@ const TXS: Transaccion[] = [
 class FakeTransactionNormalizer implements ITransactionNormalizer {
   called = false;
   failWith?: NormalizacionInvalidaError;
+  returnEmpty = false;
   async normalize(): Promise<Result<ReadonlyArray<Transaccion>, NormalizacionInvalidaError>> {
     this.called = true;
     if (this.failWith) return Result.fail(this.failWith);
-    return Result.ok(TXS);
+    return Result.ok(this.returnEmpty ? [] : TXS);
   }
 }
 
@@ -272,5 +275,33 @@ describe('ProcessIngestaUseCase', () => {
     const [record] = Array.from(ingestaStore.ingestas.values());
     expect(record.estado).toBe('FALLIDA');
     expect(record.motivoFallo).toBe('base de datos no disponible');
+  });
+
+  it('lista de transacciones vacía: persiste con total 0 y retorna ok', async () => {
+    const { useCase, normalizer, ingestaStore } = buildUseCase();
+    normalizer.returnEmpty = true;
+
+    const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.getValue();
+    expect(value.total).toBe(0);
+    expect(value.transacciones).toEqual([]);
+    expect(ingestaStore.ingestas.get(value.ingestaId)?.estado).toBe('PROCESADA');
+  });
+
+  it('un colaborador lanza en vez de retornar Result: NO propaga, retorna fail descriptivo sin filtrar montos', async () => {
+    const { useCase, bankDetector } = buildUseCase();
+    // Simula una excepción inesperada de infraestructura (ExcelJS/Prisma) cuyo
+    // mensaje podría contener datos sensibles si se propagara tal cual.
+    bankDetector.throwWith = new Error('conexión perdida leyendo la celda con monto 1500000');
+
+    const result = await useCase.execute({ fileReader: new FakeFileReader(), userId: USER_ID });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+    // El mensaje descriptivo NO debe interpolar el mensaje crudo del error
+    // (podría filtrar montos u otros datos sensibles).
+    expect(result.getError().message).not.toContain('1500000');
   });
 });
