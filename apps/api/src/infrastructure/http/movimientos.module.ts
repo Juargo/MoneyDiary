@@ -21,7 +21,6 @@ import { USER_ID_FIJO, USER_ID_FIJO_TOKEN } from '../persistence/constants';
 @Module({
   controllers: [MovimientosController],
   providers: [
-    PrismaService,
     {
       provide: MOVIMIENTOS_MES_READER,
       useFactory: (prisma: PrismaService) => new PrismaMovimientosMesRepository(prisma),
