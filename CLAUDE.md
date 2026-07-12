@@ -104,9 +104,11 @@ apps/
 
 **Hito post-Sprint 1 (2026-06-10):** scaffold frontend completado en rama `feature/frontend-scaffold` — monorepo `apps/api`+`apps/web`, Vite + React 19 + Tailwind 4 + TanStack + Zustand. PR pendiente.
 
-**Sprint 2 (7–18 julio 2026) — EN CURSO.** Cierra el pipeline backend `… → persistir → categorizar → consultar consolidado` para un usuario fijo: US-011 (persistencia), US-012 (categorización 50/30/20) y US-014 (consolidación mensual) + Tarea 0 mono-usuario. Estado detallado y contexto de partida en `04 Sprints/Sprint-2/Sprint-2.md` del vault. Nota: al arrancar, `apps/api/src/infrastructure/persistence/` está vacío y `Transaccion` aún no tiene sus FK — ver el sprint.
+**Sprint 2 (7–18 julio 2026) — CERRADO (11 jul, 23/24 tareas).** Pipeline backend completo `… → persistir → categorizar → consultar consolidado` para un usuario fijo: US-011 (persistencia), US-012 (categorización) y US-014 (consolidación mensual) + Tarea 0 mono-usuario. `apps/api/src/infrastructure/persistence/` ya está poblado (`PrismaService`, repos Prisma, mapper, seed) y `Transaccion` tiene sus FK (`ingestaId`/`accountId` NOT NULL, `bucketId` nullable) + dinero en `BigInt cargo/abono`. Único pendiente: **11.6 cifrado de columna real**, diferido como `NoOpCryptoService` (CA-03 abierto). Detalle en `04 Sprints/Sprint-2/Sprint-2.md` del vault.
 
-**Roadmap MVP (siguiente):** completar Sprint 2 (persistencia + categorización + consolidación) → Sprint 3 UI de visualización (semáforo, detalle de bucket) basada en mockups de Stitch → MVP funcional end-to-end.
+**Sprint 3 (julio 2026) — EN CURSO.** UI de visualización. El **backend de US-015** (distribución 50/30/20, `GET /api/resumen?periodo=YYYY-MM`) y **US-016** (semáforo verde/amarillo/rojo: `estadoSemaforo` por bucket + `estadoGlobal`) **ya está mergeado en `main`** (PRs #22/#23); falta la UI de ambas + US-017 (detalle de bucket). Detalle en `04 Sprints/Sprint-3/Sprint-3.md`.
+
+**Roadmap MVP (siguiente):** completar la UI de Sprint 3 (distribución + semáforo + detalle de bucket) sobre los mockups de Stitch → primer flujo end-to-end con UI → MVP funcional.
 
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
@@ -162,6 +164,41 @@ Pipeline de ingesta queda completo: detectar → validar → normalizar a esquem
 ### ✅ Frontend scaffold (rama `feature/frontend-scaffold`, 2026-06-10)
 
 `apps/web/` con Vite 8 + React 19 + Tailwind 4 + TanStack Router (file-based) + TanStack Query + Zustand. `components.json` y `lib/utils.ts` listos para `npx shadcn@latest add <name>`. `routeTree.gen.ts` se genera con `tsr generate` (en scripts `build` y `typecheck`) y está en `.gitignore`. Dev server tiene proxy `/api → http://localhost:3000`.
+
+### ✅ US-011 — Persistencia de transacciones (mergeado en main, Sprint 2)
+
+- `src/infrastructure/persistence/prisma.service.ts` + `prisma.module.ts` — `@Global` (instancia única; dos `PrismaService` module-scoped rompían el e2e de escritura atómica)
+- `src/application/ports/{ingesta,transaccion,account}-repository.port.ts` — 3 puertos
+- `src/infrastructure/persistence/prisma-{ingesta,transaccion,account}.repository.ts` — adapters
+- `src/infrastructure/persistence/transaccion.mapper.ts` — `number ↔ BigInt` con guardas de overflow (`Number.MAX_SAFE_INTEGER`)
+- `src/application/use-cases/persist-transactions.use-case.ts` — estado `PENDIENTE → PROCESADA/FALLIDA`, `Result`, nunca lanza
+- `src/application/use-cases/process-ingesta.use-case.ts` — orquestador del pipeline; `IngestaModule` es el composition root real (tokens + `useFactory` tipados). Compartido por CLI y HTTP
+- Migraciones: `add_transaccion_relations` (FK breaking) + `add_cargo_abono_check` (`CHECK cargo/abono ≥ 0`, SQL puro — Prisma no modela CHECK)
+- Seguridad: `db-safety.ts` (opt-in `ALLOW_DESTRUCTIVE_DB=1` + rechazo de connection strings de prod); scrub de montos crudos en mensajes de error (también en el boundary HTTP 400)
+- ⏸️ Cifrado de columna diferido: `crypto-service.port.ts` + `no-op-crypto.service.ts` (identidad). CA-03 abierto
+
+### ✅ US-012 — Categorización automática (mergeado en main, Sprint 2)
+
+- `src/domain/value-objects/bucket.ts` — VO `Bucket` (5 valores; subcategoría diferida a US-013)
+- `src/domain/value-objects/patron-clasificacion.ts` — `coincide()` case-insensitive; `CONTAINS`/`STARTS_WITH`/`REGEX` (REGEX en try/catch, nunca lanza)
+- `src/application/ports/catalogo-clasificacion.port.ts` + `src/application/use-cases/categorizar-transaccion.use-case.ts` — regla Ingreso (`abono>0 && cargo===0`) → match por prioridad → fallback `SinCategoria`
+- `src/infrastructure/persistence/prisma-catalogo-clasificacion.repository.ts` + `prisma-transaccion-clasificacion.repository.ts` — lee `PatronClasificacion`/`BucketPresupuesto`; seed idempotente del catálogo chileno
+- Wiring: paso post-persist en `ProcessIngestaUseCase` (isla degradable — si falla, deja filas no-Ingreso en `null`, no `SinCategoria`, para que US-013 las retome). Sin IA (RES-ALC-003)
+
+### ✅ US-014 — Consolidación multi-banco por mes (mergeado en main, Sprint 2)
+
+- `src/domain/value-objects/periodo-mes.ts` — VO `PeriodoMes` (`crear`/`actual`)
+- `src/application/ports/movimientos-mes.port.ts` + `src/application/use-cases/obtener-movimientos-mes.use-case.ts` — thin
+- `src/infrastructure/persistence/prisma-movimientos-mes.repository.ts` — `findMany` con JOIN a `Account`; **aislamiento estructural por `userId`** (`account: { userId }` en el WHERE — RNF-SEC-006)
+- `src/infrastructure/http/movimientos.controller.ts` — `GET /api/movimientos?periodo=YYYY-MM`; DTO BigInt-safe (montos como string); `periodo` ausente → mes en curso, inválido → 400 con scrub. **Lista filtrada, no agrega** (agregación 50/30/20 → US-015)
+
+### ✅ US-015 / US-016 — Resumen 50/30/20 + semáforo (mergeado en main, backend adelantado — Sprint 3)
+
+- `src/domain/value-objects/resumen-mes.ts` — VO `ResumenMes` (`totalIngreso` + 4 slices con `porcentajeBp` en basis points, round-half-up; dinero `BigInt` exacto)
+- `src/domain/value-objects/estado-semaforo.ts` — enum `EstadoSemaforo` (Verde/Amarillo/Rojo); Necesidades ≤50%, Deseos ≤30%, Ahorro banda bidireccional 20–40% (umbrales en bp). `estadoGlobal` = peor estado entre los 3 buckets de gasto
+- `src/application/use-cases/calcular-resumen-mes.use-case.ts` + `src/infrastructure/persistence/prisma-resumen-mes.repository.ts` (aislamiento por `userId`)
+- `src/infrastructure/http/resumen.controller.ts` — `GET /api/resumen?periodo=YYYY-MM`
+- ⬜ Falta la UI (`apps/web` aún no consume `/api/resumen`) → trabajo de Sprint 3
 
 ---
 

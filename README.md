@@ -1,98 +1,93 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# MoneyDiary
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+App de finanzas personales para consolidar y analizar movimientos bancarios chilenos (Banco de Chile, BancoEstado, BCI, Santander) importados desde archivos `.xlsx`. Clasifica el gasto con el método **50/30/20** (Necesidades / Deseos / Ahorro) y responde de un vistazo *"¿estoy bien este mes?"* mediante un semáforo verde/amarillo/rojo.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Es también un ejercicio de ingeniería de software aplicada: Clean Architecture, TDD, ADRs y Scrum. La documentación de proceso (ADRs, User Stories, sprints) vive en un vault de Obsidian; la documentación técnica canónica del repo está en **[CLAUDE.md](./CLAUDE.md)**.
 
-## Description
+## Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Backend** (`apps/api`): NestJS v11 · TypeScript strict · Prisma 7 · PostgreSQL (Supabase) · ExcelJS
+- **Frontend** (`apps/web`): React 19 · Vite 8 · Tailwind 4 · shadcn/ui · TanStack Query/Router · Zustand
+- **Monorepo**: pnpm v11 workspaces · Node.js 22+
 
-## Project setup
+## Estructura
 
-```bash
-$ pnpm install
+```
+apps/
+  api/   Backend NestJS — Clean Architecture (domain ← application ← infrastructure)
+  web/   Frontend React (SPA)
 ```
 
-## Compile and run the project
+El backend sigue Clean Architecture con manejo de errores vía `Result<T,E>` (nunca excepciones en domain/application). Detalle de arquitectura, ADRs y convenciones en [CLAUDE.md](./CLAUDE.md); modo mono-usuario y seguridad de BD en [apps/api/README.md](./apps/api/README.md).
 
-```bash
-# development
-$ pnpm run start
+## Estado del proyecto (julio 2026)
 
-# watch mode
-$ pnpm run start:dev
+Pipeline backend completo y verificado end-to-end en `main`:
 
-# production mode
-$ pnpm run start:prod
+```
+cargar → detectar banco → validar estructura → normalizar → persistir → categorizar → consolidar por mes → resumen 50/30/20 + semáforo
 ```
 
-## Run tests
+- **Sprint 1** ✅ — parseo XLSX (detección, validación, normalización) de los 4 bancos.
+- **Sprint 2** ✅ — persistencia (US-011), categorización automática sin IA (US-012) y consolidación mensual (US-014). Único pendiente: cifrado de columna real (diferido como `NoOpCryptoService`).
+- **Sprint 3** 🟡 en curso — **UI de visualización**. El backend de la distribución 50/30/20 (US-015) y del semáforo (US-016) ya está en `main`; falta consumirlo desde `apps/web` + el detalle de bucket (US-017).
+
+### Endpoints principales
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/ingestas` | Sube un `.xlsx` y ejecuta el pipeline de ingesta |
+| `GET`  | `/api/movimientos?periodo=YYYY-MM` | Movimientos consolidados del mes (multi-banco) |
+| `GET`  | `/api/resumen?periodo=YYYY-MM` | Distribución 50/30/20 + semáforo por bucket |
+
+> `periodo` ausente → mes en curso; inválido → 400. Montos serializados como string (dinero en `BigInt` para precisión exacta en CLP).
+
+## Puesta en marcha
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm install                             # instala todos los workspaces
+# Crea apps/api/.env con DATABASE_URL (Postgres/Supabase); DIRECT_URL es opcional
+pnpm api exec prisma migrate dev         # aplica migraciones
+ALLOW_DESTRUCTIVE_DB=1 pnpm api exec prisma db seed   # usuario/cuenta fijos (mono-usuario)
 ```
 
-## Deployment
+> El seed está declarado en `apps/api/prisma.config.ts` (Prisma 7: `seed: 'ts-node prisma/seed.ts'`), no en `package.json`.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Comandos frecuentes
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+La raíz expone shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...` (ídem `pnpm web`).
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# Backend
+pnpm api start:dev                        # NestJS en :3000 (watch)
+pnpm api test                             # unit (sin BD)
+pnpm api test:integration                 # integración contra BD real de dev
+pnpm api test:e2e                         # e2e HTTP contra BD real de dev
+pnpm api exec tsc --noEmit                # typecheck
+pnpm api cli -- ./test/fixtures/movimientos.xlsx   # pipeline por CLI
+
+# Frontend
+pnpm web dev                              # Vite en :5173 (proxy /api → :3000)
+pnpm web build
+
+# Workspace completo
+pnpm test
+pnpm build
+pnpm audit                                # auditoría de seguridad
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Seguridad
 
-## Resources
+Seguridad es un foco explícito del proyecto:
 
-Check out a few resources that may come in handy when working with NestJS:
+- **pnpm por defecto seguro**: `minimum-release-age`, `audit-level=high`, `block-exotic-subdeps` (ver ADR-006).
+- **Dinero exacto**: columnas `BigInt cargo/abono` con `CHECK ≥ 0` a nivel de BD; nunca `float`.
+- **Aislamiento por usuario** (RNF-SEC-006): todo endpoint filtra estructuralmente por `userId` (`account: { userId }` en el WHERE).
+- **Operaciones destructivas de BD** requieren opt-in `ALLOW_DESTRUCTIVE_DB=1` y rechazan connection strings de producción.
+- **Sin fuga de datos sensibles**: los montos crudos se *scrubbean* de los mensajes de error, también en el boundary HTTP.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Documentación
 
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **[CLAUDE.md](./CLAUDE.md)** — arquitectura, ADRs, convenciones, comandos y estado detallado (canónico para lo técnico del repo).
+- **[apps/api/README.md](./apps/api/README.md)** — modo mono-usuario y seguridad de base de datos.
+- **Vault Obsidian** — proceso (Definition of Done, sprints, User Stories, casos de uso, threat model).
