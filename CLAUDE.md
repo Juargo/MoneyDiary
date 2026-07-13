@@ -25,7 +25,7 @@ Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en e
     Convenciones de código y commits.md              ← espejo Obsidian de este CLAUDE.md
   01 Análisis de Requisitos/                         ← Casos de Uso, RF/RNF/RES/RN, Reuniones, INDEX
   02 Diseño/
-    ADRs/                                            ← ADR-001 … ADR-018 (subcarpeta)
+    ADRs/                                            ← ADR-001 … ADR-021 (subcarpeta)
     Design Doc · ERD · API Design · Threat Model · Wireframes · INDEX DISEÑO.md
   03 Product Backlog/
     000 INDEX Product Backlog.md
@@ -98,6 +98,9 @@ apps/
 | ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend transpila con SWC (`unplugin-swc` + `oxc:false`) por la metadata de decoradores de Nest; front usa jsdom + Testing Library |
 | ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — post-MVP. Esqueleto en `apps/mobile/` (excluido del workspace hasta scaffoldear la app real) |
 | ADR-018 | Testing accesibilidad + UX: a11y por capas — web (eslint-jsx-a11y + vitest-axe + @axe-core/playwright), mobile (eslint-rn-a11y + rn-accessibility-engine + VoiceOver/TalkBack, post-MVP); WCAG 2.2 AA; UX validada vía ADR-014 |
+| ADR-019 | Tracking y monitoring: 🔵 EN DISCUSIÓN (decisión final diferida). Propuesta: SDKs de Sentry (backend/web/mobile) → GlitchTip (cloud free → self-host cuando el volumen/privacidad lo exija). Highlight descartado (deprecado feb 2026). PII/financial scrubbing obligatorio en `beforeSend` (ADR-013). Session replay/tracing profundo diferido |
+| ADR-020 | Git hooks (monorepo): Husky + lint-staged + commitlint, instalados **solo en la raíz** (instalarlos en `apps/*` los deja sin efecto). `pre-commit` → lint-staged (ESLint --fix + Prettier + typecheck del workspace tocado, routing por glob); `commit-msg` → commitlint (Conventional Commits); `pre-push` → tests de workspaces afectados. **Los hooks son conveniencia, NO enforcement (`--no-verify` los salta): CI debe re-correr las mismas checks.** Lefthook evaluado y diferido (stack all-Node) |
+| ADR-021 | Análisis de seguridad automatizado en el pipeline (GitHub Actions, OSS/gratis): **SCA** (Dependabot + `pnpm audit --audit-level=high` gate + Socket.dev supply-chain) · **DAST** (OWASP ZAP API scan + Schemathesis dirigidos por `openapi.json`, contra entorno efímero — **nunca Supabase real**) · **SAST** (Semgrep; CodeQL si repo público/GHAS) · **secretos** (gitleaks en pre-commit + CI). Bloquean high/critical + secretos; el resto advierte. BOLA/IDOR (aislamiento user_id) NO lo cubre DAST → tests de integración (ADR-015) |
 
 ---
 
