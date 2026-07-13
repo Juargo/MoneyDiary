@@ -1,0 +1,28 @@
+{
+  "name": "@moneydiary/mobile",
+  "private": true,
+  "version": "0.0.1",
+  "description": "MoneyDiary mobile (post-MVP) — React Native + Expo (ADR-010). Testing: Jest (jest-expo) + React Native Testing Library + Maestro (ADR-017). Esqueleto: aún NO forma parte del pnpm workspace.",
+  "main": "expo-router/entry",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "e2e": "maestro test .maestro/"
+  },
+  "dependencies": {
+    "expo": "~57.0.4",
+    "expo-router": "*",
+    "react": "19.2.0",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^30.0.0",
+    "babel-preset-expo": "*",
+    "jest": "^30.0.0",
+    "jest-expo": "^57.0.1",
+    "react-test-renderer": "19.2.0",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,16 @@
+# Flujo E2E (Maestro · ADR-017) — Resumen 50/30/20 con semáforo.
+#
+# Camino crítico: el usuario ve la distribución mensual (US-015) y el estado
+# del semáforo verde/amarillo/rojo por bucket (US-016).
+appId: cl.moneydiary.app
+---
+- launchApp
+- runFlow: login.yaml
+- tapOn: "Resumen"
+- assertVisible: "Distribución 50/30/20"
+- assertVisible: "Necesidades"
+- assertVisible: "Deseos"
+- assertVisible: "Ahorro"
+# El indicador de estado global del semáforo debe estar presente.
+- assertVisible:
+    id: "semaforo-global"

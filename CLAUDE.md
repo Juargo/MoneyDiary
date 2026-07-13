@@ -96,7 +96,7 @@ apps/
 | ADR-014 | Validación de requisitos: 3 técnicas cualitativas de bajo coste (demos → usabilidad → piloto); métricas de negocio y test A/B diferidas como trabajo futuro |
 | ADR-015 | Verificación de requisitos: verificación por capas con énfasis en dinero (unit) y control de acceso (integración) + criterios ejecutables BDD + peer review con checklist de seguridad + UAT |
 | ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend transpila con SWC (`unplugin-swc` + `oxc:false`) por la metadata de decoradores de Nest; front usa jsdom + Testing Library |
-| ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — post-MVP |
+| ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — post-MVP. Esqueleto en `apps/mobile/` (excluido del workspace hasta scaffoldear la app real) |
 
 ---
 
