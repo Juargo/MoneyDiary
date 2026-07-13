@@ -25,7 +25,7 @@ Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en e
     Convenciones de código y commits.md              ← espejo Obsidian de este CLAUDE.md
   01 Análisis de Requisitos/                         ← Casos de Uso, RF/RNF/RES/RN, Reuniones, INDEX
   02 Diseño/
-    ADRs/                                            ← ADR-001 … ADR-015 (subcarpeta)
+    ADRs/                                            ← ADR-001 … ADR-017 (subcarpeta)
     Design Doc · ERD · API Design · Threat Model · Wireframes · INDEX DISEÑO.md
   03 Product Backlog/
     000 INDEX Product Backlog.md
@@ -95,6 +95,8 @@ apps/
 | ADR-013 | Cifrado de datos en reposo (todo) + a nivel de app en columnas sensibles |
 | ADR-014 | Validación de requisitos: 3 técnicas cualitativas de bajo coste (demos → usabilidad → piloto); métricas de negocio y test A/B diferidas como trabajo futuro |
 | ADR-015 | Verificación de requisitos: verificación por capas con énfasis en dinero (unit) y control de acceso (integración) + criterios ejecutables BDD + peer review con checklist de seguridad + UAT |
+| ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend transpila con SWC (`unplugin-swc` + `oxc:false`) por la metadata de decoradores de Nest; front usa jsdom + Testing Library |
+| ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — post-MVP |
 
 ---
 
@@ -221,8 +223,10 @@ La raíz tiene shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...`
 
 ```bash
 # Backend
-pnpm api test                                # jest
-pnpm api test:watch
+pnpm api test                                # vitest run (ADR-016; SWC para metadata de decoradores de Nest)
+pnpm api test:watch                          # vitest (watch)
+pnpm api test:e2e                            # vitest e2e — muta BD real, gate ALLOW_DESTRUCTIVE_DB=1
+pnpm api test:integration                    # vitest integración — mismo gate
 pnpm api cli -- ./test/fixtures/movimientos.xlsx
 pnpm api start:dev                           # NestJS watch
 pnpm api exec tsc --noEmit                   # TypeScript check
@@ -230,6 +234,7 @@ pnpm api exec prisma migrate dev             # migraciones
 
 # Frontend
 pnpm web dev                                 # Vite en :5173 con proxy /api → :3000
+pnpm web test                                # vitest run (jsdom + Testing Library, ADR-016)
 pnpm web build                               # tsr generate + tsc + vite build
 pnpm web typecheck                           # tsr generate + tsc -b
 

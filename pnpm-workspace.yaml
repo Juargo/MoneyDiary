@@ -4,6 +4,7 @@ packages:
 allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': true
+  '@swc/core': true
   prisma: true
   unrs-resolver: true
 
