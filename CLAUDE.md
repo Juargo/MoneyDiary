@@ -25,7 +25,7 @@ Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en e
     Convenciones de código y commits.md              ← espejo Obsidian de este CLAUDE.md
   01 Análisis de Requisitos/                         ← Casos de Uso, RF/RNF/RES/RN, Reuniones, INDEX
   02 Diseño/
-    ADRs/                                            ← ADR-001 … ADR-017 (subcarpeta)
+    ADRs/                                            ← ADR-001 … ADR-018 (subcarpeta)
     Design Doc · ERD · API Design · Threat Model · Wireframes · INDEX DISEÑO.md
   03 Product Backlog/
     000 INDEX Product Backlog.md
@@ -97,6 +97,7 @@ apps/
 | ADR-015 | Verificación de requisitos: verificación por capas con énfasis en dinero (unit) y control de acceso (integración) + criterios ejecutables BDD + peer review con checklist de seguridad + UAT |
 | ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend transpila con SWC (`unplugin-swc` + `oxc:false`) por la metadata de decoradores de Nest; front usa jsdom + Testing Library |
 | ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — post-MVP. Esqueleto en `apps/mobile/` (excluido del workspace hasta scaffoldear la app real) |
+| ADR-018 | Testing accesibilidad + UX: a11y por capas — web (eslint-jsx-a11y + vitest-axe + @axe-core/playwright), mobile (eslint-rn-a11y + rn-accessibility-engine + VoiceOver/TalkBack, post-MVP); WCAG 2.2 AA; UX validada vía ADR-014 |
 
 ---
 
