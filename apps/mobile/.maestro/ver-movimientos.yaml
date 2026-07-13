@@ -1,0 +1,14 @@
+# Flujo E2E (Maestro · ADR-017) — Ver movimientos del mes.
+#
+# Camino crítico: el usuario abre la lista consolidada de movimientos del mes
+# en curso (US-014). Requiere una sesión ya iniciada (correr login.yaml antes,
+# o encadenar con runFlow).
+appId: cl.moneydiary.app
+---
+- launchApp
+- runFlow: login.yaml
+- tapOn: "Movimientos"
+- assertVisible: "Movimientos del mes"
+# Al menos una fila de movimiento debe estar visible.
+- assertVisible:
+    id: "movimiento-row"
