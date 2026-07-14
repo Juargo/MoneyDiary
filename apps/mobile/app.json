@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "MoneyDiary",
+    "slug": "moneydiary",
+    "scheme": "moneydiary",
+    "version": "0.0.1",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "cl.moneydiary.app"
+    },
+    "android": {
+      "package": "cl.moneydiary.app"
+    },
+    "plugins": ["expo-router"]
+  }
+}
