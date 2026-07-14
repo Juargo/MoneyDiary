@@ -86,25 +86,25 @@ Implementation checklist for the read-only Expo MVP + Render deploy. Confirms th
 
 ### Domain layer (test-first — pure, jest-expo, no RN import)
 
-- [ ] **T3.1 — Rewrite `formatear-monto.spec.ts` for the string signature, RED first** (MOB-05)
-  Replace the seeded `number`-signature spec with the string-signature contract. Cover all 5 scenarios from spec: `"1234567"` → `"$1.234.567"`; `"9007199254740993"` (> 2^53) → every digit preserved exactly; `"0"` → `"$0"`; `"-5000"` → `"-$5.000"`; and a throw case for non-integer input (`"10.5"`, `"abc"`, `""`). This is expected TDD churn from the design (D-flagged), not a regression — confirm the old `number`-based tests are fully replaced, not left alongside.
+- [x] **T3.1 — Rewrite `formatear-monto.spec.ts` for the string signature, RED first** (MOB-05)
+  Done. Old `number`-signature spec fully replaced (not left alongside) with the string contract: `"1234567"` → `"$1.234.567"`; `"9007199254740993"` (> 2^53) exact; `"0"` → `"$0"`; `"-5000"` → `"-$5.000"`; throws for `"10.5"`, `"abc"`, `""`. Confirmed RED (old `number` impl still in place) before implementing.
 
-- [ ] **T3.2 — Reimplement `formatearMontoCLP(montoStr: string): string`, GREEN** (MOB-05)
-  `BigInt(montoStr)` (throws on non-integer/decimal/garbage), derive sign, take absolute value's digit string via `.toString()`, group thousands with `.` via regex (`\B(?=(\d{3})+(?!\d))`), prefix `$`. Never `parseFloat`/`Number()` on the amount (ADR-015). Run T3.1 to green.
+- [x] **T3.2 — Reimplement `formatearMontoCLP(montoStr: string): string`, GREEN** (MOB-05)
+  Done via `BigInt(montoStr)`. **Gotcha found in TDD**: `BigInt('')` resolves to `0n` instead of throwing — added an explicit empty-string guard so the `""` throw scenario holds. No `parseFloat`/`Number()` on the amount anywhere.
 
-- [ ] **T3.3 — Write `resumen-view-model.spec.ts`, RED first** (MOB-06, spec scenarios for null vs 0% and `sinIngreso`)
-  Cover: `porcentajeBp: null` maps to a distinct non-percentage label (not `"0%"`); `porcentajeBp: 0` maps to `"0%"`; `sinIngreso: true` maps to an empty-state flag distinct from a `$0` data render; `estadoSemaforo` (`'verde'|'amarillo'|'rojo'|null`) maps to a per-bucket visual indicator value; `estadoGlobal` maps through to the global semáforo value.
+- [x] **T3.3 — Write `resumen-view-model.spec.ts`, RED first** (MOB-06, spec scenarios for null vs 0% and `sinIngreso`)
+  Done. 9 cases covering: `porcentajeBp: null` → distinct label (not `"0%"`); `porcentajeBp: 0` → `"0%"`; `sinIngreso: true` → flag distinct from `$0` render; `estadoSemaforo` per bucket (incl. `null`); `estadoGlobal` propagation (incl. `null`). Confirmed RED (module not found) before implementing.
 
-- [ ] **T3.4 — Implement `resumen-view-model.ts` (`ResumenMesDto -> ResumenViewModel`), GREEN**
-  Pure mapping function. Formats CLP via T3.2's formatter, resolves percentage-or-null labels, resolves per-bucket + global semáforo colors/labels. No RN import, no fetch. Run T3.3 to green. Also define `resumen.types.ts` (hand-written mirror of the backend DTO: `periodo, totalIngreso(string), sinIngreso(bool), buckets[{bucket,total(string),porcentajeBp(number|null),estadoSemaforo(string|null)}], targets{Necesidades,Deseos,Ahorro}, estadoGlobal(string|null)`).
+- [x] **T3.4 — Implement `resumen-view-model.ts` (`ResumenMesDto -> ResumenViewModel`), GREEN**
+  Done. `aResumenViewModel` is pure (no RN import, no fetch), reuses `formatearMontoCLP`, and maps `porcentajeBp` via `SIN_PORCENTAJE_LABEL` ("—") for `null` vs `bp/100 + "%"` for real values. `resumen.types.ts` added as the hand-written DTO mirror with the exact shape specified.
 
 ### API boundary (test-first)
 
-- [ ] **T3.5 — Write `client.spec.ts` for the 4 mapped outcomes, RED first** (MOB-01, MOB-02)
-  Cover: request includes `GET {base}/api/resumen?periodo=YYYY-MM` with `x-api-key` header equal to `EXPO_PUBLIC_API_KEY` (MOB-01); `fetch` throws → `{tag:'network'}`; `res.status===401` → `{tag:'unauthorized'}`; other `!res.ok` → `{tag:'http', status}`; `res.ok` but body fails a shape guard → `{tag:'parse'}`; happy path → `{ok:true, value}`. Mock `fetch` and `EXPO_PUBLIC_*` env vars in the test.
+- [x] **T3.5 — Write `client.spec.ts` for the 4 mapped outcomes, RED first** (MOB-01, MOB-02)
+  Done — 8 cases: header/URL (MOB-01); `fetch` throw → `network`; `401` → `unauthorized`; other `!res.ok` → `{http,status}`; malformed 2xx body (shape-guard fail and `json()` throw) → `parse`; happy path → `{ok:true,value}`; missing base URL → `network` without calling `fetch`. **Gotcha**: dynamic `await import('./client')` fails under this Babel/CJS jest setup (`--experimental-vm-modules` not enabled) — switched to `jest.requireActual('./client')` + `jest.resetModules()` per test so each test's `EXPO_PUBLIC_*` env is picked up by `config.ts` at module-load time. Confirmed RED (module not found) before implementing.
 
-- [ ] **T3.6 — Implement `src/api/client.ts` (`fetchResumen`) and finalize `src/api/config.ts`, GREEN** (MOB-01, MOB-02)
-  `fetchResumen(periodo?: string): Promise<ApiResult<ResumenMesDto>>` per the mapping rules in design B.3. `config.ts` reads `EXPO_PUBLIC_API_BASE_URL`/`EXPO_PUBLIC_API_KEY` once; missing base URL → `{tag:'network'}` (fail-visible, not a crash — no fetch to `undefined/...`). Run T3.5 to green.
+- [x] **T3.6 — Implement `src/api/client.ts` (`fetchResumen`) and finalize `src/api/config.ts`, GREEN** (MOB-01, MOB-02)
+  Done. `fetchResumen(periodo?): Promise<ApiResult<ResumenMesDto>>` implements the exact mapping order from design B.3 (network → unauthorized → http → parse → ok), with a light shape guard (`typeof totalIngreso==='string' && Array.isArray(buckets)`). `config.ts` treats an empty/missing `EXPO_PUBLIC_API_BASE_URL` as `undefined`, so the client short-circuits to `{tag:'network'}` before ever calling `fetch`.
 
 ### Presentational components + screen (test-first, RNTL)
 
