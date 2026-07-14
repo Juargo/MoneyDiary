@@ -1,12 +1,15 @@
 # Flujo E2E (Maestro · ADR-017) — Resumen 50/30/20 con semáforo.
 #
 # Camino crítico: el usuario ve la distribución mensual (US-015) y el estado
-# del semáforo verde/amarillo/rojo por bucket (US-016).
+# del semáforo verde/amarillo/rojo por bucket (US-016). Una sola pantalla,
+# sin login ni navegación — `runFlow: login.yaml` y `tapOn: "Resumen"` eran
+# pasos muertos y se removieron en PR 2 (T2 scaffold, sprint3-mvp-mobile).
+# Las assertions de abajo solo pasan una vez que PR 3 (feature) implemente
+# el estado "data" real; hasta entonces este flujo se mantiene documentado
+# pero no se ejecuta contra el placeholder de PR 2.
 appId: cl.moneydiary.app
 ---
 - launchApp
-- runFlow: login.yaml
-- tapOn: "Resumen"
 - assertVisible: "Distribución 50/30/20"
 - assertVisible: "Necesidades"
 - assertVisible: "Deseos"

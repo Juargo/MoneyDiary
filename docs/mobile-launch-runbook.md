@@ -59,7 +59,8 @@ que conviene arrancarlos **ya**, aunque la app aún no esté lista.
       cuenta puede tardar de horas a días — es el primer cuello de botella.
 - [ ] Decidir tipo: **individual** (más rápido) vs **organización** (requiere
       número D-U-N-S, más lento).
-- [ ] Crear el **Bundle ID** (ej: `com.jorgeretamal.moneydiary`).
+- [ ] Crear el **Bundle ID**: `cl.moneydiary.app` (canónico — coincide con
+      `app.json` y los flujos Maestro, T2.3/T2.4, sprint3-mvp-mobile).
 - [ ] Preparar **App Privacy labels** (obligatorio, más estricto por ser
       finanzas): qué datos recolecta, si se enlazan al usuario, etc.
 - [ ] Distribución interna vía **TestFlight** primero (no requiere revisión
