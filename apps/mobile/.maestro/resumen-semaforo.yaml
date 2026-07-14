@@ -4,9 +4,12 @@
 # del semáforo verde/amarillo/rojo por bucket (US-016). Una sola pantalla,
 # sin login ni navegación — `runFlow: login.yaml` y `tapOn: "Resumen"` eran
 # pasos muertos y se removieron en PR 2 (T2 scaffold, sprint3-mvp-mobile).
-# Las assertions de abajo solo pasan una vez que PR 3 (feature) implemente
-# el estado "data" real; hasta entonces este flujo se mantiene documentado
-# pero no se ejecuta contra el placeholder de PR 2.
+#
+# Flujo autocontenido (T3.12, sprint3-mvp-mobile): `launchApp` renderiza la
+# única ruta (`app/index.tsx`), que hace fetch y muestra el estado "data"
+# real implementado en PR 3b. Las assertions anclan en el texto/testID que
+# renderiza `ResumenScreen`. Requiere un dev build apuntando a la API real
+# (`EXPO_PUBLIC_*`) con ingresos en el período — device-gated, no CI (T3.13).
 appId: cl.moneydiary.app
 ---
 - launchApp
