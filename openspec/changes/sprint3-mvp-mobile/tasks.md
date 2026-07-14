@@ -108,28 +108,28 @@ Implementation checklist for the read-only Expo MVP + Render deploy. Confirms th
 
 ### Presentational components + screen (test-first, RNTL)
 
-- [ ] **T3.7 — Write RNTL specs for `SemaforoBadge`, `BucketRow`, and the 3 state components, RED first** (MOB-03, MOB-06)
-  `SemaforoBadge.spec.tsx`: renders the right color/label per `estadoSemaforo` value including `null`. `BucketRow.spec.tsx`: renders CLP amount + percentage-or-null per MOB-06 (null !== "0%"). `states/{Loading,Error,Empty}.spec.tsx`: each renders its distinct copy; `Error` differs subtly by `ApiError` tag. Use RNTL built-in matchers via `@testing-library/react-native/extend-expect` — do NOT add `@testing-library/jest-native` (deprecated, ADR-017).
+- [x] **T3.7 — Write RNTL specs for `SemaforoBadge`, `BucketRow`, and the 3 state components, RED first** (MOB-03, MOB-06)
+  Done (RED confirmed — 4 suites "Cannot find module" before impl). `SemaforoBadge.spec.tsx`: label per `estadoSemaforo` incl. `null` → "Sin datos". `BucketRow.spec.tsx`: renders formatted total + percentage-or-null label; asserts `null` sentinel `"—"` is NOT `"0%"` and a true `"0%"` is distinct. `states/{Loading,Empty,Error}.spec.tsx`: each renders distinct copy; `ErrorState` copy varies by `ApiError` tag (network/unauthorized/parse/http-status) and always exposes a "Reintentar" affordance (fireEvent.press → onRetry). Built-in RNTL matchers (no `@testing-library/jest-native`, ADR-017); `render()` awaited (RNTL v14 async default).
 
-- [ ] **T3.8 — Implement `SemaforoBadge.tsx`, `BucketRow.tsx`, `states/{Loading,Error,Empty}.tsx`, GREEN** (MOB-03, MOB-06)
-  Props-in/JSX-out, no fetch, no env. Run T3.7 to green.
+- [x] **T3.8 — Implement `SemaforoBadge.tsx`, `BucketRow.tsx`, `states/{Loading,Error,Empty}.tsx`, GREEN** (MOB-03, MOB-06)
+  Done — 10/10 green. Props-in/JSX-out, no fetch, no env, no money math (consume the view-model's already-formatted strings). `states/Error.tsx` exports `ErrorState` (avoids shadowing the global `Error`).
 
-- [ ] **T3.9 — Write `ResumenScreen.spec.tsx` + `app/index.spec.tsx` for the 4-way state switch, RED first** (MOB-03, MOB-04)
-  Assert: loading state shows spinner, no bucket/error copy; empty state (`sinIngreso:true`) shows distinct empty copy, not `$0`; error state shows retry affordance and copy varies by tag; data state renders `totalIngreso` as CLP, all 4 buckets (Necesidades, Deseos, Ahorro, SinCategoria) with total/percentage/semáforo, and the Maestro anchors: literal text `"Distribución 50/30/20"`, bucket labels `"Necesidades"/"Deseos"/"Ahorro"`, and a view with `testID="semaforo-global"`.
+- [x] **T3.9 — Write `ResumenScreen.spec.tsx` + `app/index.spec.tsx` for the 4-way state switch, RED first** (MOB-03, MOB-04)
+  Done (RED confirmed for both — ResumenScreen "module not found"; index.spec failed against the PR 2 placeholder). Assertions cover: loading (spinner + no bucket/error copy), empty (`sinIngreso:true` → distinct copy, not `$0`/`Distribución`), error (retry affordance), data (`totalIngreso` as CLP, all 4 buckets incl. `SinCategoria`, `testID="semaforo-global"`, heading `"Distribución 50/30/20"`). `fetchResumen` mocked at the module boundary in `app/index.spec.tsx`; a deferred promise makes the loading state observable; `waitFor` drives the async transitions.
 
-- [ ] **T3.10 — Implement `ResumenScreen.tsx` composition + wire the 4-state switch in `app/index.tsx`, GREEN** (MOB-03, MOB-04)
-  `index.tsx` stays thin: calls `fetchResumen`, owns the `{loading|error|empty|data}` switch via `useEffect`/`useState` (no TanStack Query — D2), renders the right presentational component. No money math in the screen. Run T3.9 to green.
+- [x] **T3.10 — Implement `ResumenScreen.tsx` composition + wire the 4-state switch in `app/index.tsx`, GREEN** (MOB-03, MOB-04)
+  Done — 48/48 green. `app/index.tsx` is thin: `useCallback` fetch via `fetchResumen` + `useState`/`useEffect` (no TanStack Query — D2), `{loading|error|empty|data}` switch. Empty is treated as a *data* outcome (200 + `sinIngreso`), decided after a successful fetch, not a failure. All money formatting delegated to `aResumenViewModel` — no math in the screen. `SafeAreaView` wrapper. Note: jest-expo emits a benign "environment not configured to support act(...)" console warning under React 19 + react-test-renderer; assertions are deterministic via `waitFor`, all suites pass — env-config quirk, not a test defect.
 
 ### Maestro cleanup (device-gated, not CI — manual verification)
 
-- [ ] **T3.11 — Delete `apps/mobile/.maestro/login.yaml`** (MOB-07)
-  Remove the file entirely — asserts a login/nav flow that doesn't exist in single-screen scope.
+- [x] **T3.11 — Delete `apps/mobile/.maestro/login.yaml`** (MOB-07)
+  Already deleted (pulled forward into PR 2's Maestro cleanup). Verified absent in `.maestro/` — no action needed this PR.
 
-- [ ] **T3.12 — Rewrite `resumen-semaforo.yaml` to be self-contained** (MOB-04, MOB-07)
-  Remove `- runFlow: login.yaml` and `- tapOn: "Resumen"` (both dead — no login, no nav, one screen renders on launch). Replace with `launchApp` → `assertVisible` for each Maestro anchor: `"Distribución 50/30/20"`, `"Necesidades"`, `"Deseos"`, `"Ahorro"`, and the `semaforo-global` testID. Confirm the `appId` in this file matches the bundle id chosen in T2.3. Leave `ver-movimientos.yaml` untouched (unrelated, out of scope — do not let this change depend on it).
+- [x] **T3.12 — Rewrite `resumen-semaforo.yaml` to be self-contained** (MOB-04, MOB-07)
+  Done. The dead `runFlow: login.yaml` / `tapOn: "Resumen"` steps were already stripped in PR 2, leaving a `launchApp` → `assertVisible` flow anchoring on `"Distribución 50/30/20"`, `"Necesidades"`, `"Deseos"`, `"Ahorro"`, and `id: semaforo-global` — exactly the text/testIDs `ResumenScreen` now renders. This PR refreshed the header to reflect that PR 3b implements the real data state the assertions target. `appId: cl.moneydiary.app` matches `app.json` (T2.3). `ver-movimientos.yaml` left untouched (out of scope — future movimientos screen; still references the deleted `login.yaml`, tracked as unrelated dead flow).
 
-- [ ] **T3.13 — Manual Maestro run on a device/emulator (not CI, exit-gate for PR 3)**
-  Build a dev client (`npx expo run:ios` or `run:android`) pointed at the deployed Render API (PR 1) with real `EXPO_PUBLIC_*` env values, run `maestro test .maestro/resumen-semaforo.yaml`, confirm all assertions pass. Record the result as PR 3's manual acceptance evidence.
+- [ ] **T3.13 — Manual Maestro run on a device/emulator (not CI, exit-gate for PR 3)** — MANUAL FOLLOW-UP, not run in this session
+  Device-gated exit gate; cannot run in the CI/sandbox. Build a dev client (`npx expo run:ios` or `run:android`) pointed at the deployed Render API (PR 1) with real `EXPO_PUBLIC_*` env values, run `maestro test .maestro/resumen-semaforo.yaml`, confirm all assertions pass, and record the result as PR 3's manual acceptance evidence before merge.
 
 **PR 3 review budget estimate:** formatter rewrite + spec (~60 lines) + view-model + types + spec (~90 lines) + client + config + spec (~90 lines) + 5 components + specs (~150 lines) + screen wiring + spec (~80 lines) + Maestro yaml rewrite + deletion (~20 lines net) ≈ **~490 lines**. This is the largest slice and the reason chaining is recommended (see forecast below).
 
