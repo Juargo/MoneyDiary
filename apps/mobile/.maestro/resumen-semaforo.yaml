@@ -13,7 +13,12 @@
 appId: cl.moneydiary.app
 ---
 - launchApp
-- assertVisible: "Distribución 50/30/20"
+# First data-dependent assertion waits for the live fetch to resolve — the
+# free-tier API can cold-start, so extend the wait before the rest (which
+# render together once the data state is in).
+- extendedWaitUntil:
+    visible: "Distribución 50/30/20"
+    timeout: 40000
 - assertVisible: "Necesidades"
 - assertVisible: "Deseos"
 - assertVisible: "Ahorro"
