@@ -108,3 +108,32 @@ que conviene arrancarlos **ya**, aunque la app aún no esté lista.
      iniciado).
 - ⏳ **Fuera de nuestro control:** aprobación pública en tiendas (revisión Apple
      + 14 días de closed test en Play).
+
+---
+
+## Verificación de despliegue (2026-07-14) — `https://moneydiary-api.onrender.com`
+
+Matrix de `curl` ejecutada contra el servicio en vivo:
+
+| # | Request | Resultado | Esperado |
+|---|---------|-----------|----------|
+| 1 | `GET /` (sin key) | **200** `"Hello World!"` | 200 (health público) |
+| 2 | `GET /api/resumen` (sin key) | **401** | 401 (`ApiKeyGuard` fail-closed) |
+| 3 | `GET /api/resumen` (`x-api-key`) | **200** + `ResumenMesDto` | 200 + JSON |
+
+Corroborado end-to-end por la corrida mobile T3.13 (Maestro, 6/6 asserts sobre datos reales).
+
+---
+
+## Riesgo aceptado — cifrado en reposo diferido (A.5 / Tarea 11.6)
+
+- **Decisión:** exponer la API en Render con `NoOpCryptoService` (sin cifrado de
+  columna real) para el MVP mono-usuario.
+- **Justificación:** `GET /api/resumen` NO devuelve PII — solo enums de bucket,
+  totales `BigInt`, porcentajes en basis points y estados de semáforo. Esta
+  release agrega exposición vía API, **no** nueva exposición de datos sensibles
+  en la BD.
+- **Sign-off:** Jorge — 2026-07-14.
+- **Trigger duro (bloqueante):** *"Task 11.6 (real column encryption) MUST be
+  resolved before any endpoint returning transaction descriptions / titular name
+  / RUT is exposed beyond localhost."*

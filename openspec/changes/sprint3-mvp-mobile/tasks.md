@@ -17,21 +17,21 @@ Implementation checklist for the read-only Expo MVP + Render deploy. Confirms th
 **Verification:** 3-row curl matrix passes against the live Render URL; docstring no longer claims "intentionally unauthenticated".
 **Rollback:** revert the 1-line docstring commit; Render service can be suspended/deleted independently — deploy is idempotent from `render.yaml`.
 
-- [ ] **T1.1 — Fix stale docstring in `resumen.controller.ts`** (AC-04)
-  Correct the comment at `apps/api/src/infrastructure/http/resumen.controller.ts:~28` — remove the "intentionally unauthenticated for MVP mono-user phase" claim; state the route is protected by the global `ApiKeyGuard` (`x-api-key`). Comment-only, no behavior change. No test needed (doc review is the verification per spec's test-type mapping).
+- [x] **T1.1 — Fix stale docstring in `resumen.controller.ts`** (AC-04) — DONE (2026-07-14)
+  Corrected the comment in `resumen.controller.ts` AND `movimientos.controller.ts` — removed the "intentionally unauthenticated for MVP mono-user phase" claim; both now state the route is protected by the global `ApiKeyGuard` (shared `x-api-key`, fail-closed), with per-user auth (JWT) as a post-MVP concern. Comment-only, no behavior change. (The earlier `da351e2` fix on branch `docs/resumen-auth-docstring` was never merged to main — this re-applies it directly, and also covers the twin note in `movimientos.controller.ts`.)
 
-- [ ] **T1.2 — Deploy `apps/api` to Render via Blueprint** (AC-01, AC-02, AC-03, AC-05)
-  Connect `Juargo/MoneyDiary` in Render → New → Blueprint (reads existing `render.yaml`). Generate prod `API_KEY` (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`, distinct from local). Load the 3 `sync:false` secrets in the dashboard: `DATABASE_URL` (Supabase pooler, transaction-mode/IPv4), `DIRECT_URL` (pooler session-mode), `API_KEY`. Trigger deploy. No repo changes — ops task.
+- [x] **T1.2 — Deploy `apps/api` to Render via Blueprint** (AC-01, AC-02, AC-03, AC-05) — DONE (2026-07-14)
+  Service `moneydiary-api` live at `https://moneydiary-api.onrender.com` from `render.yaml`. Prod `API_KEY` generated (distinct from local) + the 3 `sync:false` secrets loaded (`DATABASE_URL`/`DIRECT_URL` = Supabase **pooler** transaction/session mode — IPv4 is mandatory on Render, the direct IPv6 connection times out; `API_KEY`). Required a build fix (`dist/main.js` output path, PR #31) before the service booted.
 
-- [ ] **T1.3 — Run the curl verification matrix against the live Render URL** (AC-01, AC-02, AC-03, AC-05)
-  Execute the 3 checks from `docs/mobile-launch-runbook.md` against the deployed URL:
-  1. `curl https://<svc>.onrender.com/` → expect 200 `"Hello World!"`.
-  2. `curl -i https://<svc>.onrender.com/api/resumen` → expect 401 (no key).
-  3. `curl -H "x-api-key: <API_KEY>" https://<svc>.onrender.com/api/resumen` → expect 200 + JSON matching `ResumenMesDto`.
-  Record the three results as PR 1's acceptance evidence (paste output in the PR description). This is the PR 1 exit gate and the mobile client's contract precondition.
+- [x] **T1.3 — Run the curl verification matrix against the live Render URL** (AC-01, AC-02, AC-03, AC-05) — DONE (2026-07-14)
+  Executed against `https://moneydiary-api.onrender.com`:
+  1. `GET /` → **HTTP 200 "Hello World!"** ✅
+  2. `GET /api/resumen` (no key) → **HTTP 401** ✅
+  3. `GET /api/resumen` (`x-api-key`) → **HTTP 200** + `ResumenMesDto` JSON (`totalIngreso:"615000"`, buckets + semáforo) ✅
+  All three as expected. Corroborated end-to-end by the mobile T3.13 live run.
 
-- [ ] **T1.4 — Record the A.5 accepted-risk encryption entry**
-  Add/update an accepted-risk doc entry (in `docs/mobile-launch-runbook.md` or an ADR addendum) with the three mandatory fields: rationale (`/api/resumen` returns zero PII — bucket enums, BigInt totals, basis-point percentages, semáforo states; this release adds API exposure, not new DB exposure), sign-off (who + date), and the verbatim hard trigger: *"Task 11.6 (real column encryption) MUST be resolved before any endpoint returning transaction descriptions / titular name / RUT is exposed beyond localhost."* No code change — `NoOpCryptoService` stays as-is.
+- [x] **T1.4 — Record the A.5 accepted-risk encryption entry** — DONE (2026-07-14)
+  Added the accepted-risk entry to `docs/mobile-launch-runbook.md` with the three mandatory fields (rationale: `/api/resumen` returns zero PII; sign-off: Jorge / 2026-07-14; verbatim hard trigger on Task 11.6 before exposing descriptions/name/RUT beyond localhost). `NoOpCryptoService` stays as-is.
 
 **PR 1 review budget:** docstring (~5 lines) + accepted-risk doc entry (~15-20 lines). No app/infra code diff — ops steps (T1.2, T1.3) happen outside the repo.
 
@@ -158,4 +158,4 @@ Implementation checklist for the read-only Expo MVP + Render deploy. Confirms th
 
 ## Next step
 
-PR 1 (Track A) docstring fix merged separately (PR #27, `da351e2`) — deploy ops (T1.2-T1.4) remain manual/pending. PR 2 (Track B scaffold) is open as PR #28 (`feat/mobile-expo-scaffold`), all T2.x tasks done except the `.env.example` blocker noted at T2.7 (needs to be created outside this sandboxed session before PR 3 needs it for real client wiring). Run `sdd-apply` next for PR 3 (Track B feature) once PR 2 is reviewed/merged.
+PR 1 (Track A) docstring fix (AC-04) was re-applied directly to main on 2026-07-14 (the earlier `da351e2` on branch `docs/resumen-auth-docstring` never merged); covers both `resumen.controller.ts` and `movimientos.controller.ts`. Deploy ops (T1.2-T1.4) done manually: Render service is live at `https://moneydiary-api.onrender.com`, verified end-to-end (health 200, protected 401 without key, 200 with key, live data via mobile T3.13). PR 2 (Track B scaffold) is open as PR #28 (`feat/mobile-expo-scaffold`), all T2.x tasks done except the `.env.example` blocker noted at T2.7 (needs to be created outside this sandboxed session before PR 3 needs it for real client wiring). Run `sdd-apply` next for PR 3 (Track B feature) once PR 2 is reviewed/merged.
