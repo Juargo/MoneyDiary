@@ -1,4 +1,6 @@
 import { formatearMontoCLP } from './formatear-monto';
+import { formatearPeriodoLabel } from './periodo-label';
+import { calcularDistribucionGasto, type TajadaGasto } from './distribucion-gasto';
 import type { BucketResumenDto, ResumenMesDto } from './resumen.types';
 
 /**
@@ -17,9 +19,15 @@ export interface BucketViewModel {
 
 export interface ResumenViewModel {
   readonly periodo: string;
+  /** Header label derived from `periodo` — e.g. "Junio 2026". */
+  readonly periodoLabel: string;
   readonly totalIngreso: string;
   readonly sinIngreso: boolean;
   readonly buckets: ReadonlyArray<BucketViewModel>;
+  /** Share-of-spending split for the pie + legend (77/12/11-style). */
+  readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
+  /** 50/30/20 reference for the "IDEAL" inset pie. */
+  readonly targets: ResumenMesDto['targets'];
   readonly estadoGlobal: string | null;
 }
 
@@ -55,9 +63,12 @@ function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
 export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
   return {
     periodo: dto.periodo,
+    periodoLabel: formatearPeriodoLabel(dto.periodo),
     totalIngreso: formatearMontoCLP(dto.totalIngreso),
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
+    distribucionGasto: calcularDistribucionGasto(dto.buckets),
+    targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
   };
 }

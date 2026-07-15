@@ -2,12 +2,13 @@ import { render, screen } from '@testing-library/react-native';
 import { ResumenScreen } from './ResumenScreen';
 import type { ResumenViewModel } from '../domain/resumen-view-model';
 
-// RED-first (T3.9, sprint3-mvp-mobile, MOB-03/MOB-04): the data-state
-// composition. Asserts every Maestro anchor from design.md B.5 renders
-// exactly once given a resolved ResumenViewModel (no fetch, no state
-// switch here — that's app/index.tsx's job).
+// The data-state composition (Stitch mockup). Asserts the Maestro anchors —
+// the "Distribución del gasto" heading and testID="semaforo-global" — plus the
+// header period, income, and the 3-bucket legend ("Gustos" is the UI label for
+// the domain's "Deseos"; SinCategoria is not shown in the pie/legend).
 const viewModel: ResumenViewModel = {
   periodo: '2026-07',
+  periodoLabel: 'Julio 2026',
   totalIngreso: '$1.000.000',
   sinIngreso: false,
   buckets: [
@@ -16,13 +17,24 @@ const viewModel: ResumenViewModel = {
     { bucket: 'Ahorro', total: '$200.000', porcentajeLabel: '20%', estadoSemaforo: 'verde' },
     { bucket: 'SinCategoria', total: '$0', porcentajeLabel: '—', estadoSemaforo: null },
   ],
+  distribucionGasto: [
+    { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
+    { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
+    { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
+  ],
+  targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
 };
 
 describe('ResumenScreen', () => {
-  it('renders the section heading', async () => {
+  it('renders the section heading anchor', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
-    expect(screen.getByText('Distribución 50/30/20')).toBeOnTheScreen();
+    expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
+  });
+
+  it('renders the period label in the header', async () => {
+    await render(<ResumenScreen viewModel={viewModel} />);
+    expect(screen.getByText('Julio 2026')).toBeOnTheScreen();
   });
 
   it('renders totalIngreso formatted as CLP', async () => {
@@ -30,12 +42,13 @@ describe('ResumenScreen', () => {
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
   });
 
-  it('renders all 4 bucket labels including SinCategoria', async () => {
+  it('renders the 3-bucket legend with the UI label "Gustos" for Deseos', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
-    expect(screen.getByText('Deseos')).toBeOnTheScreen();
+    expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
-    expect(screen.getByText('SinCategoria')).toBeOnTheScreen();
+    expect(screen.queryByText('Deseos')).not.toBeOnTheScreen();
+    expect(screen.queryByText('SinCategoria')).not.toBeOnTheScreen();
   });
 
   it('renders the global semáforo with testID "semaforo-global"', async () => {

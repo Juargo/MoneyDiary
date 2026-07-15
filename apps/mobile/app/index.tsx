@@ -8,6 +8,7 @@ import { ResumenScreen } from '../src/components/ResumenScreen';
 import { Loading } from '../src/components/states/Loading';
 import { Empty } from '../src/components/states/Empty';
 import { ErrorState } from '../src/components/states/Error';
+import { COLORS } from '../src/theme/colors';
 
 /**
  * The single route (Expo Router `app/index.tsx`). Thin by design (D2,
@@ -39,7 +40,9 @@ export default function Index() {
   }, [cargar]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>{renderEstado(estado, cargar)}</SafeAreaView>
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
+      {renderEstado(estado, cargar)}
+    </SafeAreaView>
   );
 }
 
