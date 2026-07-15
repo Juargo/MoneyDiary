@@ -17,10 +17,10 @@ appId: cl.moneydiary.app
 # free-tier API can cold-start, so extend the wait before the rest (which
 # render together once the data state is in).
 - extendedWaitUntil:
-    visible: "Distribución 50/30/20"
+    visible: "Distribución del gasto"
     timeout: 40000
 - assertVisible: "Necesidades"
-- assertVisible: "Deseos"
+- assertVisible: "Gustos"
 - assertVisible: "Ahorro"
 # El indicador de estado global del semáforo debe estar presente.
 - assertVisible:

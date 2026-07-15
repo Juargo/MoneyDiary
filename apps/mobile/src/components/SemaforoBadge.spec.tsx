@@ -1,27 +1,33 @@
 import { render, screen } from '@testing-library/react-native';
 import { SemaforoBadge } from './SemaforoBadge';
 
-// RED-first (T3.7, sprint3-mvp-mobile, MOB-03/MOB-06): asserts the visible
-// label per `estadoSemaforo` value, including `null` (no crash, distinct
-// copy — never silently rendered as one of the known states).
+// The badge now renders a face inside a tinted circle (Stitch mockup); the
+// state word is exposed via accessibilityLabel, not visible text. Asserts the
+// distinct label per `estadoSemaforo`, including `null` (never silently
+// coerced into a known color — MOB-03/MOB-06).
 describe('SemaforoBadge', () => {
-  it('renders the green label for "verde"', async () => {
+  it('exposes the green label for "verde"', async () => {
     await render(<SemaforoBadge estadoSemaforo="verde" />);
-    expect(screen.getByText('Verde')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Verde')).toBeOnTheScreen();
   });
 
-  it('renders the yellow label for "amarillo"', async () => {
+  it('exposes the yellow label for "amarillo"', async () => {
     await render(<SemaforoBadge estadoSemaforo="amarillo" />);
-    expect(screen.getByText('Amarillo')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Amarillo')).toBeOnTheScreen();
   });
 
-  it('renders the red label for "rojo"', async () => {
+  it('exposes the red label for "rojo"', async () => {
     await render(<SemaforoBadge estadoSemaforo="rojo" />);
-    expect(screen.getByText('Rojo')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Rojo')).toBeOnTheScreen();
   });
 
-  it('renders a distinct "sin datos" label for null, not a crash', async () => {
+  it('exposes a distinct "Sin datos" label for null, not a crash', async () => {
     await render(<SemaforoBadge estadoSemaforo={null} />);
-    expect(screen.getByText('Sin datos')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Sin datos')).toBeOnTheScreen();
+  });
+
+  it('does not coerce an unknown value into a known color', async () => {
+    await render(<SemaforoBadge estadoSemaforo="turquesa" />);
+    expect(screen.getByLabelText('Sin datos')).toBeOnTheScreen();
   });
 });

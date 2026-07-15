@@ -29,10 +29,14 @@ export function ErrorState({
   readonly onRetry: () => void;
 }) {
   return (
-    <View>
-      <Text>{copiaPorError(error)}</Text>
-      <Pressable onPress={onRetry}>
-        <Text>Reintentar</Text>
+    <View className="flex-1 items-center justify-center gap-4 bg-canvas px-8">
+      <Text className="text-center text-base text-heading">{copiaPorError(error)}</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onRetry}
+        className="rounded-full bg-ingreso px-6 py-3"
+      >
+        <Text className="font-semibold text-white">Reintentar</Text>
       </Pressable>
     </View>
   );

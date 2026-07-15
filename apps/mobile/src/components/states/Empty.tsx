@@ -7,8 +7,10 @@ import { Text, View } from 'react-native';
  */
 export function Empty() {
   return (
-    <View>
-      <Text>Sin ingresos registrados este período</Text>
+    <View className="flex-1 items-center justify-center bg-canvas px-8">
+      <Text className="text-center text-base text-muted">
+        Sin ingresos registrados este período
+      </Text>
     </View>
   );
 }

@@ -64,11 +64,11 @@ describe('Index (4-state switch)', () => {
     await render(<Index />);
 
     expect(screen.getByText('Cargando resumen…')).toBeOnTheScreen();
-    expect(screen.queryByText('Distribución 50/30/20')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Distribución del gasto')).not.toBeOnTheScreen();
     expect(screen.queryByText('Reintentar')).not.toBeOnTheScreen();
 
     d.resolve({ ok: true, value: dataDto });
-    await waitFor(() => expect(screen.getByText('Distribución 50/30/20')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
   });
 
   it('shows the data state with income, all buckets, and the global semáforo', async () => {
@@ -76,10 +76,10 @@ describe('Index (4-state switch)', () => {
 
     await render(<Index />);
 
-    await waitFor(() => expect(screen.getByText('Distribución 50/30/20')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
-    expect(screen.getByText('Deseos')).toBeOnTheScreen();
+    expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
     expect(screen.getByTestId('semaforo-global')).toBeOnTheScreen();
   });
@@ -92,7 +92,7 @@ describe('Index (4-state switch)', () => {
     await waitFor(() =>
       expect(screen.getByText('Sin ingresos registrados este período')).toBeOnTheScreen(),
     );
-    expect(screen.queryByText('Distribución 50/30/20')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Distribución del gasto')).not.toBeOnTheScreen();
   });
 
   it('shows the error state with a retry affordance on a mapped failure', async () => {
@@ -101,7 +101,7 @@ describe('Index (4-state switch)', () => {
     await render(<Index />);
 
     await waitFor(() => expect(screen.getByText('Reintentar')).toBeOnTheScreen());
-    expect(screen.queryByText('Distribución 50/30/20')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Distribución del gasto')).not.toBeOnTheScreen();
   });
 
   it('refetches when retry is pressed', async () => {
@@ -114,7 +114,7 @@ describe('Index (4-state switch)', () => {
     await waitFor(() => expect(screen.getByText('Reintentar')).toBeOnTheScreen());
     fireEvent.press(screen.getByText('Reintentar'));
 
-    await waitFor(() => expect(screen.getByText('Distribución 50/30/20')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
     expect(mockFetchResumen).toHaveBeenCalledTimes(2);
   });
 });

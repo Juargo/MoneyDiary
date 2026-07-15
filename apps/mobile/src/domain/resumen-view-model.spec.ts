@@ -87,4 +87,24 @@ describe('aResumenViewModel', () => {
     const vm = aResumenViewModel(dto({ estadoGlobal: null }));
     expect(vm.estadoGlobal).toBeNull();
   });
+
+  it('deriva periodoLabel legible desde el periodo', () => {
+    const vm = aResumenViewModel(dto({ periodo: '2026-06' }));
+    expect(vm.periodoLabel).toBe('Junio 2026');
+  });
+
+  it('calcula la distribución de gasto (share-of-gasto) para el pie, excluyendo SinCategoria', () => {
+    const vm = aResumenViewModel(dto());
+    // Necesidades 400k / Deseos 250k / Ahorro 350k → 40/25/35 sobre el gasto.
+    expect(vm.distribucionGasto.map((t) => [t.bucket, t.porcentaje])).toEqual([
+      ['Necesidades', 40],
+      ['Deseos', 25],
+      ['Ahorro', 35],
+    ]);
+  });
+
+  it('propaga los targets 50/30/20 para el inset IDEAL', () => {
+    const vm = aResumenViewModel(dto());
+    expect(vm.targets).toEqual({ Necesidades: 50, Deseos: 30, Ahorro: 20 });
+  });
 });
