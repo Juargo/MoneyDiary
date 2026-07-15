@@ -5,6 +5,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { ObtenerMovimientosMesUseCase } from '../../application/use-cases/obtener-movimientos-mes.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
@@ -25,11 +26,14 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * Cuando `periodo` es inválido → PeriodoInvalidoError → 400.
  * Lista vacía → 200 con envelope vacío (no es un error — REQ-06).
  *
- * NOTE: This endpoint is intentionally unauthenticated for the MVP mono-user phase.
- * Authentication (multi-user, JWT) is a post-MVP concern (ADR-001 / Sprint 3+).
+ * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) for the
+ * MVP mono-user phase. Per-user authentication (multi-user, JWT) is a post-MVP
+ * concern (ADR-001 / Sprint 3+).
  */
 @Controller('api/movimientos')
 export class MovimientosController {
+  private readonly logger = new Logger(MovimientosController.name);
+
   constructor(
     private readonly obtenerMovimientosMesUseCase: ObtenerMovimientosMesUseCase,
     @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
@@ -45,7 +49,13 @@ export class MovimientosController {
         periodo,
       });
     } catch (err) {
-      // Unexpected adapter/DB error — not a PeriodoInvalidoError
+      // Unexpected adapter/DB error — not a PeriodoInvalidoError. Log the real
+      // cause server-side (never reflected in the client response) so deploy/DB
+      // failures are diagnosable instead of a silent generic 500.
+      this.logger.error(
+        'Error inesperado al consultar movimientos',
+        err instanceof Error ? err.stack : String(err),
+      );
       throw new InternalServerErrorException(
         'Error inesperado al consultar movimientos. Intenta nuevamente.',
       );

@@ -210,13 +210,16 @@ Pipeline de ingesta queda completo: detectar → validar → normalizar a esquem
 
 ## Fixtures de prueba
 
+Los fixtures llevan sufijo `-test` y contienen datos anonimizados (los originales, con info sensible real, se eliminaron del repo).
+
 ```
 apps/api/test/fixtures/
-  Últimos_Movimientos_CuentaRUT_1778764122306.xlsx  ← BancoEstado ✅ detectado
-  movimientos.xlsx                                   ← BCI ✅ detectado
-  ultimos movimientos-Cuenta Corriente.xlsx          ← Santander ✅ detectado
-  cartola.xls          ← Banco de Chile ❌ formato no soportado (descargar .xlsx)
-  cartola_30042026.xls ← Banco de Chile ❌ formato no soportado (descargar .xlsx)
+  Últimos_Movimientos_CuentaRUT_test.xlsx            ← BancoEstado ✅ detectado
+  movimientos-test.xlsx                              ← BCI ✅ detectado
+  ultimos movimientos-Cuenta Corriente-test.xlsx     ← Santander ✅ detectado
+  cartola-test.xls     ← placeholder .xls (sin datos) — solo para el test de rechazo por extensión (ADR-007)
+  pdf/                 ← cartolas PDF de prueba (ADR-009, pdfjs-dist), una por banco:
+    bancochile-cartola-test.pdf · bancoestado-cartola-test.pdf · bci-cartola-test.pdf · santander-cartola-test.pdf
 ```
 
 ---
@@ -231,7 +234,7 @@ pnpm api test                                # vitest run (ADR-016; SWC para met
 pnpm api test:watch                          # vitest (watch)
 pnpm api test:e2e                            # vitest e2e — muta BD real, gate ALLOW_DESTRUCTIVE_DB=1
 pnpm api test:integration                    # vitest integración — mismo gate
-pnpm api cli -- ./test/fixtures/movimientos.xlsx
+pnpm api cli -- ./test/fixtures/movimientos-test.xlsx
 pnpm api start:dev                           # NestJS watch
 pnpm api exec tsc --noEmit                   # TypeScript check
 pnpm api exec prisma migrate dev             # migraciones

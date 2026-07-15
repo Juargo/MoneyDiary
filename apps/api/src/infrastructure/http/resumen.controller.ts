@@ -5,6 +5,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { CalcularResumenMesUseCase } from '../../application/use-cases/calcular-resumen-mes.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
@@ -25,11 +26,14 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * periodo invalid → PeriodoInvalidoError → scrubbed 400 (raw input NEVER reflected).
  * sinIngreso=true → still 200 (valid data state, not an error — SC-04).
  *
- * NOTE: Protected by the global ApiKeyGuard (APP_GUARD in app.module.ts) —
- * requires the `x-api-key` header. Only the @Public() health check is open.
+ * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) for
+ * the MVP mono-user phase. Per-user authentication (multi-user, JWT) is a
+ * post-MVP concern (ADR-001).
  */
 @Controller('api/resumen')
 export class ResumenController {
+  private readonly logger = new Logger(ResumenController.name);
+
   constructor(
     private readonly calcularResumenMesUseCase: CalcularResumenMesUseCase,
     @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
@@ -45,7 +49,13 @@ export class ResumenController {
         periodo,
       });
     } catch (err) {
-      // Unexpected adapter/DB error — not a PeriodoInvalidoError
+      // Unexpected adapter/DB error — not a PeriodoInvalidoError. Log the real
+      // cause server-side (never reflected in the client response) so deploy/DB
+      // failures are diagnosable instead of a silent generic 500.
+      this.logger.error(
+        'Error inesperado al calcular el resumen',
+        err instanceof Error ? err.stack : String(err),
+      );
       throw new InternalServerErrorException(
         'Error inesperado al calcular el resumen. Intenta nuevamente.',
       );
