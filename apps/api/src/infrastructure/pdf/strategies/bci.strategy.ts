@@ -30,6 +30,23 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     (x≈324) quedan fuera de `rangosX` a propósito.
  *   - El footer de navegador (URL de bci.cl, timestamp de impresión,
  *     indicador de página "1/2") se excluye vía `filasIgnoradas`.
+ *   - `fusionarContinuaciones: true` (PR4b, ÚNICO banco que lo activa): BCI
+ *     divide algunas descripciones en 2-3 líneas físicas del PDF alrededor
+ *     de la fila con fecha+monto (ej. "PAGO CREDITO D00000000001" en la
+ *     línea de arriba, la fila con fecha/monto en el medio, "001/012" en la
+ *     línea de abajo — ver pdf-normalization.ts). Esas líneas sin fecha ni
+ *     monto propio se fusionan como sufijo de la transacción candidata más
+ *     reciente en vez de perderse.
+ *   - `filasIgnoradas` incluye además DOS guardas descubiertas en PR4b
+ *     contra el fixture real de 2 páginas: el encabezado de tabla se
+ *     REPITE al inicio de la página 2 ("FECHA ... DESCRIPCION ...") y el
+ *     título del documento también se reimprime por página ("CARTOLA DE
+ *     CUENTA CORRIENTE") — ambos caen parcialmente dentro de `rangosX`
+ *     (la palabra "DESCRIPCION"/"CARTOLA DE CUENTA CORRIENTE" landea en el
+ *     rango de la columna `descripcion`) y, sin este filtro, la fusión de
+ *     continuaciones los pegaría como sufijo de la ÚLTIMA transacción de la
+ *     página anterior — un `filasIgnoradas` normal (per-row skip) es
+ *     suficiente, no hace falta `anclaFinTabla`.
  */
 export class BciPdfStrategy {
   private static readonly ANCLA_TITULO = 'CARTOLA DE CUENTA CORRIENTE';
@@ -79,7 +96,12 @@ export class BciPdfStrategy {
         /^https:\/\/www\.bci\.cl/,
         /^\d{1,2}\/\d{2}\/\d{2},\s*\d{1,2}:\d{2}\s*[AP]M$/,
         /^\d\/\d$/,
+        // Encabezado de tabla repetido al inicio de cada página nueva.
+        /^FECHA\s+DESCRIPCION/,
+        // Título del documento, reimpreso en cada página.
+        /CARTOLA DE CUENTA CORRIENTE/,
       ],
+      fusionarContinuaciones: true,
     };
   }
 }
