@@ -80,4 +80,66 @@ describe('agruparTokens', () => {
 
     expect(filas[0].columnas.Descripcion).toBe('Transf Maria Ejemplo');
   });
+
+  it('cuando todos los tokens caen dentro de algún rango, tokensSinAsignar queda vacío', () => {
+    const tokens: PagedToken[] = [token('01/03', 10, 100)];
+
+    const filas = agruparTokens(tokens, columnasSantander, 2);
+
+    expect(filas[0].tokensSinAsignar).toEqual([]);
+  });
+
+  it('un token en el límite inferior exacto de un rango (x === xMin) cae en ESE rango', () => {
+    const tokens: PagedToken[] = [token('borde', 50, 100)];
+
+    const filas = agruparTokens(tokens, columnasSantander, 2);
+
+    // xMin es inclusivo: 50 es el xMin de Descripcion, no el xMax de Fecha.
+    expect(filas[0].columnas.Fecha).toBe('');
+    expect(filas[0].columnas.Descripcion).toBe('borde');
+    expect(filas[0].tokensSinAsignar).toEqual([]);
+  });
+
+  it('un token en el límite superior exacto de un rango (x === xMax) NO cae en ese rango (xMax exclusivo) y queda sin asignar si no hay rango contiguo que lo reciba', () => {
+    const rangosConHueco: ReadonlyArray<RangoColumna> = [
+      { col: 'A', xMin: 0, xMax: 50 },
+      // Hueco deliberado: la columna B empieza en 60, no en 50.
+      { col: 'B', xMin: 60, xMax: 100 },
+    ];
+    const tokens: PagedToken[] = [token('borde', 50, 100)];
+
+    const filas = agruparTokens(tokens, rangosConHueco, 2);
+
+    expect(filas[0].columnas.A).toBe('');
+    expect(filas[0].columnas.B).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual(tokens);
+  });
+
+  it('un token en un hueco entre rangos no contiguos queda expuesto en tokensSinAsignar, no se pierde', () => {
+    const rangosConHueco: ReadonlyArray<RangoColumna> = [
+      { col: 'A', xMin: 0, xMax: 50 },
+      { col: 'B', xMin: 100, xMax: 150 },
+    ];
+    const tokenEnHueco = token('perdido', 75, 100);
+    const tokens: PagedToken[] = [tokenEnHueco];
+
+    const filas = agruparTokens(tokens, rangosConHueco, 2);
+
+    expect(filas[0].columnas.A).toBe('');
+    expect(filas[0].columnas.B).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual([tokenEnHueco]);
+  });
+
+  it('tokens antes del primer rango y después del último rango quedan sin asignar', () => {
+    const tokenAntes = token('antes', -10, 100);
+    const tokenDespues = token('despues', 500, 100);
+    const tokens: PagedToken[] = [tokenAntes, tokenDespues];
+
+    const filas = agruparTokens(tokens, columnasSantander, 2);
+
+    expect(filas[0].columnas.Fecha).toBe('');
+    expect(filas[0].columnas.Descripcion).toBe('');
+    expect(filas[0].columnas.Monto).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual([tokenAntes, tokenDespues]);
+  });
 });

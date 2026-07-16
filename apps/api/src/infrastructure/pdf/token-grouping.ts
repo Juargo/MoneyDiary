@@ -12,6 +12,14 @@ export interface FilaAgrupada {
   readonly page: number;
   readonly y: number;
   readonly columnas: Readonly<Record<string, string>>;
+  /**
+   * Tokens de esta fila cuyo X no cayó dentro de ningún rango de
+   * `rangosX` (fuera de todos los rangos, o en un hueco entre rangos no
+   * contiguos). Expuestos en vez de descartados silenciosamente — pueden
+   * ser montos u otros datos relevantes; el caller decide si es un error
+   * (esta función es pura y no lanza).
+   */
+  readonly tokensSinAsignar: ReadonlyArray<PagedToken>;
 }
 
 /**
@@ -28,6 +36,13 @@ export interface FilaAgrupada {
  * merge es una concatenación — no hace falta un caso especial por banco
  * (design.md decisión #4, DRY/KISS).
  *
+ * Tokens cuyo X no cae en ningún rango de `rangosX` (fuera de todos los
+ * rangos, o en un hueco entre rangos no contiguos) NO se descartan
+ * silenciosamente: quedan expuestos en `FilaAgrupada.tokensSinAsignar`.
+ * Como estos tokens pueden ser montos u otro dato relevante, perderlos sin
+ * señal sería peligroso — esta función sigue siendo pura (no lanza) y es
+ * el CALLER quien decide si un token sin asignar es un error.
+ *
  * Pura — no conoce pdfjs, no lanza, no tiene I/O.
  */
 export function agruparTokens(
@@ -36,11 +51,18 @@ export function agruparTokens(
   toleranciaY: number,
 ): FilaAgrupada[] {
   const filas = agruparEnFilas(tokens, toleranciaY);
-  return filas.map((fila) => ({
-    page: fila.page,
-    y: fila.y,
-    columnas: repartirEnColumnas(fila.tokens, rangosX),
-  }));
+  return filas.map((fila) => {
+    const { columnas, tokensSinAsignar } = repartirEnColumnas(
+      fila.tokens,
+      rangosX,
+    );
+    return {
+      page: fila.page,
+      y: fila.y,
+      columnas,
+      tokensSinAsignar,
+    };
+  });
 }
 
 interface FilaCruda {
@@ -79,16 +101,22 @@ function agruparEnFilas(tokens: PagedTokens, toleranciaY: number): FilaCruda[] {
 function repartirEnColumnas(
   tokens: ReadonlyArray<PagedToken>,
   rangosX: ReadonlyArray<RangoColumna>,
-): Record<string, string> {
+): { columnas: Record<string, string>; tokensSinAsignar: PagedToken[] } {
   const columnas: Record<string, string> = {};
+  const asignados = new Set<PagedToken>();
   for (const rango of rangosX) {
+    // xMin inclusivo, xMax exclusivo — un token exactamente en el xMax de
+    // un rango pertenece al SIGUIENTE rango (si `rangosX` es contiguo) o
+    // queda sin asignar (si hay un hueco), nunca se duplica en ambos.
     const tokensDeColumna = tokens
       .filter((t) => t.x >= rango.xMin && t.x < rango.xMax)
       .sort((a, b) => a.x - b.x);
+    for (const t of tokensDeColumna) asignados.add(t);
     columnas[rango.col] = tokensDeColumna
       .map((t) => t.str)
       .join(' ')
       .trim();
   }
-  return columnas;
+  const tokensSinAsignar = tokens.filter((t) => !asignados.has(t));
+  return { columnas, tokensSinAsignar };
 }
