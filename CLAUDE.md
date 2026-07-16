@@ -7,7 +7,9 @@ App de finanzas personales para consolidar y analizar movimientos bancarios chil
 **Repositorio:** `git@github.com:Juargo/MoneyDiary.git`
 **Stack backend:** NestJS v11 · TypeScript strict · pnpm v11 · Node.js 22+ · Prisma 7 · PostgreSQL (Supabase)
 **Stack frontend:** React 19 · TypeScript · Vite 8 · Tailwind 4 · shadcn/ui · TanStack Query · TanStack Router · Zustand
-**Estructura:** Monorepo `pnpm workspaces` — `apps/api` (backend) + `apps/web` (frontend)
+**Stack mobile:** Expo SDK 57 · Expo Router · NativeWind 4 (Tailwind 3) · jest-expo + RNTL (ADR-010/017)
+**Estructura:** Monorepo `pnpm workspaces` — `apps/api` (backend) + `apps/web` (frontend) + `apps/mobile` (Expo)
+**Producción:** API desplegada en Render — `https://moneydiary-api.onrender.com`, protegida por `ApiKeyGuard` (`x-api-key`)
 
 ---
 
@@ -33,9 +35,11 @@ Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en e
     02 Epic - Categorización/       US-012, US-013
     03 Epic - Visualización/        US-014 … US-017
     04 Epic - Gestión de datos/     US-018
+    05 Epic - Mobile/               US-019 … US-021 (grooming ex-post Sprint 3)
   04 Sprints/
     Sprint-1/Sprint-1.md                             ← cerrado (may 2026)
-    Sprint-2/Sprint-2.md                             ← en curso (7–18 jul 2026)
+    Sprint-2/Sprint-2.md                             ← cerrado (11 jul 2026)
+    Sprint-3/Sprint-3.md                             ← en curso (14–25 jul 2026) — pivote a MVP mobile
   99 Archivo/                                        ← fichas obsoletas (Epic A–D descartados)
 ```
 
@@ -65,6 +69,16 @@ apps/
       stores/         ← Zustand stores (client state)
       api/            ← TanStack Query hooks + tipos DTO escritos a mano
       lib/            ← `cn()` y helpers
+  mobile/           ← App Expo solo-lectura (ADR-010, Sprint 3)
+    app/              ← Expo Router (`_layout.tsx`, `index.tsx`)
+    src/
+      domain/         ← lógica pura (view-model, formateo CLP sobre string, geometría pie)
+      api/            ← cliente HTTP mínimo (`fetchResumen`) + config env (`EXPO_PUBLIC_*`)
+      components/     ← pantalla resumen + estados Loading/Error/Empty (NativeWind)
+    .maestro/         ← E2E manual en dispositivo (no CI)
+openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archivados
+  specs/              ← `api-access-control` · `mobile-resumen-screen`
+  changes/archive/    ← `2026-07-14-sprint3-mvp-mobile` (proposal/spec/design/tasks)
 ```
 
 **Backend — patrón:** Monolito Modular + Clean Architecture (ADR-005)
@@ -89,14 +103,14 @@ apps/
 | ADR-007 | Parseo Excel: ExcelJS únicamente `.xlsx` — SheetJS descartado por CVEs en npm |
 | ADR-008 | Frontend Stack: Monorepo pnpm + Tailwind/shadcn + TanStack Query/Zustand + TanStack Router — ⚠️ parcialmente reemplazado por ADR-011/012 |
 | ADR-009 | Parseo PDF: pdfjs-dist (build legacy) |
-| ADR-010 | Mobile: React Native + Expo + Expo Router + NativeWind (post-MVP) |
+| ADR-010 | Mobile: React Native + Expo + Expo Router + NativeWind — ✅ adelantado a Sprint 3 (pivote MVP mobile). Nota: NativeWind 4 exige `tailwindcss@3` (soporte v4 solo en preview) |
 | ADR-011 | Contrato-first: `openapi.json` como fuente única del contrato HTTP |
 | ADR-012 | `@moneydiary/api-client`: cliente HTTP agnóstico de plataforma |
 | ADR-013 | Cifrado de datos en reposo (todo) + a nivel de app en columnas sensibles |
 | ADR-014 | Validación de requisitos: 3 técnicas cualitativas de bajo coste (demos → usabilidad → piloto); métricas de negocio y test A/B diferidas como trabajo futuro |
 | ADR-015 | Verificación de requisitos: verificación por capas con énfasis en dinero (unit) y control de acceso (integración) + criterios ejecutables BDD + peer review con checklist de seguridad + UAT |
 | ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend transpila con SWC (`unplugin-swc` + `oxc:false`) por la metadata de decoradores de Nest; front usa jsdom + Testing Library |
-| ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — post-MVP. Esqueleto en `apps/mobile/` (excluido del workspace hasta scaffoldear la app real) |
+| ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — ✅ activo: `apps/mobile` ya es app Expo real dentro del workspace (Sprint 3, PR #28); jest-expo 57 fija jest@29. Maestro corre manual en dispositivo, no en CI |
 | ADR-018 | Testing accesibilidad + UX: a11y por capas — web (eslint-jsx-a11y + vitest-axe + @axe-core/playwright), mobile (eslint-rn-a11y + rn-accessibility-engine + VoiceOver/TalkBack, post-MVP); WCAG 2.2 AA; UX validada vía ADR-014 |
 | ADR-019 | Tracking y monitoring: 🔵 EN DISCUSIÓN (decisión final diferida). Propuesta: SDKs de Sentry (backend/web/mobile) → GlitchTip (cloud free → self-host cuando el volumen/privacidad lo exija). Highlight descartado (deprecado feb 2026). PII/financial scrubbing obligatorio en `beforeSend` (ADR-013). Session replay/tracing profundo diferido |
 | ADR-020 | Git hooks (monorepo): Husky + lint-staged + commitlint, instalados **solo en la raíz** (instalarlos en `apps/*` los deja sin efecto). `pre-commit` → lint-staged (ESLint --fix + Prettier + typecheck del workspace tocado, routing por glob); `commit-msg` → commitlint (Conventional Commits); `pre-push` → tests de workspaces afectados. **Los hooks son conveniencia, NO enforcement (`--no-verify` los salta): CI debe re-correr las mismas checks.** Lefthook evaluado y diferido (stack all-Node) |
@@ -112,9 +126,15 @@ apps/
 
 **Sprint 2 (7–18 julio 2026) — CERRADO (11 jul, 23/24 tareas).** Pipeline backend completo `… → persistir → categorizar → consultar consolidado` para un usuario fijo: US-011 (persistencia), US-012 (categorización) y US-014 (consolidación mensual) + Tarea 0 mono-usuario. `apps/api/src/infrastructure/persistence/` ya está poblado (`PrismaService`, repos Prisma, mapper, seed) y `Transaccion` tiene sus FK (`ingestaId`/`accountId` NOT NULL, `bucketId` nullable) + dinero en `BigInt cargo/abono`. Único pendiente: **11.6 cifrado de columna real**, diferido como `NoOpCryptoService` (CA-03 abierto). Detalle en `04 Sprints/Sprint-2/Sprint-2.md` del vault.
 
-**Sprint 3 (julio 2026) — EN CURSO.** UI de visualización. El **backend de US-015** (distribución 50/30/20, `GET /api/resumen?periodo=YYYY-MM`) y **US-016** (semáforo verde/amarillo/rojo: `estadoSemaforo` por bucket + `estadoGlobal`) **ya está mergeado en `main`** (PRs #22/#23); falta la UI de ambas + US-017 (detalle de bucket). Detalle en `04 Sprints/Sprint-3/Sprint-3.md`.
+**Sprint 3 (14–25 jul 2026) — EN CURSO, reenfocado a MVP mobile (decisión PO 2026-07-13).** La UI web de US-015/016/017 se **difirió** a un sprint posterior (backend ya en `main`, PRs #22/#23). El sprint se ejecutó con proceso **SDD/OpenSpec** (change `sprint3-mvp-mobile`, PRs #26/#36) en 3 tracks:
 
-**Roadmap MVP (siguiente):** completar la UI de Sprint 3 (distribución + semáforo + detalle de bucket) sobre los mockups de Stitch → primer flujo end-to-end con UI → MVP funcional.
+- **Track A — Auth + deploy: ✅ completo (2026-07-14).** `ApiKeyGuard` global fail-closed (`x-api-key`, comparación timing-safe, health check `@Public()`) en `src/infrastructure/http/auth/`. API desplegada en Render (`https://moneydiary-api.onrender.com`, PR #25; fix build `dist/main.js` PR #31). Supabase vía **pooler IPv4** (la conexión directa IPv6 no funciona en Render). Matriz curl verificada: health 200 / sin key 401 / con key 200 (PR #35). **A.5:** cifrado de columna (11.6) registrado como **riesgo aceptado** en `docs/mobile-launch-runbook.md` — `/api/resumen` no expone PII; gatillo duro: cerrar 11.6 antes de exponer descripciones/nombre/RUT.
+- **Track B — App mobile: ✅ completo (2026-07-15).** Expo SDK 57 + Expo Router + NativeWind en el workspace (PR #28, bundle id `cl.moneydiary.app`); dominio + cliente HTTP `fetchResumen` con montos string BigInt-safe (PR #29); pantalla "momento semáforo" con 4 estados (PR #30) estilada según mockup Stitch (PR #37); boot verificado en dispositivo real + Maestro (PR #34). TDD estricto en dominio y pantalla.
+- **Track C — Pipeline de tiendas: 🟡 en curso.** Trámites Apple/Google iniciados; falta política de privacidad publicada + EAS Build/Submit (TestFlight + closed testing de Play). Detalle accionable en `docs/mobile-launch-runbook.md`.
+
+Detalle en `04 Sprints/Sprint-3/Sprint-3.md` del vault.
+
+**Roadmap MVP (siguiente):** cerrar Track C / US-021 (tiendas) → retomar la UI **web** diferida (US-015/016 UI + US-017 detalle de bucket). Grooming mobile ✅ hecho (2026-07-15): épica Mobile con US-019 (auth+deploy), US-020 (pantalla resumen), US-021 (tiendas).
 
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
@@ -204,7 +224,7 @@ Pipeline de ingesta queda completo: detectar → validar → normalizar a esquem
 - `src/domain/value-objects/estado-semaforo.ts` — enum `EstadoSemaforo` (Verde/Amarillo/Rojo); Necesidades ≤50%, Deseos ≤30%, Ahorro banda bidireccional 20–40% (umbrales en bp). `estadoGlobal` = peor estado entre los 3 buckets de gasto
 - `src/application/use-cases/calcular-resumen-mes.use-case.ts` + `src/infrastructure/persistence/prisma-resumen-mes.repository.ts` (aislamiento por `userId`)
 - `src/infrastructure/http/resumen.controller.ts` — `GET /api/resumen?periodo=YYYY-MM`
-- ⬜ Falta la UI (`apps/web` aún no consume `/api/resumen`) → trabajo de Sprint 3
+- ⬜ La UI **web** (`apps/web` aún no consume `/api/resumen`) quedó **diferida** por el pivote mobile de Sprint 3; la pantalla **mobile** que consume `/api/resumen` sí está entregada (`apps/mobile`)
 
 ---
 
@@ -238,6 +258,10 @@ pnpm api cli -- ./test/fixtures/movimientos-test.xlsx
 pnpm api start:dev                           # NestJS watch
 pnpm api exec tsc --noEmit                   # TypeScript check
 pnpm api exec prisma migrate dev             # migraciones
+
+# Mobile (sin shortcut raíz — usar --filter)
+pnpm --filter @moneydiary/mobile test        # jest-expo 57 (jest@29) + RNTL
+# dev: `npx expo start` dentro de apps/mobile (requiere .env con EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_API_KEY — ver .env.example)
 
 # Frontend
 pnpm web dev                                 # Vite en :5173 con proxy /api → :3000
@@ -297,6 +321,7 @@ El plan de pruebas separa **verificación** (*¿lo construimos correctamente?*, 
 - `pnpm-workspace.yaml` tiene `overrides: uuid: >=11.1.1` (CVE en exceljs → uuid) y `packages: ['apps/*']`
 - `.npmrc` tiene `minimum-release-age=10080`, `audit-level=high`, `block-exotic-subdeps=true`
 - SheetJS descartado (CVEs sin parche en npm) — ver ADR-007
-- `pnpm approve-builds` requerido para `@nestjs/core`, `@prisma/engines`, `prisma` y `unrs-resolver` en instalación limpia (declarado en `pnpm-workspace.yaml > allowBuilds`)
+- `pnpm approve-builds` requerido para `@nestjs/core`, `@prisma/engines`, `@swc/core`, `prisma` y `unrs-resolver` en instalación limpia (declarado en `pnpm-workspace.yaml > allowBuilds`)
+- **Secretos de producción fuera del repo:** `API_KEY`/`DATABASE_URL`/`DIRECT_URL` viven en el dashboard de Render (`sync:false` en `render.yaml`); la key del cliente mobile va en env de build (EAS Secrets), **nunca** hardcodeada en el bundle
 - `apps/api/@types/node` fijado en `^22` — no subir a v24 (incompatibilidad de tipos con ExcelJS). El frontend (`apps/web`) puede usar `^22` también por consistencia
 - Workspaces de pnpm usan resolución **aislada** (no hoisted) → cada `apps/*` declara explícitamente sus deps directas. Si aparece "Cannot find module X" pero X funciona en tests, probablemente X es transitivo de otro paquete y hay que declararlo como dep directa (caso real: `multer`, `dotenv`, `@types/multer` en `apps/api`)
