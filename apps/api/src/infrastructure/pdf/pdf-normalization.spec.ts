@@ -122,20 +122,22 @@ describe('normalizarTransaccionesPdf', () => {
     expect(resultado[0].descripcion).toBe('Abono');
   });
 
-  it('deduplica una fila EXACTAMENTE repetida (caso real Santander: la sección Resumen de Comisiones repite la última fila del detalle)', () => {
+  it('REGRESIÓN: dos filas con (fecha, descripcion, cargo, abono) IDÉNTICAS pero sin anclaFinTabla entre medio son dos movimientos reales distintos — NO se deduplican por valor', () => {
+    // Escenario del revisor: dos compras genuinas, mismo día/comercio/monto,
+    // a Y distintas. Deduplicar por tupla de valor las colapsaba en 1 y
+    // corrompía el total consolidado — ver comentario de diseño en
+    // pdf-normalization.ts (por qué se removió `deduplicar`).
     const tokens = [
-      tok('25/03 OPER.', 30, 100),
-      tok('Suscripcion', 100, 100),
-      tok('Servicio', 140, 100),
-      tok('Streaming', 190, 100),
-      tok('9.990', 400, 100),
-      // Repetida más abajo (misma fecha/descripción/monto) — simula la fila
-      // que reaparece tras "Resumen de Comisiones" en el fixture real.
-      tok('25/03 OPER.', 30, 50),
-      tok('Suscripcion', 100, 50),
-      tok('Servicio', 140, 50),
-      tok('Streaming', 190, 50),
-      tok('9.990', 400, 50),
+      tok('12/03 OPER.', 30, 100),
+      tok('Compra', 100, 100),
+      tok('Cafeteria', 140, 100),
+      tok('Local', 190, 100),
+      tok('3.500', 400, 100),
+      tok('12/03 OPER.', 30, 50),
+      tok('Compra', 100, 50),
+      tok('Cafeteria', 140, 50),
+      tok('Local', 190, 50),
+      tok('3.500', 400, 50),
     ];
 
     const resultado = normalizarTransaccionesPdf(
@@ -144,7 +146,60 @@ describe('normalizarTransaccionesPdf', () => {
       periodoMarzo2026,
     );
 
+    expect(resultado).toHaveLength(2);
+  });
+
+  it('filasIgnoradas SOLO descarta la fila que matchea — las filas reales que vienen DESPUÉS se siguen recolectando (per-row skip ≠ fin de tabla)', () => {
+    const tokens = [
+      // Fila ignorada (simula SALDO INICIAL, típicamente de las primeras
+      // filas de la tabla — truncar acá perdería todo el statement).
+      tok('01/03 OPER.', 30, 300),
+      tok('Resumen', 100, 300),
+      tok('de', 140, 300),
+      tok('Comisiones', 160, 300),
+      // Movimientos reales DESPUÉS de la fila ignorada.
+      tok('05/03 Providencia', 30, 200),
+      tok('Abono', 100, 200),
+      tok('850.000', 500, 200),
+      tok('10/03 Providencia', 30, 100),
+      tok('Compra', 100, 100),
+      tok('45.990', 400, 100),
+    ];
+
+    const resultado = normalizarTransaccionesPdf(
+      tokens,
+      estructuraBase(),
+      periodoMarzo2026,
+    );
+
+    expect(resultado).toHaveLength(2);
+  });
+
+  it('anclaFinTabla corta la recolección: las filas ANTES se mantienen, las filas DESPUÉS (incluido el eco de la última fila) se descartan', () => {
+    const tokens = [
+      // Movimiento real antes del terminador.
+      tok('05/03 Providencia', 30, 300),
+      tok('Abono', 100, 300),
+      tok('850.000', 500, 300),
+      // Ancla de fin de tabla (Santander: "Resumen de Comisiones").
+      tok('Resumen', 100, 200),
+      tok('de', 140, 200),
+      tok('Comisiones', 160, 200),
+      // Eco de la última fila del detalle, repetido DESPUÉS del terminador
+      // — no debe contarse como movimiento.
+      tok('05/03 Providencia', 30, 100),
+      tok('Abono', 100, 100),
+      tok('850.000', 500, 100),
+    ];
+
+    const resultado = normalizarTransaccionesPdf(
+      tokens,
+      estructuraBase({ anclaFinTabla: /Resumen de Comisiones/ }),
+      periodoMarzo2026,
+    );
+
     expect(resultado).toHaveLength(1);
+    expect(resultado[0].descripcion).toBe('Abono');
   });
 
   it('NO deduplica dos filas con fecha distinta aunque el resto coincida', () => {

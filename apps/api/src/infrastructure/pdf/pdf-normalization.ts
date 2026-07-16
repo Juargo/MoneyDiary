@@ -77,24 +77,31 @@ interface FilaCandidata extends FechaFilaParseada {
  *   1. `agruparTokens` (PR1) reconstruye filas por Y + columnas por X — esto
  *      YA resuelve el merge palabra-por-palabra de la descripción Santander,
  *      no hay lógica especial acá (design.md decisión #4).
- *   2. Cada fila que matchea `filasIgnoradas` se descarta (encabezados de
- *      sección, saldos, footers de navegador) — chequeado ANTES del filtro
- *      de fecha, porque una fila ignorada puede traer una fecha con formato
- *      válido (ver test "excluye filas que matchean filasIgnoradas...").
- *   3. Cada fila sin fecha interpretable en su `formatoFecha` se descarta —
+ *   2. Cada fila que matchea `estructura.anclaFinTabla` (opcional) TERMINA
+ *      la recolección — la tabla de movimientos se considera cerrada ahí, y
+ *      esa fila y todas las que vengan después (en orden de lectura) se
+ *      descartan. Esto es POSICIONAL, no por valor: existe porque Santander
+ *      repite la última fila del detalle DESPUÉS de su sección "Resumen de
+ *      Comisiones" (un eco literal con fecha/monto válidos, que no matchea
+ *      ningún `filasIgnoradas` — ver santander.strategy.ts). Una versión
+ *      anterior de este módulo intentaba resolver esto deduplicando por
+ *      tupla exacta {fecha,descripcion,cargo,abono}, pero eso borraba
+ *      SILENCIOSAMENTE movimientos reales distintos (dos compras genuinas
+ *      del mismo día/comercio/monto colapsaban en una sola, corrompiendo el
+ *      total consolidado) — la deduplicación por valor fue removida.
+ *   3. Cada fila que matchea `filasIgnoradas` se descarta INDIVIDUALMENTE
+ *      (encabezados de sección, saldos, footers de navegador) — SOLO esa
+ *      fila, la recolección continúa con las siguientes. Chequeado ANTES
+ *      del filtro de fecha, porque una fila ignorada puede traer una fecha
+ *      con formato válido (ver test "excluye filas que matchean
+ *      filasIgnoradas..."). A propósito NO termina la tabla (a diferencia
+ *      de `anclaFinTabla`): filas como "SALDO INICIAL" suelen estar entre
+ *      las primeras de la tabla, y cortar ahí perdería todo el statement.
+ *   4. Cada fila sin fecha interpretable en su `formatoFecha` se descarta —
  *      esto excluye naturalmente encabezados de tabla y filas de resumen sin
  *      fecha, sin reglas ad-hoc por banco.
- *   4. El año se resuelve vía `inferirAnios` (bancos con `fuenteAnio.kind
+ *   5. El año se resuelve vía `inferirAnios` (bancos con `fuenteAnio.kind
  *      === 'inferido'`) o directo desde la propia fila (`'explicito'`, BCI).
- *   5. Deduplicación por tupla EXACTA {fecha,descripcion,cargo,abono} —
- *      Santander repite la última fila del detalle dentro de su sección
- *      "Resumen de Comisiones" (ver santander.strategy.ts, comentario de
- *      `filasIgnoradas`): descartar solo la fila-encabezado de esa sección
- *      no alcanza, porque la fila de detalle duplicada SÍ trae una fecha
- *      válida y no matchea ningún `filasIgnoradas`. Deduplicar por igualdad
- *      EXACTA es seguro para el resto de los bancos — nunca borra un
- *      movimiento real distinto (dos montos iguales en fechas distintas no
- *      son la misma clave), solo un eco literal.
  */
 export function normalizarTransaccionesPdf(
   tokens: PagedTokens,
@@ -111,6 +118,11 @@ export function normalizarTransaccionesPdf(
   const candidatas: FilaCandidata[] = [];
   for (const fila of filas) {
     const textoFila = Object.values(fila.columnas).join(' ');
+
+    if (estructura.anclaFinTabla?.test(textoFila)) {
+      break;
+    }
+
     if (estructura.filasIgnoradas.some((regex) => regex.test(textoFila))) {
       continue;
     }
@@ -136,7 +148,7 @@ export function normalizarTransaccionesPdf(
     abono: c.abono,
   }));
 
-  return deduplicar(transacciones);
+  return transacciones;
 }
 
 function resolverAnios(
@@ -161,16 +173,4 @@ function resolverAnios(
     candidatas.map((c) => c.mes),
     anioInicial,
   );
-}
-
-function deduplicar(transacciones: ReadonlyArray<Transaccion>): Transaccion[] {
-  const vistas = new Set<string>();
-  const resultado: Transaccion[] = [];
-  for (const t of transacciones) {
-    const clave = `${t.fecha.toISOString()}|${t.descripcion}|${t.cargo}|${t.abono}`;
-    if (vistas.has(clave)) continue;
-    vistas.add(clave);
-    resultado.push(t);
-  }
-  return resultado;
 }
