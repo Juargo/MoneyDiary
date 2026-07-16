@@ -31,17 +31,20 @@ export class PdfTextExtractor {
     buffer: Buffer,
     nombreArchivo: string,
   ): Promise<Result<PagedTokens, PdfInvalidoError | PdfSinTextoError>> {
-    // Import dinámico: pdfjs-dist 6.x solo publica build ESM (`build/pdf.mjs`,
-    // sin "exports" en package.json). Este paquete (apps/api) es CommonJS
-    // (sin "type":"module"); un `import` estático se transpilaría a
-    // `require()` y fallaría en runtime para un paquete ESM-only. `import()`
-    // dinámico sí puede cargar ESM desde CJS — es el único punto de fricción
-    // de interop, confinado aquí (design.md: "validar el import path
-    // PRIMERO — gatea todo adapter").
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-
     let documento: PDFDocumentProxy | undefined;
     try {
+      // Import dinámico: pdfjs-dist 6.x solo publica build ESM
+      // (`build/pdf.mjs`, sin "exports" en package.json). Este paquete
+      // (apps/api) es CommonJS (sin "type":"module"); un `import` estático
+      // se transpilaría a `require()` y fallaría en runtime para un
+      // paquete ESM-only. `import()` dinámico sí puede cargar ESM desde
+      // CJS — es el único punto de fricción de interop, confinado aquí
+      // (design.md: "validar el import path PRIMERO — gatea todo
+      // adapter"). Vive DENTRO del try: si el módulo no resuelve (build
+      // roto, paquete faltante, etc), el contrato de la clase ("NUNCA
+      // lanza") sigue cumpliéndose — se traduce a Result.fail igual que
+      // cualquier otro fallo de carga.
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
       documento = await pdfjsLib.getDocument({
         data: new Uint8Array(buffer),
         // `isEvalSupported: false` (design.md, propuesta original) YA NO

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { afterEach, vi } from 'vitest';
 import { PdfTextExtractor } from './pdf-text-extractor';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
@@ -49,5 +50,42 @@ describe('PdfTextExtractor', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(PdfSinTextoError);
+  });
+
+  describe('fallo de resolución del import dinámico de pdfjs-dist', () => {
+    afterEach(() => {
+      vi.doUnmock('pdfjs-dist/legacy/build/pdf.mjs');
+      vi.resetModules();
+    });
+
+    it('retorna Fail(PdfInvalidoError) en vez de rechazar/lanzar cuando el import() dinámico falla', async () => {
+      // Simula el módulo ESM-only no resolviendo (build roto, paquete
+      // faltante, etc) — este `import()` vive DENTRO del try/catch de
+      // `extract()`, así que su fallo debe traducirse a Result.fail igual
+      // que cualquier otro fallo de carga (nunca debe rechazar la promesa
+      // de `extract()` ni propagar la excepción cruda).
+      vi.resetModules();
+      vi.doMock('pdfjs-dist/legacy/build/pdf.mjs', () => {
+        throw new Error('resolución de módulo simulada como rota');
+      });
+
+      // `resetModules` fuerza recargar todo el grafo de dependencias, así
+      // que también reimportamos `PdfInvalidoError` desde ESE mismo grafo
+      // fresco — comparar con la clase importada estáticamente arriba
+      // fallaría el `instanceof` por identidad de módulo duplicada, no por
+      // un bug real del código bajo prueba.
+      const { PdfTextExtractor: PdfTextExtractorConImportRoto } =
+        await import('./pdf-text-extractor.js');
+      const { PdfInvalidoError: PdfInvalidoErrorFresco } = await import(
+        '../../domain/errors/pdf-invalido.error.js'
+      );
+      const extractor = new PdfTextExtractorConImportRoto();
+      const buffer = Buffer.from('no llega a leerse: el import falla antes');
+
+      const result = await extractor.extract(buffer, 'cualquiera.pdf');
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PdfInvalidoErrorFresco);
+    });
   });
 });
