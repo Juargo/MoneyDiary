@@ -285,6 +285,7 @@ pnpm audit                                   # auditoría de seguridad
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`)
 - **No lanzar excepciones** en domain/application — usar `Result.fail(error)`
 - **Ports** son interfaces en `application/ports/`, implementaciones en `infrastructure/`
+- **Principios de diseño:** skills de proyecto en `.claude/skills/` — `solid`, `dry`, `kiss`, `yagni` (adaptadas de JordanCoin/codingskills, MIT, con ejemplos de este repo). Aplicarlas al escribir código nuevo y en peer review; sus checklists complementan el checklist de seguridad de ADR-015
 
 > **Fuentes de verdad:** este `CLAUDE.md` es canónico para lo **técnico del repo** (convenciones de código, arquitectura, comandos, seguridad). El **proceso** (Definition of Done, Definition of Ready, ceremonias, ciclo de vida) es canónico en el vault Obsidian bajo `00 Metodología/`. La nota `Convenciones de código y commits.md` del vault es solo un espejo legible: si diverge, manda este archivo.
 >

@@ -62,6 +62,7 @@ rules:
     - Keep tasks completable in one session.
   apply:
     - Follow existing patterns; Spanish domain/application, English NestJS infra, kebab-case.ts files.
+    - Apply the project skills in .claude/skills/ (solid, dry, kiss, yagni) when writing and reviewing code; their checklists complement the ADR-015 security checklist.
     - Frontend DTO types are hand-written in apps/web/src/api/types.ts; do not import api domain.
     - Ignore iCloud duplicate files named "... 2.ts" / "... 2.json".
     tdd: true                            # RED-GREEN-REFACTOR in api, web and mobile domain/screens
