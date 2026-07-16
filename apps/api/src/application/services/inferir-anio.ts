@@ -9,6 +9,18 @@
  * hasta el próximo cruce). Meses repetidos o ascendentes no disparan el
  * incremento.
  *
+ * PRECONDICIÓN (contrato del caller): `meses` debe venir en orden
+ * cronológico ascendente (el orden en que ocurrieron los movimientos), no
+ * necesariamente en orden numérico. Esto es intencional y NO se relaja a
+ * "solo diciembre a enero" (`mesPrevio === 12 && mes === 1`) porque eso
+ * fallaría cruces de año reales donde diciembre no tiene movimientos (ej.
+ * noviembre a enero `[11, 1]`, o diciembre saltado `[12, 2]`) — "cualquier
+ * decremento = cruce" es la regla correcta para entrada cronológicamente
+ * ascendente. Si el caller viola la precondición (entrada NO cronológica,
+ * ej. un decremento a mitad de año como `[6, 3]`), el resultado sigue la
+ * misma regla y por lo tanto es indefinido-pero-documentado (ver
+ * inferir-anio.spec.ts para el comportamiento exacto pinneado en tests).
+ *
  * Pura — sin I/O, sin conocer pdfjs ni ningún banco en particular.
  */
 export function inferirAnios(
