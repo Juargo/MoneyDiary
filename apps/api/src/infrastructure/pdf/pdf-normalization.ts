@@ -7,6 +7,11 @@ import {
 import { parsearMontoPdf } from './parse-monto';
 import { inferirAnios } from '../../application/services/inferir-anio';
 import { Transaccion } from '../../domain/value-objects/transaccion';
+import { Result } from '../../shared/result';
+import {
+  EstructuraPdfInvalidaError,
+  ProblemaEstructuraPdf,
+} from '../../domain/errors/estructura-pdf-invalida.error';
 
 interface FechaFilaParseada {
   readonly dia: number;
@@ -14,6 +19,33 @@ interface FechaFilaParseada {
   /** Presente solo si el formato trae el año explícito por fila (BCI, 'DD/MM/YYYY'). */
   readonly anio: number | undefined;
 }
+
+/** Meses abreviados en español (BancoEstado, formato 'DD/Mmm' — ej. "02/Abr"). */
+const MESES_ES: Readonly<Record<string, number>> = {
+  ene: 1,
+  feb: 2,
+  mar: 3,
+  abr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  ago: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dic: 12,
+};
+
+/**
+ * Token "con forma de monto" que cayó fuera de `rangosX` (columna Saldo,
+ * casi siempre — deliberadamente excluida del esquema canónico en los 4
+ * bancos, ver cada strategy). Exige "$" O al menos un grupo separador de
+ * miles ("\.\d{3}") a propósito: así NO confunde un número de
+ * operación/documento/sucursal (dígitos planos sin separador, también
+ * deliberadamente fuera de `rangosX`) con un monto real — evita falsos
+ * positivos contra los 4 fixtures reales (ver "tokensSinAsignar" abajo).
+ */
+const REGEX_POSIBLE_MONTO = /^\$-?\d+(\.\d{3})*$|^-?\d{1,3}(\.\d{3})+$/;
 
 /**
  * Extrae día/mes(/año) de la columna `fecha` de una fila ya agrupada.
@@ -25,10 +57,12 @@ interface FechaFilaParseada {
  * geometría de columnas ya resuelve el problema, no hace falta lógica ad-hoc
  * de Santander en el núcleo de normalización).
  *
- * 'DD/Mmm' (BancoEstado, mes en español abreviado) queda sin implementar a
- * propósito — PR4b. Nunca lanza: formato desconocido o texto sin match →
+ * 'DD/Mmm' (BancoEstado, mes en español abreviado) — implementado en PR4b vía
+ * `MESES_ES`, case-insensitive ("Abr"/"abr"/"ABR" todos resuelven a 4).
+ *
+ * Nunca lanza: formato desconocido, mes fuera de rango o texto sin match →
  * `null` (fila descartada por el caller; este módulo no tiene taxonomía de
- * error por fila, ver parse-monto.ts).
+ * error por fecha, a diferencia del monto — ver parse-monto.ts).
  */
 function parsearFechaFila(
   valorColumnaFecha: string,
@@ -52,9 +86,14 @@ function parsearFechaFila(
       if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
       return { dia, mes, anio };
     }
-    case 'DD/Mmm':
-      // PR4b: parseo de mes abreviado en español (BancoEstado).
-      return null;
+    case 'DD/Mmm': {
+      const m = valorColumnaFecha.match(/(\d{2})\/([A-Za-z]{3})/);
+      if (!m) return null;
+      const dia = Number(m[1]);
+      const mes = MESES_ES[m[2].toLowerCase()];
+      if (!mes || dia < 1 || dia > 31) return null;
+      return { dia, mes, anio: undefined };
+    }
   }
 }
 
@@ -73,6 +112,11 @@ interface FilaCandidata extends FechaFilaParseada {
  * contrato que `EstructuraPdfValidada.periodo`). Mismo patrón de diseño que
  * `evaluarEstructura` (PR3): pura, testeable con tokens sintéticos.
  *
+ * Retorna `Result` (PR4b — antes retornaba el array directo): agrupa TODOS
+ * los problemas detectados en una sola pasada, mismo criterio UX que
+ * `EstructuraPdfInvalidaError`/`NormalizacionInvalidaError` (Excel) — no
+ * corta en el primer problema.
+ *
  * Pasos:
  *   1. `agruparTokens` (PR1) reconstruye filas por Y + columnas por X — esto
  *      YA resuelve el merge palabra-por-palabra de la descripción Santander,
@@ -83,31 +127,44 @@ interface FilaCandidata extends FechaFilaParseada {
  *      descartan. Esto es POSICIONAL, no por valor: existe porque Santander
  *      repite la última fila del detalle DESPUÉS de su sección "Resumen de
  *      Comisiones" (un eco literal con fecha/monto válidos, que no matchea
- *      ningún `filasIgnoradas` — ver santander.strategy.ts). Una versión
- *      anterior de este módulo intentaba resolver esto deduplicando por
- *      tupla exacta {fecha,descripcion,cargo,abono}, pero eso borraba
- *      SILENCIOSAMENTE movimientos reales distintos (dos compras genuinas
- *      del mismo día/comercio/monto colapsaban en una sola, corrompiendo el
- *      total consolidado) — la deduplicación por valor fue removida.
+ *      ningún `filasIgnoradas` — ver santander.strategy.ts). SOLO Santander
+ *      la usa (PR4a) — BancoEstado/Chile/BCI (PR4b) no la necesitan: sus
+ *      fixtures reales no tienen ningún eco/repetición post-tabla, y
+ *      activarla sin un caso real probado arriesgaría cortar filas legítimas
+ *      de una página posterior (ver nota de riesgo en engram apply-progress).
  *   3. Cada fila que matchea `filasIgnoradas` se descarta INDIVIDUALMENTE
- *      (encabezados de sección, saldos, footers de navegador) — SOLO esa
- *      fila, la recolección continúa con las siguientes. Chequeado ANTES
- *      del filtro de fecha, porque una fila ignorada puede traer una fecha
- *      con formato válido (ver test "excluye filas que matchean
- *      filasIgnoradas..."). A propósito NO termina la tabla (a diferencia
- *      de `anclaFinTabla`): filas como "SALDO INICIAL" suelen estar entre
- *      las primeras de la tabla, y cortar ahí perdería todo el statement.
- *   4. Cada fila sin fecha interpretable en su `formatoFecha` se descarta —
- *      esto excluye naturalmente encabezados de tabla y filas de resumen sin
- *      fecha, sin reglas ad-hoc por banco.
- *   5. El año se resuelve vía `inferirAnios` (bancos con `fuenteAnio.kind
+ *      (encabezados de sección, saldos, footers de navegador, encabezados de
+ *      tabla repetidos en páginas siguientes) — SOLO esa fila, la
+ *      recolección continúa con las siguientes. Chequeado ANTES del filtro
+ *      de fecha, porque una fila ignorada puede traer una fecha con formato
+ *      válido. A propósito NO termina la tabla (a diferencia de
+ *      `anclaFinTabla`): filas como "SALDO INICIAL" suelen estar entre las
+ *      primeras de la tabla, y cortar ahí perdería todo el statement.
+ *   4. Fila sin fecha interpretable en su `formatoFecha`:
+ *        - Si `estructura.fusionarContinuaciones` está activo (SOLO BCI,
+ *          PR4b) Y la fila no trae cargo/abono propios Y trae texto de
+ *          descripción Y ya existe una candidata previa → se fusiona como
+ *          SUFIJO de la descripción de esa candidata (continuación
+ *          multilínea, ver bci.strategy.ts). Si no se cumple alguna
+ *          condición, la fila se descarta sin más (mismo comportamiento que
+ *          antes de PR4b para los otros 3 bancos).
+ *   5. Fila CON fecha interpretable = candidata a transacción real:
+ *        - Señal money-safe: si AMBAS columnas cargo/abono quedaron vacías
+ *          pero `fila.tokensSinAsignar` trae un token con forma de monto
+ *          (fuera de `rangosX` por deriva geométrica) → se reporta
+ *          `TokenSinAsignarSospechoso` en vez de aceptar la fila como
+ *          $0/$0 en silencio.
+ *        - Cada columna de monto NO VACÍA que `parsearMontoPdf` no puede
+ *          interpretar → se reporta `MontoIleeible` (columna vacía SÍ es
+ *          válida y vale 0 — CA-06, igual que Excel).
+ *   6. El año se resuelve vía `inferirAnios` (bancos con `fuenteAnio.kind
  *      === 'inferido'`) o directo desde la propia fila (`'explicito'`, BCI).
  */
 export function normalizarTransaccionesPdf(
   tokens: PagedTokens,
   estructura: EstructuraPdfBanco,
   periodo: { readonly desde: string; readonly hasta: string } | undefined,
-): ReadonlyArray<Transaccion> {
+): Result<ReadonlyArray<Transaccion>, EstructuraPdfInvalidaError> {
   const rangosX: RangoColumna[] = estructura.rangosX.map((r) => ({
     col: r.col,
     xMin: r.xMin,
@@ -115,7 +172,10 @@ export function normalizarTransaccionesPdf(
   }));
   const filas = agruparTokens(tokens, rangosX, estructura.toleranciaY);
 
+  const problemas: ProblemaEstructuraPdf[] = [];
   const candidatas: FilaCandidata[] = [];
+  let filaIndex = 0;
+
   for (const fila of filas) {
     const textoFila = Object.values(fila.columnas).join(' ');
 
@@ -129,14 +189,78 @@ export function normalizarTransaccionesPdf(
 
     const fechaTxt = fila.columnas.fecha ?? '';
     const fechaParseada = parsearFechaFila(fechaTxt, estructura.formatoFecha);
-    if (!fechaParseada) continue;
+    const cargoTxt = (fila.columnas.cargo ?? '').trim();
+    const abonoTxt = (fila.columnas.abono ?? '').trim();
+    const descTxt = (fila.columnas.descripcion ?? '').trim();
+
+    if (!fechaParseada) {
+      if (
+        estructura.fusionarContinuaciones &&
+        cargoTxt === '' &&
+        abonoTxt === '' &&
+        descTxt !== '' &&
+        candidatas.length > 0
+      ) {
+        const ultima = candidatas[candidatas.length - 1];
+        candidatas[candidatas.length - 1] = {
+          ...ultima,
+          descripcion: `${ultima.descripcion} ${descTxt}`.trim(),
+        };
+      }
+      continue;
+    }
+
+    filaIndex++;
+
+    if (
+      cargoTxt === '' &&
+      abonoTxt === '' &&
+      fila.tokensSinAsignar.some((t) => REGEX_POSIBLE_MONTO.test(t.str))
+    ) {
+      problemas.push({ tipo: 'TokenSinAsignarSospechoso', fila: filaIndex });
+      continue;
+    }
+
+    let cargo = 0;
+    if (cargoTxt !== '') {
+      const n = parsearMontoPdf(cargoTxt);
+      if (n === null) {
+        problemas.push({
+          tipo: 'MontoIleeible',
+          fila: filaIndex,
+          columna: 'cargo',
+        });
+        continue;
+      }
+      cargo = n;
+    }
+
+    let abono = 0;
+    if (abonoTxt !== '') {
+      const n = parsearMontoPdf(abonoTxt);
+      if (n === null) {
+        problemas.push({
+          tipo: 'MontoIleeible',
+          fila: filaIndex,
+          columna: 'abono',
+        });
+        continue;
+      }
+      abono = n;
+    }
 
     candidatas.push({
       ...fechaParseada,
-      descripcion: (fila.columnas.descripcion ?? '').trim(),
-      cargo: parsearMontoPdf(fila.columnas.cargo ?? ''),
-      abono: parsearMontoPdf(fila.columnas.abono ?? ''),
+      descripcion: descTxt,
+      cargo,
+      abono,
     });
+  }
+
+  if (problemas.length > 0) {
+    return Result.fail(
+      new EstructuraPdfInvalidaError(estructura.banco, problemas),
+    );
   }
 
   const anios = resolverAnios(candidatas, estructura, periodo);
@@ -148,7 +272,7 @@ export function normalizarTransaccionesPdf(
     abono: c.abono,
   }));
 
-  return transacciones;
+  return Result.ok(transacciones);
 }
 
 function resolverAnios(
