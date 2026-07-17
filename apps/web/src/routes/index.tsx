@@ -1,18 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useResumen } from '@/api/use-resumen'
 import { ResumenPage } from '@/components/ResumenPage'
-
-/**
- * `YYYY-MM` only (backend contract). A malformed/absent search param falls
- * back to `undefined` — `useResumen(undefined)` calls `/api/resumen` without
- * a query param, and the backend resolves the current month (spec: invalid
- * `periodo` never throws client-side, W1.8).
- */
-const PERIODO_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/
-
-function normalizarPeriodo(raw: unknown): string | undefined {
-  return typeof raw === 'string' && PERIODO_REGEX.test(raw) ? raw : undefined
-}
+import { normalizarPeriodo } from '@/domain/periodo'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { periodo?: string } => ({

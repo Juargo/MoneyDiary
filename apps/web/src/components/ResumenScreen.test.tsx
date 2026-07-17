@@ -27,6 +27,14 @@ describe('ResumenScreen', () => {
     expect(screen.getByText('$1.000.000')).toBeInTheDocument()
   })
 
+  // A11y (ADR-018): the document must start at a page-level <h1> instead of
+  // jumping straight to <h2> — a broken heading outline confuses assistive
+  // technology users navigating by heading.
+  it('renders exactly one page-level <h1> heading', () => {
+    render(<ResumenScreen viewModel={viewModel} />)
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
   it('renders all 4 bucket slices — income + distribution visible together (spec W1-02)', () => {
     render(<ResumenScreen viewModel={viewModel} />)
     expect(screen.getByText('Necesidades')).toBeInTheDocument()

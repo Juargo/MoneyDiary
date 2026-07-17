@@ -7,6 +7,14 @@ describe('Loading', () => {
   it('renders a loading indicator and label', () => {
     render(<Loading />)
     expect(screen.getByText('Cargando resumen…')).toBeInTheDocument()
-    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+  })
+
+  // A11y (ADR-018): the message must live INSIDE the `role="status"` live
+  // region so mounting the loading state announces it to assistive
+  // technology — a status region with no accessible content is silent.
+  it('announces the loading message inside the accessible status region', () => {
+    render(<Loading />)
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando resumen…')
   })
 })

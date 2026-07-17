@@ -12,10 +12,16 @@ import type { ResumenViewModel } from '@/domain/resumen-view-model'
  * backend-computed semáforo state verbatim, no money math, no fetch. The
  * "Distribución del gasto" heading and `data-testid="semaforo-global"` are
  * the e2e anchors (mirrors the mobile Maestro anchor).
+ *
+ * A11y (ADR-018): this is the data screen's single page-level `<h1>` — the
+ * document previously started at `<h2>`, which breaks the heading outline
+ * for assistive technology. Visually hidden (`sr-only`); "Distribución del
+ * gasto" stays the visible subheading.
  */
 export function ResumenScreen({ viewModel }: { readonly viewModel: ResumenViewModel }) {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-5 p-4">
+      <h1 className="sr-only">Resumen mensual</h1>
       <IngresoCard totalIngreso={viewModel.totalIngreso} />
 
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5">

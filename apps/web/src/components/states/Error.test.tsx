@@ -22,6 +22,15 @@ describe('ErrorState', () => {
     expect(screen.getByText('Ocurrió un error inesperado.')).toBeInTheDocument()
   })
 
+  // A11y (ADR-018): the message must live inside a `role="alert"` region so
+  // a Data→Error refetch failure announces to assistive technology instead
+  // of failing silently.
+  it('announces the error message via an assertive alert region', () => {
+    const error: ApiError = { tag: 'network', message: 'Problema de conexión.' }
+    render(<ErrorState error={error} onRetry={() => {}} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Problema de conexión.')
+  })
+
   it('calls onRetry when the retry affordance is activated', async () => {
     const user = userEvent.setup()
     const onRetry = vi.fn()
