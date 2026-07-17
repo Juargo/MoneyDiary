@@ -1,0 +1,306 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fetchDetalleBucket, fetchResumen } from './client'
+import type { DetalleBucketDto, ResumenMesDto } from './types'
+
+const validDto: ResumenMesDto = {
+  periodo: '2026-07',
+  totalIngreso: '1000000',
+  sinIngreso: false,
+  buckets: [
+    { bucket: 'Necesidades', total: '400000', porcentajeBp: 4000, estadoSemaforo: 'verde' },
+    { bucket: 'Deseos', total: '250000', porcentajeBp: 2500, estadoSemaforo: 'verde' },
+    { bucket: 'Ahorro', total: '350000', porcentajeBp: 3500, estadoSemaforo: 'amarillo' },
+    { bucket: 'SinCategoria', total: '0', porcentajeBp: 0, estadoSemaforo: null },
+  ],
+  targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+  estadoGlobal: 'amarillo',
+}
+
+function mockFetchOnce(response: { ok: boolean; status: number; json?: () => Promise<unknown> }) {
+  const fetchMock = vi.fn().mockResolvedValue(response)
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+describe('fetchResumen', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a GET /api/resumen same-origin, sin base URL ni key (W0-02)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDto) })
+
+    await fetchResumen()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumen')
+  })
+
+  it('agrega el query param periodo cuando se provee', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDto) })
+
+    await fetchResumen('2026-07')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumen?periodo=2026-07')
+  })
+
+  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDto) })
+
+    const result = await fetchResumen()
+
+    expect(result).toEqual({ ok: true, value: validDto })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 400 a {tag: "invalid"} ("período inválido")', async () => {
+    mockFetchOnce({ ok: false, status: 400 })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message: 'El período no es válido.',
+    })
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"} ("sin acceso")', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'unauthorized',
+      message: 'Sin acceso.',
+    })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un body 2xx que no cumple la forma esperada a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ nonsense: true }) })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea un body 2xx cuyo json() lanza a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.reject(new Error('invalid json')) })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando buckets[0].total es number en vez de string (money-safety boundary)', async () => {
+    const bodyConTotalNumerico = {
+      ...validDto,
+      buckets: [{ ...validDto.buckets[0], total: 400000 }, ...validDto.buckets.slice(1)],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConTotalNumerico) })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando buckets[0].total es un string no decimal (p.ej. "abc") — nunca llega a formatearMontoCLP', async () => {
+    const bodyConTotalMalformado = {
+      ...validDto,
+      buckets: [{ ...validDto.buckets[0], total: 'abc' }, ...validDto.buckets.slice(1)],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConTotalMalformado) })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+const validDetalleBucketDto: DetalleBucketDto = {
+  periodo: '2026-07',
+  bucket: 'Necesidades',
+  transacciones: [
+    {
+      id: 'tx-1',
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Supermercado',
+      cargo: '50000',
+      abono: '0',
+      banco: 'BancoEstado',
+      tipoCuenta: 'CuentaRUT',
+      numeroCuenta: '12345678',
+    },
+  ],
+}
+
+describe('fetchDetalleBucket', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a GET /api/buckets/:bucket same-origin, sin base URL ni key (W0-02)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDetalleBucketDto) })
+
+    await fetchDetalleBucket('Necesidades')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/buckets/Necesidades')
+  })
+
+  it('agrega el query param periodo cuando se provee y encodea el :bucket', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDetalleBucketDto) })
+
+    await fetchDetalleBucket('Sin Categoria', '2026-07')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/buckets/Sin%20Categoria?periodo=2026-07')
+  })
+
+  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDetalleBucketDto) })
+
+    const result = await fetchDetalleBucket('Necesidades', '2026-07')
+
+    expect(result).toEqual({ ok: true, value: validDetalleBucketDto })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 400 a {tag: "invalid"} (bucket o período inválido)', async () => {
+    mockFetchOnce({ ok: false, status: 400 })
+
+    const result = await fetchDetalleBucket('invalido')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('invalid')
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'unauthorized', message: 'Sin acceso.' })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un body 2xx que no cumple la forma esperada a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ nonsense: true }) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es number en vez de string (money-safety boundary)', async () => {
+    const bodyConCargoNumerico = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: 50000 }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoNumerico) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es un string no decimal (p.ej. "abc") — nunca llega a formatearMontoCLP', async () => {
+    const bodyConCargoMalformado = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: 'abc' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoMalformado) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es un string vacío', async () => {
+    const bodyConCargoVacio = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: '' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoVacio) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha no es una fecha parseable', async () => {
+    const bodyConFechaMalformada = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], fecha: 'not-a-date' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaMalformada) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha es un string vacío', async () => {
+    const bodyConFechaVacia = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], fecha: '' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaVacia) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
