@@ -1,9 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { ResumenPage } from './ResumenPage'
 import type { ApiError } from '@/api/client'
 import type { ResumenMesDto } from '@/api/types'
 import type { UseQueryResult } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 
 // Router-agnostic 4-way state switch (spec W1-02): the container
 // (routes/index.tsx) owns TanStack Router's search params + `useResumen`;
@@ -43,6 +51,24 @@ function mockQuery(
   } as UseQueryResult<ResumenMesDto, ApiError>
 }
 
+// The data state renders `ResumenScreen`, which renders a real
+// `<Link to="/buckets/$bucket">` per bucket row (US-017 nav) — that throws
+// outside a router context. Only the data-state tests below need this
+// wrapper; loading/error/empty never reach `ResumenScreen`.
+async function renderWithRouter(ui: ReactElement) {
+  const rootRoute = createRootRoute()
+  const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => ui })
+  const bucketDetailRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/buckets/$bucket',
+    component: () => <div>bucket detail stub</div>,
+  })
+  const routeTree = rootRoute.addChildren([indexRoute, bucketDetailRoute])
+  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/'] }) })
+  await router.load()
+  return render(<RouterProvider router={router} />)
+}
+
 describe('ResumenPage', () => {
   it('renders exactly the loading state while the query is pending', () => {
     render(
@@ -79,8 +105,8 @@ describe('ResumenPage', () => {
     expect(screen.queryByText('Distribución del gasto')).not.toBeInTheDocument()
   })
 
-  it('renders the data state with income, all 4 buckets, and the global semáforo', () => {
-    render(
+  it('renders the data state with income, all 4 buckets, and the global semáforo', async () => {
+    await renderWithRouter(
       <ResumenPage query={mockQuery({ data: dataDto })} periodo="2026-07" onPeriodoChange={() => {}} />,
     )
     expect(screen.getByText('$1.000.000')).toBeInTheDocument()
@@ -90,9 +116,9 @@ describe('ResumenPage', () => {
     expect(screen.getByTestId('semaforo-global')).toBeInTheDocument()
   })
 
-  it('wires the period selector — reports the new value via onPeriodoChange', () => {
+  it('wires the period selector — reports the new value via onPeriodoChange', async () => {
     const onPeriodoChange = vi.fn()
-    render(
+    await renderWithRouter(
       <ResumenPage query={mockQuery({ data: dataDto })} periodo="2026-07" onPeriodoChange={onPeriodoChange} />,
     )
 
