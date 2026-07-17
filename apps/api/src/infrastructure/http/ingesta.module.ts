@@ -2,8 +2,11 @@ import { Module } from '@nestjs/common';
 import { IngestaController } from './ingesta.controller';
 import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
+import { DetectPdfBankUseCase } from '../../application/use-cases/detect-pdf-bank.use-case';
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
+import { ValidatePdfStructureUseCase } from '../../application/use-cases/validate-pdf-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
+import { NormalizePdfTransactionsUseCase } from '../../application/use-cases/normalize-pdf-transactions.use-case';
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
@@ -16,6 +19,9 @@ import { CRYPTO_SERVICE } from '../../application/ports/crypto-service.port';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
 import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
+import { PdfjsBankDetectorService } from '../pdf/pdfjs-bank-detector.service';
+import { PdfjsStructureValidatorService } from '../pdf/pdfjs-structure-validator.service';
+import { PdfjsTransactionNormalizerService } from '../pdf/pdfjs-transaction-normalizer.service';
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
@@ -78,12 +84,24 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
       useFactory: () => new DetectBankUseCase(new ExcelBankDetectorService()),
     },
     {
+      provide: DetectPdfBankUseCase,
+      useFactory: () => new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
+    },
+    {
       provide: ValidateStructureUseCase,
       useFactory: () => new ValidateStructureUseCase(new ExcelStructureValidatorService()),
     },
     {
+      provide: ValidatePdfStructureUseCase,
+      useFactory: () => new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
+    },
+    {
       provide: NormalizeTransactionsUseCase,
       useFactory: () => new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
+    },
+    {
+      provide: NormalizePdfTransactionsUseCase,
+      useFactory: () => new NormalizePdfTransactionsUseCase(new PdfjsTransactionNormalizerService()),
     },
     {
       provide: PersistTransactionsUseCase,
@@ -96,9 +114,12 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
       useFactory: (
         ingestFileUseCase: IngestFileUseCase,
         detectBankUseCase: DetectBankUseCase,
+        detectPdfBankUseCase: DetectPdfBankUseCase,
         accountRepository: IAccountRepository,
         validateStructureUseCase: ValidateStructureUseCase,
+        validatePdfStructureUseCase: ValidatePdfStructureUseCase,
         normalizeTransactionsUseCase: NormalizeTransactionsUseCase,
+        normalizePdfTransactionsUseCase: NormalizePdfTransactionsUseCase,
         persistTransactionsUseCase: PersistTransactionsUseCase,
         catalogoClasificacion: ICatalogoClasificacion,
         transaccionBucketWriter: ITransaccionBucketWriter,
@@ -108,9 +129,12 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         new ProcessIngestaUseCase(
           ingestFileUseCase,
           detectBankUseCase,
+          detectPdfBankUseCase,
           accountRepository,
           validateStructureUseCase,
+          validatePdfStructureUseCase,
           normalizeTransactionsUseCase,
+          normalizePdfTransactionsUseCase,
           persistTransactionsUseCase,
           catalogoClasificacion,
           transaccionBucketWriter,
@@ -120,9 +144,12 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
       inject: [
         IngestFileUseCase,
         DetectBankUseCase,
+        DetectPdfBankUseCase,
         ACCOUNT_REPOSITORY,
         ValidateStructureUseCase,
+        ValidatePdfStructureUseCase,
         NormalizeTransactionsUseCase,
+        NormalizePdfTransactionsUseCase,
         PersistTransactionsUseCase,
         CATALOGO_CLASIFICACION,
         TRANSACCION_BUCKET_WRITER,
