@@ -9,29 +9,39 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 // back unchanged. The key lives only in this Node process — it never reaches
 // the browser bundle. No caching of authenticated responses.
 //
-// Not unit-testable in isolation (serverless runtime, needs a live Vercel
-// project + Render backend). Exit criterion is the manual prod check in the
-// 0-W.5 checklist: deployed URL returns 200 from `/api/resumen`, and `dist/`
-// contains no `x-api-key` / `VITE_API_KEY` string.
+// Exit criterion is the manual prod check in the 0-W.5 checklist: deployed
+// URL returns 200 from `/api/resumen`, and `dist/` contains no `x-api-key` /
+// `VITE_API_KEY` string. Unit-covered in `proxy.test.ts` with faked
+// req/res/fetch.
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const apiKey = process.env.API_KEY
   const apiBaseUrl = process.env.API_BASE_URL
 
   if (!apiKey || !apiBaseUrl) {
-    res.statusCode = 500
-    res.setHeader('content-type', 'application/json')
-    res.end(JSON.stringify({ message: 'proxy misconfigured: missing API_KEY or API_BASE_URL' }))
+    sendJsonError(res, 500, 'proxy misconfigured: missing API_KEY or API_BASE_URL')
     return
   }
 
-  const targetUrl = new URL(req.url ?? '/', apiBaseUrl)
+  const safePath = resolveSafePath(req.url)
+  if (safePath === null) {
+    sendJsonError(res, 400, 'invalid request path')
+    return
+  }
+
+  const targetUrl = new URL(safePath, apiBaseUrl)
   const body = await readRequestBody(req)
 
-  const upstream = await fetch(targetUrl, {
-    method: req.method,
-    headers: { ...forwardableHeaders(req.headers), 'x-api-key': apiKey },
-    body,
-  })
+  let upstream: Response
+  try {
+    upstream = await fetch(targetUrl, {
+      method: req.method,
+      headers: { ...forwardableHeaders(req.headers), 'x-api-key': apiKey },
+      body,
+    })
+  } catch {
+    sendJsonError(res, 502, 'upstream request failed')
+    return
+  }
 
   res.statusCode = upstream.status
   upstream.headers.forEach((value, key) => {
@@ -41,6 +51,33 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.setHeader(key, value)
   })
   res.end(Buffer.from(await upstream.arrayBuffer()))
+}
+
+function sendJsonError(res: ServerResponse, status: number, message: string): void {
+  res.statusCode = status
+  res.setHeader('content-type', 'application/json')
+  res.end(JSON.stringify({ message }))
+}
+
+// Validates `req.url` BEFORE it is ever used to build the upstream target or
+// attach the server-side `x-api-key`. `new URL(req.url, apiBaseUrl)` follows
+// WHATWG URL rules: a protocol-relative (`//host/...`) or absolute
+// (`http://host/...`) `req.url` IGNORES the base entirely, so an unvalidated
+// value would let a client redirect the authenticated request — key included
+// — to an attacker-controlled host (SSRF / key exfiltration). Only a
+// same-origin-relative path+query (single leading `/`, no scheme, no
+// protocol-relative prefix) is allowed through.
+function resolveSafePath(url: string | undefined): string | null {
+  if (!url || !url.startsWith('/')) return null
+  if (url.startsWith('//') || url.startsWith('/\\') || url.startsWith('\\')) return null
+  if (url.includes('://')) return null
+
+  // Re-parse against a throwaway base to normalize the path+query; this also
+  // rejects anything that still resolves outside a single-leading-slash path.
+  const parsed = new URL(url, 'http://proxy-base.invalid')
+  if (!parsed.pathname.startsWith('/') || parsed.pathname.startsWith('//')) return null
+
+  return `${parsed.pathname}${parsed.search}`
 }
 
 async function readRequestBody(req: IncomingMessage): Promise<Buffer | undefined> {
