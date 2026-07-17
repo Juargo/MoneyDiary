@@ -26,6 +26,11 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:3000',
           changeOrigin: true,
           configure: (proxy) => {
+            if (!env.API_KEY) {
+              console.warn(
+                '[vite proxy] API_KEY not set in .env.local — requests to /api will hit the backend without x-api-key and get 401',
+              )
+            }
             proxy.on('proxyReq', (proxyReq) => {
               if (env.API_KEY) proxyReq.setHeader('x-api-key', env.API_KEY)
             })

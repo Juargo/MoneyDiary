@@ -13,6 +13,8 @@ export default defineConfig((configEnv) =>
     viteConfig(configEnv),
     defineConfig({
       test: {
+        // Fails the run locally (not just in CI) if a stray `.only` slips in.
+        allowOnly: false,
         globals: true,
         environment: 'jsdom',
         setupFiles: ['./src/test/setup.ts'],
