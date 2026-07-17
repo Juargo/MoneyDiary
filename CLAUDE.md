@@ -134,7 +134,14 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 
 Detalle en `04 Sprints/Sprint-3/Sprint-3.md` del vault.
 
-**Roadmap MVP (siguiente):** cerrar Track C / US-021 (tiendas) → retomar la UI **web** diferida (US-015/016 UI + US-017 detalle de bucket). Grooming mobile ✅ hecho (2026-07-15): épica Mobile con US-019 (auth+deploy), US-020 (pantalla resumen), US-021 (tiendas).
+**Sprint 4 (16–17 jul 2026) — CERRADO (PRs #40–#46).** Ingesta de cartolas **PDF** end-to-end (pipeline dual `.xlsx`/`.pdf`, transparente aguas abajo): US-008 (detección), US-009 (validación), US-010 (normalización) + Tarea 0 (extensión `.pdf`, `pdfjs-dist` build legacy, ADR-009). Detalle en `04 Sprints/Sprint-4/Sprint-4.md`.
+
+**Sprint 5 (desde 20 jul 2026) — EN CURSO, 2 grupos en paralelo.**
+
+- **Grupo W — UI web del aplicativo: ✅ completo en `main` (PR #55, 2026-07-17).** Retomada la UI web diferida: US-015/016 (pantalla resumen 50/30/20 + semáforo accesible que solo renderiza el estado que calcula el backend) y US-017 (endpoint `GET /api/buckets/:bucket` con aislamiento `userId` + fold `SinCategoria`; detalle flat-list MVP). **Tarea 0-W (decisión de seguridad):** la web consume la API con `x-api-key` inyectada **server-side** — proxy Vite `configure` en dev (lee `API_KEY` sin prefijo `VITE_`) + función Vercel `apps/web/api/[...path].ts` en prod; la key **nunca** entra al bundle. CI: `pnpm web test` + secret-scan fail-closed sobre `apps/web`. Entregado como cadena de 5 PRs (feature-branch-chain) con TDD estricto + review de contexto fresco por slice (atajó SSRF de la key, guards de dinero que crasheaban el render, gaps de a11y). **Deuda de runtime:** integración con DB real (aislamiento US-017) + proyecto Vercel (verificación prod 0-W.5) pendientes; `vitest-axe`/`eslint-jsx-a11y` (ADR-018) y US-013 (edición inline, CA-02) diferidos.
+- **Grupo L — Landing pública: ✅ en `main` (PRs #47/#52-54).** Workspace `apps/landing` (Astro estático, ADR-025); publicación/dominio (US-023) y scope de newsletter los cierra Grupo L.
+
+**Roadmap MVP (siguiente):** cerrar la deuda de runtime de Grupo W (integración DB + Vercel prod) y la publicación de Grupo L (US-023) / tiendas mobile (US-021). Grooming mobile ✅ hecho (2026-07-15): épica Mobile con US-019 (auth+deploy), US-020 (pantalla resumen), US-021 (tiendas).
 
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
