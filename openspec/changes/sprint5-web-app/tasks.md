@@ -18,7 +18,7 @@
 route through a proxy that injects `x-api-key` server-side, because otherwise dev work would either
 call Render directly (exposing a key in fetch calls) or 401 against `ApiKeyGuard`.
 
-- [ ] **0-W.1** — Dev proxy: extend `apps/web/vite.config.ts` to inject `x-api-key` server-side.
+- [x] **0-W.1** — Dev proxy: extend `apps/web/vite.config.ts` to inject `x-api-key` server-side.
   - Change `defineConfig({...})` → `defineConfig(({ mode }) => {...})`.
   - `const env = loadEnv(mode, process.cwd(), '')` (empty prefix — loads bare `API_KEY`, never
     `import.meta.env`).
@@ -29,11 +29,11 @@ call Render directly (exposing a key in fetch calls) or 401 against `ApiKeyGuard
     initiated from the browser — only the proxied outbound request carries it).
   - File: `apps/web/vite.config.ts` (existing file, `configure` hook is new).
 
-- [ ] **0-W.2** — `apps/web/.env.example` (new file, first `.env.example` in the repo).
+- [x] **0-W.2** — `apps/web/.env.example` (new file, first `.env.example` in the repo).
   - Document `API_KEY=` with a comment: bare name, NO `VITE_` prefix, server-side only, never bundled.
   - File: `apps/web/.env.example`.
 
-- [ ] **0-W.3** — Prod proxy: Vercel catch-all function.
+- [x] **0-W.3** — Prod proxy: Vercel catch-all function.
   - `apps/web/api/[...path].ts` — reads `process.env.API_KEY` and `process.env.API_BASE_URL`
     (`https://moneydiary-api.onrender.com`), forwards method + path + query to Render, injects
     `x-api-key`, streams the response back unchanged. No caching of authenticated responses.
@@ -43,7 +43,7 @@ call Render directly (exposing a key in fetch calls) or 401 against `ApiKeyGuard
     prod check in `0-W.5`.
   - Files: `apps/web/api/[...path].ts`, `apps/web/vercel.json` (if needed).
 
-- [ ] **0-W.4** — CI hardening: `.github/workflows/ci.yml`.
+- [x] **0-W.4** — CI hardening: `.github/workflows/ci.yml`.
   - Add `- name: Unit tests web` → `run: pnpm web test` immediately after the existing
     `- name: Typecheck web` step (today only typecheck runs for web).
   - Add `- name: Build web` → `run: pnpm web build` (needed so `dist/` exists for the scan below;
@@ -59,10 +59,14 @@ call Render directly (exposing a key in fetch calls) or 401 against `ApiKeyGuard
   - File: `.github/workflows/ci.yml` (existing file, `ci` job — after `Typecheck web`, before `landing`
     job).
 
-- [ ] **0-W.5** — Manual verification checklist (not a commit, a gate before starting W1/W2/W3 work
+- [~] **0-W.5** — Manual verification checklist (not a commit, a gate before starting W1/W2/W3 work
   or before closing the sprint for the prod half):
-  - Dev: `pnpm web dev` + `pnpm api start:dev`, browser calls `/api/resumen` succeed end-to-end.
-  - Prod (may run after Vercel project exists — can be deferred to the end of the sprint, tracked here
+  - [x] Dev proxy config verified via `pnpm web typecheck` + `pnpm web test` + `pnpm web build` (all
+    green) and the CI secret-scan grep lines run by hand (both pass clean on the built `dist/`, and
+    were proven to fail on a deliberately planted `VITE_API_KEY`/`x-api-key` string). Full manual
+    browser round-trip (`pnpm web dev` + `pnpm api start:dev`, live `/api/resumen` call) still needs a
+    human with a real `.env.local` `API_KEY` — not run by this automated apply pass.
+  - [ ] Prod (blocked — no Vercel project exists yet; deferred to the end of the sprint, tracked here
     so it isn't dropped): deployed Vercel URL returns 200 from `/api/resumen`, `dist/` has no
     `x-api-key`/`VITE_API_KEY` string (spot-check with the same grep used in CI).
 
