@@ -201,26 +201,26 @@ largest and highest-risk unit — flagged in design as containing a correctness-
 
 ### Backend — domain (test-first)
 
-- [ ] **W3.1** — `apps/api/src/domain/errors/bucket-invalido.error.spec.ts` (write first): mirrors
+- [x] **W3.1** — `apps/api/src/domain/errors/bucket-invalido.error.spec.ts` (write first): mirrors
   `periodo-invalido.error.ts` test shape — scrubbed `message` (never contains raw input),
   `rawValue` present for server-side logging only.
-- [ ] **W3.2** — `apps/api/src/domain/errors/bucket-invalido.error.ts`: `BucketInvalidoError extends Error`,
+- [x] **W3.2** — `apps/api/src/domain/errors/bucket-invalido.error.ts`: `BucketInvalidoError extends Error`,
   same shape as `PeriodoInvalidoError` (constructor takes raw string, sets scrubbed `message` + `rawValue`,
   `name = 'BucketInvalidoError'`). Make W3.1 pass.
 
 ### Backend — application (test-first)
 
-- [ ] **W3.3** — `apps/api/src/application/ports/detalle-bucket.port.ts`: `DetalleBucketRow` interface
+- [x] **W3.3** — `apps/api/src/application/ports/detalle-bucket.port.ts`: `DetalleBucketRow` interface
   (`id, fecha: Date, descripcion, cargo: bigint, abono: bigint, banco, tipoCuenta, numeroCuenta` — no
   `bucketId` field, per design's KISS call) + `IDetalleBucketReader.findByPeriodoYBucket(userId, periodo: PeriodoMes, bucket: Bucket)`
   + `export const DETALLE_BUCKET_READER = 'IDetalleBucketReader'`. Ports are interfaces — no test file
   (mirrors `movimientos-mes.port.ts`, which has none).
-- [ ] **W3.4** — `apps/api/src/application/use-cases/obtener-detalle-bucket.use-case.spec.ts` (write
+- [x] **W3.4** — `apps/api/src/application/use-cases/obtener-detalle-bucket.use-case.spec.ts` (write
   first): cases — valid bucket + valid periodo (ok), valid bucket + absent periodo (resolves
   `PeriodoMes.actual()`), invalid bucket → `Result.fail(BucketInvalidoError)`, invalid periodo →
   `Result.fail(PeriodoInvalidoError)`, empty result array is still `Result.ok` (not an error). Mock
   `IDetalleBucketReader`.
-- [ ] **W3.5** — `apps/api/src/application/use-cases/obtener-detalle-bucket.use-case.ts`:
+- [x] **W3.5** — `apps/api/src/application/use-cases/obtener-detalle-bucket.use-case.ts`:
   `ObtenerDetalleBucketUseCase` — validates `:bucket` against `Object.values(Bucket).includes(raw as Bucket)`
   first (miss → `Result.fail(new BucketInvalidoError(raw))`), then resolves `periodo` (undefined →
   `PeriodoMes.actual()`; present → `PeriodoMes.crear()` → `PeriodoInvalidoError` on failure), then
@@ -229,7 +229,7 @@ largest and highest-risk unit — flagged in design as containing a correctness-
 
 ### Backend — infrastructure (test-first)
 
-- [ ] **W3.6** — `apps/api/src/infrastructure/persistence/prisma-detalle-bucket.repository.spec.ts`
+- [x] **W3.6** — `apps/api/src/infrastructure/persistence/prisma-detalle-bucket.repository.spec.ts`
   (write first): asserts the `where` clause shape — **the `SinCategoria` case MUST produce
   `OR: [{ bucketId: null }, { bucketId: BUCKET_IDS[Bucket.SinCategoria] }]`**, every other bucket
   produces `bucketId: BUCKET_IDS[bucket]`; `account: { userId }` always present; `fecha` half-open
@@ -237,39 +237,39 @@ largest and highest-risk unit — flagged in design as containing a correctness-
   design's flagged HIGH-risk correctness item — do not drop or weaken these assertions. Reference
   shape: `apps/api/src/infrastructure/persistence/prisma-resumen-mes.repository.spec.ts` (SinCategoria
   fold case) + `prisma-movimientos-mes.repository.ts` (isolation + window pattern).
-- [ ] **W3.7** — `apps/api/src/infrastructure/persistence/prisma-detalle-bucket.repository.ts`:
+- [x] **W3.7** — `apps/api/src/infrastructure/persistence/prisma-detalle-bucket.repository.ts`:
   `PrismaDetalleBucketRepository implements IDetalleBucketReader`. Constructor takes `PrismaService`
   directly (no NestJS decorators). Uses `BUCKET_IDS` from `bucket-ids.ts` (existing single source of
   truth). Make W3.6 pass.
-- [ ] **W3.8** — `apps/api/src/infrastructure/http/dto/detalle-bucket.dto.spec.ts` (write first):
+- [x] **W3.8** — `apps/api/src/infrastructure/http/dto/detalle-bucket.dto.spec.ts` (write first):
   money fields serialize as decimal strings (`String(bigint)`, not `Number()`), `fecha` as full
   ISO-8601 UTC via `.toISOString()` (locked convention — do not invent a `YYYY-MM-DD`-only variant),
   `bucket` echoes the validated input.
-- [ ] **W3.9** — `apps/api/src/infrastructure/http/dto/detalle-bucket.dto.ts`: `DetalleBucketTransaccionDto`
+- [x] **W3.9** — `apps/api/src/infrastructure/http/dto/detalle-bucket.dto.ts`: `DetalleBucketTransaccionDto`
   (`id, fecha, descripcion, cargo, abono, banco, tipoCuenta, numeroCuenta`) + `DetalleBucketDto`
   (`periodo, bucket, transacciones`) + mapper function (mirrors `aResumenMesDto` /
   `movimiento-mes.dto.ts` shape). Make W3.8 pass.
-- [ ] **W3.10** — `apps/api/src/infrastructure/http/detalle-bucket.controller.spec.ts` (write first,
+- [x] **W3.10** — `apps/api/src/infrastructure/http/detalle-bucket.controller.spec.ts` (write first,
   e2e-style unit or controller-level per existing `resumen.controller` test conventions): 200 shape
   for a valid `:bucket`, `BucketInvalidoError` → scrubbed 400 (raw `:bucket` value never reflected in
   body), `PeriodoInvalidoError` → scrubbed 400, unexpected error → logged + generic 500, exhaustiveness
   `never` guard present for future error types.
-- [ ] **W3.11** — `apps/api/src/infrastructure/http/detalle-bucket.controller.ts`:
+- [x] **W3.11** — `apps/api/src/infrastructure/http/detalle-bucket.controller.ts`:
   `GET /api/buckets/:bucket?periodo=YYYY-MM` — mirrors `resumen.controller.ts` structure exactly
   (`@Controller('api/buckets')`, `@Get(':bucket')`, `@Inject(USER_ID_FIJO_TOKEN)`, try/catch around the
   use case call, `Result.isFail()` branch with `BucketInvalidoError`/`PeriodoInvalidoError` → 400,
   exhaustive `never` guard → 500). Make W3.10 pass.
-- [ ] **W3.12** — `apps/api/src/infrastructure/http/detalle-bucket.module.ts`: composition root,
+- [x] **W3.12** — `apps/api/src/infrastructure/http/detalle-bucket.module.ts`: composition root,
   mirrors `resumen.module.ts` verbatim shape (`useFactory` providers for `DETALLE_BUCKET_READER` →
   `PrismaDetalleBucketRepository`, `ObtenerDetalleBucketUseCase`, `USER_ID_FIJO_TOKEN` value provider;
   `controllers: [DetalleBucketController]`; no `PrismaModule` import — it's `@Global`).
-- [ ] **W3.13** — Register `DetalleBucketModule` in the root app module alongside `ResumenModule`
+- [x] **W3.13** — Register `DetalleBucketModule` in the root app module alongside `ResumenModule`
   (find the existing root module import list — same place `ResumenModule`/`MovimientosModule` are
   registered).
 
 ### Backend — integration test (isolation + null-fold, ADR-015 mandate)
 
-- [ ] **W3.14** — `apps/api/test/detalle-bucket.int-spec.ts`: two-user pattern from
+- [x] **W3.14** — `apps/api/test/detalle-bucket.int-spec.ts`: two-user pattern from
   `apps/api/test/movimientos-mes.int-spec.ts` (AC-10). Assertions:
   1. **Isolation**: a user B transaction in the queried bucket/period never appears in user A's result
      (row-identity assertion, `returnedIds.not.toContain(userBTx.id)`).
@@ -278,7 +278,7 @@ largest and highest-risk unit — flagged in design as containing a correctness-
   Runs under the existing `ALLOW_DESTRUCTIVE_DB=1` gate via `integration.setup.ts` — not in CI (matches
   `movimientos-mes.int-spec.ts` precedent). Do NOT backfill isolation tests for `/api/resumen` or
   `/api/movimientos` — design confirmed both already have one (YAGNI, do not re-cover green paths).
-- [ ] **W3.15** — `apps/api/test/detalle-bucket.e2e-spec.ts`: 200 shape end-to-end, invalid `:bucket`
+- [x] **W3.15** — `apps/api/test/detalle-bucket.e2e-spec.ts`: 200 shape end-to-end, invalid `:bucket`
   → scrubbed 400, invalid `periodo` → scrubbed 400. Mirrors `resumen.e2e-spec.ts` structure.
 
 ### Web — API layer + domain (test-first)
