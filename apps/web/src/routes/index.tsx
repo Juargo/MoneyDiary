@@ -1,21 +1,47 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useResumen } from '@/api/use-resumen'
+import { ResumenPage } from '@/components/ResumenPage'
+
+/**
+ * `YYYY-MM` only (backend contract). A malformed/absent search param falls
+ * back to `undefined` — `useResumen(undefined)` calls `/api/resumen` without
+ * a query param, and the backend resolves the current month (spec: invalid
+ * `periodo` never throws client-side, W1.8).
+ */
+const PERIODO_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/
+
+function normalizarPeriodo(raw: unknown): string | undefined {
+  return typeof raw === 'string' && PERIODO_REGEX.test(raw) ? raw : undefined
+}
 
 export const Route = createFileRoute('/')({
+  validateSearch: (search: Record<string, unknown>): { periodo?: string } => ({
+    periodo: normalizarPeriodo(search.periodo),
+  }),
   component: HomePage,
 })
 
+/**
+ * Thin container (CLAUDE.md container/presentational pattern): owns the
+ * TanStack Router period search param + the `useResumen` query, delegates
+ * the {loading|error|empty|data} state switch to the router-agnostic
+ * `ResumenPage`. No money math, no JSX composition beyond wiring — that's
+ * why `ResumenPage`/`ResumenScreen` carry the component tests instead of
+ * this file (a `createFileRoute` component needs a live router context to
+ * call `Route.useSearch()`, which a unit test can't provide cheaply).
+ */
 function HomePage() {
+  const { periodo } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const query = useResumen(periodo)
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-semibold tracking-tight">MoneyDiary</h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          Frontend scaffold — React + Vite + Tailwind + TanStack
-        </p>
-      </div>
-      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-        Sprint 1 cerrado · siguiente: persistencia backend ↔ DB
-      </div>
-    </main>
+    <ResumenPage
+      query={query}
+      periodo={periodo}
+      onPeriodoChange={(nuevoPeriodo) =>
+        navigate({ search: (prev) => ({ ...prev, periodo: nuevoPeriodo }) })
+      }
+    />
   )
 }
