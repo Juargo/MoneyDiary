@@ -1,4 +1,4 @@
-import type { BucketResumenDto, ResumenMesDto } from './types'
+import type { BucketResumenDto, DetalleBucketDto, DetalleBucketTransaccionDto, ResumenMesDto } from './types'
 
 /**
  * fetchResumen — el único lugar que toca `fetch` para el endpoint de
@@ -85,6 +85,83 @@ export async function fetchResumen(periodo?: string): Promise<ApiResult<ResumenM
   }
 
   if (!esResumenMesDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+/**
+ * fetchDetalleBucket — GET /api/buckets/:bucket[?periodo=YYYY-MM] (US-017).
+ * Misma disciplina que `fetchResumen`: same-origin, sin key, nunca lanza,
+ * error tipado. Mensajes de 400/401/5xx son específicos de este recurso (no
+ * se comparten con `fetchResumen` — el 400 aquí puede venir de un `:bucket`
+ * inválido o de un `periodo` inválido, no solo de período; ver dry.md
+ * "distinguir conocimiento de coincidencia").
+ *
+ * Guarda money-safety: valida todo lo que `aDetalleBucketViewModel`
+ * consume aguas abajo — `cargo`/`abono` (BigInt-string), `fecha`,
+ * `descripcion`. Un 2xx que no cumpla la forma esperada nunca llega a
+ * `formatearMontoCLP` con un tipo inesperado.
+ */
+function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTransaccionDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<DetalleBucketTransaccionDto>
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.fecha === 'string' &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.cargo === 'string' &&
+    typeof candidato.abono === 'string'
+  )
+}
+
+function esDetalleBucketDto(value: unknown): value is DetalleBucketDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<DetalleBucketDto>
+  return (
+    typeof candidato.bucket === 'string' &&
+    Array.isArray(candidato.transacciones) &&
+    candidato.transacciones.every(esDetalleBucketTransaccionDto)
+  )
+}
+
+export async function fetchDetalleBucket(bucket: string, periodo?: string): Promise<ApiResult<DetalleBucketDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : ''
+  const url = `/api/buckets/${encodeURIComponent(bucket)}${query}`
+
+  let res: Response
+  try {
+    res = await fetch(url)
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 400) {
+    return { ok: false, error: { tag: 'invalid', message: 'El bucket o el período no son válidos.' } }
+  }
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esDetalleBucketDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 

@@ -31,3 +31,27 @@ export interface ResumenMesDto {
   }
   readonly estadoGlobal: string | null
 }
+
+/**
+ * Mirror escrito a mano del DTO HTTP del detalle de bucket (US-017). Fuente
+ * de verdad en el backend: `apps/api/src/infrastructure/http/dto/detalle-bucket.dto.ts`.
+ *
+ * cargo/abono son strings decimales (BigInt-safe) — nunca se parsean a
+ * number aquí. `fecha` es ISO-8601 UTC completo (`toISOString()`).
+ */
+export interface DetalleBucketTransaccionDto {
+  readonly id: string
+  readonly fecha: string
+  readonly descripcion: string
+  readonly cargo: string
+  readonly abono: string
+  readonly banco: string
+  readonly tipoCuenta: string
+  readonly numeroCuenta: string
+}
+
+export interface DetalleBucketDto {
+  readonly periodo: string
+  readonly bucket: string
+  readonly transacciones: ReadonlyArray<DetalleBucketTransaccionDto>
+}
