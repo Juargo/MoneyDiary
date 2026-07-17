@@ -283,32 +283,47 @@ largest and highest-risk unit — flagged in design as containing a correctness-
 
 ### Web — API layer + domain (test-first)
 
-- [ ] **W3.16** — Extend `apps/web/src/api/types.ts`: `DetalleBucketTransaccionDto`, `DetalleBucketDto`
+- [x] **W3.16** — Extend `apps/web/src/api/types.ts`: `DetalleBucketTransaccionDto`, `DetalleBucketDto`
   (matches W3.9 backend DTO exactly).
-- [ ] **W3.17** — `apps/web/src/domain/detalle-bucket-view-model.spec.ts` (write first, only if the
+- [x] **W3.17** — `apps/web/src/domain/detalle-bucket-view-model.spec.ts` (write first, only if the
   mapping isn't trivial enough to inline in the component — KISS call made at implementation time):
   maps transactions to display rows (`cargo`/`abono` via `formatearMontoCLP`, `fecha` to a short
-  label).
-- [ ] **W3.18** — `apps/web/src/domain/detalle-bucket-view-model.ts` (or inlined in the component):
-  make W3.17 pass if extracted.
-- [ ] **W3.19** — `apps/web/src/api/use-detalle-bucket.ts`: `useDetalleBucket(bucket, periodo)`
+  label). **Naming deviation**: `.test.ts` suffix (apps/web convention, see W1.1), not `.spec.ts`.
+- [x] **W3.18** — `apps/web/src/domain/detalle-bucket-view-model.ts` (or inlined in the component):
+  make W3.17 pass if extracted. Extracted (not inlined) — cargo/abono formatting is non-trivial enough
+  to warrant its own tested module. `cargoLabel`/`abonoLabel` render each field independently via
+  `formatearMontoCLP`, never netted/subtracted — avoids inventing a signed "net amount" business rule
+  the backend doesn't expose.
+- [x] **W3.19** — `apps/web/src/api/use-detalle-bucket.ts`: `useDetalleBucket(bucket, periodo)`
   TanStack Query hook, same-origin `GET /api/buckets/:bucket?periodo=...`, same error-mapping
   discipline as `client.ts` (W1.6).
 
 ### Web — route + components (test-first)
 
-- [ ] **W3.20** — `apps/web/src/routes/buckets.$bucket.tsx`: `$bucket` from the path, own
+- [x] **W3.20** — `apps/web/src/routes/buckets.$bucket.tsx`: `$bucket` from the path, own
   `validateSearch: { periodo?: string }` (same shape as `routes/index.tsx`).
-- [ ] **W3.21** — `apps/web/src/components/BucketDetailList.spec.tsx` (write first): flat list renders
+- [x] **W3.21** — `apps/web/src/components/BucketDetailList.spec.tsx` (write first): flat list renders
   exact CLP amounts (spec W3-03); a `SinCategoria` row shows a "classify" CTA; any inline-edit control
   on a row renders visibly `disabled` (CA-02 placeholder, deferred — depends on US-013, do not wire
-  real editing).
-- [ ] **W3.22** — `apps/web/src/components/BucketDetailList.tsx`: flat transaction list component,
+  real editing). **Naming deviation**: `.test.tsx` suffix, same reasoning as W3.17.
+- [x] **W3.22** — `apps/web/src/components/BucketDetailList.tsx`: flat transaction list component,
   wires `useDetalleBucket`, uses shadcn primitives from W1.9 (add `table` or list primitive via
-  `npx shadcn@latest add table` if not already covered by `card`). Make W3.21 pass.
-- [ ] **W3.23** — Wire `<Link to="/buckets/$bucket" params={{ bucket }} search={{ periodo }}>` from
+  `npx shadcn@latest add table` if not already covered by `card`). Make W3.21 pass. **Deviation**: kept
+  to plain `<ul>/<li>` markup (no `table`/`card` shadcn primitive) — a flat transaction list has no
+  tabular multi-column semantics `<table>` would add value for, and reusing `card` would add visual
+  nesting the design didn't call for (YAGNI: no new shadcn primitive installed for this slice).
+  **Architecture deviation from the ResumenPage/ResumenScreen split**: `BucketDetailList` owns the
+  `useDetalleBucket` call AND the `{loading|error|empty|data}` switch AND row rendering in one
+  component (matches this task's literal wording "wires useDetalleBucket") — unlike W1's screen, there
+  is no interactive selector to decouple from the router here, so a single component avoids an
+  unneeded extra file (YAGNI).
+- [x] **W3.23** — Wire `<Link to="/buckets/$bucket" params={{ bucket }} search={{ periodo }}>` from
   each W1.13 resumen bucket row (real navigable link — mobile only has a stubbed "Ver detalles ›").
-  Extend the W1.13 screen test or add a small navigation-focused test asserting the link target.
+  Extend the W1.13 screen test or add a small navigation-focused test asserting the link target. Uses
+  `viewModel.periodo` (the backend-resolved period) for the `search` param, not a client-guessed value.
+  `aria-label="Ver detalle de {bucket}"` overrides the default (noisy) accessible name. Existing
+  `ResumenScreen.test.tsx`/`ResumenPage.test.tsx` data-state tests needed a minimal in-test router
+  wrapper since `<Link>` throws outside a `RouterProvider` context.
 
 **Work unit boundary:** backend (W3.1–W3.15) is one coherent full-stack-backend commit sequence and
 the natural first slice of this unit — it is independently reviewable and testable without any web
