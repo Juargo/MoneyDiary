@@ -115,4 +115,17 @@ describe('fetchResumen', () => {
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
   })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando buckets[0].total es number en vez de string (money-safety boundary)', async () => {
+    const bodyConTotalNumerico = {
+      ...validDto,
+      buckets: [{ ...validDto.buckets[0], total: 400000 }, ...validDto.buckets.slice(1)],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConTotalNumerico) })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
 })

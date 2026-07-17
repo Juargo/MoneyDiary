@@ -30,4 +30,24 @@ describe('formatearMontoCLP', () => {
   it('rechaza el string vacío', () => {
     expect(() => formatearMontoCLP('')).toThrow()
   })
+
+  it('rechaza formatos hexadecimales que BigInt() aceptaría silenciosamente', () => {
+    expect(() => formatearMontoCLP('0x10')).toThrow()
+  })
+
+  it('rechaza el signo positivo explícito', () => {
+    expect(() => formatearMontoCLP('+123')).toThrow()
+  })
+
+  it('rechaza espacios en blanco alrededor del monto', () => {
+    expect(() => formatearMontoCLP('  123')).toThrow()
+  })
+
+  it('rechaza formatos binarios que BigInt() aceptaría silenciosamente', () => {
+    expect(() => formatearMontoCLP('0b1')).toThrow()
+  })
+
+  it('rechaza formatos octales que BigInt() aceptaría silenciosamente', () => {
+    expect(() => formatearMontoCLP('0o7')).toThrow()
+  })
 })

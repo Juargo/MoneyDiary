@@ -1,4 +1,4 @@
-import type { ResumenMesDto } from './types'
+import type { BucketResumenDto, ResumenMesDto } from './types'
 
 /**
  * fetchResumen — el único lugar que toca `fetch` para el endpoint de
@@ -17,13 +17,40 @@ export type ApiError =
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiError }
 
-/** Guarda de forma liviana — alcanza para detectar un body 2xx mal formado. */
+/**
+ * Guarda money-safety: valida, campo por campo, todo lo que
+ * `aResumenViewModel`/`formatearMontoCLP` (domain/resumen-view-model.ts)
+ * consume aguas abajo — `totalIngreso`, `buckets[i].total` (BigInt-string),
+ * `buckets[i].porcentajeBp` y los `string | null` renderizados verbatim
+ * (`estadoSemaforo`, `estadoGlobal`). Un 2xx que pase esta guarda no debe
+ * poder crashear el mapeo a view-model con un `TypeError` crudo — cualquier
+ * forma inesperada se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
+ * Deliberadamente NO valida cada leaf (p.ej. `periodo`, `targets`) — KISS,
+ * solo lo que efectivamente fluye a dinero/render.
+ */
+function esBucketResumenDto(value: unknown): value is BucketResumenDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<BucketResumenDto>
+  return (
+    typeof candidato.total === 'string' &&
+    (typeof candidato.porcentajeBp === 'number' || candidato.porcentajeBp === null) &&
+    (typeof candidato.estadoSemaforo === 'string' || candidato.estadoSemaforo === null)
+  )
+}
+
 function esResumenMesDto(value: unknown): value is ResumenMesDto {
   if (typeof value !== 'object' || value === null) {
     return false
   }
   const candidato = value as Partial<ResumenMesDto>
-  return typeof candidato.totalIngreso === 'string' && Array.isArray(candidato.buckets)
+  return (
+    typeof candidato.totalIngreso === 'string' &&
+    Array.isArray(candidato.buckets) &&
+    candidato.buckets.every(esBucketResumenDto) &&
+    (typeof candidato.estadoGlobal === 'string' || candidato.estadoGlobal === null)
+  )
 }
 
 export async function fetchResumen(periodo?: string): Promise<ApiResult<ResumenMesDto>> {
