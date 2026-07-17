@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -17,7 +18,16 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
     ],
     resolve: {
+      // `tsconfigPaths: true` resolves the `@/*` alias for dev/Vitest, but
+      // NOT for the production build (Rolldown doesn't pick it up — found
+      // while wiring the first `@/...`-importing components, W1 slice 3:
+      // `pnpm web build` failed with "Rolldown failed to resolve import
+      // '@/api/use-resumen'" even though `pnpm web test`/`pnpm web dev`
+      // worked). An explicit `resolve.alias` is required for both to agree.
       tsconfigPaths: true,
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
     },
     server: {
       port: 5173,
