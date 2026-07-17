@@ -10,11 +10,26 @@ import { NormalizePdfTransactionsUseCase } from '../../application/use-cases/nor
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
-import { ACCOUNT_REPOSITORY, IAccountRepository } from '../../application/ports/account-repository.port';
-import { INGESTA_REPOSITORY, IIngestaRepository } from '../../application/ports/ingesta-repository.port';
-import { CATALOGO_CLASIFICACION, ICatalogoClasificacion } from '../../application/ports/catalogo-clasificacion.port';
-import { TRANSACCION_BUCKET_WRITER, ITransaccionBucketWriter } from '../../application/ports/transaccion-bucket-writer.port';
-import { TRANSACCION_PARA_CLASIFICAR_READER, ITransaccionParaClasificarReader } from '../../application/ports/transaccion-para-clasificar.port';
+import {
+  ACCOUNT_REPOSITORY,
+  IAccountRepository,
+} from '../../application/ports/account-repository.port';
+import {
+  INGESTA_REPOSITORY,
+  IIngestaRepository,
+} from '../../application/ports/ingesta-repository.port';
+import {
+  CATALOGO_CLASIFICACION,
+  ICatalogoClasificacion,
+} from '../../application/ports/catalogo-clasificacion.port';
+import {
+  TRANSACCION_BUCKET_WRITER,
+  ITransaccionBucketWriter,
+} from '../../application/ports/transaccion-bucket-writer.port';
+import {
+  TRANSACCION_PARA_CLASIFICAR_READER,
+  ITransaccionParaClasificarReader,
+} from '../../application/ports/transaccion-para-clasificar.port';
 import { CRYPTO_SERVICE } from '../../application/ports/crypto-service.port';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
@@ -50,7 +65,8 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
     { provide: CRYPTO_SERVICE, useClass: NoOpCryptoService },
     {
       provide: ACCOUNT_REPOSITORY,
-      useFactory: (prisma: PrismaService) => new PrismaAccountRepository(prisma),
+      useFactory: (prisma: PrismaService) =>
+        new PrismaAccountRepository(prisma),
       inject: [PrismaService],
     },
     {
@@ -85,23 +101,32 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
     },
     {
       provide: DetectPdfBankUseCase,
-      useFactory: () => new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
+      useFactory: () =>
+        new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
     },
     {
       provide: ValidateStructureUseCase,
-      useFactory: () => new ValidateStructureUseCase(new ExcelStructureValidatorService()),
+      useFactory: () =>
+        new ValidateStructureUseCase(new ExcelStructureValidatorService()),
     },
     {
       provide: ValidatePdfStructureUseCase,
-      useFactory: () => new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
+      useFactory: () =>
+        new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
     },
     {
       provide: NormalizeTransactionsUseCase,
-      useFactory: () => new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
+      useFactory: () =>
+        new NormalizeTransactionsUseCase(
+          new ExcelTransactionNormalizerService(),
+        ),
     },
     {
       provide: NormalizePdfTransactionsUseCase,
-      useFactory: () => new NormalizePdfTransactionsUseCase(new PdfjsTransactionNormalizerService()),
+      useFactory: () =>
+        new NormalizePdfTransactionsUseCase(
+          new PdfjsTransactionNormalizerService(),
+        ),
     },
     {
       provide: PersistTransactionsUseCase,

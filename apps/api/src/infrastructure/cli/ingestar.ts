@@ -86,15 +86,22 @@ async function main(): Promise<void> {
       new ValidateStructureUseCase(new ExcelStructureValidatorService()),
       new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
       new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
-      new NormalizePdfTransactionsUseCase(new PdfjsTransactionNormalizerService()),
-      new PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto)),
+      new NormalizePdfTransactionsUseCase(
+        new PdfjsTransactionNormalizerService(),
+      ),
+      new PersistTransactionsUseCase(
+        new PrismaIngestaRepository(prisma, crypto),
+      ),
       new PrismaCatalogoClasificacionRepository(prisma),
       new PrismaTransaccionBucketRepository(prisma),
       new CategorizarTransaccionUseCase(),
       new PrismaTransaccionClasificacionRepository(prisma),
     );
 
-    const result = await processIngesta.execute({ fileReader, userId: USER_ID_FIJO });
+    const result = await processIngesta.execute({
+      fileReader,
+      userId: USER_ID_FIJO,
+    });
 
     if (result.isFail()) {
       console.error(`\n❌  ${result.getError().message}\n`);
@@ -115,15 +122,21 @@ async function main(): Promise<void> {
     console.log('  ─────────────────────────────────');
     console.log(`  Banco        : ${data.banco.banco}`);
     console.log(`  Tipo cuenta  : ${data.banco.tipoCuenta}`);
-    console.log(`  N° cuenta    : ${data.banco.numeroCuenta || '(no disponible)'}`);
+    console.log(
+      `  N° cuenta    : ${data.banco.numeroCuenta || '(no disponible)'}`,
+    );
     console.log('  ─────────────────────────────────');
     console.log(`  Encabezados  : fila ${data.estructura.filaEncabezados}`);
     console.log(`  Filas datos  : ${data.estructura.totalFilasDatos}`);
     console.log('  ─────────────────────────────────');
     console.log(`  Ingesta ID   : ${data.ingestaId}`);
     console.log(`  Transacciones: ${data.total}`);
-    console.log(`  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`);
-    console.log(`  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`);
+    console.log(
+      `  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`,
+    );
+    console.log(
+      `  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`,
+    );
     console.log('─────────────────────────────────────\n');
   } finally {
     await prisma.onModuleDestroy();

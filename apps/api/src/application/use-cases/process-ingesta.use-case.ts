@@ -143,30 +143,51 @@ export class ProcessIngestaUseCase {
     const esPdf = archivo.extension === '.pdf';
 
     const detectResult = esPdf
-      ? await this.detectPdfBankUseCase.execute(archivo.buffer, archivo.originalName)
-      : await this.detectBankUseCase.execute(archivo.buffer, archivo.originalName);
+      ? await this.detectPdfBankUseCase.execute(
+          archivo.buffer,
+          archivo.originalName,
+        )
+      : await this.detectBankUseCase.execute(
+          archivo.buffer,
+          archivo.originalName,
+        );
     if (detectResult.isFail()) {
       return Result.fail(detectResult.getError());
     }
     const banco = detectResult.getValue();
 
-    const accountResult = await this.accountRepository.ensure(input.userId, banco);
+    const accountResult = await this.accountRepository.ensure(
+      input.userId,
+      banco,
+    );
     if (accountResult.isFail()) {
       return Result.fail(accountResult.getError());
     }
     const { accountId } = accountResult.getValue();
 
     const validateResult = esPdf
-      ? await this.validatePdfStructureUseCase.execute(archivo.buffer, banco.banco)
-      : await this.validateStructureUseCase.execute(archivo.buffer, banco.banco);
+      ? await this.validatePdfStructureUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        )
+      : await this.validateStructureUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        );
     if (validateResult.isFail()) {
       return Result.fail(validateResult.getError());
     }
     const estructura = validateResult.getValue();
 
     const normalizeResult = esPdf
-      ? await this.normalizePdfTransactionsUseCase.execute(archivo.buffer, banco.banco)
-      : await this.normalizeTransactionsUseCase.execute(archivo.buffer, banco.banco);
+      ? await this.normalizePdfTransactionsUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        )
+      : await this.normalizeTransactionsUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        );
     if (normalizeResult.isFail()) {
       return Result.fail(normalizeResult.getError());
     }
@@ -195,8 +216,14 @@ export class ProcessIngestaUseCase {
     // "filaEncabezados" como "página de inicio de tabla" para PDF.
     const estructuraResumen =
       'paginaInicioTabla' in estructura
-        ? { filaEncabezados: estructura.paginaInicioTabla, totalFilasDatos: transacciones.length }
-        : { filaEncabezados: estructura.filaEncabezados, totalFilasDatos: estructura.totalFilasDatos };
+        ? {
+            filaEncabezados: estructura.paginaInicioTabla,
+            totalFilasDatos: transacciones.length,
+          }
+        : {
+            filaEncabezados: estructura.filaEncabezados,
+            totalFilasDatos: estructura.totalFilasDatos,
+          };
 
     return Result.ok({
       archivo: {
@@ -246,7 +273,8 @@ export class ProcessIngestaUseCase {
       }
 
       // 2. Leer transacciones persistidas de ESTA ingesta (scope isolation R-07)
-      const txsParaClasificar = await this.txParaClasificarReader.findParaClasificar(ingestaId);
+      const txsParaClasificar =
+        await this.txParaClasificarReader.findParaClasificar(ingestaId);
 
       if (txsParaClasificar.length === 0) {
         return { asignadas: 0, sinCategoria: 0 };
@@ -278,7 +306,10 @@ export class ProcessIngestaUseCase {
 
       // 5. Escribir buckets en BD (fallo → deja null, log + continúa)
       // ingestaId threads through for structural scope isolation (RNF-SEC-006).
-      const writeResult = await this.transaccionBucketWriter.asignarBuckets(ingestaId, asignaciones);
+      const writeResult = await this.transaccionBucketWriter.asignarBuckets(
+        ingestaId,
+        asignaciones,
+      );
       if (writeResult.isFail()) {
         console.error(
           '[ProcessIngestaUseCase] No se pudieron escribir los buckets (degradando):',
