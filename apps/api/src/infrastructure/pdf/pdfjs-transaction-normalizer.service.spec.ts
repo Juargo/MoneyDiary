@@ -230,7 +230,7 @@ describe('PdfjsTransactionNormalizerService', () => {
       ).toBe(false);
     });
 
-    it('el encabezado de tabla y el título repetidos al inicio de la página 2 no aparecen como movimiento ni contaminan la última descripción de la página 1', async () => {
+    it('el encabezado de tabla (las 3 líneas físicas: "CHEQUES Y", "N° DE ... OTROS DEPOSITOS", "FECHA DESCRIPCION DOCUMENTO") y el título repetidos al inicio de la página 2 no aparecen como movimiento ni contaminan la última descripción de la página 1', async () => {
       const buffer = await readFile(join(fixturesDir, 'bci-cartola-test.pdf'));
 
       const result = await service.normalize(buffer, BancoConocido.BCI);
@@ -239,6 +239,13 @@ describe('PdfjsTransactionNormalizerService', () => {
       for (const t of transacciones) {
         expect(t.descripcion).not.toContain('CARTOLA DE CUENTA CORRIENTE');
         expect(t.descripcion).not.toMatch(/^DESCRIPCION\b/);
+        // Fragmento real que se fusiona (bug confirmado): "N° DE" es la
+        // segunda línea física del encabezado de tabla repetido en la
+        // página 2 ("N° DE" / "OTROS" / "DEPOSITOS") — antes del fix se
+        // pegaba como sufijo de "CARGO MANTENCION CUENTA" (última
+        // transacción de la página 1) vía fusionarContinuaciones.
+        expect(t.descripcion).not.toContain('N° DE');
+        expect(t.descripcion).not.toContain('CHEQUES Y');
       }
     });
 
@@ -259,6 +266,65 @@ describe('PdfjsTransactionNormalizerService', () => {
       // fusionado en la descripción de alguna transacción real, no perdido.
       expect(transacciones.some((t) => t.descripcion.includes('001/012'))).toBe(
         true,
+      );
+    });
+
+    it('hardening jd-fix-agent — las descripciones multilínea se atribuyen a la transacción fechada correcta por geometría, no por recencia (7 filas confirmadas contra el fixture real)', async () => {
+      const buffer = await readFile(join(fixturesDir, 'bci-cartola-test.pdf'));
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+      const transacciones = result.getValue();
+
+      // [3] cargo=700000 — NO debe absorber la etiqueta "PAGO CREDITO..."
+      // que pertenece a la transacción SIGUIENTE (250213).
+      const transferTercero = transacciones.find(
+        (t) => t.cargo === 700000 && t.abono === 0,
+      );
+      expect(transferTercero?.descripcion).toBe('TRANSFER A TERCERO EJEMPLO');
+
+      // [4] cargo=250213 — debe incluir la etiqueta de arriba ("PAGO
+      // CREDITO D00000000001"), el número de documento propio
+      // ("4800000001") y la cuota de abajo ("001/012"), en ese orden.
+      const pagoCredito = transacciones.find(
+        (t) => t.cargo === 250213 && t.abono === 0,
+      );
+      expect(pagoCredito?.descripcion).toBe(
+        'PAGO CREDITO D00000000001 4800000001 001/012',
+      );
+
+      // [5] cargo=9990 (la primera suscripción, 03/04) — NO debe absorber
+      // "COMISION POR COMPRA", que pertenece a la transacción SIGUIENTE
+      // (5375).
+      const suscripcionDigital = transacciones.find(
+        (t) => t.cargo === 9990 && t.fecha.getUTCDate() === 3,
+      );
+      expect(suscripcionDigital?.descripcion).toBe(
+        'SUSCRIPCION SERVICIO DIGITAL',
+      );
+
+      // [6] cargo=5375 — descripción propia vacía en el PDF: debe
+      // reconstruirse enteramente desde las 2 líneas huérfanas vecinas.
+      const comisionCompra = transacciones.find((t) => t.cargo === 5375);
+      expect(comisionCompra?.descripcion).toBe(
+        'COMISION POR COMPRA INTERNACIONAL',
+      );
+
+      // [10] cargo=3500 — NO debe absorber el fragmento de encabezado
+      // "N° DE" de la página 2 (Fix 2).
+      const cargoMantencion = transacciones.find((t) => t.cargo === 3500);
+      expect(cargoMantencion?.descripcion).toBe('CARGO MANTENCION CUENTA');
+      expect(cargoMantencion?.descripcion).not.toContain('N° DE');
+
+      // [12] abono=300000 — NO debe absorber "TRASPASO DE FONDOS A
+      // TERCERO", que pertenece a la transacción SIGUIENTE (cargo=50000).
+      const depositoEfectivo = transacciones.find((t) => t.abono === 300000);
+      expect(depositoEfectivo?.descripcion).toBe('DEPOSITO EN EFECTIVO');
+
+      // [13] cargo=50000 — descripción propia vacía en el PDF: debe
+      // reconstruirse enteramente desde las 2 líneas huérfanas vecinas.
+      const traspasoFondos = transacciones.find((t) => t.cargo === 50000);
+      expect(traspasoFondos?.descripcion).toBe(
+        'TRASPASO DE FONDOS A TERCERO EJEMPLO GENERICO',
       );
     });
   });
