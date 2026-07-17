@@ -52,6 +52,23 @@ jobs:
       - name: Typecheck web
         run: pnpm web typecheck
 
+  landing:
+    name: Typecheck & build landing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck landing
+        run: pnpm landing exec astro check
+      - name: Build landing
+        run: pnpm landing build
+
       # NOT run in CI (manual/local gate for now):
       #   pnpm api test:integration — requires a real Supabase database and
       #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
