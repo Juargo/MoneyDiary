@@ -1,5 +1,5 @@
 import { PagedTokens } from './pdf-text-extractor';
-import { agruparTokens, RangoColumna } from './token-grouping';
+import { agruparTokens, FilaAgrupada, RangoColumna } from './token-grouping';
 import {
   EstructuraPdfBanco,
   FormatoFechaPdf,
@@ -145,9 +145,14 @@ interface FilaCandidata extends FechaFilaParseada {
  *          PR4b) Y la fila no trae cargo/abono propios Y trae texto de
  *          descripción Y ya existe una candidata previa → se fusiona como
  *          SUFIJO de la descripción de esa candidata (continuación
- *          multilínea, ver bci.strategy.ts). Si no se cumple alguna
- *          condición, la fila se descarta sin más (mismo comportamiento que
- *          antes de PR4b para los otros 3 bancos).
+ *          multilínea, ver bci.strategy.ts), SALVO que esta misma fila ya
+ *          haya sido consumida como PREFIJO de la fila fechada siguiente
+ *          (hardening jd-fix-agent, ver `calcularPrefijosContinuacion`: BCI
+ *          también parte descripciones con la etiqueta ARRIBA de la fila
+ *          fechada a la que pertenece, no solo abajo — geometría verificada
+ *          contra bci-cartola-test.pdf). Si no se cumple alguna condición,
+ *          la fila se descarta sin más (mismo comportamiento que antes de
+ *          PR4b para los otros 3 bancos).
  *   5. Fila CON fecha interpretable = candidata a transacción real:
  *        - Señal money-safe: si AMBAS columnas cargo/abono quedaron vacías
  *          pero `fila.tokensSinAsignar` trae un token con forma de monto
@@ -170,22 +175,39 @@ export function normalizarTransaccionesPdf(
     xMin: r.xMin,
     xMax: r.xMax,
   }));
-  const filas = agruparTokens(tokens, rangosX, estructura.toleranciaY);
+  const filasCrudas = agruparTokens(tokens, rangosX, estructura.toleranciaY);
+
+  // Pre-filtro: `anclaFinTabla` corta la recolección y `filasIgnoradas`
+  // descarta filas individuales — separado en su propia pasada (antes vivía
+  // inline en el mismo loop que arma las candidatas) porque el hardening de
+  // `fusionarContinuaciones` (jd-fix-agent) necesita mirar hacia ADELANTE en
+  // la lista YA filtrada para decidir si una fila huérfana es PREFIJO de la
+  // fila fechada siguiente — ver `calcularPrefijosContinuacion` abajo. El
+  // conjunto de filas retenidas y su orden es IDÉNTICO al comportamiento
+  // previo, solo se movió a una pasada anterior.
+  const filasRelevantes: FilaAgrupada[] = [];
+  for (const fila of filasCrudas) {
+    const textoFila = Object.values(fila.columnas).join(' ');
+    if (estructura.anclaFinTabla?.test(textoFila)) {
+      break;
+    }
+    if (estructura.filasIgnoradas.some((regex) => regex.test(textoFila))) {
+      continue;
+    }
+    filasRelevantes.push(fila);
+  }
+
+  const { prefijoParaFila, filasConsumidasComoPrefijo } =
+    estructura.fusionarContinuaciones
+      ? calcularPrefijosContinuacion(filasRelevantes, estructura.formatoFecha)
+      : { prefijoParaFila: new Map<number, string>(), filasConsumidasComoPrefijo: new Set<number>() };
 
   const problemas: ProblemaEstructuraPdf[] = [];
   const candidatas: FilaCandidata[] = [];
   let filaIndex = 0;
 
-  for (const fila of filas) {
-    const textoFila = Object.values(fila.columnas).join(' ');
-
-    if (estructura.anclaFinTabla?.test(textoFila)) {
-      break;
-    }
-
-    if (estructura.filasIgnoradas.some((regex) => regex.test(textoFila))) {
-      continue;
-    }
+  for (let i = 0; i < filasRelevantes.length; i++) {
+    const fila = filasRelevantes[i];
 
     const fechaTxt = fila.columnas.fecha ?? '';
     const fechaParseada = parsearFechaFila(fechaTxt, estructura.formatoFecha);
@@ -196,6 +218,7 @@ export function normalizarTransaccionesPdf(
     if (!fechaParseada) {
       if (
         estructura.fusionarContinuaciones &&
+        !filasConsumidasComoPrefijo.has(i) &&
         cargoTxt === '' &&
         abonoTxt === '' &&
         descTxt !== '' &&
@@ -249,9 +272,13 @@ export function normalizarTransaccionesPdf(
       abono = n;
     }
 
+    const prefijo = prefijoParaFila.get(i);
+    const descripcionFinal =
+      prefijo !== undefined ? `${prefijo} ${descTxt}`.trim() : descTxt;
+
     candidatas.push({
       ...fechaParseada,
-      descripcion: descTxt,
+      descripcion: descripcionFinal,
       cargo,
       abono,
     });
@@ -273,6 +300,91 @@ export function normalizarTransaccionesPdf(
   }));
 
   return Result.ok(transacciones);
+}
+
+/**
+ * calcularPrefijosContinuacion — hardening jd-fix-agent (SOLO se invoca
+ * cuando `estructura.fusionarContinuaciones` está activo, es decir SOLO
+ * BCI).
+ *
+ * El `fusionarContinuaciones` original (PR4b) era greedy-suffix puro: toda
+ * fila huérfana (sin fecha, sin cargo/abono propios, con texto) se pegaba
+ * SIEMPRE como sufijo de la candidata MÁS RECIENTE. Contra el fixture real
+ * (bci-cartola-test.pdf) eso es correcto para algunas filas huérfanas pero
+ * incorrecto para otras: BCI parte la descripción de un mismo movimiento en
+ * hasta 3 líneas físicas — una línea "etiqueta" que aparece ANTES de la fila
+ * con fecha/monto, la propia fila (a veces con un fragmento — ej. un número
+ * de documento largo que no entra en la columna "N° DOCUMENTO", x≈324, y se
+ * desborda dentro de `descripcion`; o directamente vacía) y una línea
+ * "sufijo" que aparece DESPUÉS.
+ *
+ * La distancia en Y NO alcanza para desambiguar (verificado contra el
+ * fixture real: las filas están espaciadas uniformemente ~11pt, así que una
+ * huérfana entre dos fechadas queda EQUIDISTANTE de ambas). La señal que sí
+ * discrimina, puramente geométrica/estructural (no es una regla semántica
+ * sobre el contenido de negocio): una fila fechada "recibe" como PREFIJO la
+ * huérfana que la precede inmediatamente cuando su PROPIA columna
+ * `descripcion` viene vacía o compuesta solo por dígitos (`/^\d+$/`) — en
+ * los 3 casos reales del fixture (cargo 250213, cargo 5375, abono 50000)
+ * eso señala que la fila fechada no trae una descripción de una sola línea
+ * completa. Las filas fechadas con una descripción "normal" (con letras,
+ * ej. "TRANSFER A TERCERO EJEMPLO") nunca reciben un prefijo aunque tengan
+ * una huérfana justo arriba — esa huérfana pertenece a la SIGUIENTE fila
+ * fechada, no a esta (las 18 filas reales de bci-cartola-test.pdf verifican
+ * esta regla sin excepción — ver engram apply-progress sprint4-pdf-ingesta).
+ *
+ * Devuelve:
+ *   - `prefijoParaFila`: índice en `filasRelevantes` de la fila fechada →
+ *     texto a anteponerle a su propia descripción.
+ *   - `filasConsumidasComoPrefijo`: índices de las filas huérfanas ya
+ *     usadas como prefijo — el loop principal las salta al decidir el
+ *     sufijo clásico, para no fusionarlas dos veces.
+ *
+ * Pura, no lanza — mismo contrato que el resto de este módulo.
+ */
+function calcularPrefijosContinuacion(
+  filasRelevantes: ReadonlyArray<FilaAgrupada>,
+  formatoFecha: FormatoFechaPdf,
+): {
+  prefijoParaFila: Map<number, string>;
+  filasConsumidasComoPrefijo: Set<number>;
+} {
+  const prefijoParaFila = new Map<number, string>();
+  const filasConsumidasComoPrefijo = new Set<number>();
+
+  for (let i = 0; i < filasRelevantes.length; i++) {
+    const fila = filasRelevantes[i];
+    const fechaTxt = fila.columnas.fecha ?? '';
+    const fechaParseada = parsearFechaFila(fechaTxt, formatoFecha);
+    if (fechaParseada) continue; // solo evalúa filas huérfanas (sin fecha propia)
+
+    const cargoTxt = (fila.columnas.cargo ?? '').trim();
+    const abonoTxt = (fila.columnas.abono ?? '').trim();
+    const descTxt = (fila.columnas.descripcion ?? '').trim();
+    // Money-safety: nunca trata como continuación una fila que trae su
+    // propio monto — mismo guard que el loop principal.
+    if (cargoTxt !== '' || abonoTxt !== '' || descTxt === '') continue;
+
+    const siguiente = filasRelevantes[i + 1];
+    if (!siguiente) continue; // última fila del documento, sin candidata siguiente
+
+    const siguienteFecha = parsearFechaFila(
+      siguiente.columnas.fecha ?? '',
+      formatoFecha,
+    );
+    if (!siguienteFecha) continue; // la fila siguiente no es una transacción fechada
+
+    const siguienteDescTxt = (siguiente.columnas.descripcion ?? '').trim();
+    const esFragmento =
+      siguienteDescTxt === '' || /^\d+$/.test(siguienteDescTxt);
+    if (!esFragmento) continue; // fila fechada siguiente ya trae descripción completa
+
+    const previo = prefijoParaFila.get(i + 1);
+    prefijoParaFila.set(i + 1, previo !== undefined ? `${previo} ${descTxt}` : descTxt);
+    filasConsumidasComoPrefijo.add(i);
+  }
+
+  return { prefijoParaFila, filasConsumidasComoPrefijo };
 }
 
 function resolverAnios(

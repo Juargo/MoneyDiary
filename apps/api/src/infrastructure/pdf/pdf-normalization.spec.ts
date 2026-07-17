@@ -632,5 +632,69 @@ describe('normalizarTransaccionesPdf', () => {
       expect(resultado).toHaveLength(1);
       expect(resultado[0].descripcion).toBe('Pago');
     });
+
+    it('hardening jd-fix-agent — una fila de continuación que aparece ANTES de la fila fechada (ordering real del fixture BCI) se fusiona como PREFIJO de la fila fechada siguiente cuando esa fila trae descripción vacía o solo dígitos (fragmento), y NO contamina la fila fechada anterior con descripción completa', () => {
+      const rangosXBci = [
+        { col: 'fecha' as const, xMin: 0, xMax: 100 },
+        { col: 'descripcion' as const, xMin: 100, xMax: 300 },
+        { col: 'cargo' as const, xMin: 300, xMax: 400 },
+        { col: 'abono' as const, xMin: 400, xMax: 500 },
+      ];
+      const tokens = [
+        // Transacción #1: descripción completa en una sola línea — NO debe
+        // recibir como sufijo la línea huérfana que viene justo debajo (esa
+        // huérfana es en realidad el PREFIJO de la transacción #2, ver
+        // ordering real de bci-cartola-test.pdf: la etiqueta de continuación
+        // aparece ARRIBA de la fila fechada a la que pertenece).
+        tok('02/04/2026', 30, 200),
+        tok('Alguna Descripcion Completa', 150, 200),
+        tok('700.000', 350, 200),
+        // Huérfana — sin fecha, sin cargo/abono propios. Aparece ANTES
+        // (Y mayor a) la transacción #2, con la MISMA distancia a ambas
+        // filas fechadas vecinas (geometría equidistante, igual que en el
+        // fixture real) — el desempate NO es por distancia Y, sino porque
+        // la transacción #2 trae su propia descripción vacía/fragmentaria.
+        tok('Pago Credito D001', 150, 190),
+        // Transacción #2: descripción propia son solo dígitos (número de
+        // documento largo desbordado dentro de la columna descripción) —
+        // señal de fragmento, ver calcularPrefijosContinuacion.
+        tok('02/04/2026', 30, 180),
+        tok('4800000001', 150, 180),
+        tok('250.213', 350, 180),
+        // Huérfana — sufijo clásico de la transacción #2 (comportamiento
+        // sin cambios respecto al fusionarContinuaciones original).
+        tok('001/012', 150, 170),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(
+          tokens,
+          estructuraBase({
+            banco: BancoConocido.BCI,
+            formatoFecha: 'DD/MM/YYYY',
+            fuenteAnio: { kind: 'explicito' },
+            rangosX: rangosXBci,
+            filasIgnoradas: [],
+            fusionarContinuaciones: true,
+          }),
+          undefined,
+        ),
+      );
+
+      expect(resultado).toEqual([
+        {
+          fecha: new Date(Date.UTC(2026, 3, 2)),
+          descripcion: 'Alguna Descripcion Completa',
+          cargo: 700000,
+          abono: 0,
+        },
+        {
+          fecha: new Date(Date.UTC(2026, 3, 2)),
+          descripcion: 'Pago Credito D001 4800000001 001/012',
+          cargo: 250213,
+          abono: 0,
+        },
+      ]);
+    });
   });
 });
