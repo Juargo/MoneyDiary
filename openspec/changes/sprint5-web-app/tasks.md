@@ -83,34 +83,40 @@ commit once a Vercel project exists — do not block W1/W2/W3 dev work on Vercel
 
 ### Domain (pure functions, Vitest, no React — test-first)
 
-- [ ] **W1.1** — `apps/web/src/domain/formatear-monto.spec.ts` (write first): port the mobile test
+- [x] **W1.1** — `apps/web/src/domain/formatear-monto.test.ts` (write first): port the mobile test
   cases verbatim — amount `> Number.MAX_SAFE_INTEGER` renders exact digits, negative, zero, empty-string
-  rejection. Reference: `apps/mobile/src/domain/formatear-monto.spec.ts`.
-- [ ] **W1.2** — `apps/web/src/domain/formatear-monto.ts`: verbatim port of
+  rejection. Reference: `apps/mobile/src/domain/formatear-monto.spec.ts`. **Naming deviation**: `.test.ts`
+  suffix, matching `apps/web`'s established convention (`lib/utils.test.ts`, `test/smoke.test.tsx`,
+  `vitest.config.ts` coverage excludes), not `.spec.ts` (mobile/backend convention).
+- [x] **W1.2** — `apps/web/src/domain/formatear-monto.ts`: verbatim port of
   `apps/mobile/src/domain/formatear-monto.ts` (BigInt + regex, never `Number`/`parseFloat`). Make
   W1.1 pass.
-- [ ] **W1.3** — `apps/web/src/domain/resumen-view-model.spec.ts` (write first): `porcentajeBp: null`
+- [x] **W1.3** — `apps/web/src/domain/resumen-view-model.test.ts` (write first): `porcentajeBp: null`
   → `'—'` (`SIN_PORCENTAJE_LABEL`) vs. real `0` → `'0%'`; `estadoSemaforo`/`estadoGlobal` passthrough
   (no recomputation); money fields pre-formatted via `formatearMontoCLP`. Reference:
   `apps/mobile/src/domain/resumen-view-model.spec.ts` — **port only the resumen/semaforo cases, not
   the pie/distribution cases** (YAGNI call from design; see Risks in design.md).
-- [ ] **W1.4** — `apps/web/src/domain/resumen-view-model.ts`: lean port — DTO → display strings. Do
+- [x] **W1.4** — `apps/web/src/domain/resumen-view-model.ts`: lean port — DTO → display strings. Do
   **not** port `distribucion-gasto.ts` / `pie-geometry.ts` (no pie chart in W1/W2 scope per design).
-  Make W1.3 pass.
+  No `periodoLabel` either yet (deferred until a component needs it — YAGNI). Make W1.3 pass.
 
 ### API layer
 
-- [ ] **W1.5** — `apps/web/src/api/types.ts`: hand-written DTO types mirroring
+- [x] **W1.5** — `apps/web/src/api/types.ts`: hand-written DTO types mirroring
   `apps/api/src/infrastructure/http/dto/resumen-mes.dto.ts` exactly — `ResumenMesDto`,
   `BucketResumenDto` (`bucket: string; total: string; porcentajeBp: number | null; estadoSemaforo: string | null`),
   `targets: { Necesidades: number; Deseos: number; Ahorro: number }`, `estadoGlobal: string | null`.
   Web does NOT import from `apps/api/src/domain` (ADR-008).
-- [ ] **W1.6** — `apps/web/src/api/client.ts`: minimal same-origin fetch client, `fetch('/api/resumen?periodo=...')`,
+- [x] **W1.6** — `apps/web/src/api/client.ts`: minimal same-origin fetch client, `fetch('/api/resumen?periodo=...')`,
   no key, no base URL. Maps non-2xx → typed error (400 → "período inválido", 401 → "sin acceso", 5xx →
-  generic). Mirrors mobile's `fetchResumen` shape.
-- [ ] **W1.7** — `apps/web/src/api/use-resumen.ts` (or co-located in `client.ts` if trivial — KISS
-  call at implementation time): `useResumen(periodo)` TanStack Query hook. Reads
-  `Route.useSearch().periodo` from the calling route; query key `['resumen', periodo ?? 'actual']`.
+  generic). Mirrors mobile's `fetchResumen` shape. Test-first (`client.test.ts`, not scoped in the
+  original task text but added for strict-TDD discipline since the mapping logic is non-trivial).
+- [x] **W1.7** — `apps/web/src/api/use-resumen.ts`: `useResumen(periodo)` TanStack Query hook, query
+  key `['resumen', periodo ?? 'actual']`. **Deviation from the task text**: takes `periodo` as an
+  explicit argument rather than reading `Route.useSearch()` internally — the route/selector wiring is
+  W1.8/W1.12/W1.13 (later slice), so the hook stays route-agnostic and the caller (the future screen)
+  decides where `periodo` comes from. Tested with a `QueryClientProvider` wrapper + mocked `fetch`
+  (`use-resumen.test.tsx`).
 
 ### Routes / period state
 
