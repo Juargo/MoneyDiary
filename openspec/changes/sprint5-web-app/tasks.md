@@ -120,28 +120,45 @@ commit once a Vercel project exists — do not block W1/W2/W3 dev work on Vercel
 
 ### Routes / period state
 
-- [ ] **W1.8** — `apps/web/src/routes/index.tsx`: add
+- [x] **W1.8** — `apps/web/src/routes/index.tsx`: add
   `validateSearch: (s): { periodo?: string } => ({ periodo: typeof s.periodo === 'string' ? s.periodo : undefined })`.
   Does not throw on a malformed value (backend returns scrubbed 400, surfaced as the error state).
+  **Deviation**: also validates the `YYYY-MM` shape (`PERIODO_REGEX`), not just `typeof === 'string'` —
+  a syntactically-invalid-but-string value (e.g. `"nope"`) now normalizes to `undefined` client-side
+  instead of round-tripping to the backend for a 400. Still never throws.
 
 ### Components (test-first, Testing Library)
 
-- [ ] **W1.9** — shadcn scaffolding: `npx shadcn@latest add card badge` (zero components installed
+- [x] **W1.9** — shadcn scaffolding: `npx shadcn@latest add card badge` (zero components installed
   today — first-time cost). Only add primitives actually consumed by W1/W2 components (`card` for the
   resumen layout, `badge` for bucket rows); do not pre-install unused primitives (YAGNI).
-- [ ] **W1.10** — `apps/web/src/components/states/{Loading,Error,Empty}.tsx` + specs (write specs
+  **Gotcha**: the CLI's alias auto-detection doesn't understand this repo's `resolve.tsconfigPaths`-based
+  `@/*` alias — it wrote files under a literal `@/` folder; moved by hand into `src/components/ui/`.
+  Also had to add an explicit `resolve.alias` to `vite.config.ts` (tsconfigPaths resolves `@/*` for
+  dev/Vitest but not the production Rolldown build) and wire the standard shadcn `slate` design tokens
+  into `index.css` (the CLI never got to do it, since it never wrote to the right path).
+- [x] **W1.10** — `apps/web/src/components/states/{Loading,Error,Empty}.tsx` + specs (write specs
   first): DOM equivalents of `apps/mobile/src/components/states/*.tsx`. `Empty` copy invites cartola
   upload, not a bare "0%" (spec W1-02).
-- [ ] **W1.11** — `apps/web/src/components/IngresoCard.tsx` + spec (write first): renders
+- [x] **W1.11** — `apps/web/src/components/IngresoCard.tsx` + spec (write first): renders
   `totalIngreso` via the view-model's pre-formatted string. Test: amount beyond safe-integer precision
   renders every digit exactly (spec W1-01).
-- [ ] **W1.12** — `apps/web/src/components/PeriodoSelector.tsx` + spec (write first): calls
-  `navigate({ search: (prev) => ({ ...prev, periodo }) })`.
-- [ ] **W1.13** — Replace `apps/web/src/routes/index.tsx` placeholder ("Sprint 1 cerrado" copy) with
+- [x] **W1.12** — `apps/web/src/components/PeriodoSelector.tsx` + spec (write first): calls
+  `navigate({ search: (prev) => ({ ...prev, periodo }) })`. **Deviation**: the component itself only
+  exposes `onChange(periodo)` (pure `<input type="month">`) — the `navigate({ search: ... })` call
+  lives in the `routes/index.tsx` container, so PeriodoSelector stays router-agnostic and testable
+  without a router harness.
+- [x] **W1.13** — Replace `apps/web/src/routes/index.tsx` placeholder ("Sprint 1 cerrado" copy) with
   the real resumen screen: period selector, `IngresoCard`, 4 bucket rows, wires `useResumen`,
   Loading/Error/Empty states, `sinIngreso` → Empty (not "0%"). Component test (write first):
   income + all 4 slices visible without scrolling on a standard viewport (spec W1-02); exactly one of
-  loading/error/empty renders when data is unavailable.
+  loading/error/empty renders when data is unavailable. **Deviation**: the state switch + income/bucket
+  rendering live in two extracted components (`ResumenPage` for the {loading|error|empty|data} switch,
+  `ResumenScreen` for the data-state composition) instead of inline in `routes/index.tsx` — a
+  `createFileRoute` component can't call `Route.useSearch()` outside a live router, so a router-agnostic
+  split is what actually made the state-switch unit-testable (mirrors the container/presentational
+  split `apps/mobile/app/index.tsx` already uses). `routes/index.tsx` itself is a thin, untested
+  container (same reasoning `apps/mobile/app/_layout.tsx` is untested).
 
 **Work unit boundary:** W1.1–W1.4 (domain, no UI) can land as its own commit. W1.5–W1.8 (API layer +
 route search params) as a second. W1.9–W1.13 (components + screen) as a third — this is the largest
@@ -156,17 +173,18 @@ screen wiring.
 Small enough to fold into the same PR/commit sequence as W1's component slice, but tracked separately
 because it maps to its own spec requirements (W2-01/W2-02) and its own test file.
 
-- [ ] **W2.1** — `apps/web/src/components/SemaforoBadge.spec.tsx` (write first): DOM equivalent of
+- [x] **W2.1** — `apps/web/src/components/SemaforoBadge.spec.tsx` (write first): DOM equivalent of
   `apps/mobile/src/components/SemaforoBadge.spec.tsx` — cases for `verde`/`amarillo`/`rojo`/`null`.
   Assert: (a) the wire value is rendered verbatim with no client-side threshold math, (b) `null` shows
   a distinct "Sin datos" affordance never coerced into a known color, (c) a non-color signal exists
-  (`aria-label` or `sr-only` text — not color alone, ADR-018).
-- [ ] **W2.2** — `apps/web/src/components/SemaforoBadge.tsx`: DOM port of
+  (`aria-label` or `sr-only` text — not color alone, ADR-018). **Naming deviation**: `.test.tsx` suffix
+  (apps/web convention, see W1.1), not `.spec.tsx`.
+- [x] **W2.2** — `apps/web/src/components/SemaforoBadge.tsx`: DOM port of
   `apps/mobile/src/components/SemaforoBadge.tsx` — `<span role="img" aria-label={label}>` (or an
   `sr-only` label) + icon/emoji + Spanish state word + tinted background via the `ESTILOS`/`SIN_DATOS`
   map. Renders `estadoSemaforo`/`estadoGlobal` passthrough only — no import of
   `apps/api/src/domain/value-objects/estado-semaforo.ts` logic. Make W2.1 pass.
-- [ ] **W2.3** — Wire `SemaforoBadge` into the W1.13 resumen screen (per-bucket rows + `estadoGlobal`
+- [x] **W2.3** — Wire `SemaforoBadge` into the W1.13 resumen screen (per-bucket rows + `estadoGlobal`
   summary). Extend the W1.13 screen test with a semaforo assertion, or add a small integration test in
   `ResumenScreen.spec.tsx` verifying the badge receives the DTO's `estadoSemaforo` unchanged.
 
