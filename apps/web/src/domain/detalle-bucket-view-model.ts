@@ -26,6 +26,19 @@ function aFechaLabel(fechaIso: string): string {
   return fechaIso.slice(0, 10)
 }
 
+/**
+ * esFechaValida — predicado puro (nunca lanza) que el guard money-safety de
+ * `api/client.ts` reusa para rechazar un `fecha` malformado ANTES de que
+ * llegue a `aFechaLabel` (que solo hace un slice posicional, sin validar
+ * formato — un `fecha` no parseable produciría una fecha garbled/vacía en
+ * pantalla en vez de fallar de forma explícita). KISS: un chequeo de
+ * "no vacío + parseable por `Date.parse`" es suficiente, sin parseo de
+ * fechas más sofisticado.
+ */
+export function esFechaValida(fecha: string): boolean {
+  return fecha !== '' && !Number.isNaN(Date.parse(fecha))
+}
+
 function aFilaViewModel(tx: DetalleBucketTransaccionDto): DetalleBucketRowViewModel {
   return {
     id: tx.id,

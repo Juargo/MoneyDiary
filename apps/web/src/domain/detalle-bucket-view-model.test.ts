@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aDetalleBucketViewModel } from './detalle-bucket-view-model'
+import { aDetalleBucketViewModel, esFechaValida } from './detalle-bucket-view-model'
 import type { DetalleBucketDto } from '../api/types'
 
 // Lean view-model mapper (spec W3-03): pre-formats money via formatearMontoCLP
@@ -52,5 +52,22 @@ describe('aDetalleBucketViewModel', () => {
     const viewModel = aDetalleBucketViewModel(dto)
 
     expect(viewModel.filas).toEqual([])
+  })
+})
+
+// esFechaValida es el predicado que reusa el guard money-safety de
+// api/client.ts para rechazar un `fecha` no parseable antes de que llegue a
+// aFechaLabel (que solo hace un slice sin validar el formato).
+describe('esFechaValida', () => {
+  it('acepta un ISO-8601 UTC completo', () => {
+    expect(esFechaValida('2026-07-15T00:00:00.000Z')).toBe(true)
+  })
+
+  it('rechaza el string vacío', () => {
+    expect(esFechaValida('')).toBe(false)
+  })
+
+  it('rechaza un string no parseable como fecha', () => {
+    expect(esFechaValida('not-a-date')).toBe(false)
   })
 })

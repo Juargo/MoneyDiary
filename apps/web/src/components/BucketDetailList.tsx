@@ -15,14 +15,17 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria'
  * covers fetch + {loading|error|empty|data} + row rendering (YAGNI: no
  * extra split until a second consumer needs the state switch alone).
  *
- * Reuses the shared Loading/ErrorState/Empty states (W1) verbatim — do not
- * reimplement (DRY).
+ * Reuses the shared Loading/ErrorState/Empty states (W1), passing
+ * detail-appropriate copy (context differs from the resumen screen: a
+ * screen reader announcing "Cargando resumen…" on `/buckets/:bucket` would
+ * be misleading) — do not reimplement the components themselves (DRY).
  *
  * SinCategoria special-case (CA-03): every row on a SinCategoria page shows
- * a "Clasificar" CTA (prioritized affordance, not yet wired to a real
- * classification flow — deferred to US-013). The inline category-edit
- * control (CA-02) is a permanently DISABLED placeholder on every row,
- * regardless of bucket — real editing is out of scope for this slice.
+ * a "Clasificar" CTA — like the inline category-edit control (CA-02), it is
+ * a permanently DISABLED placeholder with an accessible label/title
+ * explaining it's not yet wired (classification flow deferred to US-013).
+ * An enabled no-op button would be an a11y dead-end (announces as
+ * actionable, does nothing on activation).
  *
  * cargo/abono render as two separate exact CLP amounts (spec W3-03), never
  * netted/subtracted — inventing a signed "net amount" would be new money
@@ -38,13 +41,18 @@ export function BucketDetailList({
   const query = useDetalleBucket(bucket, periodo)
 
   if (query.isPending) {
-    return <Loading />
+    return <Loading message="Cargando movimientos…" />
   }
   if (query.isError) {
     return <ErrorState error={query.error} onRetry={() => query.refetch()} />
   }
   if (query.data.transacciones.length === 0) {
-    return <Empty />
+    return (
+      <Empty
+        title="No hay movimientos este período"
+        description="No hay movimientos en este bucket para el período."
+      />
+    )
   }
 
   const viewModel = aDetalleBucketViewModel(query.data)
@@ -68,7 +76,10 @@ export function BucketDetailList({
               {esSinCategoria && (
                 <button
                   type="button"
-                  className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-white"
+                  disabled
+                  aria-label="Clasificar movimientos (próximamente)"
+                  title="Clasificar movimientos (próximamente)"
+                  className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Clasificar
                 </button>

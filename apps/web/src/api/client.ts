@@ -1,4 +1,6 @@
 import type { BucketResumenDto, DetalleBucketDto, DetalleBucketTransaccionDto, ResumenMesDto } from './types'
+import { esMontoStringValido } from '../domain/formatear-monto'
+import { esFechaValida } from '../domain/detalle-bucket-view-model'
 
 /**
  * fetchResumen — el único lugar que toca `fetch` para el endpoint de
@@ -22,11 +24,16 @@ export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiError
  * `aResumenViewModel`/`formatearMontoCLP` (domain/resumen-view-model.ts)
  * consume aguas abajo — `totalIngreso`, `buckets[i].total` (BigInt-string),
  * `buckets[i].porcentajeBp` y los `string | null` renderizados verbatim
- * (`estadoSemaforo`, `estadoGlobal`). Un 2xx que pase esta guarda no debe
- * poder crashear el mapeo a view-model con un `TypeError` crudo — cualquier
- * forma inesperada se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
- * Deliberadamente NO valida cada leaf (p.ej. `periodo`, `targets`) — KISS,
- * solo lo que efectivamente fluye a dinero/render.
+ * (`estadoSemaforo`, `estadoGlobal`). Los campos de dinero (`total`,
+ * `totalIngreso`) se validan con `esMontoStringValido` — NO basta con
+ * `typeof === 'string'`: `formatearMontoCLP` lanza sobre cualquier string
+ * que no cumpla el formato decimal estricto (`""`, `"abc"`, `"12.5"`,
+ * `"+100"`, `" 100"`), así que un `typeof`-only guard deja pasar un 2xx que
+ * crashearía el mapeo a view-model con un `TypeError` crudo. Con este guard,
+ * ninguna forma inesperada llega a `formatearMontoCLP` — se mapea a
+ * `ApiError` tipado (tag "parse"), nunca lanza. Deliberadamente NO valida
+ * cada leaf (p.ej. `periodo`, `targets`) — KISS, solo lo que efectivamente
+ * fluye a dinero/render.
  */
 function esBucketResumenDto(value: unknown): value is BucketResumenDto {
   if (typeof value !== 'object' || value === null) {
@@ -35,6 +42,7 @@ function esBucketResumenDto(value: unknown): value is BucketResumenDto {
   const candidato = value as Partial<BucketResumenDto>
   return (
     typeof candidato.total === 'string' &&
+    esMontoStringValido(candidato.total) &&
     (typeof candidato.porcentajeBp === 'number' || candidato.porcentajeBp === null) &&
     (typeof candidato.estadoSemaforo === 'string' || candidato.estadoSemaforo === null)
   )
@@ -47,6 +55,7 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
   const candidato = value as Partial<ResumenMesDto>
   return (
     typeof candidato.totalIngreso === 'string' &&
+    esMontoStringValido(candidato.totalIngreso) &&
     Array.isArray(candidato.buckets) &&
     candidato.buckets.every(esBucketResumenDto) &&
     (typeof candidato.estadoGlobal === 'string' || candidato.estadoGlobal === null)
@@ -101,8 +110,14 @@ export async function fetchResumen(periodo?: string): Promise<ApiResult<ResumenM
  *
  * Guarda money-safety: valida todo lo que `aDetalleBucketViewModel`
  * consume aguas abajo — `cargo`/`abono` (BigInt-string), `fecha`,
- * `descripcion`. Un 2xx que no cumpla la forma esperada nunca llega a
- * `formatearMontoCLP` con un tipo inesperado.
+ * `descripcion`. `cargo`/`abono` se validan con `esMontoStringValido` (no
+ * basta con `typeof === 'string'`: `formatearMontoCLP` lanza sobre
+ * `""`/`"abc"`/`"12.5"`/etc — ver `esBucketResumenDto` arriba, mismo
+ * razonamiento) y `fecha` con `esFechaValida` (un `fecha` no parseable
+ * produciría una fecha garbled/vacía vía `aFechaLabel`, que solo hace un
+ * slice posicional sin validar formato). Un 2xx que no cumpla la forma
+ * esperada nunca llega a `formatearMontoCLP`/`aFechaLabel` con un valor
+ * inesperado — se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
  */
 function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTransaccionDto {
   if (typeof value !== 'object' || value === null) {
@@ -112,9 +127,12 @@ function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTr
   return (
     typeof candidato.id === 'string' &&
     typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
     typeof candidato.descripcion === 'string' &&
     typeof candidato.cargo === 'string' &&
-    typeof candidato.abono === 'string'
+    esMontoStringValido(candidato.cargo) &&
+    typeof candidato.abono === 'string' &&
+    esMontoStringValido(candidato.abono)
   )
 }
 

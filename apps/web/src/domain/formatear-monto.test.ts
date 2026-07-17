@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatearMontoCLP } from './formatear-monto'
+import { esMontoStringValido, formatearMontoCLP } from './formatear-monto'
 
 describe('formatearMontoCLP', () => {
   it('agrupa los miles con punto y antepone $', () => {
@@ -49,5 +49,34 @@ describe('formatearMontoCLP', () => {
 
   it('rechaza formatos octales que BigInt() aceptaría silenciosamente', () => {
     expect(() => formatearMontoCLP('0o7')).toThrow()
+  })
+})
+
+// esMontoStringValido es el mismo chequeo que formatearMontoCLP aplica antes
+// de lanzar, expuesto como predicado puro (sin throw) para que los guards de
+// money-safety en api/client.ts puedan reusarlo (DRY) en vez de duplicar el
+// regex o envolver formatearMontoCLP en un try/catch.
+describe('esMontoStringValido', () => {
+  it('acepta un entero decimal válido (positivo o negativo)', () => {
+    expect(esMontoStringValido('1234567')).toBe(true)
+    expect(esMontoStringValido('-5000')).toBe(true)
+    expect(esMontoStringValido('0')).toBe(true)
+  })
+
+  it('rechaza el string vacío', () => {
+    expect(esMontoStringValido('')).toBe(false)
+  })
+
+  it('rechaza strings no numéricos', () => {
+    expect(esMontoStringValido('abc')).toBe(false)
+  })
+
+  it('rechaza decimales, signo "+", espacios y formatos hex/oct/bin', () => {
+    expect(esMontoStringValido('10.5')).toBe(false)
+    expect(esMontoStringValido('+123')).toBe(false)
+    expect(esMontoStringValido('  123')).toBe(false)
+    expect(esMontoStringValido('0x10')).toBe(false)
+    expect(esMontoStringValido('0b1')).toBe(false)
+    expect(esMontoStringValido('0o7')).toBe(false)
   })
 })

@@ -17,4 +17,13 @@ describe('Loading', () => {
     render(<Loading />)
     expect(screen.getByRole('status')).toHaveTextContent('Cargando resumen…')
   })
+
+  // The resumen screen is unchanged (default copy preserved), but other
+  // screens reusing this shared component (e.g. bucket detail, US-017) need
+  // context-appropriate copy — an optional `message` prop overrides it.
+  it('renders a custom message when provided, instead of the resumen-specific default', () => {
+    render(<Loading message="Cargando movimientos…" />)
+    expect(screen.getByText('Cargando movimientos…')).toBeInTheDocument()
+    expect(screen.queryByText('Cargando resumen…')).not.toBeInTheDocument()
+  })
 })

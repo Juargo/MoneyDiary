@@ -23,12 +23,24 @@
 // valida el formato antes de llamar a BigInt(...).
 const FORMATO_DECIMAL_VALIDO = /^-?\d+$/
 
+/**
+ * esMontoStringValido — predicado puro (nunca lanza) que replica el mismo
+ * chequeo de formato que `formatearMontoCLP` aplica antes de convertir a
+ * `BigInt`. Existe para que los guards de money-safety en `api/client.ts`
+ * puedan rechazar un monto malformado (`""`, `"abc"`, `"12.5"`, `"+100"`,
+ * `" 100"`) ANTES de que el body 2xx llegue a `formatearMontoCLP` — evita
+ * duplicar el regex (DRY) sin envolver el formateador en un try/catch.
+ */
+export function esMontoStringValido(montoStr: string): boolean {
+  return montoStr.trim() !== '' && FORMATO_DECIMAL_VALIDO.test(montoStr)
+}
+
 export function formatearMontoCLP(montoStr: string): string {
   // BigInt('') === 0n (no lanza) — caso especial que hay que rechazar a mano.
   // Para el resto (decimales, no-numéricos, hex/oct/bin, signo '+', espacios),
   // se rechaza aquí explícitamente antes de llegar a BigInt(...), cumpliendo
   // el contrato "entero exacto" sin pasar nunca por parseFloat/Number.
-  if (montoStr.trim() === '' || !FORMATO_DECIMAL_VALIDO.test(montoStr)) {
+  if (!esMontoStringValido(montoStr)) {
     throw new Error(
       'El monto en CLP debe ser un string decimal entero válido (sin hex/oct/bin, sin signo "+", sin espacios).',
     )

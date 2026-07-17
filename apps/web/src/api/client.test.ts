@@ -128,6 +128,19 @@ describe('fetchResumen', () => {
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
   })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando buckets[0].total es un string no decimal (p.ej. "abc") — nunca llega a formatearMontoCLP', async () => {
+    const bodyConTotalMalformado = {
+      ...validDto,
+      buckets: [{ ...validDto.buckets[0], total: 'abc' }, ...validDto.buckets.slice(1)],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConTotalMalformado) })
+
+    const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
 })
 
 const validDetalleBucketDto: DetalleBucketDto = {
@@ -232,6 +245,58 @@ describe('fetchDetalleBucket', () => {
       transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: 50000 }],
     }
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoNumerico) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es un string no decimal (p.ej. "abc") — nunca llega a formatearMontoCLP', async () => {
+    const bodyConCargoMalformado = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: 'abc' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoMalformado) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es un string vacío', async () => {
+    const bodyConCargoVacio = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: '' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoVacio) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha no es una fecha parseable', async () => {
+    const bodyConFechaMalformada = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], fecha: 'not-a-date' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaMalformada) })
+
+    const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha es un string vacío', async () => {
+    const bodyConFechaVacia = {
+      ...validDetalleBucketDto,
+      transacciones: [{ ...validDetalleBucketDto.transacciones[0], fecha: '' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaVacia) })
 
     const result = await fetchDetalleBucket('Necesidades')
 

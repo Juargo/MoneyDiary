@@ -13,4 +13,20 @@ describe('Empty', () => {
     expect(screen.queryByText('$0')).not.toBeInTheDocument()
     expect(screen.queryByText('0%')).not.toBeInTheDocument()
   })
+
+  // The resumen screen is unchanged (default copy preserved), but other
+  // screens reusing this shared component (e.g. bucket detail, US-017) need
+  // context-appropriate copy — optional `title`/`description` props override
+  // it.
+  it('renders custom title/description when provided, instead of the resumen-specific default', () => {
+    render(
+      <Empty
+        title="No hay movimientos en este bucket"
+        description="No hay movimientos en este bucket para el período."
+      />,
+    )
+    expect(screen.getByText('No hay movimientos en este bucket')).toBeInTheDocument()
+    expect(screen.getByText('No hay movimientos en este bucket para el período.')).toBeInTheDocument()
+    expect(screen.queryByText(/Carga una cartola/)).not.toBeInTheDocument()
+  })
 })

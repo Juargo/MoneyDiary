@@ -64,12 +64,13 @@ describe('BucketDetailList', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the loading state while the query is pending', () => {
+  it('renders the loading state with detail-appropriate copy while the query is pending', () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
 
     render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
 
-    expect(screen.getByText('Cargando resumen…')).toBeInTheDocument()
+    expect(screen.getByText('Cargando movimientos…')).toBeInTheDocument()
+    expect(screen.queryByText('Cargando resumen…')).not.toBeInTheDocument()
   })
 
   it('renders the error state with a retry affordance when the request fails', async () => {
@@ -81,12 +82,15 @@ describe('BucketDetailList', () => {
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
   })
 
-  it('renders the empty state when the bucket has no transactions in the period', async () => {
+  it('renders the empty state with detail-appropriate copy when the bucket has no transactions in the period', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(emptyDto) })
 
     render(<BucketDetailList bucket="Ahorro" periodo="2026-07" />, { wrapper: crearWrapper() })
 
-    await waitFor(() => expect(screen.getByText(/Todavía no hay movimientos/)).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('No hay movimientos en este bucket para el período.')).toBeInTheDocument(),
+    )
+    expect(screen.queryByText(/Carga una cartola/)).not.toBeInTheDocument()
   })
 
   it('renders each row exact CLP amount, beyond safe-integer precision (spec W3-03)', async () => {
@@ -98,12 +102,15 @@ describe('BucketDetailList', () => {
     expect(screen.getByText(/\$9\.007\.199\.254\.740\.993/)).toBeInTheDocument()
   })
 
-  it('shows a "Clasificar" CTA and a disabled edit placeholder for SinCategoria rows (CA-03)', async () => {
+  it('shows a disabled "Clasificar" CTA with an accessible name and a disabled edit placeholder for SinCategoria rows (CA-03)', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(sinCategoriaDto) })
 
     render(<BucketDetailList bucket="SinCategoria" periodo="2026-07" />, { wrapper: crearWrapper() })
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Clasificar' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Clasificar movimientos (próximamente)' })).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: 'Clasificar movimientos (próximamente)' })).toBeDisabled()
     expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled()
   })
 
@@ -113,6 +120,6 @@ describe('BucketDetailList', () => {
     render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled())
-    expect(screen.queryByRole('button', { name: 'Clasificar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Clasificar/ })).not.toBeInTheDocument()
   })
 })
