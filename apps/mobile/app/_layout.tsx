@@ -1,43 +1,50 @@
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useSessionGate } from '../src/api/use-session-gate';
+import { SessionProvider, useSession } from '../src/api/session-context';
 import { Loading } from '../src/components/states/Loading';
 
 import '../global.css';
 
 /**
  * Root layout required by Expo Router. Wraps every route in
- * `SafeAreaProvider` (device notches/insets), hides the stack header (B.1,
- * sprint3-mvp-mobile), and gates navigation on `useSessionGate` (MOB-03):
+ * `SafeAreaProvider` (device notches/insets) and `SessionProvider` (MOB-03 —
+ * the synchronous auth-context gate, see `src/api/session-context.tsx` for
+ * why this replaced the pathname-keyed `useSessionGate` hook).
+ */
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <SessionProvider>
+        <RootNavigator />
+      </SessionProvider>
+    </SafeAreaProvider>
+  );
+}
+
+/**
  * `checking` shows a loading state (reusing the resumen screen's `Loading`
  * — same spinner, no bucket data either way); `Stack.Protected` then shows
  * either the resumen screen (`authenticated`) or the login screen
- * (`unauthenticated`), auto-redirecting when the guard flips (the official
- * Expo Router pattern for auth-gated stacks — no manual `<Redirect>` needed
- * here since both screens stay registered and the guard decides which one
- * is reachable).
+ * (`unauthenticated`), auto-redirecting whenever `estado` flips — the
+ * official Expo Router pattern for auth-gated stacks. No manual
+ * `router.replace` is needed anywhere: `Stack.Protected` reacts to the
+ * SAME render pass that calls `signIn`/`signOut` in `session-context.tsx`.
  */
-export default function RootLayout() {
-  const { estado } = useSessionGate();
+function RootNavigator() {
+  const { estado } = useSession();
 
   if (estado === 'checking') {
-    return (
-      <SafeAreaProvider>
-        <Loading />
-      </SafeAreaProvider>
-    );
+    return <Loading />;
   }
 
   return (
-    <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={estado === 'authenticated'}>
-          <Stack.Screen name="index" />
-        </Stack.Protected>
-        <Stack.Protected guard={estado === 'unauthenticated'}>
-          <Stack.Screen name="login" />
-        </Stack.Protected>
-      </Stack>
-    </SafeAreaProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={estado === 'authenticated'}>
+        <Stack.Screen name="index" />
+      </Stack.Protected>
+      <Stack.Protected guard={estado === 'unauthenticated'}>
+        <Stack.Screen name="login" />
+      </Stack.Protected>
+    </Stack>
   );
 }

@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { postLogin } from '../src/api/client';
 import { guardarToken } from '../src/api/session-store';
+import { useSession } from '../src/api/session-context';
 import { LoginScreen, type LoginEstado } from '../src/components/LoginScreen';
 import { COLORS } from '../src/theme/colors';
 
@@ -13,16 +13,25 @@ import { COLORS } from '../src/theme/colors';
  * to the pure `LoginScreen` presentational component.
  *
  * On success it persists the session token via `guardarToken` (SecureStore)
- * and navigates to `/` — it never surfaces or logs the token itself beyond
- * that single hand-off.
+ * then calls `useSession().signIn` — a synchronous `setState` that flips the
+ * root gate (`app/_layout.tsx`) to `authenticated`. Navigation itself is
+ * `Stack.Protected`'s job (MOB-03 fix); this screen never calls
+ * `router.replace` directly.
  */
 export default function Login() {
-  const router = useRouter();
+  const { signIn } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [estado, setEstado] = useState<LoginEstado>({ fase: 'idle' });
 
   const enviar = useCallback(async () => {
+    // Double-tap guard: `disabled={enviando}` on the submit button lags a
+    // frame behind this handler's own state update, so a fast double-press
+    // can still fire before the first render commits. Guard explicitly.
+    if (estado.fase === 'submitting') {
+      return;
+    }
+
     setEstado({ fase: 'submitting' });
     const resultado = await postLogin(email, password);
 
@@ -32,8 +41,8 @@ export default function Login() {
     }
 
     await guardarToken(resultado.value.token);
-    router.replace('/');
-  }, [email, password, router]);
+    signIn(resultado.value.token);
+  }, [email, password, estado.fase, signIn]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>

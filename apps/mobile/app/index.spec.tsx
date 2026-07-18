@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react-native';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react-native';
 import type { ApiResult } from '../src/api/client';
 import type { ResumenMesDto } from '../src/domain/resumen.types';
 
@@ -14,17 +14,21 @@ jest.mock('../src/api/client', () => ({
   postLogout: () => mockPostLogout(),
 }));
 
-// Logout affordance (Slice 4 §4.4, MOB-04): borrarToken + navigation are
-// mocked at the module boundary alongside fetchResumen/postLogout above.
+// Logout affordance (Slice 4 §4.4, MOB-04): borrarToken + the session
+// context's `signOut` are mocked at the module boundary alongside
+// fetchResumen/postLogout above. Navigation is no longer driven by
+// `router.replace` (Slice 4 fix, review finding #1/#2) — `signOut` flips the
+// synchronous auth-context guard and `Stack.Protected` does the actual
+// navigating (tested for real in `test/auth-navigation.integration.spec.tsx`).
 const mockBorrarToken = jest.fn<Promise<void>, []>();
-const mockReplace = jest.fn();
+const mockSignOut = jest.fn<void, []>();
 
 jest.mock('../src/api/session-store', () => ({
   borrarToken: () => mockBorrarToken(),
 }));
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
+jest.mock('../src/api/session-context', () => ({
+  useSession: () => ({ signOut: mockSignOut }),
 }));
 
 // Deferred promise so the loading state is observable before resolution.
@@ -72,7 +76,7 @@ describe('Index (4-state switch)', () => {
     mockFetchResumen.mockReset();
     mockPostLogout.mockReset();
     mockBorrarToken.mockReset().mockResolvedValue(undefined);
-    mockReplace.mockReset();
+    mockSignOut.mockReset();
   });
 
   it('shows the loading state while the request is in flight', async () => {
@@ -137,31 +141,38 @@ describe('Index (4-state switch)', () => {
   });
 
   describe('logout affordance (MOB-04)', () => {
-    it('calls postLogout, then borrarToken, then redirects to /login', async () => {
+    it('calls postLogout, then borrarToken, then signs out', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
       mockPostLogout.mockResolvedValue({ ok: true, value: undefined });
 
       await render(<Index />);
       await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
 
-      await fireEvent.press(screen.getByTestId('logout-button'));
+      // REL LOW (review finding): wrap the async logout interaction so its
+      // chained awaits (postLogout -> borrarToken -> signOut) settle inside
+      // `act` before the assertions run, eliminating the stray act() warning.
+      await act(async () => {
+        await fireEvent.press(screen.getByTestId('logout-button'));
+      });
 
-      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
+      await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
       expect(mockPostLogout).toHaveBeenCalled();
       expect(mockBorrarToken).toHaveBeenCalled();
     });
 
-    it('still clears the local token and redirects even when postLogout network-fails', async () => {
+    it('still clears the local token and signs out even when postLogout network-fails', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
       mockPostLogout.mockResolvedValue({ ok: false, error: { tag: 'network' } });
 
       await render(<Index />);
       await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
 
-      await fireEvent.press(screen.getByTestId('logout-button'));
+      await act(async () => {
+        await fireEvent.press(screen.getByTestId('logout-button'));
+      });
 
       await waitFor(() => expect(mockBorrarToken).toHaveBeenCalled());
-      expect(mockReplace).toHaveBeenCalledWith('/login');
+      expect(mockSignOut).toHaveBeenCalled();
     });
   });
 });
