@@ -15,6 +15,14 @@ describe('sanitizeRedirect', () => {
     ['//evil.com', 'protocol-relative URL'],
     ['/\\evil.com', 'backslash-prefixed path (browser-normalized to //)'],
     ['javascript:alert(1)', 'javascript: pseudo-scheme'],
+    // Anchors for the two subtle defenses that the cheap prefix guards do NOT
+    // cover: dot-segment normalization collapsing to a protocol-relative
+    // pathname, and control-char injection the raw-string checks can't see.
+    // These only get rejected by the post-`new URL` `pathname.startsWith('//')`
+    // re-check + the path-only return — pin them so a future refactor can't
+    // silently drop those lines and reopen the redirect.
+    ['/..//evil.com', 'dot-segment normalizing to a protocol-relative pathname'],
+    ['/\t/evil.com', 'tab-injected host trick (stripped inside new URL)'],
   ])('rejects %s (%s) and falls back to /', (raw) => {
     expect(sanitizeRedirect(raw)).toBe('/')
   })
