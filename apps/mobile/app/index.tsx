@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Pressable, Text } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { fetchResumen } from '../src/api/client';
+import { fetchResumen, postLogout } from '../src/api/client';
 import type { ApiError, ApiResult } from '../src/api/client';
+import { borrarToken } from '../src/api/session-store';
 import type { ResumenMesDto } from '../src/domain/resumen.types';
 import { aResumenViewModel } from '../src/domain/resumen-view-model';
 import { ResumenScreen } from '../src/components/ResumenScreen';
@@ -23,6 +26,7 @@ type Estado =
   | { fase: 'data'; dto: ResumenMesDto };
 
 export default function Index() {
+  const router = useRouter();
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
 
   const cargar = useCallback(async () => {
@@ -39,9 +43,27 @@ export default function Index() {
     void cargar();
   }, [cargar]);
 
+  // Minimal logout affordance (MOB-04, design.md §6.2.4): revoke the server
+  // session, then ALWAYS clear the local token — even when `postLogout`
+  // network-fails — before redirecting to /login (robust logout, mirrors
+  // the backend's idempotent-logout discipline).
+  const cerrarSesion = useCallback(async () => {
+    await postLogout();
+    await borrarToken();
+    router.replace('/login');
+  }, [router]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
       {renderEstado(estado, cargar)}
+      <Pressable
+        testID="logout-button"
+        accessibilityRole="button"
+        onPress={() => void cerrarSesion()}
+        className="items-center py-3"
+      >
+        <Text className="text-sm font-semibold text-muted">Cerrar sesión</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }

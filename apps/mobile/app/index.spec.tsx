@@ -7,9 +7,24 @@ import type { ResumenMesDto } from '../src/domain/resumen.types';
 // boundary so the screen's own useEffect/useState wiring is what's under
 // test — never a real fetch (D2: plain fetch, no query library).
 const mockFetchResumen = jest.fn<Promise<ApiResult<ResumenMesDto>>, [string?]>();
+const mockPostLogout = jest.fn<Promise<ApiResult<void>>, []>();
 
 jest.mock('../src/api/client', () => ({
   fetchResumen: (periodo?: string) => mockFetchResumen(periodo),
+  postLogout: () => mockPostLogout(),
+}));
+
+// Logout affordance (Slice 4 §4.4, MOB-04): borrarToken + navigation are
+// mocked at the module boundary alongside fetchResumen/postLogout above.
+const mockBorrarToken = jest.fn<Promise<void>, []>();
+const mockReplace = jest.fn();
+
+jest.mock('../src/api/session-store', () => ({
+  borrarToken: () => mockBorrarToken(),
+}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: mockReplace }),
 }));
 
 // Deferred promise so the loading state is observable before resolution.
@@ -55,6 +70,9 @@ import Index from './index';
 describe('Index (4-state switch)', () => {
   beforeEach(() => {
     mockFetchResumen.mockReset();
+    mockPostLogout.mockReset();
+    mockBorrarToken.mockReset().mockResolvedValue(undefined);
+    mockReplace.mockReset();
   });
 
   it('shows the loading state while the request is in flight', async () => {
@@ -116,5 +134,34 @@ describe('Index (4-state switch)', () => {
 
     await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
     expect(mockFetchResumen).toHaveBeenCalledTimes(2);
+  });
+
+  describe('logout affordance (MOB-04)', () => {
+    it('calls postLogout, then borrarToken, then redirects to /login', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+      mockPostLogout.mockResolvedValue({ ok: true, value: undefined });
+
+      await render(<Index />);
+      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+
+      await fireEvent.press(screen.getByTestId('logout-button'));
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
+      expect(mockPostLogout).toHaveBeenCalled();
+      expect(mockBorrarToken).toHaveBeenCalled();
+    });
+
+    it('still clears the local token and redirects even when postLogout network-fails', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+      mockPostLogout.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+
+      await render(<Index />);
+      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+
+      await fireEvent.press(screen.getByTestId('logout-button'));
+
+      await waitFor(() => expect(mockBorrarToken).toHaveBeenCalled());
+      expect(mockReplace).toHaveBeenCalledWith('/login');
+    });
   });
 });
