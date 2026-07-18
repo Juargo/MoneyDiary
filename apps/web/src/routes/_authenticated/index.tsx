@@ -3,7 +3,7 @@ import { useResumen } from '@/api/use-resumen'
 import { ResumenPage } from '@/components/ResumenPage'
 import { normalizarPeriodo } from '@/domain/periodo'
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/_authenticated/')({
   validateSearch: (search: Record<string, unknown>): { periodo?: string } => ({
     periodo: normalizarPeriodo(search.periodo),
   }),

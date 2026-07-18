@@ -39,7 +39,9 @@ describe('postLogin', () => {
     const result = await postLogin({ email: 'a@b.cl', password: 'secreta' })
 
     expect(result).toEqual({ ok: true, value: undefined })
-    expect(result.ok && 'token' in (result.value as object ?? {})).toBe(false)
+    expect(result.ok && result.value !== null && typeof result.value === 'object' && 'token' in result.value).toBe(
+      false,
+    )
   })
 
   it('mapea un 401 a {tag: "unauthorized"} con mensaje genérico', async () => {
