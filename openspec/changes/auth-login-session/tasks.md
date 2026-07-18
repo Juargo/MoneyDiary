@@ -188,30 +188,31 @@ Slice 1 (backend + gate, dual transport)
 
 ### 3.1 API client + types (TDD)
 
-- [ ] `apps/web/src/api/auth.spec.ts` (or colocated with existing web test conventions) — `postLogin` posts credentials, returns `ApiResult<void>` (does not surface the token even on success — assert the resolved value contains no `token` field); `fetchMe` maps 200→`MeDto`, 401→`{tag:'unauthorized'}`; `postLogout` posts and returns `ApiResult<void>`.
-- [ ] `apps/web/src/api/auth.ts` — implement `postLogin`/`fetchMe`/`postLogout` per design §6.1, same never-throw `ApiResult<T>` discipline as `api/client.ts`, same-origin `fetch` (cookie flows via default `credentials: 'same-origin'`). (AUTH-01 web-must-not-persist)
-- [ ] `apps/web/src/api/types.ts` — add `MeDto = { userId: string; email: string }`.
+- [x] `apps/web/src/api/auth.test.ts` (colocated with existing web test conventions — this repo uses `.test.ts`, not `.spec.ts`) — `postLogin` posts credentials, returns `ApiResult<void>` (does not surface the token even on success — assert the resolved value contains no `token` field); `fetchMe` maps 200→`MeDto`, 401→`{tag:'unauthorized'}`; `postLogout` posts and returns `ApiResult<void>`.
+- [x] `apps/web/src/api/auth.ts` — implement `postLogin`/`fetchMe`/`postLogout` per design §6.1, same never-throw `ApiResult<T>` discipline as `api/client.ts`, same-origin `fetch` (cookie flows via default `credentials: 'same-origin'`, set explicitly). (AUTH-01 web-must-not-persist)
+- [x] `apps/web/src/api/types.ts` — add `MeDto = { userId: string; email: string }`.
 
-**Commit 1 (work unit):** `feat(web): add auth API client (postLogin/fetchMe/postLogout) that never surfaces the login body token`.
+**Commit 1 (work unit):** `feat(web): add auth API client (postLogin/fetchMe/postLogout) that never surfaces the login body token` — commit `dc227d9`.
 
 ### 3.2 Login route + protected layout (TDD where testable)
 
-- [ ] `apps/web/src/lib/require-session.spec.ts` (or `routes/_authenticated.spec.ts`, matching existing test-location conventions) — test the extracted `requireSession(fetchMe)` helper: `unauthorized` result → throws/returns a `redirect({ to: '/login' })` call; `ok` result → passes through.
-- [ ] `apps/web/src/lib/require-session.ts` (or colocated) — implement the helper (extracted so it's unit-testable without a live router context, per design §6.1 note).
-- [ ] `apps/web/src/routes/login.tsx` — `createFileRoute('/login')`, email+password form → `postLogin()`; success → `navigate({ to: '/' })` honoring an optional `redirect` search param; failure → generic message. Container/presentational split.
-- [ ] `apps/web/src/components/LoginForm.test.tsx` (or colocated with the route per existing convention) — renders inputs; submit calls `postLogin`; shows error on failure; navigates on success (mock `api/auth` + router).
-- [ ] `apps/web/src/routes/_authenticated.tsx` — pathless layout, `beforeLoad` using `requireSession(fetchMe)`.
-- [ ] Move `apps/web/src/routes/index.tsx` → `apps/web/src/routes/_authenticated/index.tsx` (mechanical file move, component body unchanged).
-- [ ] Move `apps/web/src/routes/buckets.$bucket.tsx` → `apps/web/src/routes/_authenticated/buckets.$bucket.tsx` (mechanical file move, component body unchanged).
-- [ ] Regenerate `apps/web/src/routeTree.gen.ts` via `tsr generate` (already wired into `build`/`typecheck` — run once locally to confirm no manual edits needed, file stays gitignored).
+- [x] `apps/web/src/lib/require-session.test.ts` (colocated, matching existing test-location conventions) — test the extracted `requireSession(fetchMe)` helper: `unauthorized` result → throws a `redirect({ to: '/login' })` call (asserted via `isRedirect` + `.options.to`); `ok` result → resolves without throwing.
+- [x] `apps/web/src/lib/require-session.ts` — implement the helper (extracted so it's unit-testable without a live router context, per design §6.1 note).
+- [x] `apps/web/src/routes/login.tsx` — `createFileRoute('/login')`, email+password form → `postLogin()`; success → `navigate({ to: '/' })` honoring an optional `redirect` search param; failure → generic message. Container/presentational split.
+- [x] `apps/web/src/components/LoginForm.test.tsx` (colocated with the component per existing convention) — renders inputs; submit calls `postLogin`; shows error on failure; navigates on success. Follows this repo's established convention of stubbing global `fetch` rather than `vi.mock`-ing internal modules (same discipline as `client.test.ts`/`use-resumen.test.tsx`) — exercises the real `postLogin` + a real memory router instead of mocking `api/auth`/router.
+- [x] `apps/web/src/routes/_authenticated.tsx` — pathless layout, `beforeLoad` using `requireSession(fetchMe)`.
+- [x] Move `apps/web/src/routes/index.tsx` → `apps/web/src/routes/_authenticated/index.tsx` (mechanical file move via `git mv`, component body unchanged; `createFileRoute` id string auto-rewritten to `/_authenticated/` by `tsr generate`).
+- [x] Move `apps/web/src/routes/buckets.$bucket.tsx` → `apps/web/src/routes/_authenticated/buckets.$bucket.tsx` (mechanical file move via `git mv`, component body unchanged; id string auto-rewritten to `/_authenticated/buckets/$bucket`).
+- [x] Regenerate `apps/web/src/routeTree.gen.ts` via `tsr generate` (already wired into `build`/`typecheck` — ran once locally, no manual edits needed, file stays gitignored).
+- [x] **Cookie-through-proxy verification (AUTH-01, not in the original checklist — added per apply-time design constraint check):** confirmed via code inspection + 2 new regression tests in `apps/web/api/proxy.test.ts` that the Vercel prod proxy (`apps/web/api/[...path].ts`) ALREADY forwards the client `Cookie` request header upstream (`forwardableHeaders` only excludes `host`/`connection`/`x-api-key`) AND the upstream `Set-Cookie` response header back to the browser (the response-header forwarding loop only excludes `content-encoding`) — **no handler changes were needed**, matching design.md §6.1's "NO proxy changes" claim. The dev Vite proxy (`vite.config.ts`'s `configure` hook) was inspected the same way — it only adds `x-api-key` via `proxyReq.setHeader`, sets no `cookieDomainRewrite`/`cookiePathRewrite`, and `changeOrigin: true` only touches `Host` — so `http-proxy`'s default header pass-through (both directions) is unmodified. NOT unit-tested (Vite dev-server middleware needs a live HTTP round-trip to exercise, consistent with this file already having no test coverage) — flagged as a manual-verify item, not a code gap.
 
-**Commit 2 (work unit):** `feat(web): add /login route, protected-route redirect via _authenticated layout` — route + moved files + their tests land together (the move is only correct alongside the new gate that replaces the previous unprotected access).
+**Commit 2 (work unit):** `feat(web): add /login route, protected-route redirect via _authenticated layout` — route + moved files + their tests + the proxy regression tests land together — commit `ae56b36`.
 
 ### 3.3 Slice 3 close-out
 
-- [ ] Run `pnpm web test` green.
-- [ ] Run `pnpm web typecheck` (runs `tsr generate` + `tsc -b`) green.
-- [ ] Manually confirm the landing page's "Ingresar" button is unchanged (AUTH-10 — no regression).
+- [x] Run `pnpm web test` green — 150/150.
+- [x] Run `pnpm web typecheck` (runs `tsr generate` + `tsc -b`) green.
+- [ ] Manually confirm the landing page's "Ingresar" button is unchanged (AUTH-10 — no regression). **Not touched by this batch** (`apps/landing` has zero diff, confirmed via `git diff --stat`) — left for human on-device/landing verification per instructions.
 
 ---
 
