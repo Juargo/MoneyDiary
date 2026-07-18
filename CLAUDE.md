@@ -143,6 +143,14 @@ Detalle en `04 Sprints/Sprint-3/Sprint-3.md` del vault.
 
 **Roadmap MVP (siguiente):** cerrar la deuda de runtime de Grupo W (integración DB + Vercel prod) y la publicación de Grupo L (US-023) / tiendas mobile (US-021). Grooming mobile ✅ hecho (2026-07-15): épica Mobile con US-019 (auth+deploy), US-020 (pantalla resumen), US-021 (tiendas).
 
+**Change `auth-login-session` (SDD, fuera de la numeración de sprints) — ✅ código completo en el tracker `feat/auth-login-session`, ⏸️ NO en `main` / NO deployado.** Login real por usuario (sin registro) sobre el `ApiKeyGuard` de app: sesiones stateful en Postgres (token opaco `randomBytes(32)`, sha256 at rest, TTL absoluto 7d), transporte dual (cookie HttpOnly/SameSite=Strict/Secure-env para web, `Authorization: Bearer` para mobile), argon2id (`m=19456,t=2`) con dummy-hash anti-enumeración, rate limiter in-memory. Entregado en 4 slices encadenados (feature-branch-chain, TDD estricto + review de contexto fresco por slice):
+- **Slice 1** (PRs #57/#58) — dominio+aplicación (VOs `Email`/`duracion-sesion`, 4 use cases) + infra (`SessionGuard` 2º `APP_GUARD` tras `ApiKeyGuard`, `AuthController` login/logout/me, repos Prisma, migración `add_auth_login_session`).
+- **Slice 2** (PR #59) — los 4 controllers de datos derivan `userId` de `@CurrentUser()`; `USER_ID_FIJO_TOKEN` eliminado; aislamiento cross-tenant (ISO-01/02) probado por integración. **Hace `SessionGuard` obligatorio en `/api/resumen`.**
+- **Slice 4** (PR #60) — mobile login + Bearer: SecureStore, `SessionProvider`/`useSession()` síncrono con `Stack.Protected` (el review atajó un deadlock de gate async/pathname), logout. MOB-01..04.
+- **Slice 3** (PR #61) — web login UI: `/login`, layout `_authenticated` (redirect-on-401 fail-closed), `postLogin` que **nunca** persiste el token del body (AUTH-01), redirect-after-login con `sanitizeRedirect` anti-open-redirect. AUTH-01/10.
+
+Integración verificada en el tracker (`pnpm test` 869 verde: api 602 · web 164 · mobile 103; `pnpm build` OK; typechecks limpios). **Gate de deploy (pendiente, decisión de release):** `render.yaml` apunta a `branch: main` con auto-deploy → mergear tracker→main deploya la API y hace `/api/resumen` exigir sesión, lo que 401-earía cualquier build mobile instalado sin el Bearer de Slice 4 (Slice 2 y 4 deben liberarse coordinados). Además, correr los e2e/integración de auth (`auth-login`/`auth-rate-limit`/`auth-isolation`, gated `ALLOW_DESTRUCTIVE_DB=1`) contra la DB real (migración ya aplicada en prod, obs Engram #227) requiere aprobación explícita. Pendiente humano: verificación manual mobile §4.5 + botón "Ingresar" del landing (AUTH-10).
+
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
 ### ✅ US-001 — Carga de archivo XLSX (completo)
