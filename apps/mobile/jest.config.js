@@ -14,4 +14,11 @@ module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.spec.{ts,tsx}'],
+  // `app/_layout.tsx` imports `../global.css` (NativeWind) — only Metro
+  // (metro.config.js's `withNativeWind`) can parse that at build/runtime.
+  // Stub it out for Jest so specs that render the real `_layout.tsx` (e.g.
+  // the auth-navigation integration test) can import it directly.
+  moduleNameMapper: {
+    '\\.css$': '<rootDir>/jest.css-stub.js',
+  },
 };
