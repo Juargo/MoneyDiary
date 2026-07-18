@@ -10,13 +10,33 @@ import type { MeDto } from '@/api/types'
  * need one — it only needs a `fetchMe`-shaped function, injected so the
  * spec never touches a live `fetch` or router.
  *
- * `unauthorized` → `throw redirect({ to: '/login' })` (TanStack Router's
- * documented pattern: `redirect()` returns a `Response`, callers throw it).
+ * `unauthorized` → `throw redirect({ to: '/login' })`, capturing `redirectTo`
+ * (the internal path the caller was trying to reach — see
+ * `routes/_authenticated.tsx`, which passes the current `location.href`) as
+ * the `redirect` search param, so `/login` can send the user back after a
+ * successful login instead of always landing on `/`. Only captured when
+ * `redirectTo` is a meaningful, non-root path — `?redirect=/` would be a
+ * no-op since `/` is already the post-login default, so it's omitted
+ * entirely rather than round-tripped through the URL. `redirectTo` itself is
+ * NOT re-validated here: it comes straight from the router's own
+ * `location.href` (never from user-controlled input), and `/login`'s
+ * `validateSearch` (via `sanitizeRedirect`) is the actual security boundary
+ * for anything read back OUT of the URL.
+ *
  * `ok` → resolves, letting the protected route's own loader/component run.
  */
-export async function requireSession(fetchMe: () => Promise<ApiResult<MeDto>>): Promise<void> {
+export async function requireSession(
+  fetchMe: () => Promise<ApiResult<MeDto>>,
+  redirectTo?: string,
+): Promise<void> {
   const result = await fetchMe()
-  if (!result.ok) {
-    throw redirect({ to: '/login' })
-  }
+  if (result.ok) return
+
+  const meaningfulRedirect = redirectTo !== undefined && redirectTo !== '/' ? redirectTo : undefined
+
+  throw redirect(
+    meaningfulRedirect !== undefined
+      ? { to: '/login', search: { redirect: meaningfulRedirect } }
+      : { to: '/login' },
+  )
 }
