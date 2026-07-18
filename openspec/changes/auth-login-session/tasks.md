@@ -66,79 +66,79 @@ Slice 1 (backend + gate, dual transport)
 
 ### 1.4 Infrastructure — Prisma schema, migration, seed
 
-- [ ] `apps/api/prisma/schema.prisma` — add nullable `email`/`passwordHash` to `User`, new `Session` model (per design §5.1).
-- [ ] Generate migration `add_auth_login_session` (`pnpm api exec prisma migrate dev --name add_auth_login_session`) — additive/nullable, must succeed against the existing seeded `USER_ID_FIJO` row without a default backfill.
-- [ ] `apps/api/prisma/seed.ts` — extend `USER_ID_FIJO` upsert to set `email`/`passwordHash` from `SEED_USER_EMAIL`/`SEED_USER_PASSWORD` env, hashed via `Argon2PasswordHasher`; skip credential backfill (not the whole seed) when env is absent.
-- [ ] Document in this PR's description: `prisma migrate deploy` must run **before** `prisma db seed` in any environment (runbook note, mirrors design §5.1 ordering).
+- [x] `apps/api/prisma/schema.prisma` — add nullable `email`/`passwordHash` to `User`, new `Session` model (per design §5.1).
+- [x] Generate migration `add_auth_login_session` — hand-authored `migration.sql` from the schema delta (DB safety: `prisma migrate dev`/`diff` requires a live/shadow DB connection, out of scope for this batch) — additive/nullable, NOT applied to any database yet.
+- [x] `apps/api/prisma/seed.ts` — extend `USER_ID_FIJO` upsert to set `email`/`passwordHash` from `SEED_USER_EMAIL`/`SEED_USER_PASSWORD` env, hashed via `Argon2PasswordHasher`; skip credential backfill (not the whole seed) when env is absent.
+- [x] Document in this PR's description: `prisma migrate deploy` must run **before** `prisma db seed` in any environment (runbook note, mirrors design §5.1 ordering).
 
 **Commit 4 (work unit):** `feat(auth): add User email/passwordHash and Session schema, migration, seed backfill` — schema + migration + seed together (a migration without its seed counterpart is incomplete).
 
 ### 1.5 Infrastructure — crypto/token/clock adapters (TDD)
 
-- [ ] Add `@node-rs/argon2` as a direct `apps/api` runtime dependency (`pnpm --filter @moneydiary/api add @node-rs/argon2`).
-- [ ] `apps/api/src/infrastructure/http/auth/argon2-password-hasher.spec.ts` — real argon2id roundtrip: `hash` → `verificar` true; wrong password → false. Low-cost params in test config.
-- [ ] `apps/api/src/infrastructure/http/auth/argon2-password-hasher.ts` — `Argon2PasswordHasher implements IPasswordHasher`. (AUTH-03)
-- [ ] `apps/api/src/infrastructure/http/auth/sha256-session-token.service.spec.ts` — `generar()` returns token + matching `hashToken(token)`; `hashToken` deterministic.
-- [ ] `apps/api/src/infrastructure/http/auth/sha256-session-token.service.ts` — `Sha256SessionTokenService implements ISessionTokenService` (`randomBytes(32).toString('base64url')` + SHA-256). (AUTH-04)
-- [ ] `apps/api/src/infrastructure/http/auth/system-reloj.ts` — `SystemReloj implements IReloj` (`ahora() = new Date()`). Trivial enough to skip a dedicated spec (exercised via use-case specs' fake clock contract, this is the only non-fake impl — optionally add a 1-line spec if TDD discipline requires it).
+- [x] Add `@node-rs/argon2` as a direct `apps/api` runtime dependency (`pnpm --filter @moneydiary/api add @node-rs/argon2`).
+- [x] `apps/api/src/infrastructure/http/auth/argon2-password-hasher.spec.ts` — real argon2id roundtrip: `hash` → `verificar` true; wrong password → false. Low-cost params in test config.
+- [x] `apps/api/src/infrastructure/http/auth/argon2-password-hasher.ts` — `Argon2PasswordHasher implements IPasswordHasher`. (AUTH-03)
+- [x] `apps/api/src/infrastructure/http/auth/sha256-session-token.service.spec.ts` — `generar()` returns token + matching `hashToken(token)`; `hashToken` deterministic.
+- [x] `apps/api/src/infrastructure/http/auth/sha256-session-token.service.ts` — `Sha256SessionTokenService implements ISessionTokenService` (`randomBytes(32).toString('base64url')` + SHA-256). (AUTH-04)
+- [x] `apps/api/src/infrastructure/http/auth/system-reloj.ts` — `SystemReloj implements IReloj` (`ahora() = new Date()`). Added a 1-line spec (TDD discipline).
 
 **Commit 5 (work unit):** `feat(auth): add argon2 password hasher and SHA-256 session token adapters`.
 
 ### 1.6 Infrastructure — Prisma repository adapters (TDD)
 
-- [ ] `apps/api/src/infrastructure/persistence/prisma-user-credential.repository.spec.ts` (or integration-style unit with mocked `PrismaService`, per repo's existing repo-test convention) — `buscarPorEmail` found/not-found/null-passwordHash cases; `buscarIdentidad` found/not-found.
-- [ ] `apps/api/src/infrastructure/persistence/prisma-user-credential.repository.ts` — `PrismaUserCredentialRepository implements IUserCredentialRepository`.
-- [ ] `apps/api/src/infrastructure/persistence/prisma-session.repository.spec.ts` — `crear`/`buscarPorTokenHash`/`revocarPorTokenHash` (idempotent) cases.
-- [ ] `apps/api/src/infrastructure/persistence/prisma-session.repository.ts` — `PrismaSessionRepository implements ISessionRepository`.
+- [x] `apps/api/src/infrastructure/persistence/prisma-user-credential.repository.spec.ts` (mocked `PrismaService`, per repo's existing repo-test convention) — `buscarPorEmail` found/not-found/null-passwordHash cases; `buscarIdentidad` found/not-found.
+- [x] `apps/api/src/infrastructure/persistence/prisma-user-credential.repository.ts` — `PrismaUserCredentialRepository implements IUserCredentialRepository`.
+- [x] `apps/api/src/infrastructure/persistence/prisma-session.repository.spec.ts` — `crear`/`buscarPorTokenHash`/`revocarPorTokenHash` (idempotent) cases.
+- [x] `apps/api/src/infrastructure/persistence/prisma-session.repository.ts` — `PrismaSessionRepository implements ISessionRepository`.
 
 **Commit 6 (work unit):** `feat(auth): add Prisma repository adapters for user credentials and sessions`.
 
 ### 1.7 Infrastructure — guard chain, markers, decorator (TDD)
 
-- [ ] `apps/api/src/infrastructure/http/auth/session-public.decorator.ts` — `IS_SESSION_PUBLIC_KEY`, `PublicSession()`. (AC-07)
-- [ ] `apps/api/src/infrastructure/http/auth/extraer-token.spec.ts` — pure `extraerToken(request)` helper: cookie-only → cookie token; Bearer-only → Bearer token; both present → cookie token (precedence); malformed `Authorization` (no `Bearer ` scheme) → `undefined`; neither → `undefined`.
-- [ ] `apps/api/src/infrastructure/http/auth/extraer-token.ts` — implement per design §5.3 (extract as its own module so it's colocated with its spec and reusable from the guard). (AUTH-05)
-- [ ] `apps/api/src/infrastructure/http/auth/session.guard.spec.ts` — mirrors `api-key.guard.spec.ts` shape: skips on `@Public()`/`@PublicSession()`; authorizes + sets `request.userId` with valid cookie only; authorizes with valid Bearer only; cookie precedence (mock asserts `ValidarSesionUseCase` received the cookie token, not the garbage Bearer); 401 when both transports absent; 401 on invalid token from either transport. Mock `ValidarSesionUseCase` + `Reflector` + request.
-- [ ] `apps/api/src/infrastructure/http/auth/session.guard.ts` — `SessionGuard implements CanActivate` using `extraerToken` + `ValidarSesionUseCase`. (AUTH-05, AUTH-06, AC-06)
-- [ ] `apps/api/src/infrastructure/http/auth/express-request.d.ts` — module augmentation, `request.userId?: string`.
-- [ ] `apps/api/src/infrastructure/http/auth/current-user.decorator.ts` — `@CurrentUser()` param decorator. (used later in Slice 2 — created here since it's part of the guard-chain infra, wired into controllers only in Slice 2)
+- [x] `apps/api/src/infrastructure/http/auth/session-public.decorator.ts` — `IS_SESSION_PUBLIC_KEY`, `PublicSession()`. (AC-07)
+- [x] `apps/api/src/infrastructure/http/auth/extraer-token.spec.ts` — pure `extraerToken(request)` helper: cookie-only → cookie token; Bearer-only → Bearer token; both present → cookie token (precedence); malformed `Authorization` (no `Bearer ` scheme) → `undefined`; neither → `undefined`.
+- [x] `apps/api/src/infrastructure/http/auth/extraer-token.ts` — implement per design §5.3 (extract as its own module so it's colocated with its spec and reusable from the guard). (AUTH-05)
+- [x] `apps/api/src/infrastructure/http/auth/session.guard.spec.ts` — mirrors `api-key.guard.spec.ts` shape: skips on `@Public()`/`@PublicSession()`; authorizes + sets `request.userId` with valid cookie only; authorizes with valid Bearer only; cookie precedence (mock asserts `ValidarSesionUseCase` received the cookie token, not the garbage Bearer); 401 when both transports absent; 401 on invalid token from either transport. Mock `ValidarSesionUseCase` + `Reflector` + request.
+- [x] `apps/api/src/infrastructure/http/auth/session.guard.ts` — `SessionGuard implements CanActivate` using `extraerToken` + `ValidarSesionUseCase`. (AUTH-05, AUTH-06, AC-06)
+- [x] `apps/api/src/infrastructure/http/auth/express-request.d.ts` — module augmentation, `request.userId?: string`.
+- [x] `apps/api/src/infrastructure/http/auth/current-user.decorator.ts` — `@CurrentUser()` param decorator. (used later in Slice 2 — created here since it's part of the guard-chain infra, wired into controllers only in Slice 2)
 
 **Commit 7 (work unit):** `feat(auth): add SessionGuard with cookie-or-Bearer precedence, @PublicSession marker, @CurrentUser decorator`.
 
 ### 1.8 Infrastructure — rate limiter (TDD)
 
-- [ ] `apps/api/src/infrastructure/http/auth/login-rate-limiter.spec.ts` — blocks after `maxPorEmail` failures; blocks after `maxPorIp`; `resetear` clears both keys; window expiry re-allows; distinct-from-401 assertion left to the controller/e2e test but limiter's `estaBloqueado` boolean is unit-tested directly.
-- [ ] `apps/api/src/infrastructure/http/auth/login-rate-limiter.ts` — `LoginRateLimiter`, `RateLimitConfig`, env-driven defaults (`LOGIN_RATELIMIT_MAX_EMAIL`, `LOGIN_RATELIMIT_MAX_IP`, `LOGIN_RATELIMIT_WINDOW_MS`). (AUTH-08)
-- [ ] `apps/api/src/infrastructure/http/auth/client-ip.ts` (or colocated in the same file) — `obtenerIpCliente(req)` (leftmost `x-forwarded-for` hop, fallback `req.socket.remoteAddress`). No dedicated spec required if trivial; add one if branching logic grows.
+- [x] `apps/api/src/infrastructure/http/auth/login-rate-limiter.spec.ts` — blocks after `maxPorEmail` failures; blocks after `maxPorIp`; `resetear` clears both keys; window expiry re-allows; distinct-from-401 assertion left to the controller/e2e test but limiter's `estaBloqueado` boolean is unit-tested directly.
+- [x] `apps/api/src/infrastructure/http/auth/login-rate-limiter.ts` — `LoginRateLimiter`, `RateLimitConfig`, env-driven defaults (`LOGIN_RATELIMIT_MAX_EMAIL`, `LOGIN_RATELIMIT_MAX_IP`, `LOGIN_RATELIMIT_WINDOW_MS`). (AUTH-08)
+- [x] `apps/api/src/infrastructure/http/auth/client-ip.ts` (own file — cookie.spec-style separate spec, branching logic on x-forwarded-for) — `obtenerIpCliente(req)` (leftmost `x-forwarded-for` hop, fallback `req.socket.remoteAddress`). Added `client-ip.spec.ts`.
 
 **Commit 8 (work unit):** `feat(auth): add hand-rolled login rate limiter with per-email and per-IP thresholds`.
 
 ### 1.9 Infrastructure — cookie serialization, controller, module, app wiring
 
-- [ ] `apps/api/src/infrastructure/http/auth/cookie.spec.ts` — `serializarCookieSesion` sets `md_session`, `HttpOnly`, `SameSite=Strict`, `Path=/`, `Max-Age=604800`, no `Domain=`, `Secure` present only when `NODE_ENV=production` or `COOKIE_SECURE=true`; `limpiarCookieSesion` same attributes + `Max-Age=0`.
-- [ ] `apps/api/src/infrastructure/http/auth/cookie.ts` — implement per design §5.4. (AUTH-01)
-- [ ] `apps/api/src/infrastructure/http/auth/auth.controller.spec.ts` — unit-level controller test (mocked use cases + rate limiter): `POST /login` → blocked path (429), fail path (401 + `registrarFallo` called), success path (`resetear` called, `Set-Cookie` header set, body is `{token,userId,expiresAt}`); `POST /logout` → clears cookie regardless of token presence; `GET /me` → delegates to `ObtenerIdentidadUseCase` with `@CurrentUser()` userId.
-- [ ] `apps/api/src/infrastructure/http/auth/auth.controller.ts` — `AuthController` (route base `api/auth`) per design §5.4. (AUTH-01, AUTH-07, AUTH-09, AC-07)
-- [ ] `apps/api/src/infrastructure/http/auth/auth.module.ts` — composition root: providers for all 5 ports (`useFactory`, no decorators), 4 use cases, `LoginRateLimiter`, `SessionGuard`, `AuthController`; exports `SessionGuard`.
-- [ ] `apps/api/src/main.ts` — add `app.set('trust proxy', 1)`.
-- [ ] `apps/api/src/app.module.ts` (or wherever the current `APP_GUARD`/`ApiKeyGuard` is registered) — import `AuthModule`; register `{ provide: APP_GUARD, useExisting: SessionGuard }` **after** the existing `ApiKeyGuard` provider (order matters — AC-06).
-- [ ] Confirm `app.controller.ts` health route's existing `@Public()` still skips both guards — no code change expected, add/verify an assertion in the integration test below (AC-08).
+- [x] `apps/api/src/infrastructure/http/auth/cookie.spec.ts` — `serializarCookieSesion` sets `md_session`, `HttpOnly`, `SameSite=Strict`, `Path=/`, `Max-Age=604800`, no `Domain=`, `Secure` present only when `NODE_ENV=production` or `COOKIE_SECURE=true`; `limpiarCookieSesion` same attributes + `Max-Age=0`.
+- [x] `apps/api/src/infrastructure/http/auth/cookie.ts` — implement per design §5.4. (AUTH-01)
+- [x] `apps/api/src/infrastructure/http/auth/auth.controller.spec.ts` — unit-level controller test (mocked use cases + rate limiter): `POST /login` → blocked path (429), fail path (401 + `registrarFallo` called), success path (`resetear` called, `Set-Cookie` header set, body is `{token,userId,expiresAt}`); `POST /logout` → clears cookie regardless of token presence; `GET /me` → delegates to `ObtenerIdentidadUseCase` with `@CurrentUser()` userId.
+- [x] `apps/api/src/infrastructure/http/auth/auth.controller.ts` — `AuthController` (route base `api/auth`) per design §5.4. (AUTH-01, AUTH-07, AUTH-09, AC-07)
+- [x] `apps/api/src/infrastructure/http/auth/auth.module.ts` — composition root: providers for all 5 ports (`useFactory`, no decorators), 4 use cases, `LoginRateLimiter`, `SessionGuard`, `AuthController`; exports `SessionGuard`.
+- [x] `apps/api/src/main.ts` — add `app.set('trust proxy', 1)`.
+- [x] `apps/api/src/app.module.ts` — import `AuthModule`; register `{ provide: APP_GUARD, useExisting: SessionGuard }` **after** the existing `ApiKeyGuard` provider (order matters — AC-06).
+- [x] Confirmed `app.controller.ts` health route's existing `@Public()` is unchanged and skips both guards structurally (`SessionGuard` checks `IS_PUBLIC_KEY` too) — no code change needed; a live assertion is part of the deferred e2e suite (AC-08).
 
 **Commit 9 (work unit):** `feat(auth): add cookie serialization, AuthController, and wire SessionGuard as second global guard`.
 
 ### 1.10 Integration / e2e tests (real DB, destructive gate)
 
-- [ ] `apps/api/test/auth-login.e2e-spec.ts` — login with seeded creds → 200 + `Set-Cookie` (HttpOnly/SameSite=Strict/no Domain=) + body `{token,userId,expiresAt}`; wrong password ≡ unknown email (same status+shape); a protected endpoint 401 without session, 200 with cookie session (AC-06); Bearer transport 200 with `Authorization: Bearer <body.token>` and no cookie; cookie-precedence case (valid cookie + garbage Bearer still succeeds); `GET /me` returns identity; logout clears cookie + revokes row while a second session (Y) still works (AUTH-07). Requires `ALLOW_DESTRUCTIVE_DB=1`.
-- [ ] `apps/api/test/auth-rate-limit.e2e-spec.ts` — N failed logins for one email → 429 (distinct from 401); correct login not throttled. Requires `ALLOW_DESTRUCTIVE_DB=1`.
+- [x] `apps/api/test/auth-login.e2e-spec.ts` — login with seeded creds → 200 + `Set-Cookie` (HttpOnly/SameSite=Strict/no Domain=) + body `{token,userId,expiresAt}`; wrong password ≡ unknown email (same status+shape); a protected endpoint 401 without session, 200 with cookie session (AC-06); Bearer transport 200 with `Authorization: Bearer <body.token>` and no cookie; cookie-precedence case (valid cookie + garbage Bearer still succeeds); `GET /me` returns identity; logout clears cookie + revokes row while a second session (Y) still works (AUTH-07). **Written but NOT executed against the real DB this batch** (DB safety — migration not applied); every assertion gates on `ALLOW_DESTRUCTIVE_DB=1`.
+- [x] `apps/api/test/auth-rate-limit.e2e-spec.ts` — N failed logins for one email → 429 (distinct from 401); correct login not throttled. **Written but NOT executed against the real DB this batch**, same deferral as above.
 
 **Commit 10 (work unit):** `test(auth): add login and rate-limit e2e coverage` — no new prod code, pure verification unit; still a legitimate standalone commit since it exercises the full slice end-to-end.
 
 ### 1.11 Slice 1 close-out
 
-- [ ] Run `pnpm api test` (unit) green, then `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e` green.
-- [ ] Run `pnpm api exec tsc --noEmit`.
-- [ ] Update `CLAUDE.md` "Estado actual" only if this PR merges standalone before Slice 2/3/4 are ready (optional — coordinate with the chain strategy chosen by the orchestrator).
-- [ ] PR description: state explicitly that data endpoints still use `USER_ID_FIJO_TOKEN` (no isolation change yet) and that this is intentional (Slice 2 follows).
+- [x] Run `pnpm api test` (unit) green — 570/570. `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e` is **DEFERRED** (requires applying the migration first — explicit user approval step, out of scope for this batch per DB safety).
+- [x] Run `pnpm api exec tsc --noEmit` — clean.
+- [ ] Update `CLAUDE.md` "Estado actual" only if this PR merges standalone before Slice 2/3/4 are ready (optional — coordinate with the chain strategy chosen by the orchestrator). Not done in this batch (mid-slice, not merge-ready yet).
+- [x] PR description note (for whoever opens the PR): data endpoints still use `USER_ID_FIJO_TOKEN` (no isolation change yet) and that is intentional — Slice 2 follows. Also flag the deferred migration-apply + e2e run as an explicit follow-up before merge/deploy.
 
 ---
 
