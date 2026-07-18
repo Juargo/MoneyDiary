@@ -66,5 +66,44 @@ describe('session-store (MOB-01)', () => {
 
       await expect(borrarToken()).resolves.toBeUndefined();
     });
+
+    // SEC MEDIUM (review finding): a rejected/no-op deleteItemAsync must not
+    // silently look like a successful logout while the token is still on
+    // the device — verify via re-read and retry once before giving up.
+    it('verifies the delete by re-reading, and retries once when the token still persists', async () => {
+      mockGetItemAsync.mockResolvedValueOnce('still-there').mockResolvedValueOnce('still-there');
+
+      await borrarToken();
+
+      expect(mockDeleteItemAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry when the first delete already verifiably cleared the token', async () => {
+      mockGetItemAsync.mockResolvedValueOnce(null);
+
+      await borrarToken();
+
+      expect(mockDeleteItemAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces (warns) rather than silently succeeding when the token persists after the retry', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockGetItemAsync.mockResolvedValueOnce('still-there').mockResolvedValueOnce('still-there');
+
+      await borrarToken();
+
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn when the retry successfully clears the token', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockGetItemAsync.mockResolvedValueOnce('still-there').mockResolvedValueOnce(null);
+
+      await borrarToken();
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
   });
 });
