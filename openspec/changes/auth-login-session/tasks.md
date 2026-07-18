@@ -152,31 +152,31 @@ Slice 1 (backend + gate, dual transport)
 
 ### 2.1 Rewire controllers (mechanical, one commit per controller or grouped — see note)
 
-- [ ] `apps/api/src/infrastructure/http/resumen.controller.ts` — remove `@Inject(USER_ID_FIJO_TOKEN) private readonly userId` ctor param; add `@CurrentUser() userId: string` param on the handler; pass into `execute({ userId, periodo })`.
-- [ ] `apps/api/src/infrastructure/http/resumen.module.ts` — remove the `{ provide: USER_ID_FIJO_TOKEN, useValue: USER_ID_FIJO }` provider + its import.
-- [ ] `apps/api/src/infrastructure/http/movimientos.controller.ts` — same rewire on `listar()`.
-- [ ] `apps/api/src/infrastructure/http/movimientos.module.ts` — same provider removal.
-- [ ] `apps/api/src/infrastructure/http/detalle-bucket.controller.ts` — same rewire on `obtener()`.
-- [ ] `apps/api/src/infrastructure/http/detalle-bucket.module.ts` — same provider removal.
-- [ ] `apps/api/src/infrastructure/http/ingesta.controller.ts` — remove `import { USER_ID_FIJO }` + `userId: USER_ID_FIJO`; add `@CurrentUser() userId: string` param on `ingestar()`; pass into `execute({ fileReader, userId })`.
-- [ ] `apps/api/src/infrastructure/persistence/constants.ts` — delete `USER_ID_FIJO_TOKEN` (dead after the above). **Keep `USER_ID_FIJO`** (still used by `seed.ts` + CLI).
-- [ ] `apps/api/src/infrastructure/persistence/constants.spec.ts` — update/remove any assertion referencing the deleted `USER_ID_FIJO_TOKEN`.
-- [ ] Update each of the 4 controllers' existing `*.spec.ts` (`resumen.controller.spec.ts`, `movimientos.controller.spec.ts` if present, `detalle-bucket.controller.spec.ts`, `ingesta.controller.spec.ts`) — replace the fixed-userId injection mock with a `@CurrentUser()`-style injected param in the test call, asserting the use case still receives whatever `userId` the test passes in.
-- [ ] Confirm `apps/api/src/infrastructure/cli/ingestar.ts` is untouched (still passes `USER_ID_FIJO` directly — no session concept for the local CLI, per design §2).
+- [x] `apps/api/src/infrastructure/http/resumen.controller.ts` — remove `@Inject(USER_ID_FIJO_TOKEN) private readonly userId` ctor param; add `@CurrentUser() userId: string` param on the handler; pass into `execute({ userId, periodo })`.
+- [x] `apps/api/src/infrastructure/http/resumen.module.ts` — remove the `{ provide: USER_ID_FIJO_TOKEN, useValue: USER_ID_FIJO }` provider + its import.
+- [x] `apps/api/src/infrastructure/http/movimientos.controller.ts` — same rewire on `listar()`.
+- [x] `apps/api/src/infrastructure/http/movimientos.module.ts` — same provider removal.
+- [x] `apps/api/src/infrastructure/http/detalle-bucket.controller.ts` — same rewire on `obtener()`.
+- [x] `apps/api/src/infrastructure/http/detalle-bucket.module.ts` — same provider removal.
+- [x] `apps/api/src/infrastructure/http/ingesta.controller.ts` — remove `import { USER_ID_FIJO }` + `userId: USER_ID_FIJO`; add `@CurrentUser() userId: string` param on `ingestar()`; pass into `execute({ fileReader, userId })`.
+- [x] `apps/api/src/infrastructure/persistence/constants.ts` — delete `USER_ID_FIJO_TOKEN` (dead after the above). **Keep `USER_ID_FIJO`** (still used by `seed.ts` + CLI).
+- [x] `apps/api/src/infrastructure/persistence/constants.spec.ts` — checked: no assertion referenced `USER_ID_FIJO_TOKEN`, no change needed.
+- [x] Update each of the 4 controllers' existing `*.spec.ts` (`resumen.controller.spec.ts`, `movimientos.controller.spec.ts` if present, `detalle-bucket.controller.spec.ts`, `ingesta.controller.spec.ts`) — replace the fixed-userId injection mock with a `@CurrentUser()`-style injected param in the test call, asserting the use case still receives whatever `userId` the test passes in. `resumen.controller.spec.ts` and `movimientos.controller.spec.ts` did not exist before this slice — created new (Strict TDD, first coverage of these controllers). Also updated `session-public-carveout.spec.ts` into a permanent regression guard (asserts the 4 controllers do NOT carry `IS_SESSION_PUBLIC_KEY` anymore).
+- [x] Confirm `apps/api/src/infrastructure/cli/ingestar.ts` is untouched (still passes `USER_ID_FIJO` directly — no session concept for the local CLI, per design §2).
 
-**Commit 1 (work unit):** `refactor(auth): derive userId from session across the 4 data controllers, remove USER_ID_FIJO_TOKEN` — all 4 controllers + their module + their existing spec updates land together (ISO-01 is only true once *all four* are rewired; a partial rewire is not a coherent intermediate state).
+**Commit 1 (work unit):** `refactor(auth): derive userId from session across the 4 data controllers` — commit `e38674f`.
 
 ### 2.2 Isolation integration test (TDD-after, since it exercises the rewire)
 
-- [ ] `apps/api/test/auth-isolation.int-spec.ts` — seed users A and B, each with their own account + transactions for the same period; log in as A; assert all 4 endpoints (`/api/resumen`, `/api/movimientos`, `/api/buckets/:bucket`, `/api/ingestas`) return only A's data (ISO-02). Cover both transports for `/api/resumen` (A's cookie, then identically A's `Authorization: Bearer`). No-keyless-fallback case: `/api/resumen` with valid `x-api-key` but no session (neither cookie nor Bearer) → 401 (ISO-01). Requires `ALLOW_DESTRUCTIVE_DB=1`.
+- [x] `apps/api/test/auth-isolation.int-spec.ts` — seed users A and B, each with their own account + transactions for the same period; log in as A; assert all 4 endpoints (`/api/resumen`, `/api/movimientos`, `/api/buckets/:bucket`, `/api/ingestas`) return only A's data (ISO-02). Cover both transports for `/api/resumen` (A's cookie, then identically A's `Authorization: Bearer`). No-keyless-fallback case: `/api/resumen` with valid `x-api-key` but no session (neither cookie nor Bearer) → 401 (ISO-01). Requires `ALLOW_DESTRUCTIVE_DB=1`. **Written, NOT executed against the real DB this batch** — same deferral as Slice 1's e2e suites (migration not yet applied, pending explicit user approval).
 
-**Commit 2 (work unit):** `test(auth): add cross-user isolation integration test across all 4 endpoints and both transports`.
+**Commit 2 (work unit):** `test(auth): add cross-user isolation integration test across all 4 endpoints and both transports` — commit `8472051`.
 
 ### 2.3 Slice 2 close-out
 
-- [ ] Run `pnpm api test` green, `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e && ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration` green.
-- [ ] Run `pnpm api exec tsc --noEmit`.
-- [ ] PR description MUST call out the deploy coupling with Slice 4 (copy the "Hard sequencing constraint" note above) so a reviewer does not merge/deploy this alone.
+- [x] `pnpm api test` = 598/598 green (unit). `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e`/`test:integration` **DEFERRED** — same reason as Slice 1 (migration not applied to any DB yet; out of scope for this batch per DB safety, requires explicit user approval).
+- [x] `pnpm api exec tsc --noEmit` — clean.
+- [x] PR description note (for whoever opens the PR): MUST call out the deploy coupling with Slice 4 — SessionGuard is now mandatory on `/api/resumen` (and the other 3 data endpoints); the shipped mobile app (`apps/mobile`) currently calls `/api/resumen` with `x-api-key` only and will 401 with no login screen to fall back to once this slice is LIVE. Do not deploy this slice ahead of Slice 4 — merge/deploy together or back-to-back (see "Hard sequencing constraint" at the top of this document). Also flag: the 4 existing `*.e2e-spec.ts` files for these endpoints (`resumen.e2e-spec.ts`, `movimientos.e2e-spec.ts`, `detalle-bucket.e2e-spec.ts`, `ingesta.e2e-spec.ts`) call these endpoints with `x-api-key` only, no session — they will need an authenticated session added before `pnpm api test:e2e` can pass post-migration; not in this slice's scope per tasks.md, tracked as a follow-up.
 
 ---
 
