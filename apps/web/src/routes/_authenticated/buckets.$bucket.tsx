@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { BucketDetailList } from '@/components/BucketDetailList'
 import { normalizarPeriodo } from '@/domain/periodo'
 
-export const Route = createFileRoute('/buckets/$bucket')({
+export const Route = createFileRoute('/_authenticated/buckets/$bucket')({
   validateSearch: (search: Record<string, unknown>): { periodo?: string } => ({
     periodo: normalizarPeriodo(search.periodo),
   }),

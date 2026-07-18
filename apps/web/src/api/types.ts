@@ -55,3 +55,13 @@ export interface DetalleBucketDto {
   readonly bucket: string
   readonly transacciones: ReadonlyArray<DetalleBucketTransaccionDto>
 }
+
+/**
+ * Mirror escrito a mano del DTO HTTP de `GET /api/auth/me` (auth-login-session
+ * Slice 3, design.md §6.1). Fuente de verdad en el backend:
+ * `AuthController#me` → `{ userId, email }` (sin hash, sin token).
+ */
+export interface MeDto {
+  readonly userId: string
+  readonly email: string
+}

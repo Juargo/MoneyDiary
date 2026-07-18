@@ -108,4 +108,37 @@ describe('proxy handler', () => {
     expect(res.statusCode).toBe(502)
     expect(res.end).toHaveBeenCalledWith(expect.stringContaining('upstream request failed'))
   })
+
+  // auth-login-session Slice 3 (AUTH-01): confirms the cookie-through-proxy
+  // decision design.md §6.1 already relies on — this handler was NOT changed
+  // for this slice, these tests only lock in the existing (correct)
+  // behavior as a regression guard.
+  it('forwards the client-supplied Cookie header to the upstream request (session cookie on authenticated calls)', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+    const req = createReq({ headers: { cookie: 'md_session=abc123' } })
+    const res = createRes()
+
+    await handler(req, res)
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    expect((init.headers as Record<string, string>).cookie).toBe('md_session=abc123')
+  })
+
+  it('forwards the upstream Set-Cookie response header back to the browser (login sets md_session)', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('{}', {
+        status: 200,
+        headers: { 'set-cookie': 'md_session=abc123; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800' },
+      }),
+    )
+    const req = createReq()
+    const res = createRes()
+
+    await handler(req, res)
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'set-cookie',
+      'md_session=abc123; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800',
+    )
+  })
 })
