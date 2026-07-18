@@ -31,36 +31,36 @@ Slice 1 (backend + gate, dual transport)
 
 ### 1.1 Domain — value objects & errors
 
-- [ ] `apps/api/src/domain/value-objects/email.spec.ts` — test `Email.crear`: trims, lowercases, valid format → `Result.ok`; missing `@`, missing domain, empty string → `Result.fail(EmailInvalidoError)`.
-- [ ] `apps/api/src/domain/value-objects/email.ts` — implement `Email` VO to pass the spec above. (AUTH-02 support)
-- [ ] `apps/api/src/domain/errors/email-invalido.error.ts` — `EmailInvalidoError`.
-- [ ] `apps/api/src/domain/errors/credenciales-invalidas.error.ts` — `CredencialesInvalidasError` (generic, scrubbed message `'Credenciales inválidas.'`). (AUTH-02)
-- [ ] `apps/api/src/domain/errors/sesion-invalida.error.ts` — `SesionInvalidaError`. (AUTH-05, AUTH-06)
-- [ ] `apps/api/src/domain/value-objects/duracion-sesion.spec.ts` — test `calcularExpiracion(ahora) === ahora + 7d`; `estaExpirada` true at/after boundary, false before.
-- [ ] `apps/api/src/domain/value-objects/duracion-sesion.ts` — implement `TTL_SESION_MS`, `calcularExpiracion`, `estaExpirada` (pure, no `Date.now()` inside). (AUTH-06)
+- [x] `apps/api/src/domain/value-objects/email.spec.ts` — test `Email.crear`: trims, lowercases, valid format → `Result.ok`; missing `@`, missing domain, empty string → `Result.fail(EmailInvalidoError)`.
+- [x] `apps/api/src/domain/value-objects/email.ts` — implement `Email` VO to pass the spec above. (AUTH-02 support)
+- [x] `apps/api/src/domain/errors/email-invalido.error.ts` — `EmailInvalidoError`.
+- [x] `apps/api/src/domain/errors/credenciales-invalidas.error.ts` — `CredencialesInvalidasError` (generic, scrubbed message `'Credenciales inválidas.'`). (AUTH-02)
+- [x] `apps/api/src/domain/errors/sesion-invalida.error.ts` — `SesionInvalidaError`. (AUTH-05, AUTH-06)
+- [x] `apps/api/src/domain/value-objects/duracion-sesion.spec.ts` — test `calcularExpiracion(ahora) === ahora + 7d`; `estaExpirada` true at/after boundary, false before.
+- [x] `apps/api/src/domain/value-objects/duracion-sesion.ts` — implement `TTL_SESION_MS`, `calcularExpiracion`, `estaExpirada` (pure, no `Date.now()` inside). (AUTH-06)
 
 **Commit 1 (work unit):** `feat(auth): add Email VO, session-duration domain functions, and auth domain errors` — tests + impl together.
 
 ### 1.2 Application — ports
 
-- [ ] `apps/api/src/application/ports/user-credential-repository.port.ts` — `IUserCredentialRepository`, `CredencialUsuario`, `IdentidadUsuario`, `USER_CREDENTIAL_REPOSITORY` token.
-- [ ] `apps/api/src/application/ports/password-hasher.port.ts` — `IPasswordHasher`, `PASSWORD_HASHER` token.
-- [ ] `apps/api/src/application/ports/session-repository.port.ts` — `ISessionRepository`, `SesionPersistida`, `SESSION_REPOSITORY` token.
-- [ ] `apps/api/src/application/ports/session-token.port.ts` — `ISessionTokenService`, `TokenGenerado`, `SESSION_TOKEN_SERVICE` token.
-- [ ] `apps/api/src/application/ports/reloj.port.ts` — `IReloj`, `RELOJ` token.
+- [x] `apps/api/src/application/ports/user-credential-repository.port.ts` — `IUserCredentialRepository`, `CredencialUsuario`, `IdentidadUsuario`, `USER_CREDENTIAL_REPOSITORY` token.
+- [x] `apps/api/src/application/ports/password-hasher.port.ts` — `IPasswordHasher`, `PASSWORD_HASHER` token.
+- [x] `apps/api/src/application/ports/session-repository.port.ts` — `ISessionRepository`, `SesionPersistida`, `SESSION_REPOSITORY` token.
+- [x] `apps/api/src/application/ports/session-token.port.ts` — `ISessionTokenService`, `TokenGenerado`, `SESSION_TOKEN_SERVICE` token.
+- [x] `apps/api/src/application/ports/reloj.port.ts` — `IReloj`, `RELOJ` token.
 
 **Commit 2 (work unit):** `feat(auth): add application ports for credentials, password hashing, sessions, tokens, clock` — no tests needed (interfaces only, exercised by use-case specs next).
 
 ### 1.3 Application — use cases (TDD, mocked ports)
 
-- [ ] `apps/api/src/application/use-cases/login.use-case.spec.ts` — cases: success persists session + returns `{token,userId,expiresAt}`; unknown email → `CredencialesInvalidasError` **and** dummy `verificar` was invoked (assert mock call, no-enumeration); wrong password → identical error; invalid email format → identical error (dummy verify path too). Fake `IReloj`, mocked ports.
-- [ ] `apps/api/src/application/use-cases/login.use-case.ts` — `LoginUseCase` per design §4 orchestration (Email.crear → dummy-verify-on-fail → buscarPorEmail → verificar → generar+crear sesión). (AUTH-01, AUTH-02, AUTH-03, AUTH-04)
-- [ ] `apps/api/src/application/use-cases/validar-sesion.use-case.spec.ts` — valid token → `{userId}`; unknown tokenHash → `SesionInvalidaError`; expired (fake clock past `expiresAt`) → `SesionInvalidaError`.
-- [ ] `apps/api/src/application/use-cases/validar-sesion.use-case.ts` — `ValidarSesionUseCase`. (AUTH-05, AUTH-06)
-- [ ] `apps/api/src/application/use-cases/logout.use-case.spec.ts` — token present → revokes by tokenHash; token `undefined` → idempotent `Result.ok`.
-- [ ] `apps/api/src/application/use-cases/logout.use-case.ts` — `LogoutUseCase`. (AUTH-07)
-- [ ] `apps/api/src/application/use-cases/obtener-identidad.use-case.spec.ts` — returns `{userId,email}`; `buscarIdentidad` → null → fail.
-- [ ] `apps/api/src/application/use-cases/obtener-identidad.use-case.ts` — `ObtenerIdentidadUseCase`. (AUTH-09)
+- [x] `apps/api/src/application/use-cases/login.use-case.spec.ts` — cases: success persists session + returns `{token,userId,expiresAt}`; unknown email → `CredencialesInvalidasError` **and** dummy `verificar` was invoked (assert mock call, no-enumeration); wrong password → identical error; invalid email format → identical error (dummy verify path too). Fake `IReloj`, mocked ports.
+- [x] `apps/api/src/application/use-cases/login.use-case.ts` — `LoginUseCase` per design §4 orchestration (Email.crear → dummy-verify-on-fail → buscarPorEmail → verificar → generar+crear sesión). (AUTH-01, AUTH-02, AUTH-03, AUTH-04)
+- [x] `apps/api/src/application/use-cases/validar-sesion.use-case.spec.ts` — valid token → `{userId}`; unknown tokenHash → `SesionInvalidaError`; expired (fake clock past `expiresAt`) → `SesionInvalidaError`.
+- [x] `apps/api/src/application/use-cases/validar-sesion.use-case.ts` — `ValidarSesionUseCase`. (AUTH-05, AUTH-06)
+- [x] `apps/api/src/application/use-cases/logout.use-case.spec.ts` — token present → revokes by tokenHash; token `undefined` → idempotent `Result.ok`.
+- [x] `apps/api/src/application/use-cases/logout.use-case.ts` — `LogoutUseCase`. (AUTH-07)
+- [x] `apps/api/src/application/use-cases/obtener-identidad.use-case.spec.ts` — returns `{userId,email}`; `buscarIdentidad` → null → fail.
+- [x] `apps/api/src/application/use-cases/obtener-identidad.use-case.ts` — `ObtenerIdentidadUseCase`. (AUTH-09)
 
 **Commit 3 (work unit):** `feat(auth): add login, session-validation, logout, and identity use cases` — each use case's test + impl land together; this can be one commit since they're one cohesive vertical slice of application logic, or 4 small commits (one per use case) if preferred — keep tests with the use case they verify either way.
 
