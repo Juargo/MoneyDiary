@@ -223,36 +223,36 @@ Slice 1 (backend + gate, dual transport)
 
 ### 4.1 Dependency + token store (TDD)
 
-- [ ] Add `expo-secure-store` as a direct `apps/mobile` dependency via `expo install expo-secure-store` (run inside `apps/mobile` — do NOT `pnpm add` a floating version; pins to the SDK 57-vendored version).
-- [ ] `apps/mobile/src/api/session-store.spec.ts` — mock `expo-secure-store`; `guardarToken` calls `setItemAsync(KEY, token)`; `leerToken` returns stored value, `null` when absent; `borrarToken` calls `deleteItemAsync`, idempotent (calling twice does not throw).
-- [ ] `apps/mobile/src/api/session-store.ts` — implement `guardarToken`/`leerToken`/`borrarToken` wrapping `expo-secure-store`, `KEY = 'md_session_token'`, never-throws-across-boundary discipline. (MOB-01)
+- [x] Add `expo-secure-store` as a direct `apps/mobile` dependency via `expo install expo-secure-store` (run inside `apps/mobile` — do NOT `pnpm add` a floating version; pins to the SDK 57-vendored version).
+- [x] `apps/mobile/src/api/session-store.spec.ts` — mock `expo-secure-store`; `guardarToken` calls `setItemAsync(KEY, token)`; `leerToken` returns stored value, `null` when absent; `borrarToken` calls `deleteItemAsync`, idempotent (calling twice does not throw).
+- [x] `apps/mobile/src/api/session-store.ts` — implement `guardarToken`/`leerToken`/`borrarToken` wrapping `expo-secure-store`, `KEY = 'md_session_token'`, never-throws-across-boundary discipline. (MOB-01)
 
-**Commit 1 (work unit):** `feat(mobile): add expo-secure-store token store for session persistence`.
+**Commit 1 (work unit):** `feat(mobile): add expo-secure-store token store for session persistence` — commit `d4bcee3`.
 
 ### 4.2 HTTP client wiring (TDD)
 
-- [ ] `apps/mobile/src/api/client.spec.ts` (extend existing) — `fetchResumen` sends both `x-api-key` and `Authorization: Bearer <token>` when `leerToken()` resolves a token (mock the store module); sends only `x-api-key` when no token; 401 still maps to `{tag:'unauthorized'}` (unchanged). New: `postLogin` POSTs credentials, `ok`→`{token,userId,expiresAt}`, failure→`{tag:'unauthorized'}`; `fetchMe`/`postLogout` send both headers when a token exists.
-- [ ] `apps/mobile/src/api/client.ts` — extend `fetchResumen` per above; add `postLogin`/`fetchMe`/`postLogout`. (MOB-02, MOB-04)
-- [ ] `apps/mobile/src/domain/resumen.types.ts` (or wherever mobile DTOs live alongside existing types) — add `MeDto = { userId: string; email: string }`.
+- [x] `apps/mobile/src/api/client.spec.ts` (extend existing) — `fetchResumen` sends both `x-api-key` and `Authorization: Bearer <token>` when `leerToken()` resolves a token (mock the store module); sends only `x-api-key` when no token; 401 still maps to `{tag:'unauthorized'}` (unchanged). New: `postLogin` POSTs credentials, `ok`→`{token,userId,expiresAt}`, failure→`{tag:'unauthorized'}`; `fetchMe`/`postLogout` send both headers when a token exists.
+- [x] `apps/mobile/src/api/client.ts` — extend `fetchResumen` per above; add `postLogin`/`fetchMe`/`postLogout`. (MOB-02, MOB-04)
+- [x] `apps/mobile/src/domain/resumen.types.ts` (or wherever mobile DTOs live alongside existing types) — add `MeDto = { userId: string; email: string }`.
 
-**Commit 2 (work unit):** `feat(mobile): wire Authorization Bearer header into the HTTP client and add login/me/logout calls`.
+**Commit 2 (work unit):** `feat(mobile): wire Authorization Bearer header into the HTTP client and add login/me/logout calls` — commit `e147ae6`.
 
 ### 4.3 Login screen (TDD)
 
-- [ ] `apps/mobile/app/login.spec.tsx` — renders email+password inputs + submit; submit calls `postLogin`; on success calls `guardarToken(value.token)` and navigates to `/` (mock `expo-router`); on failure shows a generic error and does NOT call `guardarToken`.
-- [ ] `apps/mobile/app/login.tsx` — Expo Router route, `{idle|submitting|error}` state via `useState`, container/presentational split (mirrors `app/index.tsx` conventions). (MOB-01)
+- [x] `apps/mobile/app/login.spec.tsx` — renders email+password inputs + submit; submit calls `postLogin`; on success calls `guardarToken(value.token)` and navigates to `/` (mock `expo-router`); on failure shows a generic error and does NOT call `guardarToken`.
+- [x] `apps/mobile/app/login.tsx` — Expo Router route, `{idle|submitting|error}` state via `useState`, container/presentational split (mirrors `app/index.tsx` conventions). (MOB-01)
 
-**Commit 3 (work unit):** `feat(mobile): add login screen storing the session token on success`.
+**Commit 3 (work unit):** `feat(mobile): add login screen storing the session token on success` — commit `42f8093`.
 
 ### 4.4 Session gate + logout (TDD)
 
-- [ ] `apps/mobile/src/api/session-gate.spec.ts` (or `useSessionGate.spec.ts`, colocated with the hook) — no stored token → gate reports `unauthenticated`, `/api/resumen` client is NOT called (assert client mock not invoked); stored token + resumen call returns `{tag:'unauthorized'}` → gate calls `borrarToken` and reports `unauthenticated`; valid token + ok resumen → gate reports `authenticated`.
-- [ ] `apps/mobile/src/api/use-session-gate.ts` (or a suitable colocated path matching existing mobile module layout) — implement `useSessionGate()` returning `{estado:'checking'|'authenticated'|'unauthenticated'}`. (MOB-03)
-- [ ] `apps/mobile/app/_layout.tsx` — wrap `Stack` with the gate: `checking` → loading state; `unauthenticated` → redirect to `/login`; `authenticated` → render protected stack. (MOB-03)
-- [ ] Logout affordance test (extend `app/index.spec.tsx` or a new small component spec, wherever the logout action lives per design's "minimal affordance" note) — logout action calls `postLogout` then `borrarToken` then redirects to `/login`; local token cleared even when `postLogout` rejects/network-fails (MOB-04).
-- [ ] Implement the logout affordance (small button/menu item on the resumen screen) wired to the sequence above. (MOB-04)
+- [x] `apps/mobile/src/api/session-gate.spec.ts` (or `useSessionGate.spec.ts`, colocated with the hook) — no stored token → gate reports `unauthenticated`, `/api/resumen` client is NOT called (assert client mock not invoked); stored token + resumen call returns `{tag:'unauthorized'}` → gate calls `borrarToken` and reports `unauthenticated`; valid token + ok resumen → gate reports `authenticated`.
+- [x] `apps/mobile/src/api/use-session-gate.ts` (or a suitable colocated path matching existing mobile module layout) — implement `useSessionGate()` returning `{estado:'checking'|'authenticated'|'unauthenticated'}`. (MOB-03)
+- [x] `apps/mobile/app/_layout.tsx` — wrap `Stack` with the gate: `checking` → loading state; `unauthenticated` → redirect to `/login`; `authenticated` → render protected stack. (MOB-03) — implemented via `Stack.Protected` guards (official Expo Router auth pattern) instead of a manual `<Redirect>`, so `/login` stays a reachable registered screen; the gate re-runs on every `usePathname()` change so a fresh login is picked up.
+- [x] Logout affordance test (extend `app/index.spec.tsx` or a new small component spec, wherever the logout action lives per design's "minimal affordance" note) — logout action calls `postLogout` then `borrarToken` then redirects to `/login`; local token cleared even when `postLogout` rejects/network-fails (MOB-04).
+- [x] Implement the logout affordance (small button/menu item on the resumen screen) wired to the sequence above. (MOB-04)
 
-**Commit 4 (work unit):** `feat(mobile): add session gate on app start and logout action clearing local + server session`.
+**Commit 4 (work unit):** `feat(mobile): add session gate on app start and logout action clearing local + server session` — commit `a6311c3`.
 
 ### 4.5 Slice 4 close-out
 
