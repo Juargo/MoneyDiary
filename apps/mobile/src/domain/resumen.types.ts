@@ -28,3 +28,12 @@ export interface ResumenMesDto {
   };
   readonly estadoGlobal: string | null;
 }
+
+/**
+ * Mirror of `GET /api/auth/me`'s success body (MOB-04). Backend source of
+ * truth: `apps/api/src/infrastructure/http/auth/auth.controller.ts`.
+ */
+export interface MeDto {
+  readonly userId: string;
+  readonly email: string;
+}
