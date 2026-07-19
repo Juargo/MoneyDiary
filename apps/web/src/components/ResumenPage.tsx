@@ -33,12 +33,15 @@ export function ResumenPage({
       <div className="mx-auto flex w-full max-w-xl justify-end">
         <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
       </div>
-      {renderEstado(query)}
+      {renderEstado(query, onPeriodoChange)}
     </div>
   )
 }
 
-function renderEstado(query: UseQueryResult<ResumenMesDto, ApiError>) {
+function renderEstado(
+  query: UseQueryResult<ResumenMesDto, ApiError>,
+  onPeriodoChange: (periodo: string) => void,
+) {
   if (query.isPending) {
     return <Loading />
   }
@@ -48,5 +51,5 @@ function renderEstado(query: UseQueryResult<ResumenMesDto, ApiError>) {
   if (query.data.sinIngreso) {
     return <Empty />
   }
-  return <ResumenScreen viewModel={aResumenViewModel(query.data)} />
+  return <ResumenScreen viewModel={aResumenViewModel(query.data)} onPeriodoChange={onPeriodoChange} />
 }

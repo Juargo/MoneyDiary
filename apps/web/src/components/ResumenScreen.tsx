@@ -4,8 +4,10 @@ import { SemaforoBadge } from './SemaforoBadge'
 import { DistribucionPie } from './DistribucionPie'
 import { LeyendaGasto } from './LeyendaGasto'
 import { BucketDetailList } from './BucketDetailList'
+import { ResumenAnual } from './ResumenAnual'
 import type { LeyendaTajada } from './LeyendaGasto'
 import type { ResumenViewModel } from '@/domain/resumen-view-model'
+import { anioDePeriodo } from '@/domain/periodo-anual'
 
 const BUCKET_SIN_CATEGORIA = 'SinCategoria'
 
@@ -54,16 +56,28 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria'
  * (task 30.10), so it renders as a selectable row without a misleading
  * share-of-spending percent.
  *
- * The annual 50/30/20 summary (US-030 Slice C) renders BELOW this section —
- * not built in this slice; the outer `flex-col` leaves room for it without
- * requiring any structural change here.
+ * The annual 50/30/20 summary (US-030 Slice C, task 30.12) renders BELOW the
+ * 2-column section — `ResumenAnual` is self-contained (owns its own
+ * `useResumenAnual` query, like `BucketDetailList` owns `useDetalleBucket`),
+ * so this screen only derives its `anio` from the CURRENT `viewModel.periodo`
+ * (`anioDePeriodo`) and forwards `onPeriodoChange` — the SAME callback
+ * `ResumenPage` already threads from the router's `Route.useNavigate()` for
+ * `PeriodoSelector`, reused verbatim rather than inventing a second
+ * period-setting path. Clicking a month in the grid just calls it with that
+ * month's `periodo`.
  *
  * A11y (ADR-018): this is the data screen's single page-level `<h1>` — kept
  * visually hidden (`sr-only`); "Distribución del gasto" stays the visible
  * subheading. `BucketDetailList`'s own heading demotes to `<h2>` so this
  * stays the ONLY `<h1>` even though its transactions panel is embedded here.
  */
-export function ResumenScreen({ viewModel }: { readonly viewModel: ResumenViewModel }) {
+export function ResumenScreen({
+  viewModel,
+  onPeriodoChange,
+}: {
+  readonly viewModel: ResumenViewModel
+  readonly onPeriodoChange: (periodo: string) => void
+}) {
   const [bucketElegido, setBucketElegido] = useState<string | null>(null)
 
   // FIX 5: reset the explicit selection when the month changes — otherwise
@@ -120,7 +134,7 @@ export function ResumenScreen({ viewModel }: { readonly viewModel: ResumenViewMo
         </div>
       </div>
 
-      {/* Annual 50/30/20 summary (US-030 Slice C) renders here — not built yet. */}
+      <ResumenAnual anio={anioDePeriodo(viewModel.periodo, new Date().getUTCFullYear())} onSelectPeriodo={onPeriodoChange} />
     </div>
   )
 }

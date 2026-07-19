@@ -5,7 +5,7 @@ import { vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { ResumenScreen } from './ResumenScreen'
 import type { ResumenViewModel } from '@/domain/resumen-view-model'
-import type { DetalleBucketDto } from '@/api/types'
+import type { DetalleBucketDto, ResumenAnualDto } from '@/api/types'
 
 // US-030 Slice B (tasks 30.9/30.10): the dashboard body. The old per-bucket
 // `<Link>` breakdown list is gone — the pie + legend now represent that
@@ -42,13 +42,61 @@ function crearWrapper() {
   }
 }
 
+function mesSinDatos(periodo: string): ResumenAnualDto['meses'][number] {
+  return {
+    periodo,
+    totalIngreso: '0',
+    sinIngreso: true,
+    buckets: [
+      { bucket: 'Necesidades', total: '0', porcentajeBp: null, estadoSemaforo: null },
+      { bucket: 'Deseos', total: '0', porcentajeBp: null, estadoSemaforo: null },
+      { bucket: 'Ahorro', total: '0', porcentajeBp: null, estadoSemaforo: null },
+      { bucket: 'SinCategoria', total: '0', porcentajeBp: null, estadoSemaforo: null },
+    ],
+    targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+    estadoGlobal: null,
+  }
+}
+
+function mesConDatos(periodo: string): ResumenAnualDto['meses'][number] {
+  return {
+    periodo,
+    totalIngreso: '1000000',
+    sinIngreso: false,
+    buckets: [
+      { bucket: 'Necesidades', total: '500000', porcentajeBp: 5000, estadoSemaforo: 'verde' },
+      { bucket: 'Deseos', total: '300000', porcentajeBp: 3000, estadoSemaforo: 'verde' },
+      { bucket: 'Ahorro', total: '200000', porcentajeBp: 2000, estadoSemaforo: 'verde' },
+      { bucket: 'SinCategoria', total: '0', porcentajeBp: null, estadoSemaforo: null },
+    ],
+    targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+    estadoGlobal: 'verde',
+  }
+}
+
 /**
- * Mocks `fetch` for `/api/buckets/:bucket`, returning a bucket-specific
+ * Mocks `fetch` for both `/api/buckets/:bucket` (returning a bucket-specific
  * transaction so tests can tell WHICH bucket the transactions panel actually
- * fetched, purely by asserting on rendered text.
+ * fetched, purely by asserting on rendered text) AND `/api/resumen/anual`
+ * (US-030 Slice C — `ResumenScreen` now also renders `ResumenAnual`, which
+ * self-fetches). The annual DTO here is all-`sinIngreso` (renders the Empty
+ * state) — this file's tests are about the 2-column section, not the annual
+ * grid (see `ResumenAnual.test.tsx` for that).
  */
 function mockFetchPorBucket() {
   const fetchMock = vi.fn((url: string) => {
+    if (url.startsWith('/api/resumen/anual')) {
+      const dto: ResumenAnualDto = {
+        anio: 2026,
+        // Only January has data — enough to exercise the clickable-month
+        // path without adding noise to this file's 2-column-section tests.
+        meses: Array.from({ length: 12 }, (_, i) => {
+          const periodo = `2026-${String(i + 1).padStart(2, '0')}`
+          return i === 0 ? mesConDatos(periodo) : mesSinDatos(periodo)
+        }),
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(dto) })
+    }
     const match = /\/api\/buckets\/([^/?]+)/.exec(url)
     const bucket = match ? decodeURIComponent(match[1]) : 'desconocido'
     const dto: DetalleBucketDto = {
@@ -73,8 +121,8 @@ function mockFetchPorBucket() {
   return fetchMock
 }
 
-function renderScreen(vm: ResumenViewModel = viewModel) {
-  return render(<ResumenScreen viewModel={vm} />, { wrapper: crearWrapper() })
+function renderScreen(vm: ResumenViewModel = viewModel, onPeriodoChange: (periodo: string) => void = vi.fn()) {
+  return render(<ResumenScreen viewModel={vm} onPeriodoChange={onPeriodoChange} />, { wrapper: crearWrapper() })
 }
 
 describe('ResumenScreen', () => {
@@ -176,7 +224,7 @@ describe('ResumenScreen', () => {
 
     // periodo changes — the new month's default bucket is Ahorro this time.
     const nuevoViewModel: ResumenViewModel = { ...viewModel, periodo: '2026-08', bucketPorDefecto: 'Ahorro' }
-    rerender(<ResumenScreen viewModel={nuevoViewModel} />)
+    rerender(<ResumenScreen viewModel={nuevoViewModel} onPeriodoChange={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByText('Movimiento de Ahorro')).toBeInTheDocument())
     for (const boton of screen.getAllByRole('button', { name: 'Ahorro' })) {
@@ -185,5 +233,27 @@ describe('ResumenScreen', () => {
     for (const boton of screen.getAllByRole('button', { name: 'Gustos' })) {
       expect(boton).toHaveAttribute('aria-pressed', 'false')
     }
+  })
+
+  // US-030 Slice C (task 30.12): the annual grid renders below the 2-column
+  // section, deriving its year from the currently selected periodo and
+  // reusing the SAME period-setting path (`onPeriodoChange`) the dashboard
+  // already threads from the route — no new navigation mechanism.
+  it('renders the annual summary below, deriving the year from the selected periodo', async () => {
+    mockFetchPorBucket()
+    renderScreen()
+
+    await waitFor(() => expect(screen.getByText('Resumen Anual 2026')).toBeInTheDocument())
+  })
+
+  it('wires ResumenAnual month clicks to the same onPeriodoChange callback', async () => {
+    const onPeriodoChange = vi.fn()
+    mockFetchPorBucket()
+    renderScreen(viewModel, onPeriodoChange)
+
+    const boton = await screen.findByRole('button', { name: 'Ver enero 2026' })
+    fireEvent.click(boton)
+
+    expect(onPeriodoChange).toHaveBeenCalledWith('2026-01')
   })
 })

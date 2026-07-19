@@ -1,4 +1,10 @@
-import type { BucketResumenDto, DetalleBucketDto, DetalleBucketTransaccionDto, ResumenMesDto } from './types'
+import type {
+  BucketResumenDto,
+  DetalleBucketDto,
+  DetalleBucketTransaccionDto,
+  ResumenAnualDto,
+  ResumenMesDto,
+} from './types'
 import { esMontoStringValido } from '../domain/formatear-monto'
 import { esFechaValida } from '../domain/detalle-bucket-view-model'
 
@@ -94,6 +100,71 @@ export async function fetchResumen(periodo?: string): Promise<ApiResult<ResumenM
   }
 
   if (!esResumenMesDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+/**
+ * Guarda money-safety para el annual (US-030 Slice C): reutiliza
+ * `esResumenMesDto` mes a mes (DRY, mismo shape que `/api/resumen`) y además
+ * exige exactamente 12 entradas — la garantía del backend (Ene→Dic,
+ * `resumen-anual.dto.ts`). Un body con menos/más meses es tan inesperado
+ * como uno con un monto malformado: se mapea a `ApiError` tipado (tag
+ * "parse"), nunca lanza ni deja pasar un array corto a la grilla anual.
+ */
+function esResumenAnualDto(value: unknown): value is ResumenAnualDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<ResumenAnualDto>
+  return (
+    typeof candidato.anio === 'number' &&
+    Array.isArray(candidato.meses) &&
+    candidato.meses.length === 12 &&
+    candidato.meses.every(esResumenMesDto)
+  )
+}
+
+/**
+ * fetchResumenAnual — GET /api/resumen/anual[?anio=YYYY] (US-030 Slice C).
+ * Misma disciplina que `fetchResumen`: same-origin, sin key, nunca lanza,
+ * error tipado. El 400 aquí es específico de `anio` inválido (mirror del
+ * mensaje scrubbed del backend, `resumen.controller.ts#obtenerAnual`).
+ */
+export async function fetchResumenAnual(anio?: number): Promise<ApiResult<ResumenAnualDto>> {
+  const query = anio !== undefined ? `?anio=${encodeURIComponent(String(anio))}` : ''
+  const url = `/api/resumen/anual${query}`
+
+  let res: Response
+  try {
+    res = await fetch(url)
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 400) {
+    return { ok: false, error: { tag: 'invalid', message: 'El año no es válido.' } }
+  }
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esResumenAnualDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 
