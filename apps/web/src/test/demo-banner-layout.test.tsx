@@ -60,11 +60,23 @@ describe('DemoBanner wiring in _authenticated layout (real route tree)', () => {
   })
 
   it('does NOT render DemoBanner for a real session', async () => {
-    vi.stubGlobal('fetch', buildFetchStub({ userId: 'user-1', email: 'usuario@moneydiary.cl', esDemo: false }))
+    // `createMemoryHistory({ initialEntries: ['/'] })` makes `pathname`
+    // already `'/'` synchronously, so asserting on it alone would let
+    // `waitFor` resolve on its very first check — BEFORE `beforeLoad`'s
+    // async `fetchMe()` even runs, making the absence assertion vacuous
+    // (it would pass even if the banner WOULD render). Instead, wait for two
+    // positive signals that the route actually finished loading: the single
+    // `/api/auth/me` call happened, AND the home route rendered its own
+    // (unrelated) content — here the `/api/resumen` 401 → `ErrorState`
+    // `role="alert"` — before asserting the banner is absent.
+    const fetchStub = buildFetchStub({ userId: 'user-1', email: 'usuario@moneydiary.cl', esDemo: false })
+    vi.stubGlobal('fetch', fetchStub)
 
-    const router = renderApp()
+    renderApp()
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    await waitFor(() => expect(fetchStub).toHaveBeenCalled())
+    await screen.findByRole('alert')
+
     expect(screen.queryByRole('status', { name: /aviso de modo demo/i })).not.toBeInTheDocument()
   })
 })
