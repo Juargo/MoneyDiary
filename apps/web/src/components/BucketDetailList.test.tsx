@@ -22,6 +22,7 @@ const dataDto: DetalleBucketDto = {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '12345678',
+      categoria: { id: 'categoria-supermercado', nombre: 'Supermercado' },
     },
   ],
 }
@@ -39,6 +40,7 @@ const sinCategoriaDto: DetalleBucketDto = {
       banco: 'BCI',
       tipoCuenta: 'Corriente',
       numeroCuenta: '87654321',
+      categoria: null,
     },
   ],
 }
@@ -99,28 +101,122 @@ describe('BucketDetailList', () => {
     render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
 
     await waitFor(() => expect(screen.getByText('Supermercado Líder')).toBeInTheDocument())
-    expect(screen.getByText(/\$9\.007\.199\.254\.740\.993/)).toBeInTheDocument()
+    // The exact amount now also appears in the group's subtotal heading
+    // (WCAT-02) — match the row's own "Cargo: …" span exactly so this stays
+    // a precise assertion on the row rendering, not an incidental match on
+    // the group header.
+    expect(screen.getByText('Cargo: $9.007.199.254.740.993')).toBeInTheDocument()
   })
 
-  it('shows a disabled "Clasificar" CTA with an accessible name and a disabled edit placeholder for SinCategoria rows (CA-03)', async () => {
+  it('groups transactions under a categoría header showing nombre · subtotal · conteo (WCAT-02)', async () => {
+    const dosCategoriasDto: DetalleBucketDto = {
+      periodo: '2026-07',
+      bucket: 'Necesidades',
+      transacciones: [
+        {
+          id: 'tx-1',
+          fecha: '2026-07-15T00:00:00.000Z',
+          descripcion: 'Supermercado Líder',
+          cargo: '10000',
+          abono: '0',
+          banco: 'BancoEstado',
+          tipoCuenta: 'CuentaRUT',
+          numeroCuenta: '12345678',
+          categoria: { id: 'categoria-supermercado', nombre: 'Supermercado' },
+        },
+        {
+          id: 'tx-2',
+          fecha: '2026-07-16T00:00:00.000Z',
+          descripcion: 'Supermercado Jumbo',
+          cargo: '5000',
+          abono: '0',
+          banco: 'BancoEstado',
+          tipoCuenta: 'CuentaRUT',
+          numeroCuenta: '12345678',
+          categoria: { id: 'categoria-supermercado', nombre: 'Supermercado' },
+        },
+        {
+          id: 'tx-3',
+          fecha: '2026-07-17T00:00:00.000Z',
+          descripcion: 'Farmacia Cruz Verde',
+          cargo: '3000',
+          abono: '0',
+          banco: 'BancoEstado',
+          tipoCuenta: 'CuentaRUT',
+          numeroCuenta: '12345678',
+          categoria: { id: 'categoria-farmacia', nombre: 'Farmacia' },
+        },
+      ],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dosCategoriasDto) })
+
+    render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
+
+    await waitFor(() => expect(screen.getByText('Supermercado Líder')).toBeInTheDocument())
+    // Two groups, Supermercado (2 rows, $15.000) before Farmacia (canonical
+    // order — Supermercado precedes Farmacia in the fixed Categoria order).
+    const headings = screen.getAllByRole('heading', { level: 2 })
+    expect(headings.map((h) => h.textContent)).toEqual([
+      'Supermercado · $15.000 · 2 movimientos',
+      'Farmacia · $3.000 · 1 movimiento',
+    ])
+    expect(screen.getByText('Supermercado Jumbo')).toBeInTheDocument()
+    expect(screen.getByText('Farmacia Cruz Verde')).toBeInTheDocument()
+  })
+
+  it('groups SinCategoria rows under a "Sin categoría" header (WCAT-02)', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(sinCategoriaDto) })
 
     render(<BucketDetailList bucket="SinCategoria" periodo="2026-07" />, { wrapper: crearWrapper() })
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Clasificar movimientos (próximamente)' })).toBeInTheDocument(),
-    )
-    expect(screen.getByRole('button', { name: 'Clasificar movimientos (próximamente)' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled()
+    await waitFor(() => expect(screen.getByText('Transferencia recibida')).toBeInTheDocument())
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Sin categoría · $0 · 1 movimiento' }),
+    ).toBeInTheDocument()
   })
 
-  it('renders only the disabled edit placeholder (no classify CTA) for non-SinCategoria buckets', async () => {
+  it('demotes group headings one level below the bucket heading (h3 when headingLevel="h2", dashboard reuse)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
+
+    render(<BucketDetailList bucket="Necesidades" periodo="2026-07" headingLevel="h2" />, {
+      wrapper: crearWrapper(),
+    })
+
+    await waitFor(() => expect(screen.getByText('Supermercado Líder')).toBeInTheDocument())
+    expect(screen.getByRole('heading', { level: 2, name: 'Necesidades' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Supermercado · $9.007.199.254.740.993 · 1 movimiento' }),
+    ).toBeInTheDocument()
+  })
+
+  // US-013 S6b (WCAT-04/05): the two disabled placeholders ("Clasificar" /
+  // "Editar categoría") are replaced by ONE reclassify `<select>` per row —
+  // see `ReclasificarCategoriaControl.test.tsx` for its own dedicated
+  // coverage (optgroup contents, cross-bucket confirmation, pending/error
+  // UX). These two tests just confirm `BucketDetailList` wires it in with
+  // the right per-row props (accessible name, preselected value).
+  it('renders an enabled reclassify select per row, accessibly named, preselected to the current categoría', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
 
     render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled())
-    expect(screen.queryByRole('button', { name: /Clasificar/ })).not.toBeInTheDocument()
+    const select = (await screen.findByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    )) as HTMLSelectElement
+    expect(select).not.toBeDisabled()
+    expect(select.value).toBe('Supermercado')
+    expect(screen.queryByRole('button', { name: /Editar categoría|Clasificar/ })).not.toBeInTheDocument()
+  })
+
+  it('a SinCategoria row renders the reclassify select with no categoría preselected (assign flow)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(sinCategoriaDto) })
+
+    render(<BucketDetailList bucket="SinCategoria" periodo="2026-07" />, { wrapper: crearWrapper() })
+
+    const select = (await screen.findByLabelText(
+      'Cambiar categoría de Transferencia recibida',
+    )) as HTMLSelectElement
+    expect(select.value).toBe('')
   })
 
   // US-030 Slice B (task 30.10): the dashboard reuses this component verbatim
@@ -167,6 +263,7 @@ describe('BucketDetailList', () => {
           banco: 'BCI',
           tipoCuenta: 'Corriente',
           numeroCuenta: '11111111',
+          categoria: { id: 'categoria-delivery', nombre: 'Delivery' },
         },
       ],
     }

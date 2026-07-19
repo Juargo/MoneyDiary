@@ -2,6 +2,7 @@ import type {
   BucketResumenDto,
   DetalleBucketDto,
   DetalleBucketTransaccionDto,
+  ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
 } from './types'
@@ -179,17 +180,34 @@ export async function fetchResumenAnual(anio?: number): Promise<ApiResult<Resume
  * inválido o de un `periodo` inválido, no solo de período; ver dry.md
  * "distinguir conocimiento de coincidencia").
  *
- * Guarda money-safety: valida todo lo que `aDetalleBucketViewModel`
- * consume aguas abajo — `cargo`/`abono` (BigInt-string), `fecha`,
- * `descripcion`. `cargo`/`abono` se validan con `esMontoStringValido` (no
- * basta con `typeof === 'string'`: `formatearMontoCLP` lanza sobre
- * `""`/`"abc"`/`"12.5"`/etc — ver `esBucketResumenDto` arriba, mismo
- * razonamiento) y `fecha` con `esFechaValida` (un `fecha` no parseable
- * produciría una fecha garbled/vacía vía `aFechaLabel`, que solo hace un
- * slice posicional sin validar formato). Un 2xx que no cumpla la forma
- * esperada nunca llega a `formatearMontoCLP`/`aFechaLabel` con un valor
- * inesperado — se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
+ * Guarda money-safety: valida todo lo que `aDetalleBucketViewModel`/
+ * `agruparDetallePorCategoria` consumen aguas abajo — `cargo`/`abono`
+ * (BigInt-string), `fecha`, `descripcion`, `categoria`. `cargo`/`abono` se
+ * validan con `esMontoStringValido` (no basta con `typeof === 'string'`:
+ * `formatearMontoCLP` lanza sobre `""`/`"abc"`/`"12.5"`/etc — ver
+ * `esBucketResumenDto` arriba, mismo razonamiento) y `fecha` con
+ * `esFechaValida` (un `fecha` no parseable produciría una fecha
+ * garbled/vacía vía `aFechaLabel`, que solo hace un slice posicional sin
+ * validar formato). `categoria` (US-013 CATAPI-05) debe ser `null` o
+ * `{id, nombre}` con ambos campos `string` — la agrupación por categoría
+ * (S6a) usa `categoria.id` como clave de grupo, así que una forma
+ * inesperada aquí produciría grupos garbled en vez de fallar explícito. Un
+ * 2xx que no cumpla la forma esperada nunca llega a
+ * `formatearMontoCLP`/`aFechaLabel`/`agruparDetallePorCategoria` con un
+ * valor inesperado — se mapea a `ApiError` tipado (tag "parse"), nunca
+ * lanza.
  */
+function esCategoriaTx(value: unknown): value is { id: string; nombre: string } | null {
+  if (value === null) {
+    return true
+  }
+  if (typeof value !== 'object') {
+    return false
+  }
+  const candidato = value as Partial<{ id: string; nombre: string }>
+  return typeof candidato.id === 'string' && typeof candidato.nombre === 'string'
+}
+
 function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTransaccionDto {
   if (typeof value !== 'object' || value === null) {
     return false
@@ -203,7 +221,8 @@ function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTr
     typeof candidato.cargo === 'string' &&
     esMontoStringValido(candidato.cargo) &&
     typeof candidato.abono === 'string' &&
-    esMontoStringValido(candidato.abono)
+    esMontoStringValido(candidato.abono) &&
+    esCategoriaTx(candidato.categoria ?? null)
   )
 }
 
@@ -251,6 +270,78 @@ export async function fetchDetalleBucket(bucket: string, periodo?: string): Prom
   }
 
   if (!esDetalleBucketDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+function esReclasificarCategoriaDto(value: unknown): value is ReclasificarCategoriaDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<ReclasificarCategoriaDto>
+  if (typeof candidato.id !== 'string' || typeof candidato.bucket !== 'string') {
+    return false
+  }
+  if (typeof candidato.categoria !== 'object' || candidato.categoria === null) {
+    return false
+  }
+  const categoria = candidato.categoria as Partial<{ id: string; nombre: string }>
+  return typeof categoria.id === 'string' && typeof categoria.nombre === 'string'
+}
+
+/**
+ * postReclasificarCategoria — PATCH /api/transacciones/:id/categoria (US-013
+ * S4/S6b). Misma disciplina never-throw `ApiResult<T>` que el resto de
+ * `client.ts`: same-origin (el proxy server-side inyecta `x-api-key`), toda
+ * falla mapeada a un `ApiError` tipado, nunca lanza.
+ *
+ * El request SOLO envía `{ categoria: nombre }` — nunca un bucket (design.md
+ * §4.1/§7.3): el bucket destino se DERIVA server-side de la categoría
+ * elegida, el cliente no puede inyectarlo. `400` = categoría desconocida;
+ * `404` (no existe / no es del usuario, anti-enumeration) cae en la rama
+ * genérica `!res.ok` → `{tag: 'server', status: 404}`, igual que cualquier
+ * otro no-2xx no distinguido explícitamente aquí.
+ */
+export async function postReclasificarCategoria(
+  transaccionId: string,
+  categoria: string,
+): Promise<ApiResult<ReclasificarCategoriaDto>> {
+  const url = `/api/transacciones/${encodeURIComponent(transaccionId)}/categoria`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ categoria }),
+    })
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 400) {
+    return { ok: false, error: { tag: 'invalid', message: 'La categoría elegida no es válida.' } }
+  }
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esReclasificarCategoriaDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 
