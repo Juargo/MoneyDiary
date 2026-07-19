@@ -39,7 +39,13 @@ export function esFechaValida(fecha: string): boolean {
   return fecha !== '' && !Number.isNaN(Date.parse(fecha))
 }
 
-function aFilaViewModel(tx: DetalleBucketTransaccionDto): DetalleBucketRowViewModel {
+/**
+ * Exportada (no solo de uso interno) para que
+ * `agrupar-detalle-por-categoria.ts` (S6a) reutilice el mismo mapeo de fila
+ * al agrupar por categoría — evita duplicar la lógica cargo/abono/fecha
+ * (DRY).
+ */
+export function aFilaViewModel(tx: DetalleBucketTransaccionDto): DetalleBucketRowViewModel {
   return {
     id: tx.id,
     fechaLabel: aFechaLabel(tx.fecha),
