@@ -46,16 +46,27 @@ pnpm --filter @moneydiary/api exec prisma migrate status    # → limpio, sin dr
 ```
 Verificar: `Categoria` = 8 filas; los 20 patrones con `categoriaId` NOT NULL; `PatronClasificacion.bucketId` ya no existe.
 
-## 3. Seed (idempotente) + backfill de transacciones
+## 3. Backfill de transacciones históricas (supervisado, DESPUÉS del deploy del schema)
+> **`prisma db seed` NO se corre contra prod:** es redundante (la migración puente ya sembró las 8
+> categorías y backfilleó los 20 patrones vía `migrate deploy`) y además el guard `db-safety` lo
+> rechaza contra prod (correcto — el seed no tiene el opt-in).
+
+El backfill de las ~367 transacciones históricas reusa la lógica de clasificación TS ya probada
+(no se reescribió en SQL, para no arriesgar misclasificar datos de plata). Corre contra prod SOLO
+con el **doble opt-in explícito**: `ALLOW_DESTRUCTIVE_DB=1` **y** `CONFIRM_PROD_BACKFILL=us-013-transaccion-categorias`.
 ```bash
-pnpm --filter @moneydiary/api exec prisma db seed           # idempotente, no-op sobre lo ya sembrado
-# backfill de las ~367 transacciones con bucket (el repo usa ts-node, NO tsx):
-ALLOW_DESTRUCTIVE_DB=1 pnpm --filter @moneydiary/api exec ts-node prisma/backfill-categorias.ts --dry-run
-# revisar el dry-run (filas afectadas + movimiento de plata), luego:
-ALLOW_DESTRUCTIVE_DB=1 pnpm --filter @moneydiary/api exec ts-node prisma/backfill-categorias.ts
+# dry-run (NO escribe — muestra filas afectadas + movimiento de plata). El repo usa ts-node, NO tsx:
+ALLOW_DESTRUCTIVE_DB=1 CONFIRM_PROD_BACKFILL=us-013-transaccion-categorias \
+  pnpm --filter @moneydiary/api exec ts-node prisma/backfill-categorias.ts --dry-run
+# revisar el resumen del dry-run, luego el real:
+ALLOW_DESTRUCTIVE_DB=1 CONFIRM_PROD_BACKFILL=us-013-transaccion-categorias \
+  pnpm --filter @moneydiary/api exec ts-node prisma/backfill-categorias.ts
 ```
-> Nota: el backfill scope-a `categoriaId IS NULL` globalmente (todos los users) — es intencional para
-> este one-shot, pero re-correrlo siempre re-evalúa las filas que quedan null por diseño (Ingreso/SinCategoría).
+El script imprime un `⚠️ PRODUCTION DESTRUCTIVE OP ACK'd` ruidoso al correr contra prod. Sin el
+`CONFIRM_PROD_BACKFILL` exacto (o sin `ALLOW_DESTRUCTIVE_DB=1`), el guard **aborta** — cualquier host
+Supabase se detecta como prod.
+> Nota: el backfill scope-a `categoriaId IS NULL` globalmente (todos los users) — intencional para
+> este one-shot; re-correrlo siempre re-evalúa las filas que quedan null por diseño (Ingreso/SinCategoría).
 
 ## 4. Verificación en prod (post-migración, pre-merge)
 - [ ] `migrate status` limpio.
