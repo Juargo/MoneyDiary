@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "expo": "~57.0.4",
+    "expo-document-picker": "~57.0.1",
     "expo-router": "^57.0.4",
     "expo-secure-store": "~57.0.1",
     "nativewind": "^4.2.6",
