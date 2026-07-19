@@ -21,7 +21,9 @@ import { useState } from 'react'
  * CTA target: no in-app signup route exists yet, so "Crear cuenta" links out
  * to the public marketing site (same domain as `apps/landing`'s `SITE.url`)
  * as a provisional destination — replace with an in-app route once one
- * exists.
+ * exists. This URL is hardcoded here and NOT imported from `apps/landing`
+ * (no cross-workspace import) — if `SITE.url` changes, update this literal
+ * too (accepted minor drift risk, low-impact marketing link).
  *
  * A11y (ADR-018): `role="status"` (as used by `states/Loading.tsx`) so
  * mounting the banner announces it to assistive technology; an explicit

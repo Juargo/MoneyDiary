@@ -32,4 +32,21 @@ describe('DemoBanner', () => {
 
     expect(screen.queryByRole('status', { name: /aviso de modo demo/i })).not.toBeInTheDocument()
   })
+
+  // DEMO-UI-04 "reappears on new session": dismissal is deliberately
+  // in-memory `useState`, NOT persisted to localStorage/sessionStorage (see
+  // component doc). This proves the `descartado` state does not leak across
+  // mounts through any shared/module-level/persisted storage — a fresh
+  // mount (the real-world equivalent of `_authenticated` remounting on a
+  // new session) always starts undismissed.
+  it('does not leak dismissal across mounts — a fresh instance shows the banner again', () => {
+    const { unmount } = render(<DemoBanner esDemo={true} />)
+    fireEvent.click(screen.getByRole('button', { name: /cerrar aviso de modo demo/i }))
+    expect(screen.queryByRole('status', { name: /aviso de modo demo/i })).not.toBeInTheDocument()
+    unmount()
+
+    render(<DemoBanner esDemo={true} />)
+
+    expect(screen.getByRole('status', { name: /aviso de modo demo/i })).toBeInTheDocument()
+  })
 })
