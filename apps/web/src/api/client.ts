@@ -2,6 +2,8 @@ import type {
   BucketResumenDto,
   DetalleBucketDto,
   DetalleBucketTransaccionDto,
+  MovimientoMesItemDto,
+  MovimientosMesDto,
   ResumenAnualDto,
   ResumenMesDto,
 } from './types'
@@ -251,6 +253,89 @@ export async function fetchDetalleBucket(bucket: string, periodo?: string): Prom
   }
 
   if (!esDetalleBucketDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+/**
+ * fetchMovimientos — GET /api/movimientos[?periodo=YYYY-MM] (Slice 2 de
+ * `group-transactions-by-category`). Misma disciplina que `fetchResumen`/
+ * `fetchDetalleBucket`: same-origin, sin key, nunca lanza, error tipado.
+ *
+ * Guarda money-safety: mismos campos que `esDetalleBucketTransaccionDto`
+ * (`cargo`/`abono` con `esMontoStringValido`, `fecha` con `esFechaValida`)
+ * más `bucket` — un string no vacío (el `Bucket` de dominio ya foldeado por
+ * el backend, design.md D1). Un `bucket` ausente/vacío es tan inesperado
+ * como un monto malformado: se mapea a `ApiError` tipado (tag "parse"), para
+ * que el view-model de agrupación (`agrupar-movimientos-por-bucket.ts`)
+ * nunca reciba una fila sin categoría reconocible.
+ */
+function esMovimientoMesItemDto(value: unknown): value is MovimientoMesItemDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<MovimientoMesItemDto>
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.cargo === 'string' &&
+    esMontoStringValido(candidato.cargo) &&
+    typeof candidato.abono === 'string' &&
+    esMontoStringValido(candidato.abono) &&
+    typeof candidato.bucket === 'string' &&
+    candidato.bucket !== ''
+  )
+}
+
+function esMovimientosMesDto(value: unknown): value is MovimientosMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<MovimientosMesDto>
+  return (
+    typeof candidato.periodo === 'string' &&
+    typeof candidato.totalTransacciones === 'number' &&
+    Array.isArray(candidato.transacciones) &&
+    candidato.transacciones.every(esMovimientoMesItemDto)
+  )
+}
+
+export async function fetchMovimientos(periodo?: string): Promise<ApiResult<MovimientosMesDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : ''
+  const url = `/api/movimientos${query}`
+
+  let res: Response
+  try {
+    res = await fetch(url)
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 400) {
+    return { ok: false, error: { tag: 'invalid', message: 'El período no es válido.' } }
+  }
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esMovimientosMesDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 

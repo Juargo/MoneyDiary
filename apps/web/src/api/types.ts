@@ -88,3 +88,32 @@ export interface MeDto {
   readonly email: string | null
   readonly esDemo: boolean
 }
+
+/**
+ * Mirror escrito a mano del DTO HTTP de `GET /api/movimientos` (Slice 2 de
+ * `group-transactions-by-category`). Fuente de verdad en el backend:
+ * `apps/api/src/infrastructure/http/dto/movimiento-mes.dto.ts`.
+ *
+ * cargo/abono son strings decimales (BigInt-safe) — nunca se parsean a
+ * number aquí. `fecha` es ISO-8601 UTC completo (`toISOString()`), mismo
+ * formato que `DetalleBucketTransaccionDto`. `bucket` es el valor del
+ * `Bucket` de dominio ya foldeado por el repositorio (p.ej. `'Necesidades'`,
+ * `'SinCategoria'`) — nunca el `bucketId` físico crudo (design.md D1).
+ */
+export interface MovimientoMesItemDto {
+  readonly id: string
+  readonly fecha: string
+  readonly descripcion: string
+  readonly cargo: string
+  readonly abono: string
+  readonly banco: string
+  readonly tipoCuenta: string
+  readonly numeroCuenta: string
+  readonly bucket: string
+}
+
+export interface MovimientosMesDto {
+  readonly periodo: string
+  readonly totalTransacciones: number
+  readonly transacciones: ReadonlyArray<MovimientoMesItemDto>
+}

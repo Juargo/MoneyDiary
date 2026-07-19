@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchDetalleBucket, fetchResumen, fetchResumenAnual } from './client'
-import type { DetalleBucketDto, ResumenAnualDto, ResumenMesDto } from './types'
+import { fetchDetalleBucket, fetchMovimientos, fetchResumen, fetchResumenAnual } from './client'
+import type { DetalleBucketDto, MovimientosMesDto, ResumenAnualDto, ResumenMesDto } from './types'
 
 const validDto: ResumenMesDto = {
   periodo: '2026-07',
@@ -440,6 +440,160 @@ describe('fetchDetalleBucket', () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaVacia) })
 
     const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+const validMovimientosMesDto: MovimientosMesDto = {
+  periodo: '2026-07',
+  totalTransacciones: 1,
+  transacciones: [
+    {
+      id: 'tx-1',
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Supermercado',
+      cargo: '50000',
+      abono: '0',
+      banco: 'BancoEstado',
+      tipoCuenta: 'CuentaRUT',
+      numeroCuenta: '12345678',
+      bucket: 'Necesidades',
+    },
+  ],
+}
+
+// MOV-01/WG-04: `fetchMovimientos` reuses the same money-safety guard
+// discipline as `fetchDetalleBucket` (`esMontoStringValido`/`esFechaValida`)
+// so a malformed 2xx body never reaches `BigInt`/`formatearMontoCLP` in the
+// grouping view-model — it maps to a typed `ApiError` (tag "parse") instead.
+describe('fetchMovimientos', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a GET /api/movimientos same-origin, sin base URL ni key', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validMovimientosMesDto) })
+
+    await fetchMovimientos()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/movimientos')
+  })
+
+  it('agrega el query param periodo cuando se provee', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validMovimientosMesDto) })
+
+    await fetchMovimientos('2026-07')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/movimientos?periodo=2026-07')
+  })
+
+  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validMovimientosMesDto) })
+
+    const result = await fetchMovimientos('2026-07')
+
+    expect(result).toEqual({ ok: true, value: validMovimientosMesDto })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 400 a {tag: "invalid"}', async () => {
+    mockFetchOnce({ ok: false, status: 400 })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('invalid')
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'unauthorized', message: 'Sin acceso.' })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un body 2xx que no cumple la forma esperada a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ nonsense: true }) })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es number en vez de string (money-safety boundary)', async () => {
+    const bodyConCargoNumerico = {
+      ...validMovimientosMesDto,
+      transacciones: [{ ...validMovimientosMesDto.transacciones[0], cargo: 50000 }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoNumerico) })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].abono es un string no decimal', async () => {
+    const bodyConAbonoMalformado = {
+      ...validMovimientosMesDto,
+      transacciones: [{ ...validMovimientosMesDto.transacciones[0], abono: 'abc' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConAbonoMalformado) })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha no es parseable', async () => {
+    const bodyConFechaMalformada = {
+      ...validMovimientosMesDto,
+      transacciones: [{ ...validMovimientosMesDto.transacciones[0], fecha: 'not-a-date' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaMalformada) })
+
+    const result = await fetchMovimientos()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].bucket está ausente/vacío', async () => {
+    const bodyConBucketVacio = {
+      ...validMovimientosMesDto,
+      transacciones: [{ ...validMovimientosMesDto.transacciones[0], bucket: '' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConBucketVacio) })
+
+    const result = await fetchMovimientos()
 
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
