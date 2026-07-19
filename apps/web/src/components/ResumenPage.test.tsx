@@ -58,27 +58,55 @@ function crearQueryWrapper() {
   }
 }
 
+// US-030 Slice C: the data state now also renders `ResumenAnual`
+// (self-fetching `/api/resumen/anual`, like `BucketDetailList` self-fetches
+// `/api/buckets/:bucket`) — branch the mock by URL so both queries resolve.
 function mockFetchDetalleBucket() {
-  const fetchMock = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: () =>
-      Promise.resolve({
-        periodo: '2026-07',
-        bucket: 'Necesidades',
-        transacciones: [
-          {
-            id: 'tx-1',
-            fecha: '2026-07-15T00:00:00.000Z',
-            descripcion: 'Supermercado',
-            cargo: '1000',
-            abono: '0',
-            banco: 'BancoEstado',
-            tipoCuenta: 'CuentaRUT',
-            numeroCuenta: '12345678',
-          },
-        ],
-      }),
+  const fetchMock = vi.fn((url: string) => {
+    if (url.startsWith('/api/resumen/anual')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            anio: 2026,
+            meses: Array.from({ length: 12 }, (_, i) => ({
+              periodo: `2026-${String(i + 1).padStart(2, '0')}`,
+              totalIngreso: '0',
+              sinIngreso: true,
+              buckets: [
+                { bucket: 'Necesidades', total: '0', porcentajeBp: null, estadoSemaforo: null },
+                { bucket: 'Deseos', total: '0', porcentajeBp: null, estadoSemaforo: null },
+                { bucket: 'Ahorro', total: '0', porcentajeBp: null, estadoSemaforo: null },
+                { bucket: 'SinCategoria', total: '0', porcentajeBp: null, estadoSemaforo: null },
+              ],
+              targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+              estadoGlobal: null,
+            })),
+          }),
+      })
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          periodo: '2026-07',
+          bucket: 'Necesidades',
+          transacciones: [
+            {
+              id: 'tx-1',
+              fecha: '2026-07-15T00:00:00.000Z',
+              descripcion: 'Supermercado',
+              cargo: '1000',
+              abono: '0',
+              banco: 'BancoEstado',
+              tipoCuenta: 'CuentaRUT',
+              numeroCuenta: '12345678',
+            },
+          ],
+        }),
+    })
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
@@ -141,7 +169,12 @@ describe('ResumenPage', () => {
     expect(screen.getByText('Gustos')).toBeInTheDocument()
     expect(screen.getAllByText('Ahorro').length).toBeGreaterThan(0)
     expect(screen.getByTestId('semaforo-global')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument())
+    // Two <h2>s now coexist (BucketDetailList's own + ResumenAnual's title,
+    // US-030 Slice C) — disambiguate by name instead of `getByRole` alone.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 2, name: 'Necesidades' })).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'Resumen Anual 2026' })).toBeInTheDocument()
   })
 
   it('wires the period selector — reports the new value via onPeriodoChange', async () => {

@@ -33,6 +33,20 @@ export interface ResumenMesDto {
 }
 
 /**
+ * Mirror escrito a mano del DTO HTTP anual (US-030 Slice C). Fuente de
+ * verdad en el backend: `apps/api/src/infrastructure/http/dto/resumen-anual.dto.ts`.
+ *
+ * `meses` siempre trae exactamente 12 entradas, Ene→Dic (garantía del
+ * backend) — cada una reutiliza `ResumenMesDto` (DRY, mismo shape que
+ * `/api/resumen`). Los meses sin datos/futuros llegan con `sinIngreso: true`
+ * y montos en cero, nunca omitidos.
+ */
+export interface ResumenAnualDto {
+  readonly anio: number
+  readonly meses: ReadonlyArray<ResumenMesDto>
+}
+
+/**
  * Mirror escrito a mano del DTO HTTP del detalle de bucket (US-017). Fuente
  * de verdad en el backend: `apps/api/src/infrastructure/http/dto/detalle-bucket.dto.ts`.
  *

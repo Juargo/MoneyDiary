@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchDetalleBucket, fetchResumen } from './client'
-import type { DetalleBucketDto, ResumenMesDto } from './types'
+import { fetchDetalleBucket, fetchResumen, fetchResumenAnual } from './client'
+import type { DetalleBucketDto, ResumenAnualDto, ResumenMesDto } from './types'
 
 const validDto: ResumenMesDto = {
   periodo: '2026-07',
@@ -137,6 +137,147 @@ describe('fetchResumen', () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConTotalMalformado) })
 
     const result = await fetchResumen()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+function mesConPeriodo(periodo: string): ResumenMesDto {
+  return { ...validDto, periodo }
+}
+
+const validResumenAnualDto: ResumenAnualDto = {
+  anio: 2026,
+  meses: Array.from({ length: 12 }, (_, i) => mesConPeriodo(`2026-${String(i + 1).padStart(2, '0')}`)),
+}
+
+describe('fetchResumenAnual', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a GET /api/resumen/anual same-origin, sin base URL ni key', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validResumenAnualDto) })
+
+    await fetchResumenAnual()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumen/anual')
+  })
+
+  it('agrega el query param anio cuando se provee', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validResumenAnualDto) })
+
+    await fetchResumenAnual(2026)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumen/anual?anio=2026')
+  })
+
+  it('resuelve {ok: true, value} en un body 2xx válido con 12 meses', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validResumenAnualDto) })
+
+    const result = await fetchResumenAnual(2026)
+
+    expect(result).toEqual({ ok: true, value: validResumenAnualDto })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 400 a {tag: "invalid"} ("año inválido")', async () => {
+    mockFetchOnce({ ok: false, status: 400 })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message: 'El año no es válido.',
+    })
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'unauthorized', message: 'Sin acceso.' })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un body 2xx que no cumple la forma esperada a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ nonsense: true }) })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea un body con menos de 12 meses a {tag: "parse"}', async () => {
+    const bodyIncompleto = { ...validResumenAnualDto, meses: validResumenAnualDto.meses.slice(0, 11) }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyIncompleto) })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea un body con más de 12 meses (13) a {tag: "parse"}', async () => {
+    const bodyConExceso = {
+      ...validResumenAnualDto,
+      meses: [...validResumenAnualDto.meses, mesConPeriodo('2027-01')],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConExceso) })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea un body con meses: [] a {tag: "parse"}', async () => {
+    const bodyVacio = { ...validResumenAnualDto, meses: [] }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyVacio) })
+
+    const result = await fetchResumenAnual()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando un mes trae total malformado (money-safety boundary)', async () => {
+    const bodyConTotalMalformado = {
+      ...validResumenAnualDto,
+      meses: [
+        { ...validResumenAnualDto.meses[0], buckets: [{ ...validResumenAnualDto.meses[0].buckets[0], total: 'abc' }] },
+        ...validResumenAnualDto.meses.slice(1),
+      ],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConTotalMalformado) })
+
+    const result = await fetchResumenAnual()
 
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
