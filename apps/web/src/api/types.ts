@@ -58,10 +58,15 @@ export interface DetalleBucketDto {
 
 /**
  * Mirror escrito a mano del DTO HTTP de `GET /api/auth/me` (auth-login-session
- * Slice 3, design.md §6.1). Fuente de verdad en el backend:
- * `AuthController#me` → `{ userId, email }` (sin hash, sin token).
+ * Slice 3, design.md §6.1; `esDemo` agregado por demo-trial-mode, design.md
+ * "Interfaces / Contracts"). Fuente de verdad en el backend:
+ * `AuthController#me` → `{ userId, email, esDemo }` (sin hash, sin token).
+ *
+ * `email` es `string | null` porque una cuenta demo (`esDemo: true`) nunca
+ * tiene email (DEMO-AUTH-05) — un usuario real siempre trae `email: string`.
  */
 export interface MeDto {
   readonly userId: string
-  readonly email: string
+  readonly email: string | null
+  readonly esDemo: boolean
 }

@@ -58,7 +58,11 @@ function esMeDto(value: unknown): value is MeDto {
     return false
   }
   const candidato = value as Partial<MeDto>
-  return typeof candidato.userId === 'string' && typeof candidato.email === 'string'
+  return (
+    typeof candidato.userId === 'string' &&
+    (candidato.email === null || typeof candidato.email === 'string') &&
+    typeof candidato.esDemo === 'boolean'
+  )
 }
 
 export async function fetchMe(): Promise<ApiResult<MeDto>> {
