@@ -44,25 +44,25 @@ Chain strategy: pending
 
 ## Phase 4: Web — API layer (Foundation)
 
-- [ ] 4.1 `src/api/types.ts`: add `MovimientoMesItemDto` (`bucket: string`) + `MovimientosMesDto`
-- [ ] 4.2 [TEST] client guard unit test: malformed `cargo`/`abono`/`fecha`/`bucket` → `ApiError` tag `parse`, never reaches `BigInt`/`formatearMontoCLP`
-- [ ] 4.3 `src/api/client.ts`: add `fetchMovimientos`, reusing `esMontoStringValido`/`esFechaValida` guards — makes 4.2 pass
-- [ ] 4.4 `src/api/use-movimientos.ts` (new): `useMovimientos(periodo)` mirroring `useDetalleBucket`
+- [x] 4.1 `src/api/types.ts`: add `MovimientoMesItemDto` (`bucket: string`) + `MovimientosMesDto`
+- [x] 4.2 [TEST] client guard unit test: malformed `cargo`/`abono`/`fecha`/`bucket` → `ApiError` tag `parse`, never reaches `BigInt`/`formatearMontoCLP`
+- [x] 4.3 `src/api/client.ts`: add `fetchMovimientos`, reusing `esMontoStringValido`/`esFechaValida` guards — makes 4.2 pass
+- [x] 4.4 `src/api/use-movimientos.ts` (new): `useMovimientos(periodo)` mirroring `useDetalleBucket`
 
 ## Phase 5: Web — View-model (money-exact)
 
-- [ ] 5.1 [TEST] `agrupar-movimientos-por-bucket.spec.ts`: `ORDEN_GRUPOS` fixed order (WG-02), non-empty-only groups (WG-01), date-desc + tiebreak within group (WG-03), count + subtotal per header (WG-04), BigInt `>MAX_SAFE_INTEGER` exactness (WG-04), Ingreso subtotal = Σabono, spending = Σcargo
-- [ ] 5.2 `agrupar-movimientos-por-bucket.ts` (new): implement `aMovimientosAgrupadosViewModel` + view-model shapes per design §3 — makes 5.1 pass
+- [x] 5.1 [TEST] `agrupar-movimientos-por-bucket.spec.ts`: `ORDEN_GRUPOS` fixed order (WG-02), non-empty-only groups (WG-01), date-desc + tiebreak within group (WG-03), count + subtotal per header (WG-04), BigInt `>MAX_SAFE_INTEGER` exactness (WG-04), Ingreso subtotal = Σabono, spending = Σcargo
+- [x] 5.2 `agrupar-movimientos-por-bucket.ts` (new): implement `aMovimientosAgrupadosViewModel` + view-model shapes per design §3 — makes 5.1 pass
 
 ## Phase 6: Web — Grouped panel + wiring
 
-- [ ] 6.1 [TEST] `TransaccionesAgrupadas.spec.tsx`: one section per non-empty group with `etiqueta · subtotal · N mov` header; loading/error/empty states (WG-01 empty scenario); scroll+highlight+focus-to-heading on `bucketResaltado` change; a11y — `aria-current` + ring not color-only, `prefers-reduced-motion` honored (WG-05, WG-06)
-- [ ] 6.2 `TransaccionesAgrupadas.tsx` (new): owns `useMovimientos`, loading/error/empty switch, view-model render, per-group refs, scroll/highlight effect respecting `prefers-reduced-motion` — makes 6.1 pass
-- [ ] 6.3 [TEST] `ResumenScreen.spec.tsx` (if exists): expect grouped panel rendered, `bucketResaltado` wiring, no single-bucket default
-- [ ] 6.4 `ResumenScreen.tsx`: swap `BucketDetailList` → `TransaccionesAgrupadas`; drop `bucketSeleccionado`/`bucketPorDefecto` default; pass `bucketResaltado={bucketElegido}`; keep the periodo-change reset effect — makes 6.3 pass
-- [ ] 6.5 Confirm `BucketDetailList.tsx` and `routes/_authenticated/buckets.$bucket.tsx` are untouched — deep link unaffected (W3-01)
+- [x] 6.1 [TEST] `TransaccionesAgrupadas.spec.tsx`: one section per non-empty group with `etiqueta · subtotal · N mov` header; loading/error/empty states (WG-01 empty scenario); scroll+highlight+focus-to-heading on `bucketResaltado` change; a11y — `aria-current` + ring not color-only, `prefers-reduced-motion` honored (WG-05, WG-06)
+- [x] 6.2 `TransaccionesAgrupadas.tsx` (new): owns `useMovimientos`, loading/error/empty switch, view-model render, per-group refs, scroll/highlight effect respecting `prefers-reduced-motion` — makes 6.1 pass
+- [x] 6.3 [TEST] `ResumenScreen.spec.tsx` (if exists): expect grouped panel rendered, `bucketResaltado` wiring, no single-bucket default (updated existing `ResumenScreen.test.tsx`; also updated `ResumenPage.test.tsx`, which shared the same `/api/buckets/:bucket` mock)
+- [x] 6.4 `ResumenScreen.tsx`: swap `BucketDetailList` → `TransaccionesAgrupadas`; drop `bucketSeleccionado`/`bucketPorDefecto` default; pass `bucketResaltado={bucketElegido}`; keep the periodo-change reset effect — makes 6.3 pass
+- [x] 6.5 Confirm `BucketDetailList.tsx` and `routes/_authenticated/buckets.$bucket.tsx` are untouched — deep link unaffected (W3-01)
 
 ## Phase 7: Verification
 
-- [ ] 7.1 Run `pnpm web test` + `pnpm api test` + `pnpm build`/typecheck — all green
-- [ ] 7.2 Manual check: keyboard-only legend activation (Enter/Space) reaches the same scroll+highlight target as a click (WG-06)
+- [x] 7.1 Run `pnpm web test` + `pnpm build`/typecheck — all green (306/306 web tests; `pnpm api test` unaffected by Slice 2, already green from Slice 1/PR #73)
+- [ ] 7.2 Manual check: keyboard-only legend activation (Enter/Space) reaches the same scroll+highlight target as a click (WG-06) — human/manual verification, not run in this session
