@@ -184,7 +184,7 @@ since the demo nudge is a prop on the same component, not a separate code path.
 parallel with Work Unit A once Work Unit 0 is merged (Work Unit 0 only touches `apps/web`, so it is not
 actually a hard dependency for Track B either — sequencing here is about the ADR record, not the proxy).
 
-- [ ] **B.1** — Sequencing note: confirm ADR-026 (ADR-010 amendment — mobile gains ingesta-only write
+- [x] **B.1** — Sequencing note: confirm ADR-026 (ADR-010 amendment — mobile gains ingesta-only write
   capability) is recorded in the Obsidian vault under `02 Diseño/ADRs/` before writing any Track B code.
   This is a documentation/sequencing gate per the proposal, not a blocking code task — if ADR-026 is
   already recorded (per the design's "already decided" framing), this task is a verification check, not
@@ -192,7 +192,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
 
 ### Dependency
 
-- [ ] **B.2** — Add `expo-document-picker` (Expo SDK 57-compatible version) to
+- [x] **B.2** — Add `expo-document-picker` (Expo SDK 57-compatible version) to
   `apps/mobile/package.json` dependencies. Run `npx expo install expo-document-picker` (not raw
   `pnpm add`) so Expo resolves the SDK-57-compatible version — matches how `expo-secure-store` was
   added originally. No test for a dependency addition itself.
@@ -200,7 +200,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
 ### API layer — transport (`post-ingesta.ts`, write test first — jest-expo + mocked `fetch`, mirrors
 `client.ts`'s `fetchResumen`/`postLogin` test conventions)
 
-- [ ] **B.3** — `apps/mobile/src/api/post-ingesta.spec.ts` (write first): cases —
+- [x] **B.3** — `apps/mobile/src/api/post-ingesta.spec.ts` (write first): cases —
   - the `FormData` file part is built as `{ uri, name, type }` (NOT a `Blob`/`File` object) — assert via
     inspecting the constructed `FormData` mock/spy, per RN's native `FormData` contract (Decision 3).
   - **MIME type is derived from the file extension, never trusted from the picker's `mimeType`**: `.xlsx`
@@ -221,7 +221,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
     `post-ingesta.ts`" — do not widen the shared `ApiError` type for every mobile call, scope the
     extension to this function's return type only, YAGNI).
   - A network failure resolves `{ tag: 'network' }` (existing shared tag, CU-11).
-- [ ] **B.4** — `apps/mobile/src/api/post-ingesta.ts`: `postIngesta(pickerResult): Promise<...>` — RN
+- [x] **B.4** — `apps/mobile/src/api/post-ingesta.ts`: `postIngesta(pickerResult): Promise<...>` — RN
   `FormData`, `.append('file', { uri, name, type })`, MIME-per-extension lookup (small map, not a
   switch — KISS), `fetch('${API_BASE_URL}/api/ingestas', { method: 'POST', headers: await construirHeadersSesion(), body: formData })`
   with no manual `Content-Type`. Make B.3 pass.

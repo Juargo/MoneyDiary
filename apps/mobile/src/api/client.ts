@@ -61,9 +61,13 @@ function esMeDto(value: unknown): value is MeDto {
  * Builds the auth headers for a session-aware call: `x-api-key` always,
  * `Authorization: Bearer <token>` only when a token is actually stored
  * (MOB-02). Used by every authenticated call except `postLogin`, which has
- * no session yet.
+ * no session yet. Exported so `post-ingesta.ts` (Sprint 8, US-033) reuses it
+ * verbatim instead of duplicating the header-building rule (DRY) — it
+ * intentionally never sets `Content-Type`, which is correct for both JSON
+ * callers (who set it themselves) and multipart callers (who must let the
+ * runtime generate the boundary).
  */
-async function construirHeadersSesion(): Promise<Record<string, string>> {
+export async function construirHeadersSesion(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { 'x-api-key': API_KEY ?? '' };
   const token = await leerToken();
   if (token) {
