@@ -85,7 +85,10 @@ export function TransaccionesAgrupadas({
   }
   if (query.data.transacciones.length === 0) {
     return (
-      <Empty title="No hay movimientos este período" description="No hay movimientos este período." />
+      <Empty
+        title="No hay movimientos este período"
+        description="No se registraron movimientos en ninguna categoría este período."
+      />
     )
   }
 

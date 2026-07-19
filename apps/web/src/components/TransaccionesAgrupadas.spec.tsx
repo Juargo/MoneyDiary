@@ -87,6 +87,7 @@ describe('TransaccionesAgrupadas', () => {
     mockFetch({ periodo: '2026-07', totalTransacciones: 0, transacciones: [] })
     renderPanel()
     await waitFor(() => expect(screen.getByText('No hay movimientos este período')).toBeInTheDocument())
+    expect(screen.getByText('No se registraron movimientos en ninguna categoría este período.')).toBeInTheDocument()
   })
 
   it('renders one section per non-empty group with an etiqueta · subtotal · N mov header (WG-01/WG-04)', async () => {
