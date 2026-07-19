@@ -85,6 +85,12 @@ export function ReclasificarCategoriaControl({
 
   function alCambiar(event: React.ChangeEvent<HTMLSelectElement>) {
     const nombre = event.target.value
+    // Clear any stale pending confirmation FIRST: a new selection always
+    // supersedes a previous, unconfirmed cross-bucket dialog — otherwise the
+    // old dialog stays on screen referencing a categoría the user no longer
+    // has selected, and confirming it fires a PATCH for the wrong value
+    // (network race between "pick B" and "confirm A").
+    setPendiente(null)
     setValor(nombre)
     setErrorMensaje(null)
     const bucketNuevo = CATEGORIA_BUCKET[nombre]

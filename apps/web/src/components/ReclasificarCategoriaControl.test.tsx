@@ -226,6 +226,40 @@ describe('ReclasificarCategoriaControl', () => {
     await waitFor(() => expect(select).not.toBeDisabled())
   })
 
+  it('picking a same-bucket categoría while a cross-bucket confirmation is pending dismisses the stale dialog and commits only the new pick (race)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dtoDestino) })
+    const user = userEvent.setup()
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual="Supermercado"
+        periodo="2026-07"
+      />,
+      { wrapper: crearWrapper() },
+    )
+
+    const select = screen.getByLabelText('Cambiar categoría de Supermercado Líder') as HTMLSelectElement
+
+    // Opens a cross-bucket confirmation for "Delivery" (Gustos), without confirming/cancelling.
+    await user.selectOptions(select, 'Delivery')
+    await screen.findByRole('alertdialog')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    // Then picks a same-bucket categoría ("Combustible", still Necesidades).
+    await user.selectOptions(select, 'Combustible')
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/transacciones/tx-1/categoria',
+      expect.objectContaining({ body: JSON.stringify({ categoria: 'Combustible' }) }),
+    )
+  })
+
   it('on a failed reclassify, reverts the select and shows an error message (WCAT-04 failed scenario)', async () => {
     mockFetchOnce({ ok: false, status: 404 })
     const user = userEvent.setup()
