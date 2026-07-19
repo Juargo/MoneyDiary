@@ -182,40 +182,64 @@ Depends on: **S1 only** (needs `Categoria` domain + `CATEGORIA_IDS`/`CATEGORIA_B
 **not** need S2/S3). Can be implemented **in parallel with S2 and S3** once S1 has merged.
 Sequential within the slice: tests before each paired impl.
 
-- [ ] **T4.1** `[test]` Unit test: `ReclasificarTransaccionUseCase` derives the bucket from the
+- [x] **T4.1** `[test]` Unit test: `ReclasificarTransaccionUseCase` derives the bucket from the
   chosen categoría (never accepts one); an unknown categoría value returns
   `CategoriaInvalidaError` without invoking the writer. (CATAPI-02)
-- [ ] **T4.2** `[impl]` `domain/errors/categoria-invalida.error.ts` (scrubbed message, raw value
+  Implemented as `application/use-cases/reclasificar-transaccion.use-case.spec.ts` (5 cases:
+  derives-not-accepts, every-enum-value coverage, unknown-categoría rejection, anti-reflected-input,
+  propagates writer's `TransaccionNoEncontradaError`).
+- [x] **T4.2** `[impl]` `domain/errors/categoria-invalida.error.ts` (scrubbed message, raw value
   never reflected) + `domain/errors/transaccion-no-encontrada.error.ts` (merged not-found /
   not-owned — anti-enumeration).
-- [ ] **T4.3** `[impl]` `application/ports/reclasificar-categoria.port.ts`
+- [x] **T4.3** `[impl]` `application/ports/reclasificar-categoria.port.ts`
   (`IReclasificarCategoriaWriter.reasignar`) + `application/use-cases/reclasificar-transaccion.use-case.ts`
   — validates against the enum, derives bucket via `CATEGORIA_BUCKET`, delegates the
   userId-isolated write to the port. (CATAPI-02)
-- [ ] **T4.4** `[test]` Integration test — `userId` isolation (CATAPI-01): user A's session
+- [x] **T4.4** `[test]` Integration test — `userId` isolation (CATAPI-01): user A's session
   cannot reclassify user B's transaction (`count===0` → 404, target row's `categoriaId`/`bucketId`
   unchanged); user A can reclassify their own transaction and the response reflects the new
   value. Mirrors the existing ISO integration pattern in `test/`.
-- [ ] **T4.5** `[test]` Integration test — money exactness (CATAPI-03, CATAPI-04): within-bucket
+  Implemented as `test/reclasificar-categoria.int-spec.ts` (T4.4a/b). **Gated**
+  (`ALLOW_DESTRUCTIVE_DB=1`, real DB) — NOT executed this session, same precedent as S1-S3: the
+  only reachable Postgres is the shared Supabase dev DB and S1's `add_categoria` migration has
+  not been applied there yet.
+- [x] **T4.5** `[test]` Integration test — money exactness (CATAPI-03, CATAPI-04): within-bucket
   reclassify (e.g. Delivery→Streaming) leaves `bucketId` and the resumen's Deseos subtotal
   unchanged; cross-bucket reclassify (Deseos→Necesidades) shifts both bucket totals by the exact
   `BigInt` amount with no float drift, and `porcentajeBp`/`estadoSemaforo` recompute on the next
   `/api/resumen` read (including a scenario where the move flips the traffic-light state at the
   threshold).
-- [ ] **T4.6** `[impl]` `infrastructure/persistence/prisma-reclasificar-categoria.repository.ts`:
+  Implemented in the same `test/reclasificar-categoria.int-spec.ts` (T4.5a/b) — same gated,
+  not-executed status as T4.4 above.
+- [x] **T4.6** `[impl]` `infrastructure/persistence/prisma-reclasificar-categoria.repository.ts`:
   `updateMany({where: {id: transaccionId, account: {userId}}, data: {categoriaId, bucketId}})`
   (structural isolation, atomic dual-column write); `count === 0` → `Result.fail(new
   TransaccionNoEncontradaError(...))`. (CATAPI-01, CATAPI-03, CATAPI-04)
-- [ ] **T4.7** `[impl]` `infrastructure/http/dto/reclasificar-categoria.dto.ts` (body: `{categoria:
+- [x] **T4.7** `[impl]` `infrastructure/http/dto/reclasificar-categoria.dto.ts` (body: `{categoria:
   string}`) + `infrastructure/http/transacciones.controller.ts`
   (`PATCH /api/transacciones/:id/categoria`), guarded by the same `ApiKeyGuard` + `SessionGuard`
   chain as the other data controllers; maps use-case errors to 400 (`CategoriaInvalidaError`) /
   404 (`TransaccionNoEncontradaError`).
-- [ ] **T4.8** `[impl]` `infrastructure/http/transacciones.module.ts` — composition root wiring
+  Also added `transacciones.controller.spec.ts` (6 unit cases) — not a separately-listed task but
+  matches the project's existing per-controller `.spec.ts` convention (mirrors
+  `DetalleBucketController`/`MovimientosController`).
+- [x] **T4.8** `[impl]` `infrastructure/http/transacciones.module.ts` — composition root wiring
   `ReclasificarTransaccionUseCase` + `PrismaReclasificarCategoriaRepository` behind its token
   (`inject: [PrismaService]`); register the module in `AppModule`.
-- [ ] **T4.9** `[verify]` `pnpm api test` + `pnpm api test:integration` (gated) green; manual
+- [x] **T4.9** `[verify]` `pnpm api test` + `pnpm api test:integration` (gated) green; manual
   curl matrix against local dev (200 own tx / 404 other user's tx / 400 unknown categoría).
+  `pnpm api test`: 99 files / 762 tests passed. `pnpm api exec tsc --noEmit`: clean (both `src/`
+  and `test/`). `pnpm api test:integration` NOT run — gated, real-DB, would touch the shared dev
+  DB (see T4.4/T4.5 note). Manual curl matrix **DEFERRED — human action required**, same posture
+  as S1-S3's DB-touching steps: needs a running local/dev server with `ALLOW_DESTRUCTIVE_DB`-free
+  read/write access and the S1 migration applied first.
+
+**S4 apply note:** implemented in parallel-eligible position per the dependency graph (depends
+only on S1, independent of S2/S3) but built sequentially after S3 in this session, branched off
+`feat/us-013-categorias-s3` per the chosen `feature-branch-chain` PR ordering (its own PR will
+target the S3 branch). No new migration needed — S4 only *writes* to columns S1's
+`add_categoria` migration already added (`Transaccion.categoriaId`/`bucketId`), so it inherits
+the same "needs human migration application" precedent already logged in S1/S2, not a new one.
 
 ## Slice S5 — Expose `categoria` on read DTOs
 
