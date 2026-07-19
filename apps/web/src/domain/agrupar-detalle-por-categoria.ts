@@ -2,31 +2,19 @@ import { formatearMontoCLP } from './formatear-monto'
 import { aFilaViewModel } from './detalle-bucket-view-model'
 import type { DetalleBucketRowViewModel } from './detalle-bucket-view-model'
 import type { DetalleBucketTransaccionDto } from '../api/types'
+import { ORDEN_CATEGORIAS } from './categoria'
 
 const BUCKET_INGRESO = 'Ingreso'
 const NOMBRE_SIN_CATEGORIA = 'Sin categoría'
 const CLAVE_SIN_CATEGORIA = 'sin-categoria'
 
-/**
- * Orden canónico de las 8 categorías (US-013 S6a, WCAT-02 "canonical order").
- * Espejo web del orden del enum `Categoria` en el backend
- * (`apps/api/src/domain/value-objects/categoria.ts`) — web NO importa del
- * dominio del backend (ADR-008), así que este es un duplicado deliberado del
- * mismo orden fijo, no una re-exportación. Solo las categorías del bucket
- * seleccionado aparecen realmente en los datos (cada categoría pertenece a
- * exactamente un bucket, `CATEGORIA_BUCKET`), así que este array totaliza
- * las 8 pero cada llamada solo produce grupos para las presentes.
- */
-const ORDEN_CATEGORIAS: ReadonlyArray<string> = [
-  'Supermercado',
-  'Combustible',
-  'Farmacia',
-  'Salud',
-  'Transporte',
-  'Streaming',
-  'Delivery',
-  'Ahorro',
-]
+// Orden canónico de las 8 categorías (US-013 S6a, WCAT-02 "canonical
+// order") — importado de `./categoria` (S6b) en vez de duplicado local, para
+// que la agrupación de lectura y el `<select>` de reclasificación (S6b)
+// compartan una única fuente (DRY). Solo las categorías del bucket
+// seleccionado aparecen realmente en los datos (cada categoría pertenece a
+// exactamente un bucket), así que este array totaliza las 8 pero cada
+// llamada solo produce grupos para las presentes.
 
 export interface GrupoCategoriaViewModel {
   readonly categoriaId: string | null
