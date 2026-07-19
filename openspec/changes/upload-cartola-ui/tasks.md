@@ -113,7 +113,7 @@ mirrors `use-resumen.test.tsx`'s `QueryClientProvider` wrapper pattern)
 ### shadcn scaffolding (only if the component design below needs a primitive not already installed —
 `badge`/`card` already exist per W1.9 precedent; `button` does not)
 
-- [ ] **A.8** — `npx shadcn@latest add button` (first `button` primitive in this repo — `badge`/`card`
+- [x] **A.8** — `npx shadcn@latest add button` (first `button` primitive in this repo — `badge`/`card`
   already exist from Sprint 5). Only add this one primitive; do not pre-install unused ones (YAGNI, W1.9
   precedent). Re-check the tsconfig-paths alias gotcha from W1.9 (`@/*` resolution) before committing —
   same class of bug bit that task.
@@ -121,7 +121,7 @@ mirrors `use-resumen.test.tsx`'s `QueryClientProvider` wrapper pattern)
 ### Components (test-first, Testing Library — mirrors `BucketDetailList.spec.tsx`'s
 flat-list-wires-a-hook-and-a-state-switch shape)
 
-- [ ] **A.9** — `apps/web/src/components/SubirCartola.test.tsx` (write first): cases covering every
+- [x] **A.9** — `apps/web/src/components/SubirCartola.test.tsx` (write first): cases covering every
   spec requirement in one component-level suite —
   - CU-01: selecting an oversized/wrong-extension file shows the exact `validarArchivoWeb` message and
     **no `postIngesta`/`fetch` call happens** (assert the mocked mutation's `mutate` was never called).
@@ -139,7 +139,7 @@ flat-list-wires-a-hook-and-a-state-switch shape)
   - CU-07: when `esDemo` is `true`, the demo nudge (`<DemoUploadNudge>`, A.11) is visible AND the file
     input remains enabled/usable in the same render (non-blocking).
   - Mock `useIngesta` (A.7) — this is a component test, not an integration test against real `fetch`.
-- [ ] **A.10** — `apps/web/src/components/SubirCartola.tsx`: presentational state machine
+- [x] **A.10** — `apps/web/src/components/SubirCartola.tsx`: presentational state machine
   `idle → validando → subiendo → éxito | error` per design Decision 5. `validando`/`error` states
   driven by `validarArchivoWeb` (A.3); `subiendo`/`éxito` by `mutation.status` (A.7). Submit `disabled`
   while `subiendo`. Result panel renders `banco`/`tipoCuenta`/`numeroCuenta`/`totalTransacciones` +
@@ -151,11 +151,11 @@ flat-list-wires-a-hook-and-a-state-switch shape)
 ### Demo nudge (US-032, CU-07 — isolated sub-component so its own visibility logic is independently
 testable, same reasoning as `DemoBanner.tsx`)
 
-- [ ] **A.11** — `apps/web/src/components/SubirCartola.test.tsx` (extend A.9, or a small dedicated
+- [x] **A.11** — `apps/web/src/components/SubirCartola.test.tsx` (extend A.9, or a small dedicated
   `DemoUploadNudge` test block if kept in its own file — KISS call at implementation time): assert the
   nudge text mentions temporary demo data plus a CTA to create an account, and that it renders `null`
   when `esDemo` is `false`/absent.
-- [ ] **A.12** — `<DemoUploadNudge>` — either inlined in `SubirCartola.tsx` (A.10) or its own file,
+- [x] **A.12** — `<DemoUploadNudge>` — either inlined in `SubirCartola.tsx` (A.10) or its own file,
   matching `DemoBanner.tsx`'s style (non-blocking, no gate, `role="status"` region distinct from the
   upload's own `aria-live` region so screen readers don't conflate the two announcements). Does **not**
   touch `<DemoBanner>` or import anything from the `demo-trial-mode` change beyond `MeDto.esDemo`
@@ -164,7 +164,7 @@ testable, same reasoning as `DemoBanner.tsx`)
 ### Route (wires everything together — thin container, mirrors `routes/index.tsx`'s
 router-agnostic-component split from W1.13)
 
-- [ ] **A.13** — `apps/web/src/routes/_authenticated/subir.tsx`: `createFileRoute('/_authenticated/subir')`,
+- [x] **A.13** — `apps/web/src/routes/_authenticated/subir.tsx`: `createFileRoute('/_authenticated/subir')`,
   `component` reads `esDemo` from `Route.useRouteContext()` (same pattern as
   `routes/_authenticated.tsx:38`, no extra `fetchMe` call) and renders `<SubirCartola esDemo={esDemo} />`.
   Deep-linkable route (design Decision 5, explore Approach B1) — no modal, no focus-trap complexity.
