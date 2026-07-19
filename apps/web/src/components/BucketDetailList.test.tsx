@@ -22,6 +22,7 @@ const dataDto: DetalleBucketDto = {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '12345678',
+      categoria: { id: 'categoria-supermercado', nombre: 'Supermercado' },
     },
   ],
 }
@@ -39,6 +40,7 @@ const sinCategoriaDto: DetalleBucketDto = {
       banco: 'BCI',
       tipoCuenta: 'Corriente',
       numeroCuenta: '87654321',
+      categoria: null,
     },
   ],
 }
@@ -167,6 +169,7 @@ describe('BucketDetailList', () => {
           banco: 'BCI',
           tipoCuenta: 'Corriente',
           numeroCuenta: '11111111',
+          categoria: { id: 'categoria-delivery', nombre: 'Delivery' },
         },
       ],
     }

@@ -15,6 +15,7 @@ const baseTx: DetalleBucketDto['transacciones'][number] = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
   numeroCuenta: '12345678',
+  categoria: null,
 }
 
 describe('aDetalleBucketViewModel', () => {

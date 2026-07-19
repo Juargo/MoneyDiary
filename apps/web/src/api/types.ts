@@ -52,6 +52,11 @@ export interface ResumenAnualDto {
  *
  * cargo/abono son strings decimales (BigInt-safe) — nunca se parsean a
  * number aquí. `fecha` es ISO-8601 UTC completo (`toISOString()`).
+ *
+ * `categoria` (US-013 CATAPI-05, mirrored web-side S6a): `{ id, nombre } |
+ * null`, ya foldeado por el backend — `null` para filas Ingreso/SinCategoria
+ * o una categoría no reconocida. Campo aditivo, no rompe el contrato
+ * existente.
  */
 export interface DetalleBucketTransaccionDto {
   readonly id: string
@@ -62,6 +67,7 @@ export interface DetalleBucketTransaccionDto {
   readonly banco: string
   readonly tipoCuenta: string
   readonly numeroCuenta: string
+  readonly categoria: { readonly id: string; readonly nombre: string } | null
 }
 
 export interface DetalleBucketDto {

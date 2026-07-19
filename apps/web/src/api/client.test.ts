@@ -297,6 +297,7 @@ const validDetalleBucketDto: DetalleBucketDto = {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '12345678',
+      categoria: null,
     },
   ],
 }
