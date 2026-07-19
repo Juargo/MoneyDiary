@@ -1,17 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-} from '@tanstack/react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ResumenPage } from './ResumenPage'
 import type { ApiError } from '@/api/client'
 import type { ResumenMesDto } from '@/api/types'
 import type { UseQueryResult } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 // Router-agnostic 4-way state switch (spec W1-02): the container
 // (routes/index.tsx) owns TanStack Router's search params + `useResumen`;
@@ -51,25 +46,55 @@ function mockQuery(
   } as UseQueryResult<ResumenMesDto, ApiError>
 }
 
-// The data state renders `ResumenScreen`, which renders a real
-// `<Link to="/buckets/$bucket">` per bucket row (US-017 nav) — that throws
-// outside a router context. Only the data-state tests below need this
-// wrapper; loading/error/empty never reach `ResumenScreen`.
-async function renderWithRouter(ui: ReactElement) {
-  const rootRoute = createRootRoute()
-  const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => ui })
-  const bucketDetailRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/buckets/$bucket',
-    component: () => <div>bucket detail stub</div>,
+// The data state renders `ResumenScreen`, which embeds `BucketDetailList`
+// for its transactions panel (US-030 Slice B) — that owns its own
+// `useDetalleBucket` query, which throws outside a `QueryClientProvider`.
+// Only the data-state tests below need this wrapper; loading/error/empty
+// never reach `ResumenScreen`.
+function crearQueryWrapper() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  }
+}
+
+function mockFetchDetalleBucket() {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: () =>
+      Promise.resolve({
+        periodo: '2026-07',
+        bucket: 'Necesidades',
+        transacciones: [
+          {
+            id: 'tx-1',
+            fecha: '2026-07-15T00:00:00.000Z',
+            descripcion: 'Supermercado',
+            cargo: '1000',
+            abono: '0',
+            banco: 'BancoEstado',
+            tipoCuenta: 'CuentaRUT',
+            numeroCuenta: '12345678',
+          },
+        ],
+      }),
   })
-  const routeTree = rootRoute.addChildren([indexRoute, bucketDetailRoute])
-  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/'] }) })
-  await router.load()
-  return render(<RouterProvider router={router} />)
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function renderData(ui: ReactElement) {
+  mockFetchDetalleBucket()
+  return render(ui, { wrapper: crearQueryWrapper() })
 }
 
 describe('ResumenPage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   it('renders exactly the loading state while the query is pending', () => {
     render(
       <ResumenPage query={mockQuery({ isPending: true })} periodo={undefined} onPeriodoChange={() => {}} />,
@@ -106,19 +131,22 @@ describe('ResumenPage', () => {
   })
 
   it('renders the data state with income, all 4 buckets, and the global semáforo', async () => {
-    await renderWithRouter(
+    renderData(
       <ResumenPage query={mockQuery({ data: dataDto })} periodo="2026-07" onPeriodoChange={() => {}} />,
     )
     expect(screen.getByText('$1.000.000')).toBeInTheDocument()
-    expect(screen.getByText('Necesidades')).toBeInTheDocument()
-    expect(screen.getByText('Deseos')).toBeInTheDocument()
-    expect(screen.getByText('Ahorro')).toBeInTheDocument()
+    // "Necesidades"/"Deseos"(Gustos)/"Ahorro" render twice each (pie slice +
+    // legend row) — see ResumenScreen.test.tsx.
+    expect(screen.getAllByText('Necesidades').length).toBeGreaterThan(0)
+    expect(screen.getByText('Gustos')).toBeInTheDocument()
+    expect(screen.getAllByText('Ahorro').length).toBeGreaterThan(0)
     expect(screen.getByTestId('semaforo-global')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument())
   })
 
   it('wires the period selector — reports the new value via onPeriodoChange', async () => {
     const onPeriodoChange = vi.fn()
-    await renderWithRouter(
+    renderData(
       <ResumenPage query={mockQuery({ data: dataDto })} periodo="2026-07" onPeriodoChange={onPeriodoChange} />,
     )
 

@@ -1,4 +1,5 @@
-import { formatearMontoCLP } from './formatear-monto'
+import { formatearMontoCLP, esMontoStringValido } from './formatear-monto'
+import { calcularDistribucionGasto, type TajadaGasto } from './distribucion-gasto'
 import type { BucketResumenDto, ResumenMesDto } from '../api/types'
 
 /**
@@ -17,16 +18,31 @@ export interface BucketViewModel {
 }
 
 /**
- * Lean por diseño (design.md, decisión de scope): sin `periodoLabel`, sin
- * `distribucionGasto` — el pie/distribución de gasto queda diferido (no hay
- * gráfico de torta en W1/W2). Se agregan campos derivados solo cuando un
- * componente concreto los necesite (YAGNI).
+ * Lean por diseño (design.md, decisión de scope): sin `periodoLabel` — no hay
+ * header en esta pantalla (US-030 Slice B agrega `distribucionGasto`, antes
+ * diferido; los demás campos derivados se agregan solo cuando un componente
+ * concreto los necesite, YAGNI).
+ *
+ * `distribucionGasto` es puro dominio (`bucket`/`porcentaje`/`fraccion`) — el
+ * color hex y la etiqueta UI ("Gustos" para "Deseos") se resuelven en la capa
+ * de presentación (`DistribucionPie`/`LeyendaGasto` vía `lib/bucket-colors`),
+ * igual que en mobile (`theme/colors.ts`). El dominio nunca importa `lib/`.
  */
 export interface ResumenViewModel {
   readonly periodo: string
   readonly totalIngreso: string
   readonly sinIngreso: boolean
   readonly buckets: ReadonlyArray<BucketViewModel>
+  /** Share-of-spending split for the pie + legend (77/12/11-style). */
+  readonly distribucionGasto: ReadonlyArray<TajadaGasto>
+  /**
+   * The bucket with the largest total among all 4 buckets (including
+   * SinCategoria) — the dashboard's default selection for the transactions
+   * panel before the user picks one explicitly (US-030 Slice B, task 30.10).
+   * `null` only if `buckets` is empty (FIX 4) — the backend contract
+   * guarantees the 4 canonical buckets today, but this stays defensive.
+   */
+  readonly bucketPorDefecto: string | null
   readonly targets: ResumenMesDto['targets']
   readonly estadoGlobal: string | null
 }
@@ -54,6 +70,36 @@ function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
 }
 
 /**
+ * Belt-and-suspenders money guard (FIX 6): money is validated at the fetch
+ * boundary (`client.ts`/`esMontoStringValido`), so this should never see a
+ * malformed string in practice — but there is no ErrorBoundary in the app,
+ * so an unvalidated bad string reaching a bare `BigInt(...)` here would
+ * throw a raw `SyntaxError` mid-render (the exact past "money guard crash"
+ * class). Degrades an invalid/empty total to `0n` instead of throwing.
+ */
+function montoSeguro(montoStr: string): bigint {
+  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n
+}
+
+/**
+ * The bucket with the largest raw money total, BigInt-compared (never
+ * `Number`/`parseFloat` on a money string — same discipline as
+ * `calcularDistribucionGasto`). The backend contract guarantees `buckets` is
+ * always the 4 canonical buckets, but `Array.reduce` with no seed throws on
+ * an empty array (FIX 4) — this returns `null` instead. On a tie (equal max
+ * totals), the FIRST bucket in DTO order wins (strict `>` never replaces the
+ * running max on equality).
+ */
+export function bucketConMayorTotal(buckets: ReadonlyArray<BucketResumenDto>): string | null {
+  if (buckets.length === 0) {
+    return null
+  }
+  return buckets.reduce((mayor, actual) =>
+    montoSeguro(actual.total) > montoSeguro(mayor.total) ? actual : mayor,
+  ).bucket
+}
+
+/**
  * Mapea el DTO HTTP (`ResumenMesDto`) al view model de la pantalla. Pura:
  * sin React, sin fetch. Resuelve todo el formateo de dinero (BigInt-string-
  * safe vía formatearMontoCLP) y la regla null-vs-0% para que el componente
@@ -67,6 +113,8 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
     totalIngreso: formatearMontoCLP(dto.totalIngreso),
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
+    distribucionGasto: calcularDistribucionGasto(dto.buckets),
+    bucketPorDefecto: bucketConMayorTotal(dto.buckets),
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
   }
