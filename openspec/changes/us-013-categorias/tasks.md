@@ -246,19 +246,31 @@ the same "needs human migration application" precedent already logged in S1/S2, 
 Depends on: **S1 only** (needs `CATEGORIA_ID_TO_CATEGORIA`). Can be implemented **in parallel
 with S2, S3, and S4** once S1 has merged.
 
-- [ ] **T5.1** `[test]` Unit test: movimientos row fold — classified row → `{id, nombre}`;
+- [x] **T5.1** `[test]` Unit test: movimientos row fold — classified row → `{id, nombre}`;
   Ingreso/SinCategoria row → `null`; unrecognized non-null id → `null` (defensive, mirrors the
   bucket fold). (CATAPI-05)
-- [ ] **T5.2** `[test]` Unit test: detalle-bucket row fold — same three cases. (CATAPI-05)
-- [ ] **T5.3** `[impl]` `PrismaMovimientosMesRepository`: add `categoriaId` to `select`; fold via
+  Implemented as 3 new cases in `prisma-movimientos-mes.repository.spec.ts` (mocked
+  PrismaService, mirrors the existing bucket-fold test pattern in the same file).
+- [x] **T5.2** `[test]` Unit test: detalle-bucket row fold — same three cases. (CATAPI-05)
+  `prisma-detalle-bucket.repository.spec.ts` was previously 100% gated integration (real DB) —
+  added a new mocked-PrismaService `describe` block (`— categoria fold (unit)`) covering the same
+  three cases without touching the pre-existing gated suite.
+- [x] **T5.3** `[impl]` `PrismaMovimientosMesRepository`: add `categoriaId` to `select`; fold via
   `CATEGORIA_ID_TO_CATEGORIA`; `MovimientoMesRow` port type gains `categoria: {id, nombre:
   Categoria} | null`.
-- [ ] **T5.4** `[impl]` `PrismaDetalleBucketRepository`: same fold; `DetalleBucketRow` port type
-  gains `categoria`.
-- [ ] **T5.5** `[impl]` `dto/movimiento-mes.dto.ts` + `dto/detalle-bucket.dto.ts`: add
+  Fold logic extracted as a shared `foldCategoriaId()` helper in `categoria-ids.ts` (DRY —
+  correctness-critical fold needed identically by both S5 repos).
+- [x] **T5.4** `[impl]` `PrismaDetalleBucketRepository`: same fold; `DetalleBucketRow` port type
+  gains `categoria`. Reuses `foldCategoriaId()` from T5.3.
+- [x] **T5.5** `[impl]` `dto/movimiento-mes.dto.ts` + `dto/detalle-bucket.dto.ts`: add
   `categoria: {id: string; nombre: string} | null` (additive — existing fields unchanged).
-- [ ] **T5.6** `[verify]` `pnpm api test` green; existing movimientos/detalle-bucket integration
+- [x] **T5.6** `[verify]` `pnpm api test` green; existing movimientos/detalle-bucket integration
   tests pass unmodified (additive field, no breaking change).
+  `pnpm api test`: 99 files / 768 tests passed. `pnpm api exec tsc --noEmit`: clean (src + test).
+  Fixture-default fixups (`categoria: null`) were needed in 4 pre-existing spec files
+  (`obtener-movimientos-mes.use-case.spec.ts`, `obtener-detalle-bucket.use-case.spec.ts`,
+  `detalle-bucket.dto.spec.ts`) whose `makeRow` helpers build a full port-type object — additive
+  field, no behavior change to those tests.
 
 ## Slice S6 — Web: revert panel, group by categoría, activate reclassify control
 
