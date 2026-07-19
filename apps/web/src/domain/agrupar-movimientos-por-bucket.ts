@@ -33,6 +33,23 @@ const BUCKET_INGRESO = 'Ingreso'
  */
 const ORDEN_GRUPOS = ['Ingreso', 'Necesidades', 'Deseos', 'Ahorro', 'SinCategoria'] as const
 
+const BUCKET_SIN_CATEGORIA = 'SinCategoria'
+
+const BUCKETS_CONOCIDOS: ReadonlySet<string> = new Set(ORDEN_GRUPOS)
+
+/**
+ * Fail-safe fold (money-never-vanishes): any `bucket` value outside the
+ * known 5-value set is folded into `SinCategoria` rather than silently
+ * dropped from the panel/subtotals. Mirrors the backend's own fold of
+ * unrecognized/null `bucketId` → `SinCategoria` in
+ * `prisma-movimientos-mes.repository.ts` — keeps web and API semantics
+ * consistent (DRY of semantics), so this is never expected to trigger in
+ * practice but degrades safely if it ever does.
+ */
+function aBucketConocido(bucket: string): string {
+  return BUCKETS_CONOCIDOS.has(bucket) ? bucket : BUCKET_SIN_CATEGORIA
+}
+
 /**
  * `fecha` llega como ISO-8601 UTC completo — un slice de los primeros 10
  * caracteres da `YYYY-MM-DD` sin pasar por `Date`/timezone, mismo trato que
@@ -92,11 +109,12 @@ function subtotal(bucket: string, rows: ReadonlyArray<MovimientoMesItemDto>): bi
 export function aMovimientosAgrupadosViewModel(dto: MovimientosMesDto): MovimientosAgrupadosViewModel {
   const porBucket = new Map<string, MovimientoMesItemDto[]>()
   for (const tx of dto.transacciones) {
-    const filas = porBucket.get(tx.bucket)
+    const bucket = aBucketConocido(tx.bucket)
+    const filas = porBucket.get(bucket)
     if (filas) {
       filas.push(tx)
     } else {
-      porBucket.set(tx.bucket, [tx])
+      porBucket.set(bucket, [tx])
     }
   }
 

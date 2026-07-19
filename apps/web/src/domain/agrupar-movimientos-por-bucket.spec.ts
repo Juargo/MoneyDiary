@@ -132,4 +132,18 @@ describe('aMovimientosAgrupadosViewModel', () => {
     const vm = aMovimientosAgrupadosViewModel(dto([tx({ id: 'a' })]))
     expect(vm.periodo).toBe('2026-07')
   })
+
+  it('folds an unrecognized bucket value into SinCategoria instead of dropping it (money-never-vanishes)', () => {
+    const vm = aMovimientosAgrupadosViewModel(
+      dto([
+        tx({ id: 'a', bucket: 'Necesidades', cargo: '10000' }),
+        tx({ id: 'b', bucket: 'AlgoDesconocido', cargo: '3000' }),
+      ]),
+    )
+
+    const sinCategoria = vm.grupos.find((g) => g.bucket === 'SinCategoria')
+    expect(sinCategoria?.filas.map((f) => f.id)).toContain('b')
+    expect(sinCategoria?.subtotalLabel).toBe('$3.000')
+    expect(vm.grupos.reduce((acc, g) => acc + g.filas.length, 0)).toBe(2)
+  })
 })
