@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchDetalleBucket, fetchResumen, fetchResumenAnual } from './client'
-import type { DetalleBucketDto, ResumenAnualDto, ResumenMesDto } from './types'
+import { fetchDetalleBucket, fetchResumen, fetchResumenAnual, postReclasificarCategoria } from './client'
+import type { DetalleBucketDto, ReclasificarCategoriaDto, ResumenAnualDto, ResumenMesDto } from './types'
 
 const validDto: ResumenMesDto = {
   periodo: '2026-07',
@@ -441,6 +441,112 @@ describe('fetchDetalleBucket', () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConFechaVacia) })
 
     const result = await fetchDetalleBucket('Necesidades')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+const validReclasificarDto: ReclasificarCategoriaDto = {
+  id: 'tx-1',
+  categoria: { id: 'categoria-transporte', nombre: 'Transporte' },
+  bucket: 'Necesidades',
+}
+
+describe('postReclasificarCategoria', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a PATCH /api/transacciones/:id/categoria same-origin con { categoria } en el body', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validReclasificarDto) })
+
+    await postReclasificarCategoria('tx-1', 'Transporte')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/transacciones/tx-1/categoria', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ categoria: 'Transporte' }),
+    })
+  })
+
+  it('encodea el :id en la URL', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validReclasificarDto) })
+
+    await postReclasificarCategoria('tx con espacio', 'Transporte')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/transacciones/tx%20con%20espacio/categoria',
+      expect.anything(),
+    )
+  })
+
+  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validReclasificarDto) })
+
+    const result = await postReclasificarCategoria('tx-1', 'Transporte')
+
+    expect(result).toEqual({ ok: true, value: validReclasificarDto })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await postReclasificarCategoria('tx-1', 'Transporte')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 400 a {tag: "invalid"} (categoría desconocida)', async () => {
+    mockFetchOnce({ ok: false, status: 400 })
+
+    const result = await postReclasificarCategoria('tx-1', 'NoExiste')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('invalid')
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await postReclasificarCategoria('tx-1', 'Transporte')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'unauthorized', message: 'Sin acceso.' })
+  })
+
+  it('mapea un 404 (no existe / no es del usuario) a {tag: "server", status: 404}', async () => {
+    mockFetchOnce({ ok: false, status: 404 })
+
+    const result = await postReclasificarCategoria('tx-ajena', 'Transporte')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 404,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await postReclasificarCategoria('tx-1', 'Transporte')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un body 2xx que no cumple la forma esperada a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ nonsense: true }) })
+
+    const result = await postReclasificarCategoria('tx-1', 'Transporte')
 
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')

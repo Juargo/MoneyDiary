@@ -189,25 +189,34 @@ describe('BucketDetailList', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows a disabled "Clasificar" CTA with an accessible name and a disabled edit placeholder for SinCategoria rows (CA-03)', async () => {
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(sinCategoriaDto) })
-
-    render(<BucketDetailList bucket="SinCategoria" periodo="2026-07" />, { wrapper: crearWrapper() })
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Clasificar movimientos (próximamente)' })).toBeInTheDocument(),
-    )
-    expect(screen.getByRole('button', { name: 'Clasificar movimientos (próximamente)' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled()
-  })
-
-  it('renders only the disabled edit placeholder (no classify CTA) for non-SinCategoria buckets', async () => {
+  // US-013 S6b (WCAT-04/05): the two disabled placeholders ("Clasificar" /
+  // "Editar categoría") are replaced by ONE reclassify `<select>` per row —
+  // see `ReclasificarCategoriaControl.test.tsx` for its own dedicated
+  // coverage (optgroup contents, cross-bucket confirmation, pending/error
+  // UX). These two tests just confirm `BucketDetailList` wires it in with
+  // the right per-row props (accessible name, preselected value).
+  it('renders an enabled reclassify select per row, accessibly named, preselected to the current categoría', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
 
     render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled())
-    expect(screen.queryByRole('button', { name: /Clasificar/ })).not.toBeInTheDocument()
+    const select = (await screen.findByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    )) as HTMLSelectElement
+    expect(select).not.toBeDisabled()
+    expect(select.value).toBe('Supermercado')
+    expect(screen.queryByRole('button', { name: /Editar categoría|Clasificar/ })).not.toBeInTheDocument()
+  })
+
+  it('a SinCategoria row renders the reclassify select with no categoría preselected (assign flow)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(sinCategoriaDto) })
+
+    render(<BucketDetailList bucket="SinCategoria" periodo="2026-07" />, { wrapper: crearWrapper() })
+
+    const select = (await screen.findByLabelText(
+      'Cambiar categoría de Transferencia recibida',
+    )) as HTMLSelectElement
+    expect(select.value).toBe('')
   })
 
   // US-030 Slice B (task 30.10): the dashboard reuses this component verbatim

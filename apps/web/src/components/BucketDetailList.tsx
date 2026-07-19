@@ -1,12 +1,11 @@
 import { Loading } from './states/Loading'
 import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
+import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl'
 import { useDetalleBucket } from '@/api/use-detalle-bucket'
 import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model'
 import { agruparDetallePorCategoria } from '@/domain/agrupar-detalle-por-categoria'
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors'
-
-const BUCKET_SIN_CATEGORIA = 'SinCategoria'
 
 /**
  * BucketDetailList — a single bucket/period's transactions, GROUPED BY
@@ -26,17 +25,18 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria'
  * Grouping (WCAT-02): `agruparDetallePorCategoria` (pure, BigInt-exact
  * subtotal) turns the flat `query.data.transacciones` into ordered groups —
  * each renders as a `<section>` with a heading ("nombre · subtotal ·
- * conteo") followed by its rows. This is READ-ONLY grouping (S6a); the
- * per-row reclassify `<select>` (WCAT-04/05, replacing the two disabled
- * placeholders below) is deferred to S6b.
+ * conteo") followed by its rows.
  *
- * SinCategoria special-case (CA-03): every row on a SinCategoria page shows
- * a "Clasificar" CTA — like the inline category-edit control (CA-02), it is
- * a permanently DISABLED placeholder with an accessible label/title
- * explaining it's not yet wired (S6b wires both into one reclassify
- * control per design.md §7.3). An enabled no-op button would be an a11y
- * dead-end (announces as actionable, does nothing on activation).
+ * Reclassify control (US-013 S6b, WCAT-04/05): each row renders a
+ * `ReclasificarCategoriaControl` — a single `<select>` that covers BOTH the
+ * former "Editar categoría" (reclassify) and "Clasificar" (SinCategoria
+ * assign) placeholders (design.md §7.3, DRY — one mechanism, `categoriaActual`
+ * arrives `null` for SinCategoria/unmatched rows). Every row in a group
+ * shares the same `grupo.categoriaId`/`grupo.nombre` (grouping IS by
+ * categoría), so the group's own fields are reused per row instead of
+ * threading a separate `categoria` field through `DetalleBucketRowViewModel`.
  *
+
  * cargo/abono render as two separate exact CLP amounts (spec W3-03), never
  * netted/subtracted — inventing a signed "net amount" would be new money
  * business logic this slice doesn't own (see detalle-bucket-view-model.ts).
@@ -82,7 +82,6 @@ export function BucketDetailList({
 
   const viewModel = aDetalleBucketViewModel(query.data)
   const grupos = agruparDetallePorCategoria(query.data.transacciones, viewModel.bucket)
-  const esSinCategoria = viewModel.bucket === BUCKET_SIN_CATEGORIA
   const Heading = headingLevel
   const HeadingGrupo = headingLevel === 'h1' ? 'h2' : 'h3'
 
@@ -108,25 +107,14 @@ export function BucketDetailList({
                   <span>Abono: {fila.abonoLabel}</span>
                 </div>
                 <div className="flex items-center justify-end gap-2">
-                  {esSinCategoria && (
-                    <button
-                      type="button"
-                      disabled
-                      aria-label="Clasificar movimientos (próximamente)"
-                      title="Clasificar movimientos (próximamente)"
-                      className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Clasificar
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled
-                    aria-label={`Editar categoría de ${fila.descripcion} (próximamente)`}
-                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-400"
-                  >
-                    Editar categoría
-                  </button>
+                  <ReclasificarCategoriaControl
+                    transaccionId={fila.id}
+                    descripcion={fila.descripcion}
+                    montoLabel={fila.cargoLabel}
+                    bucketActual={viewModel.bucket}
+                    categoriaActual={grupo.categoriaId === null ? null : grupo.nombre}
+                    periodo={periodo}
+                  />
                 </div>
               </li>
             ))}

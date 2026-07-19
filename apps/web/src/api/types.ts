@@ -94,3 +94,20 @@ export interface MeDto {
   readonly email: string | null
   readonly esDemo: boolean
 }
+
+/**
+ * Mirror escrito a mano del DTO HTTP de respuesta del reclassify (US-013
+ * S4/S6b). Fuente de verdad en el backend:
+ * `PATCH /api/transacciones/:id/categoria` (`transacciones.controller.ts`).
+ *
+ * `bucket` refleja el bucket DERIVADO server-side de la categoría elegida
+ * (nunca se envía en el request — ver `postReclasificarCategoria` en
+ * `client.ts`); el body de respuesta lo trae de vuelta para que el caller
+ * pueda mostrar feedback sin re-fetchear antes de que la invalidación de
+ * queries corra.
+ */
+export interface ReclasificarCategoriaDto {
+  readonly id: string
+  readonly categoria: { readonly id: string; readonly nombre: string }
+  readonly bucket: string
+}

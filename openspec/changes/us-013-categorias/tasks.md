@@ -297,14 +297,13 @@ Last slice in the chain.
 > therefore MOOT — `BucketDetailList` already serves both call sites. S6b will add the
 > reclassify `<select>` to this SAME component, not a new one.
 
-- [ ] **T6.0** `[DECISION — CONFIRM WITH USER BEFORE IMPLEMENTING S6b]` Reclassify `<select>`
-  scope: offer **ALL** categorías grouped by bucket via `<optgroup>` (design recommendation, §7.3
-  / open question Q2) vs restrict the dropdown to the **same bucket** as the row's current
-  categoría. The cross-bucket option is what makes the feature useful for its primary use case
-  (fixing a misclassified Deseos row into Necesidades, etc.) — but it also lets a user move an
-  Ingreso-derived or otherwise sensitive row into a spending categoría in a way that visibly
-  shifts the 50/30/20 traffic light. Do **not** default to either choice in `sdd-apply`; get
-  explicit confirmation first.
+- [x] **T6.0** `[DECISION]` **Confirmed by the user before S6b implementation.** Reclassify
+  `<select>` offers **ALL 8 categorías** grouped by bucket via `<optgroup>` (cross-bucket
+  allowed — design's recommendation). Guardrail added on top: when the chosen categoría's bucket
+  differs from the row's current bucket, a confirmation (`role="alertdialog"`, stating the exact
+  money move, e.g. "Esto mueve $X de Gustos a Necesidades") is shown before committing;
+  same-bucket re-categorization commits immediately. Implemented in
+  `apps/web/src/components/ReclasificarCategoriaControl.tsx`.
 - [x] **T6.1** `[test]` Unit test `agrupar-detalle-por-categoria`: groups rows by
   `categoria.nombre`; null categoría → a "Sin categoría" group; per-group subtotal computed via
   `BigInt` (a value beyond `Number.MAX_SAFE_INTEGER` preserves every digit); per-group count is
@@ -318,22 +317,34 @@ Last slice in the chain.
   `/api/movimientos` were NOT touched (no S6a consumer needs them yet; movimientos DTO already
   has `categoria` server-side from S5, web mirror deferred to whichever slice first consumes it
   — YAGNI).
-- [ ] **T6.4** `[test]` Unit test `use-reclasificar-categoria`: on `onSuccess`, invalidates
+- [x] **T6.4** `[test]` Unit test `use-reclasificar-categoria`: on `onSuccess`, invalidates
   `['resumen', periodo]`, `['detalle-bucket', bucket, periodo]`, `['resumen-anual', anio]` (mock
-  `QueryClient`); mutation stays `isPending` while in flight. (WCAT-04) — **S6b**.
-- [ ] **T6.5** `[impl]` `apps/web/src/api/use-reclasificar-categoria.ts` — `useMutation` wrapping
+  `QueryClient`); mutation stays `isPending` while in flight. (WCAT-04) — **S6b DONE**.
+  `apps/web/src/api/use-reclasificar-categoria.test.tsx` (6 cases). Deviation: `resumen-anual`
+  invalidation uses the PARTIAL key `['resumen-anual']` (no `anio`) rather than the literal
+  `['resumen-anual', anio]` — this hook has no `anio` in scope (only `periodo`/`bucket`, threaded
+  from `BucketDetailList`), so it invalidates every cached year instead of guessing one; see the
+  hook's docstring for the full rationale (TanStack Query's fuzzy key matching means this cannot
+  collide with `['resumen', ...]`/`['detalle-bucket', ...]`, distinct key[0] strings).
+- [x] **T6.5** `[impl]` `apps/web/src/api/use-reclasificar-categoria.ts` — `useMutation` wrapping
   the PATCH call; `onSuccess` invalidation per T6.4; exposes `isPending` for the control to
-  disable itself. — **S6b**.
-- [~] **T6.6** `[test]` Component test (grouping half done, `BucketDetailList.test.tsx`): renders
-  one heading per categoría present (nombre · subtotal · conteo) plus "Sin categoría" when
-  applicable; group heading level demotes correctly relative to `headingLevel`. Reclassify
-  `<select>` half (WCAT-04/05: accessible label, disabled-while-pending, failed-reclassify
-  leaves the row in place) — **S6b**.
-- [~] **T6.7** `[impl]` (grouping half done, in `BucketDetailList.tsx`, not a new
+  disable itself. — **S6b DONE**.
+- [x] **T6.6** `[test]` Component test: grouping half (`BucketDetailList.test.tsx`, S6a) + the
+  reclassify `<select>` half — **S6b DONE**. `ReclasificarCategoriaControl.test.tsx` (10 cases:
+  accessible label, optgroup contents + preselection, SinCategoria placeholder value, same-bucket
+  immediate commit, cross-bucket confirmation text + no premature commit, confirm commits, cancel
+  reverts without committing, disabled-while-pending, failed-reclassify reverts + shows an error).
+  `BucketDetailList.test.tsx` updated: the two old disabled-placeholder tests replaced with two
+  wiring tests (select rendered + accessibly named + correctly preselected/empty per row).
+- [x] **T6.7** `[impl]` (grouping half done in S6a, in `BucketDetailList.tsx`, not a new
   `BucketCategoriasList.tsx` — see deviation note above): renders group heading (`h2`/`h3`
   depending on `headingLevel`) + rows per group, reuses `ETIQUETA_BUCKET` +
-  `Loading`/`ErrorState`/`Empty`. Per-row reclassify `<select>` (replacing the two disabled
-  placeholders) — **S6b**.
+  `Loading`/`ErrorState`/`Empty`. — **S6b DONE**: per-row reclassify `<select>` implemented as a
+  new `apps/web/src/components/ReclasificarCategoriaControl.tsx` (container-presentational: owns
+  its own local select/confirmation/error state + the mutation, `BucketDetailList` just passes
+  per-row props), replacing the two disabled placeholders. `categoriaActual` is read off the
+  row's `grupo` (categoriaId/nombre), not threaded through `DetalleBucketRowViewModel` — every row
+  in a group shares the same categoría by construction (DRY, no new field needed).
 - [x] **T6.8** `[test]` Already satisfied by the PRE-EXISTING `ResumenScreen.test.tsx` (no
   revert happened, see deviation note): "clicking a different legend/slice row switches the
   transactions panel to that bucket" (WCAT-01) + `BucketDetailList`'s own empty-state test
@@ -345,12 +356,18 @@ Last slice in the chain.
 - [x] **T6.10** `[impl, optional]` N/A — moot, `BucketDetailList` already serves both the
   dashboard panel and the standalone `/buckets/:bucket` route (no separate
   `BucketCategoriasList` was created).
-- [ ] **T6.11** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web build` green;
+- [x] **T6.11** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web build` green;
   manual a11y spot-check of the full keyboard-only reclassify flow (WCAT-05 scenario: tab to a
   row's control, activate with Enter/Space, select a categoría via keyboard, confirm the
-  reclassify completes and the resumen/pie updates). — S6a portion (test/typecheck/build) DONE
-  this session (`pnpm web test` 284/284, `pnpm web typecheck` clean, `pnpm web build` OK); the
-  a11y spot-check of the reclassify flow itself needs the `<select>` control — **S6b**.
+  reclassify completes and the resumen/pie updates). — **S6b DONE** (automated portion):
+  `pnpm web test` 38 files / 311 tests green, `pnpm web typecheck` clean, `pnpm web build` OK.
+  The keyboard-operability CLAIM is covered by automated tests using
+  `@testing-library/user-event` (`ReclasificarCategoriaControl.test.tsx`: `selectOptions` +
+  `click` on native `<select>`/`<button>` elements, which are keyboard-operable by construction —
+  no custom ARIA widget). A live manual spot-check in a real browser with a screen reader
+  (VoiceOver/NVDA) is **DEFERRED — human action required**, same posture as this session's other
+  "needs human verification" items (S1-S5's DB-touching steps) — no dev server / real backend
+  was started this session.
 
 ---
 
