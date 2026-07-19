@@ -77,15 +77,21 @@ describe('requireSession', () => {
     expect((caught as { options: { search?: unknown } }).options.search).toBeUndefined()
   })
 
-  it('resolves without throwing when fetchMe resolves ok (session valid)', async () => {
-    const fetchMe = vi.fn(
-      async (): Promise<ApiResult<MeDto>> => ({
-        ok: true,
-        value: { userId: 'user-1', email: 'usuario@moneydiary.cl' },
-      }),
-    )
+  it('resolves with the fetched MeDto when fetchMe resolves ok (session valid) — DemoBanner reads esDemo from this cached value, no second fetch', async () => {
+    const me: MeDto = { userId: 'user-1', email: 'usuario@moneydiary.cl', esDemo: false }
+    const fetchMe = vi.fn(async (): Promise<ApiResult<MeDto>> => ({ ok: true, value: me }))
 
-    await expect(requireSession(fetchMe)).resolves.toBeUndefined()
+    await expect(requireSession(fetchMe)).resolves.toEqual(me)
+    expect(fetchMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves with esDemo:true for a demo session, without a second fetchMe call', async () => {
+    const me: MeDto = { userId: 'demo-1', email: null, esDemo: true }
+    const fetchMe = vi.fn(async (): Promise<ApiResult<MeDto>> => ({ ok: true, value: me }))
+
+    const resultado = await requireSession(fetchMe)
+
+    expect(resultado.esDemo).toBe(true)
     expect(fetchMe).toHaveBeenCalledTimes(1)
   })
 })
