@@ -30,17 +30,16 @@ because schema must exist before seed code writes to it.
   each of the 8 categorías. — `domain/value-objects/categoria.spec.ts` (CAT-01)
 - [x] **T1.2** `[impl]` Implement `Categoria` enum + `CATEGORIA_BUCKET: Record<Categoria, Bucket>`
   + `bucketDeCategoria()`. — `domain/value-objects/categoria.ts` (CAT-01)
-- [ ] **T1.3** `[test]` Unit test: `PatronClasificacion` VO's `get bucket()` derives correctly
+- [x] **T1.3** `[test]` Unit test: `PatronClasificacion` VO's `get bucket()` derives correctly
   from its `categoria` prop (no independently-settable bucket). — `domain/value-objects/patron-clasificacion.spec.ts` (CAT-02)
-  **DEFERRED to S2.** `sdd-apply`'s explicit S1 scope (orchestrator prompt) lists only the
-  Prisma-level `categoriaId` column on `PatronClasificacion`, not a VO constructor change.
-  Flipping the VO's constructor to require `categoria` in S1 would force updating
-  `PrismaCatalogoClasificacionRepository` (`include: { bucket: true }` → `categoria`) in the
-  same commit — that read path is explicitly S2-scoped (T2.3) and touching it here would
-  violate S1's "no behavior change" guardrail. Bundled with T1.4 into S2.
-- [ ] **T1.4** `[impl]` Update `PatronClasificacion` VO: constructor takes `categoria: Categoria`
+  Implemented in S2 (was deferred from S1 — see the original note this replaces): added
+  `it.each(Object.values(Categoria))` coverage that `get bucket()` derives every categoría via
+  `CATEGORIA_BUCKET`, plus a test documenting `bucket` has no independent constructor param.
+- [x] **T1.4** `[impl]` Update `PatronClasificacion` VO: constructor takes `categoria: Categoria`
   instead of `bucket`; expose `bucket` as a derived getter via `CATEGORIA_BUCKET`. —
-  `domain/value-objects/patron-clasificacion.ts` (CAT-02) **DEFERRED to S2** — see T1.3 note.
+  `domain/value-objects/patron-clasificacion.ts` (CAT-02)
+  Implemented in S2 together with T1.3 (see above) — bundled with T2.3's read-path update in
+  the same commit, as originally planned.
 - [x] **T1.5** `[impl]` Add `CATEGORIA_IDS` (fixed seed ids) + `CATEGORIA_ID_TO_CATEGORIA`
   (inverse map, built once) mirroring `bucket-ids.ts`. — `infrastructure/persistence/categoria-ids.ts` (CAT-04)
 - [x] **T1.6** `[impl]` Prisma schema: add `Categoria` model (`id`, `nombre @unique`,
@@ -85,37 +84,65 @@ pending `add_demo_trial_mode` migration is reconciled, to actually apply
 Depends on: **S1**. Sequential (schema/domain from S1 must exist first; within S2, tests before
 each paired impl; migration T2.9 ships last, together with the code that reads `categoria`).
 
-- [ ] **T2.1** `[test]` Update `CategorizarTransaccionUseCase` unit tests for the new return
+- [x] **T2.1** `[test]` Update `CategorizarTransaccionUseCase` unit tests for the new return
   shape: Ingreso → `{categoria: null, bucket: Ingreso}`; matched pattern → `{categoria,
   categoria.bucket}`; no match → `{categoria: null, bucket: SinCategoria}`; priority/id tiebreak
   unchanged; never throws. (CAT-03)
-- [ ] **T2.2** `[impl]` Update `CategorizarTransaccionUseCase.execute` to return
+- [x] **T2.2** `[impl]` Update `CategorizarTransaccionUseCase.execute` to return
   `{categoria: Categoria | null, bucket: Bucket}`, deriving `bucket` via the matched pattern's
   `bucket` getter (Ingreso/no-match branches unchanged in structure). —
   `application/use-cases/categorizar-transaccion.use-case.ts` (CAT-03)
-- [ ] **T2.3** `[impl]` Update `ICatalogoClasificacion` port + `PrismaCatalogoClasificacionRepository`:
+- [x] **T2.3** `[impl]` Update `ICatalogoClasificacion` port + `PrismaCatalogoClasificacionRepository`:
   swap `include: { bucket: true }` → `include: { categoria: true }`; map `row.categoria.nombre`
   to the `Categoria` enum when constructing each `PatronClasificacion` VO. (can run in parallel
   with T2.1/T2.2 — different files, no shared state)
-- [ ] **T2.4** `[test]` Writer test: `asignarCategorizacion` writes `categoriaId` + `bucketId`
+- [x] **T2.4** `[test]` Writer test: `asignarCategorizacion` writes `categoriaId` + `bucketId`
   atomically per `(categoria, bucket)` group, inside the existing `$transaction`, preserving the
   double-lock scope isolation (`WHERE id IN (...) AND ingestaId = ?`). (CAT-02)
-- [ ] **T2.5** `[impl]` Rename `transaccion-bucket-writer.port.ts` method `asignarBuckets` →
+  Also covers: two different categorías that derive to the SAME bucket produce two separate
+  groups (categoria drives grouping, not bucket alone) — a scenario the design's grouping
+  description implied but didn't spell out as a distinct test case.
+- [x] **T2.5** `[impl]` Rename `transaccion-bucket-writer.port.ts` method `asignarBuckets` →
   `asignarCategorizacion(ingestaId, asignaciones: {transaccionId, categoria, bucket}[])`; update
   `PrismaTransaccionBucketRepository` to group by `(categoria, bucket)` and emit one `updateMany`
   per group setting `{categoriaId: categoria ? CATEGORIA_IDS[categoria] : null, bucketId:
   BUCKET_IDS[bucket]}`. (CAT-02)
-- [ ] **T2.6** `[impl]` Update `ProcessIngestaUseCase.runCategorizacion` wiring: map each
+- [x] **T2.6** `[impl]` Update `ProcessIngestaUseCase.runCategorizacion` wiring: map each
   classified row to `{transaccionId, categoria, bucket}` (was `{transaccionId, bucket}`);
   degradation island (catalog down → only Ingreso rows written) stays structurally unchanged.
-- [ ] **T2.7** `[test]` Integration/e2e: full ingesta pipeline persists `categoriaId` +
+- [x] **T2.7** `[test]` Integration/e2e: full ingesta pipeline persists `categoriaId` +
   `bucketId` together for a matched-pattern row; catalog-down degradation still writes only
   Ingreso rows correctly (rest stay `null`/`null`, pending — not `SinCategoria`).
-- [ ] **T2.8** `[impl]` Migration `drop_patron_bucketid`: make `PatronClasificacion.categoriaId`
+  `test/categorizacion.int-spec.ts` updated to the new `asignarCategorizacion` contract (T18/T19
+  degradation + T21 FK-integrity now also asserts `categoriaId`/`categoria.nombre`). This is a
+  **gated** test (`ALLOW_DESTRUCTIVE_DB=1`, real DB) — NOT executed in this apply session, same
+  as S1's precedent: the only reachable Postgres is the shared Supabase dev DB, and running it
+  would both require reconciling S1/S2's unapplied migrations first and mutate shared state.
+  Updated for compile-correctness + reviewed logically; needs a human run once the migrations
+  are applied.
+- [x] **T2.8** `[impl]` Migration `drop_patron_bucketid`: make `PatronClasificacion.categoriaId`
   **NOT NULL** (safe — S1's seed populated all rows); **DROP** `PatronClasificacion.bucketId`.
   Ships together with T2.2–T2.6 (code flip + schema tighten land in the same PR).
-- [ ] **T2.9** `[verify]` `pnpm api test` full suite + `pnpm api test:e2e` green. Confirm CAT-03
+  Hand-authored (see S2 apply note below) as
+  `prisma/migrations/20260719010000_drop_patron_bucketid/migration.sql`.
+- [x] **T2.9** `[verify]` `pnpm api test` full suite + `pnpm api test:e2e` green. Confirm CAT-03
   scenarios pass end-to-end.
+  `pnpm api test`: 95 files / 735 tests passed. `pnpm api exec tsc --noEmit`: clean.
+  `pnpm api test:e2e` NOT run — gated, real-DB, would touch the shared dev DB (see T2.7 note).
+
+**S2 apply note (migration production + ordering vs S1):** same posture as S1 — the reachable
+Postgres instance (Supabase pooler) is the shared dev DB, not a disposable local instance, so
+`drop_patron_bucketid` was hand-authored rather than generated via `prisma migrate dev`
+(verified via `prisma validate` + `prisma generate`, both clean; `prisma generate` was actually
+run to refresh the local TS client types, which is safe — it does not touch the DB). **Ordering
+risk vs S1**: `20260719010000_drop_patron_bucketid` has a strict dependency on
+`20260719000000_add_categoria_model` (S1) having been applied and the seed re-run first — it
+assumes `PatronClasificacion.categoriaId` is already populated on every row before tightening it
+to NOT NULL. **Needs human application, in order**: (1) reconcile the pre-existing unrelated
+`20260718120000_add_demo_trial_mode` migration, (2) apply S1's `add_categoria_model` +re-run
+`seed.ts`, (3) apply S2's `drop_patron_bucketid`. Applying S2 before S1 would fail (the
+`categoriaId` column wouldn't exist yet); applying S2 without a completed seed run would fail
+the NOT NULL tightening on any un-seeded row.
 
 ## Slice S3 — Backfill script for existing rows
 
