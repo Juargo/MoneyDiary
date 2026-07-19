@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { fetchMe } from '@/api/auth'
 import { requireSession } from '@/lib/require-session'
+import { DemoBanner } from '@/components/DemoBanner'
 
 /**
  * Pathless protected layout (AUTH-10, design.md §6.1): every route nested
@@ -15,8 +16,30 @@ import { requireSession } from '@/lib/require-session'
  * end-to-end round trip through the real generated route tree; it lives
  * outside `routes/` on purpose, since the TanStack Router Vite plugin scans
  * every file under `routes/` as a route candidate).
+ *
+ * demo-trial-mode (DEMO-UI-02): `requireSession` now resolves with the
+ * fetched `MeDto` on success (instead of discarding it to `void`), so
+ * `esDemo` is threaded into this route's `context` here — the ONLY
+ * `fetchMe()` call for this layout. `component` reads it back via
+ * `Route.useRouteContext()` to conditionally mount `<DemoBanner>`; this
+ * satisfies "MUST NOT make an additional API call" (see
+ * `test/demo-banner-layout.test.tsx` for the end-to-end proof, same pattern
+ * as `redirect-after-login.test.tsx`).
  */
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: ({ location }) => requireSession(fetchMe, location.href),
-  component: () => <Outlet />,
+  beforeLoad: async ({ location }) => {
+    const me = await requireSession(fetchMe, location.href)
+    return { esDemo: me.esDemo }
+  },
+  component: RouteComponent,
 })
+
+function RouteComponent() {
+  const { esDemo } = Route.useRouteContext()
+  return (
+    <>
+      <DemoBanner esDemo={esDemo} />
+      <Outlet />
+    </>
+  )
+}
