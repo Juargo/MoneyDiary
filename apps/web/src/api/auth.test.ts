@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchMe, postLogin, postLogout } from './auth'
 import type { MeDto } from './types'
 
-const validMeDto: MeDto = { userId: 'user-1', email: 'usuario@moneydiary.cl' }
+const validMeDto: MeDto = { userId: 'user-1', email: 'usuario@moneydiary.cl', esDemo: false }
+const validDemoMeDto: MeDto = { userId: 'demo-1', email: null, esDemo: true }
 
 function mockFetchOnce(response: { ok: boolean; status: number; json?: () => Promise<unknown> }) {
   const fetchMock = vi.fn().mockResolvedValue(response)
@@ -124,6 +125,66 @@ describe('fetchMe', () => {
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
   })
+
+  // demo-trial-mode DEMO-UI: un usuario demo tiene email:null y esDemo:true
+  // (DEMO-AUTH-05) — el guard debe aceptar esta forma, no solo la de un
+  // usuario real (email:string, esDemo:false).
+  it('en éxito acepta un usuario demo (email:null, esDemo:true)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validDemoMeDto) })
+
+    const result = await fetchMe()
+
+    expect(result).toEqual({ ok: true, value: validDemoMeDto })
+  })
+
+  it('mapea un body 2xx sin esDemo (forma pre-demo obsoleta) a {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ userId: 'user-1', email: 'usuario@moneydiary.cl' }),
+    })
+
+    const result = await fetchMe()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it.each([['"true"', 'true'], ['1', 1], ['null', null]])(
+    'mapea un esDemo mal tipado (%s) a {tag: "parse"}',
+    async (_label, esDemoInvalido) => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ userId: 'user-1', email: 'usuario@moneydiary.cl', esDemo: esDemoInvalido }),
+      })
+
+      const result = await fetchMe()
+
+      expect(result.ok).toBe(false)
+      expect(!result.ok && result.error.tag).toBe('parse')
+    },
+  )
+
+  // El guard hace cumplir el invariante cruzado documentado en `types.ts`
+  // (espejo fail-closed del guard del backend en `buscarIdentidad`, PR1): un
+  // usuario real (esDemo:false) sin email es una forma inválida, no una
+  // variante aceptable — aunque cada campo type-checkee por separado.
+  it('mapea {esDemo:false, email:null} (usuario real sin email) a {tag: "parse"} — fail-closed', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ userId: 'user-1', email: null, esDemo: false }),
+    })
+
+    const result = await fetchMe()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  // Nota: el caso de aceptación {esDemo:true, email:null} ya está cubierto
+  // más arriba por "en éxito acepta un usuario demo" — no se duplica aquí.
 
   it('mapea un body 2xx cuyo json() lanza a {tag: "parse"}', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.reject(new Error('invalid json')) })

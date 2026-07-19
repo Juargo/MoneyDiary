@@ -30,7 +30,7 @@ function buildFetchStub() {
         ? {
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ userId: 'user-1', email: 'usuario@moneydiary.cl' }),
+            json: () => Promise.resolve({ userId: 'user-1', email: 'usuario@moneydiary.cl', esDemo: false }),
           }
         : { ok: false, status: 401 }
     }

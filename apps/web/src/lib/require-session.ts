@@ -23,14 +23,17 @@ import type { MeDto } from '@/api/types'
  * `validateSearch` (via `sanitizeRedirect`) is the actual security boundary
  * for anything read back OUT of the URL.
  *
- * `ok` → resolves, letting the protected route's own loader/component run.
+ * `ok` → resolves with the fetched `MeDto` (instead of discarding it), so the
+ * `_authenticated` layout can thread `esDemo` into its route `context` for
+ * `DemoBanner` (demo-trial-mode, DEMO-UI-02) WITHOUT a second `fetchMe` call —
+ * this is the only place that owns the guard's single `fetchMe()` round trip.
  */
 export async function requireSession(
   fetchMe: () => Promise<ApiResult<MeDto>>,
   redirectTo?: string,
-): Promise<void> {
+): Promise<MeDto> {
   const result = await fetchMe()
-  if (result.ok) return
+  if (result.ok) return result.value
 
   const meaningfulRedirect = redirectTo !== undefined && redirectTo !== '/' ? redirectTo : undefined
 
