@@ -277,7 +277,27 @@ with S2, S3, and S4** once S1 has merged.
 Depends on: **S4 + S5** (needs the reclassify endpoint and the `categoria` DTO field to exist).
 Last slice in the chain.
 
-- [ ] **T6.0** `[DECISION — CONFIRM WITH USER BEFORE IMPLEMENTING S6]` Reclassify `<select>`
+> **S6a/S6b split (this session, `sdd-apply`)**: S6 was implemented in two sub-slices — **S6a**
+> (branch `feat/us-013-categorias-s6a`, off S5): read-only grouping (T6.1-T6.3 + the grouping
+> half of T6.6-T6.9). **S6b** (not started): the reclassify `<select>` (T6.0, T6.4, T6.5, the
+> control half of T6.6/T6.7, T6.11).
+>
+> **Deviation from the design's "revert" framing, confirmed against the actual repo before
+> implementing**: PR #75 (`TransaccionesAgrupadas`, all-buckets-visible) was **closed, never
+> merged** — `ResumenScreen` already does pie/legend-click → single-bucket panel (its original
+> US-017/US-030 behavior). There was nothing to revert. T6.8/T6.9 (WCAT-01/WCAT-03) are already
+> satisfied by the pre-existing `ResumenScreen` + `BucketDetailList` — verified via the existing
+> green test suite, no new assertions needed, no `ResumenScreen.tsx` behavior change.
+>
+> **Deviation from T6.7's literal component name**: rather than a new
+> `BucketCategoriasList.tsx`, S6a added grouping DIRECTLY to the existing
+> `BucketDetailList.tsx` (the component `ResumenScreen` already renders for its panel, and the
+> standalone `/buckets/:bucket` route already reuses verbatim) — avoids a redundant parallel
+> component + a ResumenScreen wiring change that isn't needed. T6.10 (route consolidation) is
+> therefore MOOT — `BucketDetailList` already serves both call sites. S6b will add the
+> reclassify `<select>` to this SAME component, not a new one.
+
+- [ ] **T6.0** `[DECISION — CONFIRM WITH USER BEFORE IMPLEMENTING S6b]` Reclassify `<select>`
   scope: offer **ALL** categorías grouped by bucket via `<optgroup>` (design recommendation, §7.3
   / open question Q2) vs restrict the dropdown to the **same bucket** as the row's current
   categoría. The cross-bucket option is what makes the feature useful for its primary use case
@@ -285,50 +305,52 @@ Last slice in the chain.
   Ingreso-derived or otherwise sensitive row into a spending categoría in a way that visibly
   shifts the 50/30/20 traffic light. Do **not** default to either choice in `sdd-apply`; get
   explicit confirmation first.
-- [ ] **T6.1** `[test]` Unit test `agrupar-detalle-por-categoria`: groups rows by
+- [x] **T6.1** `[test]` Unit test `agrupar-detalle-por-categoria`: groups rows by
   `categoria.nombre`; null categoría → a "Sin categoría" group; per-group subtotal computed via
   `BigInt` (a value beyond `Number.MAX_SAFE_INTEGER` preserves every digit); per-group count is
-  correct. (WCAT-02)
-- [ ] **T6.2** `[impl]` `apps/web/src/domain/agrupar-detalle-por-categoria.ts` — pure grouping
+  correct. (WCAT-02) — `apps/web/src/domain/agrupar-detalle-por-categoria.test.ts` (8 cases,
+  also covers canonical order + Ingreso-sums-abono discipline).
+- [x] **T6.2** `[impl]` `apps/web/src/domain/agrupar-detalle-por-categoria.ts` — pure grouping
   function, no framework dependency. (WCAT-02)
-- [ ] **T6.3** `[impl]` `apps/web/src/api/types.ts`: DTO mirrors (movimientos + detalle-bucket)
-  gain `categoria: {id: string; nombre: string} | null`.
+- [x] **T6.3** `[impl]` `apps/web/src/api/types.ts`: DTO mirrors (movimientos + detalle-bucket)
+  gain `categoria: {id: string; nombre: string} | null`. — Done for **detalle-bucket** (S6a
+  scope, `DetalleBucketTransaccionDto`). `MovimientoMesDto`/`BucketResumenDto` mirrors for
+  `/api/movimientos` were NOT touched (no S6a consumer needs them yet; movimientos DTO already
+  has `categoria` server-side from S5, web mirror deferred to whichever slice first consumes it
+  — YAGNI).
 - [ ] **T6.4** `[test]` Unit test `use-reclasificar-categoria`: on `onSuccess`, invalidates
   `['resumen', periodo]`, `['detalle-bucket', bucket, periodo]`, `['resumen-anual', anio]` (mock
-  `QueryClient`); mutation stays `isPending` while in flight. (WCAT-04)
+  `QueryClient`); mutation stays `isPending` while in flight. (WCAT-04) — **S6b**.
 - [ ] **T6.5** `[impl]` `apps/web/src/api/use-reclasificar-categoria.ts` — `useMutation` wrapping
   the PATCH call; `onSuccess` invalidation per T6.4; exposes `isPending` for the control to
-  disable itself.
-- [ ] **T6.6** `[test]` Component test `BucketCategoriasList`: renders one group per categoría
-  present (header = name + count + subtotal) plus "Sin categoría" when applicable; renders a
-  `<select>` per row with categorías grouped by bucket via `<optgroup>` (scope per **T6.0**'s
-  confirmed decision); each `<select>` has an accessible `<label>` naming the transaction
-  (WCAT-05); control is disabled while its row's mutation is pending; a failed reclassify leaves
-  the row in its original group and surfaces an error (WCAT-04 failure scenario). (WCAT-02,
-  WCAT-04, WCAT-05)
-- [ ] **T6.7** `[impl]` `apps/web/src/components/BucketCategoriasList.tsx` — owns
-  `useDetalleBucket(bucket, periodo)`, renders group `<h3>` headers, per-row reclassify
-  `<select>` wired to `use-reclasificar-categoria`, visually-hidden `<label htmlFor>` per select
-  ("Cambiar categoría de {descripcion}"), `aria-live="polite"` success status, reuses
-  `ETIQUETA_BUCKET` + the shared `Loading`/`ErrorState`/`Empty` states. Also replaces the
-  disabled "Editar categoría"/"Clasificar" placeholders (single control for both flows).
-- [ ] **T6.8** `[test]` Component test `ResumenScreen`: clicking a pie slice/legend entry swaps
-  the right panel to show **only** the clicked bucket's transactions (revert assertion, WCAT-01);
-  a bucket with zero transactions this period renders the existing empty state (WCAT-03); the
-  whole-period-empty state still renders before any bucket is selected (WCAT-03).
-- [ ] **T6.9** `[impl]` Revert `ResumenScreen.tsx`: pie/legend click sets `bucketElegido` back to
-  its US-017 "selected bucket" meaning; right panel renders
-  `<BucketCategoriasList bucket={bucketElegido} periodo=... />`; `null` selection → neutral
-  "elegí un bucket del gráfico" prompt; retire `TransaccionesAgrupadas` usage from this screen.
-  (WCAT-01, WCAT-03)
-- [ ] **T6.10** `[impl, optional]` Consolidate the standalone `/buckets/:bucket` route to reuse
-  `BucketCategoriasList` instead of the flat `BucketDetailList` (design open question Q3 — DRY
-  consolidation, not required by any WCAT scenario; skip if it risks the slice's line budget,
-  see Review Workload Forecast).
+  disable itself. — **S6b**.
+- [~] **T6.6** `[test]` Component test (grouping half done, `BucketDetailList.test.tsx`): renders
+  one heading per categoría present (nombre · subtotal · conteo) plus "Sin categoría" when
+  applicable; group heading level demotes correctly relative to `headingLevel`. Reclassify
+  `<select>` half (WCAT-04/05: accessible label, disabled-while-pending, failed-reclassify
+  leaves the row in place) — **S6b**.
+- [~] **T6.7** `[impl]` (grouping half done, in `BucketDetailList.tsx`, not a new
+  `BucketCategoriasList.tsx` — see deviation note above): renders group heading (`h2`/`h3`
+  depending on `headingLevel`) + rows per group, reuses `ETIQUETA_BUCKET` +
+  `Loading`/`ErrorState`/`Empty`. Per-row reclassify `<select>` (replacing the two disabled
+  placeholders) — **S6b**.
+- [x] **T6.8** `[test]` Already satisfied by the PRE-EXISTING `ResumenScreen.test.tsx` (no
+  revert happened, see deviation note): "clicking a different legend/slice row switches the
+  transactions panel to that bucket" (WCAT-01) + `BucketDetailList`'s own empty-state test
+  (WCAT-03) + `ResumenScreen`'s null-selection skip (no panel rendered) already cover this.
+  Reconfirmed green after S6a's `BucketDetailList` changes (`pnpm web test`: 284/284).
+- [x] **T6.9** `[impl]` N/A — no revert needed (see deviation note above); `ResumenScreen.tsx`
+  untouched this session, still renders `<BucketDetailList bucket={bucketSeleccionado} .../>`
+  for its panel.
+- [x] **T6.10** `[impl, optional]` N/A — moot, `BucketDetailList` already serves both the
+  dashboard panel and the standalone `/buckets/:bucket` route (no separate
+  `BucketCategoriasList` was created).
 - [ ] **T6.11** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web build` green;
   manual a11y spot-check of the full keyboard-only reclassify flow (WCAT-05 scenario: tab to a
   row's control, activate with Enter/Space, select a categoría via keyboard, confirm the
-  reclassify completes and the resumen/pie updates).
+  reclassify completes and the resumen/pie updates). — S6a portion (test/typecheck/build) DONE
+  this session (`pnpm web test` 284/284, `pnpm web typecheck` clean, `pnpm web build` OK); the
+  a11y spot-check of the reclassify flow itself needs the `<select>` control — **S6b**.
 
 ---
 
