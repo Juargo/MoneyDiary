@@ -62,11 +62,11 @@ Chain strategy: feature-branch-chain
 
 ## PR 2 — UI (`apps/web` + `apps/landing`)
 
-- [ ] 2.1 Add `esDemo: boolean` to `MeDto` in `apps/web/src/api/types.ts`; update `esMeDto` guard in `apps/web/src/api/auth.ts`
-- [ ] 2.2 Create `apps/web/src/components/DemoBanner.tsx` — sticky dismissable banner with CTA, reads `esDemo` from auth context
-- [ ] 2.3 Modify `apps/web/src/routes/_authenticated.tsx` — render `<DemoBanner>` when `esDemo` is true
-- [ ] 2.4 Update `apps/landing/src/config.ts` — `PROBAR.url` → `${APP.url}/api/auth/demo`
-- [ ] 2.5 Test `DemoBanner` with Vitest + Testing Library — visible for demo, hidden for real, dismiss works
+- [x] 2.1 Add `esDemo: boolean` to `MeDto` in `apps/web/src/api/types.ts`; update `esMeDto` guard in `apps/web/src/api/auth.ts`
+- [x] 2.2 Create `apps/web/src/components/DemoBanner.tsx` — sticky dismissable banner with CTA, reads `esDemo` from auth context
+- [x] 2.3 Modify `apps/web/src/routes/_authenticated.tsx` — render `<DemoBanner>` when `esDemo` is true
+- [x] 2.4 Update `apps/landing/src/config.ts` — `PROBAR.url` → `${APP.url}/api/auth/demo`
+- [x] 2.5 Test `DemoBanner` with Vitest + Testing Library — visible for demo, hidden for real, dismiss works
 
 ## Blockers
 
