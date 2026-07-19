@@ -46,11 +46,11 @@ function mockQuery(
   } as UseQueryResult<ResumenMesDto, ApiError>
 }
 
-// The data state renders `ResumenScreen`, which embeds `BucketDetailList`
-// for its transactions panel (US-030 Slice B) — that owns its own
-// `useDetalleBucket` query, which throws outside a `QueryClientProvider`.
-// Only the data-state tests below need this wrapper; loading/error/empty
-// never reach `ResumenScreen`.
+// The data state renders `ResumenScreen`, which embeds `TransaccionesAgrupadas`
+// for its transactions panel (Slice 2 of `group-transactions-by-category`)
+// — that owns its own `useMovimientos` query, which throws outside a
+// `QueryClientProvider`. Only the data-state tests below need this wrapper;
+// loading/error/empty never reach `ResumenScreen`.
 function crearQueryWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -59,9 +59,10 @@ function crearQueryWrapper() {
 }
 
 // US-030 Slice C: the data state now also renders `ResumenAnual`
-// (self-fetching `/api/resumen/anual`, like `BucketDetailList` self-fetches
-// `/api/buckets/:bucket`) — branch the mock by URL so both queries resolve.
-function mockFetchDetalleBucket() {
+// (self-fetching `/api/resumen/anual`, like `TransaccionesAgrupadas`
+// self-fetches `/api/movimientos`) — branch the mock by URL so both
+// queries resolve.
+function mockFetchMovimientos() {
   const fetchMock = vi.fn((url: string) => {
     if (url.startsWith('/api/resumen/anual')) {
       return Promise.resolve({
@@ -92,7 +93,7 @@ function mockFetchDetalleBucket() {
       json: () =>
         Promise.resolve({
           periodo: '2026-07',
-          bucket: 'Necesidades',
+          totalTransacciones: 1,
           transacciones: [
             {
               id: 'tx-1',
@@ -103,6 +104,7 @@ function mockFetchDetalleBucket() {
               banco: 'BancoEstado',
               tipoCuenta: 'CuentaRUT',
               numeroCuenta: '12345678',
+              bucket: 'Necesidades',
             },
           ],
         }),
@@ -113,7 +115,7 @@ function mockFetchDetalleBucket() {
 }
 
 function renderData(ui: ReactElement) {
-  mockFetchDetalleBucket()
+  mockFetchMovimientos()
   return render(ui, { wrapper: crearQueryWrapper() })
 }
 
@@ -169,11 +171,10 @@ describe('ResumenPage', () => {
     expect(screen.getByText('Gustos')).toBeInTheDocument()
     expect(screen.getAllByText('Ahorro').length).toBeGreaterThan(0)
     expect(screen.getByTestId('semaforo-global')).toBeInTheDocument()
-    // Two <h2>s now coexist (BucketDetailList's own + ResumenAnual's title,
-    // US-030 Slice C) — disambiguate by name instead of `getByRole` alone.
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 2, name: 'Necesidades' })).toBeInTheDocument(),
-    )
+    // The grouped panel (`TransaccionesAgrupadas`) renders its own <h3> group
+    // heading alongside ResumenAnual's <h2> title (US-030 Slice C).
+    await waitFor(() => expect(screen.getByText('Supermercado')).toBeInTheDocument())
+    expect(screen.getByRole('heading', { level: 3, name: /Necesidades/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Resumen Anual 2026' })).toBeInTheDocument()
   })
 

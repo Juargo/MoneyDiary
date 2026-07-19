@@ -3,7 +3,7 @@ import { IngresoCard } from './IngresoCard'
 import { SemaforoBadge } from './SemaforoBadge'
 import { DistribucionPie } from './DistribucionPie'
 import { LeyendaGasto } from './LeyendaGasto'
-import { BucketDetailList } from './BucketDetailList'
+import { TransaccionesAgrupadas } from './TransaccionesAgrupadas'
 import { ResumenAnual } from './ResumenAnual'
 import type { LeyendaTajada } from './LeyendaGasto'
 import type { ResumenViewModel } from '@/domain/resumen-view-model'
@@ -12,63 +12,62 @@ import { anioDePeriodo } from '@/domain/periodo-anual'
 const BUCKET_SIN_CATEGORIA = 'SinCategoria'
 
 /**
- * Dashboard body (US-030 Slice B, tasks 30.9/30.10): income header + a
- * 2-column section — left "Distribución del gasto" card (pie + legend, with
- * the GLOBAL semáforo in its header) and right the selected bucket's
- * transactions panel — 2 columns on desktop (`lg:` breakpoint), stacked on
- * mobile, same components either way (plain Tailwind grid, no separate
- * mobile/desktop component trees).
+ * Dashboard body (US-030 Slice B; grouped panel per `group-transactions-by-
+ * category` Slice 2, design.md D4/D5): income header + a 2-column section —
+ * left "Distribución del gasto" card (pie + legend, with the GLOBAL
+ * semáforo in its header) and right the ALWAYS-VISIBLE grouped transactions
+ * panel (`TransaccionesAgrupadas`) — 2 columns on desktop (`lg:` breakpoint),
+ * stacked on mobile, same components either way (plain Tailwind grid, no
+ * separate mobile/desktop component trees).
  *
- * Evolves `apps/mobile/src/components/ResumenScreen.tsx`'s data composition:
- * the OLD per-bucket `<Link to="/buckets/$bucket">` breakdown list is GONE
- * (task 30.9) — the pie + legend now represent that split, and picking a
- * bucket shows its transactions INLINE (right panel) instead of navigating
- * away. The standalone `/buckets/:bucket` route (`BucketDetailList` reused
- * directly, `headingLevel="h2"` here) still exists for deep links; this
- * screen just no longer points at it.
+ * The right panel shows every non-empty category group AT ONCE (WG-01) —
+ * there is no more "one bucket selected at a time" state. Picking a pie
+ * slice/legend entry does NOT swap the panel; it scrolls to and highlights
+ * that category's group instead (WG-05, see `TransaccionesAgrupadas`'s own
+ * docstring for the scroll/focus mechanics). The standalone
+ * `/buckets/:bucket` route (`BucketDetailList`) still exists, UNCHANGED, for
+ * deep links — this screen just no longer points at it (spec W3-01).
  *
- * `bucketSeleccionado` (task 30.10): local interaction state, defaulting to
- * `viewModel.bucketPorDefecto` (the bucket with the largest total among the
- * 4 — computed once in the view-model, BigInt-safe) until the user picks one
- * explicitly. `useState<string | null>(null)` + `??` distinguishes "nothing
- * chosen yet" from an explicit choice without recomputing a default guess on
- * every render.
+ * `bucketElegido` (repurposed from "selected bucket" to "highlight target",
+ * design.md D5): local interaction state, `null` until the user clicks a
+ * pie slice/legend row. There is no more default-bucket guess — the whole
+ * grouped list is always visible, so `null` simply means "no highlight yet"
+ * (list rests at the top); `viewModel.bucketPorDefecto` is left unused by
+ * this screen (other consumers/tests of the view-model are untouched).
  *
- * FIX 5: an explicit selection must NOT leak across months — the `useEffect`
- * below resets `bucketElegido` to `null` whenever `viewModel.periodo`
- * changes, so a newly-loaded month always starts at ITS OWN default bucket.
- *
- * FIX 4: `bucketPorDefecto` is `string | null` (`null` only if the backend
- * ever sent an empty `buckets` array — defensive, not expected today). The
- * transactions panel only renders once there is a selected bucket, so a
- * `null` default never reaches `BucketDetailList` (which requires `string`).
+ * FIX 5: a highlight must NOT leak across months — the `useEffect` below
+ * resets `bucketElegido` to `null` whenever `viewModel.periodo` changes, so
+ * a newly-loaded month always starts with nothing highlighted.
  *
  * Container-presentational split (CLAUDE.md): `DistribucionPie`/
  * `LeyendaGasto` stay pure props-in — this screen is the only thing that
- * owns the selection state and wires `onSelectBucket` to both. The right
- * panel is `BucketDetailList` unmodified except for the heading-level prop —
- * it owns ITS OWN `useDetalleBucket` query (established pattern, see its own
- * docstring), so this screen never touches bucket-detail data directly.
+ * owns the highlight-target state and wires `onSelectBucket` to both (their
+ * `aria-pressed`/interactive contract is unchanged, only its downstream
+ * EFFECT is). The right panel is `TransaccionesAgrupadas`, which owns ITS
+ * OWN `useMovimientos` query (established pattern, see its own docstring) —
+ * this screen never touches movimientos data directly, only forwards
+ * `periodo` + `bucketResaltado`.
  *
  * SinCategoria is deliberately NOT one of the pie's 3 slices
  * (`distribucionGasto` excludes it, `domain/distribucion-gasto.ts`) but MUST
  * stay reachable — it's appended to the legend's entries with no `porcentaje`
  * (task 30.10), so it renders as a selectable row without a misleading
- * share-of-spending percent.
+ * share-of-spending percent. Its group is still highlightable via the same
+ * `bucketResaltado` wiring even though it has no pie slice.
  *
  * The annual 50/30/20 summary (US-030 Slice C, task 30.12) renders BELOW the
  * 2-column section — `ResumenAnual` is self-contained (owns its own
- * `useResumenAnual` query, like `BucketDetailList` owns `useDetalleBucket`),
- * so this screen only derives its `anio` from the CURRENT `viewModel.periodo`
- * (`anioDePeriodo`) and forwards `onPeriodoChange` — the SAME callback
- * `ResumenPage` already threads from the router's `Route.useNavigate()` for
- * `PeriodoSelector`, reused verbatim rather than inventing a second
- * period-setting path. Clicking a month in the grid just calls it with that
- * month's `periodo`.
+ * `useResumenAnual` query, like `TransaccionesAgrupadas` owns
+ * `useMovimientos`), so this screen only derives its `anio` from the CURRENT
+ * `viewModel.periodo` (`anioDePeriodo`) and forwards `onPeriodoChange` — the
+ * SAME callback `ResumenPage` already threads from the router's
+ * `Route.useNavigate()` for `PeriodoSelector`, reused verbatim rather than
+ * inventing a second period-setting path. Clicking a month in the grid just
+ * calls it with that month's `periodo`.
  *
  * A11y (ADR-018): this is the data screen's single page-level `<h1>` — kept
  * visually hidden (`sr-only`); "Distribución del gasto" stays the visible
- * subheading. `BucketDetailList`'s own heading demotes to `<h2>` so this
+ * subheading. `TransaccionesAgrupadas`'s group headings are `<h3>` so this
  * stays the ONLY `<h1>` even though its transactions panel is embedded here.
  */
 export function ResumenScreen({
@@ -80,13 +79,11 @@ export function ResumenScreen({
 }) {
   const [bucketElegido, setBucketElegido] = useState<string | null>(null)
 
-  // FIX 5: reset the explicit selection when the month changes — otherwise
-  // the OLD month's choice would leak into the new month's panel.
+  // FIX 5: reset the highlight target when the month changes — otherwise
+  // the OLD month's highlight would leak into the new month's panel.
   useEffect(() => {
     setBucketElegido(null)
   }, [viewModel.periodo])
-
-  const bucketSeleccionado = bucketElegido ?? viewModel.bucketPorDefecto
 
   const entradasLeyenda: ReadonlyArray<LeyendaTajada> = [
     ...viewModel.distribucionGasto,
@@ -112,25 +109,18 @@ export function ResumenScreen({
           <DistribucionPie
             tajadas={viewModel.distribucionGasto}
             targets={viewModel.targets}
-            bucketSeleccionado={bucketSeleccionado}
+            bucketSeleccionado={bucketElegido}
             onSelectBucket={setBucketElegido}
           />
           <LeyendaGasto
             tajadas={entradasLeyenda}
-            bucketSeleccionado={bucketSeleccionado}
+            bucketSeleccionado={bucketElegido}
             onSelectBucket={setBucketElegido}
           />
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          {/* FIX 4: `bucketSeleccionado` is only `null` when `bucketPorDefecto`
-              was `null` (empty `buckets` from the backend) AND the user hasn't
-              picked one — defensive, not expected today. Skip the panel
-              instead of passing `null` where `BucketDetailList` requires a
-              `string`. */}
-          {bucketSeleccionado && (
-            <BucketDetailList bucket={bucketSeleccionado} periodo={viewModel.periodo} headingLevel="h2" />
-          )}
+          <TransaccionesAgrupadas periodo={viewModel.periodo} bucketResaltado={bucketElegido} />
         </div>
       </div>
 

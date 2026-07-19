@@ -5,14 +5,16 @@ import { vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { ResumenScreen } from './ResumenScreen'
 import type { ResumenViewModel } from '@/domain/resumen-view-model'
-import type { DetalleBucketDto, ResumenAnualDto } from '@/api/types'
+import type { MovimientosMesDto, ResumenAnualDto } from '@/api/types'
 
-// US-030 Slice B (tasks 30.9/30.10): the dashboard body. The old per-bucket
-// `<Link>` breakdown list is gone — the pie + legend now represent that
-// split, and the right panel shows the SELECTED bucket's transactions
-// inline (via `BucketDetailList`, which owns its own `useDetalleBucket`
-// query) instead of navigating away. A `QueryClientProvider` wrapper (not a
-// router) is what these tests need now.
+// Slice 2 of `group-transactions-by-category`: the right panel now always
+// shows ALL non-empty category groups at once (`TransaccionesAgrupadas`,
+// design.md D5) instead of one bucket at a time (`BucketDetailList`).
+// Clicking a pie slice/legend entry scrolls to and highlights that group
+// instead of swapping the panel — see `TransaccionesAgrupadas.spec.tsx` for
+// the scroll/focus mechanics themselves; this file only asserts the wiring
+// (bucketElegido → bucketResaltado) and that the panel never narrows to a
+// single bucket.
 const viewModel: ResumenViewModel = {
   periodo: '2026-07',
   totalIngreso: '$1.000.000',
@@ -28,8 +30,6 @@ const viewModel: ResumenViewModel = {
     { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
   ],
-  // Necesidades has the largest raw total among the 4 buckets — the
-  // dashboard's default transactions-panel selection (task 30.10).
   bucketPorDefecto: 'Necesidades',
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
@@ -74,22 +74,61 @@ function mesConDatos(periodo: string): ResumenAnualDto['meses'][number] {
   }
 }
 
+function movimientosDto(): MovimientosMesDto {
+  return {
+    periodo: '2026-07',
+    totalTransacciones: 3,
+    transacciones: [
+      {
+        id: 'tx-necesidades',
+        fecha: '2026-07-15T00:00:00.000Z',
+        descripcion: 'Movimiento de Necesidades',
+        cargo: '1000',
+        abono: '0',
+        banco: 'BancoEstado',
+        tipoCuenta: 'CuentaRUT',
+        numeroCuenta: '12345678',
+        bucket: 'Necesidades',
+      },
+      {
+        id: 'tx-deseos',
+        fecha: '2026-07-16T00:00:00.000Z',
+        descripcion: 'Movimiento de Deseos',
+        cargo: '2000',
+        abono: '0',
+        banco: 'BCI',
+        tipoCuenta: 'Corriente',
+        numeroCuenta: '87654321',
+        bucket: 'Deseos',
+      },
+      {
+        id: 'tx-sincategoria',
+        fecha: '2026-07-17T00:00:00.000Z',
+        descripcion: 'Movimiento de SinCategoria',
+        cargo: '3000',
+        abono: '0',
+        banco: 'Santander',
+        tipoCuenta: 'Corriente',
+        numeroCuenta: '11223344',
+        bucket: 'SinCategoria',
+      },
+    ],
+  }
+}
+
 /**
- * Mocks `fetch` for both `/api/buckets/:bucket` (returning a bucket-specific
- * transaction so tests can tell WHICH bucket the transactions panel actually
- * fetched, purely by asserting on rendered text) AND `/api/resumen/anual`
- * (US-030 Slice C — `ResumenScreen` now also renders `ResumenAnual`, which
- * self-fetches). The annual DTO here is all-`sinIngreso` (renders the Empty
- * state) — this file's tests are about the 2-column section, not the annual
- * grid (see `ResumenAnual.test.tsx` for that).
+ * Mocks `fetch` for `/api/movimientos` (the grouped panel's own data source,
+ * Slice 2) AND `/api/resumen/anual` (US-030 Slice C — `ResumenAnual`
+ * self-fetches). Returns the SAME fixed movimientos set regardless of
+ * `periodo` — this file tests the pie/legend → highlight wiring, not
+ * period-specific data (see `TransaccionesAgrupadas.spec.tsx`/
+ * `agrupar-movimientos-por-bucket.spec.ts` for grouping/data behavior).
  */
-function mockFetchPorBucket() {
+function mockFetchMovimientos() {
   const fetchMock = vi.fn((url: string) => {
     if (url.startsWith('/api/resumen/anual')) {
       const dto: ResumenAnualDto = {
         anio: 2026,
-        // Only January has data — enough to exercise the clickable-month
-        // path without adding noise to this file's 2-column-section tests.
         meses: Array.from({ length: 12 }, (_, i) => {
           const periodo = `2026-${String(i + 1).padStart(2, '0')}`
           return i === 0 ? mesConDatos(periodo) : mesSinDatos(periodo)
@@ -97,25 +136,7 @@ function mockFetchPorBucket() {
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(dto) })
     }
-    const match = /\/api\/buckets\/([^/?]+)/.exec(url)
-    const bucket = match ? decodeURIComponent(match[1]) : 'desconocido'
-    const dto: DetalleBucketDto = {
-      periodo: '2026-07',
-      bucket,
-      transacciones: [
-        {
-          id: `tx-${bucket}`,
-          fecha: '2026-07-15T00:00:00.000Z',
-          descripcion: `Movimiento de ${bucket}`,
-          cargo: '1000',
-          abono: '0',
-          banco: 'BancoEstado',
-          tipoCuenta: 'CuentaRUT',
-          numeroCuenta: '12345678',
-        },
-      ],
-    }
-    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(dto) })
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(movimientosDto()) })
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
@@ -132,31 +153,21 @@ describe('ResumenScreen', () => {
   })
 
   it('renders totalIngreso formatted exactly as received (spec W1-01)', () => {
-    mockFetchPorBucket()
+    mockFetchMovimientos()
     renderScreen()
     expect(screen.getByText('$1.000.000')).toBeInTheDocument()
   })
 
-  // A11y (ADR-018): the document must start at a page-level <h1> instead of
-  // jumping straight to <h2> — a broken heading outline confuses assistive
-  // technology users navigating by heading. Reusing `BucketDetailList` for
-  // the right panel must not introduce a SECOND <h1> (it demotes to <h2>).
   it('renders exactly one page-level <h1> heading', async () => {
-    mockFetchPorBucket()
+    mockFetchMovimientos()
     renderScreen()
     await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
-  // "Necesidades"/"Gustos"/"Ahorro" are each selectable in TWO places (pie
-  // slice + legend row, both wired to the same `onSelectBucket`) — hence
-  // `getAllByRole` here. "Sin categoría" has no pie slice (excluded from
-  // `distribucionGasto` by design), only a legend row.
   it('renders the "Distribución del gasto" pie + legend, with SinCategoria selectable though outside the pie (spec W1-02, task 30.9/30.10)', () => {
-    mockFetchPorBucket()
+    mockFetchMovimientos()
     renderScreen()
-    // FIX 2 (WCAG 4.1.2): the interactive main pie is a "group", not an
-    // "img" — role="img" would flatten the slice buttons below it.
     expect(screen.getByRole('group', { name: 'Distribución del gasto' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Necesidades' })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Gustos' })).toHaveLength(2)
@@ -165,82 +176,98 @@ describe('ResumenScreen', () => {
   })
 
   it('renders the global semáforo (spec W2-01) with a distinct testID anchor', () => {
-    mockFetchPorBucket()
+    mockFetchMovimientos()
     renderScreen()
     expect(screen.getByTestId('semaforo-global')).toBeInTheDocument()
     expect(screen.getAllByRole('img', { name: 'Verde' }).length).toBeGreaterThan(0)
   })
 
-  it('defaults the transactions panel to the bucket with the largest total (task 30.10)', async () => {
-    mockFetchPorBucket()
+  // WG-01/WG-05: the panel is the ALWAYS-VISIBLE grouped list — it never
+  // narrows to a single bucket, before or after a pie/legend click.
+  it('shows every non-empty category group at once, with no group highlighted before any selection', async () => {
+    mockFetchMovimientos()
     renderScreen()
 
     await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
-    for (const boton of screen.getAllByRole('button', { name: 'Necesidades' })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'true')
-    }
-  })
+    expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument()
+    expect(screen.getByText('Movimiento de SinCategoria')).toBeInTheDocument()
 
-  it('clicking a different legend/slice row switches the transactions panel to that bucket', async () => {
-    mockFetchPorBucket()
-    renderScreen()
-    await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
-
-    // Click the legend row (last of the two "Gustos" controls in DOM order —
-    // pie slice, then legend).
-    const botonesGustos = screen.getAllByRole('button', { name: 'Gustos' })
-    fireEvent.click(botonesGustos[botonesGustos.length - 1])
-
-    await waitFor(() => expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument())
-    for (const boton of screen.getAllByRole('button', { name: 'Gustos' })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'true')
-    }
     for (const boton of screen.getAllByRole('button', { name: 'Necesidades' })) {
       expect(boton).toHaveAttribute('aria-pressed', 'false')
     }
   })
 
-  it('SinCategoria is selectable via the legend even though it has no pie slice', async () => {
-    mockFetchPorBucket()
+  it('clicking a legend/slice row highlights that group WITHOUT removing the others from the panel (WG-05)', async () => {
+    mockFetchMovimientos()
+    renderScreen()
+    await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
+
+    const botonesGustos = screen.getAllByRole('button', { name: 'Gustos' })
+    fireEvent.click(botonesGustos[botonesGustos.length - 1])
+
+    // The panel still shows every group — it did NOT swap to Deseos alone.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Gustos/ }).closest('section')).toHaveAttribute(
+        'aria-current',
+        'true',
+      ),
+    )
+    expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument()
+    expect(screen.getByText('Movimiento de SinCategoria')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Necesidades/ }).closest('section')).not.toHaveAttribute(
+      'aria-current',
+    )
+
+    for (const boton of screen.getAllByRole('button', { name: 'Gustos' })) {
+      expect(boton).toHaveAttribute('aria-pressed', 'true')
+    }
+  })
+
+  it('SinCategoria is selectable via the legend even though it has no pie slice, highlighting its group', async () => {
+    mockFetchMovimientos()
     renderScreen()
     await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: 'Sin categoría' }))
 
-    await waitFor(() => expect(screen.getByText('Movimiento de SinCategoria')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Sin categoría/ }).closest('section')).toHaveAttribute(
+        'aria-current',
+        'true',
+      ),
+    )
   })
 
-  // FIX 5: an explicit selection must not leak into the next month — when
-  // `periodo` changes, the panel resets to THAT month's own default bucket.
-  it('resets the bucket selection to the new month\'s own default when periodo changes (FIX 5)', async () => {
-    mockFetchPorBucket()
+  // FIX 5: an explicit highlight must not leak into the next month — when
+  // `periodo` changes, the highlight resets to "nothing selected".
+  it("resets the highlighted group when periodo changes (FIX 5)", async () => {
+    mockFetchMovimientos()
     const { rerender } = renderScreen()
     await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
 
-    // Explicit selection away from the default.
     const botonesGustos = screen.getAllByRole('button', { name: 'Gustos' })
     fireEvent.click(botonesGustos[botonesGustos.length - 1])
-    await waitFor(() => expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Gustos/ }).closest('section')).toHaveAttribute(
+        'aria-current',
+        'true',
+      ),
+    )
 
-    // periodo changes — the new month's default bucket is Ahorro this time.
-    const nuevoViewModel: ResumenViewModel = { ...viewModel, periodo: '2026-08', bucketPorDefecto: 'Ahorro' }
+    const nuevoViewModel: ResumenViewModel = { ...viewModel, periodo: '2026-08' }
     rerender(<ResumenScreen viewModel={nuevoViewModel} onPeriodoChange={vi.fn()} />)
 
-    await waitFor(() => expect(screen.getByText('Movimiento de Ahorro')).toBeInTheDocument())
-    for (const boton of screen.getAllByRole('button', { name: 'Ahorro' })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'true')
-    }
+    await waitFor(() => expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: /Gustos/ })?.closest('section')).not.toHaveAttribute(
+      'aria-current',
+    )
     for (const boton of screen.getAllByRole('button', { name: 'Gustos' })) {
       expect(boton).toHaveAttribute('aria-pressed', 'false')
     }
   })
 
-  // US-030 Slice C (task 30.12): the annual grid renders below the 2-column
-  // section, deriving its year from the currently selected periodo and
-  // reusing the SAME period-setting path (`onPeriodoChange`) the dashboard
-  // already threads from the route — no new navigation mechanism.
   it('renders the annual summary below, deriving the year from the selected periodo', async () => {
-    mockFetchPorBucket()
+    mockFetchMovimientos()
     renderScreen()
 
     await waitFor(() => expect(screen.getByText('Resumen Anual 2026')).toBeInTheDocument())
@@ -248,7 +275,7 @@ describe('ResumenScreen', () => {
 
   it('wires ResumenAnual month clicks to the same onPeriodoChange callback', async () => {
     const onPeriodoChange = vi.fn()
-    mockFetchPorBucket()
+    mockFetchMovimientos()
     renderScreen(viewModel, onPeriodoChange)
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' })
