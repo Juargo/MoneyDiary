@@ -260,6 +260,40 @@ describe('ReclasificarCategoriaControl', () => {
     )
   })
 
+  it('a SinCategoria row shows the confirmation with source "Sin categoría" and the destination bucket, commits only on confirm', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dtoDestino) })
+    const user = userEvent.setup()
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-2"
+        descripcion="Transferencia recibida"
+        montoLabel="$7.500"
+        bucketActual="SinCategoria"
+        categoriaActual={null}
+        periodo="2026-07"
+      />,
+      { wrapper: crearWrapper() },
+    )
+
+    const select = screen.getByLabelText('Cambiar categoría de Transferencia recibida') as HTMLSelectElement
+    await user.selectOptions(select, 'Transporte')
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Esto mueve $7.500 de Sin categoría a Necesidades')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/transacciones/tx-2/categoria',
+        expect.objectContaining({ body: JSON.stringify({ categoria: 'Transporte' }) }),
+      ),
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('on a failed reclassify, reverts the select and shows an error message (WCAT-04 failed scenario)', async () => {
     mockFetchOnce({ ok: false, status: 404 })
     const user = userEvent.setup()
