@@ -34,8 +34,10 @@ function etiqueta(bucket: string): string {
  * "Editar categoría" sin contexto); la confirmación es un `role="alertdialog"`
  * con foco movido a "Confirmar" al abrirse y devuelto al `<select>` al
  * cancelar — operable enteramente por teclado (botones nativos, sin ARIA de
- * dropdown custom). El control se DESHABILITA (no se oculta) mientras la
- * mutación está en curso.
+ * dropdown custom); Escape dentro del diálogo cancela igual que el botón
+ * "Cancelar" (sin foco-trap completo — innecesario para este widget inline
+ * por fila). El control se DESHABILITA (no se oculta) mientras la mutación
+ * está en curso.
  */
 export function ReclasificarCategoriaControl({
   transaccionId,
@@ -153,6 +155,11 @@ export function ReclasificarCategoriaControl({
         <div
           role="alertdialog"
           aria-label="Confirmar cambio de categoría"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              cancelar()
+            }
+          }}
           className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-sm"
         >
           <p>

@@ -294,6 +294,35 @@ describe('ReclasificarCategoriaControl', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('pressing Escape while the confirmation is open cancels it, reverts the select, fires no PATCH', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dtoDestino) })
+    const user = userEvent.setup()
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual="Delivery"
+        periodo="2026-07"
+      />,
+      { wrapper: crearWrapper() },
+    )
+
+    const select = screen.getByLabelText('Cambiar categoría de Uber Eats') as HTMLSelectElement
+    await user.selectOptions(select, 'Transporte')
+    await screen.findByRole('alertdialog')
+
+    // Focus moves to "Confirmar" when the dialog opens (WCAT-05); pressing
+    // Escape from there must still bubble up to the dialog's handler.
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(select.value).toBe('Delivery')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('on a failed reclassify, reverts the select and shows an error message (WCAT-04 failed scenario)', async () => {
     mockFetchOnce({ ok: false, status: 404 })
     const user = userEvent.setup()
