@@ -3,50 +3,66 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Inter first, self-hosted (@fontsource-variable/inter, imported once in
+   * main.tsx — no Google Fonts CDN). Keep the system fallback stack for a
+   * graceful degrade if the font fetch fails. */
+  --font-sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
 
   /*
-   * "Distribución del gasto" pie/legend bucket colors — DOM port of
-   * `apps/mobile/src/theme/colors.ts`. Registered as Tailwind 4 `@theme`
-   * tokens so they double as utility classes (`bg-necesidades`,
-   * `fill-gustos`, ...) AND as CSS vars (`var(--color-ahorro)`) for SVG
-   * `fill` attributes, which don't accept Tailwind classes directly. Keep in
-   * sync with `apps/web/src/lib/bucket-colors.ts`.
+   * "Distribución del gasto" pie/legend bucket colors — Serene Finance
+   * palette (WEB ONLY; diverges from `apps/mobile/src/theme/colors.ts` by
+   * product decision). Registered as Tailwind 4 `@theme` tokens so they
+   * double as utility classes (`bg-necesidades`, `fill-gustos`, ...) AND as
+   * CSS vars (`var(--color-ahorro)`) for SVG `fill` attributes, which don't
+   * accept Tailwind classes directly. Keep in sync with
+   * `apps/web/src/lib/bucket-colors.ts`. THESE ARE FILLS ONLY, never text —
+   * see the two-tier color rule below.
    */
-  --color-necesidades: #464b69;
-  --color-gustos: #e7e1bf;
-  --color-ahorro: #3e9b52;
+  --color-necesidades: #8fa7d1; /* soft blue — Necesidades */
+  --color-gustos: #b1a7d1; /* lavanda — Deseos/Gustos */
+  --color-ahorro: #e6d194; /* pastel yellow — Ahorro */
+  --color-exceso: #e88a8a; /* coral — over-budget state (currently unconsumed) */
 }
 
 /*
  * shadcn/ui design tokens (style: new-york, base color: slate — see
- * components.json). Only the tokens actually consumed by the components
- * installed so far (card, badge) are wired below — no chart or sidebar
- * tokens (YAGNI, add when a component needs them). `.dark` is inert until a theme
- * toggle exists (none in this slice); values come verbatim from the shadcn
- * registry (`theme-slate`) so future `npx shadcn add` runs stay consistent.
+ * components.json), remapped to the Serene Finance identity. Same variable
+ * *names* as before (consumers like `bg-card`/`text-muted-foreground`/
+ * `bg-primary` keep working) — only the resolved colors shift, per the
+ * "normalize to shadcn convention" decision (design.md §1) so the app never
+ * runs two parallel token systems. Only the tokens actually consumed by the
+ * components installed so far (card, badge) are wired below — no chart or
+ * sidebar tokens (YAGNI, add when a component needs them).
+ *
+ * Two-tier color rule (drives contrast): pastels (`--color-necesidades` /
+ * `--color-gustos` / `--color-ahorro` / `--color-exceso` above) are
+ * backgrounds/SVG-fills/dots ONLY — never text, never a button background
+ * with light text. Strong tones below (`--primary`/`--secondary`/
+ * `--foreground`) are for all text and any control needing a light
+ * foreground. `.dark` is inert until a theme toggle exists (none in this
+ * slice) — untouched by this restyle.
  */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 0.5rem; /* 8px default (was 0.625rem/10px) */
+  --background: #f9f9f9; /* surface — off-white */
+  --foreground: #1a1c1c; /* on-surface */
+  --card: #ffffff; /* surface-container-lowest */
+  --card-foreground: #1a1c1c;
+  --popover: #ffffff;
+  --popover-foreground: #1a1c1c;
+  --primary: #475f85; /* strong blue — buttons/heading TEXT (~6.5:1 on white) */
+  --primary-foreground: #ffffff;
+  --secondary: #61597f; /* strong lavanda — section subheads TEXT (~6.5:1) */
+  --secondary-foreground: #ffffff;
+  --muted: #f3f3f3; /* surface-container-low */
+  --muted-foreground: #44474e; /* on-surface-variant — sub-labels (~8.9:1) */
+  --accent: #eeeeee; /* surface-container */
+  --accent-foreground: #1a1c1c;
+  --destructive: #ba1a1a; /* error */
+  --border: #c4c6cf; /* outline-variant */
+  --input: #c4c6cf;
+  --ring: #1a1c1c; /* focus ring — dark, >=3:1 on any surface */
 }
 
 .dark {
