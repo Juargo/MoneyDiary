@@ -149,22 +149,32 @@ the NOT NULL tightening on any un-seeded row.
 Depends on: **S2** (needs the categoría-aware catalog + `{categoria, bucket}` classification).
 Sequential; all tests are gated (`ALLOW_DESTRUCTIVE_DB=1`) and must exist before the script does.
 
-- [ ] **T3.1** `[test]` Gated integration test: running the backfill twice yields identical DB
+- [x] **T3.1** `[test]` Gated integration test: running the backfill twice yields identical DB
   state (idempotency). (CAT-05)
-- [ ] **T3.2** `[test]` Gated integration test: `--dry-run` writes nothing and reports a summary
+- [x] **T3.2** `[test]` Gated integration test: `--dry-run` writes nothing and reports a summary
   (total rows, per-categoría counts, count of rows whose `bucketId` would change). (CAT-05)
-- [ ] **T3.3** `[test]` Gated integration test: a row with a non-null (manually set) `categoriaId`
+- [x] **T3.3** `[test]` Gated integration test: a row with a non-null (manually set) `categoriaId`
   is left untouched by a re-run (scope = `categoriaId IS NULL` only). (CAT-05)
-- [ ] **T3.4** `[test]` Unit/integration test: the script refuses to run without
+- [x] **T3.4** `[test]` Unit/integration test: the script refuses to run without
   `ALLOW_DESTRUCTIVE_DB=1` and rejects production connection strings (reuses `db-safety.ts`).
   (CAT-05)
-- [ ] **T3.5** `[impl]` Implement `apps/api/prisma/backfill-categorias.ts`: load the
+- [x] **T3.5** `[impl]` Implement `apps/api/prisma/backfill-categorias.ts`: load the
   categoría-aware catalog; select `Transaccion WHERE categoriaId IS NULL`; run
   `CategorizarTransaccionUseCase.execute` per row; write results grouped by `(categoria, bucket)`
   via `updateMany` inside a `$transaction`; `--dry-run` flag; `assertDestructiveDbAllowed` gate
   at the top (structured like `seed.ts`). (CAT-05)
 - [ ] **T3.6** `[verify]` Manual dry-run against local dev DB; review the printed summary
   (row/categoría counts + bucket-change preview) before considering this slice done.
+  **DEFERRED — human action required.** Per this session's explicit guardrail ("Do NOT apply
+  the backfill to any real DB. Do NOT set ALLOW_DESTRUCTIVE_DB."), no dry-run was executed
+  against any DB this session. A human must run
+  `ALLOW_DESTRUCTIVE_DB=1 pnpm --filter @moneydiary/api exec tsx prisma/backfill-categorias.ts --dry-run`
+  against a disposable/local dev DB and review the printed summary before this slice is
+  considered fully done. T3.1-T3.3's gated integration tests (`test/backfill-categorias.int-spec.ts`)
+  are also not executed this session for the same reason — same precedent as S1/S2's
+  `categorizacion.int-spec.ts` — but 11 pure-logic unit tests
+  (`src/infrastructure/persistence/backfill-categorias.spec.ts`) cover the same idempotency,
+  scope, and dry-run behavior against a fake Prisma client and ARE green.
 
 ## Slice S4 — Manual reclassify endpoint
 
