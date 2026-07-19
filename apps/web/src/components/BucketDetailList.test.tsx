@@ -122,4 +122,59 @@ describe('BucketDetailList', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /Editar categoría/ })).toBeDisabled())
     expect(screen.queryByRole('button', { name: /Clasificar/ })).not.toBeInTheDocument()
   })
+
+  // US-030 Slice B (task 30.10): the dashboard reuses this component verbatim
+  // for its transactions panel, but that panel sits inside a page that
+  // already has its own page-level <h1> — this component's own heading must
+  // demote to <h2> there so the page keeps exactly one <h1> (ADR-018).
+  // Defaults to 'h1' (unchanged) for the standalone `/buckets/:bucket` route.
+  it('demotes its own heading to h2 when headingLevel="h2" is passed (US-030 dashboard reuse)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
+
+    render(<BucketDetailList bucket="Necesidades" periodo="2026-07" headingLevel="h2" />, {
+      wrapper: crearWrapper(),
+    })
+
+    await waitFor(() => expect(screen.getByText('Necesidades')).toBeInTheDocument())
+    expect(screen.getByRole('heading', { level: 2, name: 'Necesidades' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+  })
+
+  it('defaults to h1 when headingLevel is not passed (standalone route, unchanged)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
+
+    render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Necesidades' })).toBeInTheDocument(),
+    )
+  })
+
+  // FIX 1: the heading must show the UI label ("Gustos"), never the raw
+  // domain bucket name ("Deseos") — the pie/legend already resolve this via
+  // ETIQUETA_BUCKET, this component was the one place that skipped it.
+  it('shows the UI label in the heading, not the raw domain bucket name (FIX 1)', async () => {
+    const deseosDto: DetalleBucketDto = {
+      periodo: '2026-07',
+      bucket: 'Deseos',
+      transacciones: [
+        {
+          id: 'tx-3',
+          fecha: '2026-07-10T00:00:00.000Z',
+          descripcion: 'Restaurante',
+          cargo: '15000',
+          abono: '0',
+          banco: 'BCI',
+          tipoCuenta: 'Corriente',
+          numeroCuenta: '11111111',
+        },
+      ],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(deseosDto) })
+
+    render(<BucketDetailList bucket="Deseos" periodo="2026-07" />, { wrapper: crearWrapper() })
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Gustos' })).toBeInTheDocument())
+    expect(screen.queryByText('Deseos')).not.toBeInTheDocument()
+  })
 })

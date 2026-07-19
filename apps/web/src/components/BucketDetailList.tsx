@@ -3,6 +3,7 @@ import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
 import { useDetalleBucket } from '@/api/use-detalle-bucket'
 import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model'
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors'
 
 const BUCKET_SIN_CATEGORIA = 'SinCategoria'
 
@@ -30,13 +31,21 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria'
  * cargo/abono render as two separate exact CLP amounts (spec W3-03), never
  * netted/subtracted — inventing a signed "net amount" would be new money
  * business logic this slice doesn't own (see detalle-bucket-view-model.ts).
+ *
+ * `headingLevel` (US-030 Slice B, task 30.10): defaults to `'h1'` for the
+ * standalone `/buckets/:bucket` route, where this IS the page's sole
+ * heading. The dashboard reuses this component verbatim for its
+ * transactions panel — passing `'h2'` there keeps the dashboard's own page
+ * heading the only `<h1>` (ADR-018), avoiding a duplicate.
  */
 export function BucketDetailList({
   bucket,
   periodo,
+  headingLevel = 'h1',
 }: {
   readonly bucket: string
   readonly periodo: string | undefined
+  readonly headingLevel?: 'h1' | 'h2'
 }) {
   const query = useDetalleBucket(bucket, periodo)
 
@@ -57,10 +66,13 @@ export function BucketDetailList({
 
   const viewModel = aDetalleBucketViewModel(query.data)
   const esSinCategoria = viewModel.bucket === BUCKET_SIN_CATEGORIA
+  const Heading = headingLevel
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold text-slate-900">{viewModel.bucket}</h1>
+      <Heading className="text-lg font-semibold text-slate-900">
+        {ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket}
+      </Heading>
       <ul className="flex flex-col gap-3">
         {viewModel.filas.map((fila) => (
           <li key={fila.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3">

@@ -5,6 +5,18 @@
 @theme {
   --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
+
+  /*
+   * "Distribución del gasto" pie/legend bucket colors — DOM port of
+   * `apps/mobile/src/theme/colors.ts`. Registered as Tailwind 4 `@theme`
+   * tokens so they double as utility classes (`bg-necesidades`,
+   * `fill-gustos`, ...) AND as CSS vars (`var(--color-ahorro)`) for SVG
+   * `fill` attributes, which don't accept Tailwind classes directly. Keep in
+   * sync with `apps/web/src/lib/bucket-colors.ts`.
+   */
+  --color-necesidades: #464b69;
+  --color-gustos: #e7e1bf;
+  --color-ahorro: #3e9b52;
 }
 
 /*
