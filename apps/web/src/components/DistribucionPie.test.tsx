@@ -53,7 +53,8 @@ describe('DistribucionPie', () => {
   it('applies the resolved color to each slice', () => {
     renderPie()
     const fills = screen.getAllByTestId('pie-slice').map((el) => el.getAttribute('fill'))
-    expect(fills).toEqual(['#464B69', '#E7E1BF', '#3E9B52'])
+    // Serene Finance palette: azul→Necesidades, lavanda→Gustos, amarillo→Ahorro.
+    expect(fills).toEqual(['#8FA7D1', '#B1A7D1', '#E6D194'])
   })
 
   it('renders the percent label on each slice', () => {
