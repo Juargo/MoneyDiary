@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Loading } from './states/Loading'
 import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
@@ -45,11 +45,23 @@ export function TransaccionesAgrupadas({
 }) {
   const query = useMovimientos(periodo)
   const refsPorGrupo = useRef(new Map<string, HTMLElement>())
+  // Last bucketResaltado this effect actually acted on (scrolled+focused).
+  // Guards against an unrelated re-render (e.g. a background refetch)
+  // re-firing the effect with the SAME target and yanking focus back —
+  // WCAG 2.4.3 predictable focus (the user never re-interacted).
+  const bucketResaltadoAnteriorRef = useRef<string | null>(null)
 
-  const grupos = query.data ? aMovimientosAgrupadosViewModel(query.data).grupos : []
+  const grupos = useMemo(
+    () => (query.data ? aMovimientosAgrupadosViewModel(query.data).grupos : []),
+    [query.data],
+  )
 
   useEffect(() => {
     if (bucketResaltado === null) {
+      bucketResaltadoAnteriorRef.current = null
+      return
+    }
+    if (bucketResaltado === bucketResaltadoAnteriorRef.current) {
       return
     }
     const el = refsPorGrupo.current.get(bucketResaltado)
@@ -58,6 +70,7 @@ export function TransaccionesAgrupadas({
       // period (no rendered group/ref) — degrade gracefully, no error.
       return
     }
+    bucketResaltadoAnteriorRef.current = bucketResaltado
     const prefiereMovimientoReducido =
       typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     el.scrollIntoView({ block: 'nearest', behavior: prefiereMovimientoReducido ? 'auto' : 'smooth' })

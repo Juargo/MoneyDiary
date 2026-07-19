@@ -136,6 +136,31 @@ describe('TransaccionesAgrupadas', () => {
     expect(scrollIntoViewMock).not.toHaveBeenCalled()
   })
 
+  it('does not re-steal focus or re-scroll on a re-render that does not change bucketResaltado', async () => {
+    mockFetch(dtoConGrupos)
+    const scrollIntoViewMock = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoViewMock
+
+    const { rerender } = renderPanel(null)
+    await waitFor(() => expect(screen.getByText('Cine')).toBeInTheDocument())
+
+    rerender(<TransaccionesAgrupadas periodo="2026-07" bucketResaltado="Deseos" />)
+
+    const heading = screen.getByRole('heading', { name: /Gustos/ })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1)
+
+    // Move focus away to simulate the user interacting elsewhere, then
+    // trigger a re-render with the SAME bucketResaltado value (e.g. an
+    // unrelated refetch) — the effect must not fire again and steal focus
+    // back or scroll again.
+    heading.blur()
+    rerender(<TransaccionesAgrupadas periodo="2026-07" bucketResaltado="Deseos" />)
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1)
+    expect(heading).not.toHaveFocus()
+  })
+
   it('honors prefers-reduced-motion by scrolling without a smooth animation (WG-06)', async () => {
     mockFetch(dtoConGrupos)
     const scrollIntoViewMock = vi.fn()
