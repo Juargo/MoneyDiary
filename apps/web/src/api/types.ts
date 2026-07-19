@@ -63,7 +63,11 @@ export interface DetalleBucketDto {
  * `AuthController#me` → `{ userId, email, esDemo }` (sin hash, sin token).
  *
  * `email` es `string | null` porque una cuenta demo (`esDemo: true`) nunca
- * tiene email (DEMO-AUTH-05) — un usuario real siempre trae `email: string`.
+ * tiene email (DEMO-AUTH-05) — un usuario real (`esDemo: false`) siempre
+ * trae `email: string`. Este invariante cruzado NO es solo documental: el
+ * type guard `esMeDto` (`api/auth.ts`) lo hace cumplir en runtime,
+ * rechazando fail-closed `{ esDemo: false, email: null }` (espejo del guard
+ * del backend en `buscarIdentidad`).
  */
 export interface MeDto {
   readonly userId: string

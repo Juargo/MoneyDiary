@@ -53,16 +53,24 @@ export async function postLogin(input: { email: string; password: string }): Pro
   return { ok: true, value: undefined }
 }
 
+// Fail-closed cross-field invariant (mirrors the backend guard restored in
+// `buscarIdentidad`, PR1): a real user (`esDemo=false`) MUST have
+// `email: string` — a `null` email on a non-demo account is rejected, not
+// silently accepted, even though it type-checks field-by-field. A demo user
+// (`esDemo=true`) is the only shape allowed to have `email: null`.
 function esMeDto(value: unknown): value is MeDto {
   if (typeof value !== 'object' || value === null) {
     return false
   }
   const candidato = value as Partial<MeDto>
-  return (
-    typeof candidato.userId === 'string' &&
-    (candidato.email === null || typeof candidato.email === 'string') &&
-    typeof candidato.esDemo === 'boolean'
-  )
+  if (
+    typeof candidato.userId !== 'string' ||
+    typeof candidato.esDemo !== 'boolean' ||
+    (candidato.email !== null && typeof candidato.email !== 'string')
+  ) {
+    return false
+  }
+  return candidato.esDemo ? true : typeof candidato.email === 'string'
 }
 
 export async function fetchMe(): Promise<ApiResult<MeDto>> {
