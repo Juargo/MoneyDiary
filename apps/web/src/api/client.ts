@@ -2,9 +2,11 @@ import type {
   BucketResumenDto,
   DetalleBucketDto,
   DetalleBucketTransaccionDto,
+  IngestaResponseDto,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
+  TransaccionResponseDto,
 } from './types'
 import { esMontoStringValido } from '../domain/formatear-monto'
 import { esFechaValida } from '../domain/detalle-bucket-view-model'
@@ -342,6 +344,128 @@ export async function postReclasificarCategoria(
   }
 
   if (!esReclasificarCategoriaDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+/**
+ * Guarda money-safety para `IngestaResponseDto` (`upload-cartola-ui`): mismo
+ * razonamiento que `esDetalleBucketTransaccionDto` — `cargo`/`abono` se
+ * validan con `esMontoStringValido` y `fecha` con `esFechaValida` antes de
+ * que cualquier cosa aguas abajo (`formatearMontoCLP`) toque el valor. Un
+ * 2xx que no cumpla la forma esperada se mapea a `ApiError` tipado (tag
+ * "parse"), nunca lanza.
+ */
+function esTransaccionResponseDto(value: unknown): value is TransaccionResponseDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<TransaccionResponseDto>
+  return (
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.cargo === 'string' &&
+    esMontoStringValido(candidato.cargo) &&
+    typeof candidato.abono === 'string' &&
+    esMontoStringValido(candidato.abono)
+  )
+}
+
+function esArchivoIngestaDto(value: unknown): value is IngestaResponseDto['archivo'] {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<IngestaResponseDto['archivo']>
+  return (
+    typeof candidato.nombre === 'string' &&
+    typeof candidato.extension === 'string' &&
+    typeof candidato.tamanoBytes === 'number'
+  )
+}
+
+function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<IngestaResponseDto>
+  return (
+    typeof candidato.ingestaId === 'string' &&
+    typeof candidato.banco === 'string' &&
+    typeof candidato.tipoCuenta === 'string' &&
+    typeof candidato.numeroCuenta === 'string' &&
+    esArchivoIngestaDto(candidato.archivo) &&
+    typeof candidato.totalTransacciones === 'number' &&
+    Array.isArray(candidato.transacciones) &&
+    candidato.transacciones.every(esTransaccionResponseDto)
+  )
+}
+
+/**
+ * postIngesta — POST /api/ingestas same-origin (upload-cartola-ui, design.md
+ * Decision 1/4). Envía `multipart/form-data` con el archivo bajo el campo
+ * `file` (backend `FileInterceptor('file')`) — sin fijar `Content-Type`
+ * manualmente, el browser genera el boundary del multipart; fijarlo a mano
+ * lo rompería.
+ *
+ * A diferencia de `fetchResumen`/`fetchDetalleBucket`, un 400 aquí NO se
+ * re-mapea a un mensaje fijo del cliente: el backend ya emite mensajes
+ * scrubbed en español para cada variante (banco no reconocido, estructura
+ * inválida, PDF sin texto, tamaño/extensión) y el cliente no puede
+ * distinguirlas entre sí desde un 400 solo — se pasa `body.message` verbatim
+ * (DRY, fuente única en el backend). Si el body no es legible, cae a un
+ * mensaje genérico.
+ */
+export async function postIngesta(file: File): Promise<ApiResult<IngestaResponseDto>> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  let res: Response
+  try {
+    res = await fetch('/api/ingestas', { method: 'POST', body: formData })
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 400) {
+    let body: unknown
+    try {
+      body = await res.json()
+    } catch {
+      return {
+        ok: false,
+        error: { tag: 'invalid', message: 'El archivo no se pudo procesar. Intenta nuevamente.' },
+      }
+    }
+    const mensaje = (body as { message?: unknown } | null)?.message
+    return {
+      ok: false,
+      error: {
+        tag: 'invalid',
+        message: typeof mensaje === 'string' ? mensaje : 'El archivo no se pudo procesar. Intenta nuevamente.',
+      },
+    }
+  }
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Tu sesión expiró. Inicia sesión de nuevo.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esIngestaResponseDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 

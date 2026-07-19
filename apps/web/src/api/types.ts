@@ -111,3 +111,34 @@ export interface ReclasificarCategoriaDto {
   readonly categoria: { readonly id: string; readonly nombre: string }
   readonly bucket: string
 }
+
+/**
+ * Mirror escrito a mano del DTO HTTP de `POST /api/ingestas`
+ * (`upload-cartola-ui`, design.md "Interfaces / contracts"). Fuente de
+ * verdad en el backend:
+ * `apps/api/src/infrastructure/http/dto/ingesta-response.dto.ts`.
+ *
+ * `cargo`/`abono` son strings decimales (BigInt-safe) y `fecha` es
+ * ISO-8601 (`toISOString()`) — misma disciplina que `DetalleBucketTransaccionDto`,
+ * nunca se parsean a number aquí.
+ */
+export interface TransaccionResponseDto {
+  readonly fecha: string
+  readonly descripcion: string
+  readonly cargo: string
+  readonly abono: string
+}
+
+export interface IngestaResponseDto {
+  readonly ingestaId: string
+  readonly banco: string
+  readonly tipoCuenta: string
+  readonly numeroCuenta: string
+  readonly archivo: {
+    readonly nombre: string
+    readonly extension: string
+    readonly tamanoBytes: number
+  }
+  readonly totalTransacciones: number
+  readonly transacciones: ReadonlyArray<TransaccionResponseDto>
+}
