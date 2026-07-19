@@ -18,6 +18,28 @@ export type ApiResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: ApiError };
 
+/**
+ * copiaPorApiError — the shared Spanish copy per `ApiError` tag (review
+ * readability fix #7, DRY): both `src/components/states/Error.tsx` (the
+ * resumen screen's error state) and `app/subir.tsx` (the upload screen's
+ * error state, whose `PostIngestaError` is a structural superset of
+ * `ApiError` — see `post-ingesta.ts`) rendered the exact same four strings
+ * independently. `subir.tsx` wraps this to add its one extra case: the
+ * backend's scrubbed `message` on a 400.
+ */
+export function copiaPorApiError(error: ApiError): string {
+  switch (error.tag) {
+    case 'network':
+      return 'Problema de conexión. Revisa tu internet e intenta de nuevo.';
+    case 'unauthorized':
+      return 'No se pudo verificar el acceso. Intenta de nuevo más tarde.';
+    case 'parse':
+      return 'Respuesta inesperada del servidor.';
+    case 'http':
+      return `Error del servidor (código ${error.status}).`;
+  }
+}
+
 /** Mirror of `POST /api/auth/login`'s success body (MOB-01, MOB-04). */
 export interface LoginResponseDto {
   readonly token: string;

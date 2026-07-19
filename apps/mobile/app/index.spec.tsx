@@ -9,7 +9,12 @@ import type { ResumenMesDto } from '../src/domain/resumen.types';
 const mockFetchResumen = jest.fn<Promise<ApiResult<ResumenMesDto>>, [string?]>();
 const mockPostLogout = jest.fn<Promise<ApiResult<void>>, []>();
 
+// `copiaPorApiError` is re-exported from the real module (review readability
+// fix #7, DRY): `src/components/states/Error.tsx` imports it from
+// `../../api/client`, so mocking this module without it would break the
+// error-state render with a "not a function" crash.
 jest.mock('../src/api/client', () => ({
+  ...jest.requireActual('../src/api/client'),
   fetchResumen: (periodo?: string) => mockFetchResumen(periodo),
   postLogout: () => mockPostLogout(),
 }));
@@ -29,6 +34,15 @@ jest.mock('../src/api/session-store', () => ({
 
 jest.mock('../src/api/session-context', () => ({
   useSession: () => ({ signOut: mockSignOut }),
+}));
+
+// "Subir cartola" entry affordance (B.7, upload-cartola-ui Slice 2b): the
+// screen navigates via expo-router's `useRouter().push`, mocked at the
+// module boundary — no real Router context is mounted in this unit test.
+const mockPush = jest.fn();
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
 }));
 
 // Deferred promise so the loading state is observable before resolution.
@@ -68,8 +82,13 @@ const emptyDto: ResumenMesDto = {
   estadoGlobal: null,
 };
 
-// Import after jest.mock is registered.
+// Import after jest.mock is registered. `resumen-refresh` is intentionally
+// NOT mocked here (unlike `app/subir.spec.tsx`) — the real pub/sub module is
+// exercised so the CU-10 end-to-end wiring (subir -> index refetch) has at
+// least one test asserting the actual registration/invocation, not just each
+// side mocking the other (review fix #1).
 import Index from './index';
+import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 
 describe('Index (4-state switch)', () => {
   beforeEach(() => {
@@ -77,6 +96,7 @@ describe('Index (4-state switch)', () => {
     mockPostLogout.mockReset();
     mockBorrarToken.mockReset().mockResolvedValue(undefined);
     mockSignOut.mockReset();
+    mockPush.mockReset();
   });
 
   it('shows the loading state while the request is in flight', async () => {
@@ -173,6 +193,65 @@ describe('Index (4-state switch)', () => {
 
       await waitFor(() => expect(mockBorrarToken).toHaveBeenCalled());
       expect(mockSignOut).toHaveBeenCalled();
+    });
+  });
+
+  describe('"Subir cartola" entry affordance (B.7)', () => {
+    it('navigates to /subir when pressed', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+
+      const trigger = screen.getByTestId('subir-cartola-button');
+      expect(trigger).toHaveProp('accessibilityRole', 'button');
+
+      fireEvent.press(trigger);
+
+      expect(mockPush).toHaveBeenCalledWith('/subir');
+    });
+  });
+
+  describe('resumen-refresh wiring (CU-10, real pub/sub — review fix #1)', () => {
+    it('re-fetches the resumen when the real solicitarRecargaResumen() is called', async () => {
+      mockFetchResumen
+        .mockResolvedValueOnce({ ok: true, value: dataDto })
+        .mockResolvedValueOnce({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      expect(mockFetchResumen).toHaveBeenCalledTimes(1);
+
+      // This is the REAL module — no jest.mock on '../src/api/resumen-refresh'
+      // in this file — exercising the actual registration `index.tsx` performs
+      // on mount, closing the end-to-end gap the review flagged.
+      await act(async () => {
+        solicitarRecargaResumen();
+      });
+
+      await waitFor(() => expect(mockFetchResumen).toHaveBeenCalledTimes(2));
+    });
+
+    it('unregisters its listener on unmount, so a subsequent solicitarRecargaResumen() does not refetch (review fix #2)', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      const view = await render(<Index />);
+      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      expect(mockFetchResumen).toHaveBeenCalledTimes(1);
+
+      // `unmount()` must run inside `act` so the effect cleanup (the
+      // unregister call returned from `registrarRecargaResumen`) actually
+      // flushes before the assertions below.
+      await act(async () => {
+        view.unmount();
+      });
+
+      solicitarRecargaResumen();
+
+      // Give any stray async work a tick, then assert no additional call
+      // reached the stale `cargar` from the unmounted screen.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockFetchResumen).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -229,7 +229,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
 ### Screen (test-first, jest-expo + RNTL — mirrors `app/index.tsx`'s
 `useState`-machine + `renderEstado` switch pattern, no TanStack Query)
 
-- [ ] **B.5** — `apps/mobile/app/subir.spec.tsx` (write first): cases —
+- [x] **B.5** — `apps/mobile/app/subir.spec.tsx` (write first): cases —
   - CU-08: the document-picker trigger is present with an `accessibilityRole`/`accessibilityLabel`
     (CU-12); mock `expo-document-picker` to assert it's invoked with a type filter restricted to
     `.xlsx`/`.pdf` MIME types (or the picker's equivalent `type` option).
@@ -247,7 +247,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
     same intent as W3.21's disabled-edit-placeholder assertion in the web bucket-detail list, but here
     the assertion is **absence**, not a disabled control, since mobile has zero editing UI to begin
     with).
-- [ ] **B.6** — `apps/mobile/app/subir.tsx`: plain `useState` machine `idle | subiendo | éxito | error`
+- [x] **B.6** — `apps/mobile/app/subir.tsx`: plain `useState` machine `idle | subiendo | éxito | error`
   (matches `app/index.tsx`'s hand-rolled switch, no TanStack Query per design Decision 5). Uses
   `expo-document-picker` filtered to `.xlsx`/`.pdf`, calls `postIngesta` (B.4) on confirm, result
   summary + error text, NativeWind styling, RN a11y labels/roles on the trigger and result/error views.
@@ -257,14 +257,14 @@ actually a hard dependency for Track B either — sequencing here is about the A
   `Stack.Protected` block (`<Stack.Screen name="subir" />` alongside `index`) — this is a small,
   necessary addition to `_layout.tsx` beyond the design's file-changes table (the screen cannot be
   reachable under `Stack.Protected` without it). Make B.5 pass.
-- [ ] **B.7** — `apps/mobile/app/index.tsx`: add a "Subir cartola" entry affordance (a `Pressable`
+- [x] **B.7** — `apps/mobile/app/index.tsx`: add a "Subir cartola" entry affordance (a `Pressable`
   navigating to `/subir` via `expo-router`'s `router.push` or a `<Link>`, `accessibilityRole="button"`,
   next to the existing "Cerrar sesión" pressable — matches the file's existing structure, no new
   container component needed for one added control, KISS).
 
 ### E2E (manual, real device — NOT CI, ADR-017)
 
-- [ ] **B.8** — `apps/mobile/.maestro/subir.yaml`: tap the "Subir cartola" entry, open the picker, select
+- [x] **B.8** — `apps/mobile/.maestro/subir.yaml`: tap the "Subir cartola" entry, open the picker, select
   a real `.xlsx`/`.pdf` fixture, confirm, assert the result summary appears. This is the **required
   gate** for the multipart boundary correctness that jest-expo cannot validate (design's flagged
   HIGH-risk runtime spike) — run on a real device before merging Work Unit B, per ADR-017. Mirrors the
