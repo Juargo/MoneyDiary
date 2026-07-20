@@ -46,8 +46,37 @@ npx expo run:android
 ```
 
 Esto corre `prebuild` (autolinkea `expo-document-picker`), compila e instala la
-app nativa. Alternativa gestionada: `eas build --profile development` + instalar
-el artefacto.
+app nativa. Es el camino más rápido si tenés Xcode/Android SDK local.
+
+### Alternativa gestionada — EAS Build
+
+Hay un `apps/mobile/eas.json` con perfiles listos. El perfil `preview` (release,
+sin dependencias extra) o `development` sirven para el gate; ambos traen
+`ios.simulator: true`, así que el build de iOS corre en **simulador sin firma de
+Apple** — ideal para Maestro.
+
+Setup por única vez (interactivo, lo corrés vos):
+
+```bash
+cd apps/mobile
+npm i -g eas-cli          # si no lo tenés
+eas login                 # tu cuenta Expo
+eas init                  # crea/linkea el proyecto → escribe extra.eas.projectId en app.json
+```
+
+Build para el gate (elegí plataforma):
+
+```bash
+# iOS en simulador (recomendado para el gate — sin firma)
+eas build --profile preview --platform ios
+
+# Android (APK interno, instala en emulador/dispositivo)
+eas build --profile preview --platform android
+```
+
+Al terminar, instalá el artefacto en el simulador/dispositivo y seguí con el
+Paso 2. El perfil `development` (`--profile development`) requiere además
+`npx expo install expo-dev-client`.
 
 ## Paso 2 — Smoke manual (antes del flujo automatizado)
 
