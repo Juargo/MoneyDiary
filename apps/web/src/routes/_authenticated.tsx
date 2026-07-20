@@ -2,6 +2,7 @@ import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { fetchMe } from '@/api/auth'
 import { requireSession } from '@/lib/require-session'
 import { DemoBanner } from '@/components/DemoBanner'
+import { AppShell } from '@/components/app-shell/AppShell'
 
 /**
  * Pathless protected layout (AUTH-10, design.md §6.1): every route nested
@@ -25,6 +26,14 @@ import { DemoBanner } from '@/components/DemoBanner'
  * satisfies "MUST NOT make an additional API call" (see
  * `test/demo-banner-layout.test.tsx` for the end-to-end proof, same pattern
  * as `redirect-after-login.test.tsx`).
+ *
+ * `AppShell` (responsive nav shell, `web-dashboard-redesign-mobile`
+ * design.md §5) is mounted here — NOT in `__root.tsx` — because this
+ * pathless layout is the exact logged-in boundary: everything nested under
+ * `_authenticated/` gets the sidebar/bottom-tabs chrome, and `/login`
+ * (outside this layout) never does, with no extra path guard needed. See
+ * `test/app-shell-layout.test.tsx` for the end-to-end proof (real route
+ * tree, same pattern as the two tests above).
  */
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location }) => {
@@ -37,9 +46,9 @@ export const Route = createFileRoute('/_authenticated')({
 function RouteComponent() {
   const { esDemo } = Route.useRouteContext()
   return (
-    <>
+    <AppShell>
       <DemoBanner esDemo={esDemo} />
       <Outlet />
-    </>
+    </AppShell>
   )
 }
