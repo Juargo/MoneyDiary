@@ -38,7 +38,7 @@ export function MiniDistribucionPie({
   if (tajadas.length === 0) {
     return (
       <svg width={size} height={size} aria-hidden="true">
-        <circle data-testid="mini-pie-placeholder" cx={cx} cy={cy} r={r} className="fill-slate-200" />
+        <circle data-testid="mini-pie-placeholder" cx={cx} cy={cy} r={r} className="fill-muted" />
       </svg>
     )
   }
@@ -53,6 +53,12 @@ export function MiniDistribucionPie({
           data-testid="mini-pie-slice"
           d={arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin)}
           fill={COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC'}
+          // WDS-07 (WCAG 1.4.11): same pastel-adjacency separator as the
+          // main DistribucionPie, scaled to a thinner 1px stroke — this pie
+          // is 56px (r=28) vs the main pie's 240px (r=120), so the main
+          // pie's 2px stroke would visually dominate a wedge this small.
+          stroke="#ffffff"
+          strokeWidth={1}
         />
       ))}
     </svg>

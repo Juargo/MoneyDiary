@@ -55,7 +55,7 @@ function Pie({
 
   if (slices.length === 0) {
     return (
-      <circle data-testid="pie-placeholder" cx={cx} cy={cy} r={r} className="fill-slate-200" />
+      <circle data-testid="pie-placeholder" cx={cx} cy={cy} r={r} className="fill-muted" />
     )
   }
 
@@ -67,7 +67,16 @@ function Pie({
         const d = arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin)
 
         if (!onSelectSlice) {
-          return <path key={slice.bucket} data-testid={sliceTestId} d={d} fill={slice.color} />
+          return (
+            <path
+              key={slice.bucket}
+              data-testid={sliceTestId}
+              d={d}
+              fill={slice.color}
+              stroke="#ffffff"
+              strokeWidth={2}
+            />
+          )
         }
 
         const seleccionado = slice.bucket === bucketSeleccionado
@@ -77,6 +86,8 @@ function Pie({
             data-testid={sliceTestId}
             d={d}
             fill={slice.color}
+            stroke="#ffffff"
+            strokeWidth={2}
             role="button"
             tabIndex={0}
             aria-label={ETIQUETA_BUCKET[slice.bucket] ?? slice.bucket}
@@ -103,7 +114,12 @@ function Pie({
               key={`label-${slice.bucket}`}
               x={x}
               y={y}
-              fill="#FFFFFF"
+              // WDS-07 (WCAG 2.2 AA): white (#FFFFFF) FAILS contrast on all 4
+              // Serene Finance pastel fills (1.52-2.49:1, under the 3:1
+              // large-text floor). The dark on-surface tone passes
+              // 7.4-11.9:1 against every pastel — see
+              // DistribucionPie.test.tsx for the guarding assertion.
+              fill="#1a1c1c"
               fontSize={size * 0.09}
               fontWeight="bold"
               textAnchor="middle"
@@ -216,7 +232,7 @@ export function DistribucionPie({
             <Pie slices={slicesIdeales(targets)} size={idealSize} sliceTestId="pie-ideal-slice" />
           </svg>
         </div>
-        <span className="mt-0.5 text-[10px] font-semibold tracking-wider text-slate-500">
+        <span className="mt-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground">
           IDEAL
         </span>
       </div>
