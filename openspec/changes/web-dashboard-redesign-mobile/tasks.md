@@ -64,13 +64,13 @@ Chain strategy: pending
 
 ## Phase 4: Mobile Responsiveness Pass (PR4) — WDS-04
 
-- [ ] 4.1 Audit restyled sections at `<lg`: single column, 16px side margins (`ResumenScreen`, `BucketDetailList`, `ResumenAnual`)
-- [ ] 4.2 Verify `<main>` `pb-16` clears `BottomTabs` on mobile; `lg:pl-64` clears `Sidebar` on desktop
-- [ ] 4.3 Manual check at 375px/768px/1024px+: no horizontal scroll, no overlap with fixed chrome
+- [x] 4.1 Audit restyled sections at `<lg`: single column, 16px side margins (`ResumenScreen`, `BucketDetailList`, `ResumenAnual`). RESULT: `ResumenScreen`/`BucketDetailList` already used `p-4` (16px) + `grid-cols-1 lg:grid-cols-2` from PR3 — locked with new guard tests. `ResumenAnual`'s 12-month grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-4`) is a documented, audited exception to literal single-column (avoids a very long vertical scroll); no horizontal overflow at 320-375px. `LeyendaGasto` touch target bumped `px-1/py-0.5`→`px-2/py-1` (WCAG 2.2 AA 2.5.8). Two PR3-review follow-ups also applied here: DRY'd the repeated card-wrapper class into `DASHBOARD_CARD_CLASS`, and tokenized the pie's WCAG-critical hex literals (`fill-foreground`/`stroke-card`, verified against the built CSS to resolve to the identical `#1a1c1c`/`#ffffff`).
+- [x] 4.2 Verify `<main>` `pb-16` clears `BottomTabs` on mobile; `lg:pl-64` clears `Sidebar` on desktop. RESULT: already implemented + tested by PR2's `AppShell.test.tsx` (`CONTENT_BOTTOM_CLEARANCE_CLASS`/`SIDEBAR_CONTENT_OFFSET_CLASS`) — no PR4 code change needed, re-verified green.
+- [ ] 4.3 Manual check at 375px/768px/1024px+: no horizontal scroll, no overlap with fixed chrome. PENDING — human/device step (jsdom can't evaluate CSS/layout); className-assertion tests added per section as the automatable proxy (see 4.1). Flag alongside `docs/mobile-launch-runbook.md`'s existing pending human-verification items.
 
 ## Phase 5: Final Verification — WDS-08, WDS-09, WDS-10
 
-- [ ] 5.1 Diff review: `vite.config.ts` / `src/api/client.ts` / `apps/web/api/[...path].ts` untouched
-- [ ] 5.2 Diff review: no new `Number(`/`parseFloat(` on money fields
-- [ ] 5.3 Diff review: no `apps/api/src/domain` imports added in `apps/web`
-- [ ] 5.4 Run `pnpm web test` + `pnpm web typecheck`; full green
+- [x] 5.1 Diff review: `vite.config.ts` / `src/api/client.ts` / `apps/web/api/[...path].ts` untouched. RESULT: `git diff --stat main..HEAD` on those paths + `apps/mobile` is empty.
+- [x] 5.2 Diff review: no new `Number(`/`parseFloat(` on money fields. RESULT: `git diff main..HEAD -- apps/web | rg "^\+.*(Number\(|parseFloat\()"` → none found.
+- [x] 5.3 Diff review: no `apps/api/src/domain` imports added in `apps/web`. RESULT: `git diff main..HEAD -- apps/web | rg "^\+.*apps/api/src/domain"` → none found.
+- [x] 5.4 Run `pnpm web test` + `pnpm web typecheck`; full green. RESULT: `pnpm web test` → 46/46 files, 355/355 tests green. `pnpm --filter @moneydiary/web exec tsc -b` → clean, no output/errors.
