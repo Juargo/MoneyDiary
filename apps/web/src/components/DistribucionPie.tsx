@@ -1,5 +1,6 @@
 import { calcularAngulos, arcoPath } from '@/domain/pie-geometry'
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors'
+import { PIE_LABEL_FILL, PIE_WEDGE_STROKE } from '@/lib/pie-colors'
 import { BUCKETS_GASTO } from '@/domain/distribucion-gasto'
 import type { TajadaGasto } from '@/domain/distribucion-gasto'
 import type { ResumenViewModel } from '@/domain/resumen-view-model'
@@ -74,11 +75,10 @@ function Pie({
               d={d}
               fill={slice.color}
               strokeWidth={2}
-              // WCAG 1.4.11 wedge separator, token-based: `stroke-card`
-              // resolves to `--card` (#ffffff) — see DASHBOARD contrast
-              // notes on the label below for why this is a class, not a
-              // hardcoded hex attribute.
-              className="stroke-card"
+              // WCAG 1.4.11 wedge separator — theme-immune literal, see
+              // `lib/pie-colors.ts` for why this must NOT be a `--card`
+              // token class.
+              stroke={PIE_WEDGE_STROKE}
             />
           )
         }
@@ -95,7 +95,8 @@ function Pie({
             tabIndex={0}
             aria-label={ETIQUETA_BUCKET[slice.bucket] ?? slice.bucket}
             aria-pressed={seleccionado}
-            className="stroke-card cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            stroke={PIE_WEDGE_STROKE}
+            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
             onClick={() => onSelectSlice(slice.bucket)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
@@ -119,12 +120,12 @@ function Pie({
               y={y}
               // WDS-07 (WCAG 2.2 AA): white (#FFFFFF) FAILS contrast on all 4
               // Serene Finance pastel fills (1.52-2.49:1, under the 3:1
-              // large-text floor). `fill-foreground` (`--foreground`,
-              // #1a1c1c) passes 7.4-11.9:1 against every pastel — token
-              // class instead of a hardcoded hex attribute so the label
-              // can't silently drift from `--foreground`. See
-              // DistribucionPie.test.tsx for the guarding assertion.
-              className="fill-foreground"
+              // large-text floor). Theme-immune literal — see
+              // `lib/pie-colors.ts` for why this must NOT be a
+              // `--foreground` token class (it flips in dark mode, the
+              // pastel fills below it don't). See DistribucionPie.test.tsx
+              // for the guarding assertion.
+              fill={PIE_LABEL_FILL}
               fontSize={size * 0.09}
               fontWeight="bold"
               textAnchor="middle"

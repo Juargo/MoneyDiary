@@ -1,5 +1,6 @@
 import { calcularAngulos, arcoPath } from '@/domain/pie-geometry'
 import { COLOR_BUCKET } from '@/lib/bucket-colors'
+import { PIE_WEDGE_STROKE } from '@/lib/pie-colors'
 import type { TajadaGasto } from '@/domain/distribucion-gasto'
 
 /**
@@ -57,9 +58,8 @@ export function MiniDistribucionPie({
           // main DistribucionPie, scaled to a thinner 1px stroke — this pie
           // is 56px (r=28) vs the main pie's 240px (r=120), so the main
           // pie's 2px stroke would visually dominate a wedge this small.
-          // Token-based (`stroke-card`, `--card` #ffffff) instead of a
-          // hardcoded hex attribute — same resolved color.
-          className="stroke-card"
+          // Theme-immune literal — see `lib/pie-colors.ts`.
+          stroke={PIE_WEDGE_STROKE}
           strokeWidth={1}
         />
       ))}
