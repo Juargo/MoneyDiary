@@ -10,6 +10,7 @@ import { SemaforoBadge } from './SemaforoBadge'
 import { calcularDistribucionGasto } from '@/domain/distribucion-gasto'
 import { mesAbreviado, mesCompletoLabel, periodoActualUTC } from '@/domain/periodo-anual'
 import { cn } from '@/lib/utils'
+import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card'
 
 /**
  * ResumenAnual — the annual 50/30/20 grid below the 2-column dashboard
@@ -47,7 +48,7 @@ export function ResumenAnual({
   return (
     <section
       aria-labelledby={tituloId}
-      className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm"
+      className={cn(DASHBOARD_CARD_CLASS, 'flex flex-col gap-4')}
     >
       <h2 id={tituloId} className="text-xs font-semibold tracking-widest text-secondary uppercase">
         Resumen Anual {anio}

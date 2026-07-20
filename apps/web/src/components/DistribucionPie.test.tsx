@@ -66,27 +66,40 @@ describe('DistribucionPie', () => {
 
   // WDS-07 (WCAG 2.2 AA): white labels (#FFFFFF) fail contrast on ALL 4
   // pastel slice fills (1.52-2.49:1, well under the 3:1 large-text floor).
-  // The dark on-surface tone (#1a1c1c) passes 7.4-11.9:1 against every
-  // pastel. A regression back to white must fail this test loudly.
-  it('renders percent labels in the dark on-surface tone for WCAG AA contrast, never white (WDS-07)', () => {
+  // The dark on-surface tone (#1a1c1c, `PIE_LABEL_FILL`) passes 7.4-11.9:1
+  // against every pastel. Reliability follow-up (post-PR4): reverted from
+  // the `fill-foreground` token class back to a theme-immune literal — the
+  // pastel slice fills (`COLOR_BUCKET`) are PERMANENT literal hex that do
+  // NOT flip with `.dark`, but `--foreground` DOES flip (near-white in
+  // dark mode). A token-based label would silently reintroduce this exact
+  // contrast failure the moment dark mode is wired up, and this class-based
+  // assertion wouldn't catch it (jsdom doesn't resolve CSS vars). Assert the
+  // literal `fill` attribute AND that no theme-flipping class is used.
+  it('renders percent labels via a theme-immune literal fill for WCAG AA contrast, never white or a theme-flipping token (WDS-07)', () => {
     renderPie()
-    expect(screen.getByText('50%')).toHaveAttribute('fill', '#1a1c1c')
-    expect(screen.getByText('30%')).toHaveAttribute('fill', '#1a1c1c')
-    expect(screen.getByText('20%')).toHaveAttribute('fill', '#1a1c1c')
+    for (const label of [screen.getByText('50%'), screen.getByText('30%'), screen.getByText('20%')]) {
+      expect(label).toHaveAttribute('fill', '#1a1c1c')
+      expect(label).not.toHaveClass('fill-foreground')
+    }
   })
 
   // WDS-07 (WCAG 1.4.11 non-text contrast): adjacent pastel slices can be
   // under 1.2:1 apart, so wedges need a visible separator between them.
-  it('renders a white separator stroke on each slice for WCAG 1.4.11 adjacency contrast', () => {
+  // Reliability follow-up (post-PR4): reverted from the `stroke-card` token
+  // class back to a theme-immune literal — same rationale as the label fill
+  // above (`--card` flips in dark mode, the permanent pastel fills don't).
+  it('renders a theme-immune white stroke separator on each slice for WCAG 1.4.11 adjacency contrast, never a theme-flipping token', () => {
     renderPie()
     for (const slice of screen.getAllByTestId('pie-slice')) {
       expect(slice).toHaveAttribute('stroke', '#ffffff')
+      expect(slice).not.toHaveClass('stroke-card')
       expect(slice).toHaveAttribute('stroke-width', '2')
     }
     // The nested IDEAL reference pie shares the same pastel fills and the
     // same adjacency problem — its wedges need the same separator.
     for (const slice of screen.getAllByTestId('pie-ideal-slice')) {
       expect(slice).toHaveAttribute('stroke', '#ffffff')
+      expect(slice).not.toHaveClass('stroke-card')
       expect(slice).toHaveAttribute('stroke-width', '2')
     }
   })

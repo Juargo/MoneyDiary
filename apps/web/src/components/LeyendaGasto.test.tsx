@@ -90,6 +90,17 @@ describe('LeyendaGasto', () => {
     expect(onSelectBucket).toHaveBeenCalledWith('Deseos')
   })
 
+  // Phase 4 mobile audit (WDS-04): px-1/py-0.5 sat right at the WCAG 2.2 AA
+  // 2.5.8 Target Size Minimum (24x24 CSS px) boundary on touch devices —
+  // bumped to px-2/py-1 for a more comfortable tap target on the bottom-tab
+  // breakpoint. Visual output only (padding), no behavior change.
+  it('gives each row a comfortable touch target padding on mobile (Phase 4 mobile audit)', () => {
+    renderLeyenda()
+    const boton = screen.getByRole('button', { name: 'Necesidades' })
+    expect(boton.className).toContain('px-2')
+    expect(boton.className).toContain('py-1')
+  })
+
   it('renders a bucket outside the pie (SinCategoria) as a selectable row without a percent badge', () => {
     const conSinCategoria: ReadonlyArray<LeyendaTajada> = [...tajadas, { bucket: 'SinCategoria' }]
     const onSelectBucket = vi.fn()

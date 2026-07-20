@@ -8,6 +8,8 @@ import { ResumenAnual } from './ResumenAnual'
 import type { LeyendaTajada } from './LeyendaGasto'
 import type { ResumenViewModel } from '@/domain/resumen-view-model'
 import { anioDePeriodo } from '@/domain/periodo-anual'
+import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card'
+import { cn } from '@/lib/utils'
 
 const BUCKET_SIN_CATEGORIA = 'SinCategoria'
 
@@ -99,7 +101,7 @@ export function ResumenScreen({
       <IngresoCard totalIngreso={viewModel.totalIngreso} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className={cn(DASHBOARD_CARD_CLASS, 'flex flex-col gap-4')}>
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold tracking-widest text-secondary uppercase">
               Distribución del gasto
@@ -122,7 +124,7 @@ export function ResumenScreen({
           />
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className={DASHBOARD_CARD_CLASS}>
           {/* FIX 4: `bucketSeleccionado` is only `null` when `bucketPorDefecto`
               was `null` (empty `buckets` from the backend) AND the user hasn't
               picked one — defensive, not expected today. Skip the panel

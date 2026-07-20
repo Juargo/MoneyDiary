@@ -22,11 +22,17 @@ describe('MiniDistribucionPie', () => {
   })
 
   // WDS-07 (WCAG 1.4.11 non-text contrast): same adjacency problem as the
-  // main pie's pastel wedges — a white separator stroke between slices.
-  it('renders a white separator stroke on each slice for WCAG 1.4.11 adjacency contrast', () => {
+  // main pie's pastel wedges — a separator stroke between slices.
+  // Reliability follow-up (post-PR4): reverted from the `stroke-card` token
+  // class back to a theme-immune literal — `COLOR_BUCKET`'s pastel fills are
+  // PERMANENT literal hex that don't flip with `.dark`, but `--card` DOES
+  // flip (dark in dark mode), which would silently reintroduce this exact
+  // contrast failure once dark mode is wired up.
+  it('renders a theme-immune white stroke separator on each slice for WCAG 1.4.11 adjacency contrast, never a theme-flipping token', () => {
     render(<MiniDistribucionPie tajadas={tajadas} />)
     for (const slice of screen.getAllByTestId('mini-pie-slice')) {
       expect(slice).toHaveAttribute('stroke', '#ffffff')
+      expect(slice).not.toHaveClass('stroke-card')
     }
   })
 

@@ -51,7 +51,11 @@ export function LeyendaGasto({
                 // LOCKED (WCAG 1.4.11): unified with the pie slices'
                 // `outline-slate-800` (>3:1 on white) — `outline-slate-400`
                 // (~2.6:1) failed non-text contrast. Do NOT re-tint.
-                'flex items-center gap-2 rounded-lg px-1 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+                // Phase 4 mobile audit (WDS-04, WCAG 2.2 AA 2.5.8 Target Size
+                // Minimum): px-2/py-1 (was px-1/py-0.5, right at the 24x24
+                // CSS px boundary) for a more comfortable tap target on the
+                // bottom-tab breakpoint.
+                'flex items-center gap-2 rounded-lg px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
                 seleccionado && 'bg-muted',
               )}
             >
