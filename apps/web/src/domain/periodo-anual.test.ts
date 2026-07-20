@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   anioDePeriodo,
   esMesActual,
+  esPeriodoFuturo,
   mesAbreviado,
   mesAnterior,
   mesCompletoLabel,
   mesSiguiente,
   periodoActualUTC,
+  periodoDesde,
 } from './periodo-anual'
 
 // US-030 Slice C (task 30.11/30.12): pure helpers for the annual grid — month
@@ -92,5 +94,38 @@ describe('esMesActual', () => {
 
   it('returns false when periodo is a future month', () => {
     expect(esMesActual('2026-08', new Date('2026-07-19T12:00:00.000Z'))).toBe(false)
+  })
+})
+
+// month-year-picker (WMYP-03): composes a periodo from separate (anio, mes)
+// parts — the grid selects a month within a displayed year, independent of
+// the currently-viewed periodo.
+describe('periodoDesde', () => {
+  it('composes and zero-pads a single-digit month', () => {
+    expect(periodoDesde(2026, 3)).toBe('2026-03')
+  })
+
+  it('handles the December boundary (mes1a12 = 12)', () => {
+    expect(periodoDesde(2026, 12)).toBe('2026-12')
+  })
+
+  it('handles the January boundary (mes1a12 = 1)', () => {
+    expect(periodoDesde(2026, 1)).toBe('2026-01')
+  })
+})
+
+// month-year-picker (WMYP-04/05): drives the future-month clamp in the grid
+// and the next-year clamp in the popover's year navigation.
+describe('esPeriodoFuturo', () => {
+  it('returns true for a period after the current one', () => {
+    expect(esPeriodoFuturo('2026-08', new Date('2026-07-19T12:00:00.000Z'))).toBe(true)
+  })
+
+  it('returns false for a period before the current one', () => {
+    expect(esPeriodoFuturo('2026-06', new Date('2026-07-19T12:00:00.000Z'))).toBe(false)
+  })
+
+  it('returns false when periodo equals the current month (edge case)', () => {
+    expect(esPeriodoFuturo('2026-07', new Date('2026-07-19T12:00:00.000Z'))).toBe(false)
   })
 })

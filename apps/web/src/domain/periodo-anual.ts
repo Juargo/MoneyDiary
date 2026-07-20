@@ -95,6 +95,29 @@ function formatearPeriodo(anio: number, mes: number): string {
 }
 
 /**
+ * Composes a `YYYY-MM` periodo from separate `(anio, mes1a12)` parts —
+ * month-year-picker (WMYP-03): the grid picks a month within whatever year is
+ * currently displayed in the popover, independent of the viewed periodo.
+ * Thin public alias over `formatearPeriodo` — no new logic, just promoted
+ * naming for this call site (DRY: single source for the zero-pad rule).
+ */
+export function periodoDesde(anio: number, mes1a12: number): string {
+  return formatearPeriodo(anio, mes1a12)
+}
+
+/**
+ * Whether `periodo` is chronologically after the current UTC calendar month.
+ * Zero-padded `YYYY-MM` strings compare lexicographically exactly like they
+ * compare chronologically, so this is a pure string comparison — no `Date`
+ * math beyond deriving "now" via the existing `periodoActualUTC`
+ * (month-year-picker WMYP-04/05: drives the grid's future-month clamp and the
+ * popover's next-year clamp). `ahora` is injected for deterministic tests.
+ */
+export function esPeriodoFuturo(periodo: string, ahora: Date): boolean {
+  return periodo > periodoActualUTC(ahora)
+}
+
+/**
  * One month back from `periodo`, e.g. "2026-07" → "2026-06", with year
  * rollover ("2026-01" → "2025-12"). Pure integer arithmetic — never `Date`
  * math (period-selector-header design.md #1: zero TZ drift risk). Unbounded

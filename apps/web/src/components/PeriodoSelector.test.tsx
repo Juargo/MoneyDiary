@@ -72,4 +72,55 @@ describe('PeriodoSelector', () => {
     expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ir al mes actual' })).toBeInTheDocument()
   })
+
+  // month-year-picker (WMYP-01, 03, 06): the label becomes a popover trigger
+  // that opens a month grid to jump directly to any (year, month).
+  it('clicking the period label opens the popover and shows the month grid', () => {
+    render(<PeriodoSelector periodo="2026-07" onChange={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /cambiar mes y año/i }))
+
+    expect(screen.getByRole('button', { name: /marzo 2026/i })).toBeInTheDocument()
+  })
+
+  it('selecting an enabled month fires onChange with the composed YYYY-MM and closes the popover', () => {
+    const onChange = vi.fn()
+    render(<PeriodoSelector periodo="2026-07" onChange={onChange} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /cambiar mes y año/i }))
+    fireEvent.click(screen.getByRole('button', { name: /marzo 2026/i }))
+
+    expect(onChange).toHaveBeenCalledWith('2026-03')
+    expect(screen.queryByRole('button', { name: /marzo 2026/i })).not.toBeInTheDocument()
+  })
+
+  it('Escape closes the popover and returns focus to the trigger', () => {
+    render(<PeriodoSelector periodo="2026-07" onChange={() => {}} />)
+
+    const trigger = screen.getByRole('button', { name: /cambiar mes y año/i })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('button', { name: /marzo 2026/i })).toBeInTheDocument()
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /marzo 2026/i }), { key: 'Escape' })
+    // Radix restores focus to the trigger via a rAF-scheduled callback on
+    // unmount; fake timers mock rAF too, so it must be flushed explicitly.
+    vi.advanceTimersByTime(100)
+
+    expect(screen.queryByRole('button', { name: /marzo 2026/i })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('prev/next arrows and Hoy still work exactly as before, unaffected by the popover', () => {
+    const onChange = vi.fn()
+    render(<PeriodoSelector periodo="2026-06" onChange={onChange} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
+    expect(onChange).toHaveBeenLastCalledWith('2026-05')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+    expect(onChange).toHaveBeenLastCalledWith('2026-07')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ir al mes actual' }))
+    expect(onChange).toHaveBeenLastCalledWith('2026-07')
+  })
 })
