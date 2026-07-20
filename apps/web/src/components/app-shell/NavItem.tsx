@@ -24,22 +24,25 @@ type Variant = keyof typeof VARIANT_STYLES
 
 /**
  * NavItem — one entry shared by `Sidebar` and `BottomTabs` (design.md §5,
- * DRY). Functional items (`to` present) render as a real `<Link>`; active
- * state (current route) is exposed both visually (`activeProps`, merged
- * with the base classes — router-core concatenates rather than overrides,
- * see `link.js`) and semantically via `aria-current="page"` (WDS-02).
+ * DRY). Branches on `item.kind` (see `nav-items.ts`'s discriminated union —
+ * there is no separate `disabled` flag to fall out of sync with `to`).
  *
- * Disabled items (WDS-03 placeholders) render as a native `<button
- * disabled>` — no `href`, not focusable, not in the tab order, announced as
- * disabled to assistive tech out of the box. `aria-disabled="true"` is
- * added explicitly on top for tests/tooling that key off the ARIA state
- * rather than the DOM `disabled` property.
+ * `'link'` items render as a real `<Link>`; active state (current route) is
+ * exposed both visually (`activeProps`, merged with the base classes —
+ * router-core concatenates rather than overrides, see `link.js`) and
+ * semantically via `aria-current="page"` (WDS-02).
+ *
+ * `'placeholder'` items (WDS-03) render as a native `<button disabled>` —
+ * no `href`, not focusable, not in the tab order, announced as disabled to
+ * assistive tech out of the box. `aria-disabled="true"` is added explicitly
+ * on top for tests/tooling that key off the ARIA state rather than the DOM
+ * `disabled` property.
  */
 export function NavItem({ item, variant = 'sidebar' }: { readonly item: NavItemModel; readonly variant?: Variant }) {
   const styles = VARIANT_STYLES[variant]
   const Icon = item.icon
 
-  if (item.disabled || !item.to) {
+  if (item.kind === 'placeholder') {
     return (
       <button type="button" disabled aria-disabled="true" className={cn(styles.base, styles.disabled)}>
         <Icon className="size-5" aria-hidden="true" />

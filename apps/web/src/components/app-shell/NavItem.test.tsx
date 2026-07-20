@@ -36,8 +36,8 @@ async function renderNavItem(item: NavItemModel, initialPath: '/' | '/otra' = '/
   return router
 }
 
-const FUNCTIONAL_ITEM: NavItemModel = { label: 'Resumen', to: '/', icon: LayoutDashboard, disabled: false }
-const PLACEHOLDER_ITEM: NavItemModel = { label: 'Subir nuevo archivo', icon: Upload, disabled: true }
+const FUNCTIONAL_ITEM: NavItemModel = { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard }
+const PLACEHOLDER_ITEM: NavItemModel = { kind: 'placeholder', label: 'Subir nuevo archivo', icon: Upload }
 
 describe('NavItem', () => {
   it('gets active styling and aria-current on the matching route', async () => {
