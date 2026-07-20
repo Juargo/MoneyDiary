@@ -130,12 +130,12 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold text-slate-900">Subir cartola</h1>
+      <h1 className="text-lg font-semibold text-foreground">Subir cartola</h1>
 
       <DemoUploadNudge esDemo={esDemo} />
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <label htmlFor="cartola-file" className="text-sm font-medium text-slate-700">
+        <label htmlFor="cartola-file" className="text-sm font-medium text-muted-foreground">
           Selecciona un archivo (.xlsx o .pdf)
         </label>
         <input
@@ -144,14 +144,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           accept=".xlsx,.pdf"
           onChange={handleFileChange}
           disabled={estado === 'subiendo'}
-          className="text-sm text-slate-700"
+          className="text-sm text-muted-foreground"
         />
         <Button type="submit" disabled={!archivo || estado === 'subiendo'}>
           Subir cartola
         </Button>
       </form>
 
-      <div role="status" aria-live="polite" aria-label="Estado de la subida" className="text-sm text-slate-600">
+      <div role="status" aria-live="polite" aria-label="Estado de la subida" className="text-sm text-muted-foreground">
         {mensajeEstado}
       </div>
 
@@ -160,7 +160,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           ref={errorRef}
           tabIndex={-1}
           role="alert"
-          className="text-sm text-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+          className="text-sm text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
         >
           {mensajeError}
         </p>
@@ -169,17 +169,17 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       {estado === 'exito' && mutation.data && (
         <section
           aria-labelledby="resultado-subida-heading"
-          className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4"
+          className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
         >
           <h2
             id="resultado-subida-heading"
             ref={headingRef}
             tabIndex={-1}
-            className="text-base font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            className="text-base font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Cartola subida
           </h2>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-700">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <dt className="font-medium">Banco</dt>
             <dd>{mutation.data.banco}</dd>
             <dt className="font-medium">Tipo de cuenta</dt>
@@ -196,13 +196,13 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               // idénticos sin depender solo de la posición.
               <li
                 key={`${transaccion.fecha}-${transaccion.descripcion}-${transaccion.cargo}-${transaccion.abono}-${indice}`}
-                className="flex flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50 p-2 text-sm"
+                className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm"
               >
-                <div className="flex items-center justify-between text-slate-700">
+                <div className="flex items-center justify-between text-muted-foreground">
                   <span>{transaccion.fecha.slice(0, 10)}</span>
                   <span className="font-medium">{transaccion.descripcion}</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-900">
+                <div className="flex items-center justify-between text-foreground">
                   <span>
                     Cargo: <span className="font-medium">{formatearMontoCLP(transaccion.cargo)}</span>
                   </span>

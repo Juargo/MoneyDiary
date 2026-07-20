@@ -335,7 +335,7 @@ describe('SubirCartola', () => {
     const heading = screen.getByRole('heading', { name: /cartola subida/i })
     expect(heading.className).toContain('focus-visible:outline')
     expect(heading.className).toContain('focus-visible:outline-2')
-    expect(heading.className).toContain('focus-visible:outline-slate-800')
+    expect(heading.className).toContain('focus-visible:outline-ring')
     expect(heading.className).not.toContain('focus:outline-none')
   })
 
@@ -349,7 +349,7 @@ describe('SubirCartola', () => {
     const errorText = screen.getByText('Archivo inválido.')
     expect(errorText.className).toContain('focus-visible:outline')
     expect(errorText.className).toContain('focus-visible:outline-2')
-    expect(errorText.className).toContain('focus-visible:outline-slate-800')
+    expect(errorText.className).toContain('focus-visible:outline-ring')
     expect(errorText.className).not.toContain('focus:outline-none')
   })
 
