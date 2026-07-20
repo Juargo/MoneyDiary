@@ -4,7 +4,8 @@
 
 Defines the Serene Finance visual identity applied in-place to the `apps/web`
 "Análisis Mensual" dashboard, plus the net-new responsive navigation shell
-(sidebar desktop / bottom tabs mobile) that `__root.tsx` currently lacks. This
+(sidebar desktop / bottom tabs mobile) that the authenticated layout
+(`_authenticated.tsx`) currently lacks. This
 is a restyle + shell addition over already-functional, already-tested screens
 — no new data, no new endpoints, no behavior change to drill-down/reclassify
 (`web-app` spec).
@@ -33,9 +34,11 @@ lavanda→Gustos, amarillo→Ahorro, coral→exceso/over-budget.
 
 ### Requirement: WDS-02 — Responsive nav shell renders per breakpoint
 
-`__root.tsx` MUST render a sidebar navigation on viewports ≥ `lg` and a
-bottom tab bar on viewports below `lg`, both showing the brand and
-functional nav items to existing routes.
+The authenticated layout (`_authenticated.tsx`) MUST render a sidebar
+navigation on viewports ≥ `lg` and a bottom tab bar on viewports below `lg`,
+both showing the brand and functional nav items to existing routes. Mounting
+in `_authenticated.tsx` (rather than `__root.tsx`) keeps `/login` outside the
+shell by design.
 
 #### Scenario: Desktop shows a sidebar
 
@@ -65,15 +68,29 @@ request when activated by mouse or keyboard.
 
 ### Requirement: WDS-04 — Dashboard sections are responsive under the new shell
 
-Every dashboard section (distribución pie + IDEAL inset, leyenda, detalle por
-categoría, resumen anual) MUST render single-column with 16px side margins
+Every primary dashboard section (distribución pie + IDEAL inset, leyenda,
+detalle por categoría) MUST render single-column with 16px side margins
 below `lg`, and MUST render multi-column on `lg`+.
 
-#### Scenario: Mobile renders single column with 16px margins
+The resumen anual mini-pie grid is an audited exception: because it is a set
+of ~12 compact, equal-size cells (not full-width content blocks), it MAY use
+a denser responsive grid — 2 columns below `sm`, 3 on `sm`, 4 on `lg`+ —
+rather than a single column, PROVIDED it does not overflow horizontally at
+320–375px viewports. A 12-cell single-column list is explicitly rejected as
+poor mobile UX.
+
+#### Scenario: Primary sections render single column with 16px margins on mobile
 
 - GIVEN the viewport is below `lg`
-- WHEN the dashboard sections render
+- WHEN the pie, leyenda, and detalle sections render
 - THEN each section stacks in a single column with 16px side margins
+
+#### Scenario: Resumen anual grid stays a compact multi-column grid without overflow
+
+- GIVEN the viewport is at 320–375px (below `sm`)
+- WHEN the resumen anual mini-pie grid renders
+- THEN it shows a 2-column grid of equal cells with no horizontal overflow
+- AND it widens to 3 columns on `sm` and 4 on `lg`+
 
 #### Scenario: Desktop renders multi-column
 
