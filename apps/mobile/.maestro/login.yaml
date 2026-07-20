@@ -1,0 +1,30 @@
+# Sub-flujo reutilizable (Maestro · ADR-017) — login mobile (MOB-01).
+#
+# NO hace `launchApp`: el flujo que lo invoca (p. ej. `subir.yaml`) ya lanzó la
+# app y, sin sesión, `Stack.Protected` (app/_layout.tsx) muestra la pantalla de
+# login. Se creó para cerrar la dependencia de `subir.yaml`, que hace
+# `runFlow: login.yaml` (US-033 requiere una ruta autenticada).
+#
+# Credenciales por VARIABLE DE ENTORNO para NO commitear secretos. Se pasan al
+# correr el flujo padre:
+#   maestro test -e MAESTRO_EMAIL=tu@correo -e MAESTRO_PASSWORD=... .maestro/subir.yaml
+# Usar un usuario de prueba real que YA tenga datos/ingresos en el período.
+appId: cl.moneydiary.app
+---
+- assertVisible:
+    id: "login-email"
+- tapOn:
+    id: "login-email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn:
+    id: "login-password"
+- inputText: ${MAESTRO_PASSWORD}
+- tapOn:
+    id: "login-submit"
+# Tras el login, `Stack.Protected` conmuta a la pantalla autenticada (index).
+# El CTA de subida ("subir-cartola-button") confirma que la sesión quedó
+# activa. Margen amplio: la API gratuita puede hacer cold-start.
+- extendedWaitUntil:
+    visible:
+      id: "subir-cartola-button"
+    timeout: 40000
