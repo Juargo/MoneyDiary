@@ -39,15 +39,15 @@ Chain strategy: pending
 
 ## Phase 2: Responsive Nav Shell (PR2) — WDS-02, WDS-03
 
-- [ ] 2.1 Create `src/components/app-shell/nav-items.ts` (label/to/icon/disabled model; single source for both siblings)
-- [ ] 2.2 RED: `NavItem.test.tsx` — active route gets active styling via `<Link activeProps>`; disabled item renders but is not activatable
-- [ ] 2.3 GREEN: implement `src/components/app-shell/NavItem.tsx`
-- [ ] 2.4 RED: `Sidebar.test.tsx` + `BottomTabs.test.tsx` — render primary nav links from `nav-items.ts`; placeholders (`Subir nuevo archivo`, `Configuración`, `Ayuda`) are `<button disabled>`/`aria-disabled`, click is a no-op
-- [ ] 2.5 GREEN: implement `Sidebar.tsx` (`hidden lg:flex`, fixed `w-64` rail) and `BottomTabs.tsx` (`fixed bottom-0 inset-x-0 lg:hidden`)
-- [ ] 2.6 RED: `AppShell.test.tsx` — composes Sidebar + BottomTabs + children
-- [ ] 2.7 GREEN: implement `AppShell.tsx` (`lg:pl-64` on `<main>`, `pb-16` mobile)
-- [ ] 2.8 Mount `<AppShell>` in `apps/web/src/routes/_authenticated.tsx` `RouteComponent`, wrapping `<DemoBanner/>` + `<Outlet/>`. Do NOT edit `__root.tsx`
-- [ ] 2.9 Verify `/login` (outside `_authenticated`) renders without shell chrome
+- [x] 2.1 Create `src/components/app-shell/nav-items.ts` (label/to/icon/disabled model; single source for both siblings)
+- [x] 2.2 RED: `NavItem.test.tsx` — active route gets active styling via `<Link activeProps>`; disabled item renders but is not activatable
+- [x] 2.3 GREEN: implement `src/components/app-shell/NavItem.tsx`
+- [x] 2.4 RED: `Sidebar.test.tsx` + `BottomTabs.test.tsx` — render primary nav links from `nav-items.ts`; placeholders (`Subir nuevo archivo`, `Configuración`, `Ayuda`) are `<button disabled>`/`aria-disabled`, click is a no-op
+- [x] 2.5 GREEN: implement `Sidebar.tsx` (`hidden lg:flex`, fixed `w-64` rail) and `BottomTabs.tsx` (`fixed bottom-0 inset-x-0 lg:hidden`)
+- [x] 2.6 RED: `AppShell.test.tsx` — composes Sidebar + BottomTabs + children
+- [x] 2.7 GREEN: implement `AppShell.tsx` (`lg:pl-64` on `<main>`, `pb-16` mobile)
+- [x] 2.8 Mount `<AppShell>` in `apps/web/src/routes/_authenticated.tsx` `RouteComponent`, wrapping `<DemoBanner/>` + `<Outlet/>`. Do NOT edit `__root.tsx`
+- [x] 2.9 Verify `/login` (outside `_authenticated`) renders without shell chrome
 
 ## Phase 3: Restyle Dashboard Components + Contrast Fix (PR3) — WDS-01, WDS-04, WDS-06, WDS-07
 
