@@ -57,7 +57,9 @@ export function MiniDistribucionPie({
           // main DistribucionPie, scaled to a thinner 1px stroke — this pie
           // is 56px (r=28) vs the main pie's 240px (r=120), so the main
           // pie's 2px stroke would visually dominate a wedge this small.
-          stroke="#ffffff"
+          // Token-based (`stroke-card`, `--card` #ffffff) instead of a
+          // hardcoded hex attribute — same resolved color.
+          className="stroke-card"
           strokeWidth={1}
         />
       ))}

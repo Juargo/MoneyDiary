@@ -73,8 +73,12 @@ function Pie({
               data-testid={sliceTestId}
               d={d}
               fill={slice.color}
-              stroke="#ffffff"
               strokeWidth={2}
+              // WCAG 1.4.11 wedge separator, token-based: `stroke-card`
+              // resolves to `--card` (#ffffff) — see DASHBOARD contrast
+              // notes on the label below for why this is a class, not a
+              // hardcoded hex attribute.
+              className="stroke-card"
             />
           )
         }
@@ -86,13 +90,12 @@ function Pie({
             data-testid={sliceTestId}
             d={d}
             fill={slice.color}
-            stroke="#ffffff"
             strokeWidth={2}
             role="button"
             tabIndex={0}
             aria-label={ETIQUETA_BUCKET[slice.bucket] ?? slice.bucket}
             aria-pressed={seleccionado}
-            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            className="stroke-card cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
             onClick={() => onSelectSlice(slice.bucket)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
@@ -116,10 +119,12 @@ function Pie({
               y={y}
               // WDS-07 (WCAG 2.2 AA): white (#FFFFFF) FAILS contrast on all 4
               // Serene Finance pastel fills (1.52-2.49:1, under the 3:1
-              // large-text floor). The dark on-surface tone passes
-              // 7.4-11.9:1 against every pastel — see
+              // large-text floor). `fill-foreground` (`--foreground`,
+              // #1a1c1c) passes 7.4-11.9:1 against every pastel — token
+              // class instead of a hardcoded hex attribute so the label
+              // can't silently drift from `--foreground`. See
               // DistribucionPie.test.tsx for the guarding assertion.
-              fill="#1a1c1c"
+              className="fill-foreground"
               fontSize={size * 0.09}
               fontWeight="bold"
               textAnchor="middle"

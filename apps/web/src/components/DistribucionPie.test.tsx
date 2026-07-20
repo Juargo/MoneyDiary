@@ -66,27 +66,38 @@ describe('DistribucionPie', () => {
 
   // WDS-07 (WCAG 2.2 AA): white labels (#FFFFFF) fail contrast on ALL 4
   // pastel slice fills (1.52-2.49:1, well under the 3:1 large-text floor).
-  // The dark on-surface tone (#1a1c1c) passes 7.4-11.9:1 against every
-  // pastel. A regression back to white must fail this test loudly.
-  it('renders percent labels in the dark on-surface tone for WCAG AA contrast, never white (WDS-07)', () => {
+  // The dark on-surface tone (`--foreground`, #1a1c1c) passes 7.4-11.9:1
+  // against every pastel. PR4 review follow-up: token-based (`fill-foreground`
+  // class) instead of a hardcoded `fill="#1a1c1c"` attribute, so the label can
+  // never silently drift from `--foreground` — same resolved color, same
+  // contrast guarantee. A regression back to a literal white fill/class must
+  // fail this test loudly.
+  it('renders percent labels via the fill-foreground token for WCAG AA contrast, never a hardcoded white fill (WDS-07)', () => {
     renderPie()
-    expect(screen.getByText('50%')).toHaveAttribute('fill', '#1a1c1c')
-    expect(screen.getByText('30%')).toHaveAttribute('fill', '#1a1c1c')
-    expect(screen.getByText('20%')).toHaveAttribute('fill', '#1a1c1c')
+    for (const label of [screen.getByText('50%'), screen.getByText('30%'), screen.getByText('20%')]) {
+      expect(label).toHaveClass('fill-foreground')
+      expect(label).not.toHaveAttribute('fill')
+    }
   })
 
   // WDS-07 (WCAG 1.4.11 non-text contrast): adjacent pastel slices can be
   // under 1.2:1 apart, so wedges need a visible separator between them.
-  it('renders a white separator stroke on each slice for WCAG 1.4.11 adjacency contrast', () => {
+  // PR4 review follow-up: token-based (`stroke-card` class, `--card` is
+  // #ffffff — the same surface the wedges sit on) instead of a hardcoded
+  // `stroke="#ffffff"` attribute — same resolved color, same 1.4.11
+  // guarantee, now tied to the design-system token instead of a literal.
+  it('renders a stroke-card separator on each slice for WCAG 1.4.11 adjacency contrast', () => {
     renderPie()
     for (const slice of screen.getAllByTestId('pie-slice')) {
-      expect(slice).toHaveAttribute('stroke', '#ffffff')
+      expect(slice).toHaveClass('stroke-card')
+      expect(slice).not.toHaveAttribute('stroke')
       expect(slice).toHaveAttribute('stroke-width', '2')
     }
     // The nested IDEAL reference pie shares the same pastel fills and the
     // same adjacency problem — its wedges need the same separator.
     for (const slice of screen.getAllByTestId('pie-ideal-slice')) {
-      expect(slice).toHaveAttribute('stroke', '#ffffff')
+      expect(slice).toHaveClass('stroke-card')
+      expect(slice).not.toHaveAttribute('stroke')
       expect(slice).toHaveAttribute('stroke-width', '2')
     }
   })
