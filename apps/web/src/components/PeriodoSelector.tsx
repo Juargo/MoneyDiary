@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './ui/button'
+import { MonthYearPicker } from './MonthYearPicker'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { esMesActual, mesAnterior, mesCompletoLabel, mesSiguiente, periodoActualUTC } from '@/domain/periodo-anual'
 
 const PERIODO_SELECTOR_ROW_CLASS = 'mx-auto flex w-full max-w-6xl items-center justify-center gap-3'
@@ -30,6 +33,8 @@ export function PeriodoSelector({
   const ahora = new Date()
   const efectivo = periodo ?? periodoActualUTC(ahora)
   const enMesActual = esMesActual(efectivo, ahora)
+  const periodoActual = periodoActualUTC(ahora)
+  const [abierto, setAbierto] = useState(false)
 
   return (
     <div className={PERIODO_SELECTOR_ROW_CLASS}>
@@ -43,7 +48,28 @@ export function PeriodoSelector({
         <ChevronLeft aria-hidden="true" />
       </Button>
 
-      <span className="text-xl font-semibold text-foreground">{mesCompletoLabel(efectivo)}</span>
+      <Popover open={abierto} onOpenChange={setAbierto}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label={`Cambiar mes y año, actualmente ${mesCompletoLabel(efectivo)}`}
+            className="text-xl font-semibold text-foreground"
+          >
+            {mesCompletoLabel(efectivo)}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent>
+          <MonthYearPicker
+            periodo={efectivo}
+            periodoActual={periodoActual}
+            onSelect={(nuevoPeriodo) => {
+              onChange(nuevoPeriodo)
+              setAbierto(false)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
 
       <Button
         type="button"
