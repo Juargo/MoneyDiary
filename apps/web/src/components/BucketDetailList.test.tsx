@@ -277,6 +277,23 @@ describe('BucketDetailList', () => {
     )
   })
 
+  // Phase 4 mobile audit (WDS-04): lock in the single-column, 16px-margin
+  // wrapper so an accidental removal of the responsive classes fails loudly
+  // (jsdom doesn't evaluate CSS, so we assert the classes directly — same
+  // pattern used across the other dashboard sections).
+  it('reflows single-column with 16px page margins on mobile (Phase 4 mobile audit, WDS-04)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
+
+    const { container } = render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+      wrapper: crearWrapper(),
+    })
+
+    await waitFor(() => expect(screen.getByText('Supermercado Líder')).toBeInTheDocument())
+    const raiz = container.firstElementChild as HTMLElement
+    expect(raiz.className).toMatch(/\bflex-col\b/)
+    expect(raiz.className).toMatch(/\bp-4\b/)
+  })
+
   // FIX 1: the heading must show the UI label ("Gustos"), never the raw
   // domain bucket name ("Deseos") — the pie/legend already resolve this via
   // ETIQUETA_BUCKET, this component was the one place that skipped it.

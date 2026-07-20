@@ -207,6 +207,30 @@ describe('ResumenAnual', () => {
 
   // FIX 5: locks the intended overlap so a future "cleanup" of the disabled
   // branch can't silently drop the current-month marker.
+  // Phase 4 mobile audit (WDS-04): the 12-month calendar grid is a
+  // deliberate exception to a literal single-column reading of WDS-04 — a
+  // 12-cell month grid stacked into ONE column would be a very long
+  // vertical scroll on mobile, a worse UX than the reviewed PR3 design.
+  // Audited at 320-375px: 2 columns of ~150px comfortably fit the 56px
+  // MiniDistribucionPie + label + semáforo badge inside each cell, no
+  // horizontal overflow. `sm:grid-cols-3 lg:grid-cols-4` still satisfies
+  // WDS-04's "multi-column on lg+" half. Locked here so a regression can't
+  // silently change the breakpoint columns.
+  it('uses a 2/3/4-column responsive grid (audited exception to literal single-column, Phase 4 mobile audit)', async () => {
+    mockFetchAnual({ ok: true, status: 200, json: () => Promise.resolve(anioConDatosHastaJulio()) })
+
+    const { container } = render(<ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />, {
+      wrapper: crearWrapper(),
+    })
+
+    await screen.findByRole('button', { name: 'Ver enero 2026' })
+    const grid = container.querySelector('.grid') as HTMLElement
+    expect(grid).toBeInTheDocument()
+    expect(grid.className).toMatch(/\bgrid-cols-2\b/)
+    expect(grid.className).toMatch(/\bsm:grid-cols-3\b/)
+    expect(grid.className).toMatch(/\blg:grid-cols-4\b/)
+  })
+
   it('a sinIngreso month that is also the current month stays disabled but still carries aria-current="date" (FIX 5)', async () => {
     const onSelectPeriodo = vi.fn()
     const datos = anioConDatosHastaJulio()

@@ -247,6 +247,24 @@ describe('ResumenScreen', () => {
     await waitFor(() => expect(screen.getByText('Resumen Anual 2026')).toBeInTheDocument())
   })
 
+  // Phase 4 mobile audit (WDS-04): jsdom doesn't evaluate CSS, so this locks
+  // in the responsive Tailwind classes directly — an accidental removal of
+  // the mobile margin or the desktop column switch fails this test loudly,
+  // same pattern PR2 used for the shell (AppShell.test.tsx).
+  it('reflows single-column with 16px page margins on mobile, multi-column on lg+ (Phase 4 mobile audit, WDS-04)', () => {
+    mockFetchPorBucket()
+    const { container } = renderScreen()
+
+    const paginaRaiz = container.firstElementChild as HTMLElement
+    // p-4 = 16px side margins around the whole dashboard body.
+    expect(paginaRaiz.className).toMatch(/\bp-4\b/)
+
+    const seccionDosColumnas = container.querySelector('.grid') as HTMLElement
+    expect(seccionDosColumnas).toBeInTheDocument()
+    expect(seccionDosColumnas.className).toMatch(/\bgrid-cols-1\b/)
+    expect(seccionDosColumnas.className).toMatch(/\blg:grid-cols-2\b/)
+  })
+
   it('wires ResumenAnual month clicks to the same onPeriodoChange callback', async () => {
     const onPeriodoChange = vi.fn()
     mockFetchPorBucket()
