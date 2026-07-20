@@ -177,13 +177,13 @@ describe('ResumenPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Resumen Anual 2026' })).toBeInTheDocument()
   })
 
-  it('wires the period selector — reports the new value via onPeriodoChange', async () => {
+  it('wires the period selector — reports the previous month via onPeriodoChange', async () => {
     const onPeriodoChange = vi.fn()
     renderData(
       <ResumenPage query={mockQuery({ data: dataDto })} periodo="2026-07" onPeriodoChange={onPeriodoChange} />,
     )
 
-    fireEvent.change(screen.getByLabelText('Período'), { target: { value: '2026-06' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
 
     expect(onPeriodoChange).toHaveBeenCalledWith('2026-06')
   })
