@@ -49,9 +49,9 @@ describe('LeyendaGasto', () => {
     renderLeyenda()
     const dots = screen.getAllByTestId('leyenda-dot')
     expect(dots.map((dot) => dot.style.backgroundColor)).toEqual([
-      'rgb(70, 75, 105)', // #464B69
-      'rgb(231, 225, 191)', // #E7E1BF
-      'rgb(62, 155, 82)', // #3E9B52
+      'rgb(143, 167, 209)', // #8FA7D1 — Serene Finance soft blue (Necesidades)
+      'rgb(177, 167, 209)', // #B1A7D1 — Serene Finance lavanda (Gustos)
+      'rgb(230, 209, 148)', // #E6D194 — Serene Finance pastel yellow (Ahorro)
     ])
   })
 

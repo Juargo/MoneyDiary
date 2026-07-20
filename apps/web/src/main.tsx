@@ -4,6 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import type { ApiError } from './api/client'
+// Self-hosted Inter Variable (Serene Finance typography) — same-origin,
+// bundled font file, no render-blocking Google Fonts CDN. Referenced by
+// --font-sans in index.css. Explicit `/index.css` path (not the bare package
+// specifier) so `vite/client`'s ambient `*.css` module declaration applies —
+// bare-specifier CSS-only packages have no `.d.ts`/"types" field for tsc.
+import '@fontsource-variable/inter/index.css'
 import './index.css'
 
 // Tags que representan un fallo PERMANENTE del request (el body/estado del

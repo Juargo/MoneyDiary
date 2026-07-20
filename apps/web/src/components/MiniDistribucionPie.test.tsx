@@ -17,7 +17,8 @@ describe('MiniDistribucionPie', () => {
   it('renders one slice per tajada with its resolved color', () => {
     render(<MiniDistribucionPie tajadas={tajadas} />)
     const fills = screen.getAllByTestId('mini-pie-slice').map((el) => el.getAttribute('fill'))
-    expect(fills).toEqual(['#464B69', '#E7E1BF', '#3E9B52'])
+    // Serene Finance palette: azul→Necesidades, lavanda→Gustos, amarillo→Ahorro.
+    expect(fills).toEqual(['#8FA7D1', '#B1A7D1', '#E6D194'])
   })
 
   it('renders no percent labels, legend, or IDEAL inset — only the wedges', () => {
