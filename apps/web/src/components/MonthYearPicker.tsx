@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from './ui/button'
-import { anioDePeriodo, mesAbreviado, mesCompletoLabel, periodoDesde } from '@/domain/periodo-anual'
+import { anioDePeriodo, esPeriodoFuturo, mesAbreviado, mesCompletoLabel, periodoDesde } from '@/domain/periodo-anual'
 
 const MESES_1A12 = Array.from({ length: 12 }, (_, indice) => indice + 1)
 
@@ -22,8 +22,13 @@ export function MonthYearPicker({
   readonly periodoActual: string
   readonly onSelect: (periodo: string) => void
 }) {
-  const anioActual = anioDePeriodo(periodoActual, anioDePeriodo(periodo, 0))
+  const anioActual = anioDePeriodo(periodoActual, 0)
   const [anioMostrado, setAnioMostrado] = useState(() => anioDePeriodo(periodo, anioActual))
+  // `esPeriodoFuturo` takes a real `Date` — reconstruct it from the injected
+  // `periodoActual` string (never the real clock, design.md D3) so the grid's
+  // future-month clamp reuses the same rule as the header's clamp instead of
+  // repeating the `>` comparison inline.
+  const ahoraDesdePeriodoActual = new Date(`${periodoActual}-01T00:00:00.000Z`)
 
   const proximoAnioDeshabilitado = anioMostrado >= anioActual
 
@@ -60,7 +65,7 @@ export function MonthYearPicker({
         {MESES_1A12.map((mes) => {
           const periodoCelda = periodoDesde(anioMostrado, mes)
           const activo = periodoCelda === periodo
-          const deshabilitado = periodoCelda > periodoActual
+          const deshabilitado = esPeriodoFuturo(periodoCelda, ahoraDesdePeriodoActual)
 
           return (
             <Button

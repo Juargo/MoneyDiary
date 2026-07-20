@@ -14,3 +14,7 @@ if (!Element.prototype.hasPointerCapture) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = vi.fn()
 }
+// jsdom's `window.scrollTo` exists but is unimplemented and logs a
+// "Not implemented: Window's scrollTo()" error — Radix popover positioning
+// calls it on open. Stubbed out here rather than per test file.
+window.scrollTo = vi.fn()
