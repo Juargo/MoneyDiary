@@ -51,16 +51,16 @@ Chain strategy: pending
 
 ## Phase 3: Restyle Dashboard Components + Contrast Fix (PR3) — WDS-01, WDS-04, WDS-06, WDS-07
 
-- [ ] 3.1 `DistribucionPie.tsx`: on-slice `<text>` `fill="#FFFFFF"`→`fill="#1a1c1c"` (AA contrast fix, WDS-07); add `stroke="#ffffff" strokeWidth={2}` on wedge paths (1.4.11 adjacency); preserve `role` group/img toggle, `role=button`/`aria-pressed`/`aria-hidden`/`data-testid`s verbatim
-- [ ] 3.2 `MiniDistribucionPie.tsx`: same fill/stroke treatment; preserve `aria-hidden="true"` on `<svg>`, placeholder ring, `data-testid`s
-- [ ] 3.3 Run `pnpm web test` on both pie components — confirm no role/label/testid assertion broke (regression gate before continuing)
-- [ ] 3.4 `ResumenScreen.tsx`: classes → tokens (`bg-card`, `border-border`, `rounded-lg`, `text-secondary`); preserve `sr-only h1`, heading order, `data-testid="semaforo-global"`, `lg:grid-cols-2`
-- [ ] 3.5 `LeyendaGasto.tsx`: dot color via migrated `COLOR_BUCKET`; selected row `bg-muted`; preserve `aria-pressed`, `focus-visible:outline-slate-800`
-- [ ] 3.6 RED: `BucketDetailList.test.tsx` — group header renders aggregated total badge (client-computed, BigInt-safe)
-- [ ] 3.7 GREEN: implement aggregated total badge in `BucketDetailList.tsx` group header; add category icon (`iconoDeCategoria`, `aria-hidden`) beside heading
-- [ ] 3.8 `BucketDetailList.tsx` remaining restyle: row cards `rounded-lg`/`border-border`; preserve heading derivation (h1/h2→h2/h3), `ReclasificarCategoriaControl` wiring, cargo/abono rendering
-- [ ] 3.9 `ResumenAnual.tsx`: card/cell classes → tokens, active cell `ring-primary`/`border-primary`; preserve `aria-current="date"`, `mes-actual-marker`, disabled-cell `aria-disabled`, `focus-visible:outline-slate-800`
-- [ ] 3.10 Run `pnpm web test`; confirm ONLY palette + badge tests changed — any other a11y/role/testid diff is a STOP signal (out-of-scope semantic change)
+- [x] 3.1 `DistribucionPie.tsx`: on-slice `<text>` `fill="#FFFFFF"`→`fill="#1a1c1c"` (AA contrast fix, WDS-07); add `stroke="#ffffff" strokeWidth={2}` on wedge paths (1.4.11 adjacency); preserve `role` group/img toggle, `role=button`/`aria-pressed`/`aria-hidden`/`data-testid`s verbatim
+- [x] 3.2 `MiniDistribucionPie.tsx`: same fill/stroke treatment (stroke scaled to `strokeWidth={1}` — 56px pie vs the main pie's 240px, documented in-code); preserve `aria-hidden="true"` on `<svg>`, placeholder ring, `data-testid`s
+- [x] 3.3 Run `pnpm web test` on both pie components — confirm no role/label/testid assertion broke (regression gate before continuing)
+- [x] 3.4 `ResumenScreen.tsx`: classes → tokens (`bg-card`, `border-border`, `rounded-lg`, `text-secondary`); preserve `sr-only h1`, heading order, `data-testid="semaforo-global"`, `lg:grid-cols-2`
+- [x] 3.5 `LeyendaGasto.tsx`: dot color via migrated `COLOR_BUCKET`; selected row `bg-muted`; preserve `aria-pressed`, `focus-visible:outline-slate-800`
+- [x] 3.6 RED: `BucketDetailList.test.tsx` — group header renders aggregated total badge (client-computed, BigInt-safe)
+- [x] 3.7 GREEN: implement aggregated total badge in `BucketDetailList.tsx` group header; add category icon (`iconoDeCategoria`, `aria-hidden`) beside heading
+- [x] 3.8 `BucketDetailList.tsx` remaining restyle: row cards `rounded-lg`/`border-border`; preserve heading derivation (h1/h2→h2/h3), `ReclasificarCategoriaControl` wiring, cargo/abono rendering
+- [x] 3.9 `ResumenAnual.tsx`: card/cell classes → tokens, active cell `border-primary`/`bg-muted`; preserve `aria-current="date"`, `mes-actual-marker`, disabled-cell `aria-disabled`, `focus-visible:outline-slate-800`
+- [x] 3.10 Run `pnpm web test`; confirm ONLY palette + badge tests changed — any other a11y/role/testid diff is a STOP signal (out-of-scope semantic change). RESULT: 45/45 files, 350/350 tests green; only the 5 new deliberate contrast/badge/icon assertions added, zero pre-existing test modified.
 
 ## Phase 4: Mobile Responsiveness Pass (PR4) — WDS-04
 
