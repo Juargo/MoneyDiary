@@ -53,4 +53,12 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeInTheDocument()
   })
+
+  it('is hidden on mobile and shown at the lg breakpoint (responsive class switch, WDS-02)', async () => {
+    await renderSidebar()
+
+    const nav = screen.getByRole('navigation', { name: 'Navegación principal' })
+    expect(nav.className).toMatch(/\bhidden\b/)
+    expect(nav.className).toMatch(/\blg:flex\b/)
+  })
 })

@@ -51,4 +51,11 @@ describe('BottomTabs', () => {
 
     expect(screen.getByRole('navigation', { name: 'Navegación principal (móvil)' })).toBeInTheDocument()
   })
+
+  it('is shown on mobile and hidden at the lg breakpoint (responsive class switch, WDS-02)', async () => {
+    await renderBottomTabs()
+
+    const nav = screen.getByRole('navigation', { name: 'Navegación principal (móvil)' })
+    expect(nav.className).toMatch(/\blg:hidden\b/)
+  })
 })

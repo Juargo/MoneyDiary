@@ -34,4 +34,13 @@ describe('AppShell', () => {
     expect(screen.getByRole('navigation', { name: 'Navegación principal (móvil)' })).toBeInTheDocument()
     expect(screen.getByText('contenido hijo')).toBeInTheDocument()
   })
+
+  it('reserves clearance for the fixed sidebar and bottom bar on <main> (responsive class switch, WDS-02)', async () => {
+    await renderAppShell()
+
+    const main = screen.getByRole('main')
+    expect(main.className).toMatch(/\blg:pl-64\b/)
+    expect(main.className).toMatch(/\bpb-16\b/)
+    expect(main.className).toMatch(/\blg:pb-0\b/)
+  })
 })
