@@ -30,9 +30,7 @@ export function ResumenPage({
 }) {
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="mx-auto flex w-full max-w-xl justify-end">
-        <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
-      </div>
+      <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
       {renderEstado(query, onPeriodoChange)}
     </div>
   )

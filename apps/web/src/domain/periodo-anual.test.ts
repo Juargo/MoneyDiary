@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { anioDePeriodo, mesAbreviado, mesCompletoLabel, periodoActualUTC } from './periodo-anual'
+import {
+  anioDePeriodo,
+  esMesActual,
+  mesAbreviado,
+  mesAnterior,
+  mesCompletoLabel,
+  mesSiguiente,
+  periodoActualUTC,
+} from './periodo-anual'
 
 // US-030 Slice C (task 30.11/30.12): pure helpers for the annual grid — month
 // abbreviations, accessible full-month labels, deriving a year from a
@@ -48,5 +56,41 @@ describe('periodoActualUTC', () => {
 
   it('pads single-digit months', () => {
     expect(periodoActualUTC(new Date('2026-01-05T00:00:00.000Z'))).toBe('2026-01')
+  })
+})
+
+// period-selector-header (WPER-02/03/04): pure string arithmetic for the
+// header's prev/next/Hoy controls — no `Date` math, so no TZ drift risk.
+describe('mesAnterior', () => {
+  it('moves back one month within the same year', () => {
+    expect(mesAnterior('2026-07')).toBe('2026-06')
+  })
+
+  it('rolls over from January to December of the previous year', () => {
+    expect(mesAnterior('2026-01')).toBe('2025-12')
+  })
+})
+
+describe('mesSiguiente', () => {
+  it('moves forward one month within the same year', () => {
+    expect(mesSiguiente('2026-06')).toBe('2026-07')
+  })
+
+  it('rolls over from December to January of the next year', () => {
+    expect(mesSiguiente('2026-12')).toBe('2027-01')
+  })
+})
+
+describe('esMesActual', () => {
+  it('returns true when periodo matches the current UTC month', () => {
+    expect(esMesActual('2026-07', new Date('2026-07-19T12:00:00.000Z'))).toBe(true)
+  })
+
+  it('returns false when periodo is a past month', () => {
+    expect(esMesActual('2026-06', new Date('2026-07-19T12:00:00.000Z'))).toBe(false)
+  })
+
+  it('returns false when periodo is a future month', () => {
+    expect(esMesActual('2026-08', new Date('2026-07-19T12:00:00.000Z'))).toBe(false)
   })
 })
