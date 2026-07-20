@@ -7,31 +7,36 @@
 # correctitud del boundary multipart en dispositivo real que jest-expo NO
 # puede validar (design.md, riesgo HIGH marcado explícitamente) — debe
 # correrse en un dispositivo/simulador real antes de mergear el Work Unit B,
-# no en CI.
+# no en CI. Pasos y prerrequisitos completos: docs/mobile-upload-gate-runbook.md.
 #
-# Requiere una sesión ya iniciada (mismo patrón que ver-movimientos.yaml:
-# correr login.yaml antes, o encadenar con runFlow) y un archivo fixture
-# .xlsx o .pdf válido ya accesible desde el picker nativo del dispositivo
-# (por ejemplo, precargado en Files/Descargas del simulador — el picker del
-# SO no es scriptable de forma determinística más allá de tocar el nombre
-# del archivo visible).
+# Requiere una sesión ya iniciada (`login.yaml`) y un archivo fixture .xlsx o
+# .pdf válido ya accesible desde el picker nativo del dispositivo (precargado
+# en Files/Descargas — el picker del SO no es scriptable de forma
+# determinística más allá de tocar el nombre del archivo visible).
 appId: cl.moneydiary.app
 ---
 - launchApp
 - runFlow: login.yaml
-- tapOn: "Subir cartola"
-# El trigger abre el picker nativo (`expo-document-picker`, filtrado a
-# .xlsx/.pdf — CU-08). Ajustar el texto/selector del archivo fixture al
-# nombre real precargado en el dispositivo de prueba antes de correr.
-- tapOn: "Seleccionar archivo"
+# Navega al detalle de subida desde el CTA del resumen. Se ancla por `id`
+# (no por texto): el encabezado de la propia pantalla de subida también dice
+# "Subir cartola", así que `tapOn: "Subir cartola"` sería ambiguo.
+- tapOn:
+    id: "subir-cartola-button"
+# Abre el picker nativo (`expo-document-picker`, filtrado a .xlsx/.pdf — CU-08).
+- tapOn:
+    id: "subir-archivo-trigger"
+# --- PASO DEPENDIENTE DE DISPOSITIVO (ajustar antes de correr) ---
+# El picker del SO no es scriptable de forma determinística. Cambiar el nombre
+# por el del fixture .xlsx/.pdf realmente precargado en el dispositivo de
+# prueba (ver runbook). Sin un fixture accesible, el gate no puede completar.
 - tapOn: "cartola-test.xlsx"
-# El estado "subiendo" deshabilita el trigger mientras la subida está en
-# curso (CU-09) — esperar el resultado con margen generoso (red real +
-# cold-start del backend gratuito, mismo criterio que resumen-semaforo.yaml).
+# El estado "subiendo" deshabilita el trigger mientras la subida está en curso
+# (CU-09) — esperar el resultado con margen generoso (red real + cold-start
+# del backend gratuito, mismo criterio que resumen-semaforo.yaml).
 - extendedWaitUntil:
     visible: "Cartola subida"
     timeout: 40000
 # El resumen del resultado debe mostrar banco/cuenta/totalTransacciones
-# (CU-10) — el resultado real depende del contenido del fixture usado.
+# (CU-10) — el contenido real depende del fixture usado.
 - assertVisible:
     id: "subir-resultado"
