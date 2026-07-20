@@ -3,17 +3,32 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import handler from './[...path]'
 
 // Minimal fakes for the Vercel Node.js runtime request/response — the
-// handler only reads `req.url`/`req.method`/`req.headers` (and would iterate
-// `req` for the body on non-GET/HEAD, unused by these tests) and only calls
-// `res.statusCode`/`setHeader`/`end` on the response.
+// handler only reads `req.url`/`req.method`/`req.headers` (and, for
+// non-GET/HEAD, iterates `req` for the body — exercised by the multipart
+// contract test below) and only calls `res.statusCode`/`setHeader`/`end` on
+// the response.
 function createReq(
-  overrides: Partial<{ url: string; method: string; headers: Record<string, string> }> = {},
+  overrides: Partial<{
+    url: string
+    method: string
+    headers: Record<string, string>
+    // Raw body bytes, split into chunks to mimic real Node.js stream
+    // delivery (multiple `data` events) — exercises the same
+    // `Buffer.concat` round-trip the handler relies on, not a single-chunk
+    // shortcut.
+    bodyChunks: Buffer[]
+  }> = {},
 ): IncomingMessage {
+  const bodyChunks = overrides.bodyChunks ?? []
   const req = {
     url: overrides.url ?? '/api/resumen',
     method: overrides.method ?? 'GET',
     headers: overrides.headers ?? {},
-    async *[Symbol.asyncIterator]() {},
+    async *[Symbol.asyncIterator]() {
+      for (const chunk of bodyChunks) {
+        yield chunk
+      }
+    },
   }
   return req as unknown as IncomingMessage
 }
@@ -139,6 +154,52 @@ describe('proxy handler', () => {
     expect(res.setHeader).toHaveBeenCalledWith(
       'set-cookie',
       'md_session=abc123; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800',
+    )
+  })
+
+  // upload-cartola-ui Tarea 0.1 (Decision 7): the POST-body path is
+  // otherwise untested — this locks that `readRequestBody`'s
+  // `Buffer.concat` round-trip (`[...path].ts:83-91`) does not corrupt or
+  // re-encode a multipart body, and that the `content-type` boundary is
+  // forwarded verbatim by `forwardableHeaders` (`[...path].ts:93-104`). No
+  // proxy source change is expected — regression lock on already-correct
+  // behavior, same pattern as the cookie-forwarding tests above.
+  it('forwards a multipart/form-data POST body byte-for-byte with the boundary content-type intact', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+
+    const boundary = '----moneydiary-test-boundary-abc123'
+    const multipartBody = Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="cartola-test.xlsx"\r\n` +
+        `Content-Type: application/octet-stream\r\n\r\n` +
+        `not-real-xlsx-bytes-\x00\x01\x02` +
+        `\r\n--${boundary}--\r\n`,
+      'binary',
+    )
+    // Split into several small chunks to exercise the same multi-`data`-event
+    // `Buffer.concat` round-trip a real Node.js request stream would deliver.
+    const bodyChunks = [
+      multipartBody.subarray(0, 10),
+      multipartBody.subarray(10, 25),
+      multipartBody.subarray(25),
+    ]
+
+    const req = createReq({
+      method: 'POST',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      bodyChunks,
+    })
+    const res = createRes()
+
+    await handler(req, res)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    expect(init.method).toBe('POST')
+    expect(Buffer.isBuffer(init.body)).toBe(true)
+    expect(Buffer.compare(init.body as Buffer, multipartBody)).toBe(0)
+    expect((init.headers as Record<string, string>)['content-type']).toBe(
+      `multipart/form-data; boundary=${boundary}`,
     )
   })
 })

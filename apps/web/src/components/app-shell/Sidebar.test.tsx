@@ -20,7 +20,8 @@ async function renderSidebar() {
     ),
   })
   const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => null })
-  const routeTree = rootRoute.addChildren([indexRoute])
+  const subirRoute = createRoute({ getParentRoute: () => rootRoute, path: '/subir', component: () => null })
+  const routeTree = rootRoute.addChildren([indexRoute, subirRoute])
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/'] }) })
   await router.load()
   render(<RouterProvider router={router} />)
@@ -36,10 +37,17 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Resumen' })).toBeInTheDocument()
   })
 
+  it('renders "Subir nuevo archivo" as a real nav link to /subir', async () => {
+    await renderSidebar()
+
+    const link = screen.getByRole('link', { name: 'Subir nuevo archivo' })
+    expect(link).toHaveAttribute('href', '/subir')
+  })
+
   it('renders the placeholders as inert, disabled controls', async () => {
     const router = await renderSidebar()
 
-    for (const label of ['Subir nuevo archivo', 'Configuración', 'Ayuda']) {
+    for (const label of ['Configuración', 'Ayuda']) {
       const button = screen.getByRole('button', { name: label })
       expect(button).toBeDisabled()
       fireEvent.click(button)
