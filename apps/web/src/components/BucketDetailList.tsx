@@ -2,10 +2,12 @@ import { Loading } from './states/Loading'
 import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl'
+import { Badge } from './ui/badge'
 import { useDetalleBucket } from '@/api/use-detalle-bucket'
 import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model'
 import { agruparDetallePorCategoria } from '@/domain/agrupar-detalle-por-categoria'
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors'
+import { iconoDeCategoria } from '@/lib/category-icons'
 
 /**
  * BucketDetailList — a single bucket/period's transactions, GROUPED BY
@@ -26,6 +28,15 @@ import { ETIQUETA_BUCKET } from '@/lib/bucket-colors'
  * subtotal) turns the flat `query.data.transacciones` into ordered groups —
  * each renders as a `<section>` with a heading ("nombre · subtotal ·
  * conteo") followed by its rows.
+ *
+ * Group header restyle (WDS-05/WDS-06, Serene Finance): each group header
+ * also shows a decorative category icon (`iconoDeCategoria`, aria-hidden,
+ * Receipt fallback for "Sin categoría"/unrecognized names) and a visually
+ * distinct aggregated-total `Badge`. The badge is a SIBLING of the heading,
+ * not nested inside it — its total duplicates `grupo.subtotalLabel` (already
+ * in the heading text) for visual emphasis without changing the heading's
+ * own accessible name/textContent. Both derive from the same client-side,
+ * BigInt-exact `agruparDetallePorCategoria` output — no new endpoint.
  *
  * Reclassify control (US-013 S6b, WCAT-04/05): each row renders a
  * `ReclasificarCategoriaControl` — a single `<select>` that covers BOTH the
@@ -86,41 +97,58 @@ export function BucketDetailList({
   const HeadingGrupo = headingLevel === 'h1' ? 'h2' : 'h3'
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-5 p-4">
-      <Heading className="text-lg font-semibold text-slate-900">
+    <div className="mx-auto flex max-w-xl flex-col gap-6 p-4">
+      <Heading className="text-lg font-semibold text-foreground">
         {ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket}
       </Heading>
-      {grupos.map((grupo) => (
-        <section key={grupo.categoriaId ?? 'sin-categoria'} className="flex flex-col gap-3">
-          <HeadingGrupo className="text-sm font-semibold text-slate-700">
-            {grupo.nombre} · {grupo.subtotalLabel} · {grupo.conteo} {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
-          </HeadingGrupo>
-          <ul className="flex flex-col gap-3">
-            {grupo.filas.map((fila) => (
-              <li key={fila.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between text-sm text-slate-700">
-                  <span>{fila.fechaLabel}</span>
-                  <span className="font-medium">{fila.descripcion}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm text-slate-900">
-                  <span>Cargo: {fila.cargoLabel}</span>
-                  <span>Abono: {fila.abonoLabel}</span>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <ReclasificarCategoriaControl
-                    transaccionId={fila.id}
-                    descripcion={fila.descripcion}
-                    montoLabel={fila.cargoLabel}
-                    bucketActual={viewModel.bucket}
-                    categoriaActual={grupo.categoriaId === null ? null : grupo.nombre}
-                    periodo={periodo}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {grupos.map((grupo) => {
+        const IconoCategoria = iconoDeCategoria(grupo.nombre)
+        return (
+          <section key={grupo.categoriaId ?? 'sin-categoria'} className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* WDS-05: decorative per-category icon, generic Receipt
+                  fallback for "Sin categoría"/unrecognized names — never
+                  throws, never leaves the header iconless. */}
+              <IconoCategoria aria-hidden="true" className="h-4 w-4 shrink-0 text-secondary" />
+              <HeadingGrupo className="text-sm font-semibold text-secondary">
+                {grupo.nombre} · {grupo.subtotalLabel} · {grupo.conteo}{' '}
+                {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
+              </HeadingGrupo>
+              {/* WDS-06: aggregated total badge — a visually distinct
+                  element, separate from the heading's own text, computed
+                  client-side (agruparDetallePorCategoria, BigInt-exact) from
+                  data already fetched by this component's own query. */}
+              <Badge variant="secondary" data-testid="categoria-total-badge">
+                {grupo.subtotalLabel}
+              </Badge>
+            </div>
+            <ul className="flex flex-col gap-3">
+              {grupo.filas.map((fila) => (
+                <li key={fila.id} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{fila.fechaLabel}</span>
+                    <span className="font-medium text-foreground">{fila.descripcion}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-foreground">
+                    <span>Cargo: {fila.cargoLabel}</span>
+                    <span>Abono: {fila.abonoLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <ReclasificarCategoriaControl
+                      transaccionId={fila.id}
+                      descripcion={fila.descripcion}
+                      montoLabel={fila.cargoLabel}
+                      bucketActual={viewModel.bucket}
+                      categoriaActual={grupo.categoriaId === null ? null : grupo.nombre}
+                      periodo={periodo}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
     </div>
   )
 }

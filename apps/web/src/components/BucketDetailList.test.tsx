@@ -164,6 +164,37 @@ describe('BucketDetailList', () => {
     expect(screen.getByText('Farmacia Cruz Verde')).toBeInTheDocument()
   })
 
+  // WDS-06: the group header shows a visually distinct total badge — a
+  // separate element from the heading text, computed client-side from
+  // already-fetched data, BigInt-safe beyond Number.MAX_SAFE_INTEGER.
+  it('shows an aggregated total badge next to the group header with the exact BigInt-safe amount (WDS-06)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
+
+    render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, { wrapper: crearWrapper() })
+
+    await waitFor(() => expect(screen.getByText('Supermercado Líder')).toBeInTheDocument())
+    expect(screen.getByTestId('categoria-total-badge')).toHaveTextContent('$9.007.199.254.740.993')
+    // The badge is additive — the group heading's own accessible text stays
+    // exactly as before (no duplicated/altered content inside the heading).
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Supermercado · $9.007.199.254.740.993 · 1 movimiento' }),
+    ).toBeInTheDocument()
+  })
+
+  // WDS-05: each group header shows a category icon (decorative,
+  // aria-hidden) mapped from the categoría name, with a generic fallback for
+  // "Sin categoría" — never throws, never leaves the header iconless.
+  it('shows a decorative category icon beside the group header (WDS-05)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dataDto) })
+
+    const { container } = render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+      wrapper: crearWrapper(),
+    })
+
+    await waitFor(() => expect(screen.getByText('Supermercado Líder')).toBeInTheDocument())
+    expect(container.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
+  })
+
   it('groups SinCategoria rows under a "Sin categoría" header (WCAT-02)', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(sinCategoriaDto) })
 

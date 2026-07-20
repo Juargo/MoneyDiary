@@ -48,11 +48,11 @@ export function LeyendaGasto({
               aria-pressed={seleccionado}
               onClick={() => onSelectBucket(tajada.bucket)}
               className={cn(
-                // FIX 3 (WCAG 1.4.11): unified with the pie slices'
+                // LOCKED (WCAG 1.4.11): unified with the pie slices'
                 // `outline-slate-800` (>3:1 on white) — `outline-slate-400`
-                // (~2.6:1) failed non-text contrast.
-                'flex items-center gap-2 rounded-md px-1 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
-                seleccionado && 'bg-slate-100',
+                // (~2.6:1) failed non-text contrast. Do NOT re-tint.
+                'flex items-center gap-2 rounded-lg px-1 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+                seleccionado && 'bg-muted',
               )}
             >
               <span
@@ -60,11 +60,11 @@ export function LeyendaGasto({
                 className="h-3 w-3 rounded-full"
                 style={{ backgroundColor: COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC' }}
               />
-              <span className="text-sm text-slate-700">
+              <span className="text-sm text-foreground">
                 {ETIQUETA_BUCKET[tajada.bucket] ?? tajada.bucket}
               </span>
               {tajada.porcentaje !== undefined && (
-                <span className="text-sm font-semibold text-slate-900">{tajada.porcentaje}%</span>
+                <span className="text-sm font-semibold text-foreground">{tajada.porcentaje}%</span>
               )}
             </button>
           </li>

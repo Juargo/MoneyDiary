@@ -47,9 +47,9 @@ export function ResumenAnual({
   return (
     <section
       aria-labelledby={tituloId}
-      className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+      className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm"
     >
-      <h2 id={tituloId} className="text-xs font-semibold tracking-widest text-slate-500 uppercase">
+      <h2 id={tituloId} className="text-xs font-semibold tracking-widest text-secondary uppercase">
         Resumen Anual {anio}
       </h2>
       {renderEstado(query, onSelectPeriodo, periodoActualUTC(ahora))}
@@ -126,7 +126,7 @@ function MesCelda({
         // an unavailable month cell" to AT, it does NOT make the cell
         // activatable by mouse or keyboard (FIX 3).
         aria-current={esActual ? 'date' : undefined}
-        className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-slate-400 opacity-60"
+        className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted p-3 text-muted-foreground opacity-60"
       >
         {contenido}
       </div>
@@ -140,8 +140,10 @@ function MesCelda({
       aria-current={esActual ? 'date' : undefined}
       onClick={() => onSelectPeriodo(mes.periodo)}
       className={cn(
-        'flex flex-col items-center gap-1 rounded-xl border p-3 text-slate-700 transition hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
-        esActual ? 'border-2 border-slate-800 bg-slate-50' : 'border-slate-200 bg-white',
+        // LOCKED (WCAG 1.4.11): focus ring stays outline-slate-800, matching
+        // the pie slices/legend — do NOT re-tint.
+        'flex flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+        esActual ? 'border-2 border-primary bg-muted' : 'border-border bg-card',
       )}
     >
       {contenido}

@@ -21,6 +21,15 @@ describe('MiniDistribucionPie', () => {
     expect(fills).toEqual(['#8FA7D1', '#B1A7D1', '#E6D194'])
   })
 
+  // WDS-07 (WCAG 1.4.11 non-text contrast): same adjacency problem as the
+  // main pie's pastel wedges — a white separator stroke between slices.
+  it('renders a white separator stroke on each slice for WCAG 1.4.11 adjacency contrast', () => {
+    render(<MiniDistribucionPie tajadas={tajadas} />)
+    for (const slice of screen.getAllByTestId('mini-pie-slice')) {
+      expect(slice).toHaveAttribute('stroke', '#ffffff')
+    }
+  })
+
   it('renders no percent labels, legend, or IDEAL inset — only the wedges', () => {
     render(<MiniDistribucionPie tajadas={tajadas} />)
     expect(screen.queryByText('50%')).not.toBeInTheDocument()
