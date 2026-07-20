@@ -23,16 +23,18 @@ export type NavItemModel =
  * `BottomTabs` both render this exact list (DRY: define the nav once,
  * render it twice per breakpoint).
  *
- * Only "Resumen" (`/`) is a `'link'` item: it is the sole nav-worthy route
- * that exists today under `_authenticated` (`/buckets/$bucket` is a
- * drill-down destination reached from within the dashboard, not a primary
- * nav target). "Subir nuevo archivo", "Configuración", and "Ayuda" are
- * `'placeholder'` items (WDS-03) — visible, announced as disabled, never
- * navigable, until their routes/features exist.
+ * "Resumen" (`/`) and "Subir nuevo archivo" (`/subir`) are `'link'` items:
+ * both are nav-worthy routes that exist today under `_authenticated`
+ * (`/buckets/$bucket` is a drill-down destination reached from within the
+ * dashboard, not a primary nav target). "Subir nuevo archivo" was a
+ * `'placeholder'` until the `upload-cartola-ui` route landed — now it is a
+ * live link. "Configuración" and "Ayuda" stay `'placeholder'` items
+ * (WDS-03) — visible, announced as disabled, never navigable, until their
+ * routes/features exist.
  */
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
-  { kind: 'placeholder', label: 'Subir nuevo archivo', icon: Upload },
+  { kind: 'link', label: 'Subir nuevo archivo', to: '/subir', icon: Upload },
   { kind: 'placeholder', label: 'Configuración', icon: Settings },
   { kind: 'placeholder', label: 'Ayuda', icon: HelpCircle },
 ]
