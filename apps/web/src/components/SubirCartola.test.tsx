@@ -249,7 +249,8 @@ describe('SubirCartola', () => {
   })
 
   // US-005 (Slice 3): inline, non-blocking banner when the backend omitted
-  // duplicate rows. X = total − omitidos (importadas), Y = omitidos.
+  // duplicate rows. X = totalTransacciones (already imported/post-dedup), Y =
+  // duplicadosOmitidos — no subtraction (totalTransacciones is post-dedup).
   it('US-005: shows the omitted-duplicates banner with the correct X/Y counts when duplicadosOmitidos > 0', () => {
     const dtoConDuplicados: IngestaResponseDto = {
       ...validDto,
