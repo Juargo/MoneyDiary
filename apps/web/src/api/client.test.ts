@@ -566,6 +566,7 @@ const validIngestaDto: IngestaResponseDto = {
   numeroCuenta: '12345678',
   archivo: { nombre: 'cartola.xlsx', extension: '.xlsx', tamanoBytes: 2048 },
   totalTransacciones: 1,
+  duplicadosOmitidos: 0,
   transacciones: [
     {
       fecha: '2026-07-15T00:00:00.000Z',
