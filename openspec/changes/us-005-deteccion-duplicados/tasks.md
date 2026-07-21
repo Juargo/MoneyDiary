@@ -85,15 +85,19 @@
 
 ## Group 7 — DTO + web wiring
 
-- [ ] **7.1 [T] (parallel with 7.3)** Write/extend a DTO-unit test for `apps/api/src/infrastructure/http/dto/ingesta-response.dto.ts` (e.g. `ingesta-response.dto.spec.ts` — create if none exists) — asserts `aIngestaResponseDto` maps `data.duplicadosOmitidos` to `duplicadosOmitidos` in the output, and `totalTransacciones` still equals `data.total` (imported count, meaning unchanged).
+- [x] **7.1 [T] (parallel with 7.3)** Write/extend a DTO-unit test for `apps/api/src/infrastructure/http/dto/ingesta-response.dto.ts` (e.g. `ingesta-response.dto.spec.ts` — create if none exists) — asserts `aIngestaResponseDto` maps `data.duplicadosOmitidos` to `duplicadosOmitidos` in the output, and `totalTransacciones` still equals `data.total` (imported count, meaning unchanged).
   - **Flag:** the spec's literal scenario "Response shape reflects counts" (line 61 of spec.md) names fields `totalTransacciones = M` (total incoming) + `transaccionesImportadas = M - N`. The design (§5.1/§9, a documented flagged refinement) instead keeps `totalTransacciones` = imported count (`data.total`, unchanged meaning from current code) and does NOT add `transaccionesImportadas` (would duplicate `totalTransacciones`). Write this test against the **design's** field semantics, not the spec's literal scenario — see Risks below.
   - Depends on: 3.2 (needs `duplicadosOmitidos` on `ProcessIngestaResult`).
-- [ ] **7.2 [I]** Modify `apps/api/src/infrastructure/http/dto/ingesta-response.dto.ts` — `IngestaResponseDto` gains `duplicadosOmitidos: number`; `aIngestaResponseDto` maps `data.duplicadosOmitidos`.
+  - **Apply note (Slice 3):** done — `ingesta-response.dto.spec.ts` extended with the mapped-field assertion + a dedicated "0 duplicados" case.
+- [x] **7.2 [I]** Modify `apps/api/src/infrastructure/http/dto/ingesta-response.dto.ts` — `IngestaResponseDto` gains `duplicadosOmitidos: number`; `aIngestaResponseDto` maps `data.duplicadosOmitidos`.
   - Depends on: 7.1 (must fail first).
-- [ ] **7.3 [T] (parallel with 7.1)** Write a web-unit test (vitest + RTL) in `apps/web/src/components/SubirCartola.test.tsx` (verify existing test file name first) — banner text ("Se importaron X, se omitieron Y duplicados") is rendered inside the `estado === 'exito'` section when `duplicadosOmitidos > 0`; banner is ABSENT when `duplicadosOmitidos === 0` (CA-04).
+  - **Apply note (Slice 3):** done.
+- [x] **7.3 [T] (parallel with 7.1)** Write a web-unit test (vitest + RTL) in `apps/web/src/components/SubirCartola.test.tsx` (verify existing test file name first) — banner text ("Se importaron X, se omitieron Y duplicados") is rendered inside the `estado === 'exito'` section when `duplicadosOmitidos > 0`; banner is ABSENT when `duplicadosOmitidos === 0` (CA-04).
   - Depends on: none (can mock the DTO shape directly).
-- [ ] **7.4 [I]** Modify `apps/web/src/api/types.ts` — add `readonly duplicadosOmitidos: number` to `IngestaResponseDto`. Modify `apps/web/src/components/SubirCartola.tsx` — inside the existing `estado === 'exito'` `<section>` (after the `<dl>` block, before the transaction preview `<ul>`), add a conditional banner rendered only when `mutation.data.duplicadosOmitidos > 0`, styled with Serene Finance tokens (not raw Tailwind), non-destructive/informational styling, no new focus trap or aria-live region (reuses the section's existing focus management).
+  - **Apply note (Slice 3):** done. **Field-semantics correction found while implementing:** `totalTransacciones` in the DTO already equals the IMPORTED count (confirmed by reading `persist-transactions.use-case.ts` — `total` is echoed from committing only `nuevas`, the deduped batch), not the raw incoming total. So X in the banner = `mutation.data.totalTransacciones` directly and Y = `mutation.data.duplicadosOmitidos` directly — NO subtraction. (An earlier apply-instruction phrasing "importadas = total − omitidos" would have double-subtracted and produced a wrong/negative X; not applied.)
+- [x] **7.4 [I]** Modify `apps/web/src/api/types.ts` — add `readonly duplicadosOmitidos: number` to `IngestaResponseDto`. Modify `apps/web/src/components/SubirCartola.tsx` — inside the existing `estado === 'exito'` `<section>` (after the `<dl>` block, before the transaction preview `<ul>`), add a conditional banner rendered only when `mutation.data.duplicadosOmitidos > 0`, styled with Serene Finance tokens (not raw Tailwind), non-destructive/informational styling, no new focus trap or aria-live region (reuses the section's existing focus management).
   - Depends on: 7.3 (must fail first), 7.2.
+  - **Apply note (Slice 3):** done — banner uses `bg-ingreso`/`text-ingreso-foreground` (Serene Finance mint/emerald tokens, same pair as `IngresoCard`), `role="status"` with its own `aria-label` (no new focus trap). Also updated `postIngesta`'s runtime type guard (`esIngestaResponseDto` in `client.ts`) to validate the new field, and fixed 3 pre-existing DTO fixture literals (`client.test.ts`, `use-ingesta.test.tsx`, `SubirCartola.test.tsx`) that were missing it (all derived via spread, one edit each).
 
 ## Group 8 — Integration tests (gated `ALLOW_DESTRUCTIVE_DB=1`)
 
@@ -117,12 +121,12 @@
 
 ## Group 9 — DoD close-out (sequential, last)
 
-- [x] **9.1 [I]** Run `pnpm api test` (all unit tests green, including Groups 0–4/7.1-7.2 above). **Slice 2: 103 files / 822 tests GREEN** (Groups 7.1/7.2 still pending, Slice 3).
-- [ ] **9.2 [I]** Run `pnpm web test` (Group 7.3-7.4 green). Pending — Slice 3 (web untouched in Slice 2).
-- [x] **9.3 [I]** Run `pnpm api exec tsc --noEmit` — no type errors across the new/modified files. **Slice 2: zero errors.**
-- [ ] **9.4 [I]** Run Group 8 integration tests with `ALLOW_DESTRUCTIVE_DB=1` against the test DB (never Supabase real — ADR-021). **Written but NOT executed** — no `DATABASE_URL`/`.env` in the Slice 2 apply worktree. Must run before merge.
+- [x] **9.1 [I]** Run `pnpm api test` (all unit tests green, including Groups 0–4/7.1-7.2 above). **Slice 2: 103 files / 822 tests GREEN.** **Slice 3: 103 files / 823 tests GREEN** (Groups 7.1/7.2 now included).
+- [x] **9.2 [I]** Run `pnpm web test` (Group 7.3-7.4 green). **Slice 3: 51 files / 443 tests GREEN.**
+- [x] **9.3 [I]** Run `pnpm api exec tsc --noEmit` — no type errors across the new/modified files. **Slice 2: zero errors. Slice 3: zero errors** (also `pnpm web typecheck` — zero errors).
+- [ ] **9.4 [I]** Run Group 8 integration tests with `ALLOW_DESTRUCTIVE_DB=1` against the test DB (never Supabase real — ADR-021). **Written but NOT executed** — no `DATABASE_URL`/`.env` in the Slice 2 apply worktree. Must run before merge/archive.
 - [ ] **9.5 [I]** Manual/CLI verification: re-run `pnpm api cli -- ./test/fixtures/<any real fixture>.xlsx` twice against a real account and confirm the 2nd run reports omitted duplicates (optional cosmetic follow-up per design §11 risk table: CLI output line for `duplicadosOmitidos` — nice-to-have, not required for DoD). CLI output line added in Slice 2 (`ingestar.ts`); actual manual re-run against a real DB not performed (no DB access).
-- [x] **9.6 [I]** Conventional Commits across the change; confirm no secrets/raw money values leak into any error message (existing scrub convention, unchanged). **Slice 2: 7 commits on `feat/us-005-duplicados-2-infra`**, no raw amounts in new error paths (reuses existing `PersistenciaFallidaError`/scrub conventions).
+- [x] **9.6 [I]** Conventional Commits across the change; confirm no secrets/raw money values leak into any error message (existing scrub convention, unchanged). **Slice 2: 7 commits on `feat/us-005-duplicados-2-infra`**. **Slice 3: 3 commits on `feat/us-005-duplicados-3-web`**, no raw amounts/secrets in any new code path.
 
 ---
 
