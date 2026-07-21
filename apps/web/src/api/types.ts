@@ -140,5 +140,12 @@ export interface IngestaResponseDto {
     readonly tamanoBytes: number
   }
   readonly totalTransacciones: number
+  /**
+   * Conteo de filas detectadas como duplicadas y NO persistidas (US-005
+   * `us-005-deteccion-duplicados`, design.md §5.1). `totalTransacciones` YA
+   * refleja solo lo importado (semántica sin cambios) — este campo se suma,
+   * no se resta de nada. `0` cuando no hubo duplicados, nunca omitido.
+   */
+  readonly duplicadosOmitidos: number
   readonly transacciones: ReadonlyArray<TransaccionResponseDto>
 }
