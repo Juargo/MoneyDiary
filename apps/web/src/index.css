@@ -23,6 +23,16 @@
   --color-gustos: #b1a7d1; /* lavanda — Deseos/Gustos */
   --color-ahorro: #e6d194; /* pastel yellow — Ahorro */
   --color-exceso: #e88a8a; /* coral — over-budget state (currently unconsumed) */
+
+  /*
+   * Income card fill+text PAIR (DCR-01/03). Unlike the bucket fills above
+   * (fills only, never text), income is a self-contained mint+green pair —
+   * `--color-ingreso` is the card background, `--color-ingreso-foreground`
+   * is the ONLY text token in this block, following shadcn's `-foreground`
+   * convention. Contrast: 6.78:1 (AA) — see spec DCR-06.
+   */
+  --color-ingreso: #d1fae5; /* mint — income card fill */
+  --color-ingreso-foreground: #065f46; /* emerald — income card text */
 }
 
 /*
@@ -45,13 +55,13 @@
  */
 :root {
   --radius: 0.5rem; /* 8px default (was 0.625rem/10px) */
-  --background: #f9f9f9; /* surface — off-white */
+  --background: #e8f0fa; /* surface — pale pastel blue */
   --foreground: #1a1c1c; /* on-surface */
   --card: #ffffff; /* surface-container-lowest */
   --card-foreground: #1a1c1c;
   --popover: #ffffff;
   --popover-foreground: #1a1c1c;
-  --primary: #475f85; /* strong blue — buttons/heading TEXT (~6.5:1 on white) */
+  --primary: #2260b2; /* strong blue — buttons/heading TEXT (6.21:1 on white) */
   --primary-foreground: #ffffff;
   --secondary: #61597f; /* strong lavanda — section subheads TEXT (~6.5:1) */
   --secondary-foreground: #ffffff;
