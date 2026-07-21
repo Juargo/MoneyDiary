@@ -24,6 +24,7 @@ const validDto: IngestaResponseDto = {
   numeroCuenta: '12345678',
   archivo: { nombre: 'cartola.xlsx', extension: '.xlsx', tamanoBytes: 2048 },
   totalTransacciones: 1,
+  duplicadosOmitidos: 0,
   transacciones: [
     { fecha: '2026-07-15T00:00:00.000Z', descripcion: 'Supermercado Líder', cargo: '50000', abono: '0' },
   ],
@@ -245,6 +246,30 @@ describe('SubirCartola', () => {
     expect(screen.getByText('Transacción 1')).toBeInTheDocument()
     expect(screen.getByText('Transacción 5')).toBeInTheDocument()
     expect(screen.queryByText('Transacción 6')).not.toBeInTheDocument()
+  })
+
+  // US-005 (Slice 3): inline, non-blocking banner when the backend omitted
+  // duplicate rows. X = total − omitidos (importadas), Y = omitidos.
+  it('US-005: shows the omitted-duplicates banner with the correct X/Y counts when duplicadosOmitidos > 0', () => {
+    const dtoConDuplicados: IngestaResponseDto = {
+      ...validDto,
+      totalTransacciones: 7,
+      duplicadosOmitidos: 3,
+    }
+    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: dtoConDuplicados }))
+
+    render(<SubirCartola />)
+
+    expect(screen.getByText('Se importaron 7, se omitieron 3 duplicados')).toBeInTheDocument()
+  })
+
+  // CA-04: normal flow unchanged when there are zero duplicates — no banner.
+  it('US-005: does not show the omitted-duplicates banner when duplicadosOmitidos is 0', () => {
+    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: validDto }))
+
+    render(<SubirCartola />)
+
+    expect(screen.queryByText(/se omitieron/i)).not.toBeInTheDocument()
   })
 
   // CU-04: each known error variant renders its body.message verbatim.
