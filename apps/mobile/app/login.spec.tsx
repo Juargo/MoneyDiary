@@ -58,6 +58,24 @@ describe('Login screen (MOB-01)', () => {
     expect(screen.getByTestId('login-submit')).toBeOnTheScreen();
   });
 
+  it('hides the password by default and reveals it when the toggle is pressed', async () => {
+    await render(<Login />);
+
+    const toggle = screen.getByTestId('login-password-toggle');
+
+    // Hidden by default — secureTextEntry masks the field.
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
+    expect(screen.getByLabelText('Mostrar contraseña')).toBeOnTheScreen();
+
+    await fireEvent.press(toggle);
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(false);
+    expect(screen.getByLabelText('Ocultar contraseña')).toBeOnTheScreen();
+
+    // Tapping again re-masks it.
+    await fireEvent.press(screen.getByTestId('login-password-toggle'));
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
+  });
+
   it('submits the typed credentials to postLogin, stores the token, and signs in on success', async () => {
     mockPostLogin.mockResolvedValue({ ok: true, value: successResponse });
 

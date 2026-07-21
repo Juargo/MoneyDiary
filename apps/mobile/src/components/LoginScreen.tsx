@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { COLORS } from '../theme/colors';
 
@@ -32,6 +33,9 @@ export function LoginScreen({
   readonly onSubmit: () => void;
 }) {
   const enviando = estado.fase === 'submitting';
+  // View-only state (presentational concern): toggles the password mask so
+  // the user can confirm what they typed. No business logic, no side effects.
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
   return (
     <View className="flex-1 justify-center gap-6 bg-canvas px-8">
@@ -49,16 +53,28 @@ export function LoginScreen({
           editable={!enviando}
           className="rounded-xl border border-hairline bg-white px-4 py-3 text-heading"
         />
-        <TextInput
-          testID="login-password"
-          accessibilityLabel="Contraseña"
-          placeholder="Contraseña"
-          secureTextEntry
-          value={password}
-          onChangeText={onChangePassword}
-          editable={!enviando}
-          className="rounded-xl border border-hairline bg-white px-4 py-3 text-heading"
-        />
+        <View className="flex-row items-center rounded-xl border border-hairline bg-white pr-2">
+          <TextInput
+            testID="login-password"
+            accessibilityLabel="Contraseña"
+            placeholder="Contraseña"
+            secureTextEntry={!mostrarPassword}
+            value={password}
+            onChangeText={onChangePassword}
+            editable={!enviando}
+            className="flex-1 px-4 py-3 text-heading"
+          />
+          <Pressable
+            testID="login-password-toggle"
+            accessibilityRole="button"
+            accessibilityLabel={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            onPress={() => setMostrarPassword((visible) => !visible)}
+            hitSlop={8}
+            className="px-2 py-2"
+          >
+            <Text className="text-lg">{mostrarPassword ? '🙈' : '👁'}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {estado.fase === 'error' && (
