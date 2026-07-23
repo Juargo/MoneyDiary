@@ -189,6 +189,15 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             <dt className="font-medium">Transacciones</dt>
             <dd>{mutation.data.totalTransacciones}</dd>
           </dl>
+          {mutation.data.duplicadosOmitidos > 0 && (
+            <p
+              role="status"
+              aria-label="Aviso de duplicados omitidos"
+              className="rounded-lg bg-ingreso px-3 py-2 text-sm font-medium text-ingreso-foreground"
+            >
+              {`Se importaron ${mutation.data.totalTransacciones}, se omitieron ${mutation.data.duplicadosOmitidos} duplicados`}
+            </p>
+          )}
           <ul className="flex flex-col gap-2">
             {mutation.data.transacciones.slice(0, CANTIDAD_PREVIEW_TRANSACCIONES).map((transaccion, indice) => (
               // El DTO no trae `id` (a diferencia de `DetalleBucketTransaccionDto`) — la key

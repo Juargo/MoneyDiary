@@ -398,6 +398,7 @@ function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
     typeof candidato.numeroCuenta === 'string' &&
     esArchivoIngestaDto(candidato.archivo) &&
     typeof candidato.totalTransacciones === 'number' &&
+    typeof candidato.duplicadosOmitidos === 'number' &&
     Array.isArray(candidato.transacciones) &&
     candidato.transacciones.every(esTransaccionResponseDto)
   )
