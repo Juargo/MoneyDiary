@@ -48,8 +48,10 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - [x] **3.3** `app.ts` — mount `registrarBuckets` on the protected `/api` router. ✅
 - [x] **3.4** `app.buckets.spec.ts` — protected + isolation gate (401 without session, 200 with, session `userId` flows to the use case). Green: **858/858** + `tsc` clean. ✅
 
-## Slice 4 — `movimientos` (`GET /`)
-- [ ] **4.x** `movimientos.routes.ts` + `obtenerMovimientosMes`; reuse `movimiento-mes.dto.ts`. Test-first.
+## Slice 4 — `movimientos` (`GET /api/movimientos`) ✅
+- [x] **4.1** `routes/movimientos.routes.ts` — `registrarMovimientos(router, uc)`: `periodo` query; `PeriodoInvalidoError` → scrubbed 400, unexpected → 500; reuse `aMovimientosMesDto`. Test-first (4 tests). ✅
+- [x] **4.2** `obtenerMovimientosMes` wired into `Container`; `PrismaMovimientosMesRepository` decoupled → `PrismaClient`. ✅
+- [x] **4.3** `app.ts` — mount on protected `/api`; `app.movimientos.spec.ts` isolation gate (2 tests). Green: **864/864** + `tsc` clean. ✅
 
 ## Slice 5 — `transacciones` (`PATCH /:id/categoria`) — first write
 - [ ] **5.x** `transacciones.routes.ts` + `reclasificarCategoria`; reuse `reclasificar-categoria.dto.ts`; JSON body parsing. Test-first.
