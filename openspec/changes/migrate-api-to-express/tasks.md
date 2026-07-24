@@ -63,8 +63,14 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - [x] **6.2** `composition/crear-process-ingesta.ts` — extracted the full `IngestaModule` graph (14-arg pipeline, xlsx+pdf) into a reusable helper; `processIngesta` wired into `Container`. **6 repos decoupled** `PrismaService → PrismaClient` (account, ingesta, catalogo, transaccion-bucket, transaccion-clasificacion, transaccion-existente-reader). ✅
 - [x] **6.3** `app.ts` — mount on protected `/api` (auth runs **before** multer parses the upload); `app.ingesta.spec.ts` isolation gate (2 tests, multipart). Green: **877/877** + `tsc` clean. ✅
 
-## Slice 7 — `auth` (`POST login`/`logout`, `GET me`/`demo`)
-- [ ] **7.x** `auth.routes.ts` + login/logout/me/demo use cases in `Container`; reuse `cookie.ts` (Set-Cookie attrs identical), `login-rate-limiter.ts`, `demo-rate-limiter.ts`, `demo-cleanup.service.ts`. Test-first.
+## Slice 7 — `auth` (`POST login`/`logout`, `GET me`/`demo`) ✅
+- [x] **7.1** `routes/auth.routes.ts` — `registrarAuthPublic` (login/logout/demo) + `registrarAuthMe` (me). Login: rate-limit (429) + argon2 via use case + Set-Cookie + 401 on bad creds. Logout: 204 + clear cookie (robust, never rethrows). Demo: **sec-fetch 403** + existing-session 302 + rate-limit 429 + lazy cleanup (degradable) + 302 redirect. Reuses `cookie.ts`/`client-ip.ts`/`extraer-token.ts`/`sec-fetch-guard.ts` verbatim. Test-first (8 tests). ✅
+- [x] **7.2** `composition/crear-auth.ts` — extracted the `AuthModule` graph (consolidates `validarSesion` + login/logout/identidad/demo use cases + rate limiters + cleanup). Wired 8 auth fields into `Container`. **3 more repos/services decoupled** (`prisma-user-credential`, `prisma-demo`, `demo-cleanup.service`) → `PrismaClient`. ✅
+- [x] **7.3** `app.ts` **remounted** for session-public: `apiKeyMiddleware` now global on `/api`; **`authPublicApi`** (login/logout/demo — api-key, NO session) mounted **before** `protectedApi` (session + data routes + `/auth/me`). `app.auth.spec.ts` proves login is session-public and `me` is protected (4 tests). Green: **889/889** + `tsc` clean. ✅
+
+**Cutover follow-ups discovered (for Slice 8):**
+- `DemoCleanupService.limpiarDiario()` is `@Cron` (`@nestjs/schedule`) — needs a non-Nest scheduler replacement post-cutover. Lazy cleanup in `GET /demo` already works.
+- Auth helpers still under `infrastructure/http/auth/` (framework-agnostic: cookie, client-ip, extraer-token, sec-fetch, rate limiters, system-reloj, sha256-token, argon2, demo-cleanup) must relocate to a neutral dir when `http/` is deleted.
 
 ## Slice 8 — Cutover  🚀 ONLY slice that changes prod
 - [ ] **8.1** Flip `start`/`build` + `render.yaml` to the Express entrypoint (`dist/main.js` → Express bootstrap).
