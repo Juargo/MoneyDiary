@@ -79,8 +79,8 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 ### 8a — Migrate the CLI ✅
 - [x] **8a.1** `cli/ingestar.ts` — replaced the inline Nest wiring (`new PrismaService()` + hand-built `ProcessIngestaUseCase`) with `createPrismaClient()` + `crearProcessIngesta(prisma)`; `$connect`/`$disconnect` lifecycle; dropped `reflect-metadata`. CLI and HTTP now share the SAME composition root. `tsc` clean, **889/889**. ✅
 
-### 8b — Migrate the e2e/integration harness
-- [ ] **8b.1** Rewrite the 19 `test/*.{e2e,int}-spec.ts` to boot `createApp(createContainer())` (e2e, supertest) / `createContainer()` + `createPrismaClient()` (integration) instead of `Test.createTestingModule({ imports: [AppModule] })` + `PrismaService`. Preserve the ADR-015 `userId` isolation tests.
+### 8b — Migrate the e2e/integration harness ✅
+- [x] **8b.1** Rewrote all 19 `test/*.{e2e,int}-spec.ts` — 10 app-booting → `createApp(createContainer(prisma))` + `request(app)`; 9 db-only → `createPrismaClient()`. Only boot/teardown swapped; bodies/assertions/seed logic untouched (delegated + verified). Also decoupled `PrismaTransaccionRepository` (`PrismaService → PrismaClient`) — an internal read repo used only by `prisma-persistence.int-spec` and the CLI, not any HTTP endpoint. `tsc --noEmit` clean; zero `@nestjs`/`AppModule`/`PrismaService` refs left in `test/` (one harmless doc-comment aside). **Execution against a real DB is deferred to 8d** (gated `ALLOW_DESTRUCTIVE_DB`); several older e2e were already session-bit-rotted pre-migration.
 
 ### 8c — Delete Nest + flip
 - [ ] **8c.1** Delete `main.ts`, `app.{module,controller,service}.ts`, all `*.module.ts`, `PrismaService`/`prisma.module.ts`, `http/*.controller.ts`, guards (`api-key`/`session`), decorators (`public`/`session-public`/`current-user`), `upload-too-large.filter.ts`, + their specs. **Keep** the 17 framework-agnostic survivors under `http/dto/`, `http/multer-file-reader.adapter`, `http/auth/` (cookie, client-ip, extraer-token, sec-fetch, rate limiters, argon2, sha256-token, system-reloj, express-request.d.ts).
