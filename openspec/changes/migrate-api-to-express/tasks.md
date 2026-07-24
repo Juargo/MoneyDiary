@@ -58,8 +58,10 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - [x] **5.2** `reclasificarTransaccion` wired into `Container`; `PrismaReclasificarCategoriaRepository` decoupled → `PrismaClient`. ✅
 - [x] **5.3** `app.ts` — mount on protected `/api` (`express.json()` already global); `app.transacciones.spec.ts` isolation gate (2 tests, PATCH). Green: **871/871** + `tsc` clean. ✅
 
-## Slice 6 — `ingestas` (`POST /`) — file upload
-- [ ] **6.x** `ingestas.routes.ts` + `multer` route-level middleware; adapt `req.file` to the `IFileReader` boundary; `processIngesta` in `Container`; reuse `ingesta-response.dto.ts`. Test-first.
+## Slice 6 — `ingestas` (`POST /api/ingestas`) — file upload ✅
+- [x] **6.1** `routes/ingesta.routes.ts` — `multer` route-level (memory, 10MB), `LIMIT_FILE_SIZE` → 400 (mirrors `UploadTooLargeFilter`); **reuse `MulterFileReaderAdapter`** (already framework-agnostic) → `IFileReader`; `processIngesta.execute`; error map (9 `ProcessIngestaError` variants: `PersistenciaFallidaError` → 500, other 8 → 400) with exhaustiveness guard; reuse `aIngestaResponseDto`. Test-first (4 tests). ✅
+- [x] **6.2** `composition/crear-process-ingesta.ts` — extracted the full `IngestaModule` graph (14-arg pipeline, xlsx+pdf) into a reusable helper; `processIngesta` wired into `Container`. **6 repos decoupled** `PrismaService → PrismaClient` (account, ingesta, catalogo, transaccion-bucket, transaccion-clasificacion, transaccion-existente-reader). ✅
+- [x] **6.3** `app.ts` — mount on protected `/api` (auth runs **before** multer parses the upload); `app.ingesta.spec.ts` isolation gate (2 tests, multipart). Green: **877/877** + `tsc` clean. ✅
 
 ## Slice 7 — `auth` (`POST login`/`logout`, `GET me`/`demo`)
 - [ ] **7.x** `auth.routes.ts` + login/logout/me/demo use cases in `Container`; reuse `cookie.ts` (Set-Cookie attrs identical), `login-rate-limiter.ts`, `demo-rate-limiter.ts`, `demo-cleanup.service.ts`. Test-first.
