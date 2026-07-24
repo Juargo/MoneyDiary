@@ -5,7 +5,7 @@
 App de finanzas personales para consolidar y analizar movimientos bancarios chilenos (Banco de Chile, BancoEstado, BCI, Santander) importados desde archivos `.xlsx`. Es simultáneamente un ejercicio de aprendizaje en buenas prácticas de ingeniería (Clean Architecture, TDD, ADRs, Agile/Scrum).
 
 **Repositorio:** `git@github.com:Juargo/MoneyDiary.git`
-**Stack backend:** NestJS v11 · TypeScript strict · pnpm v11 · Node.js 22+ · Prisma 7 · PostgreSQL (Supabase)
+**Stack backend:** ⚠️ **Migrando NestJS → Express + TypeScript strict (ADR-028, en curso endpoint por endpoint)** · pnpm v11 · Node.js 22+ · Prisma 7 (se mantiene) · PostgreSQL (Supabase)
 **Stack frontend:** React 19 · TypeScript · Vite 8 · Tailwind 4 · shadcn/ui · TanStack Query · TanStack Router · Zustand
 **Stack mobile:** Expo SDK 57 · Expo Router · NativeWind 4 (Tailwind 3) · jest-expo + RNTL (ADR-010/017)
 **Estructura:** Monorepo `pnpm workspaces` — `apps/api` (backend) + `apps/web` (frontend) + `apps/mobile` (Expo)
@@ -53,7 +53,7 @@ Cuando trabajes en análisis o diseño, leer los archivos relevantes de esa ruta
 
 ```
 apps/
-  api/              ← Backend NestJS (ADR-001, ADR-005)
+  api/              ← Backend (⚠️ migrando NestJS → Express, ADR-028; arquitectura ADR-005 intacta)
     src/
       domain/         ← Entidades, Value Objects, errores de negocio (sin dependencias externas)
       application/    ← Use Cases y Ports (interfaces). Depende solo del dominio.
@@ -94,7 +94,7 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 
 | ADR | Decisión |
 |-----|----------|
-| ADR-001 | Backend: NestJS + TypeScript |
+| ADR-001 | Backend: NestJS + TypeScript — ⛔ **supersedido por ADR-028** (framework); TypeScript se mantiene |
 | ADR-002 | Base de datos: PostgreSQL + Supabase + Prisma 7 |
 | ADR-003 | Frontend: React + TypeScript + Vite |
 | ADR-004 | Hosting: Vercel + Render + GitHub Actions |
@@ -115,6 +115,13 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 | ADR-019 | Tracking y monitoring: 🔵 EN DISCUSIÓN (decisión final diferida). Propuesta: SDKs de Sentry (backend/web/mobile) → GlitchTip (cloud free → self-host cuando el volumen/privacidad lo exija). Highlight descartado (deprecado feb 2026). PII/financial scrubbing obligatorio en `beforeSend` (ADR-013). Session replay/tracing profundo diferido |
 | ADR-020 | Git hooks (monorepo): Husky + lint-staged + commitlint, instalados **solo en la raíz** (instalarlos en `apps/*` los deja sin efecto). `pre-commit` → lint-staged (ESLint --fix + Prettier + typecheck del workspace tocado, routing por glob); `commit-msg` → commitlint (Conventional Commits); `pre-push` → tests de workspaces afectados. **Los hooks son conveniencia, NO enforcement (`--no-verify` los salta): CI debe re-correr las mismas checks.** Lefthook evaluado y diferido (stack all-Node) |
 | ADR-021 | Análisis de seguridad automatizado en el pipeline (GitHub Actions, OSS/gratis): **SCA** (Dependabot + `pnpm audit --audit-level=high` gate + Socket.dev supply-chain) · **DAST** (OWASP ZAP API scan + Schemathesis dirigidos por `openapi.json`, contra entorno efímero — **nunca Supabase real**) · **SAST** (Semgrep; CodeQL si repo público/GHAS) · **secretos** (gitleaks en pre-commit + CI). Bloquean high/critical + secretos; el resto advierte. BOLA/IDOR (aislamiento user_id) NO lo cubre DAST → tests de integración (ADR-015) |
+| ADR-022 | Ruta de despliegue mobile: distribución interna con EAS Build (APK Android firmado, compartido por URL/QR) antes que store. Publicación en tiendas deja de ser prioridad y no bloquea nada |
+| ADR-023 | Topología de despliegue: actual PaaS free tier mono-usuario (Render + Vercel + Supabase) y evolución prevista hacia multi-cliente |
+| ADR-024 | Arquitectura de clientes: backend rico + clientes delgados contract-first. El dominio canónico vive una sola vez en el backend; web/mobile solo tienen lógica de presentación. Regla de oro: si afecta cuánto dinero se muestra o cómo se clasifica → `domain`; si afecta cómo se presenta → cliente |
+| ADR-025 | Landing page: workspace propio `apps/landing` con Astro 100 % estático, desplegado como proyecto Vercel independiente bajo el dominio raíz |
+| ADR-026 | Ingesta desde mobile: la app gana una única capacidad de escritura — subir cartola `.xlsx`/`.pdf` vía `POST /api/ingestas` (`expo-document-picker`). Toda otra escritura queda fuera. Enmienda ADR-010 (mobile deja de ser solo-lectura) |
+| ADR-027 | Set de iconos unificado web+mobile: **`lucide`** (`lucide-react` ya embebido en web + default de shadcn; `lucide-react-native` en mobile). Iconoir evaluado y descartado por peaje de migración + fricción permanente con shadcn. `react-native-svg` vía `expo install` |
+| ADR-028 | Backend framework: **migración NestJS → Express + TypeScript strict**. Supersede ADR-001. Motivo: la magia de Nest (DI, decoradores) tapaba los fundamentos que el proyecto busca aprender. Alcance confinado a `infrastructure/http` + composition root real (`composition/container.ts`); `domain`/`application` sin cambios (0 imports de Nest — el aislamiento de ADR-005 lo permite). Prisma se mantiene. Riesgo caliente: reescribir `ApiKeyGuard`/`SessionGuard` como middleware + re-correr checklist de aislamiento `user_id` (ADR-015) |
 
 ---
 
@@ -162,7 +169,7 @@ En prod: `SessionGuard` activo como 2º `APP_GUARD`; `/api/resumen` exige sesió
 
 **Sprint 9 — Rediseño web "Serene Finance" — ✅ CERRADO y mergeado a `main` (2026-07-20).** Change SDD `web-dashboard-redesign-mobile` (store hybrid Engram + openspec), entrega feature-branch-chain stacked-to-main. Restyle en sitio del dashboard "Análisis Mensual" de `apps/web` a identidad Serene Finance + shell de navegación responsive net-new (sidebar desktop / bottom tabs mobile). Solo `apps/web`, backend sin tocar. PRs: #89 (tokens Serene Finance + Inter font + paleta) · #93 (nav shell responsive — reemplaza al #90, que GitHub cerró al borrarse su rama base en el merge stacked) · #91 (dashboard restyle + fix contraste pie WCAG AA) · #92 (responsividad mobile + gate final). Follow-up cosmético pendiente: `SubirCartola.tsx` usa paleta Tailwind cruda en vez de tokens Serene Finance.
 
-**En vuelo ahora (2026-07-20):** solo el mobile de Sprint 8 (US-033, PRs #76/#77) en espera del gate Maestro. Sprint 9 y las slices web de Sprint 8 ya están en `main`.
+**En vuelo ahora (2026-07-23):** **migración backend NestJS → Express (ADR-028)** en curso vía change SDD `migrate-api-to-express`, endpoint por endpoint. Además, el mobile de Sprint 8 (US-033, PRs #76/#77) sigue en espera del gate Maestro. Sprint 9 y las slices web de Sprint 8 ya están en `main`.
 
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
