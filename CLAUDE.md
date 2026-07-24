@@ -5,11 +5,11 @@
 App de finanzas personales para consolidar y analizar movimientos bancarios chilenos (Banco de Chile, BancoEstado, BCI, Santander) importados desde archivos `.xlsx`. Es simultáneamente un ejercicio de aprendizaje en buenas prácticas de ingeniería (Clean Architecture, TDD, ADRs, Agile/Scrum).
 
 **Repositorio:** `git@github.com:Juargo/MoneyDiary.git`
-**Stack backend:** ⚠️ **Migrando NestJS → Express + TypeScript strict (ADR-028, en curso endpoint por endpoint)** · pnpm v11 · Node.js 22+ · Prisma 7 (se mantiene) · PostgreSQL (Supabase)
+**Stack backend:** **Express + TypeScript strict** (ADR-028, migrado desde NestJS) · pnpm v11 · Node.js 22+ · Prisma 7 · PostgreSQL (Supabase)
 **Stack frontend:** React 19 · TypeScript · Vite 8 · Tailwind 4 · shadcn/ui · TanStack Query · TanStack Router · Zustand
 **Stack mobile:** Expo SDK 57 · Expo Router · NativeWind 4 (Tailwind 3) · jest-expo + RNTL (ADR-010/017)
 **Estructura:** Monorepo `pnpm workspaces` — `apps/api` (backend) + `apps/web` (frontend) + `apps/mobile` (Expo)
-**Producción:** API desplegada en Render — `https://moneydiary-api.onrender.com`, protegida por `ApiKeyGuard` (`x-api-key`)
+**Producción:** API desplegada en Render — `https://moneydiary-api.onrender.com`, protegida por `apiKeyMiddleware` (`x-api-key`)
 
 ---
 
@@ -53,13 +53,14 @@ Cuando trabajes en análisis o diseño, leer los archivos relevantes de esa ruta
 
 ```
 apps/
-  api/              ← Backend (⚠️ migrando NestJS → Express, ADR-028; arquitectura ADR-005 intacta)
+  api/              ← Backend Express + Clean Architecture (ADR-028, ADR-005)
     src/
       domain/         ← Entidades, Value Objects, errores de negocio (sin dependencias externas)
       application/    ← Use Cases y Ports (interfaces). Depende solo del dominio.
-      infrastructure/ ← Implementaciones concretas (HTTP, CLI, Excel). Depende de application.
+      infrastructure/ ← Adapters concretos: `http-express/` (app + middleware + routes),
+                        `persistence/`, `excel/`, `pdf/`, `cli/`, `scheduler/`. Depende de application.
       shared/         ← Result<T,E>, utilidades transversales
-      composition/    ← Composition Root (placeholder, DI manual por ahora)
+      composition/    ← Composition Root real: `container.ts` (DI manual con `new`) + helpers `crear-*`
     test/
     prisma/
   web/              ← Frontend React (ADR-003, ADR-008)
@@ -86,6 +87,8 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 **Manejo de errores backend:** `Result<T,E>` (en `apps/api/src/shared/result.ts`) — nunca lanzar excepciones en domain/application.
 **Al implementar una nueva US del backend:** empezar siempre por el dominio (value objects, errores), luego application (ports, use cases), luego infrastructure. No al revés.
 
+**Capa HTTP (post-ADR-028, Express):** los endpoints viven en `infrastructure/http-express/` — `app.ts` (`createApp(container)`, sin `listen`), `middleware/` (`apiKeyMiddleware` → `sessionMiddleware` → `errorMiddleware`), y `routes/*.routes.ts` (funciones `registrar*(router, useCase)` con closure-DI). No hay decoradores ni módulos: el grafo se arma a mano en `composition/container.ts`. "Ruta pública" = no montar el middleware. El entrypoint es `http-express/server.ts` (`node dist/infrastructure/http-express/server`). Los DTOs y helpers de auth framework-agnósticos sobrevivieron en `infrastructure/http/` (dto/, multer-file-reader.adapter, auth/ sin los guards/decorators). ⚠️ **Las referencias de secciones históricas de sprints a `http/*.controller.ts`, `*.module.ts`, `PrismaService`/`prisma.module.ts`, `ApiKeyGuard`/`SessionGuard`, `@CurrentUser()`/`@Public()` son PRE-migración** — hoy son, respectivamente, `http-express/routes/`, `container.ts`/`crear-*`, `createPrismaClient()`, los middleware, y `req.userId`/no-montar-middleware.
+
 **Frontend — sin compartir dominio:** el frontend NO importa de `apps/api/src/domain` (rompería ADR-005). El contrato real son los DTOs HTTP; los tipos se escriben a mano en `apps/web/src/api/types.ts`. No existe `packages/shared` — decisión deliberada (ADR-008).
 
 ---
@@ -109,7 +112,7 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 | ADR-013 | Cifrado de datos en reposo (todo) + a nivel de app en columnas sensibles |
 | ADR-014 | Validación de requisitos: 3 técnicas cualitativas de bajo coste (demos → usabilidad → piloto); métricas de negocio y test A/B diferidas como trabajo futuro |
 | ADR-015 | Verificación de requisitos: verificación por capas con énfasis en dinero (unit) y control de acceso (integración) + criterios ejecutables BDD + peer review con checklist de seguridad + UAT |
-| ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend transpila con SWC (`unplugin-swc` + `oxc:false`) por la metadata de decoradores de Nest; front usa jsdom + Testing Library |
+| ADR-016 | Testing framework: Vitest (runner único front + back, reemplaza Jest) — ✅ implementado. Backend usa el transformador **Oxc por defecto** (se quitó `unplugin-swc`/`oxc:false` al eliminar Nest — ya no hay decoradores, ADR-028); front usa jsdom + Testing Library |
 | ADR-017 | Testing mobile: Jest (jest-expo) + React Native Testing Library + Maestro (E2E) — ✅ activo: `apps/mobile` ya es app Expo real dentro del workspace (Sprint 3, PR #28); jest-expo 57 fija jest@29. Maestro corre manual en dispositivo, no en CI |
 | ADR-018 | Testing accesibilidad + UX: a11y por capas — web (eslint-jsx-a11y + vitest-axe + @axe-core/playwright), mobile (eslint-rn-a11y + rn-accessibility-engine + VoiceOver/TalkBack, post-MVP); WCAG 2.2 AA; UX validada vía ADR-014 |
 | ADR-019 | Tracking y monitoring: 🔵 EN DISCUSIÓN (decisión final diferida). Propuesta: SDKs de Sentry (backend/web/mobile) → GlitchTip (cloud free → self-host cuando el volumen/privacidad lo exija). Highlight descartado (deprecado feb 2026). PII/financial scrubbing obligatorio en `beforeSend` (ADR-013). Session replay/tracing profundo diferido |
@@ -121,7 +124,7 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 | ADR-025 | Landing page: workspace propio `apps/landing` con Astro 100 % estático, desplegado como proyecto Vercel independiente bajo el dominio raíz |
 | ADR-026 | Ingesta desde mobile: la app gana una única capacidad de escritura — subir cartola `.xlsx`/`.pdf` vía `POST /api/ingestas` (`expo-document-picker`). Toda otra escritura queda fuera. Enmienda ADR-010 (mobile deja de ser solo-lectura) |
 | ADR-027 | Set de iconos unificado web+mobile: **`lucide`** (`lucide-react` ya embebido en web + default de shadcn; `lucide-react-native` en mobile). Iconoir evaluado y descartado por peaje de migración + fricción permanente con shadcn. `react-native-svg` vía `expo install` |
-| ADR-028 | Backend framework: **migración NestJS → Express + TypeScript strict**. Supersede ADR-001. Motivo: la magia de Nest (DI, decoradores) tapaba los fundamentos que el proyecto busca aprender. Alcance confinado a `infrastructure/http` + composition root real (`composition/container.ts`); `domain`/`application` sin cambios (0 imports de Nest — el aislamiento de ADR-005 lo permite). Prisma se mantiene. Riesgo caliente: reescribir `ApiKeyGuard`/`SessionGuard` como middleware + re-correr checklist de aislamiento `user_id` (ADR-015) |
+| ADR-028 | Backend framework: **NestJS → Express + TypeScript strict** — ✅ **código completo** (PR #109, change SDD `migrate-api-to-express`, 10 slices TDD). Supersede ADR-001. Motivo: la magia de Nest (DI, decoradores) tapaba los fundamentos que el proyecto busca aprender. Capa HTTP reescrita a `http-express/` (middleware + routes) + composition root real (`container.ts` + `crear-*`); `domain`/`application` **0 cambios** (el aislamiento de ADR-005 lo permitió). Prisma se mantiene. Guards → middleware; `@Cron` demo → node-cron. Pendiente: verificación runtime (8d: boot + matriz curl + e2e/int con DB) antes de mergear |
 
 ---
 
@@ -169,7 +172,7 @@ En prod: `SessionGuard` activo como 2º `APP_GUARD`; `/api/resumen` exige sesió
 
 **Sprint 9 — Rediseño web "Serene Finance" — ✅ CERRADO y mergeado a `main` (2026-07-20).** Change SDD `web-dashboard-redesign-mobile` (store hybrid Engram + openspec), entrega feature-branch-chain stacked-to-main. Restyle en sitio del dashboard "Análisis Mensual" de `apps/web` a identidad Serene Finance + shell de navegación responsive net-new (sidebar desktop / bottom tabs mobile). Solo `apps/web`, backend sin tocar. PRs: #89 (tokens Serene Finance + Inter font + paleta) · #93 (nav shell responsive — reemplaza al #90, que GitHub cerró al borrarse su rama base en el merge stacked) · #91 (dashboard restyle + fix contraste pie WCAG AA) · #92 (responsividad mobile + gate final). Follow-up cosmético pendiente: `SubirCartola.tsx` usa paleta Tailwind cruda en vez de tokens Serene Finance.
 
-**En vuelo ahora (2026-07-23):** **migración backend NestJS → Express (ADR-028)** en curso vía change SDD `migrate-api-to-express`, endpoint por endpoint. Además, el mobile de Sprint 8 (US-033, PRs #76/#77) sigue en espera del gate Maestro. Sprint 9 y las slices web de Sprint 8 ya están en `main`.
+**En vuelo ahora (2026-07-24):** **migración backend NestJS → Express (ADR-028)** — código completo en el **PR #109** (`migrate-api-to-express`, 10 slices TDD + node-cron; `tsc` limpio, 811/811 unit, build OK). **Pendiente antes de mergear:** verificación runtime 8d (boot + matriz curl + e2e/int con DB — ojo que varios e2e viejos están bit-rotteados de sesión desde Sprint 6). Mergear = deploy del cutover (Render auto-deploya `main`). Además, el mobile de Sprint 8 (US-033, PRs #76/#77) sigue en espera del gate Maestro. Sprint 9 y las slices web de Sprint 8 ya están en `main`.
 
 > **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
 
@@ -285,12 +288,14 @@ La raíz tiene shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...`
 
 ```bash
 # Backend
-pnpm api test                                # vitest run (ADR-016; SWC para metadata de decoradores de Nest)
+pnpm api test                                # vitest run (ADR-016; transformador Oxc por defecto)
 pnpm api test:watch                          # vitest (watch)
 pnpm api test:e2e                            # vitest e2e — muta BD real, gate ALLOW_DESTRUCTIVE_DB=1
 pnpm api test:integration                    # vitest integración — mismo gate
 pnpm api cli -- ./test/fixtures/movimientos-test.xlsx
-pnpm api start:dev                           # NestJS watch
+pnpm api start                               # server Express desde fuente (ts-node)
+pnpm api build                               # tsc -p tsconfig.build.json → dist/
+pnpm api start:prod                          # node dist/infrastructure/http-express/server
 pnpm api exec tsc --noEmit                   # TypeScript check
 pnpm api exec prisma migrate dev             # migraciones
 
@@ -315,7 +320,7 @@ pnpm audit                                   # auditoría de seguridad
 ## Convenciones de código
 
 - **Nombres en español** para domain y application (value objects, errores, use cases)
-- **Nombres en inglés** para infraestructura NestJS (controllers, modules, adapters)
+- **Nombres en inglés** para infraestructura (routes/handlers, middleware, adapters)
 - **Archivos:** `kebab-case.ts`, clases `PascalCase`
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`)
 - **No lanzar excepciones** en domain/application — usar `Result.fail(error)`
