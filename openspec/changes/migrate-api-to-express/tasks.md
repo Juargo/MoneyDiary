@@ -73,10 +73,25 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - Auth helpers still under `infrastructure/http/auth/` (framework-agnostic: cookie, client-ip, extraer-token, sec-fetch, rate limiters, system-reloj, sha256-token, argon2, demo-cleanup) must relocate to a neutral dir when `http/` is deleted.
 
 ## Slice 8 — Cutover  🚀 ONLY slice that changes prod
-- [ ] **8.1** Flip `start`/`build` + `render.yaml` to the Express entrypoint (`dist/main.js` → Express bootstrap).
-- [ ] **8.2** Delete `main.ts`, `app.module.ts`, `app.controller.ts`, `app.service.ts`, all `*.module.ts`, `PrismaService`, `infrastructure/http/` controllers + guards + decorators.
-- [ ] **8.3** Remove `@nestjs/*` deps; simplify `vitest.config.ts` (drop SWC-for-decorators — ADR-016 lightens) and confirm all specs still pass under the default transformer.
-- [ ] **8.4** 🔴 Full suite + integration + curl matrix green; fresh-context review; deploy verification on Render.
+
+> **Scope discovery (before deleting Nest):** two things boot Nest and must be migrated FIRST — the **CLI** (`cli/ingestar.ts`, manual Nest wiring) and the **e2e/integration test harness** (19 `test/*.spec.ts` boot `AppModule` via `@nestjs/testing`; `tsconfig.json` has no `exclude` so `tsc` compiles them). Staged approach (user choice).
+
+### 8a — Migrate the CLI ✅
+- [x] **8a.1** `cli/ingestar.ts` — replaced the inline Nest wiring (`new PrismaService()` + hand-built `ProcessIngestaUseCase`) with `createPrismaClient()` + `crearProcessIngesta(prisma)`; `$connect`/`$disconnect` lifecycle; dropped `reflect-metadata`. CLI and HTTP now share the SAME composition root. `tsc` clean, **889/889**. ✅
+
+### 8b — Migrate the e2e/integration harness
+- [ ] **8b.1** Rewrite the 19 `test/*.{e2e,int}-spec.ts` to boot `createApp(createContainer())` (e2e, supertest) / `createContainer()` + `createPrismaClient()` (integration) instead of `Test.createTestingModule({ imports: [AppModule] })` + `PrismaService`. Preserve the ADR-015 `userId` isolation tests.
+
+### 8c — Delete Nest + flip
+- [ ] **8c.1** Delete `main.ts`, `app.{module,controller,service}.ts`, all `*.module.ts`, `PrismaService`/`prisma.module.ts`, `http/*.controller.ts`, guards (`api-key`/`session`), decorators (`public`/`session-public`/`current-user`), `upload-too-large.filter.ts`, + their specs. **Keep** the 17 framework-agnostic survivors under `http/dto/`, `http/multer-file-reader.adapter`, `http/auth/` (cookie, client-ip, extraer-token, sec-fetch, rate limiters, argon2, sha256-token, system-reloj, express-request.d.ts).
+- [ ] **8c.2** Fix `demo-cleanup.service.ts` (Nest `Logger` → console; drop `@Cron` — **replace the daily scheduler** post-cutover or accept lazy-only cleanup).
+- [ ] **8c.3** Flip `start`/`build`/`start:prod` + `render.yaml` to the Express entrypoint.
+- [ ] **8c.4** Remove `@nestjs/*` deps + `reflect-metadata`; simplify `vitest.config.ts` (drop `unplugin-swc`/`oxc:false` once no decorators remain — verify by grep).
+
+### 8d — Verify 🔴
+- [ ] **8d.1** Full unit suite + integration + `tsc` green; boot the Express server; curl matrix (health 200 / no key 401 / bad session 401 / valid 200); fresh-context review; Render deploy verification.
+
+> Optional cleanup (cosmetic, non-blocking): relocate the surviving `http/` utilities to a neutral dir now that `http/` no longer holds the Nest HTTP layer.
 
 ---
 
