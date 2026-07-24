@@ -90,7 +90,7 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 
 ### 8d — Verify ✅ (runtime) / 🔒 (e2e-int blocked by infra)
 - [x] **8d.1** ✅ **Verified (2026-07-24):** unit 811/811 + `tsc` clean + `pnpm build` OK; booted the prod entrypoint (`start:prod`) locally; curl matrix **200 / 401 / 401 / 401** (health / no key / api-key no session / login bad-creds→401 = DB connectivity); merged (PR #109) + Render deploy; **prod curl matrix 200/401/401/401** against `https://moneydiary-api.onrender.com`.
-- [ ] **8d.2** 🔒 **e2e/int against DB — BLOCKED by infra (not the migration):** the harness is migrated (8b) but `.env` points to prod and `assertDestructiveDbAllowed` (db-safety) correctly refuses to run destructive tests there. Needs a **separate dev/staging DB** (local Postgres or Supabase branch). Also: several old e2e are session-bit-rotted (only send `x-api-key`, no session) and would need session setup added.
+- [ ] **8d.2** e2e/int against DB — `db-safety` correctly blocks Supabase/prod. **Tooling now provided** for a disposable local Postgres: `apps/api/docker-compose.yml` + `apps/api/docs/local-test-db.md` (`.env.test` template + `test:db:setup`/`test:integration:local`/`test:e2e:local` scripts). **Remaining:** provision the local DB (Docker/brew) + run; then fix the several session-bit-rotted e2e (only send `x-api-key`, no login) — separate from the migration.
 
 > Optional cleanup (cosmetic, non-blocking): relocate the surviving `http/` utilities to a neutral dir now that `http/` no longer holds the Nest HTTP layer.
 
