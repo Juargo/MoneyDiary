@@ -30,14 +30,17 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - [x] **1.5** Wire `validarSesion` into the `Container` (+ its typed field). **Decoupled `PrismaSessionRepository` constructor `PrismaService` → `PrismaClient`** so the plain container can wire it (Nest still works: `PrismaService extends PrismaClient`). Test-first. ✅
 - [x] **1.4** Public-route handling: **pattern established** — "public" = the route simply doesn't mount the middleware (no `@Public()` in Express). Documented in both middleware. Actual mounting + verification lands with the first protected route (Slice 2), since there are no `/api` routes to protect yet.
 - [ ] **1.3** ~~`sec-fetch.middleware.ts`~~ → **MOVED to Slice 7.** `esNavegacionDeNivelSuperior` is NOT a global guard — it's a pure `Request → boolean` used only by `GET /api/auth/demo`. Belongs to the auth slice.
-- [ ] **1.6** 🔴 **Gate (runs at Slice 2):** middleware is fully unit-covered here (all 401/500/pass paths + dual transport). The **end-to-end `userId` isolation integration test** (user A ≠ user B, RNF-SEC-006) + curl matrix (health 200 / no key 401 / bad session 401 / valid 200) require a protected data endpoint + real DB → they run when `resumen` mounts behind the chain (Slice 2). Fresh-context review of the auth slice before the tracker merges.
+- [x] **1.6** 🔴 **Gate — SATISFIED at Slice 2** (`app.resumen.spec.ts`): full auth chain on the real app (no key → 401 / api-key only → 401 / api-key + session → 200) + **isolation proof** — the `userId` reaching the use case is the one derived from the session (`toHaveBeenCalledWith({ userId: 'user-de-sesion' })`), not a fixed constant. Health `GET /` stays public. DB-level "user A ≠ user B" remains covered by the unchanged repo integration tests. ✅
 
 **Contract note (verified):** the web client keys off **status codes only** (`res.status === 401`, `!res.ok`) and uses its own messages — it never parses the error body. So the Express error envelope (`{ message }`) differs from Nest's (`{ statusCode, message, error }`) with **zero client impact**.
 
 ---
 
-## Slice 2 — `resumen` (`GET /`, `GET /anual`) — read-only, first real endpoint
-- [ ] **2.x** `resumen.routes.ts` registrar + handlers; wire `calcularResumenMes` + `obtenerResumenAnual` into `Container`; reuse `resumen-mes.dto.ts`/`resumen-anual.dto.ts`; domain-error mapping in the handler. Test-first (supertest + fakes).
+## Slice 2 — `resumen` (`GET /api/resumen`, `GET /api/resumen/anual`) — first real endpoint ✅
+- [x] **2.1** `routes/resumen.routes.ts` — `registrarResumen(router, mesUC, anualUC)`: both handlers, `Result→HTTP` (400 scrubbed on `PeriodoInvalidoError`/`AnioInvalidoError`, 500 on `ResumenAnualInvalidoError`/unexpected via `next(err)`), reusing `aResumenMesDto`/`aResumenAnualDto`. Test-first (6 tests). ✅
+- [x] **2.2** Wire `calcularResumenMes` + `calcularResumenAnual` into `Container`; decouple `PrismaResumenMesRepository` + `PrismaResumenAnualRepository` `PrismaService → PrismaClient`. ✅
+- [x] **2.3** `app.ts` — mount the **protected `/api` router** (`apiKeyMiddleware → sessionMiddleware → registrarResumen`); health `GET /` stays public outside `/api`. First real use of the middleware chain. ✅
+- [x] **2.4** Green: **851/851** + `tsc` clean; isolation gate (1.6) satisfied via `app.resumen.spec.ts`. ✅
 
 ## Slice 3 — `buckets` (`GET /:bucket`)
 - [ ] **3.x** `buckets.routes.ts` + `obtenerDetalleBucket` in `Container`; reuse `detalle-bucket.dto.ts`; `BucketInvalidoError`/`PeriodoInvalidoError` → scrubbed 400. Test-first.
