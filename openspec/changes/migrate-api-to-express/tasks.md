@@ -42,8 +42,11 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - [x] **2.3** `app.ts` — mount the **protected `/api` router** (`apiKeyMiddleware → sessionMiddleware → registrarResumen`); health `GET /` stays public outside `/api`. First real use of the middleware chain. ✅
 - [x] **2.4** Green: **851/851** + `tsc` clean; isolation gate (1.6) satisfied via `app.resumen.spec.ts`. ✅
 
-## Slice 3 — `buckets` (`GET /:bucket`)
-- [ ] **3.x** `buckets.routes.ts` + `obtenerDetalleBucket` in `Container`; reuse `detalle-bucket.dto.ts`; `BucketInvalidoError`/`PeriodoInvalidoError` → scrubbed 400. Test-first.
+## Slice 3 — `buckets` (`GET /api/buckets/:bucket`) ✅
+- [x] **3.1** `routes/buckets.routes.ts` — `registrarBuckets(router, uc)`: `:bucket` path param + `periodo` query; `BucketInvalidoError`/`PeriodoInvalidoError` → scrubbed 400 (raw `:bucket` never reflected), unexpected → 500; reuse `aDetalleBucketDto`. Test-first (5 tests). ✅
+- [x] **3.2** `obtenerDetalleBucket` wired into `Container`; `PrismaDetalleBucketRepository` decoupled `PrismaService → PrismaClient`. ✅
+- [x] **3.3** `app.ts` — mount `registrarBuckets` on the protected `/api` router. ✅
+- [x] **3.4** `app.buckets.spec.ts` — protected + isolation gate (401 without session, 200 with, session `userId` flows to the use case). Green: **858/858** + `tsc` clean. ✅
 
 ## Slice 4 — `movimientos` (`GET /`)
 - [ ] **4.x** `movimientos.routes.ts` + `obtenerMovimientosMes`; reuse `movimiento-mes.dto.ts`. Test-first.
