@@ -53,8 +53,10 @@ Goal: port the guard chain 1:1 to middleware. Security logic (`extractToken`, `V
 - [x] **4.2** `obtenerMovimientosMes` wired into `Container`; `PrismaMovimientosMesRepository` decoupled → `PrismaClient`. ✅
 - [x] **4.3** `app.ts` — mount on protected `/api`; `app.movimientos.spec.ts` isolation gate (2 tests). Green: **864/864** + `tsc` clean. ✅
 
-## Slice 5 — `transacciones` (`PATCH /:id/categoria`) — first write
-- [ ] **5.x** `transacciones.routes.ts` + `reclasificarCategoria`; reuse `reclasificar-categoria.dto.ts`; JSON body parsing. Test-first.
+## Slice 5 — `transacciones` (`PATCH /api/transacciones/:id/categoria`) — first write ✅
+- [x] **5.1** `routes/transacciones.routes.ts` — `registrarTransacciones(router, uc)`: **JSON body** manual validation (non-string `categoria` → `''`, uniform rejection); `CategoriaInvalidaError` → scrubbed 400, **`TransaccionNoEncontradaError` → 404** (anti-enumeration), unexpected → 500; reuse `aReclasificarCategoriaDto`. Test-first (5 tests). ✅
+- [x] **5.2** `reclasificarTransaccion` wired into `Container`; `PrismaReclasificarCategoriaRepository` decoupled → `PrismaClient`. ✅
+- [x] **5.3** `app.ts` — mount on protected `/api` (`express.json()` already global); `app.transacciones.spec.ts` isolation gate (2 tests, PATCH). Green: **871/871** + `tsc` clean. ✅
 
 ## Slice 6 — `ingestas` (`POST /`) — file upload
 - [ ] **6.x** `ingestas.routes.ts` + `multer` route-level middleware; adapt `req.file` to the `IFileReader` boundary; `processIngesta` in `Container`; reuse `ingesta-response.dto.ts`. Test-first.
