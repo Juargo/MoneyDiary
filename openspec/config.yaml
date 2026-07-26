@@ -22,10 +22,8 @@ testing:
       test: pnpm api test                # vitest run (ADR-016; default Oxc transformer post-ADR-028 — no more decorators, unplugin-swc removed)
       test_single_name: pnpm api test -- -t "name"
       test_single_file: pnpm api test -- path/to.spec.ts
-      e2e: pnpm api test:e2e             # vitest.e2e.config.ts — mutates real DB, gated by ALLOW_DESTRUCTIVE_DB=1 (blocked against Supabase/prod by db-safety gate)
-      integration: pnpm api test:integration   # vitest.int.config.ts — same ALLOW_DESTRUCTIVE_DB=1 gate
-      e2e_local: pnpm api test:e2e:local       # runs against local disposable Postgres (.env.test) — see apps/api/docs/local-test-db.md
-      integration_local: pnpm api test:integration:local
+      e2e: pnpm api test:e2e             # vitest.e2e.config.ts — DOTENV_CONFIG_PATH=.env.test (local disposable Postgres) + ALLOW_DESTRUCTIVE_DB=1; env.ts (ADR-029) fail-fasts to localhost in dev/test, so this can never hit Supabase/prod — see apps/api/docs/local-test-db.md
+      integration: pnpm api test:integration   # vitest.int.config.ts — same .env.test + ALLOW_DESTRUCTIVE_DB=1 gate as e2e
       coverage: pnpm api test:cov
       typecheck: pnpm api exec tsc --noEmit
       lint: pnpm api lint                # eslint --fix
@@ -97,5 +95,5 @@ notable_gotchas:
   - "jest-expo 57 pins jest@29 in apps/mobile — do not bump to jest@30."
   - "Production secrets (API_KEY/DATABASE_URL/DIRECT_URL) live in Render dashboard (sync:false); mobile key via EAS Secrets, never in the bundle."
   - "ADR-028 (2026-07-24): backend framework migrated NestJS -> Express + TS strict, merged to main and deployed (PR #109). domain/application had 0 changes (ADR-005 isolation held). HTTP layer is now infrastructure/http-express/ (middleware chain: apiKeyMiddleware -> sessionMiddleware -> errorMiddleware); composition root is composition/container.ts + crear-* factories (manual DI with `new`, no decorators/modules). References to *.controller.ts under http/, *.module.ts, PrismaService/prisma.module.ts, ApiKeyGuard/SessionGuard, @CurrentUser()/@Public() in older docs/history are PRE-migration and stale."
-  - "e2e/integration test debt post-ADR-028: several e2e specs are session-bit-rotted since Sprint 6 (only send x-api-key, no login) — tooling for a local disposable Postgres exists (apps/api/docs/local-test-db.md, test:db:setup/test:integration:local/test:e2e:local) but the DB still needs to be provisioned (Docker or brew) before those suites are runnable."
+  - "e2e/integration test debt post-ADR-028: several e2e specs are session-bit-rotted since Sprint 6 (only send x-api-key, no login) — tooling for a local disposable Postgres exists (apps/api/docker-compose.yml + apps/api/docs/local-test-db.md; pnpm api db:up/db:down, test:db:setup, test:e2e/test:integration — folded onto .env.test per ADR-029, no more :local suffix) but the DB still needs to be provisioned (Docker or brew) before those suites are runnable."
   - "AGENTS.md/agents.md at repo root are STALE (still describe NestJS + Jest) — CLAUDE.md is the canonical technical source of truth per its own header; do not trust AGENTS.md test commands or framework references without cross-checking CLAUDE.md."
