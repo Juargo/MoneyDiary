@@ -94,11 +94,11 @@ Chain strategy: pending
 - [x] 6.5 Regenerated `apps/api/.env.example` via `pnpm api env:example` — now includes `NODE_ENV`, `ALLOW_DESTRUCTIVE_DB`, `LOGIN_RATELIMIT_*`. **Decision (documented, KISS)**: `SEED_USER_EMAIL`/`SEED_USER_PASSWORD`/`CONFIRM_PROD_BACKFILL` stay OUT of `EnvObjectSchema` (design decision #3 unchanged — schema stays honest about API-boot needs) but ARE emitted in a fixed, hardcoded trailer block in the generated file (commented, non-schema-driven) so they remain discoverable without a second manually-maintained doc.
 - [x] 6.6 Wired `pnpm api env:example:check` into `.github/workflows/ci.yml` (API job, right after the `tsc --noEmit` step)
 
-## Slice 7 — local Postgres + `render.yaml` + ESLint guard
+## Slice 7 — local Postgres + `render.yaml` + ESLint guard — PR4, `env-config/04-local-db-render-eslint`
 
-- [ ] 7.1 `package.json`: fold `test:e2e`/`test:integration` to the `DOTENV_CONFIG_PATH=.env.test` localhost variants (design Decision 2); delete `test:e2e:local`/`test:integration:local`
-- [ ] 7.2 Add `db:up`/`db:down` scripts (`docker compose up -d` / `down`) in `apps/api`
-- [ ] 7.3 Update `docs/local-test-db.md` — canonical script names (no `:local`); add dev-`.env` localhost migration note (mirrors `.env.test`, minus test-only bits)
-- [ ] 7.4 `render.yaml`: add `NODE_ENV=production`
-- [ ] 7.5 `eslint.config`: `no-restricted-imports` forbidding `domain/**`/`application/**` → `config/env`
-- [ ] 7.6 Run `pnpm api test:e2e` / `test:integration` locally against `db:up` Postgres — confirms ADR-028 e2e/int debt unblocked
+- [x] 7.1 `package.json`: fold `test:e2e`/`test:integration` to the `DOTENV_CONFIG_PATH=.env.test` localhost variants (design Decision 2); delete `test:e2e:local`/`test:integration:local`
+- [x] 7.2 Add `db:up`/`db:down` scripts (`docker compose up -d` / `down`) in `apps/api`
+- [x] 7.3 Update `docs/local-test-db.md` — canonical script names (no `:local`); added dev-`.env` localhost migration note (ADR-029 fail-fast in dev/test)
+- [x] 7.4 `render.yaml`: add `NODE_ENV=production` (+ refreshed 2 adjacent stale comments referencing deleted `shouldBeSecure`/`readRateLimitConfigFromEnv`)
+- [x] 7.5 `eslint.config`: `no-restricted-imports` forbidding `domain/**`/`application/**` → `config/env`. **Verified**: temporarily added `import { loadEnv } from '../../config/env'` to `src/domain/value-objects/bucket.ts`, ran `eslint`, got `no-restricted-imports` error naming the exact message; reverted, re-ran, 0 errors on that file.
+- [ ] 7.6 Run `pnpm api test:e2e` / `test:integration` locally against `db:up` Postgres — **attempted, blocked by a NEWLY DIAGNOSED environment issue** (not just "no DB available"): the `moneydiary-test-db` Docker container was already up/healthy (pre-existing, 30h uptime) and `.env.test` pre-existed, but `prisma migrate deploy` and `vitest run --config vitest.int.config.ts` both failed identically with `User was denied access on the database (not available)`. Root-caused via `lsof -nP -iTCP:5432 -sTCP:LISTEN`: a **Homebrew `postgresql@17` service is ALSO bound to `127.0.0.1:5432`/`[::1]:5432` on the host** (separate from Docker's `*:5432` forward) and the OS routes loopback connections to the more-specific brew-bound socket first — so `.env.test`'s `localhost:5432` silently hits the wrong Postgres (no `moneydiary` role there), never reaching the Docker container. Confirmed the Docker container itself is fine (`docker exec moneydiary-test-db psql -U moneydiary -d moneydiary_test` and `PGPASSWORD=moneydiary` over the container's own loopback both succeed). Did not touch the host's brew service or `.env.test` (env-file writes/reads are permission-denied to this agent) — see apply-progress for the exact 1-command fix for the user.
