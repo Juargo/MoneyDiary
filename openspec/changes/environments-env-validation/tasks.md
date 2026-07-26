@@ -41,11 +41,11 @@ Chain strategy: pending
 
 ## Slice 0 — `env.ts` foundation [ENV-01, ENV-02, ENV-03, ENV-04, ENV-05]
 
-- [ ] 0.1 RED: write `src/config/env.spec.ts` — happy path per NODE_ENV, each `superRefine` rejection (prod COOKIE_SECURE/host/ALLOW_DESTRUCTIVE_DB, dev/test non-localhost), `COOKIE_SECURE` enum parsing, rate-limit coercion rejects
-- [ ] 0.2 GREEN: `src/config/env.ts` — `EnvObjectSchema` (10 fields, `.meta()`/`.describe()`), `EnvSchema`, `Env` type, `loadEnv`, `resolveConnectionString`, `LOCALHOST_PATTERN`, `refineByEnvironment`, `formatEnvError`
-- [ ] 0.3 Export `SUPABASE_HOST_PATTERN` from `src/infrastructure/persistence/db-safety.ts`; import into `env.ts` (DRY, no re-declare)
-- [ ] 0.4 Add `zod@^4.4.3` to `apps/api/package.json`
-- [ ] 0.5 `pnpm api test` green; `pnpm api exec tsc --noEmit` clean
+- [x] 0.1 RED: write `src/config/env.spec.ts` — happy path per NODE_ENV, each `superRefine` rejection (prod COOKIE_SECURE/host/ALLOW_DESTRUCTIVE_DB, dev/test non-localhost), `COOKIE_SECURE` enum parsing, rate-limit coercion rejects
+- [x] 0.2 GREEN: `src/config/env.ts` — `EnvObjectSchema` (10 fields, `.describe()`), `EnvSchema`, `Env` type, `loadEnv`, `resolveConnectionString`, `LOCALHOST_PATTERN`, `refineByEnvironment`, `formatEnvError`
+- [x] 0.3 Export `SUPABASE_HOST_PATTERN` from `src/infrastructure/persistence/db-safety.ts`; import into `env.ts` (DRY, no re-declare)
+- [x] 0.4 Add `zod@^4.4.3` to `apps/api/package.json`
+- [x] 0.5 `pnpm api test` green; `pnpm api exec tsc --noEmit` clean
 
 ## Slice 1 — `createPrismaClient(env)` [ENV-06]
 
