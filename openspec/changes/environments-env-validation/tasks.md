@@ -76,6 +76,15 @@ Chain strategy: pending
 - [x] 5.4 `server.ts`: `const env = loadEnv()` after `import 'dotenv/config'`; thread into `createContainer`/`createApp`; `app.listen(env.PORT, ...)` replaces `Number(process.env.PORT ?? 3000)`
 - [x] 5.5 Full `pnpm api test` (832/832, 111 files) + `tsc --noEmit` green. Manual boot smoke (`pnpm api start`) **NOT run** — no local Postgres provisioned in this sandbox (pre-existing ADR-028 debt; Slice 7 provisions `db:up`). Also fixed every OTHER call site whose signature this PR changed to keep the build atomic: `src/infrastructure/cli/ingestar.ts` (CLI entrypoint) + all 19 `test/*.e2e-spec.ts`/`test/*.int-spec.ts` files (blocked from running by the same DB debt, but must still type-check) now use `loadEnv()`/`createPrismaClient(env)`/`createContainer(env, prisma)`/`createApp(container, env)`.
 
+## PR2 review fixes (post-Slice 5, pre-push — two fresh-context reviews)
+
+- [x] R-FIX1 (BLOCKER): cover `cookieSecure = env.NODE_ENV==='production' || env.COOKIE_SECURE` derivation in `app.ts` — 3 cases added to `app.auth.spec.ts` via `buildTestEnv`'s post-parse override bypass
+- [x] R-FIX2 (should-fix): restore dropped rate-limit coverage in `env.spec.ts` — negative-number rejection + non-default override round-trip
+- [x] R-FIX3 (should-fix): add `crear-auth.spec.ts` for `env.LOGIN_RATELIMIT_* -> RateLimitConfig` mapping (ENV-06); added `LoginRateLimiter.configuracion` read-only getter to make it inspectable
+- [x] R-FIX4 (R1 suggestion): narrow `crearAuth(prisma, env)` to `Pick<Env, 'LOGIN_RATELIMIT_MAX_EMAIL'|'LOGIN_RATELIMIT_MAX_IP'|'LOGIN_RATELIMIT_WINDOW_MS'>` for defense-in-depth, consistent with `createPrismaClient`'s scoping
+- Deferred (documented, not implemented): boot smoke test — blocked on no local Postgres, gated on Slice 7 (`db:up`); CI `forbidOnly` gate — pre-existing, out of scope for this change
+- Verification: `pnpm api test` 838/838 (112 files) green; `pnpm api exec tsc --noEmit` clean; `git diff --stat` 5 files, +126/-1
+
 ## Slice 6 — `.env.example` emitter + CI guard [ENV-07]
 
 - [ ] 6.1 **Verify at implementation time**: does installed `zod@4.4.3` expose per-field metadata via `.meta()` or `.description` (from `.describe()`)? Pick the one that works; `.describe()` is the documented fallback (design §6 flagged this as unverified — Context7 was unreachable during design)
