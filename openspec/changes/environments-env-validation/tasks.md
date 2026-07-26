@@ -85,14 +85,14 @@ Chain strategy: pending
 - Deferred (documented, not implemented): boot smoke test — blocked on no local Postgres, gated on Slice 7 (`db:up`); CI `forbidOnly` gate — pre-existing, out of scope for this change
 - Verification: `pnpm api test` 838/838 (112 files) green; `pnpm api exec tsc --noEmit` clean; `git diff --stat` 5 files, +126/-1
 
-## Slice 6 — `.env.example` emitter + CI guard [ENV-07]
+## Slice 6 — `.env.example` emitter + CI guard [ENV-07] — ✅ DONE (PR3, `env-config/03-env-example-emitter`)
 
-- [ ] 6.1 **Verify at implementation time**: does installed `zod@4.4.3` expose per-field metadata via `.meta()` or `.description` (from `.describe()`)? Pick the one that works; `.describe()` is the documented fallback (design §6 flagged this as unverified — Context7 was unreachable during design)
-- [ ] 6.2 RED: add a spec/manual-check for `scripts/gen-env-example.ts --check` exit codes (0 = match, non-zero = divergence)
-- [ ] 6.3 GREEN: `scripts/gen-env-example.ts` — walks `EnvObjectSchema.shape`, emits `# <description>` + `KEY=<example>` (secrets empty), `--check` diffs against committed file
-- [ ] 6.4 `package.json`: add `env:example`, `env:example:check` scripts
-- [ ] 6.5 Regenerate `apps/api/.env.example` — must include `NODE_ENV`, `ALLOW_DESTRUCTIVE_DB`, `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`, `CONFIRM_PROD_BACKFILL`
-- [ ] 6.6 Wire `env:example:check` into API CI job
+- [x] 6.1 **Verified**: `zod@4.4.3`'s `.describe(text)` registers into `core.globalRegistry` and each schema exposes a `description` getter reading it back — read `schema.description` directly, no `.meta()` needed. Confirmed against the installed package (probed `def`/`description` at runtime), not reverse-engineered from `_def`.
+- [x] 6.2 RED: `src/config/env-example.spec.ts` — `formatFieldLine`/`renderEnvExample`/`envExampleDiverges` pure-logic specs (known field → exact `KEY=default  # description` line; required field → empty value; `envExampleDiverges` false on match, true on tamper and on schema drift)
+- [x] 6.3 GREEN: `src/config/env-example.ts` (pure formatting: walks `EnvObjectSchema.shape` + `.description`, unwraps `optional`/`pipe` wrappers to read the pre-transform default) + `scripts/gen-env-example.ts` (thin fs/argv/exit-code CLI wrapper, same split as `prisma/seed.ts`) — `--check` diffs against committed file
+- [x] 6.4 `package.json`: added `env:example` (write) and `env:example:check` (verify, non-zero exit on divergence) scripts
+- [x] 6.5 Regenerated `apps/api/.env.example` via `pnpm api env:example` — now includes `NODE_ENV`, `ALLOW_DESTRUCTIVE_DB`, `LOGIN_RATELIMIT_*`. **Decision (documented, KISS)**: `SEED_USER_EMAIL`/`SEED_USER_PASSWORD`/`CONFIRM_PROD_BACKFILL` stay OUT of `EnvObjectSchema` (design decision #3 unchanged — schema stays honest about API-boot needs) but ARE emitted in a fixed, hardcoded trailer block in the generated file (commented, non-schema-driven) so they remain discoverable without a second manually-maintained doc.
+- [x] 6.6 Wired `pnpm api env:example:check` into `.github/workflows/ci.yml` (API job, right after the `tsc --noEmit` step)
 
 ## Slice 7 — local Postgres + `render.yaml` + ESLint guard
 
