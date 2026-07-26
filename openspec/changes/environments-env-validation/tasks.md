@@ -49,32 +49,32 @@ Chain strategy: pending
 
 ## Slice 1 — `createPrismaClient(env)` [ENV-06]
 
-- [ ] 1.1 RED: update `create-prisma-client.spec.ts` — call with explicit `{DATABASE_URL, DIRECT_URL}`, assert `resolveConnectionString` precedence + empty-throw
-- [ ] 1.2 GREEN: `createPrismaClient(env: Pick<Env,'DATABASE_URL'|'DIRECT_URL'>)` using `resolveConnectionString`
+- [x] 1.1 RED: update `create-prisma-client.spec.ts` — call with explicit `{DATABASE_URL, DIRECT_URL}`, assert `resolveConnectionString` precedence + empty-throw
+- [x] 1.2 GREEN: `createPrismaClient(env: Pick<Env,'DATABASE_URL'|'DIRECT_URL'>)` using `resolveConnectionString`
 
 ## Slice 2 — `createApiKeyMiddleware` factory [ENV-06]
 
-- [ ] 2.1 RED: update `api-key.middleware.spec.ts` — `createApiKeyMiddleware(key)`, keep 401/200 request cases; move length/500 cases to `env.spec.ts` (0.1 already covers `API_KEY` min-length)
-- [ ] 2.2 GREEN: `api-key.middleware.ts` singleton → `createApiKeyMiddleware(apiKey: string): RequestHandler`, boot-time length guard, no per-request 500
+- [x] 2.1 RED: update `api-key.middleware.spec.ts` — `createApiKeyMiddleware(key)`, keep 401/200 request cases; move length/500 cases to `env.spec.ts` (0.1 already covers `API_KEY` min-length)
+- [x] 2.2 GREEN: `api-key.middleware.ts` singleton → `createApiKeyMiddleware(apiKey: string): RequestHandler`, boot-time length guard, no per-request 500
 
 ## Slice 3 — `cookie.ts` `secure` param [ENV-06]
 
-- [ ] 3.1 RED: update `cookie.spec.ts` — pass `secure: true/false` directly, drop env mutation, keep `ahora` injection
-- [ ] 3.2 GREEN: `serializeSessionCookie(token, expiresAt, secure, ahora=new Date())`, `clearSessionCookie(secure)`; delete `shouldBeSecure()`
-- [ ] 3.3 Update 3 call sites in `auth.routes.ts` (lines ~66/88/133) + `AuthPublicDeps.cookieSecure: boolean`
+- [x] 3.1 RED: update `cookie.spec.ts` — pass `secure: true/false` directly, drop env mutation, keep `ahora` injection
+- [x] 3.2 GREEN: `serializeSessionCookie(token, expiresAt, secure, ahora=new Date())`, `clearSessionCookie(secure)`; delete `shouldBeSecure()`
+- [x] 3.3 Update 3 call sites in `auth.routes.ts` (lines ~66/88/133) + `AuthPublicDeps.cookieSecure: boolean`
 
 ## Slice 4 — `crearAuth(prisma, env)` [ENV-06]
 
-- [ ] 4.1 RED: `login-rate-limiter.spec.ts` — delete `readRateLimitConfigFromEnv` test cases (finite/positive coverage now lives in `env.spec.ts` 0.1)
-- [ ] 4.2 GREEN: delete `readRateLimitConfigFromEnv`; `crearAuth(prisma, env)` builds `LoginRateLimiter` from `env.LOGIN_RATELIMIT_*`; keep `RateLimitConfig` interface
+- [x] 4.1 RED: `login-rate-limiter.spec.ts` — delete `readRateLimitConfigFromEnv` test cases (finite/positive coverage now lives in `env.spec.ts` 0.1)
+- [x] 4.2 GREEN: delete `readRateLimitConfigFromEnv`; `crearAuth(prisma, env)` builds `LoginRateLimiter` from `env.LOGIN_RATELIMIT_*`; keep `RateLimitConfig` interface
 
 ## Slice 5 — wiring: `container.ts`/`app.ts`/`server.ts` [ENV-06]
 
-- [ ] 5.1 Add `test/support/env.fixture.ts` — `buildTestEnv(overrides)`, frozen, all 10 fields defaulted
-- [ ] 5.2 RED: migrate `app.*.spec.ts` (HTTP-level) — `createApp(container, buildTestEnv({...}))` replacing `process.env.API_KEY` mutation
-- [ ] 5.3 GREEN: `createContainer(env, prisma=createPrismaClient(env))`; `createApp(container, env)` derives `cookieSecure = env.NODE_ENV==='production' || env.COOKIE_SECURE`, mounts `createApiKeyMiddleware(env.API_KEY)`, wires `cookieSecure` into `registrarAuthPublic`
-- [ ] 5.4 `server.ts`: `const env = loadEnv()` after `import 'dotenv/config'`; thread into `createContainer`/`createApp`; `app.listen(env.PORT, ...)` replaces `Number(process.env.PORT ?? 3000)`
-- [ ] 5.5 Full `pnpm api test` + `tsc --noEmit` green; manual boot smoke (`pnpm api start`) with local `.env`
+- [x] 5.1 Add `test/support/env.fixture.ts` — `buildTestEnv(overrides)`, frozen, all 10 fields defaulted
+- [x] 5.2 RED: migrate `app.*.spec.ts` (HTTP-level) — `createApp(container, buildTestEnv({...}))` replacing `process.env.API_KEY` mutation
+- [x] 5.3 GREEN: `createContainer(env, prisma=createPrismaClient(env))`; `createApp(container, env)` derives `cookieSecure = env.NODE_ENV==='production' || env.COOKIE_SECURE`, mounts `createApiKeyMiddleware(env.API_KEY)`, wires `cookieSecure` into `registrarAuthPublic`
+- [x] 5.4 `server.ts`: `const env = loadEnv()` after `import 'dotenv/config'`; thread into `createContainer`/`createApp`; `app.listen(env.PORT, ...)` replaces `Number(process.env.PORT ?? 3000)`
+- [x] 5.5 Full `pnpm api test` (832/832, 111 files) + `tsc --noEmit` green. Manual boot smoke (`pnpm api start`) **NOT run** — no local Postgres provisioned in this sandbox (pre-existing ADR-028 debt; Slice 7 provisions `db:up`). Also fixed every OTHER call site whose signature this PR changed to keep the build atomic: `src/infrastructure/cli/ingestar.ts` (CLI entrypoint) + all 19 `test/*.e2e-spec.ts`/`test/*.int-spec.ts` files (blocked from running by the same DB debt, but must still type-check) now use `loadEnv()`/`createPrismaClient(env)`/`createContainer(env, prisma)`/`createApp(container, env)`.
 
 ## Slice 6 — `.env.example` emitter + CI guard [ENV-07]
 
