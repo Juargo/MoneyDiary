@@ -310,8 +310,9 @@ SEPARATE, later, manually-reviewed decision — do not auto-merge them (B.6).
   `landing-v0.1.x`, `mobile-v0.1.x`), correct changelog sections, none
   reference root or another component. Per design §5: **do NOT merge any of
   them until validated.**
-  Done **[REL-01/02/03/05/06, observed — this is the acceptance test for
-  every REL requirement]**: 4/4 PRs match expectations. Merging these
+  Done-when **[REL-01/02/03/05/06, observed — this is the acceptance test for
+  every REL requirement]**: all 4 PRs must match the expectations above (not yet
+  run — this gate fires only after B.1–B.4 land on `main`). Merging these
   generated PRs is an explicit, separate, human-reviewed decision — out of
   this task list's automatic execution scope (each merge cuts a real tag).
 
