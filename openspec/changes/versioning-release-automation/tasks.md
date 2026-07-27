@@ -325,7 +325,7 @@ carry over into the restructured file). Independent of Slice B. CI-only
 impact — no deploy. **Preserve every existing check verbatim** — this is a
 surgical extension of the current 2-job `ci.yml`, not a from-scratch rewrite.
 
-- [ ] **C.1** Wire the existing `.node-version` (`22.22.3`, already present
+- [x] **C.1** Wire the existing `.node-version` (`22.22.3`, already present
   at repo root, matches `render.yaml`'s `NODE_VERSION`) into every
   `setup-node` step via `node-version-file: .node-version`, replacing the
   hardcoded `node-version: 22` (kills major-only drift — design DD5).
@@ -333,8 +333,11 @@ surgical extension of the current 2-job `ci.yml`, not a from-scratch rewrite.
   Done: every job's `setup-node` step uses `node-version-file`, none uses a
   literal `node-version: 22`.
   Maps to: CI-03.
+  **APPLIED & VALIDATED**: all 5 `setup-node` steps (commitlint, api, web,
+  mobile, landing) use `node-version-file: .node-version`; `rg -n
+  "node-version:\s*22\b"` returns zero matches.
 
-- [ ] **C.2** `changes` job — `dorny/paths-filter@v3` emitting
+- [x] **C.2** `changes` job — `dorny/paths-filter@v3` emitting
   api/web/mobile/landing/shared booleans. File: `.github/workflows/ci.yml`.
   Filters: `api: ['apps/api/**']`, `web: ['apps/web/**']`,
   `mobile: ['apps/mobile/**']`, `landing: ['apps/landing/**']`,
@@ -343,8 +346,23 @@ surgical extension of the current 2-job `ci.yml`, not a from-scratch rewrite.
   Done **[CI-01, observed]**: a PR touching only `apps/landing/**` produces
   `changes` outputs `landing=true`, all four others `false`.
   Maps to: CI-01.
+  **APPLIED — CONFIRM-AT-APPLY RESOLVED, used v4.0.2 not v3** (checked
+  live GitHub releases: latest `dorny/paths-filter` is `v4.0.2`, published
+  2026-07-02, ~25 days old — clears the `.npmrc`
+  `minimum-release-age=10080` 7-day quarantine; `v3.0.3`/`v4.0.0`'s only
+  changelog difference is the action runtime bumping to `node24`, no
+  input/output surface change — verified `action.yml` at `v4.0.2` still
+  exposes the same `filters` input and dynamic per-filter step outputs).
+  SHA-pinned per ADR-021 posture (matches Slice B's release-please-action
+  pin):
+  `dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2`.
+  Added a 6th filter beyond the design's 5 —
+  `release-please-config: ['release-please-config.json',
+  '.release-please-manifest.json']` — for the NEW C.6b job (see below),
+  per this apply run's added requirement. `[observed]` (real PR path
+  routing) deferred to the live PR, per no-push scope.
 
-- [ ] **C.3** Split the current `ci` job into `api`/`web` jobs (rename +
+- [x] **C.3** Split the current `ci` job into `api`/`web` jobs (rename +
   gate), each `needs: changes`, `if: needs.changes.outputs.<ws> == 'true' ||
   needs.changes.outputs.shared == 'true'`. File:
   `.github/workflows/ci.yml`. **Every existing step stays unchanged**:
@@ -357,15 +375,29 @@ surgical extension of the current 2-job `ci.yml`, not a from-scratch rewrite.
   step-by-step; every existing `run:` line is present, unchanged, only
   wrapped in `needs`/`if` gating.
   Maps to: CI-01, CI-03.
+  **APPLIED & VALIDATED**: enumerated jobs/steps before vs after
+  programmatically (`js-yaml`, see apply-progress topic for full output).
+  All 9 `run:`-bearing steps from the original `ci` job present verbatim
+  in `api` (prisma generate, tsc --noEmit, env:example:check, unit tests,
+  build) and `web` (typecheck, unit tests, build, secret-scan) — zero
+  content changes to any `run:` line, only `needs`/`if` added and each
+  split job re-declaring its own checkout/setup steps (expected job-split
+  overhead: 13 steps → 9+8=17, +4 duplicated setup steps, 0 checks lost).
+  `permissions: {contents: read}` added at workflow root.
 
-- [ ] **C.4** Gate the `landing` job the same way (`needs: changes`,
+- [x] **C.4** Gate the `landing` job the same way (`needs: changes`,
   `if: needs.changes.outputs.landing == 'true' ||
   needs.changes.outputs.shared == 'true'`), steps unchanged (astro check,
   build, secret grep, smoke test). File: `.github/workflows/ci.yml`.
   Done: a PR touching only `apps/api/**` does NOT run the `landing` job.
   Maps to: CI-01.
+  **APPLIED & VALIDATED**: `landing` job's 8 steps (checkout, pnpm-setup,
+  setup-node, install, astro check, build, secret grep, smoke test) are
+  byte-identical to `main`'s — only `needs`/`if` added and
+  `node-version-file` swapped in per C.1. `[observed]` real-PR gating
+  deferred per no-push scope.
 
-- [ ] **C.5** NEW `mobile` job (ADR-017 — jest-expo/RNTL job doesn't exist
+- [x] **C.5** NEW `mobile` job (ADR-017 — jest-expo/RNTL job doesn't exist
   today). File: `.github/workflows/ci.yml`. Steps: checkout,
   `pnpm/action-setup@v4`, `setup-node` (`node-version-file`),
   `pnpm install --frozen-lockfile`,
@@ -379,8 +411,14 @@ surgical extension of the current 2-job `ci.yml`, not a from-scratch rewrite.
   Done **[CI-02, observed]**: a PR confined to `apps/mobile/**` runs and
   passes this job; a PR confined to `apps/api/**` does not trigger it.
   Maps to: CI-02.
+  **APPLIED — CONFIRM-AT-APPLY RESOLVED**: `apps/mobile/tsconfig.json`
+  extends `expo/tsconfig.base` (no `noEmit`-conflicting override — CLI
+  flag `--noEmit` works standalone regardless), `apps/mobile/package.json`
+  has both `typescript ^6.0.3` as a devDependency and `"test": "jest"`
+  confirmed present. Job added exactly per design. `[observed]` real-PR
+  gating deferred per no-push scope.
 
-- [ ] **C.6** `ci-success` aggregate job — the new stable required check.
+- [x] **C.6** `ci-success` aggregate job — the new stable required check.
   File: `.github/workflows/ci.yml`. `if: always()`,
   `needs: [changes, commitlint, api, web, mobile, landing]`; fails if any
   needed job's result is `failure` or `cancelled` (skipped ≠ fail).
@@ -388,6 +426,39 @@ surgical extension of the current 2-job `ci.yml`, not a from-scratch rewrite.
   still reports `ci-success` as PASSING.
   Maps to: CI-01 (fixes the "skipped required-check hangs forever" failure
   mode named in design DD4).
+  **APPLIED — BUG FOUND & FIXED (actionlint caught it)**: the design's own
+  example (`design.md` §3) used
+  `results='${{ join(needs.*.result, ",") }}'` — double quotes as the
+  GitHub Actions expression string delimiter, which is invalid syntax
+  (expressions only accept single-quoted string literals). `actionlint`
+  (installed via `brew install actionlint` for this validation) flagged
+  it: "got unexpected character '\"' ... only single quotes are available
+  for string delimiter". Fixed to
+  `join(needs.*.result, ',')`. Re-ran `actionlint` — zero expression/
+  syntax errors afterward; the only remaining finding is a pre-existing
+  shellcheck info-level note (SC2251) on the web secret-scan step,
+  confirmed present identically on `main` (not introduced by this
+  slice). `needs` list extended to also include
+  `release-please-config-check` (the new C.6b job below), consistent with
+  "every gated job feeds the aggregate."
+
+- [x] **C.6b** (added this apply run, not in original task numbering) —
+  NEW `release-please-config-check` job, path-scoped to
+  `release-please-config.json` / `.release-please-manifest.json`.
+  Validates the `packages` map keys in `release-please-config.json`
+  exactly match the keys in `.release-please-manifest.json` via a `jq`
+  key-set-equality check — this is release-please's own documented
+  failure mode (a mismatch errors the release-please workflow at run
+  time, not at review time), and the exact incident class hit once
+  already during Slice B (recovered, no data loss — see apply-progress).
+  Deliberately does NOT use `release-please debug-config --local`
+  (destructive — resets the checkout to `origin/<default-branch>`, per
+  Slice B's incident). Gated into `ci-success`'s `needs`.
+  Origin: added per this apply run's explicit new requirement (Slice B's
+  review), not present in the original task list or design.md — recorded
+  here for traceability; design.md is NOT retroactively edited (SDD
+  artifacts stay historical; this apply-progress + tasks.md note is the
+  record).
 
 - [ ] **C.7** Branch-protection migration (out-of-band GitHub repo setting,
   not a file diff). Action: update `main`'s required-checks list to require
