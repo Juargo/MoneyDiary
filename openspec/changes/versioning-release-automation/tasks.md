@@ -178,7 +178,7 @@ Depends on Slice A (trustworthy commit history going forward). This slice's
 OWN PR has zero deploy impact. The generated release PRs it produces are a
 SEPARATE, later, manually-reviewed decision — do not auto-merge them (B.6).
 
-- [ ] **B.1** `release-please-config.json` (repo root, new). Content per
+- [x] **B.1** `release-please-config.json` (repo root, new). Content per
   design §1: `release-type: node`, `bump-minor-pre-major: true`,
   `bump-patch-for-minor-pre-major: false`, `separate-pull-requests: true`,
   `include-component-in-tag: true`, `tag-separator: "-"`,
@@ -194,15 +194,52 @@ SEPARATE, later, manually-reviewed decision — do not auto-merge them (B.6).
   Done: a dry-run / first real workflow run proposes exactly 4 separate
   release PRs, none referencing root.
   Maps to: REL-01, REL-02, REL-03, REL-05, REL-06.
+  **APPLIED — CONFIRM-AT-APPLY RESOLVED, expo release-type CONFIRMED
+  available (no fallback needed).** Context7 MCP tools were not actually
+  exposed in this session (same limitation the design phase hit), so
+  verified directly against the live `googleapis/release-please` source
+  on GitHub instead: `src/strategies/expo.ts` exists and is registered as
+  `expo: options => new Expo(options)` in `src/factory.ts`; the
+  `AppJson` updater (`src/updaters/expo/app-json.ts`) writes
+  `expo.version` unconditionally and writes `expo.ios.buildNumber` /
+  `expo.android.versionCode` **only if those keys already exist** in
+  `app.json` — they don't in this repo (EAS owns them remotely via
+  `appVersionSource:"remote"`+`autoIncrement:true`), so the ownership
+  boundary (§4 design) holds with the primary `expo` path. Config schema
+  (`release-type`, `bump-minor-pre-major`, `bump-patch-for-minor-pre-major`,
+  `separate-pull-requests`, `include-component-in-tag`, `tag-separator`,
+  `changelog-sections`, `packages`) verified field-for-field against the
+  live JSON schema at
+  `raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json`.
+  Also ran `npx release-please debug-config --local --local-path=. ...`
+  which parsed both files without any `ConfigurationError` on schema (it
+  only failed later on an expected, orthogonal step — resolving baseline
+  versions from GitHub tag history, which doesn't exist yet on `main`,
+  exactly the scenario B.6 exists to validate live). **Incident
+  (recovered, no data loss):** that CLI's `--local` mode silently ran
+  `git fetch origin && git checkout main && git reset --hard
+  origin/main` against the real working tree (not a scratch clone),
+  switching off the feature branch and discarding the uncommitted
+  version-bump edits (new untracked files survived). Recovered
+  immediately: no commits existed yet, branch head matched `main`
+  exactly, edits were 5 mechanical `0.0.1→0.1.0` one-liners, re-applied
+  in under a minute. **Lesson for future apply runs: never pass
+  `--local-path=.` (or any path resolving to the real repo) to
+  `release-please debug-config --local` — it force-resets the target
+  path to `origin/<default-branch>`. Use an isolated scratch clone or
+  skip `--local` entirely.**
 
-- [ ] **B.2** `.release-please-manifest.json` (repo root, new). Content:
+- [x] **B.2** `.release-please-manifest.json` (repo root, new). Content:
   `{"apps/api":"0.1.0","apps/web":"0.1.0","apps/landing":"0.1.0",
   "apps/mobile":"0.1.0"}`.
   Done: manifest keys match `packages` keys in B.1 exactly (a mismatch
   errors the release-please workflow at run time).
   Maps to: REL-06.
+  **APPLIED & VALIDATED**: manifest keys verified to match `packages`
+  keys in B.1 exactly via script (`set(cfg['packages'].keys()) ==
+  set(man.keys())`).
 
-- [ ] **B.3** Bootstrap on-disk versions to `0.1.0` — same commit as B.1/B.2
+- [x] **B.3** Bootstrap on-disk versions to `0.1.0` — same commit as B.1/B.2
   (zero manifest↔package.json drift). Files: `apps/api/package.json`,
   `apps/web/package.json`, `apps/landing/package.json`,
   `apps/mobile/package.json` (`version` `0.0.1`→`0.1.0` each) +
@@ -211,8 +248,16 @@ SEPARATE, later, manually-reviewed decision — do not auto-merge them (B.6).
   Done: all 4 workspace versions + `expo.version` read `0.1.0`; root
   unchanged; `mvp-v1` tag untouched (matches no `<component>-v*` pattern).
   Maps to: REL-06.
+  **APPLIED & VALIDATED**: all 4 `package.json` + `app.json`
+  `expo.version` confirmed `0.1.0` via script. Root `package.json`
+  untouched (still `0.0.1`). `mvp-v1` tag untouched (no tag operation
+  performed in this slice at all — tags are only cut when a generated
+  release PR merges, out of this task list's scope per B.6). Committed
+  together with B.1/B.2 in one commit
+  (`feat(repo): bootstrap release-please config and seed 0.1.0
+  versions`), zero drift.
 
-- [ ] **B.4** `.github/workflows/release-please.yml` (new). Content per
+- [x] **B.4** `.github/workflows/release-please.yml` (new). Content per
   design §1: `on: push: branches: [main]`; `permissions: contents: write,
   pull-requests: write, issues: write` (all three required — `issues:write`
   needed because v4 labels release PRs via the Issues API, design DD3);
@@ -230,8 +275,20 @@ SEPARATE, later, manually-reviewed decision — do not auto-merge them (B.6).
   mechanical (version+CHANGELOG+manifest) and the post-merge push to `main`
   DOES run CI+CD. Trigger to revisit: if branch protection later requires
   checks on the release PR itself, swap the token to a GitHub App/PAT.
+  **APPLIED & VALIDATED**: YAML parsed successfully with `js-yaml`
+  (vendored transitive dep, resolved via `node_modules/.pnpm`);
+  `permissions.issues === 'write'` asserted programmatically. Action
+  inputs (`token`, `release-type`, `config-file`, `manifest-file`, and
+  the absence of a `permissions` block in `action.yml` itself — it's
+  purely workflow-level) confirmed against the live
+  `googleapis/release-please-action` `action.yml` on GitHub. `issues:write`
+  requirement confirmed against `release-please`'s own `github.ts`
+  (`addIssueLabels`/`removeIssueLabels` — PR label mutation goes through
+  the Issues API). The "first push to main opens exactly 4 PRs" done-
+  criterion is `[observed]` and deferred to B.6 (post-merge, out of this
+  apply run's no-push scope).
 
-- [ ] **B.5** CHANGELOG bootstrap — confirm no manual file is needed.
+- [x] **B.5** CHANGELOG bootstrap — confirm no manual file is needed.
   Action: do NOT hand-create `CHANGELOG.md` files in this PR — release-please
   creates each component's `CHANGELOG.md` on its OWN first release PR.
   Document this explicitly in the PR description so a reviewer doesn't flag
@@ -239,6 +296,12 @@ SEPARATE, later, manually-reviewed decision — do not auto-merge them (B.6).
   Done: after B.4's first live run, each of the 4 opened release PRs' diff
   includes a newly-created `apps/<pkg>/CHANGELOG.md`.
   Maps to: REL-01, REL-04.
+  **APPLIED (the "action" half)**: no `CHANGELOG.md` was hand-created in
+  this PR — confirmed via `git diff --stat main..chore/release-please-bootstrap`,
+  no `CHANGELOG.md` path appears. Document this in the PR description
+  per the task's own instruction. The "done" half (`[observed]`:
+  each of the 4 opened release PRs' diff includes a newly-created
+  `apps/<pkg>/CHANGELOG.md`) is deferred to B.6, post-merge.
 
 - [ ] **B.6** VALIDATION GATE — inspect, do not blind-merge.
   Action: after B.1–B.4 land on `main` and release-please runs once, manually
