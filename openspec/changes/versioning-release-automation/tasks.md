@@ -477,7 +477,29 @@ Do NOT start until A, B, and C are merged and verified. Structurally
 independent of B/C content, but sequenced last per design §5 because it is
 the only slice touching real deploys. One platform part at a time.
 
-- [ ] **D.1** api → Render `buildFilter`. File: `render.yaml` — add under
+**SLICE D STATUS: config written and committed on branch `chore/hybrid-cd`
+(4 commits: D.1 render.yaml, D.2 apps/web/vercel.json, D.3
+apps/landing/vercel.json, D.4 mobile-release.yml — NOT pushed/PR'd, per
+this apply run's STOP instruction and its hard constraint against touching
+any real platform). D.5/D.6 (live cross-system + rollback verification)
+are genuinely NOT startable without platform access — left `[ ]` open.**
+
+**ACTIVATION steps this PR does NOT and CANNOT do (explicit hand-off to
+the user, config-only vs platform-only boundary):**
+1. Confirm the web Vercel project's Root Directory is `apps/web` (D.2).
+2. Confirm the landing Vercel project's Root Directory is `apps/landing`
+   (D.3).
+3. Connect/verify Render reads the updated `buildFilter` from `render.yaml`
+   after this PR merges (D.1 — Blueprint-managed services auto-sync on
+   push to the configured branch, but this apply run cannot confirm the
+   live sync).
+4. Add repo secret `EXPO_TOKEN` (EAS access token) in GitHub Settings →
+   Secrets before `mobile-release.yml` can succeed (D.4).
+5. After merge, run the real verify+rollback drills per D.6 (push
+   scoped commits, watch which platform (re)builds; push/delete a
+   `mobile-v0.0.0-test` tag).
+
+- [x] **D.1** api → Render `buildFilter`. File: `render.yaml` — add under
   the `moneydiary-api` service: `buildFilter: {paths: [apps/api/**,
   pnpm-lock.yaml, pnpm-workspace.yaml, render.yaml], ignoredPaths:
   [apps/api/**/*.spec.ts, apps/api/test/**, apps/api/**/*.md]}`.
@@ -488,8 +510,20 @@ the only slice touching real deploys. One platform part at a time.
   Render api deploy triggers; push an api-only commit → it DOES.
   Rollback: remove `buildFilter` → Render reverts to build-on-every-push.
   Maps to: CD-01.
+  **APPLIED — CONFIRM-AT-APPLY RESOLVED (schema VERIFIED, not just
+  documented-shape)**: fetched Render's live Blueprint spec docs
+  (`render.com/docs/blueprint-spec`) — field name `buildFilter` confirmed,
+  with `paths`/`ignoredPaths` sub-keys, nested at the SAME indentation
+  level as `buildCommand`/`healthCheckPath` under a service (not deeper).
+  Docs confirm: "Build filter paths use glob syntax. They are always
+  relative to the repo's root directory" — i.e. NOT relative to
+  `rootDir: .` inside the service block, matching the design's
+  `apps/api/**` (not bare `**`). Config added exactly per design; YAML
+  parsed clean with `js-yaml`. `[observed]` real Render trigger deferred
+  — out of this apply run's no-platform-access constraint; the schema
+  itself is now confirmed, not just assumed.
 
-- [ ] **D.2** web → NEW `apps/web/vercel.json` with `ignoreCommand`. File:
+- [x] **D.2** web → NEW `apps/web/vercel.json` with `ignoreCommand`. File:
   `apps/web/vercel.json` (new). Content: `{"$schema":
   "https://openapi.vercel.sh/vercel.json", "ignoreCommand": "git diff
   --quiet HEAD^ HEAD -- . ../../pnpm-lock.yaml"}`. **Constraint**: additive
@@ -505,8 +539,28 @@ the only slice touching real deploys. One platform part at a time.
   route still works post-deploy (smoke test `/api/*` through it).
   Rollback: delete `apps/web/vercel.json` → build on every push.
   Maps to: CD-01 (same behavioral class, web platform).
+  **APPLIED — CONFIRM-AT-APPLY PARTIALLY RESOLVED**: (2) the exact command
+  `git diff --quiet HEAD^ HEAD -- . ../../pnpm-lock.yaml` (design's choice)
+  is verified as **Vercel's own canonical documented example** — fetched
+  `vercel.com/docs/project-configuration/vercel-json` live and found
+  Vercel's own snippet is `git diff --quiet HEAD^ HEAD ./` verbatim (same
+  pattern, our version adds the lockfile path). Semantics confirmed from
+  the same page: exit 0 ⇒ skip, non-zero (exit 1) ⇒ build — matches the
+  design's stated polarity. Since this is Vercel's own docs example (not
+  a community workaround), it implies `HEAD^` DOES resolve on their build
+  checkout — no evidence found of a shallow-clone failure mode for this
+  exact command; the `VERCEL_GIT_*`/`fetch --deepen=1` fallback documented
+  in design is kept as a mental note but not pre-applied (KISS — don't
+  add unverified complexity). **(1) NOT resolved — genuinely cannot be
+  checked**: the web Vercel project's Root Directory setting lives only in
+  the Vercel dashboard, which is explicitly out of this apply run's scope
+  (no platform access). **Flagged as a hard ACTIVATION precondition for
+  the user**: if Root Directory ≠ `apps/web`, this file's relative paths
+  (`.` and `../../pnpm-lock.yaml`) resolve wrong and the ignore logic
+  silently misbehaves. File written additive-only — no `rewrites`/`routes`
+  added; the existing `apps/web/api/[...path].ts` proxy is untouched.
 
-- [ ] **D.3** landing → extend existing `apps/landing/vercel.json` with the
+- [x] **D.3** landing → extend existing `apps/landing/vercel.json` with the
   same `ignoreCommand`, keeping ALL existing headers
   (CSP/HSTS/nosniff/Referrer-Policy) verbatim. File:
   `apps/landing/vercel.json` (edit, additive only).
@@ -514,8 +568,15 @@ the only slice touching real deploys. One platform part at a time.
   byte-identical; a non-landing push does not trigger a landing rebuild.
   Rollback: remove the `ignoreCommand` key, keep headers.
   Maps to: CD-01 (same behavioral class, landing platform).
+  **APPLIED & VALIDATED**: `git diff` confirms only `$schema` +
+  `ignoreCommand` keys added; the `headers` array (CSP/HSTS/nosniff/
+  Referrer-Policy) is byte-identical to `main`. Same CONFIRM-AT-APPLY
+  status as D.2: command/polarity verified against Vercel's own docs;
+  landing project's Root Directory setting is the same un-checkable
+  ACTIVATION precondition (must be `apps/landing`), out of this apply
+  run's scope.
 
-- [ ] **D.4** mobile → NEW `.github/workflows/mobile-release.yml`,
+- [x] **D.4** mobile → NEW `.github/workflows/mobile-release.yml`,
   triggered by `mobile-v*` tags. File: `.github/workflows/
   mobile-release.yml` (new). `on: push: tags: ['mobile-v*']`;
   `permissions: {contents: read}`; steps: checkout, `pnpm/action-setup@v4`,
@@ -532,6 +593,26 @@ the only slice touching real deploys. One platform part at a time.
   Rollback: delete the workflow file → tags stop building; EAS remains
   manually runnable (status quo ante).
   Maps to: CD-02.
+  **APPLIED — CONFIRM-AT-APPLY RESOLVED, used v9.0.0 not v8** (same
+  discipline as Slice C's `dorny/paths-filter` re-check): checked live
+  GitHub releases for `expo/expo-github-action` — `v8`'s newest release is
+  `8.2.1` (2024-01-15), while `9.0.0` published 2026-06-02 is the CURRENT
+  major. Diffed `action.yml` at `v8` vs `v9`: only difference is
+  `runs.using: node20 → node24`; `inputs` (`token`, `eas-version`, etc.)
+  identical — no breaking surface change for our usage. SHA-pinned per
+  ADR-021 (`expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385
+  # v9.0.0`), matching the release-please-action/dorny-paths-filter
+  convention from Slices B/C. `actions/checkout`, `pnpm/action-setup`,
+  `actions/setup-node` left UNPINNED (`@v4`) — this matches the existing
+  repo convention (`ci.yml`/`release-please.yml` only SHA-pin the
+  higher-risk/new action introduced by that slice, not GitHub's/pnpm's own
+  setup actions). Confirmed `apps/mobile/eas.json` already has
+  `appVersionSource:"remote"` + `production.autoIncrement:true`
+  (pre-existing, unmodified) — the release-please↔EAS ownership boundary
+  (D.5) holds with zero EAS-side changes. YAML parsed clean (`js-yaml`)
+  and `actionlint` reports zero findings. `[observed]` real tag-push
+  trigger deferred — out of this apply run's no-platform-access
+  constraint (and `EXPO_TOKEN` isn't set yet — see ACTIVATION below).
 
 - [ ] **D.5** release-please↔EAS version-ownership boundary — verify only
   (already structurally guaranteed by B.1's `expo` release-type + EAS's
@@ -546,6 +627,16 @@ the only slice touching real deploys. One platform part at a time.
   both inspections confirm disjoint writes (release-please owns `version`,
   EAS owns build numbers, write-before-tag / read-after-tag).
   Maps to: CD-03.
+  **STATIC PRECONDITION CONFIRMED, LIVE OBSERVATION STILL PENDING**:
+  `apps/mobile/eas.json` verified to already have
+  `appVersionSource:"remote"` + `build.production.autoIncrement:true`
+  (pre-existing, this apply run changed nothing on the EAS side) and
+  `release-please-config.json`'s `apps/mobile` entry is
+  `{"component":"mobile","release-type":"expo"}` (Slice B, on `main`
+  already). The structural boundary is in place; the actual first
+  `mobile-v*` release PR + EAS build inspection is genuinely deferred —
+  requires a real `feat(mobile): ...` commit merging and a real tag, both
+  outside this apply run's no-platform-access scope.
 
 - [ ] **D.6** End-to-end verify + rollback confirmation, per design §5's
   rollback table. Action: for each of D.1–D.4, execute the paired
@@ -555,6 +646,17 @@ the only slice touching real deploys. One platform part at a time.
   Done: all 4 platform parts individually verified AND individually
   confirmed revertible without touching the other 3.
   Maps to: CD-01, CD-02, CD-03 (closes the loop on every CD requirement).
+  **NOT STARTED — explicitly out of this apply run's scope.** This is
+  live-platform verification against production Render/Vercel/GitHub
+  Actions, which this apply run is hard-constrained not to touch. Every
+  part's rollback IS structurally trivial and independently reviewable
+  from the diff alone (each commit is one file, one platform, additive):
+  D.1 remove `buildFilter` block, D.2 delete `apps/web/vercel.json`, D.3
+  remove the 2 added keys, D.4 delete `mobile-release.yml`. Real trigger
+  verification (push a scoped commit, confirm the right platform (re)builds
+  and the others don't; push `mobile-v0.0.0-test`, confirm EAS enqueues,
+  delete the tag) is left for the user to run after this PR merges and the
+  ACTIVATION steps below are done.
 
 ---
 
