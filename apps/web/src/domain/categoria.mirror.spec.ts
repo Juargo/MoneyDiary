@@ -35,7 +35,8 @@ function readBackendSource(): string {
     throw new Error(
       `Cannot read backend source of truth at "${BACKEND_CATEGORIA_PATH}". ` +
         'The file may have moved or been renamed — update BACKEND_CATEGORIA_PATH ' +
-        `in categoria.mirror.spec.ts. Original error: ${String(error)}`,
+        'in categoria.mirror.spec.ts.',
+      { cause: error },
     )
   }
 }

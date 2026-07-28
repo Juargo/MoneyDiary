@@ -18,6 +18,31 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // `_`-prefix = intencionalmente sin usar (convención del repo, ej.
+      // `const { archivo: _omitido, ...rest }`); `ignoreRestSiblings` habilita
+      // el patrón rest-omit de destructuring sin marcar el sibling descartado.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
+  {
+    // TanStack Router (file-based routing) OBLIGA a `export const Route` junto
+    // al componente de ruta — react-refresh marca ese export no-componente en
+    // CADA route file. El HMR de rutas lo maneja el propio router, así que la
+    // regla no aplica acá: se apaga para `src/routes/**` (mismo tratamiento que
+    // el override de shadcn abajo).
+    files: ['src/routes/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
   },
   {
     // shadcn/ui-generated primitives (`npx shadcn add`) — vendored, not
