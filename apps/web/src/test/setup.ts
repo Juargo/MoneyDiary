@@ -2,7 +2,16 @@
 // ...) en el `expect` de Vitest y aplica la augmentación de tipos en todo el
 // programa. Cargado por `vitest.config.ts` vía `setupFiles`.
 import '@testing-library/jest-dom/vitest'
+import { configure } from '@testing-library/react'
 import { vi } from 'vitest'
+
+// Raise Testing Library's async timeout above its 1000ms default. Router-driven
+// tests boot through an async `beforeLoad` (fetch → route match → render); the
+// full monorepo test command (`pnpm -r test`) runs the api/web/mobile runners
+// in parallel and saturates the CPU, pushing that boot past 1000ms and making
+// `waitFor`/`findBy*` time out on an empty body. 5000ms absorbs the contention
+// without masking a real hang (an actually stuck test still fails, just slower).
+configure({ asyncUtilTimeout: 5000 })
 
 // jsdom does not implement these two APIs (month-year-picker, WMYP-01) —
 // Radix Popover calls them when opening/positioning and throws without a
