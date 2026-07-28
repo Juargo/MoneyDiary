@@ -149,3 +149,15 @@ export interface IngestaResponseDto {
   readonly duplicadosOmitidos: number
   readonly transacciones: ReadonlyArray<TransaccionResponseDto>
 }
+
+/**
+ * Contrato de `GET /version` del API (endpoint público, consumido cross-origin
+ * vía CORS con allowlist). Mismo shape que los `/version.json` de web y
+ * landing: identifica qué build del backend está sirviendo prod.
+ */
+export interface ApiVersionDto {
+  readonly version: string
+  readonly commit: string
+  readonly ref: string
+  readonly builtAt: string
+}
