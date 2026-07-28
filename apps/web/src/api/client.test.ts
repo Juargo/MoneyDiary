@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchDetalleBucket, fetchResumen, fetchResumenAnual, postIngesta, postReclasificarCategoria } from './client'
+import {
+  fetchApiVersion,
+  fetchDetalleBucket,
+  fetchResumen,
+  fetchResumenAnual,
+  postIngesta,
+  postReclasificarCategoria,
+} from './client'
 import type {
+  ApiVersionDto,
   DetalleBucketDto,
   IngestaResponseDto,
   ReclasificarCategoriaDto,
@@ -727,5 +735,58 @@ describe('postIngesta', () => {
 
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+describe('fetchApiVersion', () => {
+  const validVersion: ApiVersionDto = {
+    version: '0.2.0',
+    commit: 'abc1234',
+    ref: 'main',
+    builtAt: '2026-07-28T17:00:00.000Z',
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('llama GET {VITE_API_BASE_URL}/version cross-origin y devuelve el DTO', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.test')
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validVersion) })
+
+    const result = await fetchApiVersion()
+
+    expect(fetchMock).toHaveBeenCalledWith('https://api.test/version')
+    expect(result).toEqual({ ok: true, value: validVersion })
+  })
+
+  it('mapea 401 a unauthorized', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await fetchApiVersion()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('unauthorized')
+  })
+
+  it('mapea un body con forma inesperada a parse', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ version: 1 }) })
+
+    const result = await fetchApiVersion()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea un fetch rechazado (red) a network', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('offline'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchApiVersion()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
   })
 })

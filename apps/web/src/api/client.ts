@@ -1,4 +1,5 @@
 import type {
+  ApiVersionDto,
   BucketResumenDto,
   DetalleBucketDto,
   DetalleBucketTransaccionDto,
@@ -467,6 +468,63 @@ export async function postIngesta(file: File): Promise<ApiResult<IngestaResponse
   }
 
   if (!esIngestaResponseDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+function esApiVersionDto(value: unknown): value is ApiVersionDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<ApiVersionDto>
+  return (
+    typeof candidato.version === 'string' &&
+    typeof candidato.commit === 'string' &&
+    typeof candidato.ref === 'string' &&
+    typeof candidato.builtAt === 'string'
+  )
+}
+
+/**
+ * fetchApiVersion — GET /version del API. A diferencia del resto del cliente,
+ * NO va same-origin por el proxy `/api`: el endpoint es público y vive en la
+ * raíz del backend (fuera de `/api`), así que se llama CROSS-ORIGIN a la URL
+ * absoluta (`VITE_API_BASE_URL`, pública, sin secretos) y el backend lo
+ * autoriza vía CORS con allowlist. Sin base configurada → llamada same-origin
+ * que fallará y se mapea a `ApiError` (el badge simplemente no se muestra).
+ * Nunca lanza; toda falla es un `ApiError` tipado.
+ */
+export async function fetchApiVersion(): Promise<ApiResult<ApiVersionDto>> {
+  const base = import.meta.env.VITE_API_BASE_URL ?? ''
+  const url = `${base}/version`
+
+  let res: Response
+  try {
+    res = await fetch(url)
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'No se pudo obtener la versión del API.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esApiVersionDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 

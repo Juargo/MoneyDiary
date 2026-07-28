@@ -3,6 +3,7 @@ import { fetchMe } from '@/api/auth'
 import { requireSession } from '@/lib/require-session'
 import { DemoBanner } from '@/components/DemoBanner'
 import { AppShell } from '@/components/app-shell/AppShell'
+import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge'
 
 /**
  * Pathless protected layout (AUTH-10, design.md §6.1): every route nested
@@ -46,7 +47,7 @@ export const Route = createFileRoute('/_authenticated')({
 function RouteComponent() {
   const { esDemo } = Route.useRouteContext()
   return (
-    <AppShell>
+    <AppShell sidebarFooter={<ApiVersionBadge />}>
       <DemoBanner esDemo={esDemo} />
       <Outlet />
     </AppShell>
