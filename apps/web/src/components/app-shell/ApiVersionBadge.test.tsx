@@ -23,7 +23,13 @@ describe('ApiVersionBadge', () => {
 
     render(<ApiVersionBadge />)
 
-    expect(screen.getByTestId('api-version')).toHaveTextContent('API v0.2.0 · abc1234')
+    const badge = screen.getByTestId('api-version')
+    expect(badge).toHaveTextContent('API v0.2.0 · abc1234')
+    // Tooltip con el detalle completo del build (commit, ref, fecha).
+    expect(badge).toHaveAttribute(
+      'title',
+      'API 0.2.0 · commit abc1234 · main · build x',
+    )
   })
 
   it('omite el commit cuando es "local" (build local, sin SHA de Render)', () => {
