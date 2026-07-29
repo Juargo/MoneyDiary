@@ -9,7 +9,7 @@ App de finanzas personales para consolidar y analizar movimientos bancarios chil
 **Stack frontend:** React 19 · TypeScript · Vite 8 · Tailwind 4 · shadcn/ui · TanStack Query · TanStack Router · Zustand
 **Stack mobile:** Expo SDK 57 · Expo Router · NativeWind 4 (Tailwind 3) · jest-expo + RNTL (ADR-010/017)
 **Estructura:** Monorepo `pnpm workspaces` — `apps/api` (backend) + `apps/web` (frontend) + `apps/mobile` (Expo)
-**Producción:** API desplegada en Render — `https://moneydiary-api.onrender.com`, protegida por `apiKeyMiddleware` (`x-api-key`)
+**Producción (dominio propio `moneydiary.cl`, DNS gestionado por Vercel):** landing → `https://moneydiary.cl` (apex, Vercel) · web → `https://app.moneydiary.cl` (Vercel `money-diary-web`) · API → `https://api.moneydiary.cl` (CNAME → Render `moneydiary-api`; sigue accesible en `https://moneydiary-api.onrender.com`), protegida por `apiKeyMiddleware` (`x-api-key`). El API expone **CORS con allowlist por env** (`CORS_ALLOWED_ORIGINS`, incluye `app.moneydiary.cl`; ver `render.yaml`) para el `GET /version` público; el web lo lee cross-origin vía `VITE_API_BASE_URL=https://api.moneydiary.cl`. Deploy git→prod del web (Vercel) confirmado.
 
 ---
 
