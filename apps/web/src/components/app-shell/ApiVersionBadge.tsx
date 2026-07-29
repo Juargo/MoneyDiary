@@ -16,8 +16,16 @@ export function ApiVersionBadge() {
 
   const commit = data.commit && data.commit !== 'local' ? ` · ${data.commit}` : ''
 
+  // Tooltip con el detalle completo del build para identificar exactamente qué
+  // versión del API se está sirviendo (útil al diagnosticar un deploy).
+  const detalle = `API ${data.version} · commit ${data.commit} · ${data.ref} · build ${data.builtAt}`
+
   return (
-    <p className="px-3 text-xs text-muted-foreground" data-testid="api-version">
+    <p
+      className="px-3 text-xs text-muted-foreground"
+      data-testid="api-version"
+      title={detalle}
+    >
       API v{data.version}
       {commit}
     </p>
