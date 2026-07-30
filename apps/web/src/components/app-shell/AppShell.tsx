@@ -14,10 +14,16 @@ import { CONTENT_BOTTOM_CLEARANCE_CLASS, SIDEBAR_CONTENT_OFFSET_CLASS } from './
  * responsive frame (SRP) — "what's active" is owned by the router and read
  * directly inside `NavItem`.
  */
-export function AppShell({ children }: { readonly children: ReactNode }) {
+export function AppShell({
+  children,
+  sidebarFooter,
+}: {
+  readonly children: ReactNode
+  readonly sidebarFooter?: ReactNode
+}) {
   return (
     <div className="min-h-dvh bg-background">
-      <Sidebar />
+      <Sidebar footer={sidebarFooter} />
       <main className={`min-h-dvh ${CONTENT_BOTTOM_CLEARANCE_CLASS} ${SIDEBAR_CONTENT_OFFSET_CLASS}`}>{children}</main>
       <BottomTabs />
     </div>

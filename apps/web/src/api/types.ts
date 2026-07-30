@@ -149,3 +149,31 @@ export interface IngestaResponseDto {
   readonly duplicadosOmitidos: number
   readonly transacciones: ReadonlyArray<TransaccionResponseDto>
 }
+
+/**
+ * Mirror escrito a mano del DTO HTTP de `GET /api/ingestas`
+ * (`us-018-eliminar-ingesta` Slice 2, design.md §7.4). Fuente de verdad en el
+ * backend: `apps/api/src/infrastructure/http/dto/ingesta-list.dto.ts`.
+ *
+ * `totalTransacciones` es un CONTEO de filas (row count), no dinero — `number`
+ * plano, sin el tratamiento BigInt-string que llevan `cargo`/`abono` en otros
+ * DTOs. `fecha` es ISO-8601 (`Ingesta.creadoEn.toISOString()`).
+ */
+export interface IngestaListItemDto {
+  readonly id: string
+  readonly banco: string
+  readonly fecha: string
+  readonly totalTransacciones: number
+}
+
+/**
+ * Contrato de `GET /version` del API (endpoint público, consumido cross-origin
+ * vía CORS con allowlist). Mismo shape que los `/version.json` de web y
+ * landing: identifica qué build del backend está sirviendo prod.
+ */
+export interface ApiVersionDto {
+  readonly version: string
+  readonly commit: string
+  readonly ref: string
+  readonly builtAt: string
+}

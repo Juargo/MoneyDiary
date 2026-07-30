@@ -1,7 +1,7 @@
 {
   "name": "@moneydiary/mobile",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "MoneyDiary mobile — React Native + Expo Router (ADR-010), Expo SDK 57. Testing: Jest (jest-expo) + React Native Testing Library + Maestro (ADR-017).",
   "main": "expo-router/entry",
   "scripts": {
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "expo": "~57.0.4",
+    "expo-document-picker": "~57.0.1",
     "expo-router": "^57.0.4",
     "expo-secure-store": "~57.0.1",
     "nativewind": "^4.2.6",

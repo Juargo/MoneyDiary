@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { NAV_ITEMS } from './nav-items'
 import { NavItem } from './NavItem'
 import { SIDEBAR_WIDTH_CLASS } from './layout'
@@ -7,8 +8,13 @@ import { SIDEBAR_WIDTH_CLASS } from './layout'
  * at `lg`+ (`hidden lg:flex`; `AppShell`'s `<main>` reserves the matching
  * `SIDEBAR_CONTENT_OFFSET_CLASS`, see `layout.ts`). Brand block + the shared
  * `NAV_ITEMS` (functional + inert placeholders, WDS-02/WDS-03).
+ *
+ * Presentational: an optional `footer` slot renders pinned to the bottom
+ * (`mt-auto`). The data-driven `ApiVersionBadge` is injected there from
+ * `_authenticated.tsx` so this component stays pure and unit-testable without
+ * a QueryClientProvider.
  */
-export function Sidebar() {
+export function Sidebar({ footer }: { readonly footer?: ReactNode }) {
   return (
     <nav
       aria-label="Navegación principal"
@@ -25,6 +31,7 @@ export function Sidebar() {
           </li>
         ))}
       </ul>
+      {footer && <div className="mt-auto">{footer}</div>}
     </nav>
   )
 }

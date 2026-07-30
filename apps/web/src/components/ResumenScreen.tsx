@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { IngresoCard } from './IngresoCard'
 import { SemaforoBadge } from './SemaforoBadge'
 import { DistribucionPie } from './DistribucionPie'
@@ -36,9 +36,11 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria'
  * chosen yet" from an explicit choice without recomputing a default guess on
  * every render.
  *
- * FIX 5: an explicit selection must NOT leak across months — the `useEffect`
- * below resets `bucketElegido` to `null` whenever `viewModel.periodo`
+ * FIX 5: an explicit selection must NOT leak across months — the render-time
+ * guard below resets `bucketElegido` to `null` whenever `viewModel.periodo`
  * changes, so a newly-loaded month always starts at ITS OWN default bucket.
+ * Done during render (React's "adjust state on prop change" pattern) instead
+ * of an effect, so the stale selection never renders for even one frame.
  *
  * FIX 4: `bucketPorDefecto` is `string | null` (`null` only if the backend
  * ever sent an empty `buckets` array — defensive, not expected today). The
@@ -82,11 +84,15 @@ export function ResumenScreen({
 }) {
   const [bucketElegido, setBucketElegido] = useState<string | null>(null)
 
-  // FIX 5: reset the explicit selection when the month changes — otherwise
-  // the OLD month's choice would leak into the new month's panel.
-  useEffect(() => {
+  // FIX 5: reset the explicit selection when the month changes — otherwise the
+  // OLD month's choice would leak into the new month's panel. Reset during
+  // render by tracking the previous period (React's documented alternative to
+  // a reset-in-effect); React re-runs render immediately without committing.
+  const [periodoPrevio, setPeriodoPrevio] = useState(viewModel.periodo)
+  if (viewModel.periodo !== periodoPrevio) {
+    setPeriodoPrevio(viewModel.periodo)
     setBucketElegido(null)
-  }, [viewModel.periodo])
+  }
 
   const bucketSeleccionado = bucketElegido ?? viewModel.bucketPorDefecto
 

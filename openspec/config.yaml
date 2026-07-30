@@ -3,11 +3,11 @@ schema: spec-driven
 project: MoneyDiary
 
 context: |
-  Chilean personal-finance app: ingests bank .xlsx into a canonical transaction schema.
-  Stack: pnpm@11 monorepo (Node 22+). apps/api = NestJS 11 + TS strict + Prisma 7 + PostgreSQL/Supabase + ExcelJS. apps/web = React 19 + Vite 8 + Tailwind 4 + shadcn/ui + TanStack Query/Router + Zustand. apps/mobile = Expo SDK 57 + Expo Router + NativeWind 4 (tailwindcss@3 mandatory) (ADR-010).
-  Production: apps/api deployed on Render (https://moneydiary-api.onrender.com) behind a global fail-closed ApiKeyGuard (x-api-key); Supabase reached via IPv4 pooler (direct IPv6 fails on Render).
-  Architecture: Modular Monolith + Clean Architecture (ADR-005). Dependency direction domain <- application <- infrastructure. Never throw in domain/application; return Result<T,E> (apps/api/src/shared/result.ts).
-  Conventions: domain/application named in Spanish (VOs, errors, use cases); NestJS infra in English (controllers, modules, adapters). Files kebab-case.ts, classes PascalCase. Build new use cases domain -> application -> infrastructure.
+  Chilean personal-finance app: ingests bank .xlsx/.pdf into a canonical transaction schema.
+  Stack: pnpm@11.2.2 monorepo (Node 22+). apps/api = Express 5 + TS strict + Prisma 7 + PostgreSQL/Supabase + ExcelJS + pdfjs-dist (ADR-028, migrated from NestJS; supersedes ADR-001). apps/web = React 19 + Vite 8 + Tailwind 4 + shadcn/ui + TanStack Query/Router + Zustand. apps/mobile = Expo SDK 57 + Expo Router + NativeWind 4 (tailwindcss@3 mandatory) (ADR-010). apps/landing = Astro 5 static site (ADR-025).
+  Production: apps/api deployed on Render (https://moneydiary-api.onrender.com) behind apiKeyMiddleware -> sessionMiddleware -> errorMiddleware chain (x-api-key + session auth); Supabase reached via IPv4 pooler (direct IPv6 fails on Render).
+  Architecture: Modular Monolith + Clean Architecture (ADR-005). Dependency direction domain <- application <- infrastructure. Never throw in domain/application; return Result<T,E> (apps/api/src/shared/result.ts). HTTP layer lives in infrastructure/http-express/ (app.ts + middleware/ + routes/*.routes.ts, closure-DI, no decorators/modules); real composition root in composition/container.ts + crear-* helpers.
+  Conventions: domain/application named in Spanish (VOs, errors, use cases); infrastructure named in English (routes, middleware, adapters). Files kebab-case.ts, classes PascalCase. Build new use cases domain -> application -> infrastructure.
   Frontend/mobile never import apps/api domain; HTTP DTO types are hand-written (apps/web/src/api/types.ts, apps/mobile/src/domain/resumen.types.ts) (ADR-008). Money crosses HTTP as BigInt-safe strings — never parseFloat amounts.
   Style: Conventional Commits, no AI attribution.
 
@@ -19,10 +19,11 @@ testing:
   canonical_test_command: pnpm api test
   workspaces:
     api:
-      test: pnpm api test                # vitest run (ADR-016; SWC transpile for Nest decorator metadata)
+      test: pnpm api test                # vitest run (ADR-016; default Oxc transformer post-ADR-028 — no more decorators, unplugin-swc removed)
       test_single_name: pnpm api test -- -t "name"
       test_single_file: pnpm api test -- path/to.spec.ts
-      e2e: pnpm api test:e2e             # vitest.e2e.config.ts — mutates real DB, gated by ALLOW_DESTRUCTIVE_DB=1
+      e2e: pnpm api test:e2e             # vitest.e2e.config.ts — DOTENV_CONFIG_PATH=.env.test (local disposable Postgres) + ALLOW_DESTRUCTIVE_DB=1; env.ts (ADR-029) fail-fasts to localhost in dev/test, so this can never hit Supabase/prod — see apps/api/docs/local-test-db.md
+      integration: pnpm api test:integration   # vitest.int.config.ts — same .env.test + ALLOW_DESTRUCTIVE_DB=1 gate as e2e
       coverage: pnpm api test:cov
       typecheck: pnpm api exec tsc --noEmit
       lint: pnpm api lint                # eslint --fix
@@ -40,6 +41,10 @@ testing:
       test: pnpm --filter @moneydiary/mobile test   # jest-expo 57 (pins jest@29) + RNTL (ADR-017)
       runner: jest-expo + RNTL (Maestro E2E manual on device, not CI)
       has_test_runner: true
+    landing:
+      typecheck: pnpm landing typecheck  # astro check
+      build: pnpm landing build          # astro build
+      has_test_runner: false             # no test runner configured for apps/landing
     all:
       test: pnpm test                    # pnpm -r test (api + web + mobile)
       build: pnpm build
@@ -61,7 +66,7 @@ rules:
     - Group by Clean Architecture layer, use hierarchical numbering.
     - Keep tasks completable in one session.
   apply:
-    - Follow existing patterns; Spanish domain/application, English NestJS infra, kebab-case.ts files.
+    - Follow existing patterns; Spanish domain/application, English infrastructure (http-express routes/middleware, persistence adapters), kebab-case.ts files.
     - Apply the project skills in .claude/skills/ (solid, dry, kiss, yagni) when writing and reviewing code; their checklists complement the ADR-015 security checklist.
     - Frontend DTO types are hand-written in apps/web/src/api/types.ts; do not import api domain.
     - Ignore iCloud duplicate files named "... 2.ts" / "... 2.json".
@@ -83,9 +88,12 @@ notable_gotchas:
   - "apps/web/src/routeTree.gen.ts is generated by `tsr generate` and gitignored — run typecheck/build to create it before TS passes."
   - ".npmrc enforces minimum-release-age=10080 (7-day quarantine) + audit-level=high; fresh deps may be refused."
   - "pnpm isolated resolution: each apps/* must declare its direct deps explicitly."
-  - "Clean install needs `pnpm approve-builds` (allowBuilds: nestjs/core, prisma engines, swc/core, prisma, unrs-resolver)."
+  - "Clean install needs `pnpm approve-builds` (allowBuilds: @prisma/engines, @swc/core, esbuild, prisma, sharp, unrs-resolver)."
   - "Files named '... 2.ts' / '... 2.json' are iCloud sync duplicates — ignore, never edit."
-  - "CI: .github/workflows/ci.yml runs prisma generate -> api typecheck -> api unit tests -> web typecheck on every PR. test:integration/test:e2e are NOT in CI (need real DB + ALLOW_DESTRUCTIVE_DB=1) — run locally before merging persistence changes."
+  - "CI: .github/workflows/ci.yml runs prisma generate -> api typecheck -> api unit tests -> web typecheck on every PR. test:integration/test:e2e are NOT in CI (need real DB + ALLOW_DESTRUCTIVE_DB=1, and the db-safety gate rejects prod connection strings) — run locally before merging persistence changes."
   - "NativeWind 4 hard-requires tailwindcss@3 (v4 support only in nativewind 5 preview) — do not bump apps/mobile tailwindcss to 4."
   - "jest-expo 57 pins jest@29 in apps/mobile — do not bump to jest@30."
   - "Production secrets (API_KEY/DATABASE_URL/DIRECT_URL) live in Render dashboard (sync:false); mobile key via EAS Secrets, never in the bundle."
+  - "ADR-028 (2026-07-24): backend framework migrated NestJS -> Express + TS strict, merged to main and deployed (PR #109). domain/application had 0 changes (ADR-005 isolation held). HTTP layer is now infrastructure/http-express/ (middleware chain: apiKeyMiddleware -> sessionMiddleware -> errorMiddleware); composition root is composition/container.ts + crear-* factories (manual DI with `new`, no decorators/modules). References to *.controller.ts under http/, *.module.ts, PrismaService/prisma.module.ts, ApiKeyGuard/SessionGuard, @CurrentUser()/@Public() in older docs/history are PRE-migration and stale."
+  - "e2e/integration test debt post-ADR-028: several e2e specs are session-bit-rotted since Sprint 6 (only send x-api-key, no login) — tooling for a local disposable Postgres exists (apps/api/docker-compose.yml + apps/api/docs/local-test-db.md; pnpm api db:up/db:down, test:db:setup, test:e2e/test:integration — folded onto .env.test per ADR-029, no more :local suffix) but the DB still needs to be provisioned (Docker or brew) before those suites are runnable."
+  - "AGENTS.md/agents.md at repo root are STALE (still describe NestJS + Jest) — CLAUDE.md is the canonical technical source of truth per its own header; do not trust AGENTS.md test commands or framework references without cross-checking CLAUDE.md."
