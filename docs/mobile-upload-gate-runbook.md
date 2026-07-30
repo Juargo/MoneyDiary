@@ -50,10 +50,15 @@ app nativa. Es el camino más rápido si tenés Xcode/Android SDK local.
 
 ### Alternativa gestionada — EAS Build
 
-Hay un `apps/mobile/eas.json` con perfiles listos. El perfil `preview` (release,
-sin dependencias extra) o `development` sirven para el gate; ambos traen
-`ios.simulator: true`, así que el build de iOS corre en **simulador sin firma de
-Apple** — ideal para Maestro.
+Hay un `apps/mobile/eas.json` con perfiles listos. El perfil `preview`
+(`distribution: internal`, release, sin dependencias extra) produce un **APK
+Android de distribución interna** — el camino de gate recomendado (ADR-022), que
+instala directo en emulador o dispositivo. El perfil `development` sirve igual
+pero requiere `expo-dev-client`.
+
+> El `eas.json` sigue la config canónica de ADR-030 (`appVersionSource: remote`,
+> release-please dueño de la versión). No define `ios.simulator`, así que un build
+> de iOS pediría firma de Apple; para el gate usá Android.
 
 Setup por única vez (interactivo, lo corrés vos):
 
@@ -64,17 +69,14 @@ eas login                 # tu cuenta Expo
 eas init                  # crea/linkea el proyecto → escribe extra.eas.projectId en app.json
 ```
 
-Build para el gate (elegí plataforma):
+Build para el gate:
 
 ```bash
-# iOS en simulador (recomendado para el gate — sin firma)
-eas build --profile preview --platform ios
-
-# Android (APK interno, instala en emulador/dispositivo)
+# Android (APK interno, instala en emulador/dispositivo) — recomendado
 eas build --profile preview --platform android
 ```
 
-Al terminar, instalá el artefacto en el simulador/dispositivo y seguí con el
+Al terminar, instalá el artefacto en el emulador/dispositivo y seguí con el
 Paso 2. El perfil `development` (`--profile development`) requiere además
 `npx expo install expo-dev-client`.
 
