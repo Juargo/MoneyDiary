@@ -35,13 +35,25 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const targetUrl = new URL(safePath, apiBaseUrl)
   const body = await readRequestBody(req)
 
+  const headers: Record<string, string> = {
+    ...forwardableHeaders(req.headers),
+    'x-api-key': apiKey,
+  }
+  // Relay the browser's Fetch Metadata under a custom name for the backend's
+  // anti-embed guard on `GET /api/auth/demo`. undici drops the forbidden
+  // `sec-fetch-*` request headers from this proxied fetch, so the guard would
+  // otherwise never see the real navigation context (and reject every proxied
+  // demo call). Set ONLY from the incoming request — `forwardableHeaders`
+  // strips any client-supplied `x-fwd-sec-fetch-*`, so these can't be forged
+  // (same posture as `x-api-key`).
+  const secFetchDest = headerValue(req.headers['sec-fetch-dest'])
+  const secFetchMode = headerValue(req.headers['sec-fetch-mode'])
+  if (secFetchDest !== undefined) headers['x-fwd-sec-fetch-dest'] = secFetchDest
+  if (secFetchMode !== undefined) headers['x-fwd-sec-fetch-mode'] = secFetchMode
+
   let upstream: Response
   try {
-    upstream = await fetch(targetUrl, {
-      method: req.method,
-      headers: { ...forwardableHeaders(req.headers), 'x-api-key': apiKey },
-      body,
-    })
+    upstream = await fetch(targetUrl, { method: req.method, headers, body })
   } catch {
     sendJsonError(res, 502, 'upstream request failed')
     return
@@ -114,15 +126,27 @@ async function readRequestBody(req: IncomingMessage): Promise<Buffer | undefined
   return chunks.length > 0 ? Buffer.concat(chunks) : undefined
 }
 
+// Headers set server-side by this proxy — a client-supplied value for any of
+// them must NEVER pass through (they'd forge the api-key or the anti-embed
+// Fetch-Metadata relay). `host`/`connection` are hop-by-hop.
+const NON_FORWARDABLE = new Set([
+  'host',
+  'connection',
+  'x-api-key',
+  'x-fwd-sec-fetch-dest',
+  'x-fwd-sec-fetch-mode',
+])
+
 function forwardableHeaders(headers: IncomingMessage['headers']): Record<string, string> {
   const result: Record<string, string> = {}
   for (const [key, value] of Object.entries(headers)) {
     if (value === undefined) continue
-    // `host`/`connection` are hop-by-hop and must not be forwarded as-is;
-    // `x-api-key` is set explicitly below from the server-side env var, so
-    // any client-supplied value must never pass through.
-    if (key === 'host' || key === 'connection' || key === 'x-api-key') continue
+    if (NON_FORWARDABLE.has(key)) continue
     result[key] = Array.isArray(value) ? value.join(', ') : value
   }
   return result
+}
+
+function headerValue(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw
 }
