@@ -41,6 +41,7 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={estado === 'authenticated'}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="subir" />
       </Stack.Protected>
       <Stack.Protected guard={estado === 'unauthenticated'}>
         <Stack.Screen name="login" />

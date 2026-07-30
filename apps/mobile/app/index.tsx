@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { fetchResumen, postLogout } from '../src/api/client';
 import type { ApiError, ApiResult } from '../src/api/client';
 import { borrarToken } from '../src/api/session-store';
 import { useSession } from '../src/api/session-context';
+import { registrarRecargaResumen } from '../src/api/resumen-refresh';
 import type { ResumenMesDto } from '../src/domain/resumen.types';
 import { aResumenViewModel } from '../src/domain/resumen-view-model';
 import { ResumenScreen } from '../src/components/ResumenScreen';
@@ -27,6 +29,7 @@ type Estado =
 
 export default function Index() {
   const { signOut } = useSession();
+  const router = useRouter();
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
 
   const cargar = useCallback(async () => {
@@ -43,6 +46,14 @@ export default function Index() {
     void cargar();
   }, [cargar]);
 
+  // Registers this screen's own `cargar()` as the resumen re-fetch listener
+  // (Sprint 8, US-033, CU-10): `app/subir.tsx` calls `solicitarRecargaResumen()`
+  // after a successful upload — no TanStack Query on mobile, no prop-drilling
+  // through expo-router's Stack (see `src/api/resumen-refresh.ts`).
+  useEffect(() => {
+    return registrarRecargaResumen(cargar);
+  }, [cargar]);
+
   // Minimal logout affordance (MOB-04, design.md §6.2.4): revoke the server
   // session, then ALWAYS clear the local token — even when `postLogout`
   // network-fails — then flip the auth-context guard (`signOut`, MOB-03
@@ -57,6 +68,14 @@ export default function Index() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
       {renderEstado(estado, cargar)}
+      <Pressable
+        testID="subir-cartola-button"
+        accessibilityRole="button"
+        onPress={() => router.push('/subir')}
+        className="items-center py-3"
+      >
+        <Text className="text-sm font-semibold text-ingreso">Subir cartola</Text>
+      </Pressable>
       <Pressable
         testID="logout-button"
         accessibilityRole="button"

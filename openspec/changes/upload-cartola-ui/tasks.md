@@ -184,7 +184,7 @@ since the demo nudge is a prop on the same component, not a separate code path.
 parallel with Work Unit A once Work Unit 0 is merged (Work Unit 0 only touches `apps/web`, so it is not
 actually a hard dependency for Track B either — sequencing here is about the ADR record, not the proxy).
 
-- [ ] **B.1** — Sequencing note: confirm ADR-026 (ADR-010 amendment — mobile gains ingesta-only write
+- [x] **B.1** — Sequencing note: confirm ADR-026 (ADR-010 amendment — mobile gains ingesta-only write
   capability) is recorded in the Obsidian vault under `02 Diseño/ADRs/` before writing any Track B code.
   This is a documentation/sequencing gate per the proposal, not a blocking code task — if ADR-026 is
   already recorded (per the design's "already decided" framing), this task is a verification check, not
@@ -192,7 +192,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
 
 ### Dependency
 
-- [ ] **B.2** — Add `expo-document-picker` (Expo SDK 57-compatible version) to
+- [x] **B.2** — Add `expo-document-picker` (Expo SDK 57-compatible version) to
   `apps/mobile/package.json` dependencies. Run `npx expo install expo-document-picker` (not raw
   `pnpm add`) so Expo resolves the SDK-57-compatible version — matches how `expo-secure-store` was
   added originally. No test for a dependency addition itself.
@@ -200,7 +200,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
 ### API layer — transport (`post-ingesta.ts`, write test first — jest-expo + mocked `fetch`, mirrors
 `client.ts`'s `fetchResumen`/`postLogin` test conventions)
 
-- [ ] **B.3** — `apps/mobile/src/api/post-ingesta.spec.ts` (write first): cases —
+- [x] **B.3** — `apps/mobile/src/api/post-ingesta.spec.ts` (write first): cases —
   - the `FormData` file part is built as `{ uri, name, type }` (NOT a `Blob`/`File` object) — assert via
     inspecting the constructed `FormData` mock/spy, per RN's native `FormData` contract (Decision 3).
   - **MIME type is derived from the file extension, never trusted from the picker's `mimeType`**: `.xlsx`
@@ -221,7 +221,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
     `post-ingesta.ts`" — do not widen the shared `ApiError` type for every mobile call, scope the
     extension to this function's return type only, YAGNI).
   - A network failure resolves `{ tag: 'network' }` (existing shared tag, CU-11).
-- [ ] **B.4** — `apps/mobile/src/api/post-ingesta.ts`: `postIngesta(pickerResult): Promise<...>` — RN
+- [x] **B.4** — `apps/mobile/src/api/post-ingesta.ts`: `postIngesta(pickerResult): Promise<...>` — RN
   `FormData`, `.append('file', { uri, name, type })`, MIME-per-extension lookup (small map, not a
   switch — KISS), `fetch('${API_BASE_URL}/api/ingestas', { method: 'POST', headers: await construirHeadersSesion(), body: formData })`
   with no manual `Content-Type`. Make B.3 pass.
@@ -229,7 +229,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
 ### Screen (test-first, jest-expo + RNTL — mirrors `app/index.tsx`'s
 `useState`-machine + `renderEstado` switch pattern, no TanStack Query)
 
-- [ ] **B.5** — `apps/mobile/app/subir.spec.tsx` (write first): cases —
+- [x] **B.5** — `apps/mobile/app/subir.spec.tsx` (write first): cases —
   - CU-08: the document-picker trigger is present with an `accessibilityRole`/`accessibilityLabel`
     (CU-12); mock `expo-document-picker` to assert it's invoked with a type filter restricted to
     `.xlsx`/`.pdf` MIME types (or the picker's equivalent `type` option).
@@ -247,7 +247,7 @@ actually a hard dependency for Track B either — sequencing here is about the A
     same intent as W3.21's disabled-edit-placeholder assertion in the web bucket-detail list, but here
     the assertion is **absence**, not a disabled control, since mobile has zero editing UI to begin
     with).
-- [ ] **B.6** — `apps/mobile/app/subir.tsx`: plain `useState` machine `idle | subiendo | éxito | error`
+- [x] **B.6** — `apps/mobile/app/subir.tsx`: plain `useState` machine `idle | subiendo | éxito | error`
   (matches `app/index.tsx`'s hand-rolled switch, no TanStack Query per design Decision 5). Uses
   `expo-document-picker` filtered to `.xlsx`/`.pdf`, calls `postIngesta` (B.4) on confirm, result
   summary + error text, NativeWind styling, RN a11y labels/roles on the trigger and result/error views.
@@ -257,14 +257,14 @@ actually a hard dependency for Track B either — sequencing here is about the A
   `Stack.Protected` block (`<Stack.Screen name="subir" />` alongside `index`) — this is a small,
   necessary addition to `_layout.tsx` beyond the design's file-changes table (the screen cannot be
   reachable under `Stack.Protected` without it). Make B.5 pass.
-- [ ] **B.7** — `apps/mobile/app/index.tsx`: add a "Subir cartola" entry affordance (a `Pressable`
+- [x] **B.7** — `apps/mobile/app/index.tsx`: add a "Subir cartola" entry affordance (a `Pressable`
   navigating to `/subir` via `expo-router`'s `router.push` or a `<Link>`, `accessibilityRole="button"`,
   next to the existing "Cerrar sesión" pressable — matches the file's existing structure, no new
   container component needed for one added control, KISS).
 
 ### E2E (manual, real device — NOT CI, ADR-017)
 
-- [ ] **B.8** — `apps/mobile/.maestro/subir.yaml`: tap the "Subir cartola" entry, open the picker, select
+- [x] **B.8** — `apps/mobile/.maestro/subir.yaml`: tap the "Subir cartola" entry, open the picker, select
   a real `.xlsx`/`.pdf` fixture, confirm, assert the result summary appears. This is the **required
   gate** for the multipart boundary correctness that jest-expo cannot validate (design's flagged
   HIGH-risk runtime spike) — run on a real device before merging Work Unit B, per ADR-017. Mirrors the
