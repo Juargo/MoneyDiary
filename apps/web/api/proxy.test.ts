@@ -106,6 +106,38 @@ describe('proxy handler', () => {
     expect((init.headers as Record<string, string>)['x-api-key']).toBe('server-side-secret')
   })
 
+  it("relays the browser's Sec-Fetch metadata as x-fwd-sec-fetch-* (undici strips the standard ones on the proxied fetch)", async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+    const req = createReq({
+      url: proxyUrl('auth/demo'),
+      headers: { 'sec-fetch-dest': 'document', 'sec-fetch-mode': 'navigate' },
+    })
+    const res = createRes()
+
+    await handler(req, res)
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    const headers = init.headers as Record<string, string>
+    expect(headers['x-fwd-sec-fetch-dest']).toBe('document')
+    expect(headers['x-fwd-sec-fetch-mode']).toBe('navigate')
+  })
+
+  it('sets x-fwd-sec-fetch-* ONLY from the real request, dropping a client-forged one (unforgeable, like x-api-key)', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+    const req = createReq({
+      url: proxyUrl('auth/demo'),
+      // A malicious embed can't set Sec-Fetch (browser-controlled) but might try
+      // to smuggle the custom header directly — it must never win.
+      headers: { 'sec-fetch-dest': 'image', 'x-fwd-sec-fetch-dest': 'document' },
+    })
+    const res = createRes()
+
+    await handler(req, res)
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    expect((init.headers as Record<string, string>)['x-fwd-sec-fetch-dest']).toBe('image')
+  })
+
   it.each(['http://attacker.example/x', '//attacker.example/x', 'foo/../../bar'])(
     'never forwards to an attacker host — a malicious `upstream` (%s) is rejected or pinned to the backend origin (SSRF / key-exfiltration guard)',
     async (maliciousUpstream) => {
