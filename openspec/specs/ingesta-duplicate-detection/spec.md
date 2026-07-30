@@ -1,7 +1,4 @@
-# Spec: US-005 Detección de datos duplicados
-
-> Capability: `ingesta-duplicate-detection` (NEW). No existing spec to delta — full spec below.
-> Store: hybrid. Engram topic: `sdd/us-005-deteccion-duplicados/spec`.
+# Ingesta Duplicate Detection Specification
 
 ## Purpose
 
@@ -52,13 +49,13 @@ The system MUST persist only the transactions that are not duplicates ("nuevas")
 
 ### Requirement: Duplicate count in response (CA-01)
 
-The system MUST report, in the ingesta response, the total incoming transaction count, the count actually persisted, and the count of duplicates omitted.
+The system MUST report, in the ingesta response, the count of transactions actually persisted (imported) and the count of duplicates omitted. `totalTransacciones` in the response carries its pre-existing meaning (imported count), unchanged; a separate "total incoming" field is NOT part of the response shape, since it would be redundant with `transacciones importadas + duplicadosOmitidos` and is not needed by any consumer.
 
 #### Scenario: Response shape reflects counts
 
 - GIVEN an incoming batch of M transactions where N are duplicates
 - WHEN the ingesta completes
-- THEN the response includes `totalTransacciones = M`, `transaccionesImportadas = M - N`, and `duplicadosOmitidos = N`
+- THEN the response includes `totalTransacciones = M - N` (imported count) and `duplicadosOmitidos = N`
 
 ### Requirement: No duplicates leaves normal flow unchanged (CA-04)
 
