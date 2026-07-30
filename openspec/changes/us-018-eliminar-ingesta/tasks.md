@@ -132,53 +132,53 @@ Depends on: **Slice 1** (consumes its HTTP contract: `GET /api/ingestas` shape,
 `DELETE /api/ingestas/:id` 204/404 contract). Sequential: client fns before
 hooks, hooks before components, components before route/nav wiring.
 
-- [ ] **T2.1** `[impl]` `apps/web/src/api/types.ts` — add `IngestaListItemDto`
+- [x] **T2.1** `[impl]` `apps/web/src/api/types.ts` — add `IngestaListItemDto`
   mirror (`id`, `banco`, `fecha: string` ISO, `totalTransacciones: number`).
   (ING-03)
-- [ ] **T2.2** `[test]` `client` tests: `fetchIngestas` type-guard
+- [x] **T2.2** `[test]` `client` tests: `fetchIngestas` type-guard
   (`esIngestaListItemDto`) + status mapping; `deleteIngesta` **204 handling**
   (must NOT call `res.json()` on a 204), 404 → tagged server error, 401 →
   unauthorized. (ING-01, ING-02, ING-03, ING-04)
-- [ ] **T2.3** `[impl]` `apps/web/src/api/client.ts` — `fetchIngestas():
+- [x] **T2.3** `[impl]` `apps/web/src/api/client.ts` — `fetchIngestas():
   Promise<ApiResult<IngestaListItemDto[]>>` (GET `/api/ingestas`, validates
   `body.ingestas` is an array of valid items) + `deleteIngesta(id):
   Promise<ApiResult<void>>` (DELETE `/api/ingestas/:id`, returns `{ ok: true,
   value: undefined }` on 204 without parsing JSON — design §7.1/D7). (ING-01,
   ING-02, ING-03, ING-04)
-- [ ] **T2.4** `[test]` `use-ingestas` test: `useQuery` with key `['ingestas']`
+- [x] **T2.4** `[test]` `use-ingestas` test: `useQuery` with key `['ingestas']`
   unwraps or throws `ApiError`, same pattern as `use-resumen.ts`. (ING-03)
-- [ ] **T2.5** `[impl]` `apps/web/src/api/use-ingestas.ts` — `useIngestas()`.
+- [x] **T2.5** `[impl]` `apps/web/src/api/use-ingestas.ts` — `useIngestas()`.
   (ING-03)
-- [ ] **T2.6** `[test]` `use-eliminar-ingesta` test: `onSuccess` invalidates
+- [x] **T2.6** `[test]` `use-eliminar-ingesta` test: `onSuccess` invalidates
   exactly the four keys `['resumen']`, `['resumen-anual']`,
   `['detalle-bucket']`, `['ingestas']`; `onError`/failed mutation invalidates
   none. (ING-06)
-- [ ] **T2.7** `[impl]` `apps/web/src/api/use-eliminar-ingesta.ts` —
+- [x] **T2.7** `[impl]` `apps/web/src/api/use-eliminar-ingesta.ts` —
   `useEliminarIngesta()` per design §7.2. (ING-06)
-- [ ] **T2.8** `[test]` `EliminarIngestaControl` component test: "Eliminar"
+- [x] **T2.8** `[test]` `EliminarIngestaControl` component test: "Eliminar"
   button opens `role="alertdialog"` stating the exact impact count; focus
   moves to the confirm button on open; Escape/Cancelar closes without a DELETE
   request and returns focus to the trigger; Confirm fires the mutation and,
   on success, the modal closes and the row disappears from the list. (ING-05,
   ING-06)
-- [ ] **T2.9** `[impl]` `apps/web/src/components/EliminarIngestaControl.tsx` —
+- [x] **T2.9** `[impl]` `apps/web/src/components/EliminarIngestaControl.tsx` —
   structural clone of `ReclasificarCategoriaControl`'s a11y pattern (design
   §7.3): `role="alertdialog"`, `aria-label`, focus management, Escape-cancels,
   `aria-live="polite"` success / `role="alert"` error, confirm
   `disabled={mutacion.isPending}`. (ING-05, ING-06)
-- [ ] **T2.10** `[test]` `ListaIngestas` component test: Loading / Error / Empty
+- [x] **T2.10** `[test]` `ListaIngestas` component test: Loading / Error / Empty
   / list states render correctly; each row shows banco, formatted fecha, and
   "N movimientos", plus its `EliminarIngestaControl`. (ING-03, ING-05)
-- [ ] **T2.11** `[impl]` `apps/web/src/components/ListaIngestas.tsx` per design
+- [x] **T2.11** `[impl]` `apps/web/src/components/ListaIngestas.tsx` per design
   §7.3. (ING-03, ING-05)
-- [ ] **T2.12** `[impl]` `apps/web/src/routes/_authenticated/ingestas.tsx` —
+- [x] **T2.12** `[impl]` `apps/web/src/routes/_authenticated/ingestas.tsx` —
   new route rendering `<ListaIngestas />` under `_authenticated` (same as
   `/subir`). (ING-04)
-- [ ] **T2.13** `[impl]` `apps/web/src/components/app-shell/nav-items.ts` — add
+- [x] **T2.13** `[impl]` `apps/web/src/components/app-shell/nav-items.ts` — add
   `{ kind: 'link', label: 'Gestionar cartolas', to: '/ingestas', icon: Files }`
   (lucide `Files`, ADR-027); confirm `routeTree.gen.ts` regenerates so
   `to: '/ingestas'` typechecks.
-- [ ] **T2.14** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web
+- [x] **T2.14** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web
   build` green.
 - [ ] **T2.15** `[verify]` Real-fixture DoD check end-to-end in the browser
   (local dev server): upload a real fixture via `/subir` → navigate to

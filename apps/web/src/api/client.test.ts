@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  deleteIngesta,
   fetchApiVersion,
   fetchDetalleBucket,
+  fetchIngestas,
   fetchResumen,
   fetchResumenAnual,
   postIngesta,
@@ -10,6 +12,7 @@ import {
 import type {
   ApiVersionDto,
   DetalleBucketDto,
+  IngestaListItemDto,
   IngestaResponseDto,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
@@ -735,6 +738,202 @@ describe('postIngesta', () => {
 
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+const validIngestaListItem: IngestaListItemDto = {
+  id: 'ingesta-1',
+  banco: 'BancoEstado',
+  fecha: '2026-07-15T00:00:00.000Z',
+  totalTransacciones: 12,
+}
+
+describe('fetchIngestas', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a GET /api/ingestas same-origin, sin base URL ni key', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [validIngestaListItem] }),
+    })
+
+    await fetchIngestas()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingestas')
+  })
+
+  it('resuelve {ok: true, value} con el array de ingestas del wrapper {ingestas: [...]}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [validIngestaListItem] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result).toEqual({ ok: true, value: [validIngestaListItem] })
+  })
+
+  it('resuelve {ok: true, value: []} con una lista vacía', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: [] }) })
+
+    const result = await fetchIngestas()
+
+    expect(result).toEqual({ ok: true, value: [] })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'unauthorized', message: 'Sin acceso.' })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
+  })
+
+  it('mapea un body 2xx que no cumple la forma esperada (sin campo ingestas) a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ nonsense: true }) })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando body.ingestas no es un array', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: 'no-array' }) })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando un item trae totalTransacciones como string en vez de number', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [{ ...validIngestaListItem, totalTransacciones: '12' }] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando un item le falta el campo banco', async () => {
+    const { banco: _omitido, ...itemSinBanco } = validIngestaListItem
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: [itemSinBanco] }) })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea un body 2xx cuyo json() lanza a {tag: "parse"}', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.reject(new Error('invalid json')) })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+describe('deleteIngesta', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a DELETE /api/ingestas/:id same-origin, encodeando el id', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 })
+
+    await deleteIngesta('ingesta con espacio')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingestas/ingesta%20con%20espacio', { method: 'DELETE' })
+  })
+
+  it('en un 204 resuelve {ok: true, value: undefined} SIN llamar res.json() (D7 — un 204 no tiene body)', async () => {
+    const jsonSpy = vi.fn().mockRejectedValue(new Error('204 has no body — json() must not be called'))
+    mockFetchOnce({ ok: true, status: 204, json: jsonSpy })
+
+    const result = await deleteIngesta('ingesta-1')
+
+    expect(result).toEqual({ ok: true, value: undefined })
+    expect(jsonSpy).not.toHaveBeenCalled()
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await deleteIngesta('ingesta-1')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await deleteIngesta('ingesta-1')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'unauthorized', message: 'Sin acceso.' })
+  })
+
+  it('mapea un 404 (no existe / no es del usuario, anti-enumeration) a {tag: "server", status: 404}', async () => {
+    mockFetchOnce({ ok: false, status: 404 })
+
+    const result = await deleteIngesta('ingesta-ajena')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 404,
+      message: 'La cartola ya no existe. La lista se actualizará.',
+    })
+  })
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 })
+
+    const result = await deleteIngesta('ingesta-1')
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    })
   })
 })
 

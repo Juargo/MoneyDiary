@@ -1,4 +1,4 @@
-import { HelpCircle, LayoutDashboard, Settings, Upload, type LucideIcon } from 'lucide-react'
+import { Files, HelpCircle, LayoutDashboard, Settings, Upload, type LucideIcon } from 'lucide-react'
 import type { FileRouteTypes } from '@/routeTree.gen'
 
 /** Any route the app router actually knows about — typos fail `tsc`, not just at runtime. */
@@ -23,18 +23,21 @@ export type NavItemModel =
  * `BottomTabs` both render this exact list (DRY: define the nav once,
  * render it twice per breakpoint).
  *
- * "Resumen" (`/`) and "Subir nuevo archivo" (`/subir`) are `'link'` items:
- * both are nav-worthy routes that exist today under `_authenticated`
- * (`/buckets/$bucket` is a drill-down destination reached from within the
- * dashboard, not a primary nav target). "Subir nuevo archivo" was a
- * `'placeholder'` until the `upload-cartola-ui` route landed — now it is a
- * live link. "Configuración" and "Ayuda" stay `'placeholder'` items
- * (WDS-03) — visible, announced as disabled, never navigable, until their
- * routes/features exist.
+ * "Resumen" (`/`), "Subir nuevo archivo" (`/subir`), and "Gestionar
+ * cartolas" (`/ingestas`) are `'link'` items: all three are nav-worthy
+ * routes that exist today under `_authenticated` (`/buckets/$bucket` is a
+ * drill-down destination reached from within the dashboard, not a primary
+ * nav target). "Subir nuevo archivo" was a `'placeholder'` until the
+ * `upload-cartola-ui` route landed; "Gestionar cartolas" likewise was a gap
+ * until `us-018-eliminar-ingesta` Slice 2 landed the `/ingestas` route
+ * (T2.13) — now both are live links. "Configuración" and "Ayuda" stay
+ * `'placeholder'` items (WDS-03) — visible, announced as disabled, never
+ * navigable, until their routes/features exist.
  */
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
   { kind: 'link', label: 'Subir nuevo archivo', to: '/subir', icon: Upload },
+  { kind: 'link', label: 'Gestionar cartolas', to: '/ingestas', icon: Files },
   { kind: 'placeholder', label: 'Configuración', icon: Settings },
   { kind: 'placeholder', label: 'Ayuda', icon: HelpCircle },
 ]
