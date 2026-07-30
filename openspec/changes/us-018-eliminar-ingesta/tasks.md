@@ -69,6 +69,13 @@ written together; T1.5-T1.10 (use cases + adapters) are test-then-impl pairs.
   `totalTransacciones ?? 0`. — `prisma-listar-ingestas.reader.spec.ts` (ING-03)
 - [x] **T1.9** `[impl]` `infrastructure/persistence/prisma-listar-ingestas.reader.ts`
   per design §5.2. (ING-03)
+- [x] **T1.9a** `[test]` (post-review gap closure) Integration test for
+  `PrismaListarIngestasReader` — mirrors T1.15's two-user pattern
+  (cross-tenant isolation, PROCESADA filter, row shape, `creadoEn desc`
+  ordering). Closes a coverage gap flagged by fresh-context review: this
+  userId-isolated read endpoint had only a mocked unit test (T1.8), unlike
+  every sibling read endpoint (RNF-SEC-006). —
+  `test/listar-ingestas.int-spec.ts` (ING-03)
 - [x] **T1.10** `[impl]` `infrastructure/http/dto/ingesta-list.dto.ts` —
   `IngestaListItemDto` + `aIngestaListItemDto` mapper; `totalTransacciones` is
   a plain `number` (row count, not money). (ING-03)
