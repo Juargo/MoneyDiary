@@ -13,37 +13,17 @@ App de finanzas personales para consolidar y analizar movimientos bancarios chil
 
 ---
 
-## Documentación de diseño (Obsidian)
+## Documentación del proyecto
 
-Todos los ADRs, User Stories, Sprint Planning, metodología y diseño viven en el vault de Obsidian. **La estructura de carpetas está numerada para reflejar la secuencia del ciclo de vida (SDLC + Scrum)** — Obsidian ordena alfabéticamente, así que el número = fase.
+Fuentes de verdad por tipo (migración Obsidian → GitHub, 2026-07-30):
 
-```
-~/Library/Mobile Documents/iCloud~md~obsidian/Documents/JJ - Developer/0002 EL YO CREADOR/DEV PERSONAL/MoneyDiary/
-  000 INDEX MONEYDIARY.md
-  00 Metodología/                                    ← el "proceso" en sí
-    Ciclo de Vida y Metodología — Fases + Scrum.md   ← diagrama SDLC+Scrum (Mermaid)
-    Definition of Done (DoD).md                      ← DoD canónica (fuente única, go-forward)
-    Definition of Ready (DoR).md                     ← DoR (ligera)
-    Convenciones de código y commits.md              ← espejo Obsidian de este CLAUDE.md
-  01 Análisis de Requisitos/                         ← Casos de Uso, RF/RNF/RES/RN, Reuniones, INDEX
-  02 Diseño/
-    ADRs/                                            ← ADR-001 … ADR-021 (subcarpeta)
-    Design Doc · ERD · API Design · Threat Model · Wireframes · INDEX DISEÑO.md
-  03 Product Backlog/
-    000 INDEX Product Backlog.md
-    01 Epic - Ingesta de datos/     US-001 … US-011  ← estado detallado por US
-    02 Epic - Categorización/       US-012, US-013
-    03 Epic - Visualización/        US-014 … US-017
-    04 Epic - Gestión de datos/     US-018
-    05 Epic - Mobile/               US-019 … US-021 (grooming ex-post Sprint 3)
-  04 Sprints/
-    Sprint-1/Sprint-1.md                             ← cerrado (may 2026)
-    Sprint-2/Sprint-2.md                             ← cerrado (11 jul 2026)
-    Sprint-3/Sprint-3.md                             ← en curso (14–25 jul 2026) — pivote a MVP mobile
-  99 Archivo/                                        ← fichas obsoletas (Epic A–D descartados)
-```
+- **Decisiones de arquitectura (ADRs)** → `docs/adr/` en el repo (un `ADR-NNN-slug.md` por decisión + `README.md` índice). Se revisan en el PR que las implementa. La tabla de más abajo es un resumen rápido; el texto completo y el estado viven en el archivo.
+- **User Stories / backlog** → [GitHub Issues](https://github.com/Juargo/MoneyDiary/issues) (labels `epic:*` + `moscow:*`). El estado se deriva de open/closed + el PR vinculado, no de prosa.
+- **Épicas** → labels `epic:*` · **Sprints** → [Milestones](https://github.com/Juargo/MoneyDiary/milestones) `Sprint-1…9`.
+- **Proceso SDD (OpenSpec)** → `openspec/` (specs vigentes + changes archivados).
+- **Proceso (DoD, DoR, ceremonias, ciclo de vida) y diseño narrativo** → vault Obsidian, `00 Metodología/` y `02 Diseño/`. El vault **ya NO es fuente de verdad** de ADRs/US/Sprints — quedan copias históricas con banner de deprecación. Ruta: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/JJ - Developer/0002 EL YO CREADOR/DEV PERSONAL/MoneyDiary/`.
 
-Cuando trabajes en análisis o diseño, leer los archivos relevantes de esa ruta antes de proponer cambios. Los IDs de US son **globales y secuenciales** (no se reinician por épica). La **DoD/DoR canónicas viven en `00 Metodología/`**: cada US se cierra solo si cumple la DoD.
+Los IDs de US son **globales y secuenciales** (no se reinician por épica). La **DoD/DoR canónicas viven en `00 Metodología/`**: cada US se cierra solo si cumple la DoD.
 
 ---
 
@@ -70,7 +50,7 @@ apps/
       stores/         ← Zustand stores (client state)
       api/            ← TanStack Query hooks + tipos DTO escritos a mano
       lib/            ← `cn()` y helpers
-  mobile/           ← App Expo solo-lectura (ADR-010, Sprint 3)
+  mobile/           ← App Expo (ADR-010; +subida de cartola por ADR-026)
     app/              ← Expo Router (`_layout.tsx`, `index.tsx`)
     src/
       domain/         ← lógica pura (view-model, formateo CLP sobre string, geometría pie)
@@ -94,6 +74,8 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 ---
 
 ## Decisiones Técnicas Clave (ADRs)
+
+Resumen de una línea por decisión. **Texto completo y estado en `docs/adr/`** (fuente de verdad).
 
 | ADR | Decisión |
 |-----|----------|
@@ -131,145 +113,26 @@ openspec/           ← Proceso SDD (OpenSpec): specs vigentes + changes archiva
 
 ---
 
-## Estado actual
+## Estado y backlog
 
-**Sprint 1 (26–30 mayo 2026) — CERRADO.** Pipeline backend de parseo completo (detectar → validar → normalizar) + Supabase/Prisma integrado.
+El estado de sprints y User Stories **no vive en este archivo** — se derivaba de prosa y driftaba (ese fue el motivo de la migración a GitHub). Fuente de verdad:
 
-**Hito post-Sprint 1 (2026-06-10):** scaffold frontend completado en rama `feature/frontend-scaffold` — monorepo `apps/api`+`apps/web`, Vite + React 19 + Tailwind 4 + TanStack + Zustand. PR pendiente.
+- **Qué está hecho / pendiente:** [Issues](https://github.com/Juargo/MoneyDiary/issues) y [Milestones](https://github.com/Juargo/MoneyDiary/milestones) (`Sprint-1…9`).
+- **Detalle de decisiones:** `docs/adr/` · **changes SDD:** `openspec/changes/`.
+- **Runbooks operativos:** `apps/api/docs/` y `docs/` (`mobile-launch-runbook.md`, `local-test-db.md`, etc.).
 
-**Sprint 2 (7–18 julio 2026) — CERRADO (11 jul, 23/24 tareas).** Pipeline backend completo `… → persistir → categorizar → consultar consolidado` para un usuario fijo: US-011 (persistencia), US-012 (categorización) y US-014 (consolidación mensual) + Tarea 0 mono-usuario. `apps/api/src/infrastructure/persistence/` ya está poblado (`PrismaService`, repos Prisma, mapper, seed) y `Transaccion` tiene sus FK (`ingestaId`/`accountId` NOT NULL, `bucketId` nullable) + dinero en `BigInt cargo/abono`. Único pendiente: **11.6 cifrado de columna real**, diferido como `NoOpCryptoService` (CA-03 abierto). Detalle en `04 Sprints/Sprint-2/Sprint-2.md` del vault.
+## Notas técnicas por dominio (gotchas)
 
-**Sprint 3 (14–25 jul 2026) — EN CURSO, reenfocado a MVP mobile (decisión PO 2026-07-13).** La UI web de US-015/016/017 se **difirió** a un sprint posterior (backend ya en `main`, PRs #22/#23). El sprint se ejecutó con proceso **SDD/OpenSpec** (change `sprint3-mvp-mobile`, PRs #26/#36) en 3 tracks:
+Conocimiento no obvio del código ya entregado — durable, no derivable de un vistazo. El *estado* de cada US vive en los Issues; esto es solo el saber técnico. (Los nombres HTTP pre-migración a Express están cubiertos en **Arquitectura**; todas las rutas backend cuelgan de `apps/api/`.)
 
-- **Track A — Auth + deploy: ✅ completo (2026-07-14).** `ApiKeyGuard` global fail-closed (`x-api-key`, comparación timing-safe, health check `@Public()`) en `src/infrastructure/http/auth/`. API desplegada en Render (`https://moneydiary-api.onrender.com`, PR #25; fix build `dist/main.js` PR #31). Supabase vía **pooler IPv4** (la conexión directa IPv6 no funciona en Render). Matriz curl verificada: health 200 / sin key 401 / con key 200 (PR #35). **A.5:** cifrado de columna (11.6) registrado como **riesgo aceptado** en `docs/mobile-launch-runbook.md` — `/api/resumen` no expone PII; gatillo duro: cerrar 11.6 antes de exponer descripciones/nombre/RUT.
-- **Track B — App mobile: ✅ completo (2026-07-15).** Expo SDK 57 + Expo Router + NativeWind en el workspace (PR #28, bundle id `cl.moneydiary.app`); dominio + cliente HTTP `fetchResumen` con montos string BigInt-safe (PR #29); pantalla "momento semáforo" con 4 estados (PR #30) estilada según mockup Stitch (PR #37); boot verificado en dispositivo real + Maestro (PR #34). TDD estricto en dominio y pantalla.
-- **Track C — Pipeline de tiendas: 🟡 en curso.** Trámites Apple/Google iniciados; falta política de privacidad publicada + EAS Build/Submit (TestFlight + closed testing de Play). Detalle accionable en `docs/mobile-launch-runbook.md`.
-
-Detalle en `04 Sprints/Sprint-3/Sprint-3.md` del vault.
-
-**Sprint 4 (16–17 jul 2026) — CERRADO (PRs #40–#46).** Ingesta de cartolas **PDF** end-to-end (pipeline dual `.xlsx`/`.pdf`, transparente aguas abajo): US-008 (detección), US-009 (validación), US-010 (normalización) + Tarea 0 (extensión `.pdf`, `pdfjs-dist` build legacy, ADR-009). Detalle en `04 Sprints/Sprint-4/Sprint-4.md`.
-
-**Sprint 5 (jul 2026) — CERRADO, 2 grupos en paralelo.**
-
-- **Grupo W — UI web del aplicativo: ✅ completo en `main` (PR #55, 2026-07-17).** Retomada la UI web diferida: US-015/016 (pantalla resumen 50/30/20 + semáforo accesible que solo renderiza el estado que calcula el backend) y US-017 (endpoint `GET /api/buckets/:bucket` con aislamiento `userId` + fold `SinCategoria`; detalle flat-list MVP). **Tarea 0-W (decisión de seguridad):** la web consume la API con `x-api-key` inyectada **server-side** — proxy Vite `configure` en dev (lee `API_KEY` sin prefijo `VITE_`) + función Vercel `apps/web/api/[...path].ts` en prod; la key **nunca** entra al bundle. CI: `pnpm web test` + secret-scan fail-closed sobre `apps/web`. Entregado como cadena de 5 PRs (feature-branch-chain) con TDD estricto + review de contexto fresco por slice (atajó SSRF de la key, guards de dinero que crasheaban el render, gaps de a11y). **Deuda de runtime:** integración con DB real (aislamiento US-017) + proyecto Vercel (verificación prod 0-W.5) pendientes; `vitest-axe`/`eslint-jsx-a11y` (ADR-018) diferidos. US-013 (edición inline, CA-02) quedó diferida en este momento del sprint, pero se completó y mergeó después (ver más abajo).
-- **Grupo L — Landing pública: ✅ en `main` (PRs #47/#52-54).** Workspace `apps/landing` (Astro estático, ADR-025); publicación/dominio (US-023) y scope de newsletter los cierra Grupo L.
-
-**Roadmap MVP (siguiente):** cerrar la deuda de runtime de Grupo W (integración DB + Vercel prod) y la publicación de Grupo L (US-023) / tiendas mobile (US-021). Grooming mobile ✅ hecho (2026-07-15): épica Mobile con US-019 (auth+deploy), US-020 (pantalla resumen), US-021 (tiendas).
-
-**Sprint 6 — auth-login-session (login real por usuario) — ✅ CERRADO y MERGEADO A MAIN (2026-07-18, deployado en prod vía Render auto-deploy).** Login real por usuario (sin registro) sobre el `ApiKeyGuard` de app: sesiones stateful en Postgres (token opaco `randomBytes(32)`, sha256 at rest, TTL absoluto 7d), transporte dual (cookie HttpOnly/SameSite=Strict/Secure-env para web, `Authorization: Bearer` para mobile), argon2id (`m=19456,t=2`) con dummy-hash anti-enumeración, rate limiter in-memory. Entregado en slices encadenados (feature-branch-chain, TDD estricto + review de contexto fresco por slice):
-- **Slice 1** (PRs #57/#58) — dominio+aplicación (VOs `Email`/`duracion-sesion`, 4 use cases) + infra (`SessionGuard` 2º `APP_GUARD` tras `ApiKeyGuard`, `AuthController` login/logout/me, repos Prisma, migración `add_auth_login_session`).
-- **Slice 2** (PR #59) — los 4 controllers de datos derivan `userId` de `@CurrentUser()`; `USER_ID_FIJO_TOKEN` eliminado; aislamiento cross-tenant (ISO-01/02) probado por integración. `SessionGuard` obligatorio en `/api/resumen`.
-- **Slice 4** (PR #60) — mobile login + Bearer: SecureStore, `SessionProvider`/`useSession()` síncrono con `Stack.Protected` (el review atajó un deadlock de gate async/pathname), logout. MOB-01..04.
-- **Slice 3** (PR #61) — web login UI: `/login`, layout `_authenticated` (redirect-on-401 fail-closed), `postLogin` que **nunca** persiste el token del body (AUTH-01), redirect-after-login con `sanitizeRedirect` anti-open-redirect. AUTH-01/10.
-- **Integración final** (PR #62) — login real backend+web+mobile, mergeado a `main`.
-
-En prod: `SessionGuard` activo como 2º `APP_GUARD`; `/api/resumen` exige sesión; `USER_ID_FIJO_TOKEN` eliminado del código.
-
-**Sprint 7 — demo-mode (modo demo/trial anónimo) — ✅ CERRADO y MERGEADO A MAIN (2026-07-19).** PRs #63 (backend) · #65 (UI) · #66 (ship a main) · #67 (fix build Nest — mover `demo-data` a `src` rootDir) · #68 (CI Nest build + hardening Render). US cubiertas: US-024 (iniciar sesión demo desde landing), US-025 (navegar en demo), US-026 (subir cartola en demo), US-027 (banner demo con CTA a registro) — 🟢 Listo; US-028 (rate limiting demo) y US-029 (limpieza programada demo) entregadas dentro del mismo alcance de demo-mode. El CTA "Probar" del landing apunta al endpoint demo (`GET /api/auth/demo`).
-
-**US-030 — Resumen anual (Épica Visualización) — 🟢 LISTO, mergeado a `main` (2026-07-19).** PRs #69 (Slice A, backend `GET /api/resumen/anual`) · #70 (Slice B, dashboard 50/30/20 pie interactivo) · #71 (Slice C, grid anual: 12 mini-pies mensuales).
-
-**US-013 — Categorías por transacción — 🟢 LISTO, mergeado y archivado (2026-07-19, en prod).** Capa `Categoria` (nivel fino dentro del `Bucket`) + endpoint `PATCH /api/transacciones/:id/categoria` + UI de reclasificación con confirmación cross-bucket. PRs #78-#85 (slices S1-S6b) · #86 (rollup) · #87 (fix backfill: preserva asignaciones de bucket existentes) · #88 (archive openspec, specs promovidas a `openspec/specs`). Backfill idempotente corrido en prod de forma supervisada (gate `CONFIRM_PROD_BACKFILL`); migraciones aplicadas en prod.
-
-**Sprint 8 — upload-cartola-ui (UI de subida de cartola) — 🟡 EN VUELO, web mergeada, mobile en espera.** Slices WEB (US-031 subir cartola web autenticada, US-032 subir en demo web): ✅ **en `main`** vía PR #94 (integración de las slices 1a+1b sobre el main actual —post auth + Serene Finance— con conflictos resueltos por unión en `client.ts`/`types.ts` y review de contexto fresco; los PRs originales #72/#74 quedaron supersedidos y cerrados). Slices MOBILE (US-033 subir desde mobile): 🟡 PRs #76 (Slice 2a, transport) / #77 (Slice 2b, screen) **abiertos, en espera** del gate Maestro en dispositivo real (ADR-017) + rebuild nativo mobile (`expo-document-picker`, no OTA). Enmienda a ADR-010: mobile deja de ser solo-lectura — pendiente hasta que mergeen #76/#77.
-
-**Sprint 9 — Rediseño web "Serene Finance" — ✅ CERRADO y mergeado a `main` (2026-07-20).** Change SDD `web-dashboard-redesign-mobile` (store hybrid Engram + openspec), entrega feature-branch-chain stacked-to-main. Restyle en sitio del dashboard "Análisis Mensual" de `apps/web` a identidad Serene Finance + shell de navegación responsive net-new (sidebar desktop / bottom tabs mobile). Solo `apps/web`, backend sin tocar. PRs: #89 (tokens Serene Finance + Inter font + paleta) · #93 (nav shell responsive — reemplaza al #90, que GitHub cerró al borrarse su rama base en el merge stacked) · #91 (dashboard restyle + fix contraste pie WCAG AA) · #92 (responsividad mobile + gate final). Follow-up cosmético pendiente: `SubirCartola.tsx` usa paleta Tailwind cruda en vez de tokens Serene Finance.
-
-**Migración backend NestJS → Express (ADR-028) — ✅ CERRADA, MERGEADA A `main` Y DEPLOYADA (2026-07-24, PR #109).** 10 slices TDD + node-cron; `domain`/`application` sin tocar (ADR-005). 8d verificado por smoke-test del entrypoint de prod (`start:prod`: boot + matriz curl 200/401/401/401 + conectividad DB vía login→401). **Deuda:** correr los e2e/int con DB — el gate `db-safety` los bloquea contra Supabase/prod (correcto). **Tooling listo** para una DB local desechable: `apps/api/docs/local-test-db.md` (docker-compose + `.env.test` + scripts `test:db:setup`/`test:integration:local`/`test:e2e:local`). Falta: **provisionar** el Postgres local (Docker o brew) y correrlos; además varios e2e están bit-rotteados de sesión desde Sprint 6 (solo mandan `x-api-key`, sin login). También: reubicar los sobrevivientes framework-agnósticos de `http/` (cosmético). Detalle slice por slice en `openspec/changes/migrate-api-to-express/`.
-
-**Versionado y automatización de releases (ADR-030) — ✅ CERRADO y MERGEADO A `main` (2026-07-27, 4 PRs encadenados #118-#121).** Change SDD `versioning-release-automation`: semver **independiente por workspace** vía **release-please** (manifest mode, tags `<paquete>-vX.Y.Z`, semilla `0.1.0`) + enforcement de **ADR-020** (commit-msg/pre-commit/pre-push reales) + **CI partido por path** (agregado `ci-success`, job de mobile) + **CD híbrido** (filtros de path en Render/Vercel + `mobile-v*` → EAS). Slice A (PR #118) descubrió que ADR-020 estaba documentado pero nunca construido y lo implementó como precondición. **Deuda:** activación en plataformas (secret `EXPO_TOKEN`, Root Directory + Deep Clone en Vercel, sincronizar `buildFilter` en Render) — pendiente. Branch protection en `main` (ítem C.7) ✅ **activada (2026-07-28):** PR obligatorio para mergear + status checks `CI success`/`Commitlint` + `enforce_admins=true` (ni el owner pushea directo) + sin force-push ni borrado de rama; `main` es tronco protegido, flujo trunk-based `feat/* → PR → main`. Follow-up abierto: auditar el gate de seguridad de ADR-021 contra el CI ya partido por path.
-
-**En vuelo ahora (2026-07-27):** el mobile de Sprint 8 (US-033, PRs #76/#77) en espera del gate Maestro. Sprint 9, las slices web de Sprint 8 y `versioning-release-automation` ya están en `main`; falta la activación de plataformas de ADR-030.
-
-> **Nota sobre paths:** todas las rutas de archivos backend que se mencionan abajo viven dentro de `apps/api/`. Por brevedad se omite el prefijo (ej: `src/domain/...` significa `apps/api/src/domain/...`).
-
-### ✅ US-001 — Carga de archivo XLSX (completo)
-
-- `src/domain/value-objects/extension.ts` — solo acepta `.xlsx` (ADR-007)
-- `src/domain/errors/extension-no-permitida.error.ts`
-- `src/application/ports/file-reader.port.ts` — `IFileReader`
-- `src/application/use-cases/ingest-file.use-case.ts` — 9 tests ✅
-- `src/infrastructure/http/multer-file-reader.adapter.ts`
-- `src/infrastructure/http/ingesta.controller.ts` — `POST /api/ingestas`
-- `src/infrastructure/http/ingesta.module.ts`
-- `src/infrastructure/cli/fs-file-reader.adapter.ts`
-- `src/infrastructure/cli/ingestar.ts` — `pnpm api cli -- archivo.xlsx`
-- `test/ingesta.e2e-spec.ts` — integration test HTTP (3 casos: .xlsx ok, .xls rechazado, sin archivo) ✅
-
-### ✅ US-006 — Detección de banco (completo, verificado con fixtures reales)
-
-- `src/domain/value-objects/nombre-banco.ts` — `BancoConocido` enum
-- `src/domain/value-objects/tipo-cuenta.ts` — `TipoCuentaConocido` enum
-- `src/domain/errors/banco-no-reconocido.error.ts`
-- `src/application/ports/bank-detector.port.ts` — `IBankDetector` (async)
-- `src/application/use-cases/detect-bank.use-case.ts`
-- `src/infrastructure/excel/excel-bank-detector.service.ts` — ExcelJS
-- `src/infrastructure/excel/strategies/` — 4 estrategias (BancoChile, BancoEstado, BCI, Santander)
-
-Verificado con `pnpm cli` para BancoEstado, BCI y Santander ✅. Banco de Chile pendiente (solo tiene fixtures `.xls` — descargar `.xlsx` del portal).
-
-> Nota: las strategies leen celdas vía `cell.text` (no `String(cell.value)`) — necesario para BCI que usa `richText`. El fix se hizo junto con US-002.
-
-### ✅ US-002 — Validación de estructura (completo, verificado con fixtures reales)
-
-- `src/domain/value-objects/tipo-columna.ts` — enum `TipoColumna` (`Fecha|Numero|Texto`)
-- `src/domain/value-objects/columna-esperada.ts` — VO `{ letra, nombre, tipo }`
-- `src/domain/errors/estructura-invalida.error.ts` — agrupa todos los problemas en una pasada
-- `src/application/ports/structure-validator.port.ts` — `IStructureValidator` (async)
-- `src/application/use-cases/validate-structure.use-case.ts` — 3 tests ✅
-- `src/infrastructure/excel/strategies/estructura-banco.ts` — interfaz `EstructuraBanco`
-- Cada strategy expone `getEstructura()` con fila de encabezados + columnas esperadas
-- `src/infrastructure/excel/excel-structure-validator.service.ts` — 11 tests ✅ (CA-01/02/03 + fixtures reales)
-- CLI muestra `Encabezados : fila N` + `Filas datos : N`
-
-**Formatos de fecha aceptados:** `DD/MM/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY` (este último agregado para Santander).
-
-### ✅ US-007 — Normalización de columnas (mergeada en main, PR #2)
-
-Pipeline de ingesta queda completo: detectar → validar → normalizar a esquema canónico de transacciones.
-
-### ✅ Supabase + Prisma 7 (mergeado en main, PR #4)
-
-`apps/api/prisma/schema.prisma` + migración inicial `20260610013724_init`. `prisma.config.ts` en raíz de `apps/api/` (NO usar `earlyAccess: true` — el tipo estable de Prisma 7 no lo acepta).
-
-### ✅ Frontend scaffold (rama `feature/frontend-scaffold`, 2026-06-10)
-
-`apps/web/` con Vite 8 + React 19 + Tailwind 4 + TanStack Router (file-based) + TanStack Query + Zustand. `components.json` y `lib/utils.ts` listos para `npx shadcn@latest add <name>`. `routeTree.gen.ts` se genera con `tsr generate` (en scripts `build` y `typecheck`) y está en `.gitignore`. Dev server tiene proxy `/api → http://localhost:3000`.
-
-### ✅ US-011 — Persistencia de transacciones (mergeado en main, Sprint 2)
-
-- `src/infrastructure/persistence/prisma.service.ts` + `prisma.module.ts` — `@Global` (instancia única; dos `PrismaService` module-scoped rompían el e2e de escritura atómica)
-- `src/application/ports/{ingesta,transaccion,account}-repository.port.ts` — 3 puertos
-- `src/infrastructure/persistence/prisma-{ingesta,transaccion,account}.repository.ts` — adapters
-- `src/infrastructure/persistence/transaccion.mapper.ts` — `number ↔ BigInt` con guardas de overflow (`Number.MAX_SAFE_INTEGER`)
-- `src/application/use-cases/persist-transactions.use-case.ts` — estado `PENDIENTE → PROCESADA/FALLIDA`, `Result`, nunca lanza
-- `src/application/use-cases/process-ingesta.use-case.ts` — orquestador del pipeline; `IngestaModule` es el composition root real (tokens + `useFactory` tipados). Compartido por CLI y HTTP
-- Migraciones: `add_transaccion_relations` (FK breaking) + `add_cargo_abono_check` (`CHECK cargo/abono ≥ 0`, SQL puro — Prisma no modela CHECK)
-- Seguridad: `db-safety.ts` (opt-in `ALLOW_DESTRUCTIVE_DB=1` + rechazo de connection strings de prod); scrub de montos crudos en mensajes de error (también en el boundary HTTP 400)
-- ⏸️ Cifrado de columna diferido: `crypto-service.port.ts` + `no-op-crypto.service.ts` (identidad). CA-03 abierto
-
-### ✅ US-012 — Categorización automática (mergeado en main, Sprint 2)
-
-- `src/domain/value-objects/bucket.ts` — VO `Bucket` (5 valores; subcategoría diferida a US-013)
-- `src/domain/value-objects/patron-clasificacion.ts` — `coincide()` case-insensitive; `CONTAINS`/`STARTS_WITH`/`REGEX` (REGEX en try/catch, nunca lanza)
-- `src/application/ports/catalogo-clasificacion.port.ts` + `src/application/use-cases/categorizar-transaccion.use-case.ts` — regla Ingreso (`abono>0 && cargo===0`) → match por prioridad → fallback `SinCategoria`
-- `src/infrastructure/persistence/prisma-catalogo-clasificacion.repository.ts` + `prisma-transaccion-clasificacion.repository.ts` — lee `PatronClasificacion`/`BucketPresupuesto`; seed idempotente del catálogo chileno
-- Wiring: paso post-persist en `ProcessIngestaUseCase` (isla degradable — si falla, deja filas no-Ingreso en `null`, no `SinCategoria`, para que US-013 las retome). Sin IA (RES-ALC-003)
-
-### ✅ US-014 — Consolidación multi-banco por mes (mergeado en main, Sprint 2)
-
-- `src/domain/value-objects/periodo-mes.ts` — VO `PeriodoMes` (`crear`/`actual`)
-- `src/application/ports/movimientos-mes.port.ts` + `src/application/use-cases/obtener-movimientos-mes.use-case.ts` — thin
-- `src/infrastructure/persistence/prisma-movimientos-mes.repository.ts` — `findMany` con JOIN a `Account`; **aislamiento estructural por `userId`** (`account: { userId }` en el WHERE — RNF-SEC-006)
-- `src/infrastructure/http/movimientos.controller.ts` — `GET /api/movimientos?periodo=YYYY-MM`; DTO BigInt-safe (montos como string); `periodo` ausente → mes en curso, inválido → 400 con scrub. **Lista filtrada, no agrega** (agregación 50/30/20 → US-015)
-
-### ✅ US-015 / US-016 — Resumen 50/30/20 + semáforo (mergeado en main, backend adelantado — Sprint 3)
-
-- `src/domain/value-objects/resumen-mes.ts` — VO `ResumenMes` (`totalIngreso` + 4 slices con `porcentajeBp` en basis points, round-half-up; dinero `BigInt` exacto)
-- `src/domain/value-objects/estado-semaforo.ts` — enum `EstadoSemaforo` (Verde/Amarillo/Rojo); Necesidades ≤50%, Deseos ≤30%, Ahorro banda bidireccional 20–40% (umbrales en bp). `estadoGlobal` = peor estado entre los 3 buckets de gasto
-- `src/application/use-cases/calcular-resumen-mes.use-case.ts` + `src/infrastructure/persistence/prisma-resumen-mes.repository.ts` (aislamiento por `userId`)
-- `src/infrastructure/http/resumen.controller.ts` — `GET /api/resumen?periodo=YYYY-MM`
-- ⬜ La UI **web** (`apps/web` aún no consume `/api/resumen`) quedó **diferida** por el pivote mobile de Sprint 3; la pantalla **mobile** que consume `/api/resumen` sí está entregada (`apps/mobile`)
+- **Parseo Excel:** las strategies leen celdas con `cell.text`, **no** `String(cell.value)` — BCI usa `richText` y `.value` no lo resuelve. Cada strategy expone `getEstructura()` (fila de encabezados + columnas esperadas). Fechas aceptadas: `DD/MM/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY` (el último para Santander). Detección de banco por celda clave → ver "Patrones de detección bancaria".
+- **Prisma:** `prisma.config.ts` (raíz de `apps/api/`) **NO** acepta `earlyAccess: true` (el tipo estable de Prisma 7 lo rechaza). El `CHECK cargo/abono ≥ 0` va por SQL puro en migración (`add_cargo_abono_check`) — Prisma no modela CHECK.
+- **Dinero:** `BigInt` exacto en `cargo/abono`, nunca `float`; el mapper `number ↔ BigInt` (`transaccion.mapper.ts`) tiene guardas de overflow (`Number.MAX_SAFE_INTEGER`). Los porcentajes 50/30/20 se calculan en basis points con round-half-up (`resumen-mes.ts`). Los montos crudos se **scrubben** de los mensajes de error (dominio y boundary HTTP 400). DTOs BigInt-safe: montos como string.
+- **Semáforo (`estado-semaforo.ts`):** umbrales en bp — Necesidades ≤50%, Deseos ≤30%, Ahorro en banda bidireccional 20–40%; `estadoGlobal` = peor estado entre los 3 buckets de gasto. El backend **calcula** el estado; el cliente solo lo renderiza (ADR-024).
+- **Categorización:** `PatronClasificacion.coincide()` es case-insensitive con `CONTAINS`/`STARTS_WITH`/`REGEX` (REGEX en try/catch, nunca lanza). Regla Ingreso = `abono>0 && cargo===0`. El paso de categorización en `ProcessIngestaUseCase` es una **isla degradable**: si falla, deja las filas no-Ingreso en `null` (no `SinCategoria`) para reintento. Seed idempotente del catálogo chileno. Sin IA (RES-ALC-003).
+- **Aislamiento multi-tenant (RNF-SEC-006):** todo repo que devuelve datos de usuario filtra por `userId` en el WHERE (p. ej. `account: { userId }`), **no** en memoria. `periodo` ausente → mes en curso; inválido → 400 con scrub.
+- **db-safety:** las mutaciones destructivas de BD exigen opt-in `ALLOW_DESTRUCTIVE_DB=1` y rechazan connection strings de prod. El gate bloquea e2e/int contra Supabase (por eso necesitan una DB local; ver `apps/api/docs/local-test-db.md`).
+- **Cifrado de columnas sensibles:** ver ADR-013 (`docs/adr/`).
 
 ---
 
@@ -334,7 +197,7 @@ pnpm audit                                   # auditoría de seguridad
 - **Ports** son interfaces en `application/ports/`, implementaciones en `infrastructure/`
 - **Principios de diseño:** skills de proyecto en `.claude/skills/` — `solid`, `dry`, `kiss`, `yagni` (adaptadas de JordanCoin/codingskills, MIT, con ejemplos de este repo). Aplicarlas al escribir código nuevo y en peer review; sus checklists complementan el checklist de seguridad de ADR-015
 
-> **Fuentes de verdad:** este `CLAUDE.md` es canónico para lo **técnico del repo** (convenciones de código, arquitectura, comandos, seguridad). El **proceso** (Definition of Done, Definition of Ready, ceremonias, ciclo de vida) es canónico en el vault Obsidian bajo `00 Metodología/`. La nota `Convenciones de código y commits.md` del vault es solo un espejo legible: si diverge, manda este archivo.
+> **Fuentes de verdad:** este `CLAUDE.md` es canónico para lo **técnico del repo** (arquitectura, convenciones de código, comandos, seguridad, gotchas). Las **decisiones de arquitectura** viven en `docs/adr/`; el **backlog y su estado** en GitHub Issues/Milestones; el **proceso** (Definition of Done, Definition of Ready, ceremonias, ciclo de vida) en el vault Obsidian bajo `00 Metodología/`. La nota `Convenciones de código y commits.md` del vault es solo un espejo legible: si diverge, manda este archivo.
 >
 > **Proceso (Scrum):** antes de dar una US por terminada, verificar la DoD del vault (capa correcta, tests + `tsc`, sin secretos/cifrado por env, verificación con fixtures reales, Conventional Commits).
 
