@@ -1,18 +1,22 @@
+import { Buffer } from 'node:buffer'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-// Vercel Serverless Function (Node.js runtime) — catch-all proxy for `/api/*`.
+// Vercel Serverless Function (Node.js runtime) — same-origin proxy for `/api/*`.
 //
-// Prod counterpart of the dev Vite proxy (`vite.config.ts`): receives the
-// same-origin `/api/*` request from the browser (with NO key attached),
-// injects `x-api-key` server-side from `process.env.API_KEY`, forwards it to
-// the Render backend (`process.env.API_BASE_URL`), and streams the response
-// back unchanged. The key lives only in this Node process — it never reaches
-// the browser bundle. No caching of authenticated responses.
+// Prod counterpart of the dev Vite proxy (`vite.config.ts`): the browser calls
+// same-origin `/api/*` (NO key attached); a `vercel.json` rewrite maps EVERY
+// `/api/*` path to THIS single function, passing the original sub-path in an
+// `upstream` query param. The function injects `x-api-key` server-side from
+// `process.env.API_KEY`, forwards to the backend (`process.env.API_BASE_URL`),
+// and streams the response back. The key lives only in this Node process — it
+// never reaches the browser bundle.
 //
-// Exit criterion is the manual prod check in the 0-W.5 checklist: deployed
-// URL returns 200 from `/api/resumen`, and `dist/` contains no `x-api-key` /
-// `VITE_API_KEY` string. Unit-covered in `proxy.test.ts` with faked
-// req/res/fetch.
+// WHY a rewrite + single function instead of an `api/[...path].ts` catch-all:
+// on this project Vercel only routed the catch-all ONE segment deep, so every
+// nested path (`/api/auth/login`, `/api/buckets/:b`, `/api/auth/demo`, …) 404'd
+// and the whole authenticated app + demo were dead in prod. The rewrite
+// (functions are matched before rewrites, so the broken auto-route can't win)
+// funnels all depths here and hands the real path via `upstream`.
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const apiKey = process.env.API_KEY
   const apiBaseUrl = process.env.API_BASE_URL
@@ -22,7 +26,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return
   }
 
-  const safePath = resolveSafePath(req.url)
+  const safePath = resolveUpstreamPath(req.url)
   if (safePath === null) {
     sendJsonError(res, 400, 'invalid request path')
     return
@@ -59,16 +63,32 @@ function sendJsonError(res: ServerResponse, status: number, message: string): vo
   res.end(JSON.stringify({ message }))
 }
 
-// Validates `req.url` BEFORE it is ever used to build the upstream target or
-// attach the server-side `x-api-key`. `new URL(req.url, apiBaseUrl)` follows
-// WHATWG URL rules: a protocol-relative (`//host/...`) or absolute
-// (`http://host/...`) `req.url` IGNORES the base entirely, so an unvalidated
-// value would let a client redirect the authenticated request — key included
-// — to an attacker-controlled host (SSRF / key exfiltration). Only a
-// same-origin-relative path+query (single leading `/`, no scheme, no
-// protocol-relative prefix) is allowed through.
-function resolveSafePath(url: string | undefined): string | null {
-  if (!url || !url.startsWith('/')) return null
+// Reconstructs the same-origin path to forward from THIS function's `req.url`.
+// After the `vercel.json` rewrite (`/api/(.*)` -> `/api/proxy?upstream=$1`),
+// `req.url` is `/api/proxy?upstream=<subpath>[&<original query>]`. We take
+// `upstream` (whatever followed `/api/`), rebuild `/api/<subpath>` with the
+// remaining query, and run it through the anti-SSRF guard: the key-injected
+// request must never be pointed at another host (`http://host`, `//host`), only
+// a same-origin relative path. Because the result is always `new URL(path,
+// apiBaseUrl)` with a single-leading-slash path, the target host is ALWAYS the
+// backend — `sanitizeSameOriginPath` additionally rejects an `upstream` that
+// tries to smuggle a scheme.
+function resolveUpstreamPath(reqUrl: string | undefined): string | null {
+  if (!reqUrl) return null
+
+  const parsed = new URL(reqUrl, 'http://proxy-base.invalid')
+  const upstream = parsed.searchParams.get('upstream')
+  if (upstream === null) return null
+  parsed.searchParams.delete('upstream')
+
+  const query = parsed.searchParams.toString()
+  const candidate = `/api/${upstream}${query ? `?${query}` : ''}`
+
+  return sanitizeSameOriginPath(candidate)
+}
+
+function sanitizeSameOriginPath(url: string): string | null {
+  if (!url.startsWith('/')) return null
   if (url.startsWith('//') || url.startsWith('/\\') || url.startsWith('\\')) return null
   if (url.includes('://')) return null
 

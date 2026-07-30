@@ -1,27 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import handler from './[...path]'
+import handler from './proxy'
 
-// Minimal fakes for the Vercel Node.js runtime request/response — the
-// handler only reads `req.url`/`req.method`/`req.headers` (and, for
-// non-GET/HEAD, iterates `req` for the body — exercised by the multipart
-// contract test below) and only calls `res.statusCode`/`setHeader`/`end` on
-// the response.
+// Minimal fakes for the Vercel Node.js runtime request/response. Note the
+// `url` the function sees is the POST-REWRITE url: the `vercel.json` rewrite
+// (`/api/(.*)` -> `/api/proxy?upstream=$1`) means every browser call to
+// `/api/<subpath>` reaches this handler as `/api/proxy?upstream=<subpath>`.
+// The handler reads `req.url`/`req.method`/`req.headers` (and, for non-GET/HEAD,
+// iterates `req` for the body) and calls `res.statusCode`/`setHeader`/`end`.
 function createReq(
   overrides: Partial<{
     url: string
     method: string
     headers: Record<string, string>
-    // Raw body bytes, split into chunks to mimic real Node.js stream
-    // delivery (multiple `data` events) — exercises the same
-    // `Buffer.concat` round-trip the handler relies on, not a single-chunk
-    // shortcut.
+    // Raw body bytes, split into chunks to mimic real Node.js stream delivery
+    // (multiple `data` events) — exercises the same `Buffer.concat` round-trip
+    // the handler relies on, not a single-chunk shortcut.
     bodyChunks: Buffer[]
   }> = {},
 ): IncomingMessage {
   const bodyChunks = overrides.bodyChunks ?? []
   const req = {
-    url: overrides.url ?? '/api/resumen',
+    url: overrides.url ?? '/api/proxy?upstream=resumen',
     method: overrides.method ?? 'GET',
     headers: overrides.headers ?? {},
     async *[Symbol.asyncIterator]() {
@@ -46,6 +46,11 @@ function createRes() {
   }
 }
 
+/** Builds the post-rewrite `req.url` for a given browser `/api/<subpath>` call. */
+function proxyUrl(subpath: string): string {
+  return `/api/proxy?upstream=${encodeURIComponent(subpath)}`
+}
+
 const fetchMock = vi.fn()
 
 beforeEach(() => {
@@ -62,9 +67,10 @@ afterEach(() => {
 })
 
 describe('proxy handler', () => {
-  it('forwards a valid path to the configured API_BASE_URL origin with the server-side x-api-key', async () => {
+  it('reconstructs the original /api path from `upstream` (incl. nested) and forwards it to API_BASE_URL with the server-side x-api-key', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
-    const req = createReq({ url: '/api/resumen?periodo=2026-07' })
+    // Nested path — the exact case the old catch-all 404'd on.
+    const req = createReq({ url: proxyUrl('auth/login') })
     const res = createRes()
 
     await handler(req, res)
@@ -72,9 +78,21 @@ describe('proxy handler', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [targetUrl, init] = fetchMock.mock.calls[0] as [URL, RequestInit]
     expect(targetUrl.origin).toBe('https://backend.example')
-    expect(`${targetUrl.pathname}${targetUrl.search}`).toBe('/api/resumen?periodo=2026-07')
+    expect(targetUrl.pathname).toBe('/api/auth/login')
     expect((init.headers as Record<string, string>)['x-api-key']).toBe('server-side-secret')
     expect(res.statusCode).toBe(200)
+  })
+
+  it('preserves the original query string alongside the reconstructed path', async () => {
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+    // Vercel merges the original query into the rewritten url next to `upstream`.
+    const req = createReq({ url: '/api/proxy?upstream=resumen&periodo=2026-07' })
+    const res = createRes()
+
+    await handler(req, res)
+
+    const [targetUrl] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    expect(`${targetUrl.pathname}${targetUrl.search}`).toBe('/api/resumen?periodo=2026-07')
   })
 
   it('strips any client-supplied x-api-key header and replaces it with the server-side key', async () => {
@@ -88,17 +106,25 @@ describe('proxy handler', () => {
     expect((init.headers as Record<string, string>)['x-api-key']).toBe('server-side-secret')
   })
 
-  it.each(['//attacker.example/x', 'http://attacker.example/x'])(
-    'rejects req.url %s with a 400 and never calls fetch (SSRF / key exfiltration guard)',
-    async (maliciousUrl) => {
-      const req = createReq({ url: maliciousUrl })
+  it.each(['http://attacker.example/x', '//attacker.example/x', 'foo/../../bar'])(
+    'never forwards to an attacker host — a malicious `upstream` (%s) is rejected or pinned to the backend origin (SSRF / key-exfiltration guard)',
+    async (maliciousUpstream) => {
+      fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+      const req = createReq({ url: proxyUrl(maliciousUpstream) })
       const res = createRes()
 
       await handler(req, res)
 
-      expect(fetchMock).not.toHaveBeenCalled()
-      expect(res.statusCode).toBe(400)
-      expect(res.end).toHaveBeenCalledWith(expect.stringContaining('invalid request path'))
+      // Whatever the input, the key-injected request must NEVER leave the
+      // backend origin: either rejected with 400 (no fetch), or forwarded but
+      // only to API_BASE_URL's host.
+      if (fetchMock.mock.calls.length > 0) {
+        const [targetUrl] = fetchMock.mock.calls[0] as [URL, RequestInit]
+        expect(targetUrl.origin).toBe('https://backend.example')
+      } else {
+        expect(res.statusCode).toBe(400)
+        expect(res.end).toHaveBeenCalledWith(expect.stringContaining('invalid request path'))
+      }
     },
   )
 
@@ -124,10 +150,8 @@ describe('proxy handler', () => {
     expect(res.end).toHaveBeenCalledWith(expect.stringContaining('upstream request failed'))
   })
 
-  // auth-login-session Slice 3 (AUTH-01): confirms the cookie-through-proxy
-  // decision design.md §6.1 already relies on — this handler was NOT changed
-  // for this slice, these tests only lock in the existing (correct)
-  // behavior as a regression guard.
+  // auth-login-session Slice 3 (AUTH-01): the cookie-through-proxy decision
+  // design.md §6.1 relies on. Regression guard on the (unchanged) forwarding.
   it('forwards the client-supplied Cookie header to the upstream request (session cookie on authenticated calls)', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
     const req = createReq({ headers: { cookie: 'md_session=abc123' } })
@@ -157,13 +181,9 @@ describe('proxy handler', () => {
     )
   })
 
-  // upload-cartola-ui Tarea 0.1 (Decision 7): the POST-body path is
-  // otherwise untested — this locks that `readRequestBody`'s
-  // `Buffer.concat` round-trip (`[...path].ts:83-91`) does not corrupt or
-  // re-encode a multipart body, and that the `content-type` boundary is
-  // forwarded verbatim by `forwardableHeaders` (`[...path].ts:93-104`). No
-  // proxy source change is expected — regression lock on already-correct
-  // behavior, same pattern as the cookie-forwarding tests above.
+  // upload-cartola-ui Tarea 0.1 (Decision 7): locks that `readRequestBody`'s
+  // `Buffer.concat` round-trip does not corrupt or re-encode a multipart body,
+  // and that the `content-type` boundary is forwarded verbatim.
   it('forwards a multipart/form-data POST body byte-for-byte with the boundary content-type intact', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
 
@@ -176,8 +196,6 @@ describe('proxy handler', () => {
         `\r\n--${boundary}--\r\n`,
       'binary',
     )
-    // Split into several small chunks to exercise the same multi-`data`-event
-    // `Buffer.concat` round-trip a real Node.js request stream would deliver.
     const bodyChunks = [
       multipartBody.subarray(0, 10),
       multipartBody.subarray(10, 25),
@@ -185,6 +203,7 @@ describe('proxy handler', () => {
     ]
 
     const req = createReq({
+      url: proxyUrl('ingestas'),
       method: 'POST',
       headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
       bodyChunks,
