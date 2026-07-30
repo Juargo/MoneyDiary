@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
-import type { IncomingMessage, ServerResponse } from 'node:http'
+import { request as httpRequest, type IncomingMessage, type ServerResponse } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 
 // Vercel Serverless Function (Node.js runtime) — same-origin proxy for `/api/*`.
 //
@@ -51,22 +52,58 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   if (secFetchDest !== undefined) headers['x-fwd-sec-fetch-dest'] = secFetchDest
   if (secFetchMode !== undefined) headers['x-fwd-sec-fetch-mode'] = secFetchMode
 
-  let upstream: Response
-  try {
-    upstream = await fetch(targetUrl, { method: req.method, headers, body })
-  } catch {
-    sendJsonError(res, 502, 'upstream request failed')
-    return
-  }
+  await forwardToBackend(targetUrl, req.method ?? 'GET', headers, body, res)
+}
 
-  res.statusCode = upstream.status
-  upstream.headers.forEach((value, key) => {
-    // Node re-decodes the body below, so a stale content-encoding header
-    // would make the client try to decode already-decoded bytes.
-    if (key.toLowerCase() === 'content-encoding') return
-    res.setHeader(key, value)
+// Forwards the request with Node's `http(s).request` instead of `fetch`, for
+// two reasons undici/fetch gets wrong for a proxy:
+//   1. `http.request` NEVER follows redirects, so a 3xx from the backend
+//      (e.g. the demo's `302 Location: /` + `Set-Cookie: md_session`) passes
+//      straight through to the browser, which then follows it WITH the cookie.
+//      undici's fetch followed it server-side and swallowed the Set-Cookie.
+//   2. It sends exactly the headers given — no forbidden-header stripping — so
+//      the relayed `x-fwd-sec-fetch-*` reach the backend intact.
+// The response body is piped through verbatim (NOT decoded), so
+// `content-encoding` is preserved and the browser decodes as usual.
+function forwardToBackend(
+  target: URL,
+  method: string,
+  headers: Record<string, string>,
+  body: Buffer | undefined,
+  res: ServerResponse,
+): Promise<void> {
+  return new Promise((resolve) => {
+    const client = target.protocol === 'https:' ? httpsRequest : httpRequest
+    const upstream = client(target, { method, headers, timeout: 25_000 }, (upstreamRes) => {
+      res.statusCode = upstreamRes.statusCode ?? 502
+      for (const [key, value] of Object.entries(upstreamRes.headers)) {
+        // Skip hop-by-hop response headers — the Vercel runtime frames the
+        // response itself, so forwarding upstream `transfer-encoding`/
+        // `connection` would double-frame it. `content-encoding` is KEPT (the
+        // body is piped verbatim, so the browser must still decode it).
+        if (value === undefined || HOP_BY_HOP_RESPONSE.has(key.toLowerCase())) continue
+        res.setHeader(key, value)
+      }
+      upstreamRes.on('error', () => {
+        if (!res.writableEnded) res.end()
+        resolve()
+      })
+      upstreamRes.on('end', resolve)
+      upstreamRes.pipe(res)
+    })
+
+    const fail = () => {
+      upstream.destroy()
+      if (!res.headersSent) sendJsonError(res, 502, 'upstream request failed')
+      else if (!res.writableEnded) res.end()
+      resolve()
+    }
+    upstream.on('error', fail)
+    upstream.on('timeout', fail)
+
+    if (body) upstream.write(body)
+    upstream.end()
   })
-  res.end(Buffer.from(await upstream.arrayBuffer()))
 }
 
 function sendJsonError(res: ServerResponse, status: number, message: string): void {
@@ -135,6 +172,14 @@ const NON_FORWARDABLE = new Set([
   'x-api-key',
   'x-fwd-sec-fetch-dest',
   'x-fwd-sec-fetch-mode',
+])
+
+// Hop-by-hop response headers the Vercel runtime re-frames on its own.
+const HOP_BY_HOP_RESPONSE = new Set([
+  'connection',
+  'keep-alive',
+  'transfer-encoding',
+  'upgrade',
 ])
 
 function forwardableHeaders(headers: IncomingMessage['headers']): Record<string, string> {
