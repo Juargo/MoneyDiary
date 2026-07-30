@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../pnpm-lock.yaml ../../pnpm-workspace.yaml"
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../pnpm-lock.yaml ../../pnpm-workspace.yaml",
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/proxy?upstream=$1" }]
 }
