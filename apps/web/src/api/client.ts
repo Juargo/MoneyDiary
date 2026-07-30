@@ -3,6 +3,7 @@ import type {
   BucketResumenDto,
   DetalleBucketDto,
   DetalleBucketTransaccionDto,
+  IngestaListItemDto,
   IngestaResponseDto,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
@@ -472,6 +473,114 @@ export async function postIngesta(file: File): Promise<ApiResult<IngestaResponse
   }
 
   return { ok: true, value: body }
+}
+
+/**
+ * Guarda money-safety para `IngestaListItemDto` (`us-018-eliminar-ingesta`
+ * Slice 2, design.md §7.1): `totalTransacciones` es un CONTEO de filas, no
+ * dinero — se valida con `typeof === 'number'`, NO `esMontoStringValido` (esa
+ * guarda es solo para strings decimales BigInt-safe, este campo nunca lo es).
+ * `fecha` se valida con `esFechaValida` (mismo razonamiento que
+ * `esDetalleBucketTransaccionDto`: un `fecha` no parseable produciría una
+ * fecha garbled en pantalla en vez de fallar explícito). Un 2xx que no cumpla
+ * la forma esperada se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
+ */
+function esIngestaListItemDto(value: unknown): value is IngestaListItemDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<IngestaListItemDto>
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.banco === 'string' &&
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.totalTransacciones === 'number'
+  )
+}
+
+/**
+ * fetchIngestas — GET /api/ingestas same-origin (`us-018-eliminar-ingesta`
+ * Slice 2, design.md §7.1). Misma disciplina que `fetchResumen`: same-origin,
+ * sin key, nunca lanza, error tipado. El body llega envuelto en
+ * `{ ingestas: [...] }` (consistencia con el resto de endpoints, ninguno
+ * devuelve un array bare) — se valida que `body.ingestas` sea un array donde
+ * CADA elemento cumple `esIngestaListItemDto` antes de desenvolverlo.
+ */
+export async function fetchIngestas(): Promise<ApiResult<IngestaListItemDto[]>> {
+  let res: Response
+  try {
+    res = await fetch('/api/ingestas')
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (typeof body !== 'object' || body === null) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+  const ingestas = (body as { ingestas?: unknown }).ingestas
+  if (!Array.isArray(ingestas) || !ingestas.every(esIngestaListItemDto)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: ingestas }
+}
+
+/**
+ * deleteIngesta — DELETE /api/ingestas/:id same-origin
+ * (`us-018-eliminar-ingesta` Slice 2, design.md §7.1/D7).
+ *
+ * **204 gotcha (D7):** un 204 no trae body — llamar `res.json()` lanza. En
+ * `res.ok` (204) se devuelve `{ ok: true, value: undefined }` SIN parsear
+ * JSON. `404` (anti-enumeration: no existe / no es del usuario) se mapea a
+ * `{ tag: 'server', status: 404 }` con un mensaje que invita a refrescar la
+ * lista, en vez del genérico de 5xx — la UI lo trata como "ya no está", no
+ * como un error inesperado.
+ */
+export async function deleteIngesta(id: string): Promise<ApiResult<void>> {
+  const url = `/api/ingestas/${encodeURIComponent(id)}`
+
+  let res: Response
+  try {
+    res = await fetch(url, { method: 'DELETE' })
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+  }
+  if (res.status === 404) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: 404, message: 'La cartola ya no existe. La lista se actualizará.' },
+    }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  return { ok: true, value: undefined }
 }
 
 function esApiVersionDto(value: unknown): value is ApiVersionDto {
