@@ -128,6 +128,19 @@ describe('proxy handler', () => {
     },
   )
 
+  it('rejects an `upstream` that path-traverses out of /api/ with a 400 (key-injected request stays on the /api surface)', async () => {
+    // `..%2f..%2fhealth` decodes to `../../health`; `/api/../../health`
+    // collapses to `/health`, which is OUTSIDE `/api/*` — must be rejected so
+    // the server-side key can't be walked onto other backend paths.
+    const req = createReq({ url: proxyUrl('../../health') })
+    const res = createRes()
+
+    await handler(req, res)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(res.statusCode).toBe(400)
+  })
+
   it('returns the existing misconfigured 500 contract when API_KEY or API_BASE_URL is missing', async () => {
     delete process.env.API_KEY
     const req = createReq()

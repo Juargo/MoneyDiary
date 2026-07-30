@@ -92,10 +92,14 @@ function sanitizeSameOriginPath(url: string): string | null {
   if (url.startsWith('//') || url.startsWith('/\\') || url.startsWith('\\')) return null
   if (url.includes('://')) return null
 
-  // Re-parse against a throwaway base to normalize the path+query; this also
-  // rejects anything that still resolves outside a single-leading-slash path.
+  // Re-parse against a throwaway base to NORMALIZE (collapse `.`/`..`) before
+  // checking. The forwarded path MUST stay under `/api/`: `upstream` is
+  // percent-decoded once by the caller, so a smuggled `..%2f..%2f` would
+  // otherwise walk the key-injected request off `/api/*` onto other backend
+  // paths (health/root/etc.) — same host, but outside the intended surface.
+  // Requiring the collapsed pathname to start with `/api/` closes that.
   const parsed = new URL(url, 'http://proxy-base.invalid')
-  if (!parsed.pathname.startsWith('/') || parsed.pathname.startsWith('//')) return null
+  if (!parsed.pathname.startsWith('/api/')) return null
 
   return `${parsed.pathname}${parsed.search}`
 }
