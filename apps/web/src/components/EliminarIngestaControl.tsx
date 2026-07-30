@@ -6,9 +6,26 @@ import { useEliminarIngesta } from '@/api/use-eliminar-ingesta'
  * ING-05/ING-06) — the per-row delete trigger + accessible confirmation for
  * `ListaIngestas`. Structural clone of `ReclasificarCategoriaControl`'s a11y
  * pattern (KISS: reuse the existing hand-rolled `role="alertdialog"`, NOT a
- * new modal library):
+ * new modal library), with two deliberate divergences from that precedent:
  *
- * - "Eliminar" `<button>` is the trigger.
+ * - The trigger `<button>` carries an `aria-label` that includes the banco +
+ *   fecha ("Eliminar cartola {banco} ({fechaLabel})") instead of the plain
+ *   visible "Eliminar" text — `ListaIngestas` renders one of these per row,
+ *   and a screen reader user tabbing through a list of otherwise-identical
+ *   "Eliminar" buttons has no way to tell them apart (a11y fix, review
+ *   finding). The visible label stays "Eliminar" (short, scannable); only
+ *   the ACCESSIBLE name is disambiguated.
+ * - The success announcement + focus target are NOT owned by this
+ *   component. On success this component just closes its own dialog and
+ *   calls the caller-supplied `onEliminado()` — `ListaIngestas` is
+ *   responsible for announcing "Cartola eliminada." and moving focus,
+ *   because THIS component's own DOM (including its previous per-row
+ *   `aria-live` span) unmounts along with the `<li>` once the row disappears
+ *   from the list, which both drops focus to `<body>` and races the
+ *   announcement against its own removal (review finding). A single
+ *   list-level live region + focus target survives the unmount.
+ *
+ * Everything else matches the reclasificar control:
  * - On open, `role="alertdialog"` with `aria-label="Confirmar eliminación"`;
  *   a `useEffect` moves focus to "Confirmar" (WCAT-05-style: a keyboard user
  *   needs to know a dialog appeared, not stay orphaned on the trigger).
@@ -19,10 +36,13 @@ import { useEliminarIngesta } from '@/api/use-eliminar-ingesta'
  *   ({fechaLabel}). Esta acción no se puede deshacer."
  * - Confirm button `disabled={mutacion.isPending}`; on click fires
  *   `useEliminarIngesta().mutate(id)`.
- * - `aria-live="polite"` success announcement + `role="alert"` error
- *   message, same as the reclasificar control. On success the dialog closes
- *   (the row itself disappears because `onSuccess` invalidates `['ingestas']`
- *   — `ListaIngestas` re-renders without this row).
+ * - `role="alert"` error message on failure. Unlike
+ *   `ReclasificarCategoriaControl` (which closes/resets on error), THIS
+ *   control deliberately KEEPS THE DIALOG OPEN on a failed delete — the
+ *   error is shown inline and "Confirmar" stays available so the user can
+ *   retry without reopening the dialog and re-reading the impact statement.
+ *   This divergence is intentional, not an oversight of the "structural
+ *   clone" claim above.
  *
  * `fechaLabel` arrives PRE-FORMATTED (mirrors `montoLabel` on
  * `ReclasificarCategoriaControl` — the caller, `ListaIngestas`, already knows
@@ -37,11 +57,13 @@ export function EliminarIngestaControl({
   banco,
   fechaLabel,
   totalTransacciones,
+  onEliminado,
 }: {
   readonly id: string
   readonly banco: string
   readonly fechaLabel: string
   readonly totalTransacciones: number
+  readonly onEliminado?: () => void
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const confirmarRef = useRef<HTMLButtonElement>(null)
@@ -72,6 +94,7 @@ export function EliminarIngestaControl({
     mutacion.mutate(id, {
       onSuccess: () => {
         setAbierto(false)
+        onEliminado?.()
       },
     })
   }
@@ -82,13 +105,11 @@ export function EliminarIngestaControl({
         ref={triggerRef}
         type="button"
         onClick={abrir}
-        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={`Eliminar cartola ${banco} (${fechaLabel})`}
+        className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
       >
         Eliminar
       </button>
-      <span aria-live="polite" className="sr-only">
-        {mutacion.isSuccess ? 'Cartola eliminada.' : ''}
-      </span>
       {abierto && (
         <div
           role="alertdialog"
@@ -98,14 +119,14 @@ export function EliminarIngestaControl({
               cancelar()
             }
           }}
-          className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-sm"
+          className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs text-foreground shadow-sm"
         >
           <p>
             Se eliminarán {totalTransacciones} movimientos de {banco} ({fechaLabel}). Esta acción no se puede
             deshacer.
           </p>
           {mutacion.isError && (
-            <p role="alert" className="text-xs text-red-600">
+            <p role="alert" className="text-xs text-destructive">
               {mutacion.error.message}
             </p>
           )}
@@ -113,7 +134,7 @@ export function EliminarIngestaControl({
             <button
               type="button"
               onClick={cancelar}
-              className="rounded-full border border-slate-300 px-3 py-1 font-semibold text-slate-600"
+              className="rounded-full border border-border px-3 py-1 font-semibold text-muted-foreground"
             >
               Cancelar
             </button>
@@ -122,7 +143,7 @@ export function EliminarIngestaControl({
               type="button"
               onClick={confirmar}
               disabled={mutacion.isPending}
-              className="rounded-full bg-red-600 px-3 py-1 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full bg-destructive px-3 py-1 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar
             </button>

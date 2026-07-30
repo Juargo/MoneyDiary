@@ -24,6 +24,17 @@ describe('EliminarIngestaControl', () => {
     vi.restoreAllMocks()
   })
 
+  it('exposes a distinguishing accessible name including the banco and fecha (a11y)', () => {
+    render(
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      { wrapper: crearWrapper() },
+    )
+
+    expect(
+      screen.getByRole('button', { name: /Eliminar cartola BancoEstado \(2026-07-15\)/i }),
+    ).toBeInTheDocument()
+  })
+
   it('clicking "Eliminar" opens an alertdialog stating the exact impact count (ING-05)', async () => {
     const user = userEvent.setup()
     render(
@@ -31,7 +42,7 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    await user.click(screen.getByRole('button', { name: 'Eliminar' }))
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
 
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Se eliminarán 12 movimientos de BancoEstado')
@@ -45,7 +56,7 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    await user.click(screen.getByRole('button', { name: 'Eliminar' }))
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
     await screen.findByRole('alertdialog')
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar' })).toHaveFocus())
@@ -59,7 +70,7 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    const trigger = screen.getByRole('button', { name: 'Eliminar' })
+    const trigger = screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i })
     await user.click(trigger)
     await screen.findByRole('alertdialog')
 
@@ -78,7 +89,7 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    const trigger = screen.getByRole('button', { name: 'Eliminar' })
+    const trigger = screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i })
     await user.click(trigger)
     await screen.findByRole('alertdialog')
 
@@ -97,7 +108,7 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    await user.click(screen.getByRole('button', { name: 'Eliminar' }))
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
     await screen.findByRole('alertdialog')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
@@ -119,12 +130,13 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    await user.click(screen.getByRole('button', { name: 'Eliminar' }))
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
     await screen.findByRole('alertdialog')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled())
     resolverFetch({ ok: true, status: 204 })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
 
   it('on a failed delete shows an error message and keeps the dialog open', async () => {
@@ -135,7 +147,7 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     )
 
-    await user.click(screen.getByRole('button', { name: 'Eliminar' }))
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
     await screen.findByRole('alertdialog')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
 

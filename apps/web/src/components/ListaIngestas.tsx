@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { Loading } from './states/Loading'
 import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
@@ -21,9 +22,26 @@ import { useIngestas } from '@/api/use-ingestas'
  * `EliminarIngestaControl` (ING-05/ING-06). `fechaLabel` is precomputed here
  * and passed down — `EliminarIngestaControl` never touches the raw ISO
  * string (mirrors `montoLabel` on `ReclasificarCategoriaControl`).
+ *
+ * Success announcement + focus (review finding, a11y): a successful delete
+ * unmounts the `<li>` that held BOTH the focused trigger button AND
+ * `EliminarIngestaControl`'s own `aria-live` span — that drops focus to
+ * `document.body` and races the announcement against its own removal. This
+ * component owns a SINGLE, STABLE `role="status"` live region + the `<h1>`
+ * as an explicit focus target (`tabIndex={-1}`), both OUTSIDE the row
+ * `<ul>`, so they survive any individual row unmounting.
+ * `EliminarIngestaControl` calls the `onEliminado` callback it receives
+ * instead of announcing/closing anything itself.
  */
 export function ListaIngestas() {
   const query = useIngestas()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const [anuncio, setAnuncio] = useState('')
+
+  function alEliminar() {
+    setAnuncio('Cartola eliminada.')
+    headingRef.current?.focus()
+  }
 
   if (query.isPending) {
     return <Loading message="Cargando cartolas…" />
@@ -42,7 +60,16 @@ export function ListaIngestas() {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold text-foreground">Gestionar cartolas</h1>
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        Gestionar cartolas
+      </h1>
+      <span role="status" aria-live="polite" className="sr-only">
+        {anuncio}
+      </span>
       <ul className="flex flex-col gap-3">
         {query.data.map((ingesta) => {
           const fechaLabel = ingesta.fecha.slice(0, 10)
@@ -64,6 +91,7 @@ export function ListaIngestas() {
                   banco={ingesta.banco}
                   fechaLabel={fechaLabel}
                   totalTransacciones={ingesta.totalTransacciones}
+                  onEliminado={alEliminar}
                 />
               </div>
             </li>

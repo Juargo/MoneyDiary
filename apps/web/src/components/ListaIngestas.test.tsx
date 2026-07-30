@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { ListaIngestas } from './ListaIngestas'
@@ -67,6 +68,50 @@ describe('ListaIngestas', () => {
     expect(screen.getByText('2026-07-01')).toBeInTheDocument()
     expect(screen.getByText('1 movimiento')).toBeInTheDocument()
 
-    expect(screen.getAllByRole('button', { name: 'Eliminar' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: /^Eliminar cartola/i })).toHaveLength(2)
+  })
+
+  it('a successful delete removes the row, announces it in a stable live region, and keeps focus off document.body', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: dosIngestas }) })
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 204 })
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [dosIngestas[1]] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ListaIngestas />, { wrapper: crearWrapper() })
+
+    await screen.findByText('BancoEstado')
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
+    await screen.findByRole('alertdialog')
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() => expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument())
+    expect(screen.getByText('BCI')).toBeInTheDocument()
+
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Gestionar cartolas' }))
+    expect(screen.getByText('Cartola eliminada.')).toBeInTheDocument()
+  })
+
+  it('cancelling a delete keeps the existing return-focus-to-trigger behavior intact', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: dosIngestas }) })
+    const user = userEvent.setup()
+
+    render(<ListaIngestas />, { wrapper: crearWrapper() })
+
+    await screen.findByText('BancoEstado')
+    const trigger = screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i })
+    await user.click(trigger)
+    await screen.findByRole('alertdialog')
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 })
