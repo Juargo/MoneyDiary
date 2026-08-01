@@ -1,4 +1,5 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { API_BASE_URL } from './config';
 import { construirHeadersSesion } from './client';
 
@@ -46,30 +47,6 @@ export type PostIngestaResult =
   | { ok: true; value: IngestaResponseDto }
   | { ok: false; error: PostIngestaError };
 
-/** MIME type per extension — small map, not a switch (KISS). */
-const MIME_POR_EXTENSION: Record<string, string> = {
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  pdf: 'application/pdf',
-};
-
-function extensionDe(nombreArchivo: string): string {
-  const separador = nombreArchivo.lastIndexOf('.');
-  return separador === -1 ? '' : nombreArchivo.slice(separador + 1).toLowerCase();
-}
-
-/**
- * MIME type is ALWAYS derived from the file extension, never trusted from
- * the picker's `mimeType` (design.md Decision 3) — a picker/OS can report a
- * wrong or missing `mimeType`, but the backend only accepts `.xlsx`/`.pdf`.
- */
-function mimeTypePorExtension(nombreArchivo: string): string {
-  // Defensive default, not an error path: the picker already restricts
-  // selection and the backend is the real extension authority (rejects
-  // unsupported files with a 400), so an unknown extension here still goes
-  // out as `application/octet-stream` rather than blocking the request.
-  return MIME_POR_EXTENSION[extensionDe(nombreArchivo)] ?? 'application/octet-stream';
-}
-
 /**
  * Light shape guard — enough to catch a malformed/unexpected 2xx body.
  * Deliberately validates only the fields the mobile UI consumes
@@ -114,17 +91,25 @@ export async function postIngesta(
   }
 
   const url = `${API_BASE_URL}/api/ingestas`;
-  const formData = new FormData();
-  // RN's native file-part shape ({uri,name,type}), NOT a Blob/File — the RN
-  // FormData polyfill accepts this instead (design.md Decision 3).
-  formData.append('file', {
-    uri: pickerResult.uri,
-    name: pickerResult.name,
-    type: mimeTypePorExtension(pickerResult.name),
-  } as unknown as Blob);
 
   let res: Response;
   try {
+    const formData = new FormData();
+    // A real `Blob` file-part, NOT the legacy `{uri,name,type}` object: React
+    // Native's new architecture (Fabric/bridgeless, RN 0.86) rejects that shape
+    // with "Unsupported FormDataPart implementation" (device gate, US-033). The
+    // `expo-file-system` `File` class implements `Blob` over a `file://` URI, so
+    // it streams natively. The third `append` arg sets the multipart filename;
+    // the backend remains the extension authority (design.md Decision 3).
+    //
+    // `new File()` validates the path synchronously and can throw (e.g. a temp
+    // URI expired, or a content:// grant was revoked between pick and upload),
+    // so it stays INSIDE this try: any such throw resolves to {tag:'network'}
+    // like a fetch failure, preserving the never-throws contract (CU-11) — the
+    // caller (subir.tsx) has no try/catch and would otherwise hang on 'subiendo'.
+    const archivoBlob = new File(pickerResult.uri) as Blob;
+    formData.append('file', archivoBlob, pickerResult.name);
+
     res = await fetch(url, {
       method: 'POST',
       // No manual Content-Type — RN generates the multipart boundary itself;

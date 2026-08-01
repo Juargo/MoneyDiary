@@ -15,7 +15,11 @@
 # determinística más allá de tocar el nombre del archivo visible).
 appId: cl.moneydiary.app
 ---
-- launchApp
+# `clearState` so the gate is deterministic: the session token persists in
+# SecureStore across runs (MOB-01), so a plain relaunch would skip the login
+# screen that `login.yaml` drives. Starting clean forces the full login path.
+- launchApp:
+    clearState: true
 - runFlow: login.yaml
 # Navega al detalle de subida desde el CTA del resumen. Se ancla por `id`
 # (no por texto): el encabezado de la propia pantalla de subida también dice

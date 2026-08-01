@@ -11,8 +11,12 @@
 # Usar un usuario de prueba real que YA tenga datos/ingresos en el período.
 appId: cl.moneydiary.app
 ---
-- assertVisible:
-    id: "login-email"
+# Wait, don't bare-assert: on a cold app/bundle start the login screen can take
+# a moment to mount, which made the plain `assertVisible` flaky across runs.
+- extendedWaitUntil:
+    visible:
+      id: "login-email"
+    timeout: 40000
 - tapOn:
     id: "login-email"
 - inputText: ${MAESTRO_EMAIL}
