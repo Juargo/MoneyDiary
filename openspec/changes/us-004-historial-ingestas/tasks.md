@@ -26,40 +26,40 @@ Each task cites the requirement id(s) it satisfies (`ING-03`, `ING-05`,
 Depends on: — (foundation). PR target: **tracker branch**
 (`us-004-historial-ingestas`), per feature-branch-chain.
 
-- [ ] **1.1** `[impl]` `prisma/schema.prisma` diff — `Ingesta.userId` (new,
+- [x] **1.1** `[impl]` `prisma/schema.prisma` diff — `Ingesta.userId` (new,
   becomes non-null), `accountId`/`banco` nullable, `User.ingestas` back-relation,
   `@@index([userId])`. (ING-07)
-- [ ] **1.2** `[impl]` Hand-author migration SQL
+- [x] **1.2** `[impl]` Hand-author migration SQL
   `prisma/migrations/<ts>_ingesta_userid_nullable_account_banco/migration.sql`
   per design §5.2: add nullable `userId` → backfill from `Account.userId` →
   `SET NOT NULL` → FK `ON DELETE RESTRICT` + index → relax
   `accountId`/`banco` nullable → raw-SQL CHECK
   `Ingesta_procesada_requires_account`. Verify offline with `prisma validate`
   + `prisma generate` (no live DB). (ING-07)
-- [ ] **1.3** `[verify]` Document prod supervision note (migration header
+- [x] **1.3** `[verify]` Document prod supervision note (migration header
   comment + runbook): before/after `SELECT count(*) WHERE userId IS NULL`
   check, plus rehearsal of the backfill `UPDATE` against a prod
   snapshot/dump before real prod apply (design §5.2/§10.3, D9).
-- [ ] **1.4** `[impl]` New port
+- [x] **1.4** `[impl]` New port
   `application/ports/registrar-ingesta-fallida.port.ts` —
   `IRegistrarIngestaFallidaWriter` + `RegistrarIngestaFallidaInput` + token.
   (ING-07)
-- [ ] **1.5** `[impl]` Collapse `application/ports/ingesta-repository.port.ts`
+- [x] **1.5** `[impl]` Collapse `application/ports/ingesta-repository.port.ts`
   — replace `createPending`/`commit`/`markFailed` with a single
   `persistirProcesada(CrearIngestaProcesadaInput)`. (ING-07)
-- [ ] **1.6** `[impl]` Widen `application/ports/listar-ingestas.port.ts` — add
+- [x] **1.6** `[impl]` Widen `application/ports/listar-ingestas.port.ts` — add
   local `IngestaEstado = 'PROCESADA' | 'FALLIDA'` literal union + widen
   `IngestaResumen` (`nombreArchivo`, `estado`, `motivoFallo`, `banco: string |
   null`). No `@prisma/client` import in this file (ADR-005). (ING-03)
-- [ ] **1.7** `[test]` RED: rewrite `persist-transactions.use-case.spec.ts` —
+- [x] **1.7** `[test]` RED: rewrite `persist-transactions.use-case.spec.ts` —
   pass-through to a stub `persistirProcesada` (ok echoes `{ ingestaId, total,
   duplicadosOmitidos }`, fail propagates); remove lifecycle/`markFailed`
   cases. (ING-07)
-- [ ] **1.8** `[impl]` GREEN: rewrite
+- [x] **1.8** `[impl]` GREEN: rewrite
   `application/use-cases/persist-transactions.use-case.ts` — single call to
   `persistirProcesada`; add required `userId` to `PersistTransactionsInput`
   (already available in `runPipeline` as `input.userId`). (ING-07)
-- [ ] **1.9** `[test]` RED: edit `process-ingesta.use-case.spec.ts` — assert
+- [x] **1.9** `[test]` RED: edit `process-ingesta.use-case.spec.ts` — assert
   every `runPipeline` failure branch calls `ingestaFallidaWriter.registrar`
   once with `{ userId, nombreArchivo: getOriginalName(), motivo:
   <error.message> }`; the `catch` path uses the **fixed generic** motivo (no
@@ -67,59 +67,59 @@ Depends on: — (foundation). PR target: **tracker branch**
   `Result` and never throws (island); success path never calls `registrar`.
   Update the in-file `IIngestaRepository` stub to the new single-method
   port. (ING-07, ING-09)
-- [ ] **1.10** `[impl]` GREEN: edit
+- [x] **1.10** `[impl]` GREEN: edit
   `application/use-cases/process-ingesta.use-case.ts` — add
   `ingestaFallidaWriter` dep, wrap `execute()` in try/if-fail/catch
   `registrarFallo` per design §3.2 (structurally never-throw island);
   `runPipeline`'s seven `Result.fail` branches untouched. (ING-07, ING-09)
-- [ ] **1.11** `[test]` RED: rewrite `prisma-ingesta.repository.spec.ts` —
+- [x] **1.11** `[test]` RED: rewrite `prisma-ingesta.repository.spec.ts` —
   mock `ingesta.create`, assert the nested `createMany` payload maps via
   `aPersistencia`, `estado: PROCESADA`, `userId`/`accountId`/
   `totalTransacciones = length`/`duplicadosOmitidos`/`procesadoEn`; a create
   rejection → `Result.fail(PersistenciaFallidaError)`. Drop old
   `createPending`/`markFailed` cases. (ING-07)
-- [ ] **1.12** `[impl]` GREEN: rewrite
+- [x] **1.12** `[impl]` GREEN: rewrite
   `infrastructure/persistence/prisma-ingesta.repository.ts` —
   `persistirProcesada` atomic nested create per design §7.1. (ING-07)
-- [ ] **1.13** `[test]` RED (new):
+- [x] **1.13** `[test]` RED (new):
   `prisma-registrar-ingesta-fallida.repository.spec.ts` — assert
   `ingesta.create` called with `estado: FALLIDA`, `userId`, `nombreArchivo`,
   `motivoFallo`, and no `accountId`/`banco` (→ null); rejection →
   `Result.fail`. (ING-07)
-- [ ] **1.14** `[impl]` GREEN (new):
+- [x] **1.14** `[impl]` GREEN (new):
   `infrastructure/persistence/prisma-registrar-ingesta-fallida.repository.ts`
   per design §7.2 — no `ICryptoService` dep (failure rows touch no money
   columns). (ING-07)
-- [ ] **1.15** `[test]` RED: edit `prisma-listar-ingestas.reader.spec.ts` —
+- [x] **1.15** `[test]` RED: edit `prisma-listar-ingestas.reader.spec.ts` —
   assert WHERE `{ userId, estado: { in: ['PROCESADA','FALLIDA'] } }` (no
   `account:` join), `orderBy creadoEn desc`, widened row→`IngestaResumen`
   mapping incl. `banco: null`, `motivoFallo`, `estado`, `totalTransacciones
   ?? 0`; the `aIngestaEstado` narrowing helper throws on an unexpected
   `EstadoIngesta` value. (ING-03, ING-08)
-- [ ] **1.16** `[impl]` GREEN: rewrite
+- [x] **1.16** `[impl]` GREEN: rewrite
   `infrastructure/persistence/prisma-listar-ingestas.reader.ts` per design
   §4.1, incl. `aIngestaEstado`. (ING-03, ING-08)
-- [ ] **1.17** `[impl]` Widen `infrastructure/http/dto/ingesta-list.dto.ts` —
+- [x] **1.17** `[impl]` Widen `infrastructure/http/dto/ingesta-list.dto.ts` —
   `IngestaListItemDto` adds `nombreArchivo`/`estado`/`motivoFallo`, `banco:
   string | null`; `aIngestaListItemDto` mapper needs no `as` cast (design
   §4.3). (ING-03)
-- [ ] **1.18** `[test]` RED: edit `prisma-demo.repository.spec.ts` — assert
+- [x] **1.18** `[test]` RED: edit `prisma-demo.repository.spec.ts` — assert
   `tx.ingesta.create` args include `userId: user.id`. (ING-07)
-- [ ] **1.19** `[impl]` GREEN: edit
+- [x] **1.19** `[impl]` GREEN: edit
   `infrastructure/persistence/prisma-demo.repository.ts:56` — add `userId:
   user.id`. (ING-07)
-- [ ] **1.20** `[test]` RED: edit `demo-cleanup.service.spec.ts` — assert
+- [x] **1.20** `[test]` RED: edit `demo-cleanup.service.spec.ts` — assert
   `ingesta.deleteMany` where-clause is the direct `{ userId: { in: ids } }`
   (no `account` join); ordering before `Account`/`User` deletes unchanged.
   (ING-07)
-- [ ] **1.21** `[impl]` GREEN: edit
+- [x] **1.21** `[impl]` GREEN: edit
   `infrastructure/http/auth/demo-cleanup.service.ts` `borrarExpirados()` per
   design §5.3. (ING-07)
-- [ ] **1.22** `[impl]` Wire composition: `composition/crear-process-ingesta.ts`
+- [x] **1.22** `[impl]` Wire composition: `composition/crear-process-ingesta.ts`
   — construct `PrismaRegistrarIngestaFallidaRepository(prisma)`, pass as the
   new last arg to `ProcessIngestaUseCase`. Confirm `container.ts`'s
   `listarIngestas` wiring is unchanged (reader internals only). (ING-07)
-- [ ] **1.23** `[test]` RED (new integration):
+- [x] **1.23** `[test]` RED (new integration):
   `apps/api/test/historial-ingestas.int-spec.ts` — two users A/B, `RUN_ID`
   isolation + `afterAll` cleanup, gated by `assertDestructiveDbAllowed`:
   (a) RNF-SEC-006 trap — B's `accountId`-null FALLIDA row never visible to
@@ -133,10 +133,10 @@ Depends on: — (foundation). PR target: **tracker branch**
   `createMany` violates `cargo >= 0` rolls back to zero `Ingesta`/
   `Transaccion` rows (equivalent to the deleted `prisma-persistence.int-spec.ts`
   W3 case). (ING-03, ING-07, ING-08, ING-09)
-- [ ] **1.24** `[verify]` Green run of 1.23 is **gated** on provisioning the
+- [x] **1.24** `[verify]` Green run of 1.23 is **gated** on provisioning the
   local disposable Postgres (`apps/api/docs/local-test-db.md`, ADR-028/029
   debt) — write and commit the test now; do not silently skip it.
-- [ ] **1.25** `[verify]` `pnpm api test` + `pnpm api exec tsc --noEmit`
+- [x] **1.25** `[verify]` `pnpm api test` + `pnpm api exec tsc --noEmit`
   green for every file this slice touches. (The 15 blast-radius files of
   Slice 2 remain red until Slice 2 lands — expected.)
 
