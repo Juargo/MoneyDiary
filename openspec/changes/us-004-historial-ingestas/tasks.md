@@ -174,45 +174,95 @@ fixes).
   same 16 pre-existing Slice-2 files red — no regression, no new breaks.
   `eliminar-ingesta.int-spec.ts` confirmed GREEN (5/5) against local Postgres.
 
-## Slice 2 — Backend test-fixture blast radius (design §10.5)
+## Slice 2 — Backend test-fixture blast radius (design §10.5): STATUS DONE
 
 Depends on: **Slice 1** (the schema change is what breaks these files — they
 do not compile/pass until `userId` exists and the persist API has
-collapsed). PR target: **Slice 1's branch**, per feature-branch-chain.
+collapsed). Branch: **`feat/us-004-s2-test-sweep`**, child of Slice 1's
+branch (`feat/us-004-s1-backend-migration`), per feature-branch-chain.
+5 commits, TDD-verified (`tsc --noEmit` red → each fix → green).
 
-- [ ] **2.1** `[impl]` Mechanical `userId:` fixture add (12 files, no
+- [x] **2.1** `[impl]` Mechanical `userId:` fixture add (12 files, no
   assertion changes — same non-null-column edit as 1.19, applied to test
   fixtures): `test/backfill-categorias.int-spec.ts`,
-  `test/auth-isolation.int-spec.ts`, `test/eliminar-ingesta.int-spec.ts`,
-  `test/movimientos.e2e-spec.ts`, `test/categorizacion.int-spec.ts`,
-  `test/movimientos-mes.int-spec.ts`, `test/resumen-anual.e2e-spec.ts`,
-  `test/detalle-bucket.int-spec.ts`, `test/detalle-bucket.e2e-spec.ts`,
-  `test/resumen.e2e-spec.ts`, `test/reclasificar-categoria.int-spec.ts`,
-  `test/prisma-transaccion-existente-reader.int-spec.ts`.
-- [ ] **2.2** `[impl]` Mechanical `userId:` fixture add (3 files, `upsert`
+  `test/auth-isolation.int-spec.ts`, `test/movimientos.e2e-spec.ts`,
+  `test/categorizacion.int-spec.ts`, `test/movimientos-mes.int-spec.ts`,
+  `test/resumen-anual.e2e-spec.ts`, `test/detalle-bucket.int-spec.ts`,
+  `test/detalle-bucket.e2e-spec.ts`, `test/resumen.e2e-spec.ts`,
+  `test/reclasificar-categoria.int-spec.ts`,
+  `test/prisma-transaccion-existente-reader.int-spec.ts`. (Note:
+  `test/eliminar-ingesta.int-spec.ts`, originally in this list, was already
+  fixed in Slice 1.5 — not touched again here.) Each fixture threads the
+  correct owning user's id (never a shared/wrong id that would mask
+  isolation); `resumen-anual.e2e-spec.ts`/`resumen.e2e-spec.ts`/
+  `detalle-bucket.e2e-spec.ts`'s `seedIngesta` helper widened to accept
+  `userId` as a new parameter (their callers already had the right user id
+  in scope).
+- [x] **2.2** `[impl]` Mechanical `userId:` fixture add (3 files, `upsert`
   fixtures): `prisma-resumen-mes.repository.spec.ts`,
   `prisma-resumen-anual.repository.spec.ts`,
-  `prisma-detalle-bucket.repository.spec.ts`.
-- [ ] **2.3** `[test+impl]` **Semantic rewrite (NOT mechanical)** —
-  `apps/api/test/listar-ingestas.int-spec.ts`. Its `'filters out
-  non-PROCESADA ingestas (PENDIENTE/FALLIDA)'` case inverts: the `ingFallida`
-  fixture must now be **included** (`toContain`, not `not.toContain`); keep
-  a manually-inserted PENDIENTE fixture asserting continued **exclusion**
-  (WHERE `estado IN [PROCESADA, FALLIDA]` only). Do not add `userId` and
-  move on — the pre-existing assertion is wrong under ING-03/ING-07 and
-  must be rewritten. (ING-03, ING-07)
-- [ ] **2.4** `[test+impl]` Rewrite `apps/api/test/prisma-persistence.int-spec.ts`
-  for the collapsed `persistirProcesada` API (drop `createPending`/
-  `commit`/`markFailed` calls); re-express the **W3 real-`$transaction`
-  atomicity proof** against the single nested-write path (superseded by
-  1.23e's proof if the latter is judged sufficient — otherwise both stand).
+  `prisma-detalle-bucket.repository.spec.ts`. `seedIngesta` in each file
+  derives `userId` from the same suffix-based pattern `seedAccount` already
+  uses (`${RUN_ID}-user-${suffix}`) — no signature/caller changes needed.
+- [x] **2.3** `[test+impl]` **Semantic rewrite (NOT mechanical)** —
+  `apps/api/test/listar-ingestas.int-spec.ts`. Rewrote `'filters out
+  non-PROCESADA ingestas'` → `'includes PROCESADA and FALLIDA ingestas but
+  excludes PENDIENTE'`: the `ingFallida` fixture is now asserted
+  **included** (`toContain`), a PENDIENTE fixture stays asserted
+  **excluded** (WHERE `estado IN [PROCESADA, FALLIDA]` only). Also added
+  `userId` to the `createIngesta` fixture helper. (ING-03, ING-07)
+- [x] **2.4** `[impl]` **Deviation from plan**: deleted
+  `apps/api/test/prisma-persistence.int-spec.ts` outright instead of
+  rewriting it. Verified first that its W3 atomicity proof is already
+  re-expressed in `test/historial-ingestas.int-spec.ts`'s "Atomicidad —
+  persistirProcesada revierte TODO" describe block (added in Slice 1) —
+  rewriting a second copy against the collapsed API would have been pure
+  duplication. (ING-07)
+- [x] **2.5** `[test+impl]` Rewrote `apps/api/test/ingesta.e2e-spec.ts`'s two
+  stale cases: (a) the `.xls`-rejection case now asserts exactly **one**
+  FALLIDA row (`nombreArchivo` set, `motivoFallo` matching the extension
+  error), HTTP response still 400 — inverts the old "creates no row"
+  assertion; (b) the atomic-write-failure case spied on `prisma.ingesta
+  .update`, which no longer exists after the persist-path collapse —
+  rewritten to spy on the actual single write call (`prisma.ingesta
+  .create`, one-shot throw) and updated the expected message to
+  `'Persistencia fallida: falló la escritura atómica de la ingesta'`
+  (matching `PrismaIngestaRepository.persistirProcesada`'s current catch,
+  not the stale "...de transacciones"). (ING-07)
+- [x] **2.5b** `[test+impl]` **Deviation from plan, discovered via a full
+  e2e run (not `tsc`)**: `apps/api/test/ingesta-pdf.e2e-spec.ts`'s case
+  `'no dejó ninguna fila huérfana para el PDF no reconocido'` has the exact
+  same stale "creates no row" assumption as 2.5's `.xls` case, for the PDF
+  sibling pipeline's "bank not recognized" pre-account rejection
+  (design.md §11 edge case). Not enumerated in design.md §10.5 (a gap in
+  the blast-radius analysis — it doesn't create an `Ingesta` fixture
+  directly, so it never failed to compile, only to assert correctly).
+  Rewritten to assert one FALLIDA row correlated by `nombreArchivo`
+  (replacing a DB-wide `prisma.ingesta.count()` diff, which is fragile
+  against other e2e files writing to the same shared local Postgres).
   (ING-07)
-- [ ] **2.5** `[test+impl]` Rewrite `apps/api/test/ingesta.e2e-spec.ts`'s
-  `.xls`-rejection case: now asserts exactly **one** FALLIDA row
-  (`nombreArchivo` set, `motivoFallo` matching the extension error), HTTP
-  response still 400 — inverts the old "creates no row" assertion. (ING-07)
-- [ ] **2.6** `[verify]` `pnpm api test` full suite green + `pnpm api exec
-  tsc --noEmit` clean across Slices 1+2 combined.
+- [x] **2.6** `[verify]` `pnpm api test` = 927/927 green (unit, unchanged
+  from Slice 1.5's count — Slice 2 touched only files outside the unit
+  `src/**/*.spec.ts` glob except the 3 upsert repository specs, which
+  don't add new cases). `pnpm api exec tsc --noEmit` = **clean, zero
+  errors** across Slices 1+1.5+2 combined. Full `pnpm api test:integration`
+  (12 files, 52 tests) and `pnpm api test:e2e` (9 files, 43 tests) run
+  GREEN against a **freshly reset** local disposable Postgres (`docker
+  compose down -v` + `db:up` + `test:db:setup`, all 11 migrations
+  including US-004's applied cleanly).
+
+**Gotcha found (not a Slice 2 bug, documented for future runs)**:
+`test/backfill-categorias.int-spec.ts`'s idempotency assertions
+(`totalRows` expected `0` on a second run) scope their check via
+`WHERE categoriaId IS NULL` **DB-wide** (`prisma/backfill-categorias.ts`),
+not scoped to this test's own rows — a pre-existing test-isolation gap,
+unrelated to `Ingesta.userId`. It only surfaces when the shared local
+Postgres already has leftover null-`categoriaId` `Transaccion` rows from
+earlier suites run in the same session. Confirmed clean (4/4 green) when
+run alone immediately after a DB reset; passed as part of the full
+`test:integration` run in this session too. Out of Slice 2's scope to fix
+(design.md §10.5 only asked for a mechanical `userId` fixture add here) —
+flag for a future hardening pass if it proves flaky in CI.
 
 ## Slice 3 — Web: widen `/ingestas` (design §9)
 
