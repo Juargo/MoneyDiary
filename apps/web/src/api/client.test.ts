@@ -744,8 +744,21 @@ describe('postIngesta', () => {
 const validIngestaListItem: IngestaListItemDto = {
   id: 'ingesta-1',
   banco: 'BancoEstado',
+  nombreArchivo: 'cartola-julio.xlsx',
+  estado: 'PROCESADA',
+  motivoFallo: null,
   fecha: '2026-07-15T00:00:00.000Z',
   totalTransacciones: 12,
+}
+
+const validIngestaFallida: IngestaListItemDto = {
+  id: 'ingesta-2',
+  banco: null,
+  nombreArchivo: 'cartola.docx',
+  estado: 'FALLIDA',
+  motivoFallo: 'Extensión de archivo no soportada: .docx',
+  fecha: '2026-07-16T00:00:00.000Z',
+  totalTransacciones: 0,
 }
 
 describe('fetchIngestas', () => {
@@ -851,6 +864,83 @@ describe('fetchIngestas', () => {
   it('mapea a {tag: "parse"} cuando un item le falta el campo banco', async () => {
     const { banco: _omitido, ...itemSinBanco } = validIngestaListItem
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: [itemSinBanco] }) })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('acepta un item FALLIDA con banco null, motivoFallo string, y totalTransacciones 0 (US-004, ING-03)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [validIngestaFallida] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result).toEqual({ ok: true, value: [validIngestaFallida] })
+  })
+
+  it('acepta una lista mixta PROCESADA + FALLIDA (US-004)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [validIngestaListItem, validIngestaFallida] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result).toEqual({ ok: true, value: [validIngestaListItem, validIngestaFallida] })
+  })
+
+  it('mapea a {tag: "parse"} cuando a un item le falta el campo nombreArchivo (US-004)', async () => {
+    const { nombreArchivo: _omitido, ...itemSinNombreArchivo } = validIngestaListItem
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [itemSinNombreArchivo] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando un item trae un estado fuera de la unión PROCESADA/FALLIDA (US-004)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [{ ...validIngestaListItem, estado: 'CANCELADA' }] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando un item PROCESADA trae banco como number en vez de string|null (US-004)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [{ ...validIngestaListItem, banco: 123 }] }),
+    })
+
+    const result = await fetchIngestas()
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando un item trae motivoFallo como number en vez de string|null (US-004)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [{ ...validIngestaFallida, motivoFallo: 404 }] }),
+    })
 
     const result = await fetchIngestas()
 

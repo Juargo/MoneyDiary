@@ -6,7 +6,15 @@ import { useIngestas } from './use-ingestas'
 import type { IngestaListItemDto } from './types'
 
 const validIngestas: IngestaListItemDto[] = [
-  { id: 'ingesta-1', banco: 'BancoEstado', fecha: '2026-07-15T00:00:00.000Z', totalTransacciones: 12 },
+  {
+    id: 'ingesta-1',
+    banco: 'BancoEstado',
+    nombreArchivo: 'cartola-julio.xlsx',
+    estado: 'PROCESADA',
+    motivoFallo: null,
+    fecha: '2026-07-15T00:00:00.000Z',
+    totalTransacciones: 12,
+  },
 ]
 
 function crearWrapper(queryClient: QueryClient) {
