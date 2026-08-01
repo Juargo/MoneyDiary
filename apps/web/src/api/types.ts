@@ -152,16 +152,27 @@ export interface IngestaResponseDto {
 
 /**
  * Mirror escrito a mano del DTO HTTP de `GET /api/ingestas`
- * (`us-018-eliminar-ingesta` Slice 2, design.md §7.4). Fuente de verdad en el
- * backend: `apps/api/src/infrastructure/http/dto/ingesta-list.dto.ts`.
+ * (`us-018-eliminar-ingesta` Slice 2, design.md §7.4; widened by
+ * `us-004-historial-ingestas` Slice 3, design.md §9/§4.3). Fuente de verdad
+ * en el backend: `apps/api/src/infrastructure/http/dto/ingesta-list.dto.ts`.
  *
  * `totalTransacciones` es un CONTEO de filas (row count), no dinero — `number`
  * plano, sin el tratamiento BigInt-string que llevan `cargo`/`abono` en otros
  * DTOs. `fecha` es ISO-8601 (`Ingesta.creadoEn.toISOString()`).
+ *
+ * US-004 widen (additivo, ING-03/ING-07): `banco` ahora `string | null` (una
+ * `FALLIDA` temprana no tiene banco resuelto — extensión inválida o banco no
+ * reconocido); `nombreArchivo`/`estado`/`motivoFallo` son nuevos. `estado` es
+ * una unión string-literal a mano, NO un enum importado del backend — el
+ * contrato HTTP nunca debe filtrar un tipo de persistencia a través del
+ * boundary (mismo razonamiento que el resto de este archivo, ADR-008).
  */
 export interface IngestaListItemDto {
   readonly id: string
-  readonly banco: string
+  readonly banco: string | null
+  readonly nombreArchivo: string
+  readonly estado: 'PROCESADA' | 'FALLIDA'
+  readonly motivoFallo: string | null
   readonly fecha: string
   readonly totalTransacciones: number
 }
