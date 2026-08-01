@@ -140,6 +140,40 @@ Depends on: — (foundation). PR target: **tracker branch**
   green for every file this slice touches. (The 15 blast-radius files of
   Slice 2 remain red until Slice 2 lands — expected.)
 
+## Slice 1.5 — Hardening from 4R code review (post-Slice-1)
+
+Not in the original plan — added after a 4R review of Slice 1 flagged one
+CRITICAL and two readability issues. Branch: `feat/us-004-s1-backend-migration`
+(same as Slice 1). Commits: `8438c08` (CRITICAL fix), `56c7359` (comment/wording
+fixes).
+
+- [x] **H.1** `[test+impl]` CRITICAL: `prisma-eliminar-ingesta.repository.ts`
+  isolated the delete via `account: { userId }`; since US-004 gave FALLIDA rows
+  `accountId = null`, that join never matches them, so "FALLIDA is not
+  deletable" was an accidental side effect of a join miss, not an explicit
+  contract (design.md D8 already intended this outcome but relied on the web
+  gate only). Switched both WHERE clauses to the direct `Ingesta.userId`
+  column + an explicit `estado: PROCESADA` gate — PROCESADA
+  delete/isolation semantics for US-018 unchanged; FALLIDA/foreign rows still
+  → `IngestaNoEncontradaError`/404. RED tests added first
+  (`prisma-eliminar-ingesta.repository.spec.ts` T1.6a/b updated, T1.6f new),
+  then the implementation, then GREEN. Fixed `test/eliminar-ingesta.int-spec.ts`
+  fixtures for the new required `Ingesta.userId` column (was in the Slice-2
+  tsc-broken set) and added case T1.15e (FALLIDA not deletable) — run GREEN
+  (5/5) against local Postgres.
+- [x] **H.2** `[docs]` WARNING: fixed a stale comment in
+  `process-ingesta.use-case.ts` (~line 250) that claimed no `Ingesta` row is
+  created on a dedupe failure "not even PENDIENTE" — PENDIENTE is never
+  written by this pipeline and the boundary now records a FALLIDA row via
+  `registrarFallo`. Comment updated to match current behavior.
+- [x] **H.3** `[docs]` SUGGESTION: fixed Spanglish
+  ("tiene reliably disponibles" → "tiene confiablemente disponibles") in
+  `registrar-ingesta-fallida.port.ts:5`.
+- [x] **H.4** `[verify]` `pnpm api test` = 927/927 green (net +1 vs Slice 1's
+  926, from the new T1.6f unit case). `tsc --noEmit` still shows exactly the
+  same 16 pre-existing Slice-2 files red — no regression, no new breaks.
+  `eliminar-ingesta.int-spec.ts` confirmed GREEN (5/5) against local Postgres.
+
 ## Slice 2 — Backend test-fixture blast radius (design §10.5)
 
 Depends on: **Slice 1** (the schema change is what breaks these files — they
