@@ -1,5 +1,25 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
 
+// `expo-file-system`'s `File` implements `Blob` over a `file://` URI (US-033
+// fix: RN's new architecture rejects the legacy `{uri,name,type}` FormData
+// part). Its native module is unavailable under jest, so mock it as a real
+// `Blob` subclass that records the `uri` — enough for `FormData.append` to
+// accept it and for the transport assertions below.
+jest.mock('expo-file-system', () => ({
+  File: class MockFile extends Blob {
+    readonly uri: string;
+    constructor(uri: string) {
+      super([]);
+      // Sentinel used by one test to simulate the native `validatePath()`
+      // throwing (e.g. a revoked content:// grant or an expired temp URI).
+      if (uri === 'throw://construct-fails') {
+        throw new Error('validatePath failed');
+      }
+      this.uri = uri;
+    }
+  },
+}));
+
 const validIngestaResponse = {
   ingestaId: 'ing-1',
   banco: 'BancoEstado',
@@ -37,9 +57,8 @@ function mockFetchOnce(response: {
 }
 
 // `construirHeadersSesion` is mocked at the module boundary so the transport
-// under test (multipart body shape + MIME-per-extension) is what's exercised,
-// never a real SecureStore/session-store call (mirrors client.spec.ts's
-// `leerToken` mocking style).
+// under test (multipart body shape) is what's exercised, never a real
+// SecureStore/session-store call (mirrors client.spec.ts's `leerToken` style).
 const mockConstruirHeadersSesion = jest.fn<Promise<Record<string, string>>, []>();
 jest.mock('./client', () => ({
   construirHeadersSesion: () => mockConstruirHeadersSesion(),
@@ -73,7 +92,7 @@ describe('postIngesta', () => {
     jest.restoreAllMocks();
   });
 
-  it('POSTs the file as RN FormData to {base}/api/ingestas under field "file" (Decision 3)', async () => {
+  it('POSTs the file as a Blob FormData part to {base}/api/ingestas under field "file" with the original filename', async () => {
     const appendSpy = jest.spyOn(FormData.prototype, 'append');
     const fetchMock = mockFetchOnce({
       ok: true,
@@ -90,76 +109,14 @@ describe('postIngesta', () => {
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(options.body).toBeInstanceOf(FormData);
-    expect(appendSpy).toHaveBeenCalledWith(
-      'file',
-      expect.objectContaining({
-        uri: 'file:///tmp/cartola.xlsx',
-        name: 'cartola.xlsx',
-      }),
-    );
-  });
-
-  it('derives the MIME type from the .xlsx extension, ignoring a wrong picker mimeType (Decision 3)', async () => {
-    const appendSpy = jest.spyOn(FormData.prototype, 'append');
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validIngestaResponse) });
-    const { postIngesta } = requirePostIngesta();
-
-    await postIngesta(archivoSeleccionado({ name: 'cartola.xlsx', mimeType: 'text/plain' }));
-
-    expect(appendSpy).toHaveBeenCalledWith(
-      'file',
-      expect.objectContaining({
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }),
-    );
-  });
-
-  it('derives the MIME type from the .pdf extension when the picker mimeType is missing (Decision 3)', async () => {
-    const appendSpy = jest.spyOn(FormData.prototype, 'append');
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validIngestaResponse) });
-    const { postIngesta } = requirePostIngesta();
-
-    await postIngesta(
-      archivoSeleccionado({ name: 'cartola.pdf', mimeType: undefined }),
-    );
-
-    expect(appendSpy).toHaveBeenCalledWith(
-      'file',
-      expect.objectContaining({ type: 'application/pdf' }),
-    );
-  });
-
-  it('falls back to application/octet-stream for an unknown extension and still sends the request (backend is the extension authority)', async () => {
-    const appendSpy = jest.spyOn(FormData.prototype, 'append');
-    const fetchMock = mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(validIngestaResponse),
-    });
-    const { postIngesta } = requirePostIngesta();
-
-    await postIngesta(archivoSeleccionado({ name: 'documento.docx' }));
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(appendSpy).toHaveBeenCalledWith(
-      'file',
-      expect.objectContaining({ type: 'application/octet-stream' }),
-    );
-  });
-
-  it('lower-cases the extension before MIME lookup (case-insensitive match)', async () => {
-    const appendSpy = jest.spyOn(FormData.prototype, 'append');
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validIngestaResponse) });
-    const { postIngesta } = requirePostIngesta();
-
-    await postIngesta(archivoSeleccionado({ name: 'CARTOLA.XLSX' }));
-
-    expect(appendSpy).toHaveBeenCalledWith(
-      'file',
-      expect.objectContaining({
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }),
-    );
+    // The part is a real Blob (the mocked expo-file-system `File`) built over
+    // the picker URI, appended under "file" with the original filename so the
+    // backend keeps the extension as its authority (design.md Decision 3).
+    const [campo, valor, filename] = appendSpy.mock.calls[0] as [string, Blob & { uri?: string }, string];
+    expect(campo).toBe('file');
+    expect(valor).toBeInstanceOf(Blob);
+    expect(valor.uri).toBe('file:///tmp/cartola.xlsx');
+    expect(filename).toBe('cartola.xlsx');
   });
 
   it('never sets a Content-Type header manually — only construirHeadersSesion()\'s headers are sent (Decision 3)', async () => {
@@ -261,6 +218,18 @@ describe('postIngesta', () => {
     const result = await postIngesta(archivoSeleccionado());
 
     expect(result).toEqual({ ok: false, error: { tag: 'http', status: 500 } });
+  });
+
+  it('maps a synchronous File-construction failure to {tag: "network"} without fetching (never-throws contract, CU-11)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200 });
+    const { postIngesta } = requirePostIngesta();
+
+    const result = await postIngesta(
+      archivoSeleccionado({ uri: 'throw://construct-fails' }),
+    );
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('maps a fetch rejection to {tag: "network"} (CU-11 — never hangs)', async () => {
