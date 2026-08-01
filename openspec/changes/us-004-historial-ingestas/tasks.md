@@ -270,32 +270,34 @@ Depends on: Slice 1's HTTP contract (functional dependency only). PR target:
 **Slice 2's branch**, per feature-branch-chain convention (later child PRs
 base on the immediate previous PR branch).
 
-- [ ] **3.1** `[test]` RED: `client` test — the `IngestaListItemDto`
+- [x] **3.1** `[test]` RED: `client` test — the `IngestaListItemDto`
   type-guard accepts a FALLIDA item (`banco: null`, `estado: 'FALLIDA'`,
   `motivoFallo` string, `totalTransacciones: 0`) and a PROCESADA item;
   rejects malformed. (ING-03)
-- [ ] **3.2** `[impl]` GREEN: `apps/web/src/api/types.ts` — mirror the
+- [x] **3.2** `[impl]` GREEN: `apps/web/src/api/types.ts` — mirror the
   widened `IngestaListItemDto` (`banco: string | null`, +`nombreArchivo`,
   +`estado` union, +`motivoFallo`). (ING-03)
-- [ ] **3.3** `[impl]` `apps/web/src/api/client.ts` — widen `fetchIngestas`
+- [x] **3.3** `[impl]` `apps/web/src/api/client.ts` — widen `fetchIngestas`
   type-guard per design §9. (ING-03)
-- [ ] **3.4** `[test]` RED: `ListaIngestas` component test — a FALLIDA row
+- [x] **3.4** `[test]` RED: `ListaIngestas` component test — a FALLIDA row
   renders `nombreArchivo`/`motivoFallo`/`banco` as "—" and **no** delete
   control; a PROCESADA row renders count + the existing (US-018) delete
   control (regression guard). (ING-05)
-- [ ] **3.5** `[impl]` GREEN: `apps/web/src/components/ListaIngestas.tsx` /
+- [x] **3.5** `[impl]` GREEN: `apps/web/src/components/ListaIngestas.tsx` /
   `IngestaItem` — branch on `estado` per design §9. (ING-05)
-- [ ] **3.6** `[impl]` `apps/web/src/components/EliminarIngestaControl.tsx`
+- [x] **3.6** `[impl]` `apps/web/src/components/EliminarIngestaControl.tsx`
   — `banco` null-tolerance (control only mounts for PROCESADA rows, so the
   parent passes a narrowed non-null value, or the control coalesces `banco
   ?? ''`); one-line touch, US-018 regression guard (design §8). (ING-05)
-- [ ] **3.7** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web
+- [x] **3.7** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web
   build` green.
 - [ ] **3.8** `[verify]` Real-fixture DoD check in the browser (local dev
   server): upload a bad-extension file AND a valid fixture via `/subir` →
   `/ingestas` shows both — fallido with `motivoFallo`, exitoso with correct
   count — and confirm the PROCESADA delete flow is unaffected (US-018
-  regression, ING-05).
+  regression, ING-05). **NOT run this session** — requires a live backend +
+  local Postgres + manual browser interaction; left as a manual
+  pre-merge/pre-close verification step.
 
 ---
 
