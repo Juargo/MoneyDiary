@@ -5,6 +5,8 @@ import type {
   DetalleBucketTransaccionDto,
   IngestaListItemDto,
   IngestaResponseDto,
+  PreviewIngestaDto,
+  PreviewTransaccionDto,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
@@ -469,6 +471,119 @@ export async function postIngesta(file: File): Promise<ApiResult<IngestaResponse
   }
 
   if (!esIngestaResponseDto(body)) {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  return { ok: true, value: body }
+}
+
+/**
+ * Guarda money-safety para `PreviewIngestaDto` (`us-003-vista-previa` Slice
+ * 2, design.md §9.4): mismo razonamiento que `esTransaccionResponseDto` —
+ * `cargo`/`abono` de cada fila de `muestra` se validan con
+ * `esMontoStringValido` y `fecha` con `esFechaValida` antes de que
+ * `formatearMontoCLP` toque el valor (el sample table de `PreviewMuestra`
+ * renderiza estos montos). Un 2xx que no cumpla la forma esperada se mapea a
+ * `ApiError` tipado (tag "parse"), nunca lanza.
+ */
+function esPreviewTransaccionDto(value: unknown): value is PreviewTransaccionDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<PreviewTransaccionDto>
+  return (
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.cargo === 'string' &&
+    esMontoStringValido(candidato.cargo) &&
+    typeof candidato.abono === 'string' &&
+    esMontoStringValido(candidato.abono)
+  )
+}
+
+function esEstructuraPreviewDto(value: unknown): value is PreviewIngestaDto['estructura'] {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<PreviewIngestaDto['estructura']>
+  return typeof candidato.totalFilasDatos === 'number'
+}
+
+function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const candidato = value as Partial<PreviewIngestaDto>
+  return (
+    typeof candidato.banco === 'string' &&
+    typeof candidato.tipoCuenta === 'string' &&
+    typeof candidato.numeroCuenta === 'string' &&
+    esEstructuraPreviewDto(candidato.estructura) &&
+    Array.isArray(candidato.muestra) &&
+    candidato.muestra.every(esPreviewTransaccionDto)
+  )
+}
+
+/**
+ * previewIngesta — POST /api/ingestas/preview same-origin
+ * (`us-003-vista-previa` Slice 2, design.md §9.4). Faithful mirror of
+ * `postIngesta`'s transport: same multipart contract (field `file`, no
+ * manual `Content-Type`), never throws, same status-mapping conventions
+ * (400 passes `body.message` verbatim, 401 fixed session-expired message).
+ * The ONLY difference from `postIngesta` is the URL and the response DTO —
+ * this endpoint is read-only server-side (PREV-02), the client never
+ * invalidates any cache from its result (that's `usePreviewIngesta`'s job,
+ * D10).
+ */
+export async function previewIngesta(file: File): Promise<ApiResult<PreviewIngestaDto>> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  let res: Response
+  try {
+    res = await fetch('/api/ingestas/preview', { method: 'POST', body: formData })
+  } catch {
+    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+  }
+
+  if (res.status === 400) {
+    let body: unknown
+    try {
+      body = await res.json()
+    } catch {
+      return {
+        ok: false,
+        error: { tag: 'invalid', message: 'El archivo no se pudo procesar. Intenta nuevamente.' },
+      }
+    }
+    const mensaje = (body as { message?: unknown } | null)?.message
+    return {
+      ok: false,
+      error: {
+        tag: 'invalid',
+        message: typeof mensaje === 'string' ? mensaje : 'El archivo no se pudo procesar. Intenta nuevamente.',
+      },
+    }
+  }
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized', message: 'Tu sesión expiró. Inicia sesión de nuevo.' } }
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
+    }
+  }
+
+  let body: unknown
+  try {
+    body = await res.json()
+  } catch {
+    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+  }
+
+  if (!esPreviewIngestaDto(body)) {
     return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
   }
 
