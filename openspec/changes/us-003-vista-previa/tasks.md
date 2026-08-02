@@ -212,7 +212,7 @@ of Slice 2's web implementation). This is the heaviest slice (design §10,
 §14) — mobile has no per-row preview today. Sequential: client before
 view-model, view-model before screen wiring.
 
-- [ ] **T3.1** `[test]` `preview-ingesta` client test
+- [x] **T3.1** `[test]` `preview-ingesta` client test
   (`apps/mobile/src/api/preview-ingesta.spec.ts`) — mirrors
   `post-ingesta.ts`'s transport tests exactly: RN `Blob` file-part via
   `expo-file-system` `File` (the new-architecture requirement fixed in
@@ -222,21 +222,21 @@ view-model, view-model before screen wiring.
   `post-ingesta.ts`'s skip of `transacciones` — a shape guard on `muestra`
   rows asserting `cargo`/`abono` are strings (mobile renders per-row money).
   (PREV-01, PREV-03, PREV-04)
-- [ ] **T3.2** `[impl]` `apps/mobile/src/api/preview-ingesta.ts` (new) —
+- [x] **T3.2** `[impl]` `apps/mobile/src/api/preview-ingesta.ts` (new) —
   `previewIngesta(asset): Promise<PreviewIngestaResult>` per design §10.2;
   hand-written `PreviewIngestaDto`/`PreviewTransaccionDto` mirror types.
   (PREV-01, PREV-03, PREV-04)
-- [ ] **T3.3** `[test]` `preview-cartola` view-model test
+- [x] **T3.3** `[test]` `preview-cartola` view-model test
   (`apps/mobile/src/domain/preview-cartola.spec.ts`, pure, no RN import) —
   `sliceMuestra(muestra, cantidad)` for 10/25/50 including the
   smaller-than-selected case (12-row sample, selector 25 → all 12, no
   padding); `formatearFilaPreview(row)` formats CLP over the **string**
   amount via the existing mobile money formatter, never parsing to `number`.
   (PREV-06)
-- [ ] **T3.4** `[impl]` `apps/mobile/src/domain/preview-cartola.ts` (new) —
+- [x] **T3.4** `[impl]` `apps/mobile/src/domain/preview-cartola.ts` (new) —
   pure functions only, no ports (mirrors the SOLID-skill note that mobile
   domain is pure functions, design §10.2). (PREV-06)
-- [ ] **T3.5** `[test]` `subir.tsx` test (jest-expo + RNTL) — the design
+- [x] **T3.5** `[test]` `subir.tsx` test (jest-expo + RNTL) — the design
   §10.1 state machine: picking a file transitions through `previsualizando`
   to `preview` and renders the per-row list + banco header +
   `totalFilasDatos` + 10/25/50 selector; **Confirmar** re-posts the **held**
@@ -249,19 +249,23 @@ view-model, view-model before screen wiring.
   accessibility label, and the selector `Pressable`s expose
   `accessibilityState={{ selected }}` (design §10.3). (PREV-01, PREV-02,
   PREV-03, PREV-04, PREV-05, PREV-06)
-- [ ] **T3.6** `[impl]` `apps/mobile/app/subir.tsx` (edit) — the design
+- [x] **T3.6** `[impl]` `apps/mobile/app/subir.tsx` (edit) — the design
   §10.1 state machine, per-row sample list (inline or a small
   `MuestraCartola` component), 10/25/50 selector, Confirmar/Cancelar
   `Pressable`s, and the §10.3 a11y wiring. (PREV-01, PREV-02, PREV-03,
   PREV-04, PREV-05, PREV-06)
-- [ ] **T3.7** `[verify]` `pnpm --filter @moneydiary/mobile test` green.
+- [x] **T3.7** `[verify]` `pnpm --filter @moneydiary/mobile test` green.
+  (24/24 `subir.spec.tsx`, 173/173 mobile workspace total; `tsc --noEmit`
+  clean.)
 - [ ] **T3.8** `[verify]` Real-fixture DoD check on-device/Expo dev client
   (Maestro manual, non-CI per ADR-017): pick a real `.xlsx` and a real `.pdf`
   fixture → preview list renders correctly for both → selector changes
   render instantly with no network activity → **Confirmar** imports for
   real → **Cancelar** aborts cleanly and the picker is available again;
   spot-check VoiceOver/TalkBack announces the preview-ready message
-  (ADR-018).
+  (ADR-018). **NOT run by sdd-apply** — requires a physical device/Expo dev
+  client and manual Maestro flows per ADR-017 (never CI); left as an
+  explicit manual follow-up before merging this slice's PR.
 
 ---
 
