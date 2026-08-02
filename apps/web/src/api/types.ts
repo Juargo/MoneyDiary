@@ -167,6 +167,8 @@ export interface IngestaResponseDto {
  * contrato HTTP nunca debe filtrar un tipo de persistencia a través del
  * boundary (mismo razonamiento que el resto de este archivo, ADR-008).
  */
+export type EstadoIngestaResumen = 'exitoso' | 'fallido' | 'pendiente'
+
 export interface IngestaListItemDto {
   readonly id: string
   readonly banco: string | null
@@ -187,4 +189,35 @@ export interface ApiVersionDto {
   readonly commit: string
   readonly ref: string
   readonly builtAt: string
+}
+
+/**
+ * Mirror escrito a mano del DTO HTTP de `POST /api/ingestas/preview`
+ * (`us-003-vista-previa` Slice 2, design.md §9.4). Fuente de verdad en el
+ * backend: `apps/api/src/infrastructure/http/dto/preview-ingesta.dto.ts`.
+ *
+ * `cargo`/`abono` son strings decimales (BigInt-safe) — misma disciplina que
+ * `TransaccionResponseDto`, nunca se parsean a number aquí. `fecha` es
+ * ISO-8601 (`toISOString()`).
+ */
+export interface PreviewTransaccionDto {
+  readonly fecha: string
+  readonly descripcion: string
+  readonly cargo: string
+  readonly abono: string
+}
+
+/**
+ * `estructura.totalFilasDatos` es el conteo TOTAL de filas normalizadas del
+ * archivo (PRE-dedupe, design.md D5) — puede ser mayor que `muestra.length`,
+ * que queda capado a `PREVIEW_SAMPLE_MAX = 50` server-side (design.md D8, el
+ * cliente nunca re-capa). `muestra` es la fuente de verdad ÚNICA que el
+ * selector 10/25/50 (CA-01, PREV-06) re-slicea client-side, sin re-request.
+ */
+export interface PreviewIngestaDto {
+  readonly banco: string
+  readonly tipoCuenta: string
+  readonly numeroCuenta: string
+  readonly estructura: { readonly totalFilasDatos: number }
+  readonly muestra: ReadonlyArray<PreviewTransaccionDto>
 }

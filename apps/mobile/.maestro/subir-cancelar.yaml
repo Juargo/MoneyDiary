@@ -1,0 +1,32 @@
+# Flujo E2E (Maestro · ADR-017) — Cancelar la vista previa (US-003 CA-04).
+#
+# Verifica en dispositivo real que, tras ver la vista previa, tocar "Cancelar"
+# descarta la muestra y vuelve al selector de archivo SIN persistir nada
+# (no se llama al endpoint de ingesta). Complementa `subir.yaml` (camino de
+# confirmar). Mismos prerrequisitos: sesión iniciada + fixture accesible desde
+# el picker nativo (docs/mobile-upload-gate-runbook.md).
+appId: cl.moneydiary.app
+---
+- launchApp:
+    clearState: true
+- runFlow: login.yaml
+- tapOn:
+    id: "subir-cartola-button"
+- tapOn:
+    id: "subir-archivo-trigger"
+# --- PASO DEPENDIENTE DE DISPOSITIVO (ajustar antes de correr) ---
+# Cambiar por el nombre del fixture .xlsx/.pdf realmente precargado.
+- tapOn: "cartola-test.xlsx"
+# Espera el panel de vista previa (parse sin persistir).
+- extendedWaitUntil:
+    visible:
+      id: "preview-resultado"
+    timeout: 40000
+# CA-04: cancelar descarta y vuelve al selector de archivo — el trigger de
+# subida vuelve a estar visible y NO aparece el resultado de una ingesta.
+- tapOn:
+    id: "preview-cancelar"
+- assertVisible:
+    id: "subir-archivo-trigger"
+- assertNotVisible:
+    id: "subir-resultado"

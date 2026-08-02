@@ -5,17 +5,31 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { SubirCartola } from './SubirCartola'
 import { useIngesta } from '@/api/use-ingesta'
+import { usePreviewIngesta } from '@/api/use-preview-ingesta'
 import type { ApiError } from '@/api/client'
-import type { IngestaResponseDto } from '@/api/types'
+import type { IngestaResponseDto, PreviewIngestaDto } from '@/api/types'
 
-// upload-cartola-ui (US-031/US-032): component-level suite, NOT an
-// integration test against real `fetch` — `useIngesta` (A.7) is mocked so
-// every mutation transition (pending/success/error) is driven directly,
-// mirroring how `validarArchivoWeb` (A.3, real/unmocked — it's a pure
-// function, no reason to fake it) drives the pre-submit validation path.
+// upload-cartola-ui (US-031/US-032) + us-003-vista-previa Slice 2
+// (design.md §9.1): component-level suite, NOT an integration test against
+// real `fetch` — both `usePreviewIngesta` (preview phase) and `useIngesta`
+// (confirm phase) are mocked so every state transition is driven directly,
+// mirroring how `validarArchivoWeb` (real/unmocked — pure function) drives
+// the pre-preview client-side gate.
 vi.mock('@/api/use-ingesta', () => ({ useIngesta: vi.fn() }))
+vi.mock('@/api/use-preview-ingesta', () => ({ usePreviewIngesta: vi.fn() }))
 
 const mockedUseIngesta = vi.mocked(useIngesta)
+const mockedUsePreviewIngesta = vi.mocked(usePreviewIngesta)
+
+const validPreviewDto: PreviewIngestaDto = {
+  banco: 'BancoEstado',
+  tipoCuenta: 'CuentaRUT',
+  numeroCuenta: '12345678',
+  estructura: { totalFilasDatos: 1 },
+  muestra: [
+    { fecha: '2026-07-15T00:00:00.000Z', descripcion: 'Supermercado Líder', cargo: '50000', abono: '0' },
+  ],
+}
 
 const validDto: IngestaResponseDto = {
   ingestaId: 'ingesta-1',
@@ -34,16 +48,17 @@ function unArchivo(nombre: string, tamanoBytes: number): File {
   return new File([new Uint8Array(tamanoBytes)], nombre)
 }
 
-// A minimal stand-in for TanStack's `UseMutationResult<IngestaResponseDto,
-// ApiError, File>` — only the fields `SubirCartola` actually reads.
-function unaMutacion(overrides: {
+// A minimal stand-in for TanStack's `UseMutationResult<T, ApiError, File>` —
+// only the fields `SubirCartola` actually reads. Shared shape for both mocked
+// mutations (preview and confirm).
+function unaMutacion<T>(overrides: {
   status?: 'idle' | 'pending' | 'success' | 'error'
   isPending?: boolean
   isSuccess?: boolean
   isError?: boolean
   error?: ApiError | null
-  data?: IngestaResponseDto | undefined
-  mutate?: (file: File) => void
+  data?: T | undefined
+  mutate?: (file: File, opts?: { onSettled?: () => void }) => void
   reset?: () => void
 }) {
   return {
@@ -59,17 +74,24 @@ function unaMutacion(overrides: {
   } as any
 }
 
+function mockIdleHooks() {
+  mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({}))
+  mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
+}
+
 describe('SubirCartola', () => {
   afterEach(() => {
     mockedUseIngesta.mockReset()
+    mockedUsePreviewIngesta.mockReset()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
-  // CU-01: oversized/wrong-extension files never reach the mutation.
-  it('CU-01: rejects an oversized file client-side with the exact message and never calls mutate', async () => {
-    const mutate = vi.fn()
-    mockedUseIngesta.mockReturnValue(unaMutacion({ mutate }))
+  // CU-01: oversized/wrong-extension files never reach EITHER mutation.
+  it('CU-01: rejects an oversized file client-side with the exact message and never calls previewIngesta.mutate', async () => {
+    const previewMutate = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }))
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
 
     render(<SubirCartola />)
 
@@ -81,142 +103,174 @@ describe('SubirCartola', () => {
         'El archivo es demasiado grande para subirlo desde la web (máximo 4 MB). Usa la app móvil para archivos más grandes.',
       ),
     ).toBeInTheDocument()
-    expect(mutate).not.toHaveBeenCalled()
+    expect(previewMutate).not.toHaveBeenCalled()
   })
 
-  it('CU-01: rejects an unsupported extension client-side with the exact message and never calls mutate', async () => {
-    const mutate = vi.fn()
-    mockedUseIngesta.mockReturnValue(unaMutacion({ mutate }))
+  it('CU-01: rejects an unsupported extension client-side with the exact message and never calls previewIngesta.mutate', async () => {
+    const previewMutate = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }))
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
 
     render(<SubirCartola />)
 
     const archivo = unArchivo('cartola.csv', 1024)
-    // The real `<input accept=".xlsx,.pdf">` already blocks a `.csv` picked
-    // through a native browser dialog — `applyAccept: false` bypasses that
-    // jsdom emulation so this test proves the DOMAIN validation
-    // (`validarArchivoWeb`) independently rejects it too (defense in depth,
-    // design.md Decision 2 — a renamed/dragged file can still slip past the
-    // `accept` filter in a real browser).
     const user = userEvent.setup({ applyAccept: false })
     await user.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
 
     expect(screen.getByText('Formato no soportado. Sube un archivo .xlsx o .pdf.')).toBeInTheDocument()
-    expect(mutate).not.toHaveBeenCalled()
+    expect(previewMutate).not.toHaveBeenCalled()
   })
 
-  // Retry-after-error: verifies the `mutation.reset()` + `errorValidacion`
-  // clear path in `handleFileChange` — selecting a VALID file after a
-  // rejected one must clear the stale error and re-enable a real submit.
-  it('CU-01: selecting a valid file after a rejected one clears the error and lets mutate fire on submit', async () => {
-    const mutate = vi.fn()
-    const reset = vi.fn()
-    mockedUseIngesta.mockReturnValue(unaMutacion({ mutate, reset }))
-
-    render(<SubirCartola />)
-
-    const archivoInvalido = unArchivo('cartola.csv', 1024)
-    const user = userEvent.setup({ applyAccept: false })
-    await user.upload(screen.getByLabelText(/selecciona un archivo/i), archivoInvalido)
-
-    expect(screen.getByText('Formato no soportado. Sube un archivo .xlsx o .pdf.')).toBeInTheDocument()
-
-    const archivoValido = unArchivo('cartola.xlsx', 1024)
-    await user.upload(screen.getByLabelText(/selecciona un archivo/i), archivoValido)
-
-    expect(screen.queryByText('Formato no soportado. Sube un archivo .xlsx o .pdf.')).not.toBeInTheDocument()
-
-    const boton = screen.getByRole('button', { name: /subir cartola/i })
-    fireEvent.click(boton)
-
-    expect(mutate).toHaveBeenCalledTimes(1)
-    expect(mutate).toHaveBeenCalledWith(archivoValido, expect.objectContaining({ onSettled: expect.any(Function) }))
-  })
-
-  // CU-02: confirm triggers `subiendo`; no double-submit.
-  it('CU-02: submitting a valid file calls mutate exactly once and disables the submit control while subiendo', async () => {
-    const mutate = vi.fn()
-    mockedUseIngesta.mockReturnValue(unaMutacion({ mutate }))
+  // PREV-01/PREV-06: a valid pick automatically fires the preview mutation
+  // with the SAME File, no separate "submit" action.
+  it('a valid pick automatically fires the preview mutation with the selected file', async () => {
+    const previewMutate = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }))
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
 
     render(<SubirCartola />)
 
     const archivo = unArchivo('cartola.xlsx', 1024)
     await userEvent.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
-    const boton = screen.getByRole('button', { name: /subir cartola/i })
-    fireEvent.click(boton)
 
-    expect(mutate).toHaveBeenCalledTimes(1)
-    // Second arg is the per-call `{ onSettled }` that resets the SEC-01
-    // double-submit guard ref — asserted separately, not by identity.
-    expect(mutate).toHaveBeenCalledWith(archivo, expect.objectContaining({ onSettled: expect.any(Function) }))
+    expect(previewMutate).toHaveBeenCalledTimes(1)
+    expect(previewMutate).toHaveBeenCalledWith(archivo)
   })
 
-  it('CU-02: a second click while subiendo does not fire a second mutate and the control stays disabled', () => {
-    const mutate = vi.fn()
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isPending: true, status: 'pending', mutate }))
-
-    render(<SubirCartola />)
-
-    const boton = screen.getByRole('button', { name: /subir cartola/i })
-    expect(boton).toBeDisabled()
-    fireEvent.click(boton)
-
-    expect(mutate).not.toHaveBeenCalled()
-  })
-
-  // Money-duplication regression: `mutation.isPending` is a stale render
-  // value and TanStack's notify-to-render is NOT synchronous inside a bare
-  // `fireEvent.click` (no `await` in between) — so a mocked mutation can't
-  // reproduce the race. This test wires the REAL `useIngesta` (real
-  // `useMutation`) against a deferred/never-resolving `fetch`, exactly like
-  // the reliability reviewer did, and fires two synchronous clicks with no
-  // `await` between them.
-  it('SEC-01: two synchronous clicks before paint call postIngesta exactly once (double-submit guard)', async () => {
-    const actual = await vi.importActual<typeof import('@/api/use-ingesta')>('@/api/use-ingesta')
-    mockedUseIngesta.mockImplementation(actual.useIngesta)
-
-    const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    function Wrapper({ children }: { children: ReactNode }) {
-      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    }
-
-    render(<SubirCartola />, { wrapper: Wrapper })
-
-    const archivo = unArchivo('cartola.xlsx', 1024)
-    await userEvent.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
-
-    const boton = screen.getByRole('button', { name: /subir cartola/i })
-    fireEvent.click(boton)
-    fireEvent.click(boton)
-
-    // Flush the microtask queue so any `mutate()` call scheduled by either
-    // click reaches `postIngesta`/`fetch` — WITHOUT this, neither click's
-    // network call would be observable yet, masking the race either way.
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
-
-  // CU-03: success result panel.
-  it('CU-03: on success shows banco, tipoCuenta, numeroCuenta, totalTransacciones and a transaction preview row', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: validDto }))
+  // PREV-01/CA-02: on preview success, the sample panel renders (PreviewMuestra
+  // content) with canonical headers/fields.
+  it('on preview success renders the PreviewMuestra sample panel (banco, count, rows)', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
 
     render(<SubirCartola />)
 
     expect(screen.getByText('BancoEstado')).toBeInTheDocument()
-    expect(screen.getByText('CuentaRUT')).toBeInTheDocument()
-    expect(screen.getByText('12345678')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('Supermercado Líder')).toBeInTheDocument()
     expect(screen.getByText('$50.000')).toBeInTheDocument()
   })
 
-  // Boundary: an empty transaction list must render the result panel
-  // without crashing (no out-of-bounds access on `.slice(0, N)` of `[]`).
+  // Gate the file picker while a preview is showing (design §9.2 — "same
+  // file on confirm" soft guarantee).
+  it('gates (disables) the file picker once preview-listo', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
+
+    render(<SubirCartola />)
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeDisabled()
+  })
+
+  it('does NOT gate the file picker in idle', () => {
+    mockIdleHooks()
+
+    render(<SubirCartola />)
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled()
+  })
+
+  // Confirmar re-uploads the SAME held File via useIngesta.mutate — the
+  // existing success summary follows the existing confirm mutation.
+  it('Confirmar re-uploads the same held file via useIngesta.mutate', async () => {
+    const confirmMutate = vi.fn()
+    // Starts idle (picker enabled) so a real pick is possible, then the
+    // mocked preview mutation flips to success + rerenders — same reasoning
+    // as SEC-01 below: the gated picker cannot be re-picked once preview is
+    // already `isSuccess` from the first render.
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({}))
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({ mutate: confirmMutate }))
+
+    const { rerender } = render(<SubirCartola />)
+
+    const archivo = unArchivo('cartola.xlsx', 1024)
+    await userEvent.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
+
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    rerender(<SubirCartola />)
+
+    const confirmarBtn = screen.getByRole('button', { name: /confirmar/i })
+    fireEvent.click(confirmarBtn)
+
+    expect(confirmMutate).toHaveBeenCalledTimes(1)
+    expect(confirmMutate).toHaveBeenCalledWith(archivo, expect.objectContaining({ onSettled: expect.any(Function) }))
+  })
+
+  // CA-04 at the UI layer: Cancelar returns to idle, re-enables the picker,
+  // and useIngesta is NEVER called.
+  it('Cancelar returns to idle, re-enables the picker, and never calls useIngesta.mutate', async () => {
+    const confirmMutate = vi.fn()
+    const previewReset = vi.fn()
+    const confirmReset = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+        reset: previewReset,
+      }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ mutate: confirmMutate, reset: confirmReset }),
+    )
+
+    render(<SubirCartola />)
+
+    const cancelarBtn = screen.getByRole('button', { name: /cancelar/i })
+    fireEvent.click(cancelarBtn)
+
+    expect(confirmMutate).not.toHaveBeenCalled()
+    expect(previewReset).toHaveBeenCalledTimes(1)
+    expect(confirmReset).toHaveBeenCalledTimes(1)
+  })
+
+  // A failed preview shows the scrubbed message and allows re-picking.
+  it('a failed preview shows the scrubbed message and re-enables the picker', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isError: true,
+        status: 'error',
+        error: { tag: 'invalid', message: 'No reconocimos el banco de este archivo.' },
+      }),
+    )
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
+
+    render(<SubirCartola />)
+
+    expect(screen.getByText('No reconocimos el banco de este archivo.')).toBeInTheDocument()
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled()
+  })
+
+  // CU-03: success result panel after Confirmar succeeds.
+  it('CU-03: on confirm success shows banco, tipoCuenta, numeroCuenta, totalTransacciones and a transaction preview row', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
+
+    render(<SubirCartola />)
+
+    expect(screen.getByText('CuentaRUT')).toBeInTheDocument()
+    expect(screen.getByText('12345678')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /cartola subida/i })).toBeInTheDocument()
+  })
+
   it('CU-03: renders the result panel without crashing when transacciones is empty', () => {
     const dtoSinTransacciones: IngestaResponseDto = { ...validDto, totalTransacciones: 0, transacciones: [] }
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: dtoSinTransacciones }))
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: dtoSinTransacciones }),
+    )
 
     render(<SubirCartola />)
 
@@ -224,8 +278,6 @@ describe('SubirCartola', () => {
     expect(screen.getByText('0')).toBeInTheDocument()
   })
 
-  // Boundary: more than CANTIDAD_PREVIEW_TRANSACCIONES (5) transactions must
-  // truncate the preview list to exactly 5 rows.
   it('CU-03: truncates the transaction preview to exactly 5 rows when the response has more than 5', () => {
     const transaccionesDeSobra = Array.from({ length: 8 }, (_, indice) => ({
       fecha: `2026-07-0${(indice % 9) + 1}T00:00:00.000Z`,
@@ -238,7 +290,12 @@ describe('SubirCartola', () => {
       totalTransacciones: transaccionesDeSobra.length,
       transacciones: transaccionesDeSobra,
     }
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: dtoConSobra }))
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: dtoConSobra }),
+    )
 
     render(<SubirCartola />)
 
@@ -248,40 +305,106 @@ describe('SubirCartola', () => {
     expect(screen.queryByText('Transacción 6')).not.toBeInTheDocument()
   })
 
-  // US-005 (Slice 3): inline, non-blocking banner when the backend omitted
-  // duplicate rows. X = totalTransacciones (already imported/post-dedup), Y =
-  // duplicadosOmitidos — no subtraction (totalTransacciones is post-dedup).
+  // FIX 2 (review, us-003-vista-previa Slice 2): once confirm succeeds, the
+  // stale "Vista previa" section (heading + sample table) must NOT stay
+  // mounted underneath the "Cartola subida" success panel — it duplicates
+  // headings/tables for screen readers. `previewMutation.data` is still
+  // populated at this point (never cleared on confirm success), so
+  // `mostrarPreview` itself must exclude `'exito'`.
+  it('FIX: hides the stale Vista previa section once confirm succeeds (estado exito)', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
+
+    render(<SubirCartola />)
+
+    expect(screen.getByRole('heading', { name: /cartola subida/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /vista previa/i })).not.toBeInTheDocument()
+  })
+
+  // FIX 1 (review, BLOCKER): estado 'exito' was a dead end — the picker was
+  // gated and Confirmar/Cancelar were disabled, with no control to go back
+  // to 'idle'. Chosen fix: remove 'exito' from `pickerGateado` — re-picking
+  // a file re-enables the flow via the existing `handleFileChange` reset
+  // logic (already resets both mutations before firing a new preview).
+  it('FIX: re-enables the file picker after a successful confirm, and picking a new file resets both mutations and fires a new preview', async () => {
+    const previewMutate = vi.fn()
+    const previewReset = vi.fn()
+    const confirmReset = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+        mutate: previewMutate,
+        reset: previewReset,
+      }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validDto,
+        reset: confirmReset,
+      }),
+    )
+
+    render(<SubirCartola />)
+
+    const input = screen.getByLabelText(/selecciona un archivo/i)
+    expect(input).toBeEnabled()
+
+    const otroArchivo = unArchivo('otra-cartola.xlsx', 1024)
+    await userEvent.upload(input, otroArchivo)
+
+    expect(previewReset).toHaveBeenCalledTimes(1)
+    expect(confirmReset).toHaveBeenCalledTimes(1)
+    expect(previewMutate).toHaveBeenCalledWith(otroArchivo)
+  })
+
+  // US-005 (Slice 3): duplicates-omitted banner in the confirm success panel.
   it('US-005: shows the omitted-duplicates banner with the correct X/Y counts when duplicadosOmitidos > 0', () => {
-    const dtoConDuplicados: IngestaResponseDto = {
-      ...validDto,
-      totalTransacciones: 7,
-      duplicadosOmitidos: 3,
-    }
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: dtoConDuplicados }))
+    const dtoConDuplicados: IngestaResponseDto = { ...validDto, totalTransacciones: 7, duplicadosOmitidos: 3 }
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: dtoConDuplicados }),
+    )
 
     render(<SubirCartola />)
 
     expect(screen.getByText('Se importaron 7, se omitieron 3 duplicados')).toBeInTheDocument()
   })
 
-  // CA-04: normal flow unchanged when there are zero duplicates — no banner.
   it('US-005: does not show the omitted-duplicates banner when duplicadosOmitidos is 0', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: validDto }))
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
 
     render(<SubirCartola />)
 
     expect(screen.queryByText(/se omitieron/i)).not.toBeInTheDocument()
   })
 
-  // CU-04: each known error variant renders its body.message verbatim.
+  // CU-04: confirm-phase error variants render body.message verbatim.
   it.each([
     { message: 'No reconocimos el banco de este archivo.' },
     { message: 'La estructura del archivo no es la esperada.' },
     { message: 'No pudimos leer texto en este PDF.' },
     { message: 'El archivo no cumple el formato o tamaño esperado.' },
-  ])('CU-04: renders the backend message verbatim ($message)', ({ message }) => {
+  ])('CU-04: renders the confirm-phase backend message verbatim ($message)', ({ message }) => {
     const error: ApiError = { tag: 'invalid', message }
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isError: true, status: 'error', error }))
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({ isError: true, status: 'error', error }))
 
     render(<SubirCartola />)
 
@@ -289,11 +412,12 @@ describe('SubirCartola', () => {
     expect(screen.queryByText(/\{.*"tag"/)).not.toBeInTheDocument()
   })
 
-  // CU-04: rendering must not be coupled to the `'invalid'` tag specifically
-  // — any `ApiError` variant's `message` renders the same way (tag-agnostic).
   it('CU-04: renders the message verbatim for a non-"invalid" ApiError tag (network)', () => {
     const error: ApiError = { tag: 'network', message: 'No se pudo conectar con el servidor.' }
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isError: true, status: 'error', error }))
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({ isError: true, status: 'error', error }))
 
     render(<SubirCartola />)
 
@@ -302,47 +426,83 @@ describe('SubirCartola', () => {
 
   // CU-05: a11y — label, aria-live, focus management.
   it('CU-05: the file input has an associated label', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({}))
+    mockIdleHooks()
 
     render(<SubirCartola />)
 
     expect(screen.getByLabelText(/selecciona un archivo/i)).toBeInTheDocument()
   })
 
-  it('CU-05: an aria-live="polite" region announces the idle, subiendo, éxito and error states', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({}))
+  it('CU-05: an aria-live="polite" region announces idle, previsualizando, preview-listo, éxito and error states', () => {
+    mockIdleHooks()
     const { rerender } = render(<SubirCartola />)
     const region = screen.getByRole('status', { name: /estado de la subida/i })
     expect(region).toHaveAttribute('aria-live', 'polite')
     const idleText = region.textContent
 
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isPending: true, status: 'pending' }))
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({ isPending: true, status: 'pending' }))
     rerender(<SubirCartola />)
     expect(region.textContent).not.toBe(idleText)
-    expect(region.textContent).toMatch(/subiendo/i)
+    expect(region.textContent).toMatch(/vista previa/i)
 
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: validDto }))
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    rerender(<SubirCartola />)
+    expect(region.textContent).toMatch(/lista/i)
+
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
     rerender(<SubirCartola />)
     expect(region.textContent).toMatch(/correctamente/i)
 
     mockedUseIngesta.mockReturnValue(
-      unaMutacion({ isError: true, status: 'error', error: { tag: 'invalid', message: 'Archivo inválido.' } }),
+      unaMutacion<IngestaResponseDto>({
+        isError: true,
+        status: 'error',
+        error: { tag: 'invalid', message: 'Archivo inválido.' },
+      }),
     )
     rerender(<SubirCartola />)
     expect(region.textContent).toMatch(/error|no se pudo/i)
   })
 
-  it('CU-05: on éxito, focus moves to the result heading', async () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: validDto }))
+  // a11y: on preview-listo, focus moves to the preview heading.
+  it('a11y: on preview-listo, focus moves to the preview heading', async () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({}))
+
+    render(<SubirCartola />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: /vista previa/i })).toHaveFocus())
+  })
+
+  it('CU-05: on confirm éxito, focus moves to the result heading', async () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
 
     render(<SubirCartola />)
 
     await waitFor(() => expect(screen.getByRole('heading', { name: /cartola subida/i })).toHaveFocus())
   })
 
-  it('CU-05: on error, focus moves to the error text', async () => {
+  it('CU-05: on confirm error, focus moves to the error text', async () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
     mockedUseIngesta.mockReturnValue(
-      unaMutacion({ isError: true, status: 'error', error: { tag: 'invalid', message: 'Archivo inválido.' } }),
+      unaMutacion<IngestaResponseDto>({
+        isError: true,
+        status: 'error',
+        error: { tag: 'invalid', message: 'Archivo inválido.' },
+      }),
     )
 
     render(<SubirCartola />)
@@ -350,38 +510,26 @@ describe('SubirCartola', () => {
     await waitFor(() => expect(screen.getByText('Archivo inválido.')).toHaveFocus())
   })
 
-  // WCAG 2.2 AA 2.4.7 — both elements that receive programmatic focus must
-  // carry a VISIBLE focus indicator, not `outline-none` with no replacement.
-  // Same convention as ResumenAnual/DistribucionPie/LeyendaGasto.
-  it('CU-05: the result heading carries the focus-visible outline convention (WCAG 2.4.7)', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({ isSuccess: true, status: 'success', data: validDto }))
+  // WCAG 2.2 AA 2.4.7 — programmatically-focused elements must carry a
+  // VISIBLE focus indicator.
+  it('CU-05: the confirm result heading carries the focus-visible outline convention (WCAG 2.4.7)', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
 
     render(<SubirCartola />)
 
     const heading = screen.getByRole('heading', { name: /cartola subida/i })
     expect(heading.className).toContain('focus-visible:outline')
-    expect(heading.className).toContain('focus-visible:outline-2')
-    expect(heading.className).toContain('focus-visible:outline-ring')
     expect(heading.className).not.toContain('focus:outline-none')
-  })
-
-  it('CU-05: the error text carries the focus-visible outline convention (WCAG 2.4.7)', () => {
-    mockedUseIngesta.mockReturnValue(
-      unaMutacion({ isError: true, status: 'error', error: { tag: 'invalid', message: 'Archivo inválido.' } }),
-    )
-
-    render(<SubirCartola />)
-
-    const errorText = screen.getByText('Archivo inválido.')
-    expect(errorText.className).toContain('focus-visible:outline')
-    expect(errorText.className).toContain('focus-visible:outline-2')
-    expect(errorText.className).toContain('focus-visible:outline-ring')
-    expect(errorText.className).not.toContain('focus:outline-none')
   })
 
   // CU-07: demo nudge, non-blocking.
   it('CU-07: shows the demo nudge and keeps the file input usable when esDemo is true', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({}))
+    mockIdleHooks()
 
     render(<SubirCartola esDemo={true} />)
 
@@ -390,10 +538,97 @@ describe('SubirCartola', () => {
   })
 
   it('CU-07: does not show the demo nudge when esDemo is false/absent', () => {
-    mockedUseIngesta.mockReturnValue(unaMutacion({}))
+    mockIdleHooks()
 
     render(<SubirCartola />)
 
     expect(screen.queryByRole('status', { name: /aviso de subida en modo demo/i })).not.toBeInTheDocument()
+  })
+
+  // Money-duplication regression (SEC-01, now on Confirmar): the real
+  // `useIngesta` (real `useMutation`) is wired against a deferred fetch, and
+  // two synchronous clicks on Confirmar before paint must call postIngesta
+  // exactly once.
+  it('SEC-01: two synchronous Confirmar clicks before paint call postIngesta exactly once (double-submit guard)', async () => {
+    const actualUseIngesta = await vi.importActual<typeof import('@/api/use-ingesta')>('@/api/use-ingesta')
+    mockedUseIngesta.mockImplementation(actualUseIngesta.useIngesta)
+    // Starts idle (picker enabled) so a real pick is possible, THEN the mock
+    // is switched to preview-success + rerendered — this mirrors what
+    // `usePreviewIngesta` resolving to would do, without needing a real
+    // network round-trip for the (already separately-tested) preview phase.
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({}))
+
+    const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    }
+
+    const { rerender } = render(<SubirCartola />, { wrapper: Wrapper })
+
+    const archivo = unArchivo('cartola.xlsx', 1024)
+    await userEvent.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
+
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    rerender(<SubirCartola />)
+
+    const confirmarBtn = screen.getByRole('button', { name: /confirmar/i })
+    fireEvent.click(confirmarBtn)
+    fireEvent.click(confirmarBtn)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  // FIX 4 (review, WARNING): from estado 'error' (confirm failed), Confirmar
+  // must be re-enabled to retry the SAME held file without re-previewing —
+  // no new call to previewMutation.mutate.
+  it('FIX: from a confirm error, clicking Confirmar again retries with the same held file (no new preview)', async () => {
+    const previewMutate = vi.fn()
+    const confirmMutate = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }))
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({ mutate: confirmMutate }))
+
+    const { rerender } = render(<SubirCartola />)
+
+    const archivo = unArchivo('cartola.xlsx', 1024)
+    await userEvent.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
+    expect(previewMutate).toHaveBeenCalledTimes(1)
+
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    rerender(<SubirCartola />)
+
+    const confirmarBtn = screen.getByRole('button', { name: /confirmar/i })
+    fireEvent.click(confirmarBtn)
+    expect(confirmMutate).toHaveBeenCalledTimes(1)
+    // Simulate the real mutation settling (fail) so the double-submit guard
+    // (isSubmittingRef) releases, same as a real useMutation would via its
+    // onSettled callback.
+    const [firstCallArchivo, firstCallOpts] = confirmMutate.mock.calls[0] as [File, { onSettled?: () => void }]
+    firstCallOpts.onSettled?.()
+
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({
+        mutate: confirmMutate,
+        isError: true,
+        status: 'error',
+        error: { tag: 'invalid', message: 'El archivo no cumple el formato o tamaño esperado.' },
+      }),
+    )
+    rerender(<SubirCartola />)
+
+    expect(confirmarBtn).toBeEnabled()
+    fireEvent.click(confirmarBtn)
+
+    expect(confirmMutate).toHaveBeenCalledTimes(2)
+    expect(confirmMutate.mock.calls[1][0]).toBe(firstCallArchivo)
+    expect(confirmMutate.mock.calls[1][0]).toBe(archivo)
+    expect(previewMutate).toHaveBeenCalledTimes(1)
   })
 })

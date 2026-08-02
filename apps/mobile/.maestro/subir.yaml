@@ -1,13 +1,15 @@
-# Flujo E2E (Maestro · ADR-017) — Subir cartola desde mobile (US-033, ADR-026).
+# Flujo E2E (Maestro · ADR-017) — Subir cartola desde mobile con vista previa
+# de dos fases (US-033/ADR-026 + US-003).
 #
 # Camino crítico: el usuario autenticado abre "Subir cartola" desde la
 # pantalla de resumen, selecciona un archivo .xlsx/.pdf real vía el picker
-# nativo del sistema operativo, confirma, y ve el resumen del resultado
-# (banco/cuenta/totalTransacciones). Este es el gate REQUERIDO para la
-# correctitud del boundary multipart en dispositivo real que jest-expo NO
-# puede validar (design.md, riesgo HIGH marcado explícitamente) — debe
-# correrse en un dispositivo/simulador real antes de mergear el Work Unit B,
-# no en CI. Pasos y prerrequisitos completos: docs/mobile-upload-gate-runbook.md.
+# nativo del SO, VE LA VISTA PREVIA (muestra de filas, sin persistir nada —
+# US-003 CA-02), confirma, y ve el resumen del resultado
+# (banco/cuenta/totalTransacciones). Este es el gate REQUERIDO en dispositivo
+# real para el boundary multipart + el flujo de dos fases que jest-expo NO
+# puede validar (design.md, riesgo HIGH). Debe correrse en un
+# dispositivo/simulador real, no en CI. Pasos y prerrequisitos completos:
+# docs/mobile-upload-gate-runbook.md.
 #
 # Requiere una sesión ya iniciada (`login.yaml`) y un archivo fixture .xlsx o
 # .pdf válido ya accesible desde el picker nativo del dispositivo (precargado
@@ -34,9 +36,31 @@ appId: cl.moneydiary.app
 # por el del fixture .xlsx/.pdf realmente precargado en el dispositivo de
 # prueba (ver runbook). Sin un fixture accesible, el gate no puede completar.
 - tapOn: "cartola-test.xlsx"
-# El estado "subiendo" deshabilita el trigger mientras la subida está en curso
-# (CU-09) — esperar el resultado con margen generoso (red real + cold-start
-# del backend gratuito, mismo criterio que resumen-semaforo.yaml).
+# --- FASE 1: VISTA PREVIA (US-003) ---
+# El parse corre en el backend (POST /api/ingestas/preview) y devuelve la
+# muestra SIN persistir nada. Esperar la aparición del panel de preview con
+# margen generoso (red real + cold-start del backend gratuito, mismo criterio
+# que resumen-semaforo.yaml).
+- extendedWaitUntil:
+    visible:
+      id: "preview-resultado"
+    timeout: 40000
+# CA-02: la muestra de movimientos se renderiza (encabezados canónicos +
+# al menos la primera fila).
+- assertVisible:
+    id: "preview-lista"
+- assertVisible:
+    id: "preview-fila-0"
+# CA-01: el selector de cantidad (10/25/50) rebana la muestra en el cliente.
+- tapOn:
+    id: "preview-cantidad-25"
+# --- FASE 2: CONFIRMAR (US-003 CA-03) ---
+# Confirmar re-sube el mismo archivo al endpoint de ingesta real
+# (POST /api/ingestas) — recién acá se persiste.
+- tapOn:
+    id: "preview-confirmar"
+# El estado "subiendo" deshabilita los controles mientras la subida está en
+# curso (CU-09) — esperar el resultado con el mismo margen.
 - extendedWaitUntil:
     visible: "Cartola subida"
     timeout: 40000

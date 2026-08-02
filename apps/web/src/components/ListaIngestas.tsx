@@ -127,10 +127,17 @@ function IngestaItem({
           <span>
             {ingesta.totalTransacciones} {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
           </span>
+          {/* `estado="exitoso"` is hardcoded (not derived from `ingesta.estado`):
+              this branch only renders for PROCESADA rows (US-004 gating
+              above), which is always the "exitoso" case in
+              `EliminarIngestaControl`'s own (pre-US-004) `EstadoIngestaResumen`
+              vocabulary — the two components intentionally speak different
+              estado vocabularies at this boundary. */}
           <EliminarIngestaControl
             id={ingesta.id}
             banco={ingesta.banco ?? ''}
             fechaLabel={fechaLabel}
+            estado="exitoso"
             totalTransacciones={ingesta.totalTransacciones}
             onEliminado={onEliminado}
           />

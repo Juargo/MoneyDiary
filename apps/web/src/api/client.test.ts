@@ -8,12 +8,14 @@ import {
   fetchResumenAnual,
   postIngesta,
   postReclasificarCategoria,
+  previewIngesta,
 } from './client'
 import type {
   ApiVersionDto,
   DetalleBucketDto,
   IngestaListItemDto,
   IngestaResponseDto,
+  PreviewIngestaDto,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
@@ -735,6 +737,138 @@ describe('postIngesta', () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConArchivoMalformado) })
 
     const result = await postIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+})
+
+const validPreviewDto: PreviewIngestaDto = {
+  banco: 'BancoEstado',
+  tipoCuenta: 'CuentaRUT',
+  numeroCuenta: '12345678',
+  estructura: { totalFilasDatos: 120 },
+  muestra: [{ fecha: '2026-07-15T00:00:00.000Z', descripcion: 'Supermercado', cargo: '50000', abono: '0' }],
+}
+
+// previewIngesta (us-003-vista-previa Slice 2, design.md §9.4): faithful
+// mirror of postIngesta's transport tests — same-origin multipart POST to
+// /api/ingestas/preview, never throws, same status-mapping conventions.
+describe('previewIngesta', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('llama a POST /api/ingestas/preview same-origin con el archivo en un FormData bajo el campo "file"', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validPreviewDto) })
+    const archivo = archivoDePrueba()
+
+    await previewIngesta(archivo)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/ingestas/preview')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeInstanceOf(FormData)
+    expect((init.body as FormData).get('file')).toBe(archivo)
+  })
+
+  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validPreviewDto) })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result).toEqual({ ok: true, value: validPreviewDto })
+  })
+
+  it('mapea un 400 pasando el body.message del backend verbatim (sin remap del cliente)', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve({ statusCode: 400, message: 'Banco no reconocido.', error: 'Bad Request' }),
+    })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({ tag: 'invalid', message: 'Banco no reconocido.' })
+  })
+
+  it('mapea un 400 con body ilegible/malformado a un mensaje genérico de fallback', async () => {
+    mockFetchOnce({ ok: false, status: 400, json: () => Promise.reject(new Error('invalid json')) })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('invalid')
+    expect(!result.ok && result.error.message.length).toBeGreaterThan(0)
+  })
+
+  it('mapea un 401 a {tag: "unauthorized"} con el mensaje fijo de sesión expirada', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error).toEqual({
+      tag: 'unauthorized',
+      message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+    })
+  })
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('network')
+  })
+
+  it('mapea a {tag: "parse"} cuando falta banco', async () => {
+    const { banco: _omitido, ...bodySinBanco } = validPreviewDto
+
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodySinBanco) })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando falta estructura.totalFilasDatos', async () => {
+    const bodySinEstructura = { ...validPreviewDto, estructura: {} }
+
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodySinEstructura) })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} sin lanzar cuando muestra[0].cargo es un string no decimal (money-safety boundary)', async () => {
+    const bodyConCargoMalformado = {
+      ...validPreviewDto,
+      muestra: [{ ...validPreviewDto.muestra[0], cargo: 'abc' }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoMalformado) })
+
+    const result = await previewIngesta(archivoDePrueba())
+
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.error.tag).toBe('parse')
+  })
+
+  it('mapea a {tag: "parse"} cuando un cargo/abono de la muestra es number en vez de string', async () => {
+    const bodyConCargoNumerico = {
+      ...validPreviewDto,
+      muestra: [{ ...validPreviewDto.muestra[0], cargo: 50000 }],
+    }
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(bodyConCargoNumerico) })
+
+    const result = await previewIngesta(archivoDePrueba())
 
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error.tag).toBe('parse')
