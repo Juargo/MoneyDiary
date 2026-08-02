@@ -44,15 +44,20 @@ before T1.5-T1.8 (route + composition).
     pdf-sin-texto / estructura-pdf-invalida / rango-fechas-invalido)
     propagates as `Result.fail(thatError)` and **no later collaborator is
     called**.
-  - **CA-04 structural guarantee (the signature test):** assert the use case
-    constructor accepts only the 7 no-write collaborators
-    (`IngestFileUseCase`, `DetectBankUseCase`, `DetectPdfBankUseCase`,
+  - **CA-04 guarantee:** the STRONG guarantee is by construction (the
+    constructor type signature accepts only the 7 no-write collaborators —
+    `IngestFileUseCase`, `DetectBankUseCase`, `DetectPdfBankUseCase`,
     `ValidateStructureUseCase`, `ValidatePdfStructureUseCase`,
-    `NormalizeTransactionsUseCase`, `NormalizePdfTransactionsUseCase`) —
-    there is no `accountRepository`/persist/dedupe/categorize collaborator to
-    stub, so the guarantee is the constructor arity itself (design §3.1-3.2).
-    Assert nothing in the test doubles is ever asked to `ensure()` an
-    account.
+    `NormalizeTransactionsUseCase`, `NormalizePdfTransactionsUseCase` — no
+    `accountRepository`/persist/dedupe/categorize collaborator exists to
+    stub, so nothing is ever asked to `ensure()` an account) plus the e2e
+    (`test/ingesta-preview.e2e-spec.ts`) proving zero DB writes against real
+    Postgres. **Post-review hardening (2026-08-01):** a raw
+    `PreviewIngestaUseCase.length === 7` arity assertion was replaced with a
+    behavior-focused unit test asserting `execute()`'s result exposes
+    exactly `{banco, estructura, muestra}` — arity alone is a gameable
+    proxy (a regression could swap a read collaborator for a write one and
+    keep the count at 7).
   - Defensive catch (D9): a collaborator throws → `Result.fail` with a
     `PersistenciaFallidaError`, a fixed preview-specific message, **no raw
     amount interpolated**, and the original cause preserved separately.
