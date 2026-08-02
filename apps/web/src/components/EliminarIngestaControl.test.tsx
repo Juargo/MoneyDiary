@@ -26,7 +26,7 @@ describe('EliminarIngestaControl', () => {
 
   it('exposes a distinguishing accessible name including the banco and fecha (a11y)', () => {
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -38,7 +38,7 @@ describe('EliminarIngestaControl', () => {
   it('clicking "Eliminar" opens an alertdialog stating the exact impact count (ING-05)', async () => {
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -49,10 +49,25 @@ describe('EliminarIngestaControl', () => {
     expect(dialog).toHaveTextContent('Esta acción no se puede deshacer.')
   })
 
+  it('for a fallida ingesta, states the impact without the misleading "0 movimientos" (US-004)', async () => {
+    const user = userEvent.setup()
+    render(
+      <EliminarIngestaControl id="ingesta-2" banco="Santander" fechaLabel="2026-07-20" estado="fallido" totalTransacciones={0} />,
+      { wrapper: crearWrapper() },
+    )
+
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola Santander/i }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Se eliminará esta cartola fallida de Santander')
+    expect(dialog).not.toHaveTextContent('movimientos')
+    expect(dialog).toHaveTextContent('Esta acción no se puede deshacer.')
+  })
+
   it('moves focus to the confirm button when the dialog opens', async () => {
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -66,7 +81,7 @@ describe('EliminarIngestaControl', () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 })
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -85,7 +100,7 @@ describe('EliminarIngestaControl', () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 })
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -104,7 +119,7 @@ describe('EliminarIngestaControl', () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 })
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -126,7 +141,7 @@ describe('EliminarIngestaControl', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 
@@ -143,7 +158,7 @@ describe('EliminarIngestaControl', () => {
     mockFetchOnce({ ok: false, status: 500 })
     const user = userEvent.setup()
     render(
-      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" totalTransacciones={12} />,
+      <EliminarIngestaControl id="ingesta-1" banco="BancoEstado" fechaLabel="2026-07-15" estado="exitoso" totalTransacciones={12} />,
       { wrapper: crearWrapper() },
     )
 

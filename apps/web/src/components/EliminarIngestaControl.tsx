@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEliminarIngesta } from '@/api/use-eliminar-ingesta'
+import type { EstadoIngestaResumen } from '@/api/types'
 
 /**
  * EliminarIngestaControl (`us-018-eliminar-ingesta` Slice 2, design.md §7.3,
@@ -31,9 +32,13 @@ import { useEliminarIngesta } from '@/api/use-eliminar-ingesta'
  *   needs to know a dialog appeared, not stay orphaned on the trigger).
  * - `onKeyDown` Escape cancels; cancel (Escape or "Cancelar") returns focus
  *   to the trigger button.
- * - The dialog body states the impact + irreversibility verbatim (design
- *   §7.3): "Se eliminarán {totalTransacciones} movimientos de {banco}
- *   ({fechaLabel}). Esta acción no se puede deshacer."
+ * - The dialog body states the impact + irreversibility. The impact clause is
+ *   estado-aware (US-004): a successful ingesta reports the movement count
+ *   ("Se eliminarán {n} movimientos de {banco} ({fechaLabel})"), while a
+ *   fallida/pendiente one — which imported no transactions (count is 0) —
+ *   drops the misleading "0 movimientos" and reads "Se eliminará esta cartola
+ *   {fallida|pendiente} de {banco} ({fechaLabel})". Both close with "Esta
+ *   acción no se puede deshacer."
  * - Confirm button `disabled={mutacion.isPending}`; on click fires
  *   `useEliminarIngesta().mutate(id)`.
  * - `role="alert"` error message on failure. Unlike
@@ -56,12 +61,14 @@ export function EliminarIngestaControl({
   id,
   banco,
   fechaLabel,
+  estado,
   totalTransacciones,
   onEliminado,
 }: {
   readonly id: string
   readonly banco: string
   readonly fechaLabel: string
+  readonly estado: EstadoIngestaResumen
   readonly totalTransacciones: number
   readonly onEliminado?: () => void
 }) {
@@ -99,6 +106,13 @@ export function EliminarIngestaControl({
     })
   }
 
+  // Impacto estado-aware (US-004): las fallidas/pendientes no importaron
+  // movimientos (count 0), así que evitamos el engañoso "0 movimientos".
+  const impacto =
+    estado === 'exitoso'
+      ? `Se eliminarán ${totalTransacciones} movimientos de ${banco} (${fechaLabel}).`
+      : `Se eliminará esta cartola ${estado === 'fallido' ? 'fallida' : 'pendiente'} de ${banco} (${fechaLabel}).`
+
   return (
     <div className="flex flex-col items-end gap-1">
       <button
@@ -121,10 +135,7 @@ export function EliminarIngestaControl({
           }}
           className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs text-foreground shadow-sm"
         >
-          <p>
-            Se eliminarán {totalTransacciones} movimientos de {banco} ({fechaLabel}). Esta acción no se puede
-            deshacer.
-          </p>
+          <p>{impacto} Esta acción no se puede deshacer.</p>
           {mutacion.isError && (
             <p role="alert" className="text-xs text-destructive">
               {mutacion.error.message}
