@@ -313,9 +313,9 @@ function PreviewCartola({
               <Pressable
                 key={opcion}
                 testID={`preview-cantidad-${opcion}`}
-                accessibilityRole="button"
+                accessibilityRole="radio"
                 accessibilityLabel={`Mostrar ${opcion} filas`}
-                accessibilityState={{ selected: seleccionada }}
+                accessibilityState={{ checked: seleccionada }}
                 onPress={() => onCantidadChange(opcion)}
                 className="rounded-full border px-3 py-1"
                 style={{

@@ -191,13 +191,13 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
   it('CA-01: exposes a 10/25/50 selector with 10 selected by default', async () => {
     await seleccionarYPrevisualizar();
 
-    const opcion10 = screen.getByRole('button', { name: /mostrar 10 filas/i });
-    const opcion25 = screen.getByRole('button', { name: /mostrar 25 filas/i });
-    const opcion50 = screen.getByRole('button', { name: /mostrar 50 filas/i });
+    const opcion10 = screen.getByRole('radio', { name: /mostrar 10 filas/i });
+    const opcion25 = screen.getByRole('radio', { name: /mostrar 25 filas/i });
+    const opcion50 = screen.getByRole('radio', { name: /mostrar 50 filas/i });
 
-    expect(opcion10).toHaveProp('accessibilityState', expect.objectContaining({ selected: true }));
-    expect(opcion25).toHaveProp('accessibilityState', expect.objectContaining({ selected: false }));
-    expect(opcion50).toHaveProp('accessibilityState', expect.objectContaining({ selected: false }));
+    expect(opcion10).toHaveProp('accessibilityState', expect.objectContaining({ checked: true }));
+    expect(opcion25).toHaveProp('accessibilityState', expect.objectContaining({ checked: false }));
+    expect(opcion50).toHaveProp('accessibilityState', expect.objectContaining({ checked: false }));
   });
 
   it('PREV-06/CA-01: changing the selector re-slices the same in-memory muestra with no new HTTP call', async () => {
@@ -214,12 +214,12 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(10);
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /mostrar 25 filas/i }));
+      fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
     });
     expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(25);
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /mostrar 50 filas/i }));
+      fireEvent.press(screen.getByRole('radio', { name: /mostrar 50 filas/i }));
     });
     expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(50);
 
@@ -238,7 +238,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /mostrar 25 filas/i }));
+      fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
     });
 
     expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(12);
@@ -427,20 +427,29 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       expect(screen.getByTestId('preview-lista')).toHaveProp('accessibilityLiveRegion', 'polite');
     });
 
-    it('each selector Pressable exposes accessibilityState.selected', async () => {
+    it('the preview-selector radiogroup exposes radio children with accessibilityState.checked', async () => {
       await seleccionarYPrevisualizar();
 
+      expect(screen.getByTestId('preview-selector')).toHaveProp(
+        'accessibilityRole',
+        'radiogroup',
+      );
+
       await act(async () => {
-        fireEvent.press(screen.getByRole('button', { name: /mostrar 25 filas/i }));
+        fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
       });
 
-      expect(screen.getByRole('button', { name: /mostrar 25 filas/i })).toHaveProp(
+      expect(screen.getByRole('radio', { name: /mostrar 25 filas/i })).toHaveProp(
         'accessibilityState',
-        expect.objectContaining({ selected: true }),
+        expect.objectContaining({ checked: true }),
       );
-      expect(screen.getByRole('button', { name: /mostrar 10 filas/i })).toHaveProp(
+      expect(screen.getByRole('radio', { name: /mostrar 10 filas/i })).toHaveProp(
         'accessibilityState',
-        expect.objectContaining({ selected: false }),
+        expect.objectContaining({ checked: false }),
+      );
+      expect(screen.getByRole('radio', { name: /mostrar 50 filas/i })).toHaveProp(
+        'accessibilityState',
+        expect.objectContaining({ checked: false }),
       );
     });
   });
