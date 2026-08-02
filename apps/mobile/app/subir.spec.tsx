@@ -498,4 +498,79 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(screen.getByText('0')).toBeOnTheScreen();
     expect(screen.queryAllByTestId(/^preview-fila-/)).toHaveLength(0);
   });
+
+  it('after a successful upload, "Seleccionar archivo" re-enters the preview flow for a NEW file (no dead-end)', async () => {
+    await seleccionarYPrevisualizar();
+    mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+    });
+    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+
+    const otroArchivo = resultadoPicker({
+      uri: 'file:///tmp/otra-cartola.xlsx',
+      name: 'otra-cartola.xlsx',
+    });
+    const otroPreview = previewExitoso([filaPreview({ descripcion: 'Otro movimiento' })]);
+    mockGetDocumentAsync.mockResolvedValue(otroArchivo);
+    mockPreviewIngesta.mockResolvedValue(otroPreview);
+
+    await seleccionarArchivo();
+
+    await waitFor(() => expect(mockPreviewIngesta).toHaveBeenCalledTimes(2));
+    const [archivo] = mockPreviewIngesta.mock.calls[1] as [{ uri: string; name: string }];
+    expect(archivo).toEqual(
+      expect.objectContaining({ uri: 'file:///tmp/otra-cartola.xlsx', name: 'otra-cartola.xlsx' }),
+    );
+    expect(screen.queryByTestId('subir-resultado')).not.toBeOnTheScreen();
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    expect(screen.getByText('Otro movimiento')).toBeOnTheScreen();
+    // cantidad resets to the default (10) for the new preview.
+    expect(screen.getByRole('radio', { name: /mostrar 10 filas/i })).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ checked: true }),
+    );
+  });
+
+  it('retrying after a previewIngesta network failure recovers once the retry succeeds', async () => {
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValueOnce({ ok: false, error: { tag: 'network' } });
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
+      ).toBeOnTheScreen(),
+    );
+    expect(mockPostIngesta).not.toHaveBeenCalled();
+
+    mockPreviewIngesta.mockResolvedValueOnce(previewExitoso());
+    await seleccionarArchivo();
+
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    expect(mockPreviewIngesta).toHaveBeenCalledTimes(2);
+  });
+
+  it('retrying after a previewIngesta 400 failure recovers once the retry succeeds', async () => {
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValueOnce({
+      ok: false,
+      error: { tag: 'http', status: 400, message: 'Banco no reconocido.' },
+    });
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+
+    await waitFor(() => expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen());
+    expect(mockPostIngesta).not.toHaveBeenCalled();
+
+    mockPreviewIngesta.mockResolvedValueOnce(previewExitoso());
+    await seleccionarArchivo();
+
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    expect(mockPreviewIngesta).toHaveBeenCalledTimes(2);
+  });
 });
