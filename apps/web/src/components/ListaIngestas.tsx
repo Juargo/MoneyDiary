@@ -40,13 +40,20 @@ const PRESENTACION_ESTADO: Record<
  * list-appropriate copy — do not reimplement the components themselves
  * (DRY).
  *
- * Each row shows banco, a formatted `fecha` (`YYYY-MM-DD` slice of the ISO
- * string — same convention as `detalle-bucket-view-model.ts#aFechaLabel`,
- * kept local here since it's a single-line slice, not worth a shared
- * cross-feature import), the movement count singular/plural, and its own
- * `EliminarIngestaControl` (ING-05/ING-06). `fechaLabel` is precomputed here
- * and passed down — `EliminarIngestaControl` never touches the raw ISO
- * string (mirrors `montoLabel` on `ReclasificarCategoriaControl`).
+ * Each row (US-004 audit trail) shows the file name (`nombreArchivo`), the
+ * upload date+time and banco, a colored estado badge (`PRESENTACION_ESTADO`,
+ * CA-02), and an estado-dependent content line: the movement count for
+ * `exitoso` (CA-03), the `motivoFallo` for `fallido` (CA-04), or a neutral
+ * "Procesamiento pendiente" for `pendiente`. Each row also carries its own
+ * `EliminarIngestaControl` (ING-05/ING-06), passed the row `estado` so the
+ * confirmation copy stays honest for failed/pending cartolas.
+ *
+ * Both date labels are sliced from the ISO string (same convention as
+ * `detalle-bucket-view-model.ts#aFechaLabel`, kept local — not worth a shared
+ * import): `fechaLabel` (`YYYY-MM-DD`) for the delete control, and
+ * `fechaHoraLabel` (`YYYY-MM-DD HH:mm`, UTC) for the row header.
+ * `EliminarIngestaControl` never touches the raw ISO string (mirrors
+ * `montoLabel` on `ReclasificarCategoriaControl`).
  *
  * Success announcement + focus (review finding, a11y): a successful delete
  * unmounts the `<li>` that held BOTH the focused trigger button AND
@@ -130,7 +137,8 @@ export function ListaIngestas() {
                   </span>
                 ) : ingesta.estado === 'fallido' ? (
                   <span className="text-destructive">
-                    {ingesta.motivoFallo ?? 'Sin detalle del error'}
+                    {/* `||` (no `??`): un motivoFallo '' también cae al fallback */}
+                    {ingesta.motivoFallo || 'Sin detalle del error'}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">Procesamiento pendiente</span>
@@ -139,6 +147,7 @@ export function ListaIngestas() {
                   id={ingesta.id}
                   banco={ingesta.banco}
                   fechaLabel={fechaLabel}
+                  estado={ingesta.estado}
                   totalTransacciones={ingesta.totalTransacciones}
                   onEliminado={alEliminar}
                 />
