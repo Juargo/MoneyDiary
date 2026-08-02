@@ -99,6 +99,17 @@ describe('PreviewMuestra', () => {
     expect(screen.getByRole('button', { name: '50' })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  // FIX 3 (review, WARNING): a file with 0 data rows (totalFilasDatos: 0)
+  // must render a sane, labeled empty state instead of a phantom empty <ul>.
+  it('FIX: renders a labeled empty state and no phantom rows when muestra is empty', () => {
+    render(
+      <PreviewMuestra muestra={[]} banco="BancoEstado" totalFilasDatos={0} cantidad={10} onCantidadChange={vi.fn()} />,
+    )
+
+    expect(screen.getByText(/no hay movimientos/i)).toBeInTheDocument()
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+  })
+
   it('the selector group has an accessible name (associated label)', () => {
     render(
       <PreviewMuestra muestra={[unaFila(0)]} banco="BancoEstado" totalFilasDatos={1} cantidad={10} onCantidadChange={vi.fn()} />,

@@ -65,29 +65,38 @@ export function PreviewMuestra({
         ))}
       </fieldset>
 
-      <ul className="flex flex-col gap-2">
-        {filas.map((fila, indice) => (
-          // El DTO no trae `id` — la key combina los campos disponibles + el
-          // índice (mismo patrón que el `<ul>` de resultado de SubirCartola).
-          <li
-            key={`${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}-${indice}`}
-            className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm"
-          >
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>{fila.fecha.slice(0, 10)}</span>
-              <span className="font-medium">{fila.descripcion}</span>
-            </div>
-            <div className="flex items-center justify-between text-foreground">
-              <span>
-                Cargo: <span className="font-medium">{formatearMontoCLP(fila.cargo)}</span>
-              </span>
-              <span>
-                Abono: <span className="font-medium">{formatearMontoCLP(fila.abono)}</span>
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {filas.length === 0 ? (
+        // FIX 3 (review, WARNING): a file with 0 data rows is a legitimate
+        // outcome (`totalFilasDatos: 0`) — render a labeled empty state
+        // instead of a phantom empty `<ul>`.
+        <p role="status" className="text-sm text-muted-foreground">
+          No hay movimientos para mostrar en este archivo.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filas.map((fila, indice) => (
+            // El DTO no trae `id` — la key combina los campos disponibles + el
+            // índice (mismo patrón que el `<ul>` de resultado de SubirCartola).
+            <li
+              key={`${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}-${indice}`}
+              className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm"
+            >
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>{fila.fecha.slice(0, 10)}</span>
+                <span className="font-medium">{fila.descripcion}</span>
+              </div>
+              <div className="flex items-center justify-between text-foreground">
+                <span>
+                  Cargo: <span className="font-medium">{formatearMontoCLP(fila.cargo)}</span>
+                </span>
+                <span>
+                  Abono: <span className="font-medium">{formatearMontoCLP(fila.abono)}</span>
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
