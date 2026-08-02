@@ -152,18 +152,26 @@ export interface IngestaResponseDto {
 
 /**
  * Mirror escrito a mano del DTO HTTP de `GET /api/ingestas`
- * (`us-018-eliminar-ingesta` Slice 2, design.md §7.4). Fuente de verdad en el
+ * (US-018 base; US-004 lo amplía a historial completo). Fuente de verdad en el
  * backend: `apps/api/src/infrastructure/http/dto/ingesta-list.dto.ts`.
  *
  * `totalTransacciones` es un CONTEO de filas (row count), no dinero — `number`
  * plano, sin el tratamiento BigInt-string que llevan `cargo`/`abono` en otros
- * DTOs. `fecha` es ISO-8601 (`Ingesta.creadoEn.toISOString()`).
+ * DTOs; es 0 en ingestas no exitosas (el conteo solo se muestra en las
+ * exitosas, CA-03). `fecha` es ISO-8601 (`Ingesta.creadoEn.toISOString()`).
+ * `estado` viene traducido a lenguaje de UI desde el backend (CA-02) y
+ * `motivoFallo` solo está poblado en las fallidas (CA-04).
  */
+export type EstadoIngestaResumen = 'exitoso' | 'fallido' | 'pendiente'
+
 export interface IngestaListItemDto {
   readonly id: string
   readonly banco: string
+  readonly nombreArchivo: string
   readonly fecha: string
+  readonly estado: EstadoIngestaResumen
   readonly totalTransacciones: number
+  readonly motivoFallo: string | null
 }
 
 /**

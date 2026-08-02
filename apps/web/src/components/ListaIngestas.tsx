@@ -4,6 +4,31 @@ import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
 import { EliminarIngestaControl } from './EliminarIngestaControl'
 import { useIngestas } from '@/api/use-ingestas'
+import type { EstadoIngestaResumen } from '@/api/types'
+
+/**
+ * Presentación del estado de una ingesta (US-004, CA-02) — etiqueta en
+ * lenguaje de UI + estilos del badge. `estado` ya viene traducido desde el
+ * backend ('exitoso'|'fallido'|'pendiente'); acá solo se decide cómo se ve.
+ * Femenino porque etiqueta a "la cartola/ingesta".
+ */
+const PRESENTACION_ESTADO: Record<
+  EstadoIngestaResumen,
+  { label: string; badgeClassName: string }
+> = {
+  exitoso: {
+    label: 'Exitosa',
+    badgeClassName: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  },
+  fallido: {
+    label: 'Fallida',
+    badgeClassName: 'bg-destructive/10 text-destructive',
+  },
+  pendiente: {
+    label: 'Pendiente',
+    badgeClassName: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+  },
+}
 
 /**
  * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3) — owns
@@ -73,19 +98,43 @@ export function ListaIngestas() {
       <ul className="flex flex-col gap-3">
         {query.data.map((ingesta) => {
           const fechaLabel = ingesta.fecha.slice(0, 10)
+          // CA-02: fecha Y hora de carga. Slice ISO a minutos (UTC del
+          // timestamp guardado) — determinista y misma convención "slice ISO"
+          // que aFechaLabel; localizar a hora chilena queda como mejora.
+          const fechaHoraLabel = ingesta.fecha.slice(0, 16).replace('T', ' ')
+          const estado = PRESENTACION_ESTADO[ingesta.estado]
           return (
             <li
               key={ingesta.id}
               className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm"
             >
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>{fechaLabel}</span>
+                <span>{fechaHoraLabel}</span>
                 <span className="font-medium text-foreground">{ingesta.banco}</span>
               </div>
-              <div className="flex items-center justify-between text-sm text-foreground">
-                <span>
-                  {ingesta.totalTransacciones} {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium text-foreground" title={ingesta.nombreArchivo}>
+                  {ingesta.nombreArchivo}
                 </span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${estado.badgeClassName}`}
+                >
+                  {estado.label}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-sm text-foreground">
+                {/* CA-03: el conteo solo tiene sentido en las exitosas; en fallidas se muestra el motivo (CA-04) */}
+                {ingesta.estado === 'exitoso' ? (
+                  <span>
+                    {ingesta.totalTransacciones} {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
+                  </span>
+                ) : ingesta.estado === 'fallido' ? (
+                  <span className="text-destructive">
+                    {ingesta.motivoFallo ?? 'Sin detalle del error'}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Procesamiento pendiente</span>
+                )}
                 <EliminarIngestaControl
                   id={ingesta.id}
                   banco={ingesta.banco}

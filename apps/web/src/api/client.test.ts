@@ -744,8 +744,11 @@ describe('postIngesta', () => {
 const validIngestaListItem: IngestaListItemDto = {
   id: 'ingesta-1',
   banco: 'BancoEstado',
+  nombreArchivo: 'cartola-julio.xlsx',
   fecha: '2026-07-15T00:00:00.000Z',
+  estado: 'exitoso',
   totalTransacciones: 12,
+  motivoFallo: null,
 }
 
 describe('fetchIngestas', () => {
