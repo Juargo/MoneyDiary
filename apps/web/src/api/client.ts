@@ -592,14 +592,26 @@ export async function previewIngesta(file: File): Promise<ApiResult<PreviewInges
 
 /**
  * Guarda money-safety para `IngestaListItemDto` (`us-018-eliminar-ingesta`
- * Slice 2, design.md §7.1): `totalTransacciones` es un CONTEO de filas, no
- * dinero — se valida con `typeof === 'number'`, NO `esMontoStringValido` (esa
- * guarda es solo para strings decimales BigInt-safe, este campo nunca lo es).
- * `fecha` se valida con `esFechaValida` (mismo razonamiento que
+ * Slice 2, design.md §7.1; widened by `us-004-historial-ingestas` Slice 3,
+ * design.md §9): `totalTransacciones` es un CONTEO de filas, no dinero — se
+ * valida con `typeof === 'number'`, NO `esMontoStringValido` (esa guarda es
+ * solo para strings decimales BigInt-safe, este campo nunca lo es). `fecha`
+ * se valida con `esFechaValida` (mismo razonamiento que
  * `esDetalleBucketTransaccionDto`: un `fecha` no parseable produciría una
  * fecha garbled en pantalla en vez de fallar explícito). Un 2xx que no cumpla
  * la forma esperada se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
+ *
+ * US-004 widen: `banco`/`motivoFallo` aceptan explícitamente `null` (una
+ * `FALLIDA` temprana no tiene banco resuelto ni, para una `PROCESADA`, motivo
+ * de falla) — se valida `=== null || typeof === 'string'`, no simplemente
+ * `typeof === 'string'` (eso rechazaría el `null` legítimo). `estado` se
+ * valida contra la unión exacta `'PROCESADA' | 'FALLIDA'` vía
+ * `esIngestaEstado`, nunca un `string` suelto.
  */
+function esIngestaEstado(value: unknown): value is IngestaListItemDto['estado'] {
+  return value === 'PROCESADA' || value === 'FALLIDA'
+}
+
 function esIngestaListItemDto(value: unknown): value is IngestaListItemDto {
   if (typeof value !== 'object' || value === null) {
     return false
@@ -607,7 +619,10 @@ function esIngestaListItemDto(value: unknown): value is IngestaListItemDto {
   const candidato = value as Partial<IngestaListItemDto>
   return (
     typeof candidato.id === 'string' &&
-    typeof candidato.banco === 'string' &&
+    (candidato.banco === null || typeof candidato.banco === 'string') &&
+    typeof candidato.nombreArchivo === 'string' &&
+    esIngestaEstado(candidato.estado) &&
+    (candidato.motivoFallo === null || typeof candidato.motivoFallo === 'string') &&
     typeof candidato.fecha === 'string' &&
     esFechaValida(candidato.fecha) &&
     typeof candidato.totalTransacciones === 'number'

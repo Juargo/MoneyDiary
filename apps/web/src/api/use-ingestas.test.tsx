@@ -10,10 +10,10 @@ const validIngestas: IngestaListItemDto[] = [
     id: 'ingesta-1',
     banco: 'BancoEstado',
     nombreArchivo: 'cartola-julio.xlsx',
-    fecha: '2026-07-15T00:00:00.000Z',
-    estado: 'exitoso',
-    totalTransacciones: 12,
+    estado: 'PROCESADA',
     motivoFallo: null,
+    fecha: '2026-07-15T00:00:00.000Z',
+    totalTransacciones: 12,
   },
 ]
 

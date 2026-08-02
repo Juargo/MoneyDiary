@@ -10,22 +10,32 @@ const dosIngestas: IngestaListItemDto[] = [
   {
     id: 'ingesta-1',
     banco: 'BancoEstado',
-    nombreArchivo: 'cartola-julio.xlsx',
-    fecha: '2026-07-15T14:30:00.000Z',
-    estado: 'exitoso',
-    totalTransacciones: 12,
+    nombreArchivo: 'cartola-bancoestado.xlsx',
+    estado: 'PROCESADA',
     motivoFallo: null,
+    fecha: '2026-07-15T00:00:00.000Z',
+    totalTransacciones: 12,
   },
   {
     id: 'ingesta-2',
     banco: 'BCI',
-    nombreArchivo: 'movimientos.xlsx',
-    fecha: '2026-07-01T09:05:00.000Z',
-    estado: 'exitoso',
-    totalTransacciones: 1,
+    nombreArchivo: 'cartola-bci.xlsx',
+    estado: 'PROCESADA',
     motivoFallo: null,
+    fecha: '2026-07-01T00:00:00.000Z',
+    totalTransacciones: 1,
   },
 ]
+
+const ingestaFallida: IngestaListItemDto = {
+  id: 'ingesta-3',
+  banco: null,
+  nombreArchivo: 'cartola.docx',
+  estado: 'FALLIDA',
+  motivoFallo: 'Extensión de archivo no soportada: .docx',
+  fecha: '2026-07-20T00:00:00.000Z',
+  totalTransacciones: 0,
+}
 
 function crearWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -71,59 +81,20 @@ describe('ListaIngestas', () => {
     expect(await screen.findByText(/no hay cartolas/i)).toBeInTheDocument()
   })
 
-  it('renders each ingesta row with nombre de archivo, banco, formatted fecha, estado, and the movement count, plus its delete control', async () => {
+  it('renders each ingesta row with banco, formatted fecha, and the movement count, plus its delete control', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: dosIngestas }) })
 
     render(<ListaIngestas />, { wrapper: crearWrapper() })
 
-    expect(await screen.findByText('cartola-julio.xlsx')).toBeInTheDocument()
-    expect(screen.getByText('BancoEstado')).toBeInTheDocument()
-    expect(screen.getByText('2026-07-15 14:30')).toBeInTheDocument()
+    expect(await screen.findByText('BancoEstado')).toBeInTheDocument()
+    expect(screen.getByText('2026-07-15')).toBeInTheDocument()
     expect(screen.getByText('12 movimientos')).toBeInTheDocument()
 
-    expect(screen.getByText('movimientos.xlsx')).toBeInTheDocument()
     expect(screen.getByText('BCI')).toBeInTheDocument()
-    expect(screen.getByText('2026-07-01 09:05')).toBeInTheDocument()
+    expect(screen.getByText('2026-07-01')).toBeInTheDocument()
     expect(screen.getByText('1 movimiento')).toBeInTheDocument()
 
-    // CA-02: estado visible por fila (ambas exitosas aquí)
-    expect(screen.getAllByText('Exitosa')).toHaveLength(2)
-
     expect(screen.getAllByRole('button', { name: /^Eliminar cartola/i })).toHaveLength(2)
-  })
-
-  it('shows estado + motivoFallo for a failed ingesta and hides the movement count (CA-03/CA-04)', async () => {
-    const conFallidaYPendiente: IngestaListItemDto[] = [
-      {
-        id: 'ingesta-fallida',
-        banco: 'Santander',
-        nombreArchivo: 'rota.xlsx',
-        fecha: '2026-07-20T00:00:00.000Z',
-        estado: 'fallido',
-        totalTransacciones: 0,
-        motivoFallo: 'Formato de fecha no reconocido',
-      },
-      {
-        id: 'ingesta-pendiente',
-        banco: 'BCI',
-        nombreArchivo: 'a-medias.xlsx',
-        fecha: '2026-07-19T00:00:00.000Z',
-        estado: 'pendiente',
-        totalTransacciones: 0,
-        motivoFallo: null,
-      },
-    ]
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: conFallidaYPendiente }) })
-
-    render(<ListaIngestas />, { wrapper: crearWrapper() })
-
-    expect(await screen.findByText('rota.xlsx')).toBeInTheDocument()
-    expect(screen.getByText('Fallida')).toBeInTheDocument()
-    expect(screen.getByText('Formato de fecha no reconocido')).toBeInTheDocument()
-    expect(screen.getByText('Pendiente')).toBeInTheDocument()
-
-    // CA-03: el conteo solo se muestra en las exitosas — nunca "0 movimientos"
-    expect(screen.queryByText(/movimiento/)).not.toBeInTheDocument()
   })
 
   it('a successful delete removes the row, announces it in a stable live region, and keeps focus off document.body', async () => {
@@ -168,5 +139,72 @@ describe('ListaIngestas', () => {
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
+  })
+
+  it('renders a FALLIDA row with nombreArchivo, motivoFallo, banco as "—", and no delete control (US-004, ING-05)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: [ingestaFallida] }) })
+
+    render(<ListaIngestas />, { wrapper: crearWrapper() })
+
+    expect(await screen.findByText('cartola.docx')).toBeInTheDocument()
+    expect(screen.getByText('Extensión de archivo no soportada: .docx')).toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('Fallido')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Eliminar cartola/i })).not.toBeInTheDocument()
+  })
+
+  it('renders a PROCESADA row with its transaction count and the delete control (regression guard, US-018)', async () => {
+    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ ingestas: [dosIngestas[0]] }) })
+
+    render(<ListaIngestas />, { wrapper: crearWrapper() })
+
+    expect(await screen.findByText('cartola-bancoestado.xlsx')).toBeInTheDocument()
+    expect(screen.getByText('Exitoso')).toBeInTheDocument()
+    expect(screen.getByText('12 movimientos')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i })).toBeInTheDocument()
+  })
+
+  it('renders a mixed list (PROCESADA + FALLIDA) with each row branching correctly (US-004, CA-01/CA-02)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [dosIngestas[0], ingestaFallida] }),
+    })
+
+    render(<ListaIngestas />, { wrapper: crearWrapper() })
+
+    expect(await screen.findByText('cartola-bancoestado.xlsx')).toBeInTheDocument()
+    expect(screen.getByText('Exitoso')).toBeInTheDocument()
+    expect(screen.getByText('cartola.docx')).toBeInTheDocument()
+    expect(screen.getByText('Fallido')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Eliminar cartola/i })).toHaveLength(1)
+  })
+
+  it('the PROCESADA delete flow keeps working exactly as US-018 shipped it, even in a list that also has a FALLIDA row', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [dosIngestas[0], ingestaFallida] }),
+    })
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 204 })
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ingestas: [ingestaFallida] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ListaIngestas />, { wrapper: crearWrapper() })
+
+    await screen.findByText('cartola-bancoestado.xlsx')
+    await user.click(screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Se eliminarán 12 movimientos de BancoEstado')
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() => expect(screen.queryByText('cartola-bancoestado.xlsx')).not.toBeInTheDocument())
+    expect(screen.getByText('cartola.docx')).toBeInTheDocument()
   })
 })

@@ -3,57 +3,28 @@ import { Loading } from './states/Loading'
 import { ErrorState } from './states/Error'
 import { Empty } from './states/Empty'
 import { EliminarIngestaControl } from './EliminarIngestaControl'
+import { Badge } from './ui/badge'
 import { useIngestas } from '@/api/use-ingestas'
-import type { EstadoIngestaResumen } from '@/api/types'
+import type { IngestaListItemDto } from '@/api/types'
 
 /**
- * Presentación del estado de una ingesta (US-004, CA-02) — etiqueta en
- * lenguaje de UI + estilos del badge. `estado` ya viene traducido desde el
- * backend ('exitoso'|'fallido'|'pendiente'); acá solo se decide cómo se ve.
- * Femenino porque etiqueta a "la cartola/ingesta".
- */
-const PRESENTACION_ESTADO: Record<
-  EstadoIngestaResumen,
-  { label: string; badgeClassName: string }
-> = {
-  exitoso: {
-    label: 'Exitosa',
-    badgeClassName: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-  },
-  fallido: {
-    label: 'Fallida',
-    badgeClassName: 'bg-destructive/10 text-destructive',
-  },
-  pendiente: {
-    label: 'Pendiente',
-    badgeClassName: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-  },
-}
-
-/**
- * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3) — owns
- * `useIngestas` directly (single query, no interactive selector to decouple
- * from the router — same reasoning as `BucketDetailList`: one component
- * covers fetch + {loading|error|empty|data} + rendering).
+ * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3; widened
+ * by `us-004-historial-ingestas` Slice 3, design.md §9) — owns `useIngestas`
+ * directly (single query, no interactive selector to decouple from the
+ * router — same reasoning as `BucketDetailList`: one component covers fetch
+ * + {loading|error|empty|data} + rendering).
  *
  * Reuses the shared Loading/ErrorState/Empty states (W1), passing
  * list-appropriate copy — do not reimplement the components themselves
  * (DRY).
  *
- * Each row (US-004 audit trail) shows the file name (`nombreArchivo`), the
- * upload date+time and banco, a colored estado badge (`PRESENTACION_ESTADO`,
- * CA-02), and an estado-dependent content line: the movement count for
- * `exitoso` (CA-03), the `motivoFallo` for `fallido` (CA-04), or a neutral
- * "Procesamiento pendiente" for `pendiente`. Each row also carries its own
- * `EliminarIngestaControl` (ING-05/ING-06), passed the row `estado` so the
- * confirmation copy stays honest for failed/pending cartolas.
- *
- * Both date labels are sliced from the ISO string (same convention as
- * `detalle-bucket-view-model.ts#aFechaLabel`, kept local — not worth a shared
- * import): `fechaLabel` (`YYYY-MM-DD`) for the delete control, and
- * `fechaHoraLabel` (`YYYY-MM-DD HH:mm`, UTC) for the row header.
- * `EliminarIngestaControl` never touches the raw ISO string (mirrors
- * `montoLabel` on `ReclasificarCategoriaControl`).
+ * Each row's rendering is delegated to `IngestaItem` (below), which branches
+ * on `estado` (US-004, ING-03/ING-05): a `PROCESADA` row keeps the original
+ * US-018 shape (banco, count, `EliminarIngestaControl`); a `FALLIDA` row
+ * renders `motivoFallo` instead and offers **no** delete control — deleting
+ * a failed attempt is out of scope this sprint (design §8/D8, ING-05
+ * regression guard). `nombreArchivo` and a visible "Exitoso"/"Fallido" badge
+ * (never color alone, ADR-018) render for every row regardless of estado.
  *
  * Success announcement + focus (review finding, a11y): a successful delete
  * unmounts the `<li>` that held BOTH the focused trigger button AND
@@ -103,59 +74,75 @@ export function ListaIngestas() {
         {anuncio}
       </span>
       <ul className="flex flex-col gap-3">
-        {query.data.map((ingesta) => {
-          const fechaLabel = ingesta.fecha.slice(0, 10)
-          // CA-02: fecha Y hora de carga. Slice ISO a minutos (UTC del
-          // timestamp guardado) — determinista y misma convención "slice ISO"
-          // que aFechaLabel; localizar a hora chilena queda como mejora.
-          const fechaHoraLabel = ingesta.fecha.slice(0, 16).replace('T', ' ')
-          const estado = PRESENTACION_ESTADO[ingesta.estado]
-          return (
-            <li
-              key={ingesta.id}
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm"
-            >
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>{fechaHoraLabel}</span>
-                <span className="font-medium text-foreground">{ingesta.banco}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium text-foreground" title={ingesta.nombreArchivo}>
-                  {ingesta.nombreArchivo}
-                </span>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${estado.badgeClassName}`}
-                >
-                  {estado.label}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2 text-sm text-foreground">
-                {/* CA-03: el conteo solo tiene sentido en las exitosas; en fallidas se muestra el motivo (CA-04) */}
-                {ingesta.estado === 'exitoso' ? (
-                  <span>
-                    {ingesta.totalTransacciones} {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
-                  </span>
-                ) : ingesta.estado === 'fallido' ? (
-                  <span className="text-destructive">
-                    {/* `||` (no `??`): un motivoFallo '' también cae al fallback */}
-                    {ingesta.motivoFallo || 'Sin detalle del error'}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Procesamiento pendiente</span>
-                )}
-                <EliminarIngestaControl
-                  id={ingesta.id}
-                  banco={ingesta.banco}
-                  fechaLabel={fechaLabel}
-                  estado={ingesta.estado}
-                  totalTransacciones={ingesta.totalTransacciones}
-                  onEliminado={alEliminar}
-                />
-              </div>
-            </li>
-          )
-        })}
+        {query.data.map((ingesta) => (
+          <IngestaItem key={ingesta.id} ingesta={ingesta} onEliminado={alEliminar} />
+        ))}
       </ul>
     </div>
+  )
+}
+
+/**
+ * IngestaItem — a single historial row (US-004, design.md §9). Branches on
+ * `estado`:
+ * - `PROCESADA`: banco, movement count, and the (unchanged, US-018) delete
+ *   control. `banco` is coalesced to `''` only for the prop hand-off to
+ *   `EliminarIngestaControl` (design §8 type-level note) — the invariant
+ *   `PROCESADA ⟹ accountId/banco NOT NULL` (design §3.1) makes it always a
+ *   real value at runtime; TS can't see that invariant across the `estado`
+ *   field, so the coalesce is required to satisfy strict null-checking, not
+ *   a behavioral fallback.
+ * - `FALLIDA`: `motivoFallo` instead of a count, and **no** delete control
+ *   (ING-05 — the delete affordance is gated to PROCESADA rows only).
+ *   `banco` renders as "—" when null (early failures have no resolved bank,
+ *   design §3.3).
+ *
+ * `nombreArchivo` is rendered as plain JSX text (React auto-escapes) — it is
+ * a client-controlled, uploaded file name, never trusted as markup.
+ */
+function IngestaItem({
+  ingesta,
+  onEliminado,
+}: {
+  readonly ingesta: IngestaListItemDto
+  readonly onEliminado: () => void
+}) {
+  const fechaLabel = ingesta.fecha.slice(0, 10)
+  const esFallida = ingesta.estado === 'FALLIDA'
+
+  return (
+    <li className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>{fechaLabel}</span>
+        <Badge variant={esFallida ? 'destructive' : 'secondary'}>{esFallida ? 'Fallido' : 'Exitoso'}</Badge>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-foreground">{ingesta.nombreArchivo}</span>
+        <span className="text-muted-foreground">{ingesta.banco ?? '—'}</span>
+      </div>
+      {esFallida ? (
+        <p className="text-sm text-destructive">{ingesta.motivoFallo}</p>
+      ) : (
+        <div className="flex items-center justify-between text-sm text-foreground">
+          <span>
+            {ingesta.totalTransacciones} {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
+          </span>
+          {/* `estado="exitoso"` is hardcoded (not derived from `ingesta.estado`):
+              this branch only renders for PROCESADA rows (US-004 gating
+              above), which is always the "exitoso" case in
+              `EliminarIngestaControl`'s own (pre-US-004) `EstadoIngestaResumen`
+              vocabulary — the two components intentionally speak different
+              estado vocabularies at this boundary. */}
+          <EliminarIngestaControl
+            id={ingesta.id}
+            banco={ingesta.banco ?? ''}
+            fechaLabel={fechaLabel}
+            estado="exitoso"
+            totalTransacciones={ingesta.totalTransacciones}
+            onEliminado={onEliminado}
+          />
+        </div>
+      )}
+    </li>
   )
 }
