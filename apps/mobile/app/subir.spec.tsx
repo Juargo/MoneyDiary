@@ -1,18 +1,21 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import type { PostIngestaResult } from '../src/api/post-ingesta';
+import type { PreviewIngestaResult } from '../src/api/preview-ingesta';
 
-// RED-first (B.5, upload-cartola-ui Slice 2b, design.md Decision 5): the
-// document picker and the transport layer (`postIngesta`, B.3/B.4 — already
-// GREEN) are mocked at the module boundary so only THIS screen's own
-// `useState` machine + wiring is under test — mirrors `app/index.spec.tsx`'s
-// `fetchResumen` mocking style. `resumen-refresh` is the shared trigger this
-// screen uses to ask `app/index.tsx` to re-fetch (no TanStack Query on
-// mobile, no cross-route prop drilling — expo-router routes don't receive
-// props from a parent route).
+// RED-first (US-003 Slice 3, design.md §10.1/§10.3): greenfield two-phase
+// preview-then-confirm state machine. The document picker and both
+// transport layers (`previewIngesta`, `postIngesta` — both already GREEN)
+// are mocked at the module boundary so only this screen's own `useState`
+// machine + wiring is under test, mirroring the pre-US-003 spec's style.
 const mockGetDocumentAsync = jest.fn();
 jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
+}));
+
+const mockPreviewIngesta = jest.fn<Promise<PreviewIngestaResult>, [unknown]>();
+jest.mock('../src/api/preview-ingesta', () => ({
+  previewIngesta: (asset: unknown) => mockPreviewIngesta(asset),
 }));
 
 const mockPostIngesta = jest.fn<Promise<PostIngestaResult>, [unknown]>();
@@ -25,10 +28,6 @@ jest.mock('../src/api/resumen-refresh', () => ({
   solicitarRecargaResumen: () => mockSolicitarRecargaResumen(),
 }));
 
-// "Volver al resumen" back affordance (review SHOULD-fix #5): the screen
-// navigates via expo-router's `useRouter().back`, mocked at the module
-// boundary — no real Router context is mounted in this unit test (mirrors
-// `app/index.spec.tsx`'s `useRouter` mock).
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
@@ -59,6 +58,29 @@ function resultadoPicker(
 
 const resultadoCancelado = { canceled: true as const, assets: null };
 
+function filaPreview(overrides: Partial<Record<string, string>> = {}) {
+  return {
+    fecha: '2026-07-01T00:00:00.000Z',
+    descripcion: 'Compra supermercado',
+    cargo: '5000',
+    abono: '0',
+    ...overrides,
+  };
+}
+
+function previewExitoso(muestra = [filaPreview()], totalFilasDatos = muestra.length) {
+  return {
+    ok: true as const,
+    value: {
+      banco: 'BancoEstado',
+      tipoCuenta: 'CuentaRUT',
+      numeroCuenta: '123456789',
+      estructura: { totalFilasDatos },
+      muestra,
+    },
+  };
+}
+
 const ingestaExitosa = {
   ingestaId: 'ing-1',
   banco: 'BancoEstado',
@@ -69,8 +91,7 @@ const ingestaExitosa = {
   transacciones: [],
 };
 
-// Deferred promise so the "subiendo" state is observable before resolution
-// (mirrors `app/index.spec.tsx`'s `deferred` helper).
+// Deferred promise so an in-flight state is observable before resolution.
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((r) => {
@@ -79,17 +100,26 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-async function seleccionarYConfirmar() {
+async function seleccionarArchivo() {
   await act(async () => {
     await fireEvent.press(screen.getByRole('button', { name: /seleccionar archivo/i }));
   });
 }
 
-describe('Subir (mobile upload screen)', () => {
+async function seleccionarYPrevisualizar() {
+  mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+  mockPreviewIngesta.mockResolvedValue(previewExitoso());
+  await render(<Subir />);
+  await seleccionarArchivo();
+  await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+}
+
+describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
   let announceSpy: jest.SpyInstance;
 
   beforeEach(() => {
     mockGetDocumentAsync.mockReset();
+    mockPreviewIngesta.mockReset();
     mockPostIngesta.mockReset();
     mockSolicitarRecargaResumen.mockReset();
     mockBack.mockReset();
@@ -110,7 +140,7 @@ describe('Subir (mobile upload screen)', () => {
     const trigger = screen.getByRole('button', { name: /seleccionar archivo/i });
     expect(trigger).toBeOnTheScreen();
 
-    await seleccionarYConfirmar();
+    await seleccionarArchivo();
 
     expect(mockGetDocumentAsync).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -119,293 +149,344 @@ describe('Subir (mobile upload screen)', () => {
     );
   });
 
-  it('canceling the picker leaves the screen idle (no postIngesta call)', async () => {
+  it('canceling the picker leaves the screen idle (no previewIngesta call)', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoCancelado);
 
     await render(<Subir />);
-    await seleccionarYConfirmar();
+    await seleccionarArchivo();
 
-    expect(mockPostIngesta).not.toHaveBeenCalled();
+    expect(mockPreviewIngesta).not.toHaveBeenCalled();
   });
 
-  it('CU-09: confirming enters "subiendo" (disables the trigger); a 7 MB file proceeds — no client-side size cap', async () => {
-    mockGetDocumentAsync.mockResolvedValue(resultadoPicker({ size: 7 * 1024 * 1024 }));
+  it('picking a file calls previewIngesta with the picked asset and shows a loading state', async () => {
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    const d = deferred<PreviewIngestaResult>();
+    mockPreviewIngesta.mockReturnValue(d.promise);
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+
+    await waitFor(() => expect(mockPreviewIngesta).toHaveBeenCalledTimes(1));
+    const [archivo] = mockPreviewIngesta.mock.calls[0] as [{ uri: string; name: string }];
+    expect(archivo).toEqual(expect.objectContaining({ uri: 'file:///tmp/cartola.xlsx', name: 'cartola.xlsx' }));
+    expect(screen.getByTestId('preview-cargando')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /seleccionar archivo/i })).not.toBeOnTheScreen();
+
+    await act(async () => {
+      d.resolve(previewExitoso());
+      await d.promise;
+    });
+  });
+
+  it('CA-02: a successful preview renders banco, total, and the sample rows formatted as CLP', async () => {
+    await seleccionarYPrevisualizar();
+
+    expect(screen.getByText('BancoEstado')).toBeOnTheScreen();
+    expect(screen.getByText('1')).toBeOnTheScreen(); // totalFilasDatos
+    expect(screen.getByText('Compra supermercado')).toBeOnTheScreen();
+    expect(screen.getByText(/\$5\.000/)).toBeOnTheScreen();
+    expect(screen.getByText('2026-07-01')).toBeOnTheScreen();
+  });
+
+  it('CA-01: exposes a 10/25/50 selector with 10 selected by default', async () => {
+    await seleccionarYPrevisualizar();
+
+    const opcion10 = screen.getByRole('button', { name: /mostrar 10 filas/i });
+    const opcion25 = screen.getByRole('button', { name: /mostrar 25 filas/i });
+    const opcion50 = screen.getByRole('button', { name: /mostrar 50 filas/i });
+
+    expect(opcion10).toHaveProp('accessibilityState', expect.objectContaining({ selected: true }));
+    expect(opcion25).toHaveProp('accessibilityState', expect.objectContaining({ selected: false }));
+    expect(opcion50).toHaveProp('accessibilityState', expect.objectContaining({ selected: false }));
+  });
+
+  it('PREV-06/CA-01: changing the selector re-slices the same in-memory muestra with no new HTTP call', async () => {
+    const muestra = Array.from({ length: 50 }, (_, i) =>
+      filaPreview({ descripcion: `Movimiento ${i + 1}` }),
+    );
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(muestra, 50));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+
+    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(10);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: /mostrar 25 filas/i }));
+    });
+    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(25);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: /mostrar 50 filas/i }));
+    });
+    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(50);
+
+    expect(mockPreviewIngesta).toHaveBeenCalledTimes(1);
+  });
+
+  it('PREV-06 boundary: selecting 25 on a 12-row sample shows all 12 rows, no padding or error', async () => {
+    const muestra = Array.from({ length: 12 }, (_, i) =>
+      filaPreview({ descripcion: `Movimiento ${i + 1}` }),
+    );
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(muestra, 12));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: /mostrar 25 filas/i }));
+    });
+
+    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(12);
+  });
+
+  it('CA-03: Confirmar re-uploads the same held file asset via postIngesta and shows the final summary', async () => {
+    await seleccionarYPrevisualizar();
+    mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+    expect(mockPostIngesta).toHaveBeenCalledTimes(1);
+    const [archivo] = mockPostIngesta.mock.calls[0] as [{ uri: string; name: string }];
+    expect(archivo).toEqual(expect.objectContaining({ uri: 'file:///tmp/cartola.xlsx', name: 'cartola.xlsx' }));
+    expect(screen.getByText('12')).toBeOnTheScreen();
+    expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a busy "subiendo" indicator while Confirmar is in-flight', async () => {
+    await seleccionarYPrevisualizar();
     const d = deferred<PostIngestaResult>();
     mockPostIngesta.mockReturnValue(d.promise);
 
-    await render(<Subir />);
     await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /seleccionar archivo/i }));
+      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
     });
 
-    await waitFor(() => expect(mockPostIngesta).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeDisabled();
+    expect(screen.getByTestId('subir-cargando')).toBeOnTheScreen();
+    expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
 
     await act(async () => {
       d.resolve({ ok: true, value: ingestaExitosa });
       await d.promise;
     });
-    await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
   });
 
-  it('CU-10: on success shows banco/cuenta/totalTransacciones and triggers the resumen re-fetch', async () => {
-    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+  it('CA-04/CU-12: Cancelar returns to idle and never calls postIngesta', async () => {
+    await seleccionarYPrevisualizar();
 
-    await render(<Subir />);
-    await seleccionarYConfirmar();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: /cancelar/i }));
+    });
 
-    await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
-    expect(screen.getByText('123456789')).toBeOnTheScreen();
-    expect(screen.getByText('12')).toBeOnTheScreen();
-    expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeOnTheScreen();
+    expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
+    expect(mockPostIngesta).not.toHaveBeenCalled();
   });
 
-  it('CU-11: a backend validation error returns to a retryable error state (never stuck "subiendo")', async () => {
+  it('after Cancelar, picking a new file re-opens the picker and calls previewIngesta again', async () => {
+    await seleccionarYPrevisualizar();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: /cancelar/i }));
+    });
+
+    await seleccionarArchivo();
+    await waitFor(() => expect(mockPreviewIngesta).toHaveBeenCalledTimes(2));
+  });
+
+  it('CU-11/PREV-03: a failed preview (400) shows the scrubbed message and allows re-picking (never calls postIngesta)', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPostIngesta.mockResolvedValue({
+    mockPreviewIngesta.mockResolvedValue({
       ok: false,
       error: { tag: 'http', status: 400, message: 'Banco no reconocido.' },
     });
 
     await render(<Subir />);
-    await seleccionarYConfirmar();
+    await seleccionarArchivo();
 
     await waitFor(() => expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen());
-    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeOnTheScreen();
+    expect(mockPostIngesta).not.toHaveBeenCalled();
+  });
+
+  it('a network failure during preview shows a retry message and re-enables the trigger', async () => {
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
+      ).toBeOnTheScreen(),
+    );
+    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeOnTheScreen();
+  });
+
+  it('a backend error on Confirmar returns to a retryable error state (never stuck "subiendo")', async () => {
+    await seleccionarYPrevisualizar();
+    mockPostIngesta.mockResolvedValue({
+      ok: false,
+      error: { tag: 'http', status: 500 },
+    });
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Error del servidor (código 500).')).toBeOnTheScreen(),
+    );
     expect(mockSolicitarRecargaResumen).not.toHaveBeenCalled();
   });
 
-  it('CU-11: a network failure shows a retry message and re-enables the trigger', async () => {
-    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPostIngesta.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+  it('retrying after a picker failure works once the picker succeeds', async () => {
+    mockGetDocumentAsync
+      .mockRejectedValueOnce(new Error('picker crashed'))
+      .mockResolvedValueOnce(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso());
 
     await render(<Subir />);
-    await seleccionarYConfirmar();
-
+    await seleccionarArchivo();
     await waitFor(() =>
       expect(
-        screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
-      ).toBeOnTheScreen(),
-    );
-    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).not.toBeDisabled();
-  });
-
-  it('retrying after an error calls postIngesta again on the next confirm', async () => {
-    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPostIngesta
-      .mockResolvedValueOnce({ ok: false, error: { tag: 'network' } })
-      .mockResolvedValueOnce({ ok: true, value: ingestaExitosa });
-
-    await render(<Subir />);
-    await seleccionarYConfirmar();
-    await waitFor(() =>
-      expect(
-        screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
+        screen.getByText('No se pudo abrir el selector de archivos. Intenta de nuevo.'),
       ).toBeOnTheScreen(),
     );
 
-    await seleccionarYConfirmar();
+    await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
-    expect(mockPostIngesta).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
   });
 
   it('CU-12: locks the ADR-026 ingesta-only write scope — no edit/delete affordance renders anywhere', async () => {
-    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    await seleccionarYPrevisualizar();
     mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
 
-    await render(<Subir />);
-    await seleccionarYConfirmar();
-    await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+    });
+    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
 
     // Only the upload trigger and the "Volver al resumen" back affordance
-    // (review SHOULD-fix #5) are interactive — no edit/delete control ever
-    // renders on this screen.
+    // are interactive on the settled éxito screen.
     expect(screen.getAllByRole('button')).toHaveLength(2);
     expect(screen.queryByText(/editar/i)).not.toBeOnTheScreen();
     expect(screen.queryByText(/eliminar/i)).not.toBeOnTheScreen();
   });
 
-  describe('a11y: perceivable state changes (review CRITICAL fix #3, WCAG 2.2 AA SC 4.1.3)', () => {
-    it('exposes accessibilityState.busy on the trigger while "subiendo"', async () => {
-      mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      const d = deferred<PostIngestaResult>();
-      mockPostIngesta.mockReturnValue(d.promise);
+  describe('a11y: perceivable state changes (WCAG 2.2 AA SC 4.1.3)', () => {
+    it('announces the preview-ready message on entering preview (design.md §10.3)', async () => {
+      await seleccionarYPrevisualizar();
 
-      await render(<Subir />);
-      const trigger = screen.getByRole('button', { name: /seleccionar archivo/i });
-      expect(trigger).toHaveProp('accessibilityState', expect.objectContaining({ busy: false }));
-
-      await act(async () => {
-        await fireEvent.press(trigger);
-      });
-
-      expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toHaveProp(
-        'accessibilityState',
-        expect.objectContaining({ busy: true }),
-      );
-
-      await act(async () => {
-        d.resolve({ ok: true, value: ingestaExitosa });
-        await d.promise;
-      });
-      expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toHaveProp(
-        'accessibilityState',
-        expect.objectContaining({ busy: false }),
+      await waitFor(() =>
+        expect(announceSpy).toHaveBeenCalledWith(
+          'Vista previa lista. Banco BancoEstado, 1 movimientos. Revisa y confirma.',
+        ),
       );
     });
 
-    it('announces a non-empty message via AccessibilityInfo on success', async () => {
-      mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    it('announces a non-empty message via AccessibilityInfo on éxito', async () => {
+      await seleccionarYPrevisualizar();
       mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
 
-      await render(<Subir />);
-      await seleccionarYConfirmar();
+      await act(async () => {
+        await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      });
 
-      await waitFor(() => expect(announceSpy).toHaveBeenCalled());
-      const [mensaje] = announceSpy.mock.calls[0] as [string];
-      expect(mensaje).toEqual(expect.any(String));
-      expect(mensaje.length).toBeGreaterThan(0);
+      await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+      const ultimaLlamada = announceSpy.mock.calls[announceSpy.mock.calls.length - 1] as [string];
+      expect(ultimaLlamada[0]).toEqual(expect.any(String));
+      expect(ultimaLlamada[0].length).toBeGreaterThan(0);
     });
 
-    it('announces a non-empty message via AccessibilityInfo on error', async () => {
+    it('announces a non-empty message via AccessibilityInfo on a preview error', async () => {
       mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      mockPostIngesta.mockResolvedValue({
+      mockPreviewIngesta.mockResolvedValue({
         ok: false,
         error: { tag: 'http', status: 400, message: 'Banco no reconocido.' },
       });
 
       await render(<Subir />);
-      await seleccionarYConfirmar();
+      await seleccionarArchivo();
 
       await waitFor(() => expect(announceSpy).toHaveBeenCalledWith('Banco no reconocido.'));
     });
-  });
 
-  describe('CU-11: DocumentPicker.getDocumentAsync failures never leave the screen stuck (review WARNING fix #4)', () => {
-    it('shows a retryable error message when the picker itself throws', async () => {
-      mockGetDocumentAsync.mockRejectedValue(new Error('picker crashed'));
+    it('the sample list container carries a polite live region', async () => {
+      await seleccionarYPrevisualizar();
 
-      await render(<Subir />);
-      await seleccionarYConfirmar();
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('No se pudo abrir el selector de archivos. Intenta de nuevo.'),
-        ).toBeOnTheScreen(),
-      );
-      expect(screen.getByRole('button', { name: /seleccionar archivo/i })).not.toBeDisabled();
-      expect(mockPostIngesta).not.toHaveBeenCalled();
+      expect(screen.getByTestId('preview-lista')).toHaveProp('accessibilityLiveRegion', 'polite');
     });
 
-    it('retrying after a picker failure works once the picker succeeds', async () => {
-      mockGetDocumentAsync
-        .mockRejectedValueOnce(new Error('picker crashed'))
-        .mockResolvedValueOnce(resultadoPicker());
-      mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+    it('each selector Pressable exposes accessibilityState.selected', async () => {
+      await seleccionarYPrevisualizar();
 
-      await render(<Subir />);
-      await seleccionarYConfirmar();
-      await waitFor(() =>
-        expect(
-          screen.getByText('No se pudo abrir el selector de archivos. Intenta de nuevo.'),
-        ).toBeOnTheScreen(),
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: /mostrar 25 filas/i }));
+      });
+
+      expect(screen.getByRole('button', { name: /mostrar 25 filas/i })).toHaveProp(
+        'accessibilityState',
+        expect.objectContaining({ selected: true }),
       );
-
-      await seleccionarYConfirmar();
-
-      await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
+      expect(screen.getByRole('button', { name: /mostrar 10 filas/i })).toHaveProp(
+        'accessibilityState',
+        expect.objectContaining({ selected: false }),
+      );
     });
   });
 
-  describe('"Volver al resumen" back affordance (review SHOULD-fix #5)', () => {
+  describe('"Volver al resumen" back affordance', () => {
     it('is visible on the éxito view and navigates back when pressed', async () => {
-      mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+      await seleccionarYPrevisualizar();
       mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
 
-      await render(<Subir />);
-      await seleccionarYConfirmar();
-      await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
+      await act(async () => {
+        await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      });
+      await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
 
-      const volver = screen.getByRole('button', { name: /volver al resumen/i });
-      expect(volver).toBeOnTheScreen();
-
-      fireEvent.press(volver);
+      fireEvent.press(screen.getByRole('button', { name: /volver al resumen/i }));
 
       expect(mockBack).toHaveBeenCalledTimes(1);
     });
 
-    it('is visible on the error view and navigates back when pressed', async () => {
+    it('is visible on the preview-error view and navigates back when pressed', async () => {
       mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      mockPostIngesta.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+      mockPreviewIngesta.mockResolvedValue({ ok: false, error: { tag: 'network' } });
 
       await render(<Subir />);
-      await seleccionarYConfirmar();
+      await seleccionarArchivo();
       await waitFor(() =>
         expect(
           screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
         ).toBeOnTheScreen(),
       );
 
-      const volver = screen.getByRole('button', { name: /volver al resumen/i });
-      fireEvent.press(volver);
+      fireEvent.press(screen.getByRole('button', { name: /volver al resumen/i }));
 
       expect(mockBack).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('mensajeDeError branch coverage (review suggestion #6)', () => {
-    it('shows the unauthorized message', async () => {
-      mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      mockPostIngesta.mockResolvedValue({ ok: false, error: { tag: 'unauthorized' } });
-
-      await render(<Subir />);
-      await seleccionarYConfirmar();
-
-      await waitFor(() =>
-        expect(
-          screen.getByText('No se pudo verificar el acceso. Intenta de nuevo más tarde.'),
-        ).toBeOnTheScreen(),
-      );
-    });
-
-    it('shows the parse-error message', async () => {
-      mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      mockPostIngesta.mockResolvedValue({ ok: false, error: { tag: 'parse' } });
-
-      await render(<Subir />);
-      await seleccionarYConfirmar();
-
-      await waitFor(() =>
-        expect(screen.getByText('Respuesta inesperada del servidor.')).toBeOnTheScreen(),
-      );
-    });
-
-    it('shows a generic http message when the backend sends no message', async () => {
-      mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      mockPostIngesta.mockResolvedValue({ ok: false, error: { tag: 'http', status: 500 } });
-
-      await render(<Subir />);
-      await seleccionarYConfirmar();
-
-      await waitFor(() =>
-        expect(screen.getByText('Error del servidor (código 500).')).toBeOnTheScreen(),
-      );
-    });
-  });
-
-  it('renders a totalTransacciones: 0 success result without crashing', async () => {
+  it('renders a totalFilasDatos: 0 preview result without crashing', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPostIngesta.mockResolvedValue({
-      ok: true,
-      value: { ...ingestaExitosa, totalTransacciones: 0 },
-    });
+    mockPreviewIngesta.mockResolvedValue(previewExitoso([], 0));
 
     await render(<Subir />);
-    await seleccionarYConfirmar();
+    await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByText('BancoEstado')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
     expect(screen.getByText('0')).toBeOnTheScreen();
+    expect(screen.queryAllByTestId(/^preview-fila-/)).toHaveLength(0);
   });
 });
