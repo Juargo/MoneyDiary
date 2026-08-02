@@ -112,11 +112,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               ? 'preview-error'
               : 'idle'
 
+  // FIX 1 (review, BLOCKER): 'exito' is deliberately NOT gated — otherwise a
+  // successful confirm is a dead end (no control resets to 'idle'). Picking
+  // a new file from 'exito' is a valid transition: `handleFileChange` already
+  // resets both mutations before firing a fresh preview.
   const pickerGateado =
     estado === 'previsualizando' ||
     estado === 'preview-listo' ||
     estado === 'subiendo' ||
-    estado === 'exito' ||
     estado === 'error'
 
   useEffect(() => {
@@ -150,6 +153,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
     setArchivo(seleccionado)
     setErrorValidacion(null)
+    // FIX 5 (review, cheap): no `isSubmittingRef` guard here (unlike
+    // `handleConfirmar`) — safe because the preview endpoint (PREV-02) is
+    // read-only/non-persistent, so a duplicate preview call has no side
+    // effect worth guarding against.
     previewMutation.mutate(seleccionado)
   }
 
@@ -176,7 +183,12 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
   const mensajeError = errorValidacion ?? previewMutation.error?.message ?? confirmMutation.error?.message ?? null
   const mensajeEstado: string = MENSAJE_POR_ESTADO[estado]
-  const mostrarPreview = previewMutation.data !== undefined && estado !== 'preview-error'
+  // FIX 2 (review, BLOCKER a11y): `previewMutation.data` stays populated
+  // after a successful confirm (never cleared on 'exito') — exclude 'exito'
+  // explicitly so the "Vista previa" section doesn't stay mounted under the
+  // "Cartola subida" success panel (duplicate headings/table for AT).
+  const mostrarPreview =
+    previewMutation.data !== undefined && estado !== 'preview-error' && estado !== 'exito'
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
@@ -234,15 +246,15 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             onCantidadChange={setCantidad}
           />
           <div className="flex gap-3">
-            <Button type="button" onClick={handleConfirmar} disabled={estado === 'subiendo' || estado === 'exito'}>
+            {/* FIX 2 follow-up: this panel is only mounted when `mostrarPreview`
+                is true, which already excludes 'exito' — so `estado === 'exito'`
+                here would be unreachable/redundant (and TS's aliased-condition
+                narrowing flags it as a type error). Only 'subiendo' needs the
+                disabled guard now. */}
+            <Button type="button" onClick={handleConfirmar} disabled={estado === 'subiendo'}>
               Confirmar
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancelar}
-              disabled={estado === 'subiendo' || estado === 'exito'}
-            >
+            <Button type="button" variant="outline" onClick={handleCancelar} disabled={estado === 'subiendo'}>
               Cancelar
             </Button>
           </div>

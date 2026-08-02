@@ -305,6 +305,66 @@ describe('SubirCartola', () => {
     expect(screen.queryByText('Transacción 6')).not.toBeInTheDocument()
   })
 
+  // FIX 2 (review, us-003-vista-previa Slice 2): once confirm succeeds, the
+  // stale "Vista previa" section (heading + sample table) must NOT stay
+  // mounted underneath the "Cartola subida" success panel — it duplicates
+  // headings/tables for screen readers. `previewMutation.data` is still
+  // populated at this point (never cleared on confirm success), so
+  // `mostrarPreview` itself must exclude `'exito'`.
+  it('FIX: hides the stale Vista previa section once confirm succeeds (estado exito)', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({ isSuccess: true, status: 'success', data: validDto }),
+    )
+
+    render(<SubirCartola />)
+
+    expect(screen.getByRole('heading', { name: /cartola subida/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /vista previa/i })).not.toBeInTheDocument()
+  })
+
+  // FIX 1 (review, BLOCKER): estado 'exito' was a dead end — the picker was
+  // gated and Confirmar/Cancelar were disabled, with no control to go back
+  // to 'idle'. Chosen fix: remove 'exito' from `pickerGateado` — re-picking
+  // a file re-enables the flow via the existing `handleFileChange` reset
+  // logic (already resets both mutations before firing a new preview).
+  it('FIX: re-enables the file picker after a successful confirm, and picking a new file resets both mutations and fires a new preview', async () => {
+    const previewMutate = vi.fn()
+    const previewReset = vi.fn()
+    const confirmReset = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+        mutate: previewMutate,
+        reset: previewReset,
+      }),
+    )
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validDto,
+        reset: confirmReset,
+      }),
+    )
+
+    render(<SubirCartola />)
+
+    const input = screen.getByLabelText(/selecciona un archivo/i)
+    expect(input).toBeEnabled()
+
+    const otroArchivo = unArchivo('otra-cartola.xlsx', 1024)
+    await userEvent.upload(input, otroArchivo)
+
+    expect(previewReset).toHaveBeenCalledTimes(1)
+    expect(confirmReset).toHaveBeenCalledTimes(1)
+    expect(previewMutate).toHaveBeenCalledWith(otroArchivo)
+  })
+
   // US-005 (Slice 3): duplicates-omitted banner in the confirm success panel.
   it('US-005: shows the omitted-duplicates banner with the correct X/Y counts when duplicadosOmitidos > 0', () => {
     const dtoConDuplicados: IngestaResponseDto = { ...validDto, totalTransacciones: 7, duplicadosOmitidos: 3 }
@@ -522,5 +582,53 @@ describe('SubirCartola', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  // FIX 4 (review, WARNING): from estado 'error' (confirm failed), Confirmar
+  // must be re-enabled to retry the SAME held file without re-previewing —
+  // no new call to previewMutation.mutate.
+  it('FIX: from a confirm error, clicking Confirmar again retries with the same held file (no new preview)', async () => {
+    const previewMutate = vi.fn()
+    const confirmMutate = vi.fn()
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }))
+    mockedUseIngesta.mockReturnValue(unaMutacion<IngestaResponseDto>({ mutate: confirmMutate }))
+
+    const { rerender } = render(<SubirCartola />)
+
+    const archivo = unArchivo('cartola.xlsx', 1024)
+    await userEvent.upload(screen.getByLabelText(/selecciona un archivo/i), archivo)
+    expect(previewMutate).toHaveBeenCalledTimes(1)
+
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({ isSuccess: true, status: 'success', data: validPreviewDto }),
+    )
+    rerender(<SubirCartola />)
+
+    const confirmarBtn = screen.getByRole('button', { name: /confirmar/i })
+    fireEvent.click(confirmarBtn)
+    expect(confirmMutate).toHaveBeenCalledTimes(1)
+    // Simulate the real mutation settling (fail) so the double-submit guard
+    // (isSubmittingRef) releases, same as a real useMutation would via its
+    // onSettled callback.
+    const [firstCallArchivo, firstCallOpts] = confirmMutate.mock.calls[0] as [File, { onSettled?: () => void }]
+    firstCallOpts.onSettled?.()
+
+    mockedUseIngesta.mockReturnValue(
+      unaMutacion<IngestaResponseDto>({
+        mutate: confirmMutate,
+        isError: true,
+        status: 'error',
+        error: { tag: 'invalid', message: 'El archivo no cumple el formato o tamaño esperado.' },
+      }),
+    )
+    rerender(<SubirCartola />)
+
+    expect(confirmarBtn).toBeEnabled()
+    fireEvent.click(confirmarBtn)
+
+    expect(confirmMutate).toHaveBeenCalledTimes(2)
+    expect(confirmMutate.mock.calls[1][0]).toBe(firstCallArchivo)
+    expect(confirmMutate.mock.calls[1][0]).toBe(archivo)
+    expect(previewMutate).toHaveBeenCalledTimes(1)
   })
 })
