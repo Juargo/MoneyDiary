@@ -90,6 +90,21 @@ describe('LoginForm', () => {
     expect(router.state.location.pathname).toBe('/login')
   })
 
+  it('#206: on a 401 the submit button is re-enabled (never stuck in the loading state) and stays resubmittable', async () => {
+    mockFetchOnce({ ok: false, status: 401 })
+    await renderLoginForm()
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'usuario@moneydiary.cl' } })
+    fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'mala-clave' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }))
+
+    // The precise symptom #206 reported: after the 401, the button must NOT
+    // remain disabled (a permanent loading state). It should re-enable so the
+    // user can correct the password and retry.
+    await screen.findByRole('alert')
+    expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled()
+  })
+
   it('navigates to / on success', async () => {
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve({ token: 't', userId: 'u', expiresAt: 'x' }) })
     const router = await renderLoginForm()
