@@ -55,12 +55,12 @@ El backfill de las ~367 transacciones históricas reusa la lógica de clasificac
 (no se reescribió en SQL, para no arriesgar misclasificar datos de plata). Corre contra prod SOLO
 con el **doble opt-in explícito**: `ALLOW_DESTRUCTIVE_DB=1` **y** `CONFIRM_PROD_BACKFILL=us-013-transaccion-categorias`.
 ```bash
-# dry-run (NO escribe — muestra filas afectadas + movimiento de plata). El repo usa ts-node, NO tsx:
+# dry-run (NO escribe — muestra filas afectadas + movimiento de plata). El repo usa tsx (ADR-032):
 ALLOW_DESTRUCTIVE_DB=1 CONFIRM_PROD_BACKFILL=us-013-transaccion-categorias \
-  pnpm --filter @moneydiary/api exec ts-node prisma/backfill-categorias.ts --dry-run
+  pnpm --filter @moneydiary/api exec tsx prisma/backfill-categorias.ts --dry-run
 # revisar el resumen del dry-run, luego el real:
 ALLOW_DESTRUCTIVE_DB=1 CONFIRM_PROD_BACKFILL=us-013-transaccion-categorias \
-  pnpm --filter @moneydiary/api exec ts-node prisma/backfill-categorias.ts
+  pnpm --filter @moneydiary/api exec tsx prisma/backfill-categorias.ts
 ```
 El script imprime un `⚠️ PRODUCTION DESTRUCTIVE OP ACK'd` ruidoso al correr contra prod. Sin el
 `CONFIRM_PROD_BACKFILL` exacto (o sin `ALLOW_DESTRUCTIVE_DB=1`), el guard **aborta** — cualquier host
@@ -86,7 +86,7 @@ Supabase se detecta como prod.
 
 ## Gotchas operativos (de la validación)
 - Correr `prisma generate` después de cada `git checkout` de branch antes de seed/migrate (cliente Prisma stale si no).
-- El repo corre scripts TS con `ts-node`, **no** `tsx`.
+- El repo corre scripts TS con `tsx`, **no** `ts-node` (ADR-032).
 
 ## Rollback
 - Web (S6a/S6b): revert de los commits/PR — sin cambio de datos.
