@@ -232,7 +232,7 @@ El plan de pruebas separa **verificación** (*¿lo construimos correctamente?*, 
 - `pnpm-workspace.yaml` tiene `overrides: uuid: >=11.1.1` (CVE en exceljs → uuid) y `packages: ['apps/*']`
 - `.npmrc` tiene `minimum-release-age=10080`, `audit-level=high`, `block-exotic-subdeps=true`
 - SheetJS descartado (CVEs sin parche en npm) — ver ADR-007
-- `pnpm approve-builds` requerido para `@nestjs/core`, `@prisma/engines`, `@swc/core`, `prisma` y `unrs-resolver` en instalación limpia (declarado en `pnpm-workspace.yaml > allowBuilds`)
+- `pnpm approve-builds` requerido para `@prisma/engines`, `@swc/core`, `prisma` y `unrs-resolver` en instalación limpia (declarado en `pnpm-workspace.yaml > allowBuilds`)
 - **Secretos de producción fuera del repo:** `API_KEY`/`DATABASE_URL`/`DIRECT_URL` viven en el dashboard de Render (`sync:false` en `render.yaml`); la key del cliente mobile va en env de build (EAS Secrets), **nunca** hardcodeada en el bundle
 - `apps/api/@types/node` fijado en `^22` — no subir a v24 (incompatibilidad de tipos con ExcelJS). El frontend (`apps/web`) puede usar `^22` también por consistencia
 - Workspaces de pnpm usan resolución **aislada** (no hoisted) → cada `apps/*` declara explícitamente sus deps directas. Si aparece "Cannot find module X" pero X funciona en tests, probablemente X es transitivo de otro paquete y hay que declararlo como dep directa (caso real: `multer`, `dotenv`, `@types/multer` en `apps/api`)
