@@ -9,14 +9,24 @@ interface EstiloSemaforo {
 }
 
 const ESTILOS: Record<string, EstiloSemaforo> = {
-  verde: { label: 'Verde', cara: '🙂', icon: COLORS.semaforoVerdeIcon, bg: COLORS.semaforoVerdeBg },
+  verde: {
+    label: 'Verde',
+    cara: '🙂',
+    icon: COLORS.semaforoVerdeIcon,
+    bg: COLORS.semaforoVerdeBg,
+  },
   amarillo: {
     label: 'Amarillo',
     cara: '😐',
     icon: COLORS.semaforoAmarilloIcon,
     bg: COLORS.semaforoAmarilloBg,
   },
-  rojo: { label: 'Rojo', cara: '☹️', icon: COLORS.semaforoRojoIcon, bg: COLORS.semaforoRojoBg },
+  rojo: {
+    label: 'Rojo',
+    cara: '☹️',
+    icon: COLORS.semaforoRojoIcon,
+    bg: COLORS.semaforoRojoBg,
+  },
 };
 
 const SIN_DATOS: EstiloSemaforo = {
@@ -41,7 +51,9 @@ export function SemaforoBadge({
   estadoSemaforo: string | null;
   size?: number;
 }) {
-  const estilo = estadoSemaforo ? (ESTILOS[estadoSemaforo] ?? SIN_DATOS) : SIN_DATOS;
+  const estilo = estadoSemaforo
+    ? (ESTILOS[estadoSemaforo] ?? SIN_DATOS)
+    : SIN_DATOS;
 
   return (
     <View
@@ -50,7 +62,9 @@ export function SemaforoBadge({
       className="items-center justify-center rounded-full"
       style={{ width: size, height: size, backgroundColor: estilo.bg }}
     >
-      <Text style={{ fontSize: size * 0.5, color: estilo.icon }}>{estilo.cara}</Text>
+      <Text style={{ fontSize: size * 0.5, color: estilo.icon }}>
+        {estilo.cara}
+      </Text>
     </View>
   );
 }

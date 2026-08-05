@@ -5,10 +5,30 @@ const validDto: ResumenMesDto = {
   totalIngreso: '1000000',
   sinIngreso: false,
   buckets: [
-    { bucket: 'Necesidades', total: '400000', porcentajeBp: 4000, estadoSemaforo: 'verde' },
-    { bucket: 'Deseos', total: '250000', porcentajeBp: 2500, estadoSemaforo: 'verde' },
-    { bucket: 'Ahorro', total: '350000', porcentajeBp: 3500, estadoSemaforo: 'amarillo' },
-    { bucket: 'SinCategoria', total: '0', porcentajeBp: 0, estadoSemaforo: null },
+    {
+      bucket: 'Necesidades',
+      total: '400000',
+      porcentajeBp: 4000,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Deseos',
+      total: '250000',
+      porcentajeBp: 2500,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Ahorro',
+      total: '350000',
+      porcentajeBp: 3500,
+      estadoSemaforo: 'amarillo',
+    },
+    {
+      bucket: 'SinCategoria',
+      total: '0',
+      porcentajeBp: 0,
+      estadoSemaforo: null,
+    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'amarillo',
@@ -84,7 +104,9 @@ describe('fetchResumen', () => {
       }),
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect((options.headers as Record<string, string>).Authorization).toBeUndefined();
+    expect(
+      (options.headers as Record<string, string>).Authorization,
+    ).toBeUndefined();
   });
 
   it('sends both x-api-key and Authorization: Bearer <token> when a token is stored (MOB-02)', async () => {
@@ -226,7 +248,9 @@ describe('postLogin', () => {
       }),
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect((options.headers as Record<string, string>).Authorization).toBeUndefined();
+    expect(
+      (options.headers as Record<string, string>).Authorization,
+    ).toBeUndefined();
   });
 
   it('resolves {ok:true, value:{token,userId,expiresAt}} on success (MOB-04)', async () => {

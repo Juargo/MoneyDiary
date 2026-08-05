@@ -15,7 +15,11 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
  * view-model (no fetch, no env, no money math). The "Distribución del gasto"
  * heading and the `testID="semaforo-global"` are the Maestro anchors.
  */
-export function ResumenScreen({ viewModel }: { readonly viewModel: ResumenViewModel }) {
+export function ResumenScreen({
+  viewModel,
+}: {
+  readonly viewModel: ResumenViewModel;
+}) {
   return (
     <ScrollView className="flex-1 bg-canvas" contentContainerClassName="pb-8">
       <Header periodoLabel={viewModel.periodoLabel} />
@@ -38,7 +42,10 @@ export function ResumenScreen({ viewModel }: { readonly viewModel: ResumenViewMo
             </View>
           </View>
 
-          <DistribucionPie tajadas={viewModel.distribucionGasto} targets={viewModel.targets} />
+          <DistribucionPie
+            tajadas={viewModel.distribucionGasto}
+            targets={viewModel.targets}
+          />
 
           <LeyendaGasto tajadas={viewModel.distribucionGasto} />
 

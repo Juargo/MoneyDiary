@@ -33,12 +33,15 @@ interface EntradaBucket {
  * instead of dividing by zero.
  */
 export function calcularDistribucionGasto(
-  buckets: ReadonlyArray<EntradaBucket>,
+  buckets: readonly EntradaBucket[],
 ): TajadaGasto[] {
   const porNombre = new Map(buckets.map((b) => [b.bucket, b.total]));
 
   const incluidos = BUCKETS_GASTO.filter((nombre) => porNombre.has(nombre)).map(
-    (nombre) => ({ bucket: nombre, monto: BigInt(porNombre.get(nombre) as string) }),
+    (nombre) => ({
+      bucket: nombre,
+      monto: BigInt(porNombre.get(nombre) as string),
+    }),
   );
 
   const total = incluidos.reduce((suma, b) => suma + b.monto, 0n);
@@ -46,7 +49,9 @@ export function calcularDistribucionGasto(
     return [];
   }
 
-  const fracciones = incluidos.map((b) => Number((b.monto * PRECISION) / total) / 1_000_000);
+  const fracciones = incluidos.map(
+    (b) => Number((b.monto * PRECISION) / total) / 1_000_000,
+  );
 
   const porcentajes = apportionarLargestRemainder(fracciones);
 
@@ -62,7 +67,7 @@ export function calcularDistribucionGasto(
  * leftover points (100 − sum of floors) one at a time to the buckets with the
  * biggest fractional remainder. Guarantees the integers sum to 100.
  */
-function apportionarLargestRemainder(fracciones: ReadonlyArray<number>): number[] {
+function apportionarLargestRemainder(fracciones: readonly number[]): number[] {
   const exactos = fracciones.map((f) => f * 100);
   const pisos = exactos.map(Math.floor);
   const asignados = pisos.reduce((a, b) => a + b, 0);

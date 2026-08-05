@@ -20,9 +20,9 @@ export const CANTIDAD_PREVIEW_DEFECTO: CantidadPreview = 10;
  * no padding (`Array.prototype.slice` handles this natively).
  */
 export function sliceMuestra(
-  muestra: ReadonlyArray<PreviewTransaccionDto>,
+  muestra: readonly PreviewTransaccionDto[],
   cantidad: CantidadPreview,
-): ReadonlyArray<PreviewTransaccionDto> {
+): readonly PreviewTransaccionDto[] {
   return muestra.slice(0, cantidad);
 }
 
@@ -39,7 +39,9 @@ export interface FilaPreviewFormateada {
  * `parseFloat`/`Number`) and `fecha` sliced down to its date-only ISO
  * portion (`YYYY-MM-DD`, mirroring the web `PreviewMuestra.tsx` convention).
  */
-export function formatearFilaPreview(fila: PreviewTransaccionDto): FilaPreviewFormateada {
+export function formatearFilaPreview(
+  fila: PreviewTransaccionDto,
+): FilaPreviewFormateada {
   return {
     fecha: fila.fecha.slice(0, 10),
     descripcion: fila.descripcion,

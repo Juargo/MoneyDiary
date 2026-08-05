@@ -76,7 +76,9 @@ function esMeDto(value: unknown): value is MeDto {
     return false;
   }
   const candidato = value as Partial<MeDto>;
-  return typeof candidato.userId === 'string' && typeof candidato.email === 'string';
+  return (
+    typeof candidato.userId === 'string' && typeof candidato.email === 'string'
+  );
 }
 
 /**
@@ -89,7 +91,9 @@ function esMeDto(value: unknown): value is MeDto {
  * callers (who set it themselves) and multipart callers (who must let the
  * runtime generate the boundary).
  */
-export async function construirHeadersSesion(): Promise<Record<string, string>> {
+export async function construirHeadersSesion(): Promise<
+  Record<string, string>
+> {
   const headers: Record<string, string> = { 'x-api-key': API_KEY ?? '' };
   const token = await leerToken();
   if (token) {
@@ -163,7 +167,10 @@ export async function postLogin(
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'x-api-key': API_KEY ?? '', 'Content-Type': 'application/json' },
+      headers: {
+        'x-api-key': API_KEY ?? '',
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ email, password }),
     });
   } catch {
@@ -246,7 +253,10 @@ export async function postLogout(): Promise<ApiResult<void>> {
 
   let res: Response;
   try {
-    res = await fetch(url, { method: 'POST', headers: await construirHeadersSesion() });
+    res = await fetch(url, {
+      method: 'POST',
+      headers: await construirHeadersSesion(),
+    });
   } catch {
     return { ok: false, error: { tag: 'network' } };
   }

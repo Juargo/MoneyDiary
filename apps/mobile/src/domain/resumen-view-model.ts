@@ -1,6 +1,9 @@
 import { formatearMontoCLP } from './formatear-monto';
 import { formatearPeriodoLabel } from './periodo-label';
-import { calcularDistribucionGasto, type TajadaGasto } from './distribucion-gasto';
+import {
+  calcularDistribucionGasto,
+  type TajadaGasto,
+} from './distribucion-gasto';
 import type { BucketResumenDto, ResumenMesDto } from './resumen.types';
 
 /**
@@ -23,9 +26,9 @@ export interface ResumenViewModel {
   readonly periodoLabel: string;
   readonly totalIngreso: string;
   readonly sinIngreso: boolean;
-  readonly buckets: ReadonlyArray<BucketViewModel>;
+  readonly buckets: readonly BucketViewModel[];
   /** Share-of-spending split for the pie + legend (77/12/11-style). */
-  readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
+  readonly distribucionGasto: readonly TajadaGasto[];
   /** 50/30/20 reference for the "IDEAL" inset pie. */
   readonly targets: ResumenMesDto['targets'];
   readonly estadoGlobal: string | null;

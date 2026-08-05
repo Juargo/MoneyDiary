@@ -2,6 +2,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ApiResult } from './client';
 import type { MeDto } from '../domain/resumen.types';
 
+// Import after jest.mock is registered.
+import { SessionProvider, useSession } from './session-context';
+
 // RED-first (Slice 4 fix — root-cause bug §review finding #1/#2): replaces
 // the old pathname-keyed `use-session-gate.spec.ts`. `signIn`/`signOut` MUST
 // flip `estado` synchronously (a plain `setState`), not depend on any
@@ -22,9 +25,6 @@ jest.mock('./client', () => ({
   fetchMe: () => mockFetchMe(),
 }));
 
-// Import after jest.mock is registered.
-import { SessionProvider, useSession } from './session-context';
-
 const meDto: MeDto = { userId: 'user-1', email: 'a@b.com' };
 
 describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
@@ -37,7 +37,9 @@ describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
   it('starts checking, then reports unauthenticated when no token is stored (cold start)', async () => {
     mockLeerToken.mockResolvedValue(null);
 
-    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    const { result } = await renderHook(() => useSession(), {
+      wrapper: SessionProvider,
+    });
 
     await waitFor(() => expect(result.current.estado).toBe('unauthenticated'));
     expect(mockFetchMe).not.toHaveBeenCalled();
@@ -47,7 +49,9 @@ describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
     mockLeerToken.mockResolvedValue('valid-token');
     mockFetchMe.mockResolvedValue({ ok: true, value: meDto });
 
-    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    const { result } = await renderHook(() => useSession(), {
+      wrapper: SessionProvider,
+    });
 
     await waitFor(() => expect(result.current.estado).toBe('authenticated'));
     expect(mockFetchMe).toHaveBeenCalledTimes(1);
@@ -55,9 +59,14 @@ describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
 
   it('clears the token and reports unauthenticated when the stored token is rejected (401)', async () => {
     mockLeerToken.mockResolvedValue('stale-token');
-    mockFetchMe.mockResolvedValue({ ok: false, error: { tag: 'unauthorized' } });
+    mockFetchMe.mockResolvedValue({
+      ok: false,
+      error: { tag: 'unauthorized' },
+    });
 
-    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    const { result } = await renderHook(() => useSession(), {
+      wrapper: SessionProvider,
+    });
 
     await waitFor(() => expect(result.current.estado).toBe('unauthenticated'));
     expect(mockBorrarToken).toHaveBeenCalled();
@@ -67,7 +76,9 @@ describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
     mockLeerToken.mockResolvedValue('valid-token');
     mockFetchMe.mockResolvedValue({ ok: false, error: { tag: 'network' } });
 
-    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    const { result } = await renderHook(() => useSession(), {
+      wrapper: SessionProvider,
+    });
 
     await waitFor(() => expect(result.current.estado).toBe('authenticated'));
     expect(mockBorrarToken).not.toHaveBeenCalled();
@@ -76,7 +87,9 @@ describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
   it('signIn flips estado to authenticated synchronously — no external re-trigger needed', async () => {
     mockLeerToken.mockResolvedValue(null);
 
-    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    const { result } = await renderHook(() => useSession(), {
+      wrapper: SessionProvider,
+    });
     await waitFor(() => expect(result.current.estado).toBe('unauthenticated'));
 
     await act(() => {
@@ -90,7 +103,9 @@ describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
     mockLeerToken.mockResolvedValue('valid-token');
     mockFetchMe.mockResolvedValue({ ok: true, value: meDto });
 
-    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    const { result } = await renderHook(() => useSession(), {
+      wrapper: SessionProvider,
+    });
     await waitFor(() => expect(result.current.estado).toBe('authenticated'));
 
     await act(() => {

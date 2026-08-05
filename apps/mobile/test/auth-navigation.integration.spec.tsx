@@ -7,9 +7,22 @@
 // then always see an empty/never-rendered tree. Importing everything from
 // `expo-router/testing-library` guarantees the SAME instance `renderRouter`
 // uses internally.
-import { act, cleanup, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  renderRouter,
+  screen,
+  waitFor,
+} from 'expo-router/testing-library';
 import type { ApiResult, LoginResponseDto } from '../src/api/client';
 import type { MeDto, ResumenMesDto } from '../src/domain/resumen.types';
+
+// Import after jest.mock is registered — real screen components, wired
+// manually into `renderRouter`'s in-memory context (see docstring above).
+import RootLayout from '../app/_layout';
+import Login from '../app/login';
+import Index from '../app/index';
 
 /**
  * Real-navigation integration test (review finding #3 — the coverage gap
@@ -30,13 +43,20 @@ import type { MeDto, ResumenMesDto } from '../src/domain/resumen.types';
  * colocated `*.spec.tsx` files under `app/` are never swept in as phantom
  * routes.
  */
-const mockPostLogin = jest.fn<Promise<ApiResult<LoginResponseDto>>, [string, string]>();
+const mockPostLogin = jest.fn<
+  Promise<ApiResult<LoginResponseDto>>,
+  [string, string]
+>();
 const mockPostLogout = jest.fn<Promise<ApiResult<void>>, []>();
 const mockFetchMe = jest.fn<Promise<ApiResult<MeDto>>, []>();
-const mockFetchResumen = jest.fn<Promise<ApiResult<ResumenMesDto>>, [string?]>();
+const mockFetchResumen = jest.fn<
+  Promise<ApiResult<ResumenMesDto>>,
+  [string?]
+>();
 
 jest.mock('../src/api/client', () => ({
-  postLogin: (email: string, password: string) => mockPostLogin(email, password),
+  postLogin: (email: string, password: string) =>
+    mockPostLogin(email, password),
   postLogout: () => mockPostLogout(),
   fetchMe: () => mockFetchMe(),
   fetchResumen: (periodo?: string) => mockFetchResumen(periodo),
@@ -49,18 +69,13 @@ jest.mock('expo-secure-store', () => ({
     mockSecureStoreMemoria.set(key, value);
     return Promise.resolve();
   },
-  getItemAsync: (key: string) => Promise.resolve(mockSecureStoreMemoria.get(key) ?? null),
+  getItemAsync: (key: string) =>
+    Promise.resolve(mockSecureStoreMemoria.get(key) ?? null),
   deleteItemAsync: (key: string) => {
     mockSecureStoreMemoria.delete(key);
     return Promise.resolve();
   },
 }));
-
-// Import after jest.mock is registered — real screen components, wired
-// manually into `renderRouter`'s in-memory context (see docstring above).
-import RootLayout from '../app/_layout';
-import Login from '../app/login';
-import Index from '../app/index';
 
 const successLogin: LoginResponseDto = {
   token: 'session-token',
@@ -75,10 +90,30 @@ const resumenDto: ResumenMesDto = {
   totalIngreso: '1000000',
   sinIngreso: false,
   buckets: [
-    { bucket: 'Necesidades', total: '500000', porcentajeBp: 5000, estadoSemaforo: 'verde' },
-    { bucket: 'Deseos', total: '300000', porcentajeBp: 3000, estadoSemaforo: 'amarillo' },
-    { bucket: 'Ahorro', total: '200000', porcentajeBp: 2000, estadoSemaforo: 'verde' },
-    { bucket: 'SinCategoria', total: '0', porcentajeBp: null, estadoSemaforo: null },
+    {
+      bucket: 'Necesidades',
+      total: '500000',
+      porcentajeBp: 5000,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Deseos',
+      total: '300000',
+      porcentajeBp: 3000,
+      estadoSemaforo: 'amarillo',
+    },
+    {
+      bucket: 'Ahorro',
+      total: '200000',
+      porcentajeBp: 2000,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'SinCategoria',
+      total: '0',
+      porcentajeBp: null,
+      estadoSemaforo: null,
+    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
@@ -106,9 +141,13 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
   beforeEach(() => {
     mockSecureStoreMemoria.clear();
     mockPostLogin.mockReset();
-    mockPostLogout.mockReset().mockResolvedValue({ ok: true, value: undefined });
+    mockPostLogout
+      .mockReset()
+      .mockResolvedValue({ ok: true, value: undefined });
     mockFetchMe.mockReset();
-    mockFetchResumen.mockReset().mockResolvedValue({ ok: true, value: resumenDto });
+    mockFetchResumen
+      .mockReset()
+      .mockResolvedValue({ ok: true, value: resumenDto });
   });
 
   afterEach(() => {
@@ -119,7 +158,9 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
   it('cold start with no stored token shows the login screen and never calls /api/resumen', async () => {
     renderApp();
 
-    await waitFor(() => expect(screen.getByTestId('login-submit')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('login-submit')).toBeOnTheScreen(),
+    );
     expect(mockFetchResumen).not.toHaveBeenCalled();
     expect(mockFetchMe).not.toHaveBeenCalled();
   });
@@ -128,7 +169,9 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
     mockPostLogin.mockResolvedValue({ ok: true, value: successLogin });
     renderApp();
 
-    await waitFor(() => expect(screen.getByTestId('login-submit')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('login-submit')).toBeOnTheScreen(),
+    );
 
     await fireEvent.changeText(screen.getByTestId('login-email'), 'a@b.com');
     await fireEvent.changeText(screen.getByTestId('login-password'), 'secret');
@@ -136,7 +179,9 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
       await fireEvent.press(screen.getByTestId('login-submit'));
     });
 
-    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+    );
     expect(screen.queryByTestId('login-submit')).not.toBeOnTheScreen();
   });
 
@@ -144,19 +189,25 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
     mockPostLogin.mockResolvedValue({ ok: true, value: successLogin });
     renderApp();
 
-    await waitFor(() => expect(screen.getByTestId('login-submit')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('login-submit')).toBeOnTheScreen(),
+    );
     await fireEvent.changeText(screen.getByTestId('login-email'), 'a@b.com');
     await fireEvent.changeText(screen.getByTestId('login-password'), 'secret');
     await act(async () => {
       await fireEvent.press(screen.getByTestId('login-submit'));
     });
-    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+    );
 
     await act(async () => {
       await fireEvent.press(screen.getByTestId('logout-button'));
     });
 
-    await waitFor(() => expect(screen.getByTestId('login-submit')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('login-submit')).toBeOnTheScreen(),
+    );
     expect(mockSecureStoreMemoria.has('md_session_token')).toBe(false);
   });
 
@@ -165,7 +216,9 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
     mockFetchMe.mockResolvedValue({ ok: true, value: meOk });
     renderApp();
 
-    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+    );
     expect(mockFetchMe).toHaveBeenCalledTimes(1);
   });
 });

@@ -12,10 +12,30 @@ const viewModel: ResumenViewModel = {
   totalIngreso: '$1.000.000',
   sinIngreso: false,
   buckets: [
-    { bucket: 'Necesidades', total: '$500.000', porcentajeLabel: '50%', estadoSemaforo: 'verde' },
-    { bucket: 'Deseos', total: '$300.000', porcentajeLabel: '30%', estadoSemaforo: 'amarillo' },
-    { bucket: 'Ahorro', total: '$200.000', porcentajeLabel: '20%', estadoSemaforo: 'verde' },
-    { bucket: 'SinCategoria', total: '$0', porcentajeLabel: '—', estadoSemaforo: null },
+    {
+      bucket: 'Necesidades',
+      total: '$500.000',
+      porcentajeLabel: '50%',
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Deseos',
+      total: '$300.000',
+      porcentajeLabel: '30%',
+      estadoSemaforo: 'amarillo',
+    },
+    {
+      bucket: 'Ahorro',
+      total: '$200.000',
+      porcentajeLabel: '20%',
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'SinCategoria',
+      total: '$0',
+      porcentajeLabel: '—',
+      estadoSemaforo: null,
+    },
   ],
   distribucionGasto: [
     { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },

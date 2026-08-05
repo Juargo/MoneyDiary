@@ -1,3 +1,6 @@
+// Import after jest.mock is registered.
+import { guardarToken, leerToken, borrarToken, KEY } from './session-store';
+
 const mockSetItemAsync = jest.fn<Promise<void>, [string, string]>();
 const mockGetItemAsync = jest.fn<Promise<string | null>, [string]>();
 const mockDeleteItemAsync = jest.fn<Promise<void>, [string]>();
@@ -7,9 +10,6 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: (key: string) => mockGetItemAsync(key),
   deleteItemAsync: (key: string) => mockDeleteItemAsync(key),
 }));
-
-// Import after jest.mock is registered.
-import { guardarToken, leerToken, borrarToken, KEY } from './session-store';
 
 describe('session-store (MOB-01)', () => {
   beforeEach(() => {
@@ -26,7 +26,10 @@ describe('session-store (MOB-01)', () => {
     it('calls setItemAsync(KEY, token)', async () => {
       await guardarToken('a-token');
 
-      expect(mockSetItemAsync).toHaveBeenCalledWith('md_session_token', 'a-token');
+      expect(mockSetItemAsync).toHaveBeenCalledWith(
+        'md_session_token',
+        'a-token',
+      );
     });
   });
 
@@ -71,7 +74,9 @@ describe('session-store (MOB-01)', () => {
     // silently look like a successful logout while the token is still on
     // the device — verify via re-read and retry once before giving up.
     it('verifies the delete by re-reading, and retries once when the token still persists', async () => {
-      mockGetItemAsync.mockResolvedValueOnce('still-there').mockResolvedValueOnce('still-there');
+      mockGetItemAsync
+        .mockResolvedValueOnce('still-there')
+        .mockResolvedValueOnce('still-there');
 
       await borrarToken();
 
@@ -88,7 +93,9 @@ describe('session-store (MOB-01)', () => {
 
     it('surfaces (warns) rather than silently succeeding when the token persists after the retry', async () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      mockGetItemAsync.mockResolvedValueOnce('still-there').mockResolvedValueOnce('still-there');
+      mockGetItemAsync
+        .mockResolvedValueOnce('still-there')
+        .mockResolvedValueOnce('still-there');
 
       await borrarToken();
 
@@ -98,7 +105,9 @@ describe('session-store (MOB-01)', () => {
 
     it('does not warn when the retry successfully clears the token', async () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      mockGetItemAsync.mockResolvedValueOnce('still-there').mockResolvedValueOnce(null);
+      mockGetItemAsync
+        .mockResolvedValueOnce('still-there')
+        .mockResolvedValueOnce(null);
 
       await borrarToken();
 

@@ -1,5 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
-import { fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { ErrorState } from './Error';
 
 // RED-first (T3.7, sprint3-mvp-mobile, MOB-02/MOB-03): error copy differs
@@ -12,7 +11,9 @@ describe('ErrorState', () => {
   });
 
   it('renders unauthorized-specific copy for a 401', async () => {
-    await render(<ErrorState error={{ tag: 'unauthorized' }} onRetry={() => {}} />);
+    await render(
+      <ErrorState error={{ tag: 'unauthorized' }} onRetry={() => {}} />,
+    );
     expect(screen.getByText(/acceso/i)).toBeOnTheScreen();
   });
 
@@ -22,7 +23,9 @@ describe('ErrorState', () => {
   });
 
   it('renders http-specific copy including the status for other failures', async () => {
-    await render(<ErrorState error={{ tag: 'http', status: 500 }} onRetry={() => {}} />);
+    await render(
+      <ErrorState error={{ tag: 'http', status: 500 }} onRetry={() => {}} />,
+    );
     expect(screen.getByText(/500/)).toBeOnTheScreen();
   });
 

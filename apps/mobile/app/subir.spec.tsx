@@ -1,7 +1,16 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import type { PostIngestaResult } from '../src/api/post-ingesta';
 import type { PreviewIngestaResult } from '../src/api/preview-ingesta';
+
+// Import after jest.mock is registered.
+import Subir from './subir';
 
 // RED-first (US-003 Slice 3, design.md §10.1/§10.3): greenfield two-phase
 // preview-then-confirm state machine. The document picker and both
@@ -33,13 +42,16 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
 }));
 
-// Import after jest.mock is registered.
-import Subir from './subir';
-
-const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 function resultadoPicker(
-  overrides: Partial<{ uri: string; name: string; mimeType: string; size: number }> = {},
+  overrides: Partial<{
+    uri: string;
+    name: string;
+    mimeType: string;
+    size: number;
+  }> = {},
 ) {
   return {
     canceled: false as const,
@@ -68,7 +80,10 @@ function filaPreview(overrides: Partial<Record<string, string>> = {}) {
   };
 }
 
-function previewExitoso(muestra = [filaPreview()], totalFilasDatos = muestra.length) {
+function previewExitoso(
+  muestra = [filaPreview()],
+  totalFilasDatos = muestra.length,
+) {
   return {
     ok: true as const,
     value: {
@@ -102,7 +117,9 @@ function deferred<T>() {
 
 async function seleccionarArchivo() {
   await act(async () => {
-    await fireEvent.press(screen.getByRole('button', { name: /seleccionar archivo/i }));
+    await fireEvent.press(
+      screen.getByRole('button', { name: /seleccionar archivo/i }),
+    );
   });
 }
 
@@ -111,7 +128,9 @@ async function seleccionarYPrevisualizar() {
   mockPreviewIngesta.mockResolvedValue(previewExitoso());
   await render(<Subir />);
   await seleccionarArchivo();
-  await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+  await waitFor(() =>
+    expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+  );
 }
 
 describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
@@ -137,7 +156,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
     await render(<Subir />);
 
-    const trigger = screen.getByRole('button', { name: /seleccionar archivo/i });
+    const trigger = screen.getByRole('button', {
+      name: /seleccionar archivo/i,
+    });
     expect(trigger).toBeOnTheScreen();
 
     await seleccionarArchivo();
@@ -167,10 +188,19 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await seleccionarArchivo();
 
     await waitFor(() => expect(mockPreviewIngesta).toHaveBeenCalledTimes(1));
-    const [archivo] = mockPreviewIngesta.mock.calls[0] as [{ uri: string; name: string }];
-    expect(archivo).toEqual(expect.objectContaining({ uri: 'file:///tmp/cartola.xlsx', name: 'cartola.xlsx' }));
+    const [archivo] = mockPreviewIngesta.mock.calls[0] as [
+      { uri: string; name: string },
+    ];
+    expect(archivo).toEqual(
+      expect.objectContaining({
+        uri: 'file:///tmp/cartola.xlsx',
+        name: 'cartola.xlsx',
+      }),
+    );
     expect(screen.getByTestId('preview-cargando')).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: /seleccionar archivo/i })).not.toBeOnTheScreen();
+    expect(
+      screen.queryByRole('button', { name: /seleccionar archivo/i }),
+    ).not.toBeOnTheScreen();
 
     await act(async () => {
       d.resolve(previewExitoso());
@@ -195,9 +225,18 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     const opcion25 = screen.getByRole('radio', { name: /mostrar 25 filas/i });
     const opcion50 = screen.getByRole('radio', { name: /mostrar 50 filas/i });
 
-    expect(opcion10).toHaveProp('accessibilityState', expect.objectContaining({ checked: true }));
-    expect(opcion25).toHaveProp('accessibilityState', expect.objectContaining({ checked: false }));
-    expect(opcion50).toHaveProp('accessibilityState', expect.objectContaining({ checked: false }));
+    expect(opcion10).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ checked: true }),
+    );
+    expect(opcion25).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ checked: false }),
+    );
+    expect(opcion50).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ checked: false }),
+    );
   });
 
   it('PREV-06/CA-01: changing the selector re-slices the same in-memory muestra with no new HTTP call', async () => {
@@ -209,7 +248,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
     await render(<Subir />);
     await seleccionarArchivo();
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
 
     expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(10);
 
@@ -235,7 +276,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
     await render(<Subir />);
     await seleccionarArchivo();
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
 
     await act(async () => {
       fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
@@ -252,10 +295,19 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
     });
 
-    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
     expect(mockPostIngesta).toHaveBeenCalledTimes(1);
-    const [archivo] = mockPostIngesta.mock.calls[0] as [{ uri: string; name: string }];
-    expect(archivo).toEqual(expect.objectContaining({ uri: 'file:///tmp/cartola.xlsx', name: 'cartola.xlsx' }));
+    const [archivo] = mockPostIngesta.mock.calls[0] as [
+      { uri: string; name: string },
+    ];
+    expect(archivo).toEqual(
+      expect.objectContaining({
+        uri: 'file:///tmp/cartola.xlsx',
+        name: 'cartola.xlsx',
+      }),
+    );
     expect(screen.getByText('12')).toBeOnTheScreen();
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
   });
@@ -276,7 +328,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       d.resolve({ ok: true, value: ingestaExitosa });
       await d.promise;
     });
-    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
   });
 
   it('CA-04/CU-12: Cancelar returns to idle and never calls postIngesta', async () => {
@@ -286,7 +340,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       fireEvent.press(screen.getByRole('button', { name: /cancelar/i }));
     });
 
-    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: /seleccionar archivo/i }),
+    ).toBeOnTheScreen();
     expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
     expect(mockPostIngesta).not.toHaveBeenCalled();
   });
@@ -311,24 +367,35 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await render(<Subir />);
     await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen());
-    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeOnTheScreen();
+    await waitFor(() =>
+      expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen(),
+    );
+    expect(
+      screen.getByRole('button', { name: /seleccionar archivo/i }),
+    ).toBeOnTheScreen();
     expect(mockPostIngesta).not.toHaveBeenCalled();
   });
 
   it('a network failure during preview shows a retry message and re-enables the trigger', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPreviewIngesta.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+    mockPreviewIngesta.mockResolvedValue({
+      ok: false,
+      error: { tag: 'network' },
+    });
 
     await render(<Subir />);
     await seleccionarArchivo();
 
     await waitFor(() =>
       expect(
-        screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
+        screen.getByText(
+          'Problema de conexión. Revisa tu internet e intenta de nuevo.',
+        ),
       ).toBeOnTheScreen(),
     );
-    expect(screen.getByRole('button', { name: /seleccionar archivo/i })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: /seleccionar archivo/i }),
+    ).toBeOnTheScreen();
   });
 
   it('a backend error on Confirmar returns to a retryable error state (never stuck "subiendo")', async () => {
@@ -343,7 +410,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText('Error del servidor (código 500).')).toBeOnTheScreen(),
+      expect(
+        screen.getByText('Error del servidor (código 500).'),
+      ).toBeOnTheScreen(),
     );
     expect(mockSolicitarRecargaResumen).not.toHaveBeenCalled();
   });
@@ -358,13 +427,17 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await seleccionarArchivo();
     await waitFor(() =>
       expect(
-        screen.getByText('No se pudo abrir el selector de archivos. Intenta de nuevo.'),
+        screen.getByText(
+          'No se pudo abrir el selector de archivos. Intenta de nuevo.',
+        ),
       ).toBeOnTheScreen(),
     );
 
     await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
   });
 
   it('CU-12: locks the ADR-026 ingesta-only write scope — no edit/delete affordance renders anywhere', async () => {
@@ -374,7 +447,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
     });
-    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
 
     // Only the upload trigger and the "Volver al resumen" back affordance
     // are interactive on the settled éxito screen.
@@ -399,11 +474,17 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
 
       await act(async () => {
-        await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+        await fireEvent.press(
+          screen.getByRole('button', { name: /confirmar/i }),
+        );
       });
 
-      await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
-      const ultimaLlamada = announceSpy.mock.calls[announceSpy.mock.calls.length - 1] as [string];
+      await waitFor(() =>
+        expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+      );
+      const ultimaLlamada = announceSpy.mock.calls[
+        announceSpy.mock.calls.length - 1
+      ] as [string];
       expect(ultimaLlamada[0]).toEqual(expect.any(String));
       expect(ultimaLlamada[0].length).toBeGreaterThan(0);
     });
@@ -418,13 +499,18 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       await render(<Subir />);
       await seleccionarArchivo();
 
-      await waitFor(() => expect(announceSpy).toHaveBeenCalledWith('Banco no reconocido.'));
+      await waitFor(() =>
+        expect(announceSpy).toHaveBeenCalledWith('Banco no reconocido.'),
+      );
     });
 
     it('the sample list container carries a polite live region', async () => {
       await seleccionarYPrevisualizar();
 
-      expect(screen.getByTestId('preview-lista')).toHaveProp('accessibilityLiveRegion', 'polite');
+      expect(screen.getByTestId('preview-lista')).toHaveProp(
+        'accessibilityLiveRegion',
+        'polite',
+      );
     });
 
     it('the preview-selector radiogroup exposes radio children with accessibilityState.checked', async () => {
@@ -436,18 +522,26 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       );
 
       await act(async () => {
-        fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
+        fireEvent.press(
+          screen.getByRole('radio', { name: /mostrar 25 filas/i }),
+        );
       });
 
-      expect(screen.getByRole('radio', { name: /mostrar 25 filas/i })).toHaveProp(
+      expect(
+        screen.getByRole('radio', { name: /mostrar 25 filas/i }),
+      ).toHaveProp(
         'accessibilityState',
         expect.objectContaining({ checked: true }),
       );
-      expect(screen.getByRole('radio', { name: /mostrar 10 filas/i })).toHaveProp(
+      expect(
+        screen.getByRole('radio', { name: /mostrar 10 filas/i }),
+      ).toHaveProp(
         'accessibilityState',
         expect.objectContaining({ checked: false }),
       );
-      expect(screen.getByRole('radio', { name: /mostrar 50 filas/i })).toHaveProp(
+      expect(
+        screen.getByRole('radio', { name: /mostrar 50 filas/i }),
+      ).toHaveProp(
         'accessibilityState',
         expect.objectContaining({ checked: false }),
       );
@@ -460,28 +554,41 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
 
       await act(async () => {
-        await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+        await fireEvent.press(
+          screen.getByRole('button', { name: /confirmar/i }),
+        );
       });
-      await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+      await waitFor(() =>
+        expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+      );
 
-      fireEvent.press(screen.getByRole('button', { name: /volver al resumen/i }));
+      fireEvent.press(
+        screen.getByRole('button', { name: /volver al resumen/i }),
+      );
 
       expect(mockBack).toHaveBeenCalledTimes(1);
     });
 
     it('is visible on the preview-error view and navigates back when pressed', async () => {
       mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-      mockPreviewIngesta.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+      mockPreviewIngesta.mockResolvedValue({
+        ok: false,
+        error: { tag: 'network' },
+      });
 
       await render(<Subir />);
       await seleccionarArchivo();
       await waitFor(() =>
         expect(
-          screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
+          screen.getByText(
+            'Problema de conexión. Revisa tu internet e intenta de nuevo.',
+          ),
         ).toBeOnTheScreen(),
       );
 
-      fireEvent.press(screen.getByRole('button', { name: /volver al resumen/i }));
+      fireEvent.press(
+        screen.getByRole('button', { name: /volver al resumen/i }),
+      );
 
       expect(mockBack).toHaveBeenCalledTimes(1);
     });
@@ -494,7 +601,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await render(<Subir />);
     await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
     expect(screen.getByText('0')).toBeOnTheScreen();
     expect(screen.queryAllByTestId(/^preview-fila-/)).toHaveLength(0);
   });
@@ -506,25 +615,36 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
     });
-    await waitFor(() => expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
 
     const otroArchivo = resultadoPicker({
       uri: 'file:///tmp/otra-cartola.xlsx',
       name: 'otra-cartola.xlsx',
     });
-    const otroPreview = previewExitoso([filaPreview({ descripcion: 'Otro movimiento' })]);
+    const otroPreview = previewExitoso([
+      filaPreview({ descripcion: 'Otro movimiento' }),
+    ]);
     mockGetDocumentAsync.mockResolvedValue(otroArchivo);
     mockPreviewIngesta.mockResolvedValue(otroPreview);
 
     await seleccionarArchivo();
 
     await waitFor(() => expect(mockPreviewIngesta).toHaveBeenCalledTimes(2));
-    const [archivo] = mockPreviewIngesta.mock.calls[1] as [{ uri: string; name: string }];
+    const [archivo] = mockPreviewIngesta.mock.calls[1] as [
+      { uri: string; name: string },
+    ];
     expect(archivo).toEqual(
-      expect.objectContaining({ uri: 'file:///tmp/otra-cartola.xlsx', name: 'otra-cartola.xlsx' }),
+      expect.objectContaining({
+        uri: 'file:///tmp/otra-cartola.xlsx',
+        name: 'otra-cartola.xlsx',
+      }),
     );
     expect(screen.queryByTestId('subir-resultado')).not.toBeOnTheScreen();
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
     expect(screen.getByText('Otro movimiento')).toBeOnTheScreen();
     // cantidad resets to the default (10) for the new preview.
     expect(screen.getByRole('radio', { name: /mostrar 10 filas/i })).toHaveProp(
@@ -535,14 +655,19 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
   it('retrying after a previewIngesta network failure recovers once the retry succeeds', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPreviewIngesta.mockResolvedValueOnce({ ok: false, error: { tag: 'network' } });
+    mockPreviewIngesta.mockResolvedValueOnce({
+      ok: false,
+      error: { tag: 'network' },
+    });
 
     await render(<Subir />);
     await seleccionarArchivo();
 
     await waitFor(() =>
       expect(
-        screen.getByText('Problema de conexión. Revisa tu internet e intenta de nuevo.'),
+        screen.getByText(
+          'Problema de conexión. Revisa tu internet e intenta de nuevo.',
+        ),
       ).toBeOnTheScreen(),
     );
     expect(mockPostIngesta).not.toHaveBeenCalled();
@@ -550,7 +675,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     mockPreviewIngesta.mockResolvedValueOnce(previewExitoso());
     await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
     expect(mockPreviewIngesta).toHaveBeenCalledTimes(2);
   });
 
@@ -564,13 +691,17 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await render(<Subir />);
     await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen(),
+    );
     expect(mockPostIngesta).not.toHaveBeenCalled();
 
     mockPreviewIngesta.mockResolvedValueOnce(previewExitoso());
     await seleccionarArchivo();
 
-    await waitFor(() => expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
     expect(mockPreviewIngesta).toHaveBeenCalledTimes(2);
   });
 });

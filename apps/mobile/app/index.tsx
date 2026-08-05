@@ -43,6 +43,11 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
+    // cargar() sets `loading` synchronously by design; it doubles as the
+    // post-upload/retry re-fetch listener (registered below), so resetting to
+    // loading on each run is intentional, not a cascading-render smell.
+    // Fetch-on-mount without TanStack Query is a deliberate choice (design.md B.5).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
   }, [cargar]);
 
@@ -74,7 +79,9 @@ export default function Index() {
         onPress={() => router.push('/subir')}
         className="items-center py-3"
       >
-        <Text className="text-sm font-semibold text-ingreso">Subir cartola</Text>
+        <Text className="text-sm font-semibold text-ingreso">
+          Subir cartola
+        </Text>
       </Pressable>
       <Pressable
         testID="logout-button"

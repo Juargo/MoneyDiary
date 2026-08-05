@@ -28,8 +28,18 @@ const validIngestaResponse = {
   archivo: { nombre: 'cartola.xlsx', extension: 'xlsx', tamanoBytes: 20480 },
   totalTransacciones: 2,
   transacciones: [
-    { fecha: '2026-07-01T00:00:00.000Z', descripcion: 'Compra', cargo: '5000', abono: '0' },
-    { fecha: '2026-07-02T00:00:00.000Z', descripcion: 'Sueldo', cargo: '0', abono: '500000' },
+    {
+      fecha: '2026-07-01T00:00:00.000Z',
+      descripcion: 'Compra',
+      cargo: '5000',
+      abono: '0',
+    },
+    {
+      fecha: '2026-07-02T00:00:00.000Z',
+      descripcion: 'Sueldo',
+      cargo: '0',
+      abono: '500000',
+    },
   ],
 };
 
@@ -39,7 +49,8 @@ function archivoSeleccionado(
   return {
     uri: 'file:///tmp/cartola.xlsx',
     name: 'cartola.xlsx',
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     lastModified: Date.now(),
     ...overrides,
   };
@@ -59,7 +70,10 @@ function mockFetchOnce(response: {
 // `construirHeadersSesion` is mocked at the module boundary so the transport
 // under test (multipart body shape) is what's exercised, never a real
 // SecureStore/session-store call (mirrors client.spec.ts's `leerToken` style).
-const mockConstruirHeadersSesion = jest.fn<Promise<Record<string, string>>, []>();
+const mockConstruirHeadersSesion = jest.fn<
+  Promise<Record<string, string>>,
+  []
+>();
 jest.mock('./client', () => ({
   construirHeadersSesion: () => mockConstruirHeadersSesion(),
 }));
@@ -75,7 +89,10 @@ function requirePostIngesta(): typeof import('./post-ingesta') {
 
 describe('postIngesta', () => {
   const ORIGINAL_ENV = process.env;
-  const HEADERS_SESION = { 'x-api-key': 'test-api-key', Authorization: 'Bearer stored-token' };
+  const HEADERS_SESION = {
+    'x-api-key': 'test-api-key',
+    Authorization: 'Bearer stored-token',
+  };
 
   beforeEach(() => {
     jest.resetModules();
@@ -112,14 +129,18 @@ describe('postIngesta', () => {
     // The part is a real Blob (the mocked expo-file-system `File`) built over
     // the picker URI, appended under "file" with the original filename so the
     // backend keeps the extension as its authority (design.md Decision 3).
-    const [campo, valor, filename] = appendSpy.mock.calls[0] as [string, Blob & { uri?: string }, string];
+    const [campo, valor, filename] = appendSpy.mock.calls[0] as [
+      string,
+      Blob & { uri?: string },
+      string,
+    ];
     expect(campo).toBe('file');
     expect(valor).toBeInstanceOf(Blob);
     expect(valor.uri).toBe('file:///tmp/cartola.xlsx');
     expect(filename).toBe('cartola.xlsx');
   });
 
-  it('never sets a Content-Type header manually — only construirHeadersSesion()\'s headers are sent (Decision 3)', async () => {
+  it("never sets a Content-Type header manually — only construirHeadersSesion()'s headers are sent (Decision 3)", async () => {
     const fetchMock = mockFetchOnce({
       ok: true,
       status: 200,
@@ -137,7 +158,11 @@ describe('postIngesta', () => {
   });
 
   it('reuses construirHeadersSesion() verbatim for auth headers (x-api-key + Bearer)', async () => {
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validIngestaResponse) });
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validIngestaResponse),
+    });
     const { postIngesta } = requirePostIngesta();
 
     await postIngesta(archivoSeleccionado());
@@ -146,7 +171,11 @@ describe('postIngesta', () => {
   });
 
   it('resolves {ok: true, value} on a well-formed 2xx body', async () => {
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validIngestaResponse) });
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validIngestaResponse),
+    });
     const { postIngesta } = requirePostIngesta();
 
     const result = await postIngesta(archivoSeleccionado());

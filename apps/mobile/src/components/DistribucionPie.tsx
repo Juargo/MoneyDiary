@@ -13,7 +13,13 @@ interface Slice {
   readonly porcentaje: number;
 }
 
-function centroidLabel(cx: number, cy: number, r: number, inicio: number, fin: number) {
+function centroidLabel(
+  cx: number,
+  cy: number,
+  r: number,
+  inicio: number,
+  fin: number,
+) {
   const medio = ((inicio + fin) / 2) * (Math.PI / 180);
   return {
     x: cx + r * 0.62 * Math.sin(medio),
@@ -26,7 +32,7 @@ function Pie({
   size,
   showLabels = false,
 }: {
-  slices: ReadonlyArray<Slice>;
+  slices: readonly Slice[];
   size: number;
   showLabels?: boolean;
 }) {
@@ -43,14 +49,24 @@ function Pie({
   return (
     <>
       {slices.map((slice, i) => (
-        <Path key={i} d={arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin)} fill={slice.color} />
+        <Path
+          key={i}
+          d={arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin)}
+          fill={slice.color}
+        />
       ))}
       {showLabels &&
         slices.map((slice, i) => {
           if (slice.porcentaje < 5) {
             return null;
           }
-          const { x, y } = centroidLabel(cx, cy, r, tramos[i].inicio, tramos[i].fin);
+          const { x, y } = centroidLabel(
+            cx,
+            cy,
+            r,
+            tramos[i].inicio,
+            tramos[i].fin,
+          );
           return (
             <SvgText
               key={`l${i}`}
@@ -70,7 +86,7 @@ function Pie({
   );
 }
 
-function slicesDesdeTajadas(tajadas: ReadonlyArray<TajadaGasto>): Slice[] {
+function slicesDesdeTajadas(tajadas: readonly TajadaGasto[]): Slice[] {
   return tajadas.map((t) => ({
     color: COLOR_BUCKET[t.bucket] ?? '#CCCCCC',
     fraccion: t.fraccion,
@@ -107,7 +123,7 @@ export function DistribucionPie({
   targets,
   size = 240,
 }: {
-  tajadas: ReadonlyArray<TajadaGasto>;
+  tajadas: readonly TajadaGasto[];
   targets: ResumenMesDto['targets'];
   size?: number;
 }) {
@@ -115,7 +131,11 @@ export function DistribucionPie({
 
   return (
     <View className="items-center justify-center" style={{ height: size }}>
-      <Svg width={size} height={size} accessibilityLabel="Distribución del gasto">
+      <Svg
+        width={size}
+        height={size}
+        accessibilityLabel="Distribución del gasto"
+      >
         <Pie slices={slicesDesdeTajadas(tajadas)} size={size} showLabels />
       </Svg>
 
@@ -125,13 +145,19 @@ export function DistribucionPie({
           className="items-center justify-center rounded-full border-2 border-white bg-white"
           style={{ padding: 3 }}
         >
-          <Svg width={idealSize} height={idealSize} accessibilityLabel="Distribución ideal 50/30/20">
+          <Svg
+            width={idealSize}
+            height={idealSize}
+            accessibilityLabel="Distribución ideal 50/30/20"
+          >
             <G>
               <Pie slices={slicesIdeales(targets)} size={idealSize} />
             </G>
           </Svg>
         </View>
-        <Text className="mt-0.5 text-[10px] font-semibold tracking-wider text-muted">IDEAL</Text>
+        <Text className="mt-0.5 text-[10px] font-semibold tracking-wider text-muted">
+          IDEAL
+        </Text>
       </View>
     </View>
   );

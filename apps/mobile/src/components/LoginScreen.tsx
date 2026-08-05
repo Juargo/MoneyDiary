@@ -7,7 +7,10 @@ import { COLORS } from '../theme/colors';
  * switch discipline (design.md §6.2, MOB-01): `idle`/`submitting` gate the
  * submit affordance, `error` carries a generic (never-enumerate) message.
  */
-export type LoginEstado = { fase: 'idle' } | { fase: 'submitting' } | { fase: 'error' };
+export type LoginEstado =
+  | { fase: 'idle' }
+  | { fase: 'submitting' }
+  | { fase: 'error' };
 
 const MENSAJE_ERROR_GENERICO =
   'No pudimos iniciar sesión. Verifica tus datos e intenta de nuevo.';
@@ -39,7 +42,9 @@ export function LoginScreen({
 
   return (
     <View className="flex-1 justify-center gap-6 bg-canvas px-8">
-      <Text className="text-center text-2xl font-bold text-heading">MoneyDiary</Text>
+      <Text className="text-center text-2xl font-bold text-heading">
+        MoneyDiary
+      </Text>
 
       <View className="gap-4">
         <TextInput
@@ -67,7 +72,9 @@ export function LoginScreen({
           <Pressable
             testID="login-password-toggle"
             accessibilityRole="button"
-            accessibilityLabel={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            accessibilityLabel={
+              mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
+            }
             onPress={() => setMostrarPassword((visible) => !visible)}
             hitSlop={8}
             className="px-2 py-2"
@@ -78,7 +85,9 @@ export function LoginScreen({
       </View>
 
       {estado.fase === 'error' && (
-        <Text className="text-center text-sm text-red-600">{MENSAJE_ERROR_GENERICO}</Text>
+        <Text className="text-center text-sm text-red-600">
+          {MENSAJE_ERROR_GENERICO}
+        </Text>
       )}
 
       <Pressable

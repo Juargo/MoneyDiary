@@ -15,7 +15,11 @@ export function Header({
 }) {
   return (
     <View className="flex-row items-center justify-between px-5 py-3">
-      <Pressable accessibilityRole="button" accessibilityLabel="Abrir menú" hitSlop={8}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Abrir menú"
+        hitSlop={8}
+      >
         <Text className="text-2xl text-heading">☰</Text>
       </Pressable>
 

@@ -20,7 +20,7 @@ export interface ResumenMesDto {
   readonly periodo: string;
   readonly totalIngreso: string;
   readonly sinIngreso: boolean;
-  readonly buckets: ReadonlyArray<BucketResumenDto>;
+  readonly buckets: readonly BucketResumenDto[];
   readonly targets: {
     readonly Necesidades: number;
     readonly Deseos: number;
