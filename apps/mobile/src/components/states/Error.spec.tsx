@@ -35,4 +35,14 @@ describe('ErrorState', () => {
     fireEvent.press(screen.getByText('Reintentar'));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  // ADR-018 layer 2 (RNTL semantic queries): the retry affordance must be
+  // reachable by a screen reader as an accessible button named "Reintentar",
+  // not just as text a sighted user can tap.
+  it('exposes the retry affordance as an accessible button named "Reintentar"', async () => {
+    await render(<ErrorState error={{ tag: 'network' }} onRetry={() => {}} />);
+    expect(
+      screen.getByRole('button', { name: 'Reintentar' }),
+    ).toBeOnTheScreen();
+  });
 });

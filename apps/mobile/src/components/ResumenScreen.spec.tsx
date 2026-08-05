@@ -75,4 +75,21 @@ describe('ResumenScreen', () => {
     await render(<ResumenScreen viewModel={viewModel} />);
     expect(screen.getByTestId('semaforo-global')).toBeOnTheScreen();
   });
+
+  // ADR-018 layer 2 (RNTL semantic queries): the "Distribución del gasto"
+  // section heading and the "Ver detalles" affordance must be reachable by a
+  // screen reader through their accessible role + name, not just by text.
+  it('exposes "Distribución del gasto" as an accessible header', async () => {
+    await render(<ResumenScreen viewModel={viewModel} />);
+    expect(
+      screen.getByRole('header', { name: 'Distribución del gasto' }),
+    ).toBeOnTheScreen();
+  });
+
+  it('exposes the "Ver detalles" affordance as an accessible button', async () => {
+    await render(<ResumenScreen viewModel={viewModel} />);
+    expect(
+      screen.getByRole('button', { name: 'Ver detalles ›' }),
+    ).toBeOnTheScreen();
+  });
 });
