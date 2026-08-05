@@ -215,6 +215,22 @@ describe('Index (4-state switch)', () => {
   });
 
   describe('logout affordance (MOB-04)', () => {
+    // ADR-018 layer 2 (RNTL semantic queries): the logout control must be
+    // reachable by a screen reader through its accessible role + name, not
+    // just by testID — asserted separately from the interaction tests below.
+    it('exposes the logout control as an accessible button named "Cerrar sesión"', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
+
+      expect(
+        screen.getByRole('button', { name: 'Cerrar sesión' }),
+      ).toBeOnTheScreen();
+    });
+
     it('calls postLogout, then borrarToken, then signs out', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
       mockPostLogout.mockResolvedValue({ ok: true, value: undefined });
