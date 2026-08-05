@@ -1,4 +1,4 @@
-const FALLBACK = '/'
+const FALLBACK = '/';
 
 /**
  * sanitizeRedirect — the ONLY gate between the `?redirect=` search param on
@@ -10,15 +10,17 @@ const FALLBACK = '/'
  * to `/`. Never pass the raw search value to `navigate({ to })` directly.
  */
 export function sanitizeRedirect(raw: unknown): string {
-  if (typeof raw !== 'string') return FALLBACK
-  if (!raw.startsWith('/')) return FALLBACK
-  if (raw.startsWith('//') || raw.startsWith('/\\') || raw.startsWith('\\')) return FALLBACK
-  if (raw.includes('://')) return FALLBACK
+  if (typeof raw !== 'string') return FALLBACK;
+  if (!raw.startsWith('/')) return FALLBACK;
+  if (raw.startsWith('//') || raw.startsWith('/\\') || raw.startsWith('\\'))
+    return FALLBACK;
+  if (raw.includes('://')) return FALLBACK;
 
   // Re-parse against a throwaway base to normalize path+query and catch
   // anything that still resolves outside a single-leading-slash path.
-  const parsed = new URL(raw, 'http://sanitize-redirect-base.invalid')
-  if (!parsed.pathname.startsWith('/') || parsed.pathname.startsWith('//')) return FALLBACK
+  const parsed = new URL(raw, 'http://sanitize-redirect-base.invalid');
+  if (!parsed.pathname.startsWith('/') || parsed.pathname.startsWith('//'))
+    return FALLBACK;
 
-  return `${parsed.pathname}${parsed.search}`
+  return `${parsed.pathname}${parsed.search}`;
 }

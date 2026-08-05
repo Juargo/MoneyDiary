@@ -5,8 +5,8 @@
  * month, spec W1.8). Extracted from `routes/index.tsx` so the invalid-input
  * contract is independently testable without a router harness.
  */
-const PERIODO_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/
+const PERIODO_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export function normalizarPeriodo(raw: unknown): string | undefined {
-  return typeof raw === 'string' && PERIODO_REGEX.test(raw) ? raw : undefined
+  return typeof raw === 'string' && PERIODO_REGEX.test(raw) ? raw : undefined;
 }

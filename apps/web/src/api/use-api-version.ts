@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchApiVersion } from './client'
-import type { ApiError } from './client'
-import type { ApiVersionDto } from './types'
+import { useQuery } from '@tanstack/react-query';
+import { fetchApiVersion } from './client';
+import type { ApiError } from './client';
+import type { ApiVersionDto } from './types';
 
 /**
  * useApiVersion — hook TanStack Query para GET /version del API (cross-origin,
@@ -13,13 +13,13 @@ export function useApiVersion() {
   return useQuery<ApiVersionDto, ApiError>({
     queryKey: ['api-version'],
     queryFn: async () => {
-      const result = await fetchApiVersion()
+      const result = await fetchApiVersion();
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
     staleTime: Infinity,
     retry: false,
-  })
+  });
 }

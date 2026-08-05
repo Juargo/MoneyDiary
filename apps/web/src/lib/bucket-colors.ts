@@ -17,14 +17,14 @@ export const COLOR_BUCKET: Record<string, string> = {
   Necesidades: '#8FA7D1', // soft blue
   Deseos: '#B1A7D1', // lavanda
   Ahorro: '#E6D194', // pastel yellow
-}
+};
 
 /**
  * Over-budget accent (fills/dots ONLY, never text — see design.md §1). May
  * ship unconsumed: the dashboard has no over-budget progress-bar affordance
  * today (YAGNI — not inventing one in a restyle).
  */
-export const COLOR_EXCESO = '#E88A8A'
+export const COLOR_EXCESO = '#E88A8A';
 
 /**
  * Domain bucket name → user-facing label. The domain models the middle bucket
@@ -35,4 +35,4 @@ export const ETIQUETA_BUCKET: Record<string, string> = {
   Deseos: 'Gustos',
   Ahorro: 'Ahorro',
   SinCategoria: 'Sin categoría',
-}
+};

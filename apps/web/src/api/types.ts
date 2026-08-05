@@ -13,23 +13,23 @@
  */
 
 export interface BucketResumenDto {
-  readonly bucket: string
-  readonly total: string
-  readonly porcentajeBp: number | null
-  readonly estadoSemaforo: string | null
+  readonly bucket: string;
+  readonly total: string;
+  readonly porcentajeBp: number | null;
+  readonly estadoSemaforo: string | null;
 }
 
 export interface ResumenMesDto {
-  readonly periodo: string
-  readonly totalIngreso: string
-  readonly sinIngreso: boolean
-  readonly buckets: ReadonlyArray<BucketResumenDto>
+  readonly periodo: string;
+  readonly totalIngreso: string;
+  readonly sinIngreso: boolean;
+  readonly buckets: ReadonlyArray<BucketResumenDto>;
   readonly targets: {
-    readonly Necesidades: number
-    readonly Deseos: number
-    readonly Ahorro: number
-  }
-  readonly estadoGlobal: string | null
+    readonly Necesidades: number;
+    readonly Deseos: number;
+    readonly Ahorro: number;
+  };
+  readonly estadoGlobal: string | null;
 }
 
 /**
@@ -42,8 +42,8 @@ export interface ResumenMesDto {
  * y montos en cero, nunca omitidos.
  */
 export interface ResumenAnualDto {
-  readonly anio: number
-  readonly meses: ReadonlyArray<ResumenMesDto>
+  readonly anio: number;
+  readonly meses: ReadonlyArray<ResumenMesDto>;
 }
 
 /**
@@ -59,21 +59,21 @@ export interface ResumenAnualDto {
  * existente.
  */
 export interface DetalleBucketTransaccionDto {
-  readonly id: string
-  readonly fecha: string
-  readonly descripcion: string
-  readonly cargo: string
-  readonly abono: string
-  readonly banco: string
-  readonly tipoCuenta: string
-  readonly numeroCuenta: string
-  readonly categoria: { readonly id: string; readonly nombre: string } | null
+  readonly id: string;
+  readonly fecha: string;
+  readonly descripcion: string;
+  readonly cargo: string;
+  readonly abono: string;
+  readonly banco: string;
+  readonly tipoCuenta: string;
+  readonly numeroCuenta: string;
+  readonly categoria: { readonly id: string; readonly nombre: string } | null;
 }
 
 export interface DetalleBucketDto {
-  readonly periodo: string
-  readonly bucket: string
-  readonly transacciones: ReadonlyArray<DetalleBucketTransaccionDto>
+  readonly periodo: string;
+  readonly bucket: string;
+  readonly transacciones: ReadonlyArray<DetalleBucketTransaccionDto>;
 }
 
 /**
@@ -90,9 +90,9 @@ export interface DetalleBucketDto {
  * del backend en `buscarIdentidad`).
  */
 export interface MeDto {
-  readonly userId: string
-  readonly email: string | null
-  readonly esDemo: boolean
+  readonly userId: string;
+  readonly email: string | null;
+  readonly esDemo: boolean;
 }
 
 /**
@@ -107,9 +107,9 @@ export interface MeDto {
  * queries corra.
  */
 export interface ReclasificarCategoriaDto {
-  readonly id: string
-  readonly categoria: { readonly id: string; readonly nombre: string }
-  readonly bucket: string
+  readonly id: string;
+  readonly categoria: { readonly id: string; readonly nombre: string };
+  readonly bucket: string;
 }
 
 /**
@@ -123,31 +123,31 @@ export interface ReclasificarCategoriaDto {
  * nunca se parsean a number aquí.
  */
 export interface TransaccionResponseDto {
-  readonly fecha: string
-  readonly descripcion: string
-  readonly cargo: string
-  readonly abono: string
+  readonly fecha: string;
+  readonly descripcion: string;
+  readonly cargo: string;
+  readonly abono: string;
 }
 
 export interface IngestaResponseDto {
-  readonly ingestaId: string
-  readonly banco: string
-  readonly tipoCuenta: string
-  readonly numeroCuenta: string
+  readonly ingestaId: string;
+  readonly banco: string;
+  readonly tipoCuenta: string;
+  readonly numeroCuenta: string;
   readonly archivo: {
-    readonly nombre: string
-    readonly extension: string
-    readonly tamanoBytes: number
-  }
-  readonly totalTransacciones: number
+    readonly nombre: string;
+    readonly extension: string;
+    readonly tamanoBytes: number;
+  };
+  readonly totalTransacciones: number;
   /**
    * Conteo de filas detectadas como duplicadas y NO persistidas (US-005
    * `us-005-deteccion-duplicados`, design.md §5.1). `totalTransacciones` YA
    * refleja solo lo importado (semántica sin cambios) — este campo se suma,
    * no se resta de nada. `0` cuando no hubo duplicados, nunca omitido.
    */
-  readonly duplicadosOmitidos: number
-  readonly transacciones: ReadonlyArray<TransaccionResponseDto>
+  readonly duplicadosOmitidos: number;
+  readonly transacciones: ReadonlyArray<TransaccionResponseDto>;
 }
 
 /**
@@ -167,16 +167,16 @@ export interface IngestaResponseDto {
  * contrato HTTP nunca debe filtrar un tipo de persistencia a través del
  * boundary (mismo razonamiento que el resto de este archivo, ADR-008).
  */
-export type EstadoIngestaResumen = 'exitoso' | 'fallido' | 'pendiente'
+export type EstadoIngestaResumen = 'exitoso' | 'fallido' | 'pendiente';
 
 export interface IngestaListItemDto {
-  readonly id: string
-  readonly banco: string | null
-  readonly nombreArchivo: string
-  readonly estado: 'PROCESADA' | 'FALLIDA'
-  readonly motivoFallo: string | null
-  readonly fecha: string
-  readonly totalTransacciones: number
+  readonly id: string;
+  readonly banco: string | null;
+  readonly nombreArchivo: string;
+  readonly estado: 'PROCESADA' | 'FALLIDA';
+  readonly motivoFallo: string | null;
+  readonly fecha: string;
+  readonly totalTransacciones: number;
 }
 
 /**
@@ -185,10 +185,10 @@ export interface IngestaListItemDto {
  * landing: identifica qué build del backend está sirviendo prod.
  */
 export interface ApiVersionDto {
-  readonly version: string
-  readonly commit: string
-  readonly ref: string
-  readonly builtAt: string
+  readonly version: string;
+  readonly commit: string;
+  readonly ref: string;
+  readonly builtAt: string;
 }
 
 /**
@@ -201,10 +201,10 @@ export interface ApiVersionDto {
  * ISO-8601 (`toISOString()`).
  */
 export interface PreviewTransaccionDto {
-  readonly fecha: string
-  readonly descripcion: string
-  readonly cargo: string
-  readonly abono: string
+  readonly fecha: string;
+  readonly descripcion: string;
+  readonly cargo: string;
+  readonly abono: string;
 }
 
 /**
@@ -215,9 +215,9 @@ export interface PreviewTransaccionDto {
  * selector 10/25/50 (CA-01, PREV-06) re-slicea client-side, sin re-request.
  */
 export interface PreviewIngestaDto {
-  readonly banco: string
-  readonly tipoCuenta: string
-  readonly numeroCuenta: string
-  readonly estructura: { readonly totalFilasDatos: number }
-  readonly muestra: ReadonlyArray<PreviewTransaccionDto>
+  readonly banco: string;
+  readonly tipoCuenta: string;
+  readonly numeroCuenta: string;
+  readonly estructura: { readonly totalFilasDatos: number };
+  readonly muestra: ReadonlyArray<PreviewTransaccionDto>;
 }

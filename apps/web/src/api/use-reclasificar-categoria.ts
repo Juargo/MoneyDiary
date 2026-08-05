@@ -1,11 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { postReclasificarCategoria } from './client'
-import type { ApiError } from './client'
-import type { ReclasificarCategoriaDto } from './types'
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { postReclasificarCategoria } from './client';
+import type { ApiError } from './client';
+import type { ReclasificarCategoriaDto } from './types';
 
 export interface ReclasificarCategoriaInput {
-  readonly transaccionId: string
-  readonly categoria: string
+  readonly transaccionId: string;
+  readonly categoria: string;
 }
 
 /**
@@ -32,22 +32,31 @@ export interface ReclasificarCategoriaInput {
  *   que esto no afecta `['resumen', ...]` ni `['detalle-bucket', ...]` —
  *   claves distintas en la posición 0).
  */
-export function useReclasificarCategoria(periodo: string | undefined, bucket: string) {
-  const queryClient = useQueryClient()
+export function useReclasificarCategoria(
+  periodo: string | undefined,
+  bucket: string,
+) {
+  const queryClient = useQueryClient();
 
-  return useMutation<ReclasificarCategoriaDto, ApiError, ReclasificarCategoriaInput>({
+  return useMutation<
+    ReclasificarCategoriaDto,
+    ApiError,
+    ReclasificarCategoriaInput
+  >({
     mutationFn: async ({ transaccionId, categoria }) => {
-      const result = await postReclasificarCategoria(transaccionId, categoria)
+      const result = await postReclasificarCategoria(transaccionId, categoria);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
     onSuccess: () => {
-      const clave = periodo ?? 'actual'
-      void queryClient.invalidateQueries({ queryKey: ['resumen', clave] })
-      void queryClient.invalidateQueries({ queryKey: ['detalle-bucket', bucket, clave] })
-      void queryClient.invalidateQueries({ queryKey: ['resumen-anual'] })
+      const clave = periodo ?? 'actual';
+      void queryClient.invalidateQueries({ queryKey: ['resumen', clave] });
+      void queryClient.invalidateQueries({
+        queryKey: ['detalle-bucket', bucket, clave],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
     },
-  })
+  });
 }

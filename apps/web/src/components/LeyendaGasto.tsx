@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils'
-import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors'
+import { cn } from '@/lib/utils';
+import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 
 /**
  * One legend/selector row. `porcentaje` is the share-of-spending percent from
@@ -8,8 +8,8 @@ import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors'
  * it has no pie slice/share to show.
  */
 export interface LeyendaTajada {
-  readonly bucket: string
-  readonly porcentaje?: number
+  readonly bucket: string;
+  readonly porcentaje?: number;
 }
 
 /**
@@ -28,20 +28,24 @@ export function LeyendaGasto({
   bucketSeleccionado,
   onSelectBucket,
 }: {
-  readonly tajadas: ReadonlyArray<LeyendaTajada>
-  readonly bucketSeleccionado: string | null
-  readonly onSelectBucket: (bucket: string) => void
+  readonly tajadas: ReadonlyArray<LeyendaTajada>;
+  readonly bucketSeleccionado: string | null;
+  readonly onSelectBucket: (bucket: string) => void;
 }) {
   if (tajadas.length === 0) {
-    return null
+    return null;
   }
 
   return (
     <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
       {tajadas.map((tajada) => {
-        const seleccionado = tajada.bucket === bucketSeleccionado
+        const seleccionado = tajada.bucket === bucketSeleccionado;
         return (
-          <li key={tajada.bucket} data-testid="leyenda-item" className="flex items-center gap-2">
+          <li
+            key={tajada.bucket}
+            data-testid="leyenda-item"
+            className="flex items-center gap-2"
+          >
             <button
               type="button"
               aria-label={ETIQUETA_BUCKET[tajada.bucket] ?? tajada.bucket}
@@ -62,18 +66,22 @@ export function LeyendaGasto({
               <span
                 data-testid="leyenda-dot"
                 className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC' }}
+                style={{
+                  backgroundColor: COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC',
+                }}
               />
               <span className="text-sm text-foreground">
                 {ETIQUETA_BUCKET[tajada.bucket] ?? tajada.bucket}
               </span>
               {tajada.porcentaje !== undefined && (
-                <span className="text-sm font-semibold text-foreground">{tajada.porcentaje}%</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {tajada.porcentaje}%
+                </span>
               )}
             </button>
           </li>
-        )
+        );
       })}
     </ul>
-  )
+  );
 }

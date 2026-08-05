@@ -1,22 +1,30 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 interface EstiloSemaforo {
-  readonly label: string
-  readonly cara: string
-  readonly className: string
+  readonly label: string;
+  readonly cara: string;
+  readonly className: string;
 }
 
 const ESTILOS: Record<string, EstiloSemaforo> = {
-  verde: { label: 'Verde', cara: '🙂', className: 'bg-emerald-100 text-emerald-700' },
-  amarillo: { label: 'Amarillo', cara: '😐', className: 'bg-amber-100 text-amber-700' },
+  verde: {
+    label: 'Verde',
+    cara: '🙂',
+    className: 'bg-emerald-100 text-emerald-700',
+  },
+  amarillo: {
+    label: 'Amarillo',
+    cara: '😐',
+    className: 'bg-amber-100 text-amber-700',
+  },
   rojo: { label: 'Rojo', cara: '☹️', className: 'bg-rose-100 text-rose-700' },
-}
+};
 
 const SIN_DATOS: EstiloSemaforo = {
   label: 'Sin datos',
   cara: '—',
   className: 'bg-slate-100 text-slate-500',
-}
+};
 
 /**
  * Traffic-light indicator for a single `estadoSemaforo` wire value
@@ -31,19 +39,24 @@ export function SemaforoBadge({
   estadoSemaforo,
   size = 40,
 }: {
-  readonly estadoSemaforo: string | null
-  readonly size?: number
+  readonly estadoSemaforo: string | null;
+  readonly size?: number;
 }) {
-  const estilo = estadoSemaforo ? (ESTILOS[estadoSemaforo] ?? SIN_DATOS) : SIN_DATOS
+  const estilo = estadoSemaforo
+    ? (ESTILOS[estadoSemaforo] ?? SIN_DATOS)
+    : SIN_DATOS;
 
   return (
     <span
       role="img"
       aria-label={estilo.label}
-      className={cn('inline-flex items-center justify-center rounded-full', estilo.className)}
+      className={cn(
+        'inline-flex items-center justify-center rounded-full',
+        estilo.className,
+      )}
       style={{ width: size, height: size, fontSize: size * 0.5 }}
     >
       {estilo.cara}
     </span>
-  )
+  );
 }

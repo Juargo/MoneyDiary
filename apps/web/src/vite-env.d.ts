@@ -7,5 +7,5 @@ interface ImportMetaEnv {
    * inyectándose server-side por el proxy). Dev: `http://localhost:3000`;
    * prod: la URL de Render, seteada como env var del proyecto en Vercel.
    */
-  readonly VITE_API_BASE_URL?: string
+  readonly VITE_API_BASE_URL?: string;
 }

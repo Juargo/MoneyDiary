@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { sanitizeRedirect } from './sanitize-redirect'
+import { describe, expect, it } from 'vitest';
+import { sanitizeRedirect } from './sanitize-redirect';
 
 /**
  * sanitizeRedirect is the ONLY gate between an attacker-controlled
@@ -21,23 +21,30 @@ describe('sanitizeRedirect', () => {
     // These only get rejected by the post-`new URL` `pathname.startsWith('//')`
     // re-check + the path-only return — pin them so a future refactor can't
     // silently drop those lines and reopen the redirect.
-    ['/..//evil.com', 'dot-segment normalizing to a protocol-relative pathname'],
+    [
+      '/..//evil.com',
+      'dot-segment normalizing to a protocol-relative pathname',
+    ],
     ['/\t/evil.com', 'tab-injected host trick (stripped inside new URL)'],
   ])('rejects %s (%s) and falls back to /', (raw) => {
-    expect(sanitizeRedirect(raw)).toBe('/')
-  })
+    expect(sanitizeRedirect(raw)).toBe('/');
+  });
 
   it('honors a valid same-origin internal path', () => {
-    expect(sanitizeRedirect('/buckets/Necesidades')).toBe('/buckets/Necesidades')
-  })
+    expect(sanitizeRedirect('/buckets/Necesidades')).toBe(
+      '/buckets/Necesidades',
+    );
+  });
 
   it('falls back to / for non-string input', () => {
-    expect(sanitizeRedirect(undefined)).toBe('/')
-    expect(sanitizeRedirect(42)).toBe('/')
-    expect(sanitizeRedirect(null)).toBe('/')
-  })
+    expect(sanitizeRedirect(undefined)).toBe('/');
+    expect(sanitizeRedirect(42)).toBe('/');
+    expect(sanitizeRedirect(null)).toBe('/');
+  });
 
   it('preserves an internal path with a query string', () => {
-    expect(sanitizeRedirect('/buckets/Deseos?periodo=2026-07')).toBe('/buckets/Deseos?periodo=2026-07')
-  })
-})
+    expect(sanitizeRedirect('/buckets/Deseos?periodo=2026-07')).toBe(
+      '/buckets/Deseos?periodo=2026-07',
+    );
+  });
+});

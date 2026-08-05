@@ -1,13 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { BucketDetailList } from '@/components/BucketDetailList'
-import { normalizarPeriodo } from '@/domain/periodo'
+import { createFileRoute } from '@tanstack/react-router';
+import { BucketDetailList } from '@/components/BucketDetailList';
+import { normalizarPeriodo } from '@/domain/periodo';
 
 export const Route = createFileRoute('/_authenticated/buckets/$bucket')({
   validateSearch: (search: Record<string, unknown>): { periodo?: string } => ({
     periodo: normalizarPeriodo(search.periodo),
   }),
   component: BucketDetailRoute,
-})
+});
 
 /**
  * Thin container (same reasoning as `routes/index.tsx`): a `createFileRoute`
@@ -17,8 +17,8 @@ export const Route = createFileRoute('/_authenticated/buckets/$bucket')({
  * + rendering) carries the component tests.
  */
 function BucketDetailRoute() {
-  const { bucket } = Route.useParams()
-  const { periodo } = Route.useSearch()
+  const { bucket } = Route.useParams();
+  const { periodo } = Route.useSearch();
 
-  return <BucketDetailList bucket={bucket} periodo={periodo} />
+  return <BucketDetailList bucket={bucket} periodo={periodo} />;
 }

@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { postIngesta } from './client'
-import type { ApiError } from './client'
-import type { IngestaResponseDto } from './types'
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { postIngesta } from './client';
+import type { ApiError } from './client';
+import type { IngestaResponseDto } from './types';
 
 /**
  * useIngesta — la primera `useMutation` de este codebase (design.md
@@ -17,20 +17,20 @@ import type { IngestaResponseDto } from './types'
  * que da una falsa sensación de cobertura.
  */
 export function useIngesta() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation<IngestaResponseDto, ApiError, File>({
     mutationFn: async (file) => {
-      const result = await postIngesta(file)
+      const result = await postIngesta(file);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['resumen'] })
-      queryClient.invalidateQueries({ queryKey: ['resumen-anual'] })
-      queryClient.invalidateQueries({ queryKey: ['detalle-bucket'] })
+      queryClient.invalidateQueries({ queryKey: ['resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
+      queryClient.invalidateQueries({ queryKey: ['detalle-bucket'] });
     },
-  })
+  });
 }

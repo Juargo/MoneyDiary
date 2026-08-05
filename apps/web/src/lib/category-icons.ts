@@ -9,7 +9,7 @@ import {
   PiggyBank,
   Receipt,
   type LucideIcon,
-} from 'lucide-react'
+} from 'lucide-react';
 
 /**
  * The 8 canonical categorías (`ORDEN_CATEGORIAS` in `@/domain/categoria`,
@@ -26,7 +26,7 @@ const ICONO_POR_CATEGORIA: Record<string, LucideIcon> = {
   Streaming: PlayCircle,
   Delivery: Bike,
   Ahorro: PiggyBank,
-}
+};
 
 /**
  * iconoDeCategoria — categoría name → icon, with a generic `Receipt`
@@ -34,6 +34,8 @@ const ICONO_POR_CATEGORIA: Record<string, LucideIcon> = {
  * (WDS-05). Never throws — a lookup miss is a normal case (SinCategoria),
  * not an error.
  */
-export function iconoDeCategoria(nombre: string | null | undefined): LucideIcon {
-  return (nombre && ICONO_POR_CATEGORIA[nombre]) || Receipt
+export function iconoDeCategoria(
+  nombre: string | null | undefined,
+): LucideIcon {
+  return (nombre && ICONO_POR_CATEGORIA[nombre]) || Receipt;
 }

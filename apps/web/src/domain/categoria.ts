@@ -16,7 +16,7 @@ export const ORDEN_CATEGORIAS: ReadonlyArray<string> = [
   'Streaming',
   'Delivery',
   'Ahorro',
-]
+];
 
 /**
  * CATEGORIA_BUCKET — mapeo total categoría→bucket (espejo del backend). El
@@ -33,11 +33,11 @@ export const CATEGORIA_BUCKET: Record<string, string> = {
   Streaming: 'Deseos',
   Delivery: 'Deseos',
   Ahorro: 'Ahorro',
-}
+};
 
 export interface GrupoCategoriasBucket {
-  readonly bucket: string
-  readonly categorias: ReadonlyArray<string>
+  readonly bucket: string;
+  readonly categorias: ReadonlyArray<string>;
 }
 
 /**
@@ -48,17 +48,17 @@ export interface GrupoCategoriasBucket {
  * categorías, agrupadas por bucket, cross-bucket permitido).
  */
 export function agruparCategoriasPorBucket(): ReadonlyArray<GrupoCategoriasBucket> {
-  const grupos: GrupoCategoriasBucket[] = []
+  const grupos: GrupoCategoriasBucket[] = [];
 
   for (const nombre of ORDEN_CATEGORIAS) {
-    const bucket = CATEGORIA_BUCKET[nombre]
-    const ultimo = grupos.at(-1)
+    const bucket = CATEGORIA_BUCKET[nombre];
+    const ultimo = grupos.at(-1);
     if (ultimo && ultimo.bucket === bucket) {
-      ;(ultimo.categorias as string[]).push(nombre)
-      continue
+      (ultimo.categorias as string[]).push(nombre);
+      continue;
     }
-    grupos.push({ bucket, categorias: [nombre] })
+    grupos.push({ bucket, categorias: [nombre] });
   }
 
-  return grupos
+  return grupos;
 }

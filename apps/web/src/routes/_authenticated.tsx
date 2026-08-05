@@ -1,9 +1,9 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router'
-import { fetchMe } from '@/api/auth'
-import { requireSession } from '@/lib/require-session'
-import { DemoBanner } from '@/components/DemoBanner'
-import { AppShell } from '@/components/app-shell/AppShell'
-import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge'
+import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { fetchMe } from '@/api/auth';
+import { requireSession } from '@/lib/require-session';
+import { DemoBanner } from '@/components/DemoBanner';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
 
 /**
  * Pathless protected layout (AUTH-10, design.md §6.1): every route nested
@@ -38,18 +38,18 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge'
  */
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location }) => {
-    const me = await requireSession(fetchMe, location.href)
-    return { esDemo: me.esDemo }
+    const me = await requireSession(fetchMe, location.href);
+    return { esDemo: me.esDemo };
   },
   component: RouteComponent,
-})
+});
 
 function RouteComponent() {
-  const { esDemo } = Route.useRouteContext()
+  const { esDemo } = Route.useRouteContext();
   return (
     <AppShell sidebarFooter={<ApiVersionBadge />}>
       <DemoBanner esDemo={esDemo} />
       <Outlet />
     </AppShell>
-  )
+  );
 }

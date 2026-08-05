@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import { postLogin } from '@/api/auth'
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { postLogin } from '@/api/auth';
 
 /**
  * LoginForm — owns the email+password form state, the `postLogin` call, and
@@ -15,27 +15,30 @@ import { postLogin } from '@/api/auth'
  * discipline, AUTH-02).
  */
 export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [estado, setEstado] = useState<'idle' | 'submitting' | 'error'>('idle')
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [estado, setEstado] = useState<'idle' | 'submitting' | 'error'>('idle');
 
   async function enviar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (estado === 'submitting') return
+    event.preventDefault();
+    if (estado === 'submitting') return;
 
-    setEstado('submitting')
-    const result = await postLogin({ email, password })
+    setEstado('submitting');
+    const result = await postLogin({ email, password });
     if (!result.ok) {
-      setEstado('error')
-      return
+      setEstado('error');
+      return;
     }
 
-    void navigate({ to: redirectTo ?? '/' })
+    void navigate({ to: redirectTo ?? '/' });
   }
 
   return (
-    <form onSubmit={enviar} className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8">
+    <form
+      onSubmit={enviar}
+      className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8"
+    >
       <label className="flex flex-col gap-1 text-sm text-slate-600">
         Email
         <input
@@ -69,5 +72,5 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
         Ingresar
       </button>
     </form>
-  )
+  );
 }

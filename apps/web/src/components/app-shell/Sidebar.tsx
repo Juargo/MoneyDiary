@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
-import { NAV_ITEMS } from './nav-items'
-import { NavItem } from './NavItem'
-import { SIDEBAR_WIDTH_CLASS } from './layout'
+import type { ReactNode } from 'react';
+import { NAV_ITEMS } from './nav-items';
+import { NavItem } from './NavItem';
+import { SIDEBAR_WIDTH_CLASS } from './layout';
 
 /**
  * Sidebar — desktop nav rail (design.md §5): fixed left column, visible only
@@ -22,7 +22,9 @@ export function Sidebar({ footer }: { readonly footer?: ReactNode }) {
     >
       <div className="px-3">
         <p className="text-lg font-semibold text-primary">MoneyDiary</p>
-        <p className="text-xs text-muted-foreground">Sin registro. Solo analiza.</p>
+        <p className="text-xs text-muted-foreground">
+          Sin registro. Solo analiza.
+        </p>
       </div>
       <ul className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => (
@@ -33,5 +35,5 @@ export function Sidebar({ footer }: { readonly footer?: ReactNode }) {
       </ul>
       {footer && <div className="mt-auto">{footer}</div>}
     </nav>
-  )
+  );
 }

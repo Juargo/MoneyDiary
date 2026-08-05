@@ -1,6 +1,6 @@
-import { NAV_ITEMS } from './nav-items'
-import { NavItem } from './NavItem'
-import { BOTTOM_TABS_HEIGHT_CLASS } from './layout'
+import { NAV_ITEMS } from './nav-items';
+import { NavItem } from './NavItem';
+import { BOTTOM_TABS_HEIGHT_CLASS } from './layout';
 
 /**
  * BottomTabs — mobile nav bar (design.md §5): fixed bottom bar, visible only
@@ -25,5 +25,5 @@ export function BottomTabs() {
         <NavItem key={item.label} item={item} variant="bottom-tab" />
       ))}
     </nav>
-  )
+  );
 }

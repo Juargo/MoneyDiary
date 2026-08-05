@@ -1,5 +1,5 @@
-import type { ApiError, ApiResult } from './client'
-import type { MeDto } from './types'
+import type { ApiError, ApiResult } from './client';
+import type { MeDto } from './types';
 
 /**
  * api/auth.ts — cliente de sesión web (auth-login-session Slice 3, AUTH-01,
@@ -21,36 +21,52 @@ import type { MeDto } from './types'
 // `credentials: 'same-origin'` ya es el default del navegador para `fetch`,
 // pero se declara explícito (design.md §6.1) para que el envío de la cookie
 // de sesión no dependa de un default implícito del runtime.
-const SESSION_FETCH_OPTIONS: RequestInit = { credentials: 'same-origin' }
+const SESSION_FETCH_OPTIONS: RequestInit = { credentials: 'same-origin' };
 
 function errorGenerico(status: number): ApiError {
-  return { tag: 'server', status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' }
+  return {
+    tag: 'server',
+    status,
+    message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+  };
 }
 
-export async function postLogin(input: { email: string; password: string }): Promise<ApiResult<void>> {
-  let res: Response
+export async function postLogin(input: {
+  email: string;
+  password: string;
+}): Promise<ApiResult<void>> {
+  let res: Response;
   try {
     res = await fetch('/api/auth/login', {
       ...SESSION_FETCH_OPTIONS,
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(input),
-    })
+    });
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Credenciales inválidas.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Credenciales inválidas.' },
+    };
   }
   if (!res.ok) {
-    return { ok: false, error: errorGenerico(res.status) }
+    return { ok: false, error: errorGenerico(res.status) };
   }
 
   // Éxito: el body trae `{ token, userId, expiresAt }` pero se DESCARTA sin
   // leerlo — la cookie ya quedó seteada por el navegador. `value: undefined`
   // es la garantía en tipos de que ningún caller puede leer un `token`.
-  return { ok: true, value: undefined }
+  return { ok: true, value: undefined };
 }
 
 // Fail-closed cross-field invariant (mirrors the backend guard restored in
@@ -60,59 +76,83 @@ export async function postLogin(input: { email: string; password: string }): Pro
 // (`esDemo=true`) is the only shape allowed to have `email: null`.
 function esMeDto(value: unknown): value is MeDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<MeDto>
+  const candidato = value as Partial<MeDto>;
   if (
     typeof candidato.userId !== 'string' ||
     typeof candidato.esDemo !== 'boolean' ||
     (candidato.email !== null && typeof candidato.email !== 'string')
   ) {
-    return false
+    return false;
   }
-  return candidato.esDemo ? true : typeof candidato.email === 'string'
+  return candidato.esDemo ? true : typeof candidato.email === 'string';
 }
 
 export async function fetchMe(): Promise<ApiResult<MeDto>> {
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch('/api/auth/me', SESSION_FETCH_OPTIONS)
+    res = await fetch('/api/auth/me', SESSION_FETCH_OPTIONS);
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sesión no válida.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sesión no válida.' },
+    };
   }
   if (!res.ok) {
-    return { ok: false, error: errorGenerico(res.status) }
+    return { ok: false, error: errorGenerico(res.status) };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esMeDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
 export async function postLogout(): Promise<ApiResult<void>> {
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch('/api/auth/logout', { ...SESSION_FETCH_OPTIONS, method: 'POST' })
+    res = await fetch('/api/auth/logout', {
+      ...SESSION_FETCH_OPTIONS,
+      method: 'POST',
+    });
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (!res.ok) {
-    return { ok: false, error: errorGenerico(res.status) }
+    return { ok: false, error: errorGenerico(res.status) };
   }
 
-  return { ok: true, value: undefined }
+  return { ok: true, value: undefined };
 }

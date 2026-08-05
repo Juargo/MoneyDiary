@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { useEliminarIngesta } from '@/api/use-eliminar-ingesta'
-import type { EstadoIngestaResumen } from '@/api/types'
+import { useEffect, useRef, useState } from 'react';
+import { useEliminarIngesta } from '@/api/use-eliminar-ingesta';
+import type { EstadoIngestaResumen } from '@/api/types';
 
 /**
  * EliminarIngestaControl (`us-018-eliminar-ingesta` Slice 2, design.md §7.3,
@@ -65,17 +65,17 @@ export function EliminarIngestaControl({
   totalTransacciones,
   onEliminado,
 }: {
-  readonly id: string
-  readonly banco: string
-  readonly fechaLabel: string
-  readonly estado: EstadoIngestaResumen
-  readonly totalTransacciones: number
-  readonly onEliminado?: () => void
+  readonly id: string;
+  readonly banco: string;
+  readonly fechaLabel: string;
+  readonly estado: EstadoIngestaResumen;
+  readonly totalTransacciones: number;
+  readonly onEliminado?: () => void;
 }) {
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const confirmarRef = useRef<HTMLButtonElement>(null)
-  const [abierto, setAbierto] = useState(false)
-  const mutacion = useEliminarIngesta()
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const confirmarRef = useRef<HTMLButtonElement>(null);
+  const [abierto, setAbierto] = useState(false);
+  const mutacion = useEliminarIngesta();
 
   // Foco al abrir la confirmación: mueve el foco a "Confirmar" en vez de
   // dejarlo huérfano en el botón "Eliminar" que acaba de disparar el click —
@@ -83,27 +83,27 @@ export function EliminarIngestaControl({
   // seguir tabulando (mismo razonamiento que ReclasificarCategoriaControl).
   useEffect(() => {
     if (abierto) {
-      confirmarRef.current?.focus()
+      confirmarRef.current?.focus();
     }
-  }, [abierto])
+  }, [abierto]);
 
   function abrir() {
-    mutacion.reset()
-    setAbierto(true)
+    mutacion.reset();
+    setAbierto(true);
   }
 
   function cancelar() {
-    setAbierto(false)
-    triggerRef.current?.focus()
+    setAbierto(false);
+    triggerRef.current?.focus();
   }
 
   function confirmar() {
     mutacion.mutate(id, {
       onSuccess: () => {
-        setAbierto(false)
-        onEliminado?.()
+        setAbierto(false);
+        onEliminado?.();
       },
-    })
+    });
   }
 
   // Impacto estado-aware (US-004): las fallidas/pendientes no importaron
@@ -111,7 +111,7 @@ export function EliminarIngestaControl({
   const impacto =
     estado === 'exitoso'
       ? `Se eliminarán ${totalTransacciones} movimientos de ${banco} (${fechaLabel}).`
-      : `Se eliminará esta cartola ${estado === 'fallido' ? 'fallida' : 'pendiente'} de ${banco} (${fechaLabel}).`
+      : `Se eliminará esta cartola ${estado === 'fallido' ? 'fallida' : 'pendiente'} de ${banco} (${fechaLabel}).`;
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -130,7 +130,7 @@ export function EliminarIngestaControl({
           aria-label="Confirmar eliminación"
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
-              cancelar()
+              cancelar();
             }
           }}
           className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs text-foreground shadow-sm"
@@ -162,5 +162,5 @@ export function EliminarIngestaControl({
         </div>
       )}
     </div>
-  )
+  );
 }

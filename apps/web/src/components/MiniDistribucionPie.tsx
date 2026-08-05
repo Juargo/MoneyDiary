@@ -1,7 +1,7 @@
-import { calcularAngulos, arcoPath } from '@/domain/pie-geometry'
-import { COLOR_BUCKET } from '@/lib/bucket-colors'
-import { PIE_WEDGE_STROKE } from '@/lib/pie-colors'
-import type { TajadaGasto } from '@/domain/distribucion-gasto'
+import { calcularAngulos, arcoPath } from '@/domain/pie-geometry';
+import { COLOR_BUCKET } from '@/lib/bucket-colors';
+import { PIE_WEDGE_STROKE } from '@/lib/pie-colors';
+import type { TajadaGasto } from '@/domain/distribucion-gasto';
 
 /**
  * MiniDistribucionPie — compact, non-interactive, decorative pie for the
@@ -29,22 +29,28 @@ export function MiniDistribucionPie({
   tajadas,
   size = 56,
 }: {
-  readonly tajadas: ReadonlyArray<TajadaGasto>
-  readonly size?: number
+  readonly tajadas: ReadonlyArray<TajadaGasto>;
+  readonly size?: number;
 }) {
-  const cx = size / 2
-  const cy = size / 2
-  const r = size / 2
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2;
 
   if (tajadas.length === 0) {
     return (
       <svg width={size} height={size} aria-hidden="true">
-        <circle data-testid="mini-pie-placeholder" cx={cx} cy={cy} r={r} className="fill-muted" />
+        <circle
+          data-testid="mini-pie-placeholder"
+          cx={cx}
+          cy={cy}
+          r={r}
+          className="fill-muted"
+        />
       </svg>
-    )
+    );
   }
 
-  const tramos = calcularAngulos(tajadas.map((t) => t.fraccion))
+  const tramos = calcularAngulos(tajadas.map((t) => t.fraccion));
 
   return (
     <svg width={size} height={size} aria-hidden="true">
@@ -64,5 +70,5 @@ export function MiniDistribucionPie({
         />
       ))}
     </svg>
-  )
+  );
 }

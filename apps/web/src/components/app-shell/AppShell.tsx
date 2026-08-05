@@ -1,7 +1,10 @@
-import type { ReactNode } from 'react'
-import { Sidebar } from './Sidebar'
-import { BottomTabs } from './BottomTabs'
-import { CONTENT_BOTTOM_CLEARANCE_CLASS, SIDEBAR_CONTENT_OFFSET_CLASS } from './layout'
+import type { ReactNode } from 'react';
+import { Sidebar } from './Sidebar';
+import { BottomTabs } from './BottomTabs';
+import {
+  CONTENT_BOTTOM_CLEARANCE_CLASS,
+  SIDEBAR_CONTENT_OFFSET_CLASS,
+} from './layout';
 
 /**
  * AppShell — the responsive layout frame (design.md §5): composes `Sidebar`
@@ -18,14 +21,18 @@ export function AppShell({
   children,
   sidebarFooter,
 }: {
-  readonly children: ReactNode
-  readonly sidebarFooter?: ReactNode
+  readonly children: ReactNode;
+  readonly sidebarFooter?: ReactNode;
 }) {
   return (
     <div className="min-h-dvh bg-background">
       <Sidebar footer={sidebarFooter} />
-      <main className={`min-h-dvh ${CONTENT_BOTTOM_CLEARANCE_CLASS} ${SIDEBAR_CONTENT_OFFSET_CLASS}`}>{children}</main>
+      <main
+        className={`min-h-dvh ${CONTENT_BOTTOM_CLEARANCE_CLASS} ${SIDEBAR_CONTENT_OFFSET_CLASS}`}
+      >
+        {children}
+      </main>
       <BottomTabs />
     </div>
-  )
+  );
 }

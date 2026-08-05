@@ -1,23 +1,29 @@
-import { calcularAngulos, arcoPath } from '@/domain/pie-geometry'
-import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors'
-import { PIE_LABEL_FILL, PIE_WEDGE_STROKE } from '@/lib/pie-colors'
-import { BUCKETS_GASTO } from '@/domain/distribucion-gasto'
-import type { TajadaGasto } from '@/domain/distribucion-gasto'
-import type { ResumenViewModel } from '@/domain/resumen-view-model'
+import { calcularAngulos, arcoPath } from '@/domain/pie-geometry';
+import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { PIE_LABEL_FILL, PIE_WEDGE_STROKE } from '@/lib/pie-colors';
+import { BUCKETS_GASTO } from '@/domain/distribucion-gasto';
+import type { TajadaGasto } from '@/domain/distribucion-gasto';
+import type { ResumenViewModel } from '@/domain/resumen-view-model';
 
 interface Slice {
-  readonly bucket: string
-  readonly color: string
-  readonly fraccion: number
-  readonly porcentaje: number
+  readonly bucket: string;
+  readonly color: string;
+  readonly fraccion: number;
+  readonly porcentaje: number;
 }
 
-function centroidLabel(cx: number, cy: number, r: number, inicio: number, fin: number) {
-  const medio = ((inicio + fin) / 2) * (Math.PI / 180)
+function centroidLabel(
+  cx: number,
+  cy: number,
+  r: number,
+  inicio: number,
+  fin: number,
+) {
+  const medio = ((inicio + fin) / 2) * (Math.PI / 180);
   return {
     x: cx + r * 0.62 * Math.sin(medio),
     y: cy - r * 0.62 * Math.cos(medio),
-  }
+  };
 }
 
 /**
@@ -43,29 +49,35 @@ function Pie({
   bucketSeleccionado,
   onSelectSlice,
 }: {
-  readonly slices: ReadonlyArray<Slice>
-  readonly size: number
-  readonly showLabels?: boolean
-  readonly sliceTestId: string
-  readonly bucketSeleccionado?: string | null
-  readonly onSelectSlice?: (bucket: string) => void
+  readonly slices: ReadonlyArray<Slice>;
+  readonly size: number;
+  readonly showLabels?: boolean;
+  readonly sliceTestId: string;
+  readonly bucketSeleccionado?: string | null;
+  readonly onSelectSlice?: (bucket: string) => void;
 }) {
-  const cx = size / 2
-  const cy = size / 2
-  const r = size / 2
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2;
 
   if (slices.length === 0) {
     return (
-      <circle data-testid="pie-placeholder" cx={cx} cy={cy} r={r} className="fill-muted" />
-    )
+      <circle
+        data-testid="pie-placeholder"
+        cx={cx}
+        cy={cy}
+        r={r}
+        className="fill-muted"
+      />
+    );
   }
 
-  const tramos = calcularAngulos(slices.map((s) => s.fraccion))
+  const tramos = calcularAngulos(slices.map((s) => s.fraccion));
 
   return (
     <>
       {slices.map((slice, i) => {
-        const d = arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin)
+        const d = arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin);
 
         if (!onSelectSlice) {
           return (
@@ -80,10 +92,10 @@ function Pie({
               // token class.
               stroke={PIE_WEDGE_STROKE}
             />
-          )
+          );
         }
 
-        const seleccionado = slice.bucket === bucketSeleccionado
+        const seleccionado = slice.bucket === bucketSeleccionado;
         return (
           <path
             key={slice.bucket}
@@ -100,19 +112,25 @@ function Pie({
             onClick={() => onSelectSlice(slice.bucket)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                onSelectSlice(slice.bucket)
+                event.preventDefault();
+                onSelectSlice(slice.bucket);
               }
             }}
           />
-        )
+        );
       })}
       {showLabels &&
         slices.map((slice, i) => {
           if (slice.porcentaje < 5) {
-            return null
+            return null;
           }
-          const { x, y } = centroidLabel(cx, cy, r, tramos[i].inicio, tramos[i].fin)
+          const { x, y } = centroidLabel(
+            cx,
+            cy,
+            r,
+            tramos[i].inicio,
+            tramos[i].fin,
+          );
           return (
             <text
               key={`label-${slice.bucket}`}
@@ -138,10 +156,10 @@ function Pie({
             >
               {`${slice.porcentaje}%`}
             </text>
-          )
+          );
         })}
     </>
-  )
+  );
 }
 
 function slicesDesdeTajadas(tajadas: ReadonlyArray<TajadaGasto>): Slice[] {
@@ -150,25 +168,25 @@ function slicesDesdeTajadas(tajadas: ReadonlyArray<TajadaGasto>): Slice[] {
     color: COLOR_BUCKET[t.bucket] ?? '#CCCCCC',
     fraccion: t.fraccion,
     porcentaje: t.porcentaje,
-  }))
+  }));
 }
 
 function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
-  const total = targets.Necesidades + targets.Deseos + targets.Ahorro
+  const total = targets.Necesidades + targets.Deseos + targets.Ahorro;
   if (total <= 0) {
-    return []
+    return [];
   }
   const valores: Record<(typeof BUCKETS_GASTO)[number], number> = {
     Necesidades: targets.Necesidades,
     Deseos: targets.Deseos,
     Ahorro: targets.Ahorro,
-  }
+  };
   return BUCKETS_GASTO.map((bucket) => ({
     bucket,
     color: COLOR_BUCKET[bucket],
     fraccion: valores[bucket] / total,
     porcentaje: Math.round((valores[bucket] / total) * 100),
-  }))
+  }));
 }
 
 /**
@@ -194,22 +212,25 @@ export function DistribucionPie({
   onSelectBucket,
   size = 240,
 }: {
-  readonly tajadas: ReadonlyArray<TajadaGasto>
-  readonly targets: ResumenViewModel['targets']
-  readonly bucketSeleccionado: string | null
-  readonly onSelectBucket: (bucket: string) => void
-  readonly size?: number
+  readonly tajadas: ReadonlyArray<TajadaGasto>;
+  readonly targets: ResumenViewModel['targets'];
+  readonly bucketSeleccionado: string | null;
+  readonly onSelectBucket: (bucket: string) => void;
+  readonly size?: number;
 }) {
-  const idealSize = size * 0.34
+  const idealSize = size * 0.34;
   // FIX 2 (WCAG 4.1.2): role="img" flattens the whole subtree for assistive
   // tech, which would prune the slice `<path role="button">` semantics
   // below. Only the interactive main pie needs "group" — the non-interactive
   // placeholder ring (no spending) has nothing to flatten, so it keeps
   // role="img".
-  const esInteractivo = tajadas.length > 0
+  const esInteractivo = tajadas.length > 0;
 
   return (
-    <div className="relative flex items-center justify-center" style={{ height: size }}>
+    <div
+      className="relative flex items-center justify-center"
+      style={{ height: size }}
+    >
       <svg
         width={size}
         height={size}
@@ -235,7 +256,11 @@ export function DistribucionPie({
             role="img"
             aria-label="Distribución ideal 50/30/20"
           >
-            <Pie slices={slicesIdeales(targets)} size={idealSize} sliceTestId="pie-ideal-slice" />
+            <Pie
+              slices={slicesIdeales(targets)}
+              size={idealSize}
+              sliceTestId="pie-ideal-slice"
+            />
           </svg>
         </div>
         <span className="mt-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground">
@@ -243,5 +268,5 @@ export function DistribucionPie({
         </span>
       </div>
     </div>
-  )
+  );
 }

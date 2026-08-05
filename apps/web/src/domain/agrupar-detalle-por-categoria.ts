@@ -1,12 +1,12 @@
-import { formatearMontoCLP } from './formatear-monto'
-import { aFilaViewModel } from './detalle-bucket-view-model'
-import type { DetalleBucketRowViewModel } from './detalle-bucket-view-model'
-import type { DetalleBucketTransaccionDto } from '../api/types'
-import { ORDEN_CATEGORIAS } from './categoria'
+import { formatearMontoCLP } from './formatear-monto';
+import { aFilaViewModel } from './detalle-bucket-view-model';
+import type { DetalleBucketRowViewModel } from './detalle-bucket-view-model';
+import type { DetalleBucketTransaccionDto } from '../api/types';
+import { ORDEN_CATEGORIAS } from './categoria';
 
-const BUCKET_INGRESO = 'Ingreso'
-const NOMBRE_SIN_CATEGORIA = 'Sin categoría'
-const CLAVE_SIN_CATEGORIA = 'sin-categoria'
+const BUCKET_INGRESO = 'Ingreso';
+const NOMBRE_SIN_CATEGORIA = 'Sin categoría';
+const CLAVE_SIN_CATEGORIA = 'sin-categoria';
 
 // Orden canónico de las 8 categorías (US-013 S6a, WCAT-02 "canonical
 // order") — importado de `./categoria` (S6b) en vez de duplicado local, para
@@ -17,18 +17,18 @@ const CLAVE_SIN_CATEGORIA = 'sin-categoria'
 // llamada solo produce grupos para las presentes.
 
 export interface GrupoCategoriaViewModel {
-  readonly categoriaId: string | null
-  readonly nombre: string
-  readonly subtotalLabel: string
-  readonly conteo: number
-  readonly filas: ReadonlyArray<DetalleBucketRowViewModel>
+  readonly categoriaId: string | null;
+  readonly nombre: string;
+  readonly subtotalLabel: string;
+  readonly conteo: number;
+  readonly filas: ReadonlyArray<DetalleBucketRowViewModel>;
 }
 
 interface GrupoAcumulador {
-  readonly categoriaId: string | null
-  readonly nombre: string
-  subtotal: bigint
-  readonly filas: DetalleBucketRowViewModel[]
+  readonly categoriaId: string | null;
+  readonly nombre: string;
+  subtotal: bigint;
+  readonly filas: DetalleBucketRowViewModel[];
 }
 
 /**
@@ -41,16 +41,19 @@ interface GrupoAcumulador {
  * alcanzables — evita una regla de negocio implícita sobre qué buckets
  * "nunca llegan aquí".
  */
-function montoRelevante(tx: DetalleBucketTransaccionDto, bucket: string): string {
-  return bucket === BUCKET_INGRESO ? tx.abono : tx.cargo
+function montoRelevante(
+  tx: DetalleBucketTransaccionDto,
+  bucket: string,
+): string {
+  return bucket === BUCKET_INGRESO ? tx.abono : tx.cargo;
 }
 
 function ordinal(nombre: string): number {
-  const indice = ORDEN_CATEGORIAS.indexOf(nombre)
+  const indice = ORDEN_CATEGORIAS.indexOf(nombre);
   // "Sin categoría" (no está en ORDEN_CATEGORIAS, indexOf === -1) y
   // cualquier nombre no reconocido ordenan al final, después de las 8
   // categorías reales.
-  return indice === -1 ? ORDEN_CATEGORIAS.length : indice
+  return indice === -1 ? ORDEN_CATEGORIAS.length : indice;
 }
 
 /**
@@ -72,25 +75,25 @@ export function agruparDetallePorCategoria(
   transacciones: ReadonlyArray<DetalleBucketTransaccionDto>,
   bucket: string,
 ): ReadonlyArray<GrupoCategoriaViewModel> {
-  const grupos = new Map<string, GrupoAcumulador>()
+  const grupos = new Map<string, GrupoAcumulador>();
 
   for (const tx of transacciones) {
-    const clave = tx.categoria?.id ?? CLAVE_SIN_CATEGORIA
-    const monto = BigInt(montoRelevante(tx, bucket))
-    const fila = aFilaViewModel(tx)
+    const clave = tx.categoria?.id ?? CLAVE_SIN_CATEGORIA;
+    const monto = BigInt(montoRelevante(tx, bucket));
+    const fila = aFilaViewModel(tx);
 
-    const existente = grupos.get(clave)
+    const existente = grupos.get(clave);
     if (existente) {
-      existente.subtotal += monto
-      existente.filas.push(fila)
-      continue
+      existente.subtotal += monto;
+      existente.filas.push(fila);
+      continue;
     }
     grupos.set(clave, {
       categoriaId: tx.categoria?.id ?? null,
       nombre: tx.categoria?.nombre ?? NOMBRE_SIN_CATEGORIA,
       subtotal: monto,
       filas: [fila],
-    })
+    });
   }
 
   return Array.from(grupos.values())
@@ -101,5 +104,5 @@ export function agruparDetallePorCategoria(
       subtotalLabel: formatearMontoCLP(grupo.subtotal.toString()),
       conteo: grupo.filas.length,
       filas: grupo.filas,
-    }))
+    }));
 }

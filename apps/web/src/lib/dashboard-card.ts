@@ -11,4 +11,5 @@
  * `py-6`/`px-6`, a different visual language that would change the
  * already-reviewed PR3 output — not a drop-in replacement (kiss.md).
  */
-export const DASHBOARD_CARD_CLASS = 'rounded-lg border border-border bg-card p-5 shadow-sm'
+export const DASHBOARD_CARD_CLASS =
+  'rounded-lg border border-border bg-card p-5 shadow-sm';

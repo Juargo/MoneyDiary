@@ -11,9 +11,9 @@ import type {
   ResumenAnualDto,
   ResumenMesDto,
   TransaccionResponseDto,
-} from './types'
-import { esMontoStringValido } from '../domain/formatear-monto'
-import { esFechaValida } from '../domain/detalle-bucket-view-model'
+} from './types';
+import { esMontoStringValido } from '../domain/formatear-monto';
+import { esFechaValida } from '../domain/detalle-bucket-view-model';
 
 /**
  * fetchResumen — el único lugar que toca `fetch` para el endpoint de
@@ -28,9 +28,11 @@ export type ApiError =
   | { tag: 'unauthorized'; message: string } // 401 — sin acceso
   | { tag: 'network'; message: string } // fetch rechazado (offline, DNS…)
   | { tag: 'parse'; message: string } // 2xx pero el body no tiene la forma esperada
-  | { tag: 'server'; status: number; message: string } // cualquier otro no-2xx (5xx, 404…)
+  | { tag: 'server'; status: number; message: string }; // cualquier otro no-2xx (5xx, 404…)
 
-export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiError }
+export type ApiResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: ApiError };
 
 /**
  * Guarda money-safety: valida, campo por campo, todo lo que
@@ -50,67 +52,94 @@ export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiError
  */
 function esBucketResumenDto(value: unknown): value is BucketResumenDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<BucketResumenDto>
+  const candidato = value as Partial<BucketResumenDto>;
   return (
     typeof candidato.total === 'string' &&
     esMontoStringValido(candidato.total) &&
-    (typeof candidato.porcentajeBp === 'number' || candidato.porcentajeBp === null) &&
-    (typeof candidato.estadoSemaforo === 'string' || candidato.estadoSemaforo === null)
-  )
+    (typeof candidato.porcentajeBp === 'number' ||
+      candidato.porcentajeBp === null) &&
+    (typeof candidato.estadoSemaforo === 'string' ||
+      candidato.estadoSemaforo === null)
+  );
 }
 
 function esResumenMesDto(value: unknown): value is ResumenMesDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<ResumenMesDto>
+  const candidato = value as Partial<ResumenMesDto>;
   return (
     typeof candidato.totalIngreso === 'string' &&
     esMontoStringValido(candidato.totalIngreso) &&
     Array.isArray(candidato.buckets) &&
     candidato.buckets.every(esBucketResumenDto) &&
-    (typeof candidato.estadoGlobal === 'string' || candidato.estadoGlobal === null)
-  )
+    (typeof candidato.estadoGlobal === 'string' ||
+      candidato.estadoGlobal === null)
+  );
 }
 
-export async function fetchResumen(periodo?: string): Promise<ApiResult<ResumenMesDto>> {
-  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : ''
-  const url = `/api/resumen${query}`
+export async function fetchResumen(
+  periodo?: string,
+): Promise<ApiResult<ResumenMesDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `/api/resumen${query}`;
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch(url)
+    res = await fetch(url);
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 400) {
-    return { ok: false, error: { tag: 'invalid', message: 'El período no es válido.' } }
+    return {
+      ok: false,
+      error: { tag: 'invalid', message: 'El período no es válido.' },
+    };
   }
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esResumenMesDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
 /**
@@ -123,15 +152,15 @@ export async function fetchResumen(periodo?: string): Promise<ApiResult<ResumenM
  */
 function esResumenAnualDto(value: unknown): value is ResumenAnualDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<ResumenAnualDto>
+  const candidato = value as Partial<ResumenAnualDto>;
   return (
     typeof candidato.anio === 'number' &&
     Array.isArray(candidato.meses) &&
     candidato.meses.length === 12 &&
     candidato.meses.every(esResumenMesDto)
-  )
+  );
 }
 
 /**
@@ -140,42 +169,67 @@ function esResumenAnualDto(value: unknown): value is ResumenAnualDto {
  * error tipado. El 400 aquí es específico de `anio` inválido (mirror del
  * mensaje scrubbed del backend, `resumen.controller.ts#obtenerAnual`).
  */
-export async function fetchResumenAnual(anio?: number): Promise<ApiResult<ResumenAnualDto>> {
-  const query = anio !== undefined ? `?anio=${encodeURIComponent(String(anio))}` : ''
-  const url = `/api/resumen/anual${query}`
+export async function fetchResumenAnual(
+  anio?: number,
+): Promise<ApiResult<ResumenAnualDto>> {
+  const query =
+    anio !== undefined ? `?anio=${encodeURIComponent(String(anio))}` : '';
+  const url = `/api/resumen/anual${query}`;
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch(url)
+    res = await fetch(url);
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 400) {
-    return { ok: false, error: { tag: 'invalid', message: 'El año no es válido.' } }
+    return {
+      ok: false,
+      error: { tag: 'invalid', message: 'El año no es válido.' },
+    };
   }
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esResumenAnualDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
 /**
@@ -203,22 +257,28 @@ export async function fetchResumenAnual(anio?: number): Promise<ApiResult<Resume
  * valor inesperado — se mapea a `ApiError` tipado (tag "parse"), nunca
  * lanza.
  */
-function esCategoriaTx(value: unknown): value is { id: string; nombre: string } | null {
+function esCategoriaTx(
+  value: unknown,
+): value is { id: string; nombre: string } | null {
   if (value === null) {
-    return true
+    return true;
   }
   if (typeof value !== 'object') {
-    return false
+    return false;
   }
-  const candidato = value as Partial<{ id: string; nombre: string }>
-  return typeof candidato.id === 'string' && typeof candidato.nombre === 'string'
+  const candidato = value as Partial<{ id: string; nombre: string }>;
+  return (
+    typeof candidato.id === 'string' && typeof candidato.nombre === 'string'
+  );
 }
 
-function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTransaccionDto {
+function esDetalleBucketTransaccionDto(
+  value: unknown,
+): value is DetalleBucketTransaccionDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<DetalleBucketTransaccionDto>
+  const candidato = value as Partial<DetalleBucketTransaccionDto>;
   return (
     typeof candidato.id === 'string' &&
     typeof candidato.fecha === 'string' &&
@@ -229,72 +289,110 @@ function esDetalleBucketTransaccionDto(value: unknown): value is DetalleBucketTr
     typeof candidato.abono === 'string' &&
     esMontoStringValido(candidato.abono) &&
     esCategoriaTx(candidato.categoria ?? null)
-  )
+  );
 }
 
 function esDetalleBucketDto(value: unknown): value is DetalleBucketDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<DetalleBucketDto>
+  const candidato = value as Partial<DetalleBucketDto>;
   return (
     typeof candidato.bucket === 'string' &&
     Array.isArray(candidato.transacciones) &&
     candidato.transacciones.every(esDetalleBucketTransaccionDto)
-  )
+  );
 }
 
-export async function fetchDetalleBucket(bucket: string, periodo?: string): Promise<ApiResult<DetalleBucketDto>> {
-  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : ''
-  const url = `/api/buckets/${encodeURIComponent(bucket)}${query}`
+export async function fetchDetalleBucket(
+  bucket: string,
+  periodo?: string,
+): Promise<ApiResult<DetalleBucketDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `/api/buckets/${encodeURIComponent(bucket)}${query}`;
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch(url)
+    res = await fetch(url);
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 400) {
-    return { ok: false, error: { tag: 'invalid', message: 'El bucket o el período no son válidos.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'invalid',
+        message: 'El bucket o el período no son válidos.',
+      },
+    };
   }
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esDetalleBucketDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
-function esReclasificarCategoriaDto(value: unknown): value is ReclasificarCategoriaDto {
+function esReclasificarCategoriaDto(
+  value: unknown,
+): value is ReclasificarCategoriaDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<ReclasificarCategoriaDto>
-  if (typeof candidato.id !== 'string' || typeof candidato.bucket !== 'string') {
-    return false
+  const candidato = value as Partial<ReclasificarCategoriaDto>;
+  if (
+    typeof candidato.id !== 'string' ||
+    typeof candidato.bucket !== 'string'
+  ) {
+    return false;
   }
   if (typeof candidato.categoria !== 'object' || candidato.categoria === null) {
-    return false
+    return false;
   }
-  const categoria = candidato.categoria as Partial<{ id: string; nombre: string }>
-  return typeof categoria.id === 'string' && typeof categoria.nombre === 'string'
+  const categoria = candidato.categoria as Partial<{
+    id: string;
+    nombre: string;
+  }>;
+  return (
+    typeof categoria.id === 'string' && typeof categoria.nombre === 'string'
+  );
 }
 
 /**
@@ -314,44 +412,66 @@ export async function postReclasificarCategoria(
   transaccionId: string,
   categoria: string,
 ): Promise<ApiResult<ReclasificarCategoriaDto>> {
-  const url = `/api/transacciones/${encodeURIComponent(transaccionId)}/categoria`
+  const url = `/api/transacciones/${encodeURIComponent(transaccionId)}/categoria`;
 
-  let res: Response
+  let res: Response;
   try {
     res = await fetch(url, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ categoria }),
-    })
+    });
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 400) {
-    return { ok: false, error: { tag: 'invalid', message: 'La categoría elegida no es válida.' } }
+    return {
+      ok: false,
+      error: { tag: 'invalid', message: 'La categoría elegida no es válida.' },
+    };
   }
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esReclasificarCategoriaDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
 /**
@@ -362,11 +482,13 @@ export async function postReclasificarCategoria(
  * 2xx que no cumpla la forma esperada se mapea a `ApiError` tipado (tag
  * "parse"), nunca lanza.
  */
-function esTransaccionResponseDto(value: unknown): value is TransaccionResponseDto {
+function esTransaccionResponseDto(
+  value: unknown,
+): value is TransaccionResponseDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<TransaccionResponseDto>
+  const candidato = value as Partial<TransaccionResponseDto>;
   return (
     typeof candidato.fecha === 'string' &&
     esFechaValida(candidato.fecha) &&
@@ -375,26 +497,28 @@ function esTransaccionResponseDto(value: unknown): value is TransaccionResponseD
     esMontoStringValido(candidato.cargo) &&
     typeof candidato.abono === 'string' &&
     esMontoStringValido(candidato.abono)
-  )
+  );
 }
 
-function esArchivoIngestaDto(value: unknown): value is IngestaResponseDto['archivo'] {
+function esArchivoIngestaDto(
+  value: unknown,
+): value is IngestaResponseDto['archivo'] {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<IngestaResponseDto['archivo']>
+  const candidato = value as Partial<IngestaResponseDto['archivo']>;
   return (
     typeof candidato.nombre === 'string' &&
     typeof candidato.extension === 'string' &&
     typeof candidato.tamanoBytes === 'number'
-  )
+  );
 }
 
 function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<IngestaResponseDto>
+  const candidato = value as Partial<IngestaResponseDto>;
   return (
     typeof candidato.ingestaId === 'string' &&
     typeof candidato.banco === 'string' &&
@@ -405,7 +529,7 @@ function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
     typeof candidato.duplicadosOmitidos === 'number' &&
     Array.isArray(candidato.transacciones) &&
     candidato.transacciones.every(esTransaccionResponseDto)
-  )
+  );
 }
 
 /**
@@ -423,58 +547,88 @@ function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
  * (DRY, fuente única en el backend). Si el body no es legible, cae a un
  * mensaje genérico.
  */
-export async function postIngesta(file: File): Promise<ApiResult<IngestaResponseDto>> {
-  const formData = new FormData()
-  formData.append('file', file)
+export async function postIngesta(
+  file: File,
+): Promise<ApiResult<IngestaResponseDto>> {
+  const formData = new FormData();
+  formData.append('file', file);
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch('/api/ingestas', { method: 'POST', body: formData })
+    res = await fetch('/api/ingestas', { method: 'POST', body: formData });
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 400) {
-    let body: unknown
+    let body: unknown;
     try {
-      body = await res.json()
+      body = await res.json();
     } catch {
       return {
         ok: false,
-        error: { tag: 'invalid', message: 'El archivo no se pudo procesar. Intenta nuevamente.' },
-      }
+        error: {
+          tag: 'invalid',
+          message: 'El archivo no se pudo procesar. Intenta nuevamente.',
+        },
+      };
     }
-    const mensaje = (body as { message?: unknown } | null)?.message
+    const mensaje = (body as { message?: unknown } | null)?.message;
     return {
       ok: false,
       error: {
         tag: 'invalid',
-        message: typeof mensaje === 'string' ? mensaje : 'El archivo no se pudo procesar. Intenta nuevamente.',
+        message:
+          typeof mensaje === 'string'
+            ? mensaje
+            : 'El archivo no se pudo procesar. Intenta nuevamente.',
       },
-    }
+    };
   }
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Tu sesión expiró. Inicia sesión de nuevo.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'unauthorized',
+        message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+      },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esIngestaResponseDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
 /**
@@ -486,11 +640,13 @@ export async function postIngesta(file: File): Promise<ApiResult<IngestaResponse
  * renderiza estos montos). Un 2xx que no cumpla la forma esperada se mapea a
  * `ApiError` tipado (tag "parse"), nunca lanza.
  */
-function esPreviewTransaccionDto(value: unknown): value is PreviewTransaccionDto {
+function esPreviewTransaccionDto(
+  value: unknown,
+): value is PreviewTransaccionDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<PreviewTransaccionDto>
+  const candidato = value as Partial<PreviewTransaccionDto>;
   return (
     typeof candidato.fecha === 'string' &&
     esFechaValida(candidato.fecha) &&
@@ -499,22 +655,24 @@ function esPreviewTransaccionDto(value: unknown): value is PreviewTransaccionDto
     esMontoStringValido(candidato.cargo) &&
     typeof candidato.abono === 'string' &&
     esMontoStringValido(candidato.abono)
-  )
+  );
 }
 
-function esEstructuraPreviewDto(value: unknown): value is PreviewIngestaDto['estructura'] {
+function esEstructuraPreviewDto(
+  value: unknown,
+): value is PreviewIngestaDto['estructura'] {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<PreviewIngestaDto['estructura']>
-  return typeof candidato.totalFilasDatos === 'number'
+  const candidato = value as Partial<PreviewIngestaDto['estructura']>;
+  return typeof candidato.totalFilasDatos === 'number';
 }
 
 function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<PreviewIngestaDto>
+  const candidato = value as Partial<PreviewIngestaDto>;
   return (
     typeof candidato.banco === 'string' &&
     typeof candidato.tipoCuenta === 'string' &&
@@ -522,7 +680,7 @@ function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
     esEstructuraPreviewDto(candidato.estructura) &&
     Array.isArray(candidato.muestra) &&
     candidato.muestra.every(esPreviewTransaccionDto)
-  )
+  );
 }
 
 /**
@@ -536,58 +694,91 @@ function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
  * invalidates any cache from its result (that's `usePreviewIngesta`'s job,
  * D10).
  */
-export async function previewIngesta(file: File): Promise<ApiResult<PreviewIngestaDto>> {
-  const formData = new FormData()
-  formData.append('file', file)
+export async function previewIngesta(
+  file: File,
+): Promise<ApiResult<PreviewIngestaDto>> {
+  const formData = new FormData();
+  formData.append('file', file);
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch('/api/ingestas/preview', { method: 'POST', body: formData })
+    res = await fetch('/api/ingestas/preview', {
+      method: 'POST',
+      body: formData,
+    });
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 400) {
-    let body: unknown
+    let body: unknown;
     try {
-      body = await res.json()
+      body = await res.json();
     } catch {
       return {
         ok: false,
-        error: { tag: 'invalid', message: 'El archivo no se pudo procesar. Intenta nuevamente.' },
-      }
+        error: {
+          tag: 'invalid',
+          message: 'El archivo no se pudo procesar. Intenta nuevamente.',
+        },
+      };
     }
-    const mensaje = (body as { message?: unknown } | null)?.message
+    const mensaje = (body as { message?: unknown } | null)?.message;
     return {
       ok: false,
       error: {
         tag: 'invalid',
-        message: typeof mensaje === 'string' ? mensaje : 'El archivo no se pudo procesar. Intenta nuevamente.',
+        message:
+          typeof mensaje === 'string'
+            ? mensaje
+            : 'El archivo no se pudo procesar. Intenta nuevamente.',
       },
-    }
+    };
   }
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Tu sesión expiró. Inicia sesión de nuevo.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'unauthorized',
+        message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+      },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esPreviewIngestaDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }
 
 /**
@@ -608,25 +799,28 @@ export async function previewIngesta(file: File): Promise<ApiResult<PreviewInges
  * valida contra la unión exacta `'PROCESADA' | 'FALLIDA'` vía
  * `esIngestaEstado`, nunca un `string` suelto.
  */
-function esIngestaEstado(value: unknown): value is IngestaListItemDto['estado'] {
-  return value === 'PROCESADA' || value === 'FALLIDA'
+function esIngestaEstado(
+  value: unknown,
+): value is IngestaListItemDto['estado'] {
+  return value === 'PROCESADA' || value === 'FALLIDA';
 }
 
 function esIngestaListItemDto(value: unknown): value is IngestaListItemDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<IngestaListItemDto>
+  const candidato = value as Partial<IngestaListItemDto>;
   return (
     typeof candidato.id === 'string' &&
     (candidato.banco === null || typeof candidato.banco === 'string') &&
     typeof candidato.nombreArchivo === 'string' &&
     esIngestaEstado(candidato.estado) &&
-    (candidato.motivoFallo === null || typeof candidato.motivoFallo === 'string') &&
+    (candidato.motivoFallo === null ||
+      typeof candidato.motivoFallo === 'string') &&
     typeof candidato.fecha === 'string' &&
     esFechaValida(candidato.fecha) &&
     typeof candidato.totalTransacciones === 'number'
-  )
+  );
 }
 
 /**
@@ -637,40 +831,64 @@ function esIngestaListItemDto(value: unknown): value is IngestaListItemDto {
  * devuelve un array bare) — se valida que `body.ingestas` sea un array donde
  * CADA elemento cumple `esIngestaListItemDto` antes de desenvolverlo.
  */
-export async function fetchIngestas(): Promise<ApiResult<IngestaListItemDto[]>> {
-  let res: Response
+export async function fetchIngestas(): Promise<
+  ApiResult<IngestaListItemDto[]>
+> {
+  let res: Response;
   try {
-    res = await fetch('/api/ingestas')
+    res = await fetch('/api/ingestas');
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (typeof body !== 'object' || body === null) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
-  const ingestas = (body as { ingestas?: unknown }).ingestas
+  const ingestas = (body as { ingestas?: unknown }).ingestas;
   if (!Array.isArray(ingestas) || !ingestas.every(esIngestaListItemDto)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: ingestas }
+  return { ok: true, value: ingestas };
 }
 
 /**
@@ -685,45 +903,62 @@ export async function fetchIngestas(): Promise<ApiResult<IngestaListItemDto[]>> 
  * como un error inesperado.
  */
 export async function deleteIngesta(id: string): Promise<ApiResult<void>> {
-  const url = `/api/ingestas/${encodeURIComponent(id)}`
+  const url = `/api/ingestas/${encodeURIComponent(id)}`;
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch(url, { method: 'DELETE' })
+    res = await fetch(url, { method: 'DELETE' });
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (res.status === 404) {
     return {
       ok: false,
-      error: { tag: 'server', status: 404, message: 'La cartola ya no existe. La lista se actualizará.' },
-    }
+      error: {
+        tag: 'server',
+        status: 404,
+        message: 'La cartola ya no existe. La lista se actualizará.',
+      },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'Ocurrió un error inesperado. Intenta nuevamente.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
   }
 
-  return { ok: true, value: undefined }
+  return { ok: true, value: undefined };
 }
 
 function esApiVersionDto(value: unknown): value is ApiVersionDto {
   if (typeof value !== 'object' || value === null) {
-    return false
+    return false;
   }
-  const candidato = value as Partial<ApiVersionDto>
+  const candidato = value as Partial<ApiVersionDto>;
   return (
     typeof candidato.version === 'string' &&
     typeof candidato.commit === 'string' &&
     typeof candidato.ref === 'string' &&
     typeof candidato.builtAt === 'string'
-  )
+  );
 }
 
 /**
@@ -736,36 +971,55 @@ function esApiVersionDto(value: unknown): value is ApiVersionDto {
  * Nunca lanza; toda falla es un `ApiError` tipado.
  */
 export async function fetchApiVersion(): Promise<ApiResult<ApiVersionDto>> {
-  const base = import.meta.env.VITE_API_BASE_URL ?? ''
-  const url = `${base}/version`
+  const base = import.meta.env.VITE_API_BASE_URL ?? '';
+  const url = `${base}/version`;
 
-  let res: Response
+  let res: Response;
   try {
-    res = await fetch(url)
+    res = await fetch(url);
   } catch {
-    return { ok: false, error: { tag: 'network', message: 'No se pudo conectar con el servidor.' } }
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
   }
 
   if (res.status === 401) {
-    return { ok: false, error: { tag: 'unauthorized', message: 'Sin acceso.' } }
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
-      error: { tag: 'server', status: res.status, message: 'No se pudo obtener la versión del API.' },
-    }
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'No se pudo obtener la versión del API.',
+      },
+    };
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await res.json()
+    body = await res.json();
   } catch {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
   if (!esApiVersionDto(body)) {
-    return { ok: false, error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' } }
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
   }
 
-  return { ok: true, value: body }
+  return { ok: true, value: body };
 }

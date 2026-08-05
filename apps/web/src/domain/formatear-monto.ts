@@ -21,7 +21,7 @@
 // safety hole). Esta guarda web es intencionalmente más estricta que el
 // puerto mobile (`apps/mobile/src/domain/formatear-monto.ts`), que no
 // valida el formato antes de llamar a BigInt(...).
-const FORMATO_DECIMAL_VALIDO = /^-?\d+$/
+const FORMATO_DECIMAL_VALIDO = /^-?\d+$/;
 
 /**
  * esMontoStringValido — predicado puro (nunca lanza) que replica el mismo
@@ -32,7 +32,7 @@ const FORMATO_DECIMAL_VALIDO = /^-?\d+$/
  * duplicar el regex (DRY) sin envolver el formateador en un try/catch.
  */
 export function esMontoStringValido(montoStr: string): boolean {
-  return montoStr.trim() !== '' && FORMATO_DECIMAL_VALIDO.test(montoStr)
+  return montoStr.trim() !== '' && FORMATO_DECIMAL_VALIDO.test(montoStr);
 }
 
 export function formatearMontoCLP(montoStr: string): string {
@@ -43,11 +43,11 @@ export function formatearMontoCLP(montoStr: string): string {
   if (!esMontoStringValido(montoStr)) {
     throw new Error(
       'El monto en CLP debe ser un string decimal entero válido (sin hex/oct/bin, sin signo "+", sin espacios).',
-    )
+    );
   }
-  const monto = BigInt(montoStr)
-  const signo = monto < 0n ? '-' : ''
-  const absoluto = (monto < 0n ? -monto : monto).toString()
-  const conMiles = absoluto.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  return `${signo}$${conMiles}`
+  const monto = BigInt(montoStr);
+  const signo = monto < 0n ? '-' : '';
+  const absoluto = (monto < 0n ? -monto : monto).toString();
+  const conMiles = absoluto.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${signo}$${conMiles}`;
 }

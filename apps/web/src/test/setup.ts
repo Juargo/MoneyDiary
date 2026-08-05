@@ -1,9 +1,9 @@
 // Registra los matchers de jest-dom (`toBeInTheDocument`, `toHaveTextContent`,
 // ...) en el `expect` de Vitest y aplica la augmentación de tipos en todo el
 // programa. Cargado por `vitest.config.ts` vía `setupFiles`.
-import '@testing-library/jest-dom/vitest'
-import { configure } from '@testing-library/react'
-import { vi } from 'vitest'
+import '@testing-library/jest-dom/vitest';
+import { configure } from '@testing-library/react';
+import { vi } from 'vitest';
 
 // Raise Testing Library's async timeout above its 1000ms default. Router-driven
 // tests boot through an async `beforeLoad` (fetch → route match → render); the
@@ -11,19 +11,19 @@ import { vi } from 'vitest'
 // in parallel and saturates the CPU, pushing that boot past 1000ms and making
 // `waitFor`/`findBy*` time out on an empty body. 5000ms absorbs the contention
 // without masking a real hang (an actually stuck test still fails, just slower).
-configure({ asyncUtilTimeout: 5000 })
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom does not implement these two APIs (month-year-picker, WMYP-01) —
 // Radix Popover calls them when opening/positioning and throws without a
 // shim. Stubbed globally here so any test that opens a Radix popover works
 // without repeating this per test file.
 if (!Element.prototype.hasPointerCapture) {
-  Element.prototype.hasPointerCapture = vi.fn()
+  Element.prototype.hasPointerCapture = vi.fn();
 }
 if (!Element.prototype.scrollIntoView) {
-  Element.prototype.scrollIntoView = vi.fn()
+  Element.prototype.scrollIntoView = vi.fn();
 }
 // jsdom's `window.scrollTo` exists but is unimplemented and logs a
 // "Not implemented: Window's scrollTo()" error — Radix popover positioning
 // calls it on open. Stubbed out here rather than per test file.
-window.scrollTo = vi.fn()
+window.scrollTo = vi.fn();

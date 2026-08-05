@@ -1,14 +1,14 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useResumen } from '@/api/use-resumen'
-import { ResumenPage } from '@/components/ResumenPage'
-import { normalizarPeriodo } from '@/domain/periodo'
+import { createFileRoute } from '@tanstack/react-router';
+import { useResumen } from '@/api/use-resumen';
+import { ResumenPage } from '@/components/ResumenPage';
+import { normalizarPeriodo } from '@/domain/periodo';
 
 export const Route = createFileRoute('/_authenticated/')({
   validateSearch: (search: Record<string, unknown>): { periodo?: string } => ({
     periodo: normalizarPeriodo(search.periodo),
   }),
   component: HomePage,
-})
+});
 
 /**
  * Thin container (CLAUDE.md container/presentational pattern): owns the
@@ -20,9 +20,9 @@ export const Route = createFileRoute('/_authenticated/')({
  * call `Route.useSearch()`, which a unit test can't provide cheaply).
  */
 function HomePage() {
-  const { periodo } = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const query = useResumen(periodo)
+  const { periodo } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const query = useResumen(periodo);
 
   return (
     <ResumenPage
@@ -32,5 +32,5 @@ function HomePage() {
         navigate({ search: (prev) => ({ ...prev, periodo: nuevoPeriodo }) })
       }
     />
-  )
+  );
 }

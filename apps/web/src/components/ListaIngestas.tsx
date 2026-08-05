@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react'
-import { Loading } from './states/Loading'
-import { ErrorState } from './states/Error'
-import { Empty } from './states/Empty'
-import { EliminarIngestaControl } from './EliminarIngestaControl'
-import { Badge } from './ui/badge'
-import { useIngestas } from '@/api/use-ingestas'
-import type { IngestaListItemDto } from '@/api/types'
+import { useRef, useState } from 'react';
+import { Loading } from './states/Loading';
+import { ErrorState } from './states/Error';
+import { Empty } from './states/Empty';
+import { EliminarIngestaControl } from './EliminarIngestaControl';
+import { Badge } from './ui/badge';
+import { useIngestas } from '@/api/use-ingestas';
+import type { IngestaListItemDto } from '@/api/types';
 
 /**
  * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3; widened
@@ -37,20 +37,20 @@ import type { IngestaListItemDto } from '@/api/types'
  * instead of announcing/closing anything itself.
  */
 export function ListaIngestas() {
-  const query = useIngestas()
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  const [anuncio, setAnuncio] = useState('')
+  const query = useIngestas();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [anuncio, setAnuncio] = useState('');
 
   function alEliminar() {
-    setAnuncio('Cartola eliminada.')
-    headingRef.current?.focus()
+    setAnuncio('Cartola eliminada.');
+    headingRef.current?.focus();
   }
 
   if (query.isPending) {
-    return <Loading message="Cargando cartolas…" />
+    return <Loading message="Cargando cartolas…" />;
   }
   if (query.isError) {
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} />
+    return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.length === 0) {
     return (
@@ -58,7 +58,7 @@ export function ListaIngestas() {
         title="No hay cartolas cargadas"
         description="Sube una cartola para poder gestionarla aquí."
       />
-    )
+    );
   }
 
   return (
@@ -75,11 +75,15 @@ export function ListaIngestas() {
       </span>
       <ul className="flex flex-col gap-3">
         {query.data.map((ingesta) => (
-          <IngestaItem key={ingesta.id} ingesta={ingesta} onEliminado={alEliminar} />
+          <IngestaItem
+            key={ingesta.id}
+            ingesta={ingesta}
+            onEliminado={alEliminar}
+          />
         ))}
       </ul>
     </div>
-  )
+  );
 }
 
 /**
@@ -104,20 +108,24 @@ function IngestaItem({
   ingesta,
   onEliminado,
 }: {
-  readonly ingesta: IngestaListItemDto
-  readonly onEliminado: () => void
+  readonly ingesta: IngestaListItemDto;
+  readonly onEliminado: () => void;
 }) {
-  const fechaLabel = ingesta.fecha.slice(0, 10)
-  const esFallida = ingesta.estado === 'FALLIDA'
+  const fechaLabel = ingesta.fecha.slice(0, 10);
+  const esFallida = ingesta.estado === 'FALLIDA';
 
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{fechaLabel}</span>
-        <Badge variant={esFallida ? 'destructive' : 'secondary'}>{esFallida ? 'Fallido' : 'Exitoso'}</Badge>
+        <Badge variant={esFallida ? 'destructive' : 'secondary'}>
+          {esFallida ? 'Fallido' : 'Exitoso'}
+        </Badge>
       </div>
       <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-foreground">{ingesta.nombreArchivo}</span>
+        <span className="font-medium text-foreground">
+          {ingesta.nombreArchivo}
+        </span>
         <span className="text-muted-foreground">{ingesta.banco ?? '—'}</span>
       </div>
       {esFallida ? (
@@ -125,7 +133,8 @@ function IngestaItem({
       ) : (
         <div className="flex items-center justify-between text-sm text-foreground">
           <span>
-            {ingesta.totalTransacciones} {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
+            {ingesta.totalTransacciones}{' '}
+            {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
           </span>
           {/* `estado="exitoso"` is hardcoded (not derived from `ingesta.estado`):
               this branch only renders for PROCESADA rows (US-004 gating
@@ -144,5 +153,5 @@ function IngestaItem({
         </div>
       )}
     </li>
-  )
+  );
 }

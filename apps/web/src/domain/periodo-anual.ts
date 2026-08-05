@@ -20,7 +20,7 @@ const MESES_ABREVIADOS_ES = [
   'OCT',
   'NOV',
   'DIC',
-] as const
+] as const;
 
 const MESES_COMPLETOS_ES = [
   'enero',
@@ -35,34 +35,34 @@ const MESES_COMPLETOS_ES = [
   'octubre',
   'noviembre',
   'diciembre',
-] as const
+] as const;
 
-const PERIODO_REGEX = /^(\d{4})-(\d{2})$/
+const PERIODO_REGEX = /^(\d{4})-(\d{2})$/;
 
 /** "2026-07" → "JUL" — the annual grid's month-cell label. */
 export function mesAbreviado(periodo: string): string {
-  const match = PERIODO_REGEX.exec(periodo)
+  const match = PERIODO_REGEX.exec(periodo);
   if (!match) {
-    return periodo
+    return periodo;
   }
-  const mes = MESES_ABREVIADOS_ES[Number(match[2]) - 1]
-  return mes ?? periodo
+  const mes = MESES_ABREVIADOS_ES[Number(match[2]) - 1];
+  return mes ?? periodo;
 }
 
 /** "2026-07" → "julio 2026" — used in the accessible name ("Ver julio 2026"). */
 export function mesCompletoLabel(periodo: string): string {
-  const match = PERIODO_REGEX.exec(periodo)
+  const match = PERIODO_REGEX.exec(periodo);
   if (!match) {
-    return periodo
+    return periodo;
   }
-  const mes = MESES_COMPLETOS_ES[Number(match[2]) - 1]
-  return mes ? `${mes} ${match[1]}` : periodo
+  const mes = MESES_COMPLETOS_ES[Number(match[2]) - 1];
+  return mes ? `${mes} ${match[1]}` : periodo;
 }
 
 /** "2026-07" → 2026. Falls back to `anioPorDefecto` for an unparseable periodo. */
 export function anioDePeriodo(periodo: string, anioPorDefecto: number): number {
-  const match = PERIODO_REGEX.exec(periodo)
-  return match ? Number(match[1]) : anioPorDefecto
+  const match = PERIODO_REGEX.exec(periodo);
+  return match ? Number(match[1]) : anioPorDefecto;
 }
 
 /**
@@ -72,9 +72,9 @@ export function anioDePeriodo(periodo: string, anioPorDefecto: number): number {
  * deterministic tests instead of mocking global `Date`.
  */
 export function periodoActualUTC(ahora: Date): string {
-  const anio = ahora.getUTCFullYear()
-  const mes = String(ahora.getUTCMonth() + 1).padStart(2, '0')
-  return `${anio}-${mes}`
+  const anio = ahora.getUTCFullYear();
+  const mes = String(ahora.getUTCMonth() + 1).padStart(2, '0');
+  return `${anio}-${mes}`;
 }
 
 /**
@@ -82,16 +82,18 @@ export function periodoActualUTC(ahora: Date): string {
  * unparseable input instead of throwing (same defensive discipline as the
  * formatting helpers above).
  */
-function partesDePeriodo(periodo: string): { anio: number; mes: number } | null {
-  const match = PERIODO_REGEX.exec(periodo)
+function partesDePeriodo(
+  periodo: string,
+): { anio: number; mes: number } | null {
+  const match = PERIODO_REGEX.exec(periodo);
   if (!match) {
-    return null
+    return null;
   }
-  return { anio: Number(match[1]), mes: Number(match[2]) }
+  return { anio: Number(match[1]), mes: Number(match[2]) };
 }
 
 function formatearPeriodo(anio: number, mes: number): string {
-  return `${anio}-${String(mes).padStart(2, '0')}`
+  return `${anio}-${String(mes).padStart(2, '0')}`;
 }
 
 /**
@@ -102,7 +104,7 @@ function formatearPeriodo(anio: number, mes: number): string {
  * naming for this call site (DRY: single source for the zero-pad rule).
  */
 export function periodoDesde(anio: number, mes1a12: number): string {
-  return formatearPeriodo(anio, mes1a12)
+  return formatearPeriodo(anio, mes1a12);
 }
 
 /**
@@ -114,7 +116,7 @@ export function periodoDesde(anio: number, mes1a12: number): string {
  * popover's next-year clamp). `ahora` is injected for deterministic tests.
  */
 export function esPeriodoFuturo(periodo: string, ahora: Date): boolean {
-  return periodo > periodoActualUTC(ahora)
+  return periodo > periodoActualUTC(ahora);
 }
 
 /**
@@ -124,12 +126,14 @@ export function esPeriodoFuturo(periodo: string, ahora: Date): boolean {
  * — prev is always enabled for any past month (WPER-02).
  */
 export function mesAnterior(periodo: string): string {
-  const partes = partesDePeriodo(periodo)
+  const partes = partesDePeriodo(periodo);
   if (!partes) {
-    return periodo
+    return periodo;
   }
-  const { anio, mes } = partes
-  return mes === 1 ? formatearPeriodo(anio - 1, 12) : formatearPeriodo(anio, mes - 1)
+  const { anio, mes } = partes;
+  return mes === 1
+    ? formatearPeriodo(anio - 1, 12)
+    : formatearPeriodo(anio, mes - 1);
 }
 
 /**
@@ -138,12 +142,14 @@ export function mesAnterior(periodo: string): string {
  * via `esMesActual` (WPER-03) — this helper itself has no upper bound.
  */
 export function mesSiguiente(periodo: string): string {
-  const partes = partesDePeriodo(periodo)
+  const partes = partesDePeriodo(periodo);
   if (!partes) {
-    return periodo
+    return periodo;
   }
-  const { anio, mes } = partes
-  return mes === 12 ? formatearPeriodo(anio + 1, 1) : formatearPeriodo(anio, mes + 1)
+  const { anio, mes } = partes;
+  return mes === 12
+    ? formatearPeriodo(anio + 1, 1)
+    : formatearPeriodo(anio, mes + 1);
 }
 
 /**
@@ -152,5 +158,5 @@ export function mesSiguiente(periodo: string): string {
  * deterministic tests instead of mocking global `Date`.
  */
 export function esMesActual(periodo: string, ahora: Date): boolean {
-  return periodo === periodoActualUTC(ahora)
+  return periodo === periodoActualUTC(ahora);
 }

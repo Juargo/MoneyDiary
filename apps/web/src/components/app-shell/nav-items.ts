@@ -1,8 +1,15 @@
-import { Files, HelpCircle, LayoutDashboard, Settings, Upload, type LucideIcon } from 'lucide-react'
-import type { FileRouteTypes } from '@/routeTree.gen'
+import {
+  Files,
+  HelpCircle,
+  LayoutDashboard,
+  Settings,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react';
+import type { FileRouteTypes } from '@/routeTree.gen';
 
 /** Any route the app router actually knows about — typos fail `tsc`, not just at runtime. */
-export type NavRoute = FileRouteTypes['to']
+export type NavRoute = FileRouteTypes['to'];
 
 /**
  * Nav items are a discriminated union on `kind`, not a `to?`/`disabled`
@@ -15,8 +22,17 @@ export type NavRoute = FileRouteTypes['to']
  * but meaningless).
  */
 export type NavItemModel =
-  | { readonly kind: 'link'; readonly label: string; readonly to: NavRoute; readonly icon: LucideIcon }
-  | { readonly kind: 'placeholder'; readonly label: string; readonly icon: LucideIcon }
+  | {
+      readonly kind: 'link';
+      readonly label: string;
+      readonly to: NavRoute;
+      readonly icon: LucideIcon;
+    }
+  | {
+      readonly kind: 'placeholder';
+      readonly label: string;
+      readonly icon: LucideIcon;
+    };
 
 /**
  * Single source of the shell's nav model (design.md §5) — `Sidebar` and
@@ -40,4 +56,4 @@ export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Gestionar cartolas', to: '/ingestas', icon: Files },
   { kind: 'placeholder', label: 'Configuración', icon: Settings },
   { kind: 'placeholder', label: 'Ayuda', icon: HelpCircle },
-]
+];

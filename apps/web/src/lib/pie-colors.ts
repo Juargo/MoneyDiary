@@ -15,7 +15,7 @@
  */
 
 /** Dark on-surface label fill — passes 7.4-11.9:1 against every pastel slice fill (WCAG 2.2 AA). */
-export const PIE_LABEL_FILL = '#1a1c1c'
+export const PIE_LABEL_FILL = '#1a1c1c';
 
 /** White wedge separator stroke between adjacent pastel slices (WCAG 1.4.11). */
-export const PIE_WEDGE_STROKE = '#ffffff'
+export const PIE_WEDGE_STROKE = '#ffffff';

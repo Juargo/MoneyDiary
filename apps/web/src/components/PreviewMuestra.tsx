@@ -1,12 +1,12 @@
-import { Button } from './ui/button'
-import { formatearMontoCLP } from '@/domain/formatear-monto'
-import type { PreviewTransaccionDto } from '@/api/types'
+import { Button } from './ui/button';
+import { formatearMontoCLP } from '@/domain/formatear-monto';
+import type { PreviewTransaccionDto } from '@/api/types';
 
-const OPCIONES_CANTIDAD = [10, 25, 50] as const
+const OPCIONES_CANTIDAD = [10, 25, 50] as const;
 
-export type CantidadPreview = (typeof OPCIONES_CANTIDAD)[number]
+export type CantidadPreview = (typeof OPCIONES_CANTIDAD)[number];
 
-export const CANTIDAD_PREVIEW_DEFECTO: CantidadPreview = 10
+export const CANTIDAD_PREVIEW_DEFECTO: CantidadPreview = 10;
 
 /**
  * PreviewMuestra (`us-003-vista-previa` Slice 2, design.md §9.3/§9.4) —
@@ -32,13 +32,13 @@ export function PreviewMuestra({
   cantidad,
   onCantidadChange,
 }: {
-  readonly muestra: ReadonlyArray<PreviewTransaccionDto>
-  readonly banco: string
-  readonly totalFilasDatos: number
-  readonly cantidad: CantidadPreview
-  readonly onCantidadChange: (cantidad: CantidadPreview) => void
+  readonly muestra: ReadonlyArray<PreviewTransaccionDto>;
+  readonly banco: string;
+  readonly totalFilasDatos: number;
+  readonly cantidad: CantidadPreview;
+  readonly onCantidadChange: (cantidad: CantidadPreview) => void;
 }) {
-  const filas = muestra.slice(0, cantidad)
+  const filas = muestra.slice(0, cantidad);
 
   return (
     <div className="flex flex-col gap-3">
@@ -50,7 +50,9 @@ export function PreviewMuestra({
       </dl>
 
       <fieldset className="flex items-center gap-2">
-        <legend className="text-sm font-medium text-muted-foreground">Filas a mostrar</legend>
+        <legend className="text-sm font-medium text-muted-foreground">
+          Filas a mostrar
+        </legend>
         {OPCIONES_CANTIDAD.map((opcion) => (
           <Button
             key={opcion}
@@ -87,10 +89,16 @@ export function PreviewMuestra({
               </div>
               <div className="flex items-center justify-between text-foreground">
                 <span>
-                  Cargo: <span className="font-medium">{formatearMontoCLP(fila.cargo)}</span>
+                  Cargo:{' '}
+                  <span className="font-medium">
+                    {formatearMontoCLP(fila.cargo)}
+                  </span>
                 </span>
                 <span>
-                  Abono: <span className="font-medium">{formatearMontoCLP(fila.abono)}</span>
+                  Abono:{' '}
+                  <span className="font-medium">
+                    {formatearMontoCLP(fila.abono)}
+                  </span>
                 </span>
               </div>
             </li>
@@ -98,5 +106,5 @@ export function PreviewMuestra({
         </ul>
       )}
     </div>
-  )
+  );
 }

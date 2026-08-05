@@ -1,6 +1,9 @@
-import { formatearMontoCLP, esMontoStringValido } from './formatear-monto'
-import { calcularDistribucionGasto, type TajadaGasto } from './distribucion-gasto'
-import type { BucketResumenDto, ResumenMesDto } from '../api/types'
+import { formatearMontoCLP, esMontoStringValido } from './formatear-monto';
+import {
+  calcularDistribucionGasto,
+  type TajadaGasto,
+} from './distribucion-gasto';
+import type { BucketResumenDto, ResumenMesDto } from '../api/types';
 
 /**
  * Etiqueta explícita para "sin porcentaje": un `porcentajeBp: null` (camino
@@ -8,13 +11,13 @@ import type { BucketResumenDto, ResumenMesDto } from '../api/types'
  * valor centinela para que el componente lo distinga de un 0 real (spec
  * W1-02, MOB-06 en mobile).
  */
-export const SIN_PORCENTAJE_LABEL = '—'
+export const SIN_PORCENTAJE_LABEL = '—';
 
 export interface BucketViewModel {
-  readonly bucket: string
-  readonly total: string
-  readonly porcentajeLabel: string
-  readonly estadoSemaforo: string | null
+  readonly bucket: string;
+  readonly total: string;
+  readonly porcentajeLabel: string;
+  readonly estadoSemaforo: string | null;
 }
 
 /**
@@ -29,12 +32,12 @@ export interface BucketViewModel {
  * igual que en mobile (`theme/colors.ts`). El dominio nunca importa `lib/`.
  */
 export interface ResumenViewModel {
-  readonly periodo: string
-  readonly totalIngreso: string
-  readonly sinIngreso: boolean
-  readonly buckets: ReadonlyArray<BucketViewModel>
+  readonly periodo: string;
+  readonly totalIngreso: string;
+  readonly sinIngreso: boolean;
+  readonly buckets: ReadonlyArray<BucketViewModel>;
   /** Share-of-spending split for the pie + legend (77/12/11-style). */
-  readonly distribucionGasto: ReadonlyArray<TajadaGasto>
+  readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
   /**
    * The bucket with the largest total among all 4 buckets (including
    * SinCategoria) — the dashboard's default selection for the transactions
@@ -42,9 +45,9 @@ export interface ResumenViewModel {
    * `null` only if `buckets` is empty (FIX 4) — the backend contract
    * guarantees the 4 canonical buckets today, but this stays defensive.
    */
-  readonly bucketPorDefecto: string | null
-  readonly targets: ResumenMesDto['targets']
-  readonly estadoGlobal: string | null
+  readonly bucketPorDefecto: string | null;
+  readonly targets: ResumenMesDto['targets'];
+  readonly estadoGlobal: string | null;
 }
 
 /**
@@ -55,9 +58,9 @@ export interface ResumenViewModel {
  */
 function aPorcentajeLabel(porcentajeBp: number | null): string {
   if (porcentajeBp === null) {
-    return SIN_PORCENTAJE_LABEL
+    return SIN_PORCENTAJE_LABEL;
   }
-  return `${porcentajeBp / 100}%`
+  return `${porcentajeBp / 100}%`;
 }
 
 function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
@@ -66,7 +69,7 @@ function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
     total: formatearMontoCLP(bucket.total),
     porcentajeLabel: aPorcentajeLabel(bucket.porcentajeBp),
     estadoSemaforo: bucket.estadoSemaforo,
-  }
+  };
 }
 
 /**
@@ -78,7 +81,7 @@ function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
  * class). Degrades an invalid/empty total to `0n` instead of throwing.
  */
 function montoSeguro(montoStr: string): bigint {
-  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n
+  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n;
 }
 
 /**
@@ -90,13 +93,15 @@ function montoSeguro(montoStr: string): bigint {
  * totals), the FIRST bucket in DTO order wins (strict `>` never replaces the
  * running max on equality).
  */
-export function bucketConMayorTotal(buckets: ReadonlyArray<BucketResumenDto>): string | null {
+export function bucketConMayorTotal(
+  buckets: ReadonlyArray<BucketResumenDto>,
+): string | null {
   if (buckets.length === 0) {
-    return null
+    return null;
   }
   return buckets.reduce((mayor, actual) =>
     montoSeguro(actual.total) > montoSeguro(mayor.total) ? actual : mayor,
-  ).bucket
+  ).bucket;
 }
 
 /**
@@ -117,5 +122,5 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
     bucketPorDefecto: bucketConMayorTotal(dto.buckets),
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
-  }
+  };
 }

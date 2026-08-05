@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchDetalleBucket } from './client'
-import type { ApiError } from './client'
-import type { DetalleBucketDto } from './types'
+import { useQuery } from '@tanstack/react-query';
+import { fetchDetalleBucket } from './client';
+import type { ApiError } from './client';
+import type { DetalleBucketDto } from './types';
 
 /**
  * useDetalleBucket — hook TanStack Query para
@@ -14,11 +14,11 @@ export function useDetalleBucket(bucket: string, periodo?: string) {
   return useQuery<DetalleBucketDto, ApiError>({
     queryKey: ['detalle-bucket', bucket, periodo ?? 'actual'],
     queryFn: async () => {
-      const result = await fetchDetalleBucket(bucket, periodo)
+      const result = await fetchDetalleBucket(bucket, periodo);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
-  })
+  });
 }

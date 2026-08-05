@@ -1,4 +1,4 @@
-import { useApiVersion } from '@/api/use-api-version'
+import { useApiVersion } from '@/api/use-api-version';
 
 /**
  * ApiVersionBadge — muestra qué versión del API está usando el web
@@ -8,17 +8,18 @@ import { useApiVersion } from '@/api/use-api-version'
  * — así el `Sidebar` sigue siendo presentacional y testeable sin provider.
  */
 export function ApiVersionBadge() {
-  const { data } = useApiVersion()
+  const { data } = useApiVersion();
 
   if (!data) {
-    return null
+    return null;
   }
 
-  const commit = data.commit && data.commit !== 'local' ? ` · ${data.commit}` : ''
+  const commit =
+    data.commit && data.commit !== 'local' ? ` · ${data.commit}` : '';
 
   // Tooltip con el detalle completo del build para identificar exactamente qué
   // versión del API se está sirviendo (útil al diagnosticar un deploy).
-  const detalle = `API ${data.version} · commit ${data.commit} · ${data.ref} · build ${data.builtAt}`
+  const detalle = `API ${data.version} · commit ${data.commit} · ${data.ref} · build ${data.builtAt}`;
 
   return (
     <p
@@ -29,5 +30,5 @@ export function ApiVersionBadge() {
       API v{data.version}
       {commit}
     </p>
-  )
+  );
 }

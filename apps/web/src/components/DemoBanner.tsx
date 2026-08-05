@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 
 /**
  * DemoBanner (demo-trial-mode, DEMO-UI-02/DEMO-UI-04) — sticky, dismissable
@@ -33,10 +33,10 @@ import { useState } from 'react'
  * `aria-label` since its visible glyph ("×") alone is not descriptive.
  */
 export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
-  const [descartado, setDescartado] = useState(false)
+  const [descartado, setDescartado] = useState(false);
 
   if (!esDemo || descartado) {
-    return null
+    return null;
   }
 
   return (
@@ -46,7 +46,8 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
       className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
     >
       <p className="flex-1">
-        Estás en modo demo: los datos son de ejemplo y esta cuenta se elimina automáticamente.
+        Estás en modo demo: los datos son de ejemplo y esta cuenta se elimina
+        automáticamente.
       </p>
       <div className="flex shrink-0 items-center gap-2">
         <a
@@ -67,5 +68,5 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
         </button>
       </div>
     </div>
-  )
+  );
 }

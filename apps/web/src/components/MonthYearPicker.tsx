@@ -1,9 +1,15 @@
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from './ui/button'
-import { anioDePeriodo, esPeriodoFuturo, mesAbreviado, mesCompletoLabel, periodoDesde } from '@/domain/periodo-anual'
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from './ui/button';
+import {
+  anioDePeriodo,
+  esPeriodoFuturo,
+  mesAbreviado,
+  mesCompletoLabel,
+  periodoDesde,
+} from '@/domain/periodo-anual';
 
-const MESES_1A12 = Array.from({ length: 12 }, (_, indice) => indice + 1)
+const MESES_1A12 = Array.from({ length: 12 }, (_, indice) => indice + 1);
 
 /**
  * 12-month grid + in-popover year navigation (month-year-picker,
@@ -18,19 +24,21 @@ export function MonthYearPicker({
   periodoActual,
   onSelect,
 }: {
-  readonly periodo: string
-  readonly periodoActual: string
-  readonly onSelect: (periodo: string) => void
+  readonly periodo: string;
+  readonly periodoActual: string;
+  readonly onSelect: (periodo: string) => void;
 }) {
-  const anioActual = anioDePeriodo(periodoActual, 0)
-  const [anioMostrado, setAnioMostrado] = useState(() => anioDePeriodo(periodo, anioActual))
+  const anioActual = anioDePeriodo(periodoActual, 0);
+  const [anioMostrado, setAnioMostrado] = useState(() =>
+    anioDePeriodo(periodo, anioActual),
+  );
   // `esPeriodoFuturo` takes a real `Date` — reconstruct it from the injected
   // `periodoActual` string (never the real clock, design.md D3) so the grid's
   // future-month clamp reuses the same rule as the header's clamp instead of
   // repeating the `>` comparison inline.
-  const ahoraDesdePeriodoActual = new Date(`${periodoActual}-01T00:00:00.000Z`)
+  const ahoraDesdePeriodoActual = new Date(`${periodoActual}-01T00:00:00.000Z`);
 
-  const proximoAnioDeshabilitado = anioMostrado >= anioActual
+  const proximoAnioDeshabilitado = anioMostrado >= anioActual;
 
   return (
     <div className="flex flex-col gap-3">
@@ -45,7 +53,10 @@ export function MonthYearPicker({
           <ChevronLeft aria-hidden="true" />
         </Button>
 
-        <span aria-live="polite" className="text-sm font-semibold text-foreground">
+        <span
+          aria-live="polite"
+          className="text-sm font-semibold text-foreground"
+        >
           {anioMostrado}
         </span>
 
@@ -63,9 +74,12 @@ export function MonthYearPicker({
 
       <div className="grid grid-cols-3 gap-2">
         {MESES_1A12.map((mes) => {
-          const periodoCelda = periodoDesde(anioMostrado, mes)
-          const activo = periodoCelda === periodo
-          const deshabilitado = esPeriodoFuturo(periodoCelda, ahoraDesdePeriodoActual)
+          const periodoCelda = periodoDesde(anioMostrado, mes);
+          const activo = periodoCelda === periodo;
+          const deshabilitado = esPeriodoFuturo(
+            periodoCelda,
+            ahoraDesdePeriodoActual,
+          );
 
           return (
             <Button
@@ -80,9 +94,9 @@ export function MonthYearPicker({
             >
               {mesAbreviado(periodoCelda)}
             </Button>
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }
