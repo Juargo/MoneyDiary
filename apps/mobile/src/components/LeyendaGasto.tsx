@@ -8,19 +8,23 @@ import { COLOR_BUCKET, ETIQUETA_BUCKET } from '../theme/colors';
  * the SAME numbers as the pie slices. Purely presentational; the tajadas are
  * already computed by the view-model.
  */
-export function LeyendaGasto({ tajadas }: { tajadas: ReadonlyArray<TajadaGasto> }) {
+export function LeyendaGasto({ tajadas }: { tajadas: readonly TajadaGasto[] }) {
   return (
     <View className="flex-row flex-wrap justify-center gap-x-6 gap-y-2">
       {tajadas.map((tajada) => (
         <View key={tajada.bucket} className="flex-row items-center gap-2">
           <View
             className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC' }}
+            style={{
+              backgroundColor: COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC',
+            }}
           />
           <Text className="text-[15px] text-heading">
             {ETIQUETA_BUCKET[tajada.bucket] ?? tajada.bucket}
           </Text>
-          <Text className="text-[15px] font-semibold text-heading">{tajada.porcentaje}%</Text>
+          <Text className="text-[15px] font-semibold text-heading">
+            {tajada.porcentaje}%
+          </Text>
         </View>
       ))}
     </View>

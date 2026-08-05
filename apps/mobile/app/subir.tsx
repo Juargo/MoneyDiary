@@ -5,9 +5,15 @@ import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { postIngesta } from '../src/api/post-ingesta';
-import type { IngestaResponseDto, PostIngestaError } from '../src/api/post-ingesta';
+import type {
+  IngestaResponseDto,
+  PostIngestaError,
+} from '../src/api/post-ingesta';
 import { previewIngesta } from '../src/api/preview-ingesta';
-import type { PreviewIngestaDto, PreviewIngestaError } from '../src/api/preview-ingesta';
+import type {
+  PreviewIngestaDto,
+  PreviewIngestaError,
+} from '../src/api/preview-ingesta';
 import {
   CANTIDAD_PREVIEW_DEFECTO,
   OPCIONES_CANTIDAD_PREVIEW,
@@ -78,17 +84,22 @@ function mensajeDePreviewListo(dto: PreviewIngestaDto): string {
 }
 
 /** Spanish message shown/announced when the picker itself fails to open. */
-const MENSAJE_ERROR_PICKER = 'No se pudo abrir el selector de archivos. Intenta de nuevo.';
+const MENSAJE_ERROR_PICKER =
+  'No se pudo abrir el selector de archivos. Intenta de nuevo.';
 
 export default function Subir() {
   const router = useRouter();
   const [estado, setEstado] = useState<Estado>({ fase: 'idle' });
-  const [cantidad, setCantidad] = useState<CantidadPreview>(CANTIDAD_PREVIEW_DEFECTO);
+  const [cantidad, setCantidad] = useState<CantidadPreview>(
+    CANTIDAD_PREVIEW_DEFECTO,
+  );
 
   const seleccionarArchivo = useCallback(async () => {
     let resultado: DocumentPicker.DocumentPickerResult;
     try {
-      resultado = await DocumentPicker.getDocumentAsync({ type: TIPOS_ACEPTADOS });
+      resultado = await DocumentPicker.getDocumentAsync({
+        type: TIPOS_ACEPTADOS,
+      });
     } catch {
       setEstado({ fase: 'error', mensaje: MENSAJE_ERROR_PICKER });
       return;
@@ -138,7 +149,9 @@ export default function Subir() {
   // announcement pattern, extended with the new `preview` phase.
   useEffect(() => {
     if (estado.fase === 'preview') {
-      AccessibilityInfo.announceForAccessibility(mensajeDePreviewListo(estado.dto));
+      AccessibilityInfo.announceForAccessibility(
+        mensajeDePreviewListo(estado.dto),
+      );
     } else if (estado.fase === 'exito') {
       AccessibilityInfo.announceForAccessibility(mensajeDeExito(estado.dto));
     } else if (estado.fase === 'error') {
@@ -151,13 +164,17 @@ export default function Subir() {
   // duration of the active preview/confirm window (design.md §10.1/§10.2
   // "same file" guarantee).
   const mostrarTrigger =
-    estado.fase === 'idle' || estado.fase === 'error' || estado.fase === 'exito';
+    estado.fase === 'idle' ||
+    estado.fase === 'error' ||
+    estado.fase === 'exito';
   const previsualizando = estado.fase === 'previsualizando';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
       <View className="flex-1 gap-6 px-8 py-6">
-        <Text className="text-center text-2xl font-bold text-heading">Subir cartola</Text>
+        <Text className="text-center text-2xl font-bold text-heading">
+          Subir cartola
+        </Text>
 
         {mostrarTrigger && (
           <Pressable
@@ -168,7 +185,9 @@ export default function Subir() {
             className="items-center rounded-full py-3"
             style={{ backgroundColor: COLORS.ingreso }}
           >
-            <Text className="font-semibold text-white">Seleccionar archivo</Text>
+            <Text className="font-semibold text-white">
+              Seleccionar archivo
+            </Text>
           </Pressable>
         )}
 
@@ -230,10 +249,14 @@ export default function Subir() {
               accessibilityLiveRegion="polite"
               className="gap-2 rounded-xl border border-hairline bg-white p-4"
             >
-              <Text className="text-base font-semibold text-heading">Cartola subida</Text>
+              <Text className="text-base font-semibold text-heading">
+                Cartola subida
+              </Text>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted">Banco</Text>
-                <Text className="text-sm font-medium text-heading">{estado.dto.banco}</Text>
+                <Text className="text-sm font-medium text-heading">
+                  {estado.dto.banco}
+                </Text>
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted">Cuenta</Text>
@@ -283,13 +306,13 @@ function PreviewCartola({
       <View
         testID="preview-resultado"
         accessibilityRole="summary"
-        accessibilityLabel={
-          `Vista previa lista. Banco ${dto.banco}, ${dto.estructura.totalFilasDatos} movimientos.`
-        }
+        accessibilityLabel={`Vista previa lista. Banco ${dto.banco}, ${dto.estructura.totalFilasDatos} movimientos.`}
         accessibilityLiveRegion="polite"
         className="gap-3 rounded-xl border border-hairline bg-white p-4"
       >
-        <Text className="text-base font-semibold text-heading">Vista previa</Text>
+        <Text className="text-base font-semibold text-heading">
+          Vista previa
+        </Text>
         <View className="flex-row justify-between">
           <Text className="text-sm text-muted">Banco</Text>
           <Text className="text-sm font-medium text-heading">{dto.banco}</Text>
@@ -319,7 +342,9 @@ function PreviewCartola({
                 onPress={() => onCantidadChange(opcion)}
                 className="rounded-full border px-3 py-1"
                 style={{
-                  backgroundColor: seleccionada ? COLORS.ingreso : COLORS.canvas,
+                  backgroundColor: seleccionada
+                    ? COLORS.ingreso
+                    : COLORS.canvas,
                   borderColor: COLORS.hairline,
                 }}
               >
@@ -346,9 +371,7 @@ function PreviewCartola({
               <View
                 key={`${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}-${indice}`}
                 testID={`preview-fila-${indice}`}
-                accessibilityLabel={
-                  `${formateada.fecha}, ${formateada.descripcion}, cargo ${formateada.cargo}, abono ${formateada.abono}`
-                }
+                accessibilityLabel={`${formateada.fecha}, ${formateada.descripcion}, cargo ${formateada.cargo}, abono ${formateada.abono}`}
                 className="gap-1 rounded-lg bg-canvas p-2"
               >
                 <View className="flex-row justify-between">
@@ -358,8 +381,12 @@ function PreviewCartola({
                   </Text>
                 </View>
                 <View className="flex-row justify-between">
-                  <Text className="text-xs text-muted">Cargo: {formateada.cargo}</Text>
-                  <Text className="text-xs text-muted">Abono: {formateada.abono}</Text>
+                  <Text className="text-xs text-muted">
+                    Cargo: {formateada.cargo}
+                  </Text>
+                  <Text className="text-xs text-muted">
+                    Abono: {formateada.abono}
+                  </Text>
                 </View>
               </View>
             );
@@ -404,7 +431,9 @@ function VolverAlResumen({ onPress }: { readonly onPress: () => void }) {
       onPress={onPress}
       className="items-center py-3"
     >
-      <Text className="text-sm font-semibold text-muted">Volver al resumen</Text>
+      <Text className="text-sm font-semibold text-muted">
+        Volver al resumen
+      </Text>
     </Pressable>
   );
 }

@@ -24,7 +24,7 @@ export interface PreviewIngestaDto {
   readonly tipoCuenta: string;
   readonly numeroCuenta: string;
   readonly estructura: { readonly totalFilasDatos: number };
-  readonly muestra: ReadonlyArray<PreviewTransaccionDto>;
+  readonly muestra: readonly PreviewTransaccionDto[];
 }
 
 /**
@@ -60,7 +60,10 @@ function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
   if (typeof candidato.banco !== 'string') {
     return false;
   }
-  if (typeof candidato.estructura !== 'object' || candidato.estructura === null) {
+  if (
+    typeof candidato.estructura !== 'object' ||
+    candidato.estructura === null
+  ) {
     return false;
   }
   if (typeof candidato.estructura.totalFilasDatos !== 'number') {
@@ -130,9 +133,15 @@ export async function previewIngesta(
     try {
       body = await res.json();
     } catch {
-      return { ok: false, error: { tag: 'http', status: 400, message: undefined } };
+      return {
+        ok: false,
+        error: { tag: 'http', status: 400, message: undefined },
+      };
     }
-    return { ok: false, error: { tag: 'http', status: 400, message: mensajeDe400(body) } };
+    return {
+      ok: false,
+      error: { tag: 'http', status: 400, message: mensajeDe400(body) },
+    };
   }
 
   if (!res.ok) {

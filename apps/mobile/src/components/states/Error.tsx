@@ -19,7 +19,9 @@ export function ErrorState({
 }) {
   return (
     <View className="flex-1 items-center justify-center gap-4 bg-canvas px-8">
-      <Text className="text-center text-base text-heading">{copiaPorApiError(error)}</Text>
+      <Text className="text-center text-base text-heading">
+        {copiaPorApiError(error)}
+      </Text>
       <Pressable
         accessibilityRole="button"
         onPress={onRetry}

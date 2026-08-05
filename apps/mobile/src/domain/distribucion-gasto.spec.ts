@@ -46,7 +46,11 @@ describe('calcularDistribucionGasto', () => {
       bucket('Ahorro', '200000'),
       bucket('SinCategoria', '999999'),
     ]);
-    expect(tajadas.map((t) => t.bucket)).toEqual(['Necesidades', 'Deseos', 'Ahorro']);
+    expect(tajadas.map((t) => t.bucket)).toEqual([
+      'Necesidades',
+      'Deseos',
+      'Ahorro',
+    ]);
     expect(tajadas.map((t) => t.porcentaje)).toEqual([50, 30, 20]);
   });
 

@@ -7,7 +7,9 @@ import { Empty } from './Empty';
 describe('Empty', () => {
   it('renders empty-state copy distinct from $0 or 0%', async () => {
     await render(<Empty />);
-    expect(screen.getByText('Sin ingresos registrados este período')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Sin ingresos registrados este período'),
+    ).toBeOnTheScreen();
     expect(screen.queryByText('$0')).not.toBeOnTheScreen();
     expect(screen.queryByText('0%')).not.toBeOnTheScreen();
   });

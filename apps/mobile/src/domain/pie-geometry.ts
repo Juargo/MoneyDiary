@@ -14,7 +14,7 @@ export interface Tramo {
  * tramo is forced to close at exactly 360 so the pie never leaves a hairline
  * gap when the fractions don't sum to 1 (BigInt ratios truncate).
  */
-export function calcularAngulos(fracciones: ReadonlyArray<number>): Tramo[] {
+export function calcularAngulos(fracciones: readonly number[]): Tramo[] {
   const tramos: Tramo[] = [];
   let acumulado = 0;
   fracciones.forEach((fraccion, i) => {

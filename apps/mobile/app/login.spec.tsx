@@ -1,5 +1,13 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react-native';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+} from '@testing-library/react-native';
 import type { ApiResult, LoginResponseDto } from '../src/api/client';
+
+// Import after jest.mock is registered.
+import Login from './login';
 
 // RED-first (Slice 4 §4.3, MOB-01): `postLogin` and `guardarToken` are
 // mocked at the module boundary so the login screen's own state wiring is
@@ -8,12 +16,16 @@ import type { ApiResult, LoginResponseDto } from '../src/api/client';
 // `useSession().signIn` flips the synchronous auth-context guard, and
 // `Stack.Protected` (tested for real in
 // `test/auth-navigation.integration.spec.tsx`) does the actual navigating.
-const mockPostLogin = jest.fn<Promise<ApiResult<LoginResponseDto>>, [string, string]>();
+const mockPostLogin = jest.fn<
+  Promise<ApiResult<LoginResponseDto>>,
+  [string, string]
+>();
 const mockGuardarToken = jest.fn<Promise<void>, [string]>();
 const mockSignIn = jest.fn<void, [string]>();
 
 jest.mock('../src/api/client', () => ({
-  postLogin: (email: string, password: string) => mockPostLogin(email, password),
+  postLogin: (email: string, password: string) =>
+    mockPostLogin(email, password),
 }));
 
 jest.mock('../src/api/session-store', () => ({
@@ -23,9 +35,6 @@ jest.mock('../src/api/session-store', () => ({
 jest.mock('../src/api/session-context', () => ({
   useSession: () => ({ signIn: mockSignIn }),
 }));
-
-// Import after jest.mock is registered.
-import Login from './login';
 
 const successResponse: LoginResponseDto = {
   token: 'session-token',
@@ -64,16 +73,22 @@ describe('Login screen (MOB-01)', () => {
     const toggle = screen.getByTestId('login-password-toggle');
 
     // Hidden by default — secureTextEntry masks the field.
-    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(
+      true,
+    );
     expect(screen.getByLabelText('Mostrar contraseña')).toBeOnTheScreen();
 
     await fireEvent.press(toggle);
-    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(false);
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(
+      false,
+    );
     expect(screen.getByLabelText('Ocultar contraseña')).toBeOnTheScreen();
 
     // Tapping again re-masks it.
     await fireEvent.press(screen.getByTestId('login-password-toggle'));
-    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(true);
+    expect(screen.getByTestId('login-password').props.secureTextEntry).toBe(
+      true,
+    );
   });
 
   it('submits the typed credentials to postLogin, stores the token, and signs in on success', async () => {
@@ -85,13 +100,18 @@ describe('Login screen (MOB-01)', () => {
     await fireEvent.changeText(screen.getByTestId('login-password'), 'secret');
     await fireEvent.press(screen.getByTestId('login-submit'));
 
-    await waitFor(() => expect(mockPostLogin).toHaveBeenCalledWith('a@b.com', 'secret'));
+    await waitFor(() =>
+      expect(mockPostLogin).toHaveBeenCalledWith('a@b.com', 'secret'),
+    );
     expect(mockGuardarToken).toHaveBeenCalledWith('session-token');
     expect(mockSignIn).toHaveBeenCalledWith('session-token');
   });
 
   it('shows a generic error and does NOT store a token or sign in on failure', async () => {
-    mockPostLogin.mockResolvedValue({ ok: false, error: { tag: 'unauthorized' } });
+    mockPostLogin.mockResolvedValue({
+      ok: false,
+      error: { tag: 'unauthorized' },
+    });
 
     await render(<Login />);
 
@@ -101,7 +121,9 @@ describe('Login screen (MOB-01)', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('No pudimos iniciar sesión. Verifica tus datos e intenta de nuevo.'),
+        screen.getByText(
+          'No pudimos iniciar sesión. Verifica tus datos e intenta de nuevo.',
+        ),
       ).toBeOnTheScreen(),
     );
     expect(mockGuardarToken).not.toHaveBeenCalled();

@@ -1,12 +1,29 @@
-import { act, render, screen, waitFor, fireEvent } from '@testing-library/react-native';
+import {
+  act,
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+} from '@testing-library/react-native';
 import type { ApiResult } from '../src/api/client';
 import type { ResumenMesDto } from '../src/domain/resumen.types';
+
+// Import after jest.mock is registered. `resumen-refresh` is intentionally
+// NOT mocked here (unlike `app/subir.spec.tsx`) — the real pub/sub module is
+// exercised so the CU-10 end-to-end wiring (subir -> index refetch) has at
+// least one test asserting the actual registration/invocation, not just each
+// side mocking the other (review fix #1).
+import Index from './index';
+import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 
 // RED-first (T3.9, sprint3-mvp-mobile, MOB-03/MOB-04): the 4-way state
 // switch that `app/index.tsx` owns. `fetchResumen` is mocked at the module
 // boundary so the screen's own useEffect/useState wiring is what's under
 // test — never a real fetch (D2: plain fetch, no query library).
-const mockFetchResumen = jest.fn<Promise<ApiResult<ResumenMesDto>>, [string?]>();
+const mockFetchResumen = jest.fn<
+  Promise<ApiResult<ResumenMesDto>>,
+  [string?]
+>();
 const mockPostLogout = jest.fn<Promise<ApiResult<void>>, []>();
 
 // `copiaPorApiError` is re-exported from the real module (review readability
@@ -59,10 +76,30 @@ const dataDto: ResumenMesDto = {
   totalIngreso: '1000000',
   sinIngreso: false,
   buckets: [
-    { bucket: 'Necesidades', total: '500000', porcentajeBp: 5000, estadoSemaforo: 'verde' },
-    { bucket: 'Deseos', total: '300000', porcentajeBp: 3000, estadoSemaforo: 'amarillo' },
-    { bucket: 'Ahorro', total: '200000', porcentajeBp: 2000, estadoSemaforo: 'verde' },
-    { bucket: 'SinCategoria', total: '0', porcentajeBp: null, estadoSemaforo: null },
+    {
+      bucket: 'Necesidades',
+      total: '500000',
+      porcentajeBp: 5000,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Deseos',
+      total: '300000',
+      porcentajeBp: 3000,
+      estadoSemaforo: 'amarillo',
+    },
+    {
+      bucket: 'Ahorro',
+      total: '200000',
+      porcentajeBp: 2000,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'SinCategoria',
+      total: '0',
+      porcentajeBp: null,
+      estadoSemaforo: null,
+    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
@@ -73,22 +110,24 @@ const emptyDto: ResumenMesDto = {
   totalIngreso: '0',
   sinIngreso: true,
   buckets: [
-    { bucket: 'Necesidades', total: '0', porcentajeBp: null, estadoSemaforo: null },
+    {
+      bucket: 'Necesidades',
+      total: '0',
+      porcentajeBp: null,
+      estadoSemaforo: null,
+    },
     { bucket: 'Deseos', total: '0', porcentajeBp: null, estadoSemaforo: null },
     { bucket: 'Ahorro', total: '0', porcentajeBp: null, estadoSemaforo: null },
-    { bucket: 'SinCategoria', total: '0', porcentajeBp: null, estadoSemaforo: null },
+    {
+      bucket: 'SinCategoria',
+      total: '0',
+      porcentajeBp: null,
+      estadoSemaforo: null,
+    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: null,
 };
-
-// Import after jest.mock is registered. `resumen-refresh` is intentionally
-// NOT mocked here (unlike `app/subir.spec.tsx`) — the real pub/sub module is
-// exercised so the CU-10 end-to-end wiring (subir -> index refetch) has at
-// least one test asserting the actual registration/invocation, not just each
-// side mocking the other (review fix #1).
-import Index from './index';
-import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 
 describe('Index (4-state switch)', () => {
   beforeEach(() => {
@@ -110,7 +149,9 @@ describe('Index (4-state switch)', () => {
     expect(screen.queryByText('Reintentar')).not.toBeOnTheScreen();
 
     d.resolve({ ok: true, value: dataDto });
-    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+    );
   });
 
   it('shows the data state with income, all buckets, and the global semáforo', async () => {
@@ -118,7 +159,9 @@ describe('Index (4-state switch)', () => {
 
     await render(<Index />);
 
-    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+    );
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
@@ -132,17 +175,24 @@ describe('Index (4-state switch)', () => {
     await render(<Index />);
 
     await waitFor(() =>
-      expect(screen.getByText('Sin ingresos registrados este período')).toBeOnTheScreen(),
+      expect(
+        screen.getByText('Sin ingresos registrados este período'),
+      ).toBeOnTheScreen(),
     );
     expect(screen.queryByText('Distribución del gasto')).not.toBeOnTheScreen();
   });
 
   it('shows the error state with a retry affordance on a mapped failure', async () => {
-    mockFetchResumen.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+    mockFetchResumen.mockResolvedValue({
+      ok: false,
+      error: { tag: 'network' },
+    });
 
     await render(<Index />);
 
-    await waitFor(() => expect(screen.getByText('Reintentar')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Reintentar')).toBeOnTheScreen(),
+    );
     expect(screen.queryByText('Distribución del gasto')).not.toBeOnTheScreen();
   });
 
@@ -153,10 +203,14 @@ describe('Index (4-state switch)', () => {
 
     await render(<Index />);
 
-    await waitFor(() => expect(screen.getByText('Reintentar')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Reintentar')).toBeOnTheScreen(),
+    );
     fireEvent.press(screen.getByText('Reintentar'));
 
-    await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+    );
     expect(mockFetchResumen).toHaveBeenCalledTimes(2);
   });
 
@@ -166,7 +220,9 @@ describe('Index (4-state switch)', () => {
       mockPostLogout.mockResolvedValue({ ok: true, value: undefined });
 
       await render(<Index />);
-      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
 
       // REL LOW (review finding): wrap the async logout interaction so its
       // chained awaits (postLogout -> borrarToken -> signOut) settle inside
@@ -182,10 +238,15 @@ describe('Index (4-state switch)', () => {
 
     it('still clears the local token and signs out even when postLogout network-fails', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
-      mockPostLogout.mockResolvedValue({ ok: false, error: { tag: 'network' } });
+      mockPostLogout.mockResolvedValue({
+        ok: false,
+        error: { tag: 'network' },
+      });
 
       await render(<Index />);
-      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
 
       await act(async () => {
         await fireEvent.press(screen.getByTestId('logout-button'));
@@ -201,7 +262,9 @@ describe('Index (4-state switch)', () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
 
       await render(<Index />);
-      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
 
       const trigger = screen.getByTestId('subir-cartola-button');
       expect(trigger).toHaveProp('accessibilityRole', 'button');
@@ -219,7 +282,9 @@ describe('Index (4-state switch)', () => {
         .mockResolvedValueOnce({ ok: true, value: dataDto });
 
       await render(<Index />);
-      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
       expect(mockFetchResumen).toHaveBeenCalledTimes(1);
 
       // This is the REAL module — no jest.mock on '../src/api/resumen-refresh'
@@ -236,7 +301,9 @@ describe('Index (4-state switch)', () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
 
       const view = await render(<Index />);
-      await waitFor(() => expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen());
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
       expect(mockFetchResumen).toHaveBeenCalledTimes(1);
 
       // `unmount()` must run inside `act` so the effect cleanup (the

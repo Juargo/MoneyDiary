@@ -11,8 +11,12 @@ export function IngresoCard({ totalIngreso }: { totalIngreso: string }) {
     <View className="flex-row overflow-hidden rounded-2xl border border-hairline bg-white">
       <View className="w-1.5 bg-ingreso" />
       <View className="flex-1 items-center py-6">
-        <Text className="text-xs font-semibold tracking-widest text-muted">INGRESOS</Text>
-        <Text className="mt-1 text-4xl font-extrabold text-ingreso">{totalIngreso}</Text>
+        <Text className="text-xs font-semibold tracking-widest text-muted">
+          INGRESOS
+        </Text>
+        <Text className="mt-1 text-4xl font-extrabold text-ingreso">
+          {totalIngreso}
+        </Text>
       </View>
     </View>
   );

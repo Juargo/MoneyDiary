@@ -1,8 +1,18 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import { fetchMe } from './client';
 import { borrarToken, leerToken } from './session-store';
 
-export type SessionGateEstado = 'checking' | 'authenticated' | 'unauthenticated';
+export type SessionGateEstado =
+  | 'checking'
+  | 'authenticated'
+  | 'unauthenticated';
 
 export interface SessionContextValue {
   readonly estado: SessionGateEstado;
@@ -10,7 +20,9 @@ export interface SessionContextValue {
   readonly signOut: () => void;
 }
 
-const SessionContext = createContext<SessionContextValue | undefined>(undefined);
+const SessionContext = createContext<SessionContextValue | undefined>(
+  undefined,
+);
 
 /**
  * Synchronous session/auth context (MOB-03) — the official Expo Router

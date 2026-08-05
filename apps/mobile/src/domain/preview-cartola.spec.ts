@@ -9,7 +9,9 @@ import type { PreviewTransaccionDto } from '../api/preview-ingesta';
 // Pure domain logic (US-003 Slice 3, design.md §10.2) — no React Native
 // import, tested with plain Jest like `formatear-monto.spec.ts`.
 
-function filaDePreview(overrides: Partial<PreviewTransaccionDto> = {}): PreviewTransaccionDto {
+function filaDePreview(
+  overrides: Partial<PreviewTransaccionDto> = {},
+): PreviewTransaccionDto {
   return {
     fecha: '2026-07-01T00:00:00.000Z',
     descripcion: 'Compra supermercado',
@@ -19,7 +21,7 @@ function filaDePreview(overrides: Partial<PreviewTransaccionDto> = {}): PreviewT
   };
 }
 
-function muestraDe(cantidad: number): ReadonlyArray<PreviewTransaccionDto> {
+function muestraDe(cantidad: number): readonly PreviewTransaccionDto[] {
   return Array.from({ length: cantidad }, (_, i) =>
     filaDePreview({ descripcion: `Movimiento ${i + 1}` }),
   );

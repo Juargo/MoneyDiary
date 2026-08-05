@@ -22,9 +22,13 @@ export interface IngestaResponseDto {
   readonly banco: string;
   readonly tipoCuenta: string;
   readonly numeroCuenta: string;
-  readonly archivo: { readonly nombre: string; readonly extension: string; readonly tamanoBytes: number };
+  readonly archivo: {
+    readonly nombre: string;
+    readonly extension: string;
+    readonly tamanoBytes: number;
+  };
   readonly totalTransacciones: number;
-  readonly transacciones: ReadonlyArray<TransaccionResponseDto>;
+  readonly transacciones: readonly TransaccionResponseDto[];
 }
 
 /**
@@ -130,9 +134,15 @@ export async function postIngesta(
     try {
       body = await res.json();
     } catch {
-      return { ok: false, error: { tag: 'http', status: 400, message: undefined } };
+      return {
+        ok: false,
+        error: { tag: 'http', status: 400, message: undefined },
+      };
     }
-    return { ok: false, error: { tag: 'http', status: 400, message: mensajeDe400(body) } };
+    return {
+      ok: false,
+      error: { tag: 'http', status: 400, message: mensajeDe400(body) },
+    };
   }
 
   if (!res.ok) {

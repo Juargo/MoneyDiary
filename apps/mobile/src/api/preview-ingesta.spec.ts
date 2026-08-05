@@ -23,8 +23,18 @@ const validPreviewResponse = {
   numeroCuenta: '123456789',
   estructura: { totalFilasDatos: 2 },
   muestra: [
-    { fecha: '2026-07-01T00:00:00.000Z', descripcion: 'Compra', cargo: '5000', abono: '0' },
-    { fecha: '2026-07-02T00:00:00.000Z', descripcion: 'Sueldo', cargo: '0', abono: '500000' },
+    {
+      fecha: '2026-07-01T00:00:00.000Z',
+      descripcion: 'Compra',
+      cargo: '5000',
+      abono: '0',
+    },
+    {
+      fecha: '2026-07-02T00:00:00.000Z',
+      descripcion: 'Sueldo',
+      cargo: '0',
+      abono: '500000',
+    },
   ],
 };
 
@@ -34,7 +44,8 @@ function archivoSeleccionado(
   return {
     uri: 'file:///tmp/cartola.xlsx',
     name: 'cartola.xlsx',
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     lastModified: Date.now(),
     ...overrides,
   };
@@ -53,7 +64,10 @@ function mockFetchOnce(response: {
 
 // `construirHeadersSesion` is mocked at the module boundary, mirroring
 // `post-ingesta.spec.ts`.
-const mockConstruirHeadersSesion = jest.fn<Promise<Record<string, string>>, []>();
+const mockConstruirHeadersSesion = jest.fn<
+  Promise<Record<string, string>>,
+  []
+>();
 jest.mock('./client', () => ({
   construirHeadersSesion: () => mockConstruirHeadersSesion(),
 }));
@@ -64,7 +78,10 @@ function requirePreviewIngesta(): typeof import('./preview-ingesta') {
 
 describe('previewIngesta', () => {
   const ORIGINAL_ENV = process.env;
-  const HEADERS_SESION = { 'x-api-key': 'test-api-key', Authorization: 'Bearer stored-token' };
+  const HEADERS_SESION = {
+    'x-api-key': 'test-api-key',
+    Authorization: 'Bearer stored-token',
+  };
 
   beforeEach(() => {
     jest.resetModules();
@@ -127,7 +144,11 @@ describe('previewIngesta', () => {
   });
 
   it('reuses construirHeadersSesion() verbatim for auth headers (x-api-key + Bearer)', async () => {
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validPreviewResponse) });
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validPreviewResponse),
+    });
     const { previewIngesta } = requirePreviewIngesta();
 
     await previewIngesta(archivoSeleccionado());
@@ -136,7 +157,11 @@ describe('previewIngesta', () => {
   });
 
   it('resolves {ok: true, value} on a well-formed 2xx body', async () => {
-    mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(validPreviewResponse) });
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validPreviewResponse),
+    });
     const { previewIngesta } = requirePreviewIngesta();
 
     const result = await previewIngesta(archivoSeleccionado());
@@ -221,7 +246,8 @@ describe('previewIngesta', () => {
     mockFetchOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ ...validPreviewResponse, banco: undefined }),
+      json: () =>
+        Promise.resolve({ ...validPreviewResponse, banco: undefined }),
     });
     const { previewIngesta } = requirePreviewIngesta();
 
@@ -250,7 +276,14 @@ describe('previewIngesta', () => {
       json: () =>
         Promise.resolve({
           ...validPreviewResponse,
-          muestra: [{ fecha: '2026-07-01T00:00:00.000Z', descripcion: 'Compra', cargo: 5000, abono: 0 }],
+          muestra: [
+            {
+              fecha: '2026-07-01T00:00:00.000Z',
+              descripcion: 'Compra',
+              cargo: 5000,
+              abono: 0,
+            },
+          ],
         }),
     });
     const { previewIngesta } = requirePreviewIngesta();
