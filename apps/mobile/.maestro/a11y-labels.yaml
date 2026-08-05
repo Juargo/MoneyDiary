@@ -1,0 +1,60 @@
+# Flujo E2E (Maestro · ADR-017/ADR-018 capa 3 — parte automatizable) — a11y por
+# NOMBRE ACCESIBLE.
+#
+# Recorre el camino crítico (login → resumen → subir) anclando cada paso en el
+# NOMBRE ACCESIBLE del control (accessibilityLabel o texto), NO en su testID.
+# Eso es justo lo que un lector de pantalla anuncia: si este flujo pasa, los
+# controles clave son alcanzables por su etiqueta accesible, no solo por un id
+# de test invisible para el usuario.
+#
+# LÍMITE HONESTO (ADR-018): esto NO reemplaza VoiceOver/TalkBack. Maestro
+# verifica que la etiqueta EXISTE en el árbol de accesibilidad; NO valida orden
+# de foco, gestos del lector de pantalla, ni los anuncios reales. Esa capa es
+# manual — ver docs/mobile-a11y-runbook.md (Parte B/C).
+#
+# Device-gated (ADR-017): requiere un dev build contra la API real con datos en
+# el período. Credenciales por variable de entorno (no se commitean):
+#   maestro test -e MAESTRO_EMAIL=tu@correo -e MAESTRO_PASSWORD=... \
+#     .maestro/a11y-labels.yaml
+appId: cl.moneydiary.app
+---
+- launchApp:
+    clearState: true
+# --- LOGIN por etiqueta accesible (los inputs exponen accessibilityLabel) ---
+# A diferencia de login.yaml (que ancla por testID), acá se toca por el nombre
+# que anunciaría el lector de pantalla: "Correo electrónico" / "Contraseña".
+- extendedWaitUntil:
+    visible:
+      text: 'Correo electrónico'
+    timeout: 40000
+- tapOn:
+    text: 'Correo electrónico'
+- inputText: ${MAESTRO_EMAIL}
+- tapOn:
+    text: 'Contraseña'
+- inputText: ${MAESTRO_PASSWORD}
+- tapOn:
+    text: 'Ingresar'
+# --- RESUMEN: controles clave alcanzables por nombre accesible ---
+# El fetch real puede hacer cold-start (API gratuita): margen amplio.
+- extendedWaitUntil:
+    visible:
+      text: 'Subir cartola'
+    timeout: 40000
+# El pie de distribución expone su propósito como etiqueta (DistribucionPie).
+- assertVisible:
+    text: 'Distribución del gasto'
+# El logout debe ser alcanzable por su nombre, no solo por testID.
+- assertVisible:
+    text: 'Cerrar sesión'
+# --- SUBIR CARTOLA: el selector de archivo tiene una etiqueta descriptiva ---
+- tapOn:
+    text: 'Subir cartola'
+# accessibilityLabel del trigger de subida (app/subir.tsx) — describe la acción
+# completa, no un icono mudo.
+- extendedWaitUntil:
+    visible:
+      text: 'Seleccionar archivo .xlsx o .pdf para subir'
+    timeout: 40000
+- assertVisible:
+    text: 'Volver al resumen'
