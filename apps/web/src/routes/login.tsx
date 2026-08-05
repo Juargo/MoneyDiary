@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { LoginForm } from '@/components/LoginForm'
-import { sanitizeRedirect } from '@/lib/sanitize-redirect'
+import { createFileRoute } from '@tanstack/react-router';
+import { LoginForm } from '@/components/LoginForm';
+import { sanitizeRedirect } from '@/lib/sanitize-redirect';
 
 export const Route = createFileRoute('/login')({
   // `sanitizeRedirect` is the security boundary for this param: it is
@@ -11,11 +11,11 @@ export const Route = createFileRoute('/login')({
   // so a rejected/absent value omits `?redirect=` from the URL entirely
   // instead of round-tripping a no-op `?redirect=/`.
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
-    const sanitized = sanitizeRedirect(search.redirect)
-    return sanitized === '/' ? {} : { redirect: sanitized }
+    const sanitized = sanitizeRedirect(search.redirect);
+    return sanitized === '/' ? {} : { redirect: sanitized };
   },
   component: LoginPage,
-})
+});
 
 /**
  * Thin container (mirrors `routes/index.tsx`): only extracts the sanitized
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/login')({
  * `ResumenPage`/`routes/index.tsx`).
  */
 function LoginPage() {
-  const { redirect } = Route.useSearch()
+  const { redirect } = Route.useSearch();
 
-  return <LoginForm redirectTo={redirect} />
+  return <LoginForm redirectTo={redirect} />;
 }

@@ -1,16 +1,20 @@
-import { useResumenAnual } from '@/api/use-resumen-anual'
-import type { ApiError } from '@/api/client'
-import type { ResumenAnualDto, ResumenMesDto } from '@/api/types'
-import type { UseQueryResult } from '@tanstack/react-query'
-import { Loading } from './states/Loading'
-import { ErrorState } from './states/Error'
-import { Empty } from './states/Empty'
-import { MiniDistribucionPie } from './MiniDistribucionPie'
-import { SemaforoBadge } from './SemaforoBadge'
-import { calcularDistribucionGasto } from '@/domain/distribucion-gasto'
-import { mesAbreviado, mesCompletoLabel, periodoActualUTC } from '@/domain/periodo-anual'
-import { cn } from '@/lib/utils'
-import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card'
+import { useResumenAnual } from '@/api/use-resumen-anual';
+import type { ApiError } from '@/api/client';
+import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
+import type { UseQueryResult } from '@tanstack/react-query';
+import { Loading } from './states/Loading';
+import { ErrorState } from './states/Error';
+import { Empty } from './states/Empty';
+import { MiniDistribucionPie } from './MiniDistribucionPie';
+import { SemaforoBadge } from './SemaforoBadge';
+import { calcularDistribucionGasto } from '@/domain/distribucion-gasto';
+import {
+  mesAbreviado,
+  mesCompletoLabel,
+  periodoActualUTC,
+} from '@/domain/periodo-anual';
+import { cn } from '@/lib/utils';
+import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 
 /**
  * ResumenAnual — the annual 50/30/20 grid below the 2-column dashboard
@@ -38,24 +42,27 @@ export function ResumenAnual({
   onSelectPeriodo,
   ahora = new Date(),
 }: {
-  readonly anio: number
-  readonly onSelectPeriodo: (periodo: string) => void
-  readonly ahora?: Date
+  readonly anio: number;
+  readonly onSelectPeriodo: (periodo: string) => void;
+  readonly ahora?: Date;
 }) {
-  const query = useResumenAnual(anio)
-  const tituloId = `resumen-anual-titulo-${anio}`
+  const query = useResumenAnual(anio);
+  const tituloId = `resumen-anual-titulo-${anio}`;
 
   return (
     <section
       aria-labelledby={tituloId}
       className={cn(DASHBOARD_CARD_CLASS, 'flex flex-col gap-4')}
     >
-      <h2 id={tituloId} className="text-xs font-semibold tracking-widest text-secondary uppercase">
+      <h2
+        id={tituloId}
+        className="text-xs font-semibold tracking-widest text-secondary uppercase"
+      >
         Resumen Anual {anio}
       </h2>
       {renderEstado(query, onSelectPeriodo, periodoActualUTC(ahora))}
     </section>
-  )
+  );
 }
 
 function renderEstado(
@@ -64,15 +71,18 @@ function renderEstado(
   periodoActual: string,
 ) {
   if (query.isPending) {
-    return <Loading message="Cargando resumen anual…" />
+    return <Loading message="Cargando resumen anual…" />;
   }
   if (query.isError) {
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} />
+    return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.meses.every((mes) => mes.sinIngreso)) {
     return (
-      <Empty title="Todavía no hay datos este año" description="Carga cartolas de algún mes para ver tu resumen anual." />
-    )
+      <Empty
+        title="Todavía no hay datos este año"
+        description="Carga cartolas de algún mes para ver tu resumen anual."
+      />
+    );
   }
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -85,7 +95,7 @@ function renderEstado(
         />
       ))}
     </div>
-  )
+  );
 }
 
 function MesCelda({
@@ -93,13 +103,13 @@ function MesCelda({
   esActual,
   onSelectPeriodo,
 }: {
-  readonly mes: ResumenMesDto
-  readonly esActual: boolean
-  readonly onSelectPeriodo: (periodo: string) => void
+  readonly mes: ResumenMesDto;
+  readonly esActual: boolean;
+  readonly onSelectPeriodo: (periodo: string) => void;
 }) {
-  const tieneDatos = !mes.sinIngreso
-  const tajadas = calcularDistribucionGasto(mes.buckets)
-  const etiquetaMes = mesAbreviado(mes.periodo)
+  const tieneDatos = !mes.sinIngreso;
+  const tajadas = calcularDistribucionGasto(mes.buckets);
+  const etiquetaMes = mesAbreviado(mes.periodo);
 
   const contenido = (
     <>
@@ -114,7 +124,7 @@ function MesCelda({
       <MiniDistribucionPie tajadas={tajadas} size={56} />
       <SemaforoBadge estadoSemaforo={mes.estadoGlobal} size={20} />
     </>
-  )
+  );
 
   if (!tieneDatos) {
     return (
@@ -131,7 +141,7 @@ function MesCelda({
       >
         {contenido}
       </div>
-    )
+    );
   }
 
   return (
@@ -149,5 +159,5 @@ function MesCelda({
     >
       {contenido}
     </button>
-  )
+  );
 }

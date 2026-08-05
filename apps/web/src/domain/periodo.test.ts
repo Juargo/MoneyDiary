@@ -1,4 +1,4 @@
-import { normalizarPeriodo } from './periodo'
+import { normalizarPeriodo } from './periodo';
 
 // Locks the invalid-periodo -> fallback contract (spec W1.8): a malformed or
 // absent `periodo` search param must normalize to `undefined` so the caller
@@ -10,8 +10,8 @@ describe('normalizarPeriodo', () => {
     ['2026-01', '2026-01'],
     ['2026-12', '2026-12'],
   ])('keeps a valid YYYY-MM period %s', (input, expected) => {
-    expect(normalizarPeriodo(input)).toBe(expected)
-  })
+    expect(normalizarPeriodo(input)).toBe(expected);
+  });
 
   it.each([
     ['2026-13', 'month out of range (13)'],
@@ -23,13 +23,13 @@ describe('normalizarPeriodo', () => {
     ['2026-01 ', 'trailing whitespace'],
     [' 2026-01', 'leading whitespace'],
   ])('normalizes invalid periodo %s (%s) to undefined', (input) => {
-    expect(normalizarPeriodo(input)).toBeUndefined()
-  })
+    expect(normalizarPeriodo(input)).toBeUndefined();
+  });
 
   it.each([[undefined], [null], [123], [{}], [['2026-01']]])(
     'normalizes non-string input %s to undefined',
     (input) => {
-      expect(normalizarPeriodo(input)).toBeUndefined()
+      expect(normalizarPeriodo(input)).toBeUndefined();
     },
-  )
-})
+  );
+});

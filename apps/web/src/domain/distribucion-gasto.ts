@@ -1,4 +1,4 @@
-import { esMontoStringValido } from './formatear-monto'
+import { esMontoStringValido } from './formatear-monto';
 
 /**
  * DOM port of `apps/mobile/src/domain/distribucion-gasto.ts` (verbatim: pure
@@ -13,21 +13,21 @@ import { esMontoStringValido } from './formatear-monto'
  * (`DistribucionPie`'s IDEAL inset) reuse it instead of hardcoding their own
  * copy of the same literal.
  */
-export const BUCKETS_GASTO = ['Necesidades', 'Deseos', 'Ahorro'] as const
+export const BUCKETS_GASTO = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 
-const PRECISION = 1_000_000n
+const PRECISION = 1_000_000n;
 
 export interface TajadaGasto {
-  readonly bucket: string
+  readonly bucket: string;
   /** Integer percentage. Across all tajadas these ALWAYS sum to exactly 100. */
-  readonly porcentaje: number
+  readonly porcentaje: number;
   /** Precise 0..1 share, for the pie arc angle. */
-  readonly fraccion: number
+  readonly fraccion: number;
 }
 
 interface EntradaBucket {
-  readonly bucket: string
-  readonly total: string
+  readonly bucket: string;
+  readonly total: string;
 }
 
 /**
@@ -39,7 +39,7 @@ interface EntradaBucket {
  * class). Degrades an invalid/empty total to `0n` instead of throwing.
  */
 function montoSeguro(montoStr: string): bigint {
-  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n
+  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n;
 }
 
 /**
@@ -53,28 +53,34 @@ function montoSeguro(montoStr: string): bigint {
  * no spending, returns `[]` so the caller can render an empty-pie placeholder
  * instead of dividing by zero.
  */
-export function calcularDistribucionGasto(buckets: ReadonlyArray<EntradaBucket>): TajadaGasto[] {
-  const porNombre = new Map(buckets.map((b) => [b.bucket, b.total]))
+export function calcularDistribucionGasto(
+  buckets: ReadonlyArray<EntradaBucket>,
+): TajadaGasto[] {
+  const porNombre = new Map(buckets.map((b) => [b.bucket, b.total]));
 
-  const incluidos = BUCKETS_GASTO.filter((nombre) => porNombre.has(nombre)).map((nombre) => ({
-    bucket: nombre,
-    monto: montoSeguro(porNombre.get(nombre) as string),
-  }))
+  const incluidos = BUCKETS_GASTO.filter((nombre) => porNombre.has(nombre)).map(
+    (nombre) => ({
+      bucket: nombre,
+      monto: montoSeguro(porNombre.get(nombre) as string),
+    }),
+  );
 
-  const total = incluidos.reduce((suma, b) => suma + b.monto, 0n)
+  const total = incluidos.reduce((suma, b) => suma + b.monto, 0n);
   if (total <= 0n) {
-    return []
+    return [];
   }
 
-  const fracciones = incluidos.map((b) => Number((b.monto * PRECISION) / total) / 1_000_000)
+  const fracciones = incluidos.map(
+    (b) => Number((b.monto * PRECISION) / total) / 1_000_000,
+  );
 
-  const porcentajes = apportionarLargestRemainder(fracciones)
+  const porcentajes = apportionarLargestRemainder(fracciones);
 
   return incluidos.map((b, i) => ({
     bucket: b.bucket,
     porcentaje: porcentajes[i],
     fraccion: fracciones[i],
-  }))
+  }));
 }
 
 /**
@@ -82,19 +88,21 @@ export function calcularDistribucionGasto(buckets: ReadonlyArray<EntradaBucket>)
  * leftover points (100 − sum of floors) one at a time to the buckets with the
  * biggest fractional remainder. Guarantees the integers sum to 100.
  */
-function apportionarLargestRemainder(fracciones: ReadonlyArray<number>): number[] {
-  const exactos = fracciones.map((f) => f * 100)
-  const pisos = exactos.map(Math.floor)
-  const asignados = pisos.reduce((a, b) => a + b, 0)
-  let resto = 100 - asignados
+function apportionarLargestRemainder(
+  fracciones: ReadonlyArray<number>,
+): number[] {
+  const exactos = fracciones.map((f) => f * 100);
+  const pisos = exactos.map(Math.floor);
+  const asignados = pisos.reduce((a, b) => a + b, 0);
+  let resto = 100 - asignados;
 
-  const porcentajes = [...pisos]
+  const porcentajes = [...pisos];
   const porRemanente = exactos
     .map((e, i) => ({ i, remanente: e - pisos[i] }))
-    .sort((a, b) => b.remanente - a.remanente)
+    .sort((a, b) => b.remanente - a.remanente);
 
   for (let k = 0; k < porRemanente.length && resto > 0; k++, resto--) {
-    porcentajes[porRemanente[k].i] += 1
+    porcentajes[porRemanente[k].i] += 1;
   }
-  return porcentajes
+  return porcentajes;
 }

@@ -16,9 +16,13 @@
  * announces this nudge as a separate, identifiable region and never
  * conflates it with the upload's own progress announcements (CU-05/CU-07).
  */
-export function DemoUploadNudge({ esDemo = false }: { readonly esDemo?: boolean }) {
+export function DemoUploadNudge({
+  esDemo = false,
+}: {
+  readonly esDemo?: boolean;
+}) {
   if (!esDemo) {
-    return null
+    return null;
   }
 
   return (
@@ -27,7 +31,10 @@ export function DemoUploadNudge({ esDemo = false }: { readonly esDemo?: boolean 
       aria-label="Aviso de subida en modo demo"
       className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
     >
-      <p className="flex-1">Los datos de esta cuenta demo son temporales y se eliminan automáticamente.</p>
+      <p className="flex-1">
+        Los datos de esta cuenta demo son temporales y se eliminan
+        automáticamente.
+      </p>
       <a
         href="https://moneydiary.cl"
         target="_blank"
@@ -37,5 +44,5 @@ export function DemoUploadNudge({ esDemo = false }: { readonly esDemo?: boolean 
         Crear cuenta
       </a>
     </div>
-  )
+  );
 }

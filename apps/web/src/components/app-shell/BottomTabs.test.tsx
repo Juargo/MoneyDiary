@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -7,8 +7,8 @@ import {
   createRouter,
   Outlet,
   RouterProvider,
-} from '@tanstack/react-router'
-import { BottomTabs } from './BottomTabs'
+} from '@tanstack/react-router';
+import { BottomTabs } from './BottomTabs';
 
 async function renderBottomTabs() {
   const rootRoute = createRootRoute({
@@ -18,52 +18,67 @@ async function renderBottomTabs() {
         <Outlet />
       </>
     ),
-  })
-  const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: () => null })
-  const subirRoute = createRoute({ getParentRoute: () => rootRoute, path: '/subir', component: () => null })
-  const routeTree = rootRoute.addChildren([indexRoute, subirRoute])
-  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/'] }) })
-  await router.load()
-  render(<RouterProvider router={router} />)
-  return router
+  });
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => null,
+  });
+  const subirRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/subir',
+    component: () => null,
+  });
+  const routeTree = rootRoute.addChildren([indexRoute, subirRoute]);
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+  await router.load();
+  render(<RouterProvider router={router} />);
+  return router;
 }
 
 describe('BottomTabs', () => {
   it('renders the primary nav link as a tab', async () => {
-    await renderBottomTabs()
+    await renderBottomTabs();
 
-    expect(screen.getByRole('link', { name: 'Resumen' })).toBeInTheDocument()
-  })
+    expect(screen.getByRole('link', { name: 'Resumen' })).toBeInTheDocument();
+  });
 
   it('renders "Subir nuevo archivo" as a real nav link to /subir', async () => {
-    await renderBottomTabs()
+    await renderBottomTabs();
 
-    const link = screen.getByRole('link', { name: 'Subir nuevo archivo' })
-    expect(link).toHaveAttribute('href', '/subir')
-  })
+    const link = screen.getByRole('link', { name: 'Subir nuevo archivo' });
+    expect(link).toHaveAttribute('href', '/subir');
+  });
 
   it('renders the placeholders as inert, disabled tabs', async () => {
-    const router = await renderBottomTabs()
+    const router = await renderBottomTabs();
 
     for (const label of ['Configuración', 'Ayuda']) {
-      const button = screen.getByRole('button', { name: label })
-      expect(button).toBeDisabled()
-      fireEvent.click(button)
+      const button = screen.getByRole('button', { name: label });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
     }
 
-    expect(router.state.location.pathname).toBe('/')
-  })
+    expect(router.state.location.pathname).toBe('/');
+  });
 
   it('exposes a navigation landmark distinct from the sidebar', async () => {
-    await renderBottomTabs()
+    await renderBottomTabs();
 
-    expect(screen.getByRole('navigation', { name: 'Navegación principal (móvil)' })).toBeInTheDocument()
-  })
+    expect(
+      screen.getByRole('navigation', { name: 'Navegación principal (móvil)' }),
+    ).toBeInTheDocument();
+  });
 
   it('is shown on mobile and hidden at the lg breakpoint (responsive class switch, WDS-02)', async () => {
-    await renderBottomTabs()
+    await renderBottomTabs();
 
-    const nav = screen.getByRole('navigation', { name: 'Navegación principal (móvil)' })
-    expect(nav.className).toMatch(/\blg:hidden\b/)
-  })
-})
+    const nav = screen.getByRole('navigation', {
+      name: 'Navegación principal (móvil)',
+    });
+    expect(nav.className).toMatch(/\blg:hidden\b/);
+  });
+});

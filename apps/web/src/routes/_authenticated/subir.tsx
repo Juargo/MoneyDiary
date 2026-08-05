@@ -1,9 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { SubirCartola } from '@/components/SubirCartola'
+import { createFileRoute } from '@tanstack/react-router';
+import { SubirCartola } from '@/components/SubirCartola';
 
 export const Route = createFileRoute('/_authenticated/subir')({
   component: SubirCartolaRoute,
-})
+});
 
 /**
  * Thin container (same reasoning as `routes/index.tsx` /
@@ -19,7 +19,7 @@ export const Route = createFileRoute('/_authenticated/subir')({
  * no extra `fetchMe()` call here.
  */
 function SubirCartolaRoute() {
-  const { esDemo } = Route.useRouteContext()
+  const { esDemo } = Route.useRouteContext();
 
-  return <SubirCartola esDemo={esDemo} />
+  return <SubirCartola esDemo={esDemo} />;
 }

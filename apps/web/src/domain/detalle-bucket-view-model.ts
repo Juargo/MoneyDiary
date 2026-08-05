@@ -1,18 +1,21 @@
-import { formatearMontoCLP } from './formatear-monto'
-import type { DetalleBucketDto, DetalleBucketTransaccionDto } from '../api/types'
+import { formatearMontoCLP } from './formatear-monto';
+import type {
+  DetalleBucketDto,
+  DetalleBucketTransaccionDto,
+} from '../api/types';
 
 export interface DetalleBucketRowViewModel {
-  readonly id: string
-  readonly fechaLabel: string
-  readonly descripcion: string
-  readonly cargoLabel: string
-  readonly abonoLabel: string
+  readonly id: string;
+  readonly fechaLabel: string;
+  readonly descripcion: string;
+  readonly cargoLabel: string;
+  readonly abonoLabel: string;
 }
 
 export interface DetalleBucketViewModel {
-  readonly periodo: string
-  readonly bucket: string
-  readonly filas: ReadonlyArray<DetalleBucketRowViewModel>
+  readonly periodo: string;
+  readonly bucket: string;
+  readonly filas: ReadonlyArray<DetalleBucketRowViewModel>;
 }
 
 /**
@@ -23,7 +26,7 @@ export interface DetalleBucketViewModel {
  * aritmética de fechas "ingeniosa").
  */
 function aFechaLabel(fechaIso: string): string {
-  return fechaIso.slice(0, 10)
+  return fechaIso.slice(0, 10);
 }
 
 /**
@@ -36,7 +39,7 @@ function aFechaLabel(fechaIso: string): string {
  * fechas más sofisticado.
  */
 export function esFechaValida(fecha: string): boolean {
-  return fecha !== '' && !Number.isNaN(Date.parse(fecha))
+  return fecha !== '' && !Number.isNaN(Date.parse(fecha));
 }
 
 /**
@@ -45,14 +48,16 @@ export function esFechaValida(fecha: string): boolean {
  * al agrupar por categoría — evita duplicar la lógica cargo/abono/fecha
  * (DRY).
  */
-export function aFilaViewModel(tx: DetalleBucketTransaccionDto): DetalleBucketRowViewModel {
+export function aFilaViewModel(
+  tx: DetalleBucketTransaccionDto,
+): DetalleBucketRowViewModel {
   return {
     id: tx.id,
     fechaLabel: aFechaLabel(tx.fecha),
     descripcion: tx.descripcion,
     cargoLabel: formatearMontoCLP(tx.cargo),
     abonoLabel: formatearMontoCLP(tx.abono),
-  }
+  };
 }
 
 /**
@@ -62,10 +67,12 @@ export function aFilaViewModel(tx: DetalleBucketTransaccionDto): DetalleBucketRo
  * una regla de signo que el backend no expone (spec W3-03: "exact CLP
  * amount").
  */
-export function aDetalleBucketViewModel(dto: DetalleBucketDto): DetalleBucketViewModel {
+export function aDetalleBucketViewModel(
+  dto: DetalleBucketDto,
+): DetalleBucketViewModel {
   return {
     periodo: dto.periodo,
     bucket: dto.bucket,
     filas: dto.transacciones.map(aFilaViewModel),
-  }
+  };
 }

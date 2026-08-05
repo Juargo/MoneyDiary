@@ -14,7 +14,9 @@
  * copy without duplicating this component (DRY) — the resumen screen keeps
  * the default, unchanged.
  */
-export function Loading({ message = 'Cargando resumen…' }: { readonly message?: string } = {}) {
+export function Loading({
+  message = 'Cargando resumen…',
+}: { readonly message?: string } = {}) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
       <div role="status" className="flex flex-col items-center gap-3">
@@ -26,5 +28,5 @@ export function Loading({ message = 'Cargando resumen…' }: { readonly message?
         <p className="text-sm text-slate-500">{message}</p>
       </div>
     </div>
-  )
+  );
 }

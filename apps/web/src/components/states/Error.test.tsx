@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
-import { ErrorState } from './Error'
-import type { ApiError } from '@/api/client'
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
+import { ErrorState } from './Error';
+import type { ApiError } from '@/api/client';
 
 // DOM port of apps/mobile/src/components/states/Error.spec.tsx. Unlike
 // mobile's ApiError, the web client (apps/web/src/api/client.ts) already
@@ -11,34 +11,51 @@ import type { ApiError } from '@/api/client'
 // renders a retry affordance so the user isn't stuck on a dead screen.
 describe('ErrorState', () => {
   it('renders the typed error message', () => {
-    const error: ApiError = { tag: 'network', message: 'Problema de conexión.' }
-    render(<ErrorState error={error} onRetry={() => {}} />)
-    expect(screen.getByText('Problema de conexión.')).toBeInTheDocument()
-  })
+    const error: ApiError = {
+      tag: 'network',
+      message: 'Problema de conexión.',
+    };
+    render(<ErrorState error={error} onRetry={() => {}} />);
+    expect(screen.getByText('Problema de conexión.')).toBeInTheDocument();
+  });
 
   it('renders the server error message including the status-derived copy', () => {
-    const error: ApiError = { tag: 'server', status: 500, message: 'Ocurrió un error inesperado.' }
-    render(<ErrorState error={error} onRetry={() => {}} />)
-    expect(screen.getByText('Ocurrió un error inesperado.')).toBeInTheDocument()
-  })
+    const error: ApiError = {
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado.',
+    };
+    render(<ErrorState error={error} onRetry={() => {}} />);
+    expect(
+      screen.getByText('Ocurrió un error inesperado.'),
+    ).toBeInTheDocument();
+  });
 
   // A11y (ADR-018): the message must live inside a `role="alert"` region so
   // a Data→Error refetch failure announces to assistive technology instead
   // of failing silently.
   it('announces the error message via an assertive alert region', () => {
-    const error: ApiError = { tag: 'network', message: 'Problema de conexión.' }
-    render(<ErrorState error={error} onRetry={() => {}} />)
-    expect(screen.getByRole('alert')).toHaveTextContent('Problema de conexión.')
-  })
+    const error: ApiError = {
+      tag: 'network',
+      message: 'Problema de conexión.',
+    };
+    render(<ErrorState error={error} onRetry={() => {}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Problema de conexión.',
+    );
+  });
 
   it('calls onRetry when the retry affordance is activated', async () => {
-    const user = userEvent.setup()
-    const onRetry = vi.fn()
-    const error: ApiError = { tag: 'network', message: 'Problema de conexión.' }
-    render(<ErrorState error={error} onRetry={onRetry} />)
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    const error: ApiError = {
+      tag: 'network',
+      message: 'Problema de conexión.',
+    };
+    render(<ErrorState error={error} onRetry={onRetry} />);
 
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
 
-    expect(onRetry).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});

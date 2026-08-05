@@ -14,11 +14,11 @@
  */
 
 /** `Sidebar`'s fixed rail width (desktop, `lg`+). */
-export const SIDEBAR_WIDTH_CLASS = 'w-64'
+export const SIDEBAR_WIDTH_CLASS = 'w-64';
 /** `AppShell`'s `<main>` left offset that clears the sidebar — must match `SIDEBAR_WIDTH_CLASS`. */
-export const SIDEBAR_CONTENT_OFFSET_CLASS = 'lg:pl-64'
+export const SIDEBAR_CONTENT_OFFSET_CLASS = 'lg:pl-64';
 
 /** `BottomTabs`' fixed bar height (mobile, below `lg`). */
-export const BOTTOM_TABS_HEIGHT_CLASS = 'h-16'
+export const BOTTOM_TABS_HEIGHT_CLASS = 'h-16';
 /** `AppShell`'s `<main>` bottom clearance that reserves space for the bottom bar — must match `BOTTOM_TABS_HEIGHT_CLASS`. */
-export const CONTENT_BOTTOM_CLEARANCE_CLASS = 'pb-16 lg:pb-0'
+export const CONTENT_BOTTOM_CLEARANCE_CLASS = 'pb-16 lg:pb-0';

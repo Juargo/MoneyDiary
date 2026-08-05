@@ -1,13 +1,13 @@
-import { Loading } from './states/Loading'
-import { ErrorState } from './states/Error'
-import { Empty } from './states/Empty'
-import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl'
-import { Badge } from './ui/badge'
-import { useDetalleBucket } from '@/api/use-detalle-bucket'
-import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model'
-import { agruparDetallePorCategoria } from '@/domain/agrupar-detalle-por-categoria'
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors'
-import { iconoDeCategoria } from '@/lib/category-icons'
+import { Loading } from './states/Loading';
+import { ErrorState } from './states/Error';
+import { Empty } from './states/Empty';
+import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
+import { Badge } from './ui/badge';
+import { useDetalleBucket } from '@/api/use-detalle-bucket';
+import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model';
+import { agruparDetallePorCategoria } from '@/domain/agrupar-detalle-por-categoria';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { iconoDeCategoria } from '@/lib/category-icons';
 
 /**
  * BucketDetailList — a single bucket/period's transactions, GROUPED BY
@@ -70,17 +70,17 @@ export function BucketDetailList({
   periodo,
   headingLevel = 'h1',
 }: {
-  readonly bucket: string
-  readonly periodo: string | undefined
-  readonly headingLevel?: 'h1' | 'h2'
+  readonly bucket: string;
+  readonly periodo: string | undefined;
+  readonly headingLevel?: 'h1' | 'h2';
 }) {
-  const query = useDetalleBucket(bucket, periodo)
+  const query = useDetalleBucket(bucket, periodo);
 
   if (query.isPending) {
-    return <Loading message="Cargando movimientos…" />
+    return <Loading message="Cargando movimientos…" />;
   }
   if (query.isError) {
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} />
+    return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.transacciones.length === 0) {
     return (
@@ -88,13 +88,16 @@ export function BucketDetailList({
         title="No hay movimientos este período"
         description="No hay movimientos en este bucket para el período."
       />
-    )
+    );
   }
 
-  const viewModel = aDetalleBucketViewModel(query.data)
-  const grupos = agruparDetallePorCategoria(query.data.transacciones, viewModel.bucket)
-  const Heading = headingLevel
-  const HeadingGrupo = headingLevel === 'h1' ? 'h2' : 'h3'
+  const viewModel = aDetalleBucketViewModel(query.data);
+  const grupos = agruparDetallePorCategoria(
+    query.data.transacciones,
+    viewModel.bucket,
+  );
+  const Heading = headingLevel;
+  const HeadingGrupo = headingLevel === 'h1' ? 'h2' : 'h3';
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-4">
@@ -102,14 +105,20 @@ export function BucketDetailList({
         {ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket}
       </Heading>
       {grupos.map((grupo) => {
-        const IconoCategoria = iconoDeCategoria(grupo.nombre)
+        const IconoCategoria = iconoDeCategoria(grupo.nombre);
         return (
-          <section key={grupo.categoriaId ?? 'sin-categoria'} className="flex flex-col gap-3">
+          <section
+            key={grupo.categoriaId ?? 'sin-categoria'}
+            className="flex flex-col gap-3"
+          >
             <div className="flex flex-wrap items-center gap-2">
               {/* WDS-05: decorative per-category icon, generic Receipt
                   fallback for "Sin categoría"/unrecognized names — never
                   throws, never leaves the header iconless. */}
-              <IconoCategoria aria-hidden="true" className="h-4 w-4 shrink-0 text-secondary" />
+              <IconoCategoria
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-secondary"
+              />
               <HeadingGrupo className="text-sm font-semibold text-secondary">
                 {grupo.nombre} · {grupo.subtotalLabel} · {grupo.conteo}{' '}
                 {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
@@ -124,10 +133,15 @@ export function BucketDetailList({
             </div>
             <ul className="flex flex-col gap-3">
               {grupo.filas.map((fila) => (
-                <li key={fila.id} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
+                <li
+                  key={fila.id}
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm"
+                >
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>{fila.fechaLabel}</span>
-                    <span className="font-medium text-foreground">{fila.descripcion}</span>
+                    <span className="font-medium text-foreground">
+                      {fila.descripcion}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-foreground">
                     <span>Cargo: {fila.cargoLabel}</span>
@@ -139,7 +153,9 @@ export function BucketDetailList({
                       descripcion={fila.descripcion}
                       montoLabel={fila.cargoLabel}
                       bucketActual={viewModel.bucket}
-                      categoriaActual={grupo.categoriaId === null ? null : grupo.nombre}
+                      categoriaActual={
+                        grupo.categoriaId === null ? null : grupo.nombre
+                      }
                       periodo={periodo}
                     />
                   </div>
@@ -147,8 +163,8 @@ export function BucketDetailList({
               ))}
             </ul>
           </section>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

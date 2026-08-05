@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteIngesta } from './client'
-import type { ApiError } from './client'
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { deleteIngesta } from './client';
+import type { ApiError } from './client';
 
 /**
  * useEliminarIngesta — `useMutation` para DELETE /api/ingestas/:id
@@ -26,26 +26,26 @@ import type { ApiError } from './client'
  * Cualquier otro error (red, 401, 5xx) no invalida nada, igual que antes.
  */
 export function useEliminarIngesta() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation<void, ApiError, string>({
     mutationFn: async (id) => {
-      const result = await deleteIngesta(id)
+      const result = await deleteIngesta(id);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['resumen'] })
-      queryClient.invalidateQueries({ queryKey: ['resumen-anual'] })
-      queryClient.invalidateQueries({ queryKey: ['detalle-bucket'] })
-      queryClient.invalidateQueries({ queryKey: ['ingestas'] })
+      queryClient.invalidateQueries({ queryKey: ['resumen'] });
+      queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
+      queryClient.invalidateQueries({ queryKey: ['detalle-bucket'] });
+      queryClient.invalidateQueries({ queryKey: ['ingestas'] });
     },
     onError: (error) => {
       if (error.tag === 'server' && error.status === 404) {
-        queryClient.invalidateQueries({ queryKey: ['ingestas'] })
+        queryClient.invalidateQueries({ queryKey: ['ingestas'] });
       }
     },
-  })
+  });
 }

@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
-import { Button } from './ui/button'
-import { DemoUploadNudge } from './DemoUploadNudge'
-import { PreviewMuestra, CANTIDAD_PREVIEW_DEFECTO } from './PreviewMuestra'
-import type { CantidadPreview } from './PreviewMuestra'
-import { useIngesta } from '@/api/use-ingesta'
-import { usePreviewIngesta } from '@/api/use-preview-ingesta'
-import { validarArchivoWeb } from '@/domain/validar-archivo'
-import { formatearMontoCLP } from '@/domain/formatear-monto'
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import { Button } from './ui/button';
+import { DemoUploadNudge } from './DemoUploadNudge';
+import { PreviewMuestra, CANTIDAD_PREVIEW_DEFECTO } from './PreviewMuestra';
+import type { CantidadPreview } from './PreviewMuestra';
+import { useIngesta } from '@/api/use-ingesta';
+import { usePreviewIngesta } from '@/api/use-preview-ingesta';
+import { validarArchivoWeb } from '@/domain/validar-archivo';
+import { formatearMontoCLP } from '@/domain/formatear-monto';
 
-const CANTIDAD_PREVIEW_TRANSACCIONES = 5
+const CANTIDAD_PREVIEW_TRANSACCIONES = 5;
 
 type EstadoSubida =
   | 'idle'
@@ -18,7 +18,7 @@ type EstadoSubida =
   | 'preview-error'
   | 'subiendo'
   | 'exito'
-  | 'error'
+  | 'error';
 
 // The aria-live region announces the STATE transition (generic wording per
 // state) — it deliberately does NOT repeat `mensajeError` verbatim, so the
@@ -34,7 +34,7 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
   subiendo: 'Subiendo archivo…',
   exito: 'Archivo subido correctamente.',
   error: 'No se pudo completar la subida.',
-}
+};
 
 /**
  * SubirCartola (`upload-cartola-ui` US-031/US-032 + `us-003-vista-previa`
@@ -82,21 +82,23 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
  * directly.
  */
 export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
-  const [archivo, setArchivo] = useState<File | null>(null)
-  const [errorValidacion, setErrorValidacion] = useState<string | null>(null)
-  const [cantidad, setCantidad] = useState<CantidadPreview>(CANTIDAD_PREVIEW_DEFECTO)
-  const previewMutation = usePreviewIngesta()
-  const confirmMutation = useIngesta()
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
+  const [cantidad, setCantidad] = useState<CantidadPreview>(
+    CANTIDAD_PREVIEW_DEFECTO,
+  );
+  const previewMutation = usePreviewIngesta();
+  const confirmMutation = useIngesta();
 
-  const previewHeadingRef = useRef<HTMLHeadingElement>(null)
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  const errorRef = useRef<HTMLParagraphElement>(null)
+  const previewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   // Synchronous double-submit guard (money-duplication risk, SEC-01): now
   // gates Confirmar (was the single submit button pre-US-003). Same
   // reasoning as the original: `confirmMutation.isPending`/`disabled` are
   // stale until React re-renders, which doesn't happen between two
   // synchronous clicks fired before paint.
-  const isSubmittingRef = useRef(false)
+  const isSubmittingRef = useRef(false);
 
   const estado: EstadoSubida = confirmMutation.isSuccess
     ? 'exito'
@@ -110,7 +112,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             ? 'previsualizando'
             : previewMutation.isError || errorValidacion
               ? 'preview-error'
-              : 'idle'
+              : 'idle';
 
   // FIX 1 (review, BLOCKER): 'exito' is deliberately NOT gated — otherwise a
   // successful confirm is a dead end (no control resets to 'idle'). Picking
@@ -120,75 +122,81 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     estado === 'previsualizando' ||
     estado === 'preview-listo' ||
     estado === 'subiendo' ||
-    estado === 'error'
+    estado === 'error';
 
   useEffect(() => {
     if (estado === 'exito') {
-      headingRef.current?.focus()
+      headingRef.current?.focus();
     } else if (estado === 'preview-error' || estado === 'error') {
-      errorRef.current?.focus()
+      errorRef.current?.focus();
     } else if (estado === 'preview-listo') {
-      previewHeadingRef.current?.focus()
+      previewHeadingRef.current?.focus();
     }
-  }, [estado])
+  }, [estado]);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const seleccionado = event.target.files?.[0]
-    previewMutation.reset()
-    confirmMutation.reset()
-    isSubmittingRef.current = false
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO)
+    const seleccionado = event.target.files?.[0];
+    previewMutation.reset();
+    confirmMutation.reset();
+    isSubmittingRef.current = false;
+    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
     if (!seleccionado) {
-      setArchivo(null)
-      setErrorValidacion(null)
-      return
+      setArchivo(null);
+      setErrorValidacion(null);
+      return;
     }
 
-    const resultado = validarArchivoWeb(seleccionado)
+    const resultado = validarArchivoWeb(seleccionado);
     if (resultado.tag === 'rechazado') {
-      setArchivo(null)
-      setErrorValidacion(resultado.message)
-      return
+      setArchivo(null);
+      setErrorValidacion(resultado.message);
+      return;
     }
 
-    setArchivo(seleccionado)
-    setErrorValidacion(null)
+    setArchivo(seleccionado);
+    setErrorValidacion(null);
     // FIX 5 (review, cheap): no `isSubmittingRef` guard here (unlike
     // `handleConfirmar`) — safe because the preview endpoint (PREV-02) is
     // read-only/non-persistent, so a duplicate preview call has no side
     // effect worth guarding against.
-    previewMutation.mutate(seleccionado)
+    previewMutation.mutate(seleccionado);
   }
 
   function handleConfirmar() {
     if (!archivo || confirmMutation.isPending || isSubmittingRef.current) {
-      return
+      return;
     }
-    isSubmittingRef.current = true
+    isSubmittingRef.current = true;
     confirmMutation.mutate(archivo, {
       onSettled: () => {
-        isSubmittingRef.current = false
+        isSubmittingRef.current = false;
       },
-    })
+    });
   }
 
   function handleCancelar() {
-    setArchivo(null)
-    setErrorValidacion(null)
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO)
-    isSubmittingRef.current = false
-    previewMutation.reset()
-    confirmMutation.reset()
+    setArchivo(null);
+    setErrorValidacion(null);
+    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
+    isSubmittingRef.current = false;
+    previewMutation.reset();
+    confirmMutation.reset();
   }
 
-  const mensajeError = errorValidacion ?? previewMutation.error?.message ?? confirmMutation.error?.message ?? null
-  const mensajeEstado: string = MENSAJE_POR_ESTADO[estado]
+  const mensajeError =
+    errorValidacion ??
+    previewMutation.error?.message ??
+    confirmMutation.error?.message ??
+    null;
+  const mensajeEstado: string = MENSAJE_POR_ESTADO[estado];
   // FIX 2 (review, BLOCKER a11y): `previewMutation.data` stays populated
   // after a successful confirm (never cleared on 'exito') — exclude 'exito'
   // explicitly so the "Vista previa" section doesn't stay mounted under the
   // "Cartola subida" success panel (duplicate headings/table for AT).
   const mostrarPreview =
-    previewMutation.data !== undefined && estado !== 'preview-error' && estado !== 'exito'
+    previewMutation.data !== undefined &&
+    estado !== 'preview-error' &&
+    estado !== 'exito';
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
@@ -197,7 +205,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       <DemoUploadNudge esDemo={esDemo} />
 
       <div className="flex flex-col gap-3">
-        <label htmlFor="cartola-file" className="text-sm font-medium text-muted-foreground">
+        <label
+          htmlFor="cartola-file"
+          className="text-sm font-medium text-muted-foreground"
+        >
           Selecciona un archivo (.xlsx o .pdf)
         </label>
         <input
@@ -210,7 +221,12 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         />
       </div>
 
-      <div role="status" aria-live="polite" aria-label="Estado de la subida" className="text-sm text-muted-foreground">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Estado de la subida"
+        className="text-sm text-muted-foreground"
+      >
         {mensajeEstado}
       </div>
 
@@ -251,10 +267,19 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
                 here would be unreachable/redundant (and TS's aliased-condition
                 narrowing flags it as a type error). Only 'subiendo' needs the
                 disabled guard now. */}
-            <Button type="button" onClick={handleConfirmar} disabled={estado === 'subiendo'}>
+            <Button
+              type="button"
+              onClick={handleConfirmar}
+              disabled={estado === 'subiendo'}
+            >
               Confirmar
             </Button>
-            <Button type="button" variant="outline" onClick={handleCancelar} disabled={estado === 'subiendo'}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelar}
+              disabled={estado === 'subiendo'}
+            >
               Cancelar
             </Button>
           </div>
@@ -294,31 +319,41 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             </p>
           )}
           <ul className="flex flex-col gap-2">
-            {confirmMutation.data.transacciones.slice(0, CANTIDAD_PREVIEW_TRANSACCIONES).map((transaccion, indice) => (
-              // El DTO no trae `id` (a diferencia de `DetalleBucketTransaccionDto`) — la key
-              // combina los campos disponibles + el índice para distinguir filas con datos
-              // idénticos sin depender solo de la posición.
-              <li
-                key={`${transaccion.fecha}-${transaccion.descripcion}-${transaccion.cargo}-${transaccion.abono}-${indice}`}
-                className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm"
-              >
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>{transaccion.fecha.slice(0, 10)}</span>
-                  <span className="font-medium">{transaccion.descripcion}</span>
-                </div>
-                <div className="flex items-center justify-between text-foreground">
-                  <span>
-                    Cargo: <span className="font-medium">{formatearMontoCLP(transaccion.cargo)}</span>
-                  </span>
-                  <span>
-                    Abono: <span className="font-medium">{formatearMontoCLP(transaccion.abono)}</span>
-                  </span>
-                </div>
-              </li>
-            ))}
+            {confirmMutation.data.transacciones
+              .slice(0, CANTIDAD_PREVIEW_TRANSACCIONES)
+              .map((transaccion, indice) => (
+                // El DTO no trae `id` (a diferencia de `DetalleBucketTransaccionDto`) — la key
+                // combina los campos disponibles + el índice para distinguir filas con datos
+                // idénticos sin depender solo de la posición.
+                <li
+                  key={`${transaccion.fecha}-${transaccion.descripcion}-${transaccion.cargo}-${transaccion.abono}-${indice}`}
+                  className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm"
+                >
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>{transaccion.fecha.slice(0, 10)}</span>
+                    <span className="font-medium">
+                      {transaccion.descripcion}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-foreground">
+                    <span>
+                      Cargo:{' '}
+                      <span className="font-medium">
+                        {formatearMontoCLP(transaccion.cargo)}
+                      </span>
+                    </span>
+                    <span>
+                      Abono:{' '}
+                      <span className="font-medium">
+                        {formatearMontoCLP(transaccion.abono)}
+                      </span>
+                    </span>
+                  </div>
+                </li>
+              ))}
           </ul>
         </section>
       )}
     </div>
-  )
+  );
 }

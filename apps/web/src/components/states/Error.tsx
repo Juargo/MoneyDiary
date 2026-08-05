@@ -1,4 +1,4 @@
-import type { ApiError } from '@/api/client'
+import type { ApiError } from '@/api/client';
 
 /**
  * Error state (spec W1-02): renders the typed `ApiError.message` verbatim —
@@ -14,8 +14,8 @@ export function ErrorState({
   error,
   onRetry,
 }: {
-  readonly error: ApiError
-  readonly onRetry: () => void
+  readonly error: ApiError;
+  readonly onRetry: () => void;
 }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
@@ -30,5 +30,5 @@ export function ErrorState({
         Reintentar
       </button>
     </div>
-  )
+  );
 }

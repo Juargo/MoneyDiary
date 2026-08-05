@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { DASHBOARD_CARD_CLASS } from './dashboard-card'
+import { describe, expect, it } from 'vitest';
+import { DASHBOARD_CARD_CLASS } from './dashboard-card';
 
 // PR3 review follow-up (DRY): the Serene Finance card-wrapper string
 // (`rounded-lg border border-border bg-card p-5 shadow-sm`) was repeated
@@ -15,6 +15,8 @@ import { DASHBOARD_CARD_CLASS } from './dashboard-card'
 // the smallest change that doesn't fight the existing design).
 describe('DASHBOARD_CARD_CLASS', () => {
   it('is the exact Serene Finance card wrapper string used by the dashboard cards', () => {
-    expect(DASHBOARD_CARD_CLASS).toBe('rounded-lg border border-border bg-card p-5 shadow-sm')
-  })
-})
+    expect(DASHBOARD_CARD_CLASS).toBe(
+      'rounded-lg border border-border bg-card p-5 shadow-sm',
+    );
+  });
+});

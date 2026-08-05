@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchResumenAnual } from './client'
-import type { ApiError } from './client'
-import type { ResumenAnualDto } from './types'
+import { useQuery } from '@tanstack/react-query';
+import { fetchResumenAnual } from './client';
+import type { ApiError } from './client';
+import type { ResumenAnualDto } from './types';
 
 /**
  * useResumenAnual — hook TanStack Query para GET /api/resumen/anual[?anio=YYYY]
@@ -15,11 +15,11 @@ export function useResumenAnual(anio?: number) {
   return useQuery<ResumenAnualDto, ApiError>({
     queryKey: ['resumen-anual', anio ?? 'actual'],
     queryFn: async () => {
-      const result = await fetchResumenAnual(anio)
+      const result = await fetchResumenAnual(anio);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
-  })
+  });
 }

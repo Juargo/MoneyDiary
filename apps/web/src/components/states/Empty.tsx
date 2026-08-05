@@ -20,5 +20,5 @@ export function Empty({
       <p className="text-sm font-medium text-slate-700">{title}</p>
       <p className="text-sm text-slate-500">{description}</p>
     </div>
-  )
+  );
 }

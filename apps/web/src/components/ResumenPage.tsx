@@ -1,12 +1,12 @@
-import type { UseQueryResult } from '@tanstack/react-query'
-import { Loading } from './states/Loading'
-import { ErrorState } from './states/Error'
-import { Empty } from './states/Empty'
-import { ResumenScreen } from './ResumenScreen'
-import { PeriodoSelector } from './PeriodoSelector'
-import { aResumenViewModel } from '@/domain/resumen-view-model'
-import type { ApiError } from '@/api/client'
-import type { ResumenMesDto } from '@/api/types'
+import type { UseQueryResult } from '@tanstack/react-query';
+import { Loading } from './states/Loading';
+import { ErrorState } from './states/Error';
+import { Empty } from './states/Empty';
+import { ResumenScreen } from './ResumenScreen';
+import { PeriodoSelector } from './PeriodoSelector';
+import { aResumenViewModel } from '@/domain/resumen-view-model';
+import type { ApiError } from '@/api/client';
+import type { ResumenMesDto } from '@/api/types';
 
 /**
  * Router-agnostic composition (spec W1-02): owns the 4-way
@@ -24,16 +24,16 @@ export function ResumenPage({
   periodo,
   onPeriodoChange,
 }: {
-  readonly query: UseQueryResult<ResumenMesDto, ApiError>
-  readonly periodo: string | undefined
-  readonly onPeriodoChange: (periodo: string) => void
+  readonly query: UseQueryResult<ResumenMesDto, ApiError>;
+  readonly periodo: string | undefined;
+  readonly onPeriodoChange: (periodo: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-4 p-4">
       <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
       {renderEstado(query, onPeriodoChange)}
     </div>
-  )
+  );
 }
 
 function renderEstado(
@@ -41,13 +41,18 @@ function renderEstado(
   onPeriodoChange: (periodo: string) => void,
 ) {
   if (query.isPending) {
-    return <Loading />
+    return <Loading />;
   }
   if (query.isError) {
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} />
+    return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.sinIngreso) {
-    return <Empty />
+    return <Empty />;
   }
-  return <ResumenScreen viewModel={aResumenViewModel(query.data)} onPeriodoChange={onPeriodoChange} />
+  return (
+    <ResumenScreen
+      viewModel={aResumenViewModel(query.data)}
+      onPeriodoChange={onPeriodoChange}
+    />
+  );
 }

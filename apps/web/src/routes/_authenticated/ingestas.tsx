@@ -1,9 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ListaIngestas } from '@/components/ListaIngestas'
+import { createFileRoute } from '@tanstack/react-router';
+import { ListaIngestas } from '@/components/ListaIngestas';
 
 export const Route = createFileRoute('/_authenticated/ingestas')({
   component: ListaIngestas,
-})
+});
 
 /**
  * Route for GET/DELETE `/api/ingestas` (`us-018-eliminar-ingesta` Slice 2,

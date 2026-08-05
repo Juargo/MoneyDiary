@@ -1,11 +1,18 @@
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from './ui/button'
-import { MonthYearPicker } from './MonthYearPicker'
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
-import { esMesActual, mesAnterior, mesCompletoLabel, mesSiguiente, periodoActualUTC } from '@/domain/periodo-anual'
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from './ui/button';
+import { MonthYearPicker } from './MonthYearPicker';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import {
+  esMesActual,
+  mesAnterior,
+  mesCompletoLabel,
+  mesSiguiente,
+  periodoActualUTC,
+} from '@/domain/periodo-anual';
 
-const PERIODO_SELECTOR_ROW_CLASS = 'mx-auto flex w-full max-w-6xl items-center justify-center gap-3'
+const PERIODO_SELECTOR_ROW_CLASS =
+  'mx-auto flex w-full max-w-6xl items-center justify-center gap-3';
 
 /**
  * Prominent top-of-dashboard period header (period-selector-header,
@@ -27,14 +34,14 @@ export function PeriodoSelector({
   periodo,
   onChange,
 }: {
-  readonly periodo: string | undefined
-  readonly onChange: (periodo: string) => void
+  readonly periodo: string | undefined;
+  readonly onChange: (periodo: string) => void;
 }) {
-  const ahora = new Date()
-  const efectivo = periodo ?? periodoActualUTC(ahora)
-  const enMesActual = esMesActual(efectivo, ahora)
-  const periodoActual = periodoActualUTC(ahora)
-  const [abierto, setAbierto] = useState(false)
+  const ahora = new Date();
+  const efectivo = periodo ?? periodoActualUTC(ahora);
+  const enMesActual = esMesActual(efectivo, ahora);
+  const periodoActual = periodoActualUTC(ahora);
+  const [abierto, setAbierto] = useState(false);
 
   return (
     <div className={PERIODO_SELECTOR_ROW_CLASS}>
@@ -64,8 +71,8 @@ export function PeriodoSelector({
             periodo={efectivo}
             periodoActual={periodoActual}
             onSelect={(nuevoPeriodo) => {
-              onChange(nuevoPeriodo)
-              setAbierto(false)
+              onChange(nuevoPeriodo);
+              setAbierto(false);
             }}
           />
         </PopoverContent>
@@ -93,5 +100,5 @@ export function PeriodoSelector({
         Hoy
       </Button>
     </div>
-  )
+  );
 }

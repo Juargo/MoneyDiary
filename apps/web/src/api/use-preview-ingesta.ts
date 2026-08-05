@@ -1,7 +1,7 @@
-import { useMutation } from '@tanstack/react-query'
-import { previewIngesta } from './client'
-import type { ApiError } from './client'
-import type { PreviewIngestaDto } from './types'
+import { useMutation } from '@tanstack/react-query';
+import { previewIngesta } from './client';
+import type { ApiError } from './client';
+import type { PreviewIngestaDto } from './types';
 
 /**
  * usePreviewIngesta (`us-003-vista-previa` Slice 2, design.md §9.4) — faithful
@@ -17,11 +17,11 @@ import type { PreviewIngestaDto } from './types'
 export function usePreviewIngesta() {
   return useMutation<PreviewIngestaDto, ApiError, File>({
     mutationFn: async (file) => {
-      const result = await previewIngesta(file)
+      const result = await previewIngesta(file);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
-  })
+  });
 }

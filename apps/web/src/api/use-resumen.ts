@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchResumen } from './client'
-import type { ApiError } from './client'
-import type { ResumenMesDto } from './types'
+import { useQuery } from '@tanstack/react-query';
+import { fetchResumen } from './client';
+import type { ApiError } from './client';
+import type { ResumenMesDto } from './types';
 
 /**
  * useResumen — hook TanStack Query para GET /api/resumen[?periodo=YYYY-MM].
@@ -19,11 +19,11 @@ export function useResumen(periodo?: string) {
   return useQuery<ResumenMesDto, ApiError>({
     queryKey: ['resumen', periodo ?? 'actual'],
     queryFn: async () => {
-      const result = await fetchResumen(periodo)
+      const result = await fetchResumen(periodo);
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
-  })
+  });
 }

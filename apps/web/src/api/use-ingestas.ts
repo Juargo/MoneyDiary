@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchIngestas } from './client'
-import type { ApiError } from './client'
-import type { IngestaListItemDto } from './types'
+import { useQuery } from '@tanstack/react-query';
+import { fetchIngestas } from './client';
+import type { ApiError } from './client';
+import type { IngestaListItemDto } from './types';
 
 /**
  * useIngestas — hook TanStack Query para GET /api/ingestas
@@ -17,11 +17,11 @@ export function useIngestas() {
   return useQuery<IngestaListItemDto[], ApiError>({
     queryKey: ['ingestas'],
     queryFn: async () => {
-      const result = await fetchIngestas()
+      const result = await fetchIngestas();
       if (!result.ok) {
-        throw result.error
+        throw result.error;
       }
-      return result.value
+      return result.value;
     },
-  })
+  });
 }

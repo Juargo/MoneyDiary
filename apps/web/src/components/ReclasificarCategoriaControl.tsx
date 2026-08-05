@@ -1,12 +1,15 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria'
-import { agruparCategoriasPorBucket, CATEGORIA_BUCKET } from '@/domain/categoria'
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors'
+import { useEffect, useId, useRef, useState } from 'react';
+import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
+import {
+  agruparCategoriasPorBucket,
+  CATEGORIA_BUCKET,
+} from '@/domain/categoria';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 
-const GRUPOS_CATEGORIA = agruparCategoriasPorBucket()
+const GRUPOS_CATEGORIA = agruparCategoriasPorBucket();
 
 function etiqueta(bucket: string): string {
-  return ETIQUETA_BUCKET[bucket] ?? bucket
+  return ETIQUETA_BUCKET[bucket] ?? bucket;
 }
 
 /**
@@ -47,20 +50,23 @@ export function ReclasificarCategoriaControl({
   categoriaActual,
   periodo,
 }: {
-  readonly transaccionId: string
-  readonly descripcion: string
-  readonly montoLabel: string
-  readonly bucketActual: string
-  readonly categoriaActual: string | null
-  readonly periodo: string | undefined
+  readonly transaccionId: string;
+  readonly descripcion: string;
+  readonly montoLabel: string;
+  readonly bucketActual: string;
+  readonly categoriaActual: string | null;
+  readonly periodo: string | undefined;
 }) {
-  const selectId = useId()
-  const selectRef = useRef<HTMLSelectElement>(null)
-  const confirmarRef = useRef<HTMLButtonElement>(null)
-  const [valor, setValor] = useState(categoriaActual ?? '')
-  const [pendiente, setPendiente] = useState<{ nombre: string; bucketNuevo: string } | null>(null)
-  const [errorMensaje, setErrorMensaje] = useState<string | null>(null)
-  const mutacion = useReclasificarCategoria(periodo, bucketActual)
+  const selectId = useId();
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const confirmarRef = useRef<HTMLButtonElement>(null);
+  const [valor, setValor] = useState(categoriaActual ?? '');
+  const [pendiente, setPendiente] = useState<{
+    nombre: string;
+    bucketNuevo: string;
+  } | null>(null);
+  const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const mutacion = useReclasificarCategoria(periodo, bucketActual);
 
   // Foco al abrir la confirmación (WCAT-05): mueve el foco a "Confirmar" en
   // vez de dejarlo huérfano en el <select> que acaba de disparar `onChange`
@@ -68,51 +74,51 @@ export function ReclasificarCategoriaControl({
   // seguir tabulando.
   useEffect(() => {
     if (pendiente) {
-      confirmarRef.current?.focus()
+      confirmarRef.current?.focus();
     }
-  }, [pendiente])
+  }, [pendiente]);
 
   function commit(nombre: string) {
-    setErrorMensaje(null)
+    setErrorMensaje(null);
     mutacion.mutate(
       { transaccionId, categoria: nombre },
       {
         onError: (error) => {
-          setErrorMensaje(error.message)
-          setValor(categoriaActual ?? '')
+          setErrorMensaje(error.message);
+          setValor(categoriaActual ?? '');
         },
       },
-    )
+    );
   }
 
   function alCambiar(event: React.ChangeEvent<HTMLSelectElement>) {
-    const nombre = event.target.value
+    const nombre = event.target.value;
     // Clear any stale pending confirmation FIRST: a new selection always
     // supersedes a previous, unconfirmed cross-bucket dialog — otherwise the
     // old dialog stays on screen referencing a categoría the user no longer
     // has selected, and confirming it fires a PATCH for the wrong value
     // (network race between "pick B" and "confirm A").
-    setPendiente(null)
-    setValor(nombre)
-    setErrorMensaje(null)
-    const bucketNuevo = CATEGORIA_BUCKET[nombre]
+    setPendiente(null);
+    setValor(nombre);
+    setErrorMensaje(null);
+    const bucketNuevo = CATEGORIA_BUCKET[nombre];
     if (bucketNuevo === bucketActual) {
-      commit(nombre)
-      return
+      commit(nombre);
+      return;
     }
-    setPendiente({ nombre, bucketNuevo })
+    setPendiente({ nombre, bucketNuevo });
   }
 
   function confirmar() {
-    if (!pendiente) return
-    commit(pendiente.nombre)
-    setPendiente(null)
+    if (!pendiente) return;
+    commit(pendiente.nombre);
+    setPendiente(null);
   }
 
   function cancelar() {
-    setPendiente(null)
-    setValor(categoriaActual ?? '')
-    selectRef.current?.focus()
+    setPendiente(null);
+    setValor(categoriaActual ?? '');
+    selectRef.current?.focus();
   }
 
   return (
@@ -144,7 +150,9 @@ export function ReclasificarCategoriaControl({
         ))}
       </select>
       <span aria-live="polite" className="sr-only">
-        {mutacion.isSuccess && !pendiente ? `Categoría actualizada a ${mutacion.data?.categoria.nombre}.` : ''}
+        {mutacion.isSuccess && !pendiente
+          ? `Categoría actualizada a ${mutacion.data?.categoria.nombre}.`
+          : ''}
       </span>
       {errorMensaje && (
         <p role="alert" className="text-xs text-red-600">
@@ -157,13 +165,14 @@ export function ReclasificarCategoriaControl({
           aria-label="Confirmar cambio de categoría"
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
-              cancelar()
+              cancelar();
             }
           }}
           className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-sm"
         >
           <p>
-            Esto mueve {montoLabel} de {etiqueta(bucketActual)} a {etiqueta(pendiente.bucketNuevo)}.
+            Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}
+            {etiqueta(pendiente.bucketNuevo)}.
           </p>
           <div className="flex justify-end gap-2">
             <button
@@ -186,5 +195,5 @@ export function ReclasificarCategoriaControl({
         </div>
       )}
     </div>
-  )
+  );
 }

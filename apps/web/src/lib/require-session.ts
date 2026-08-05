@@ -1,6 +1,6 @@
-import { redirect } from '@tanstack/react-router'
-import type { ApiResult } from '@/api/client'
-import type { MeDto } from '@/api/types'
+import { redirect } from '@tanstack/react-router';
+import type { ApiResult } from '@/api/client';
+import type { MeDto } from '@/api/types';
 
 /**
  * requireSession — pure `beforeLoad` guard logic for the `_authenticated`
@@ -32,14 +32,15 @@ export async function requireSession(
   fetchMe: () => Promise<ApiResult<MeDto>>,
   redirectTo?: string,
 ): Promise<MeDto> {
-  const result = await fetchMe()
-  if (result.ok) return result.value
+  const result = await fetchMe();
+  if (result.ok) return result.value;
 
-  const meaningfulRedirect = redirectTo !== undefined && redirectTo !== '/' ? redirectTo : undefined
+  const meaningfulRedirect =
+    redirectTo !== undefined && redirectTo !== '/' ? redirectTo : undefined;
 
   throw redirect(
     meaningfulRedirect !== undefined
       ? { to: '/login', search: { redirect: meaningfulRedirect } }
       : { to: '/login' },
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { defineConfig, mergeConfig } from 'vitest/config'
-import viteConfig from './vite.config'
+import { defineConfig, mergeConfig } from 'vitest/config';
+import viteConfig from './vite.config';
 
 // Vitest reusa el pipeline de Vite existente (ADR-016) — mismo plugin de React
 // (JSX), mismos alias. Solo se añade la capa de test: entorno `jsdom` para el
@@ -22,9 +22,13 @@ export default defineConfig((configEnv) =>
         coverage: {
           provider: 'v8',
           include: ['src/**/*.{ts,tsx}'],
-          exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/routeTree.gen.ts'],
+          exclude: [
+            'src/**/*.test.{ts,tsx}',
+            'src/test/**',
+            'src/routeTree.gen.ts',
+          ],
         },
       },
     }),
   ),
-)
+);

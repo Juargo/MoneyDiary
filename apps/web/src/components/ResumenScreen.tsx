@@ -1,17 +1,17 @@
-import { useState } from 'react'
-import { IngresoCard } from './IngresoCard'
-import { SemaforoBadge } from './SemaforoBadge'
-import { DistribucionPie } from './DistribucionPie'
-import { LeyendaGasto } from './LeyendaGasto'
-import { BucketDetailList } from './BucketDetailList'
-import { ResumenAnual } from './ResumenAnual'
-import type { LeyendaTajada } from './LeyendaGasto'
-import type { ResumenViewModel } from '@/domain/resumen-view-model'
-import { anioDePeriodo } from '@/domain/periodo-anual'
-import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card'
-import { cn } from '@/lib/utils'
+import { useState } from 'react';
+import { IngresoCard } from './IngresoCard';
+import { SemaforoBadge } from './SemaforoBadge';
+import { DistribucionPie } from './DistribucionPie';
+import { LeyendaGasto } from './LeyendaGasto';
+import { BucketDetailList } from './BucketDetailList';
+import { ResumenAnual } from './ResumenAnual';
+import type { LeyendaTajada } from './LeyendaGasto';
+import type { ResumenViewModel } from '@/domain/resumen-view-model';
+import { anioDePeriodo } from '@/domain/periodo-anual';
+import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
+import { cn } from '@/lib/utils';
 
-const BUCKET_SIN_CATEGORIA = 'SinCategoria'
+const BUCKET_SIN_CATEGORIA = 'SinCategoria';
 
 /**
  * Dashboard body (US-030 Slice B, tasks 30.9/30.10): income header + a
@@ -79,27 +79,27 @@ export function ResumenScreen({
   viewModel,
   onPeriodoChange,
 }: {
-  readonly viewModel: ResumenViewModel
-  readonly onPeriodoChange: (periodo: string) => void
+  readonly viewModel: ResumenViewModel;
+  readonly onPeriodoChange: (periodo: string) => void;
 }) {
-  const [bucketElegido, setBucketElegido] = useState<string | null>(null)
+  const [bucketElegido, setBucketElegido] = useState<string | null>(null);
 
   // FIX 5: reset the explicit selection when the month changes — otherwise the
   // OLD month's choice would leak into the new month's panel. Reset during
   // render by tracking the previous period (React's documented alternative to
   // a reset-in-effect); React re-runs render immediately without committing.
-  const [periodoPrevio, setPeriodoPrevio] = useState(viewModel.periodo)
+  const [periodoPrevio, setPeriodoPrevio] = useState(viewModel.periodo);
   if (viewModel.periodo !== periodoPrevio) {
-    setPeriodoPrevio(viewModel.periodo)
-    setBucketElegido(null)
+    setPeriodoPrevio(viewModel.periodo);
+    setBucketElegido(null);
   }
 
-  const bucketSeleccionado = bucketElegido ?? viewModel.bucketPorDefecto
+  const bucketSeleccionado = bucketElegido ?? viewModel.bucketPorDefecto;
 
   const entradasLeyenda: ReadonlyArray<LeyendaTajada> = [
     ...viewModel.distribucionGasto,
     { bucket: BUCKET_SIN_CATEGORIA },
-  ]
+  ];
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
@@ -113,7 +113,10 @@ export function ResumenScreen({
               Distribución del gasto
             </h2>
             <span data-testid="semaforo-global">
-              <SemaforoBadge estadoSemaforo={viewModel.estadoGlobal} size={28} />
+              <SemaforoBadge
+                estadoSemaforo={viewModel.estadoGlobal}
+                size={28}
+              />
             </span>
           </div>
 
@@ -137,12 +140,19 @@ export function ResumenScreen({
               instead of passing `null` where `BucketDetailList` requires a
               `string`. */}
           {bucketSeleccionado && (
-            <BucketDetailList bucket={bucketSeleccionado} periodo={viewModel.periodo} headingLevel="h2" />
+            <BucketDetailList
+              bucket={bucketSeleccionado}
+              periodo={viewModel.periodo}
+              headingLevel="h2"
+            />
           )}
         </div>
       </div>
 
-      <ResumenAnual anio={anioDePeriodo(viewModel.periodo, new Date().getUTCFullYear())} onSelectPeriodo={onPeriodoChange} />
+      <ResumenAnual
+        anio={anioDePeriodo(viewModel.periodo, new Date().getUTCFullYear())}
+        onSelectPeriodo={onPeriodoChange}
+      />
     </div>
-  )
+  );
 }
