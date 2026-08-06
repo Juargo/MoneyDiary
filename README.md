@@ -65,7 +65,8 @@ La raíz expone shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...
 
 ```bash
 # Backend
-pnpm api start                            # Express en :3000 (tsx; sin watch — reiniciar a mano)
+pnpm api dev                              # Express en :3000 con watch (tsx watch — recarga al guardar)
+pnpm api start                            # Express en :3000 (tsx, un solo arranque, sin watch)
 pnpm api test                             # unit (sin BD)
 pnpm api test:integration                 # integración contra Postgres local (.env.test; ADR-029)
 pnpm api test:e2e                         # e2e HTTP contra Postgres local (.env.test; ADR-029)
