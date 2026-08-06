@@ -2,20 +2,24 @@
 
 App de finanzas personales para consolidar y analizar movimientos bancarios chilenos (Banco de Chile, BancoEstado, BCI, Santander) importados desde archivos `.xlsx`. Clasifica el gasto con el método **50/30/20** (Necesidades / Deseos / Ahorro) y responde de un vistazo *"¿estoy bien este mes?"* mediante un semáforo verde/amarillo/rojo.
 
-Es también un ejercicio de ingeniería de software aplicada: Clean Architecture, TDD, ADRs y Scrum. La documentación de proceso (ADRs, User Stories, sprints) vive en un vault de Obsidian; la documentación técnica canónica del repo está en **[CLAUDE.md](./CLAUDE.md)**.
+Es también un ejercicio de ingeniería de software aplicada: Clean Architecture, TDD, ADRs y Scrum. Las decisiones de arquitectura (ADRs) viven en `docs/adr/`; el backlog (User Stories, sprints) en GitHub Issues/Milestones; la documentación técnica canónica del repo está en **[CLAUDE.md](./CLAUDE.md)**.
 
 ## Stack
 
-- **Backend** (`apps/api`): NestJS v11 · TypeScript strict · Prisma 7 · PostgreSQL (Supabase) · ExcelJS
+- **Backend** (`apps/api`): Express · TypeScript strict · Prisma 7 · PostgreSQL (Supabase) · ExcelJS (ADR-028)
 - **Frontend** (`apps/web`): React 19 · Vite 8 · Tailwind 4 · shadcn/ui · TanStack Query/Router · Zustand
+- **Mobile** (`apps/mobile`): Expo SDK 57 · Expo Router · NativeWind
+- **Landing** (`apps/landing`): Astro estático
 - **Monorepo**: pnpm v11 workspaces · Node.js 22+
 
 ## Estructura
 
 ```
 apps/
-  api/   Backend NestJS — Clean Architecture (domain ← application ← infrastructure)
-  web/   Frontend React (SPA)
+  api/       Backend Express — Clean Architecture (domain ← application ← infrastructure)
+  web/       Frontend React (SPA)
+  mobile/    App Expo (Expo Router)
+  landing/   Landing Astro estática
 ```
 
 El backend sigue Clean Architecture con manejo de errores vía `Result<T,E>` (nunca excepciones en domain/application). Detalle de arquitectura, ADRs y convenciones en [CLAUDE.md](./CLAUDE.md); modo mono-usuario y seguridad de BD en [apps/api/README.md](./apps/api/README.md).
@@ -46,12 +50,14 @@ cargar → detectar banco → validar estructura → normalizar → persistir �
 
 ```bash
 pnpm install                             # instala todos los workspaces
-# Crea apps/api/.env con DATABASE_URL (Postgres/Supabase); DIRECT_URL es opcional
+# Crea apps/api/.env — en dev, DATABASE_URL/DIRECT_URL deben apuntar a Postgres local
+# (ADR-029: env.ts hace fail-fast si no es localhost; Supabase es solo prod)
+pnpm api db:up                           # Postgres local efímero (Docker) en :5432
 pnpm api exec prisma migrate dev         # aplica migraciones
 ALLOW_DESTRUCTIVE_DB=1 pnpm api exec prisma db seed   # usuario/cuenta fijos (mono-usuario)
 ```
 
-> El seed está declarado en `apps/api/prisma.config.ts` (Prisma 7: `seed: 'ts-node prisma/seed.ts'`), no en `package.json`.
+> El seed está declarado en `apps/api/prisma.config.ts` (Prisma 7: `seed: 'tsx prisma/seed.ts'` — ADR-032), no en `package.json`.
 
 ## Comandos frecuentes
 
@@ -59,12 +65,12 @@ La raíz expone shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...
 
 ```bash
 # Backend
-pnpm api start:dev                        # NestJS en :3000 (watch)
+pnpm api start                            # Express en :3000 (tsx; sin watch — reiniciar a mano)
 pnpm api test                             # unit (sin BD)
-pnpm api test:integration                 # integración contra BD real de dev
-pnpm api test:e2e                         # e2e HTTP contra BD real de dev
+pnpm api test:integration                 # integración contra Postgres local (.env.test; ADR-029)
+pnpm api test:e2e                         # e2e HTTP contra Postgres local (.env.test; ADR-029)
 pnpm api exec tsc --noEmit                # typecheck
-pnpm api cli -- ./test/fixtures/movimientos.xlsx   # pipeline por CLI
+pnpm api cli -- ./test/fixtures/movimientos-test.xlsx   # pipeline por CLI
 
 # Frontend
 pnpm web dev                              # Vite en :5173 (proxy /api → :3000)
