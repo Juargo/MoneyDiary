@@ -165,7 +165,8 @@ pnpm api test:watch                          # vitest (watch)
 pnpm api test:e2e                            # vitest e2e — muta BD real, gate ALLOW_DESTRUCTIVE_DB=1
 pnpm api test:integration                    # vitest integración — mismo gate
 pnpm api cli -- ./test/fixtures/movimientos-test.xlsx
-pnpm api start                               # server Express desde fuente (tsx, ADR-032)
+pnpm api dev                                 # server Express con watch (tsx watch — hot reload en dev)
+pnpm api start                               # server Express desde fuente (tsx, un arranque, sin watch)
 pnpm api build                               # tsc -p tsconfig.build.json → dist/
 pnpm api start:prod                          # node dist/infrastructure/http-express/server
 pnpm api exec tsc --noEmit                   # TypeScript check
