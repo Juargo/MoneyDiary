@@ -7,6 +7,7 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginForm } from './LoginForm';
 
 /**
@@ -48,8 +49,15 @@ async function renderLoginForm(redirectTo?: string) {
     history: createMemoryHistory({ initialEntries: ['/login'] }),
   });
   await router.load();
-  render(<RouterProvider router={router} />);
-  return router;
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { router, queryClient };
 }
 
 describe('LoginForm', () => {
@@ -100,7 +108,7 @@ describe('LoginForm', () => {
 
   it('shows a generic error message on failure and does not navigate away from /login', async () => {
     mockFetchOnce({ ok: false, status: 401 });
-    const router = await renderLoginForm();
+    const { router } = await renderLoginForm();
 
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'usuario@moneydiary.cl' },
@@ -141,7 +149,7 @@ describe('LoginForm', () => {
       status: 200,
       json: () => Promise.resolve({ token: 't', userId: 'u', expiresAt: 'x' }),
     });
-    const router = await renderLoginForm();
+    const { router } = await renderLoginForm();
 
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'usuario@moneydiary.cl' },
@@ -161,7 +169,7 @@ describe('LoginForm', () => {
       status: 200,
       json: () => Promise.resolve({ token: 't', userId: 'u', expiresAt: 'x' }),
     });
-    const router = await renderLoginForm('/buckets/Necesidades');
+    const { router } = await renderLoginForm('/buckets/Necesidades');
 
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'usuario@moneydiary.cl' },
@@ -174,5 +182,63 @@ describe('LoginForm', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/buckets/Necesidades'),
     );
+  });
+
+  it('clears the query cache on successful login, before navigating away', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ token: 't', userId: 'u', expiresAt: 'x' }),
+    });
+    const { router, queryClient } = await renderLoginForm();
+    queryClient.setQueryData(['resumen', '2026-08'], { esDemo: true });
+    expect(queryClient.getQueryData(['resumen', '2026-08'])).toBeDefined();
+    // `useNavigate()` delegates to `router.navigate` at call time, so an
+    // instance spy observes the component's navigation — combined with the
+    // `clear` spy, `invocationCallOrder` proves clear-BEFORE-navigate (final
+    // state alone would still pass if the two were reordered).
+    const clearSpy = vi.spyOn(queryClient, 'clear');
+    const navigateSpy = vi.spyOn(router, 'navigate');
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'usuario@moneydiary.cl' },
+    });
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
+      target: { value: 'secreta123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+    expect(queryClient.getQueryData(['resumen', '2026-08'])).toBeUndefined();
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).toHaveBeenCalled();
+    expect(clearSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      navigateSpy.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('cache-clear does not break redirectTo: cache is cleared AND navigation lands on the redirect target', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ token: 't', userId: 'u', expiresAt: 'x' }),
+    });
+    const { router, queryClient } = await renderLoginForm(
+      '/buckets/Necesidades',
+    );
+    queryClient.setQueryData(['resumen', '2026-08'], { esDemo: true });
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'usuario@moneydiary.cl' },
+    });
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
+      target: { value: 'secreta123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/buckets/Necesidades'),
+    );
+    expect(queryClient.getQueryData(['resumen', '2026-08'])).toBeUndefined();
   });
 });
