@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { postLogout } from '@/api/auth';
 
 /**
  * DemoBanner (demo-trial-mode, DEMO-UI-02/DEMO-UI-04) — sticky, dismissable
@@ -31,12 +34,27 @@ import { useState } from 'react';
  * regions — e.g. `states/Loading.tsx` — can coexist on the same page, so
  * name-based queries disambiguate them). The dismiss button carries its own
  * `aria-label` since its visible glyph ("×") alone is not descriptive.
+ *
+ * "Salir del demo" is the only in-app way out of a demo session: it calls
+ * `postLogout`, clears the query cache (same identity-switch rationale as
+ * `LoginForm`'s post-login clear — a subsequent real login must not see
+ * cached demo data), then navigates to `/login`. Logout failing server-side
+ * (network/500) must not trap the user in demo, so the cache-clear + redirect
+ * happen regardless of `postLogout`'s result.
  */
 export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
   const [descartado, setDescartado] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   if (!esDemo || descartado) {
     return null;
+  }
+
+  async function salirDelDemo() {
+    await postLogout();
+    queryClient.clear();
+    void navigate({ to: '/login' });
   }
 
   return (
@@ -50,6 +68,13 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
         automáticamente.
       </p>
       <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void salirDelDemo()}
+          className="rounded-full px-3 py-1.5 text-sm font-semibold text-amber-900 underline-offset-2 hover:underline"
+        >
+          Salir del demo
+        </button>
         <a
           href="https://moneydiary.cl"
           target="_blank"

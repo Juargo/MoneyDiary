@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { postLogin } from '@/api/auth';
 
 /**
@@ -16,6 +17,7 @@ import { postLogin } from '@/api/auth';
  */
 export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [estado, setEstado] = useState<'idle' | 'submitting' | 'error'>('idle');
@@ -31,6 +33,10 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
       return;
     }
 
+    // Identity switch: any cache entry (e.g. `['resumen', periodo]`) may
+    // belong to the previous session's user — demo or otherwise. Clear
+    // before navigating so the dashboard never serves stale/foreign data.
+    queryClient.clear();
     void navigate({ to: redirectTo ?? '/' });
   }
 
