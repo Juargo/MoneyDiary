@@ -74,23 +74,23 @@
 **Depends on:** Slice A merged (uses `IVerificadorIdentidadExterna`/`IIdentidadGoogleRepository` ports and `LoginConGoogleFallidoError`... actually adapter does not depend on the use case; the repository impl depends on A6's port).
 **Independently shippable:** yes — no HTTP surface yet, nothing in `container.ts` wires it.
 
-- [ ] **B1.** Blocking check: confirm P3 (openid-client release age > 7 days) before running install.
-- [ ] **B2.** Add `openid-client` v6 as a dependency of `apps/api` (`pnpm --filter @moneydiary/api add openid-client`). Confirm `pnpm-lock.yaml` updates cleanly and `pnpm audit --audit-level=high` stays green.
+- [x] **B1.** Blocking check: confirm P3 (openid-client release age > 7 days) before running install.
+- [x] **B2.** Add `openid-client` v6 as a dependency of `apps/api` (`pnpm --filter @moneydiary/api add openid-client`). Confirm `pnpm-lock.yaml` updates cleanly and `pnpm audit --audit-level=high` stays green.
 
 ### Infrastructure — OIDC adapter
 
-- [ ] **B3.** Write failing unit tests for `apps/api/src/infrastructure/oidc/openid-client-google.adapter.spec.ts` with a stubbed `openid-client` discovery/`Configuration`:
+- [x] **B3.** Write failing unit tests for `apps/api/src/infrastructure/oidc/openid-client-google.adapter.spec.ts` with a stubbed `openid-client` discovery/`Configuration`:
   - `iniciar()` returns `InicioAutorizacion` with `state`/`nonce`/`codeVerifier`/`urlAutorizacion` populated
   - `verificar()` maps claims to `IdentidadExterna` (`sub`, `email`, `emailVerificado`) correctly
   - adapter **never throws** across the port boundary — wrap `openid-client` exceptions into `Result.fail`
   - discovery failure → `Result.fail`, memo cleared on rejection so a subsequent call retries (assert discovery is re-attempted, not permanently poisoned)
   - `access_token`/`refresh_token` never appear in the returned `IdentidadExterna` shape (AUTH-18 port-level guarantee)
   - fail-closed coalescing of optional claims: `email ?? null`, `email_verified ?? false` — a **missing** `email_verified` claim (not merely `undefined` read via JS truthiness, but the explicit coalesce) MUST resolve to `false`, asserted against a stubbed claim set that omits the key entirely (4R carry-forward)
-- [ ] **B4.** Implement `apps/api/src/infrastructure/oidc/openid-client-google.adapter.ts` — `OpenIdClientGoogleAdapter implements IIniciadorLoginExterno, IVerificadorIdentidadExterna`, lazy memoised discovery per design §4.2. This is the **only** file in the repo importing `openid-client`. Run B3 green.
+- [x] **B4.** Implement `apps/api/src/infrastructure/oidc/openid-client-google.adapter.ts` — `OpenIdClientGoogleAdapter implements IIniciadorLoginExterno, IVerificadorIdentidadExterna`, lazy memoised discovery per design §4.2. This is the **only** file in the repo importing `openid-client`. Run B3 green.
 
 ### Infrastructure — persistence (real implementation)
 
-- [ ] **B5.** Write failing integration tests (`pnpm api test:integration`, real Postgres) for `apps/api/src/infrastructure/persistence/prisma-identidad-google.repository.spec.ts` per design §11.3:
+- [x] **B5.** Write failing integration tests (`pnpm api test:integration`, real Postgres) for `apps/api/src/infrastructure/persistence/prisma-identidad-google.repository.spec.ts` per design §11.3:
   - `buscarPorGoogleSub` finds a linked user
   - `buscarPorEmail` finds by `emailBlindIndex`, proving the blind index computed here matches the one the existing login path writes (reuse the same `HmacBlindIndexService` instance/derivation — do not re-derive)
   - `vincularGoogleSub` writes once, returns `true`; second call on an already-linked row returns `false`, does **not** overwrite
@@ -98,11 +98,12 @@
   - **both race paths proven in the same test suite, neither ever throws across the port:** the `updateMany` count===0 path (loser of the conditional update) AND the caught `P2002` path (TOCTOU collision) both resolve to `vincularGoogleSub` returning `false` — assert this explicitly rather than relying on only one of the two being exercised (4R carry-forward, design §5.4)
   - demo rows surface with `esDemo: true`
   - the adapter uses the **container's single shared `HmacBlindIndexService` instance** to compute `emailBlindIndex` — assert reference/derivation equality against the same instance `PrismaUserCredentialRepository` uses (not a freshly re-derived key), since a differently-derived key silently breaks linking with no error (4R carry-forward, design §5.5)
-- [ ] **B6.** Implement `apps/api/src/infrastructure/persistence/prisma-identidad-google.repository.ts` implementing `IIdentidadGoogleRepository` per design §5.2/§5.4/§5.5. `vincularGoogleSub` uses the conditional `updateMany({ where: { id, googleSub: null } })` pattern (design §5.4), catches `P2002` and returns `false`. Run B5 green (requires local Postgres — see `apps/api/docs/local-test-db.md`, `ALLOW_DESTRUCTIVE_DB=1`).
+  - **implementation note (apply-time):** `vitest.int.config.ts` only includes `test/**/*.int-spec.ts` — matching the repo's existing convention that `src/**/*.repository.spec.ts` are mocked-Prisma unit specs (e.g. `prisma-account.repository.spec.ts`) and real-DB coverage lives under `test/*.int-spec.ts` (e.g. `prisma-transaccion-existente-reader.int-spec.ts`). Split accordingly: `src/infrastructure/persistence/prisma-identidad-google.repository.spec.ts` (unit, mocked `PrismaClient`, covers P2002/count-based branches with fakes) + `test/prisma-identidad-google.int-spec.ts` (real Postgres, both race paths reproduced for real — same-row TOCTOU via `count===0`, distinct-row TOCTOU via a genuine `P2002` — plus the blind-index cross-check against `PrismaUserCredentialRepository` given the same `IBlindIndexService` instance). Both run under `pnpm api test` / `pnpm api test:integration` respectively, satisfying B10 as originally worded.
+- [x] **B6.** Implement `apps/api/src/infrastructure/persistence/prisma-identidad-google.repository.ts` implementing `IIdentidadGoogleRepository` per design §5.2/§5.4/§5.5. `vincularGoogleSub` uses the conditional `updateMany({ where: { id, googleSub: null } })` pattern (design §5.4), catches `P2002` and returns `false`. Run B5 green (requires local Postgres — see `apps/api/docs/local-test-db.md`, `ALLOW_DESTRUCTIVE_DB=1`).
 
 ### Config — env schema (ADR-029)
 
-- [ ] **B7.** Write failing unit tests for `apps/api/src/config/env.spec.ts` additions:
+- [x] **B7.** Write failing unit tests for `apps/api/src/config/env.spec.ts` additions:
   - both `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` present → schema accepts
   - neither present → schema accepts (feature off)
   - **exactly one present → boot fails** (all-or-nothing `superRefine` rule)
@@ -110,13 +111,13 @@
   - both present, `GOOGLE_REDIRECT_URI` absent, `NODE_ENV=development|test` → defaults to `http://localhost:5173/api/auth/google/callback`
   - `GOOGLE_REDIRECT_URI` present but `pathname !== '/api/auth/google/callback'` → boot fails with a message naming both the configured and expected pathname (design §8 boot-time assertion)
   - `GOOGLE_REDIRECT_URI` non-`https` in production → boot fails
-- [ ] **B8.** Implement the three-key addition to `apps/api/src/config/env.ts` per design §8: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` optional strings, `GOOGLE_REDIRECT_URI` optional URL with the `refineByEnvironment` all-or-nothing rule + pathname assertion + env-conditional default. Run B7 green.
-- [ ] **B9.** Regenerate `.env.example` (`pnpm api env:example`) and confirm the CI check that diffs it against the schema stays green. Add `.describe(...)` text for all three keys.
+- [x] **B8.** Implement the three-key addition to `apps/api/src/config/env.ts` per design §8: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` optional strings, `GOOGLE_REDIRECT_URI` optional URL with the `refineByEnvironment` all-or-nothing rule + pathname assertion + env-conditional default. Run B7 green. **Implementation note:** the `development`/`test` default is applied by a new `withGoogleRedirectUriDefault()` pre-parse step inside `loadEnv()` (reads raw `NODE_ENV`/credential presence from `source` before Zod runs), not inside `superRefine` itself — `superRefine` only validates, it cannot mutate parsed output in this Zod version. Production never gets the default; a missing `GOOGLE_REDIRECT_URI` there always fails boot via `refineGoogleAuthEnv`.
+- [x] **B9.** Regenerate `.env.example` (`pnpm api env:example`) and confirm the CI check that diffs it against the schema stays green. Add `.describe(...)` text for all three keys.
 
 ### Slice close-out
 
-- [ ] **B10.** `pnpm api test` and `pnpm api test:integration` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **B11.** Open PR #2 targeting Slice A's branch (feature-branch-chain) or `main` (stacked-to-main) per chosen chain strategy — dependency diagram with 📍 on this PR, prior dependency = PR #1.
+- [x] **B10.** `pnpm api test` and `pnpm api test:integration` green. `pnpm api exec tsc --noEmit` green.
+- [ ] **B11.** Open PR #2 targeting Slice A's branch (feature-branch-chain) or `main` (stacked-to-main) per chosen chain strategy — dependency diagram with 📍 on this PR, prior dependency = PR #1. — **deferred**: apply phase stops after the last commit per orchestrator instructions; PR creation happens after the 4R review gate.
 
 **Verified by:** unit + integration tests in CI.
 **Rollback:** revert PR; no runtime path reaches the adapters (nothing in composition wires them yet).
