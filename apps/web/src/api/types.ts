@@ -192,6 +192,21 @@ export interface ApiVersionDto {
 }
 
 /**
+ * Mirror escrito a mano del DTO HTTP de `GET /api/auth/capabilities`
+ * (auth-google-login Slice D, AC-10). Fuente de verdad en el backend:
+ * `apps/api/src/infrastructure/http-express/schemas/auth-capabilities.schema.ts`.
+ *
+ * Fuente única del kill switch (design.md §4.5): el botón "Continuar con
+ * Google" en `/login` SOLO se muestra cuando `googleLoginEnabled: true`.
+ * Nunca se deriva de un flag de build-time — la verdad vive enteramente en
+ * el servidor (presencia de `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` en
+ * Render).
+ */
+export interface AuthCapabilitiesDto {
+  readonly googleLoginEnabled: boolean;
+}
+
+/**
  * Mirror escrito a mano del DTO HTTP de `POST /api/ingestas/preview`
  * (`us-003-vista-previa` Slice 2, design.md §9.4). Fuente de verdad en el
  * backend: `apps/api/src/infrastructure/http/dto/preview-ingesta.dto.ts`.
