@@ -50,7 +50,7 @@
 
 - [x] **A1.7.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
 - [x] **A1.8.** Confirm `application/` still imports nothing from `google-auth-library`, Express, or Prisma directly (grep check, ADR-005 invariant — the adapter is the sole importer).
-- [ ] **A1.9.** Open PR #1 (chained-pr skill: state start/finish/rollback in the PR body; dependency diagram with 📍 on this PR). **Not opened by sdd-apply per delivery instructions** — branch pushed; a fresh-context 4R review runs first, orchestrator opens the PR.
+- [x] **A1.9.** Open PR #1 (chained-pr skill: state start/finish/rollback in the PR body; dependency diagram with 📍 on this PR). **Not opened by sdd-apply per delivery instructions** — branch pushed; a fresh-context 4R review runs first, orchestrator opens the PR.
 
 **Verified by:** `pnpm api test` (unit specs).
 **Rollback:** revert PR; nothing imports the adapter or the new port method.
