@@ -30,27 +30,27 @@
 
 ### Application — port
 
-- [ ] **A1.1.** Blocking check: confirm P1 (`google-auth-library` release age > 7 days) before running the install in A1.2.
-- [ ] **A1.2.** Add `google-auth-library` as a direct dependency of `apps/api` (`pnpm --filter @moneydiary/api add google-auth-library`). Confirm `pnpm-lock.yaml` updates cleanly and `pnpm audit --audit-level=high` stays green.
-- [ ] **A1.3.** Write failing type-level/contract test (or a minimal double + compile check) for the new `IVerificadorIdTokenExterno` role interface in `apps/api/src/application/ports/verificador-identidad-externa.port.ts` — third role interface in the existing file (design §4), NOT a method added to `IVerificadorIdentidadExterna`. Confirm `IdentidadExterna` / `VerificacionIdentidadFallidaError` are reused verbatim (assert no shape change).
-- [ ] **A1.4.** Implement the `IVerificadorIdTokenExterno` addition to `verificador-identidad-externa.port.ts` per design §4: `verificarIdToken(idToken: string): Promise<Result<IdentidadExterna, VerificacionIdentidadFallidaError>>`. Run A1.3 green. Grep-confirm `LoginConGoogleUseCase` is untouched (design's zero-change guarantee).
+- [x] **A1.1.** Blocking check: confirm P1 (`google-auth-library` release age > 7 days) before running the install in A1.2.
+- [x] **A1.2.** Add `google-auth-library` as a direct dependency of `apps/api` (`pnpm --filter @moneydiary/api add google-auth-library`). Confirm `pnpm-lock.yaml` updates cleanly and `pnpm audit --audit-level=high` stays green.
+- [x] **A1.3.** Write failing type-level/contract test (or a minimal double + compile check) for the new `IVerificadorIdTokenExterno` role interface in `apps/api/src/application/ports/verificador-identidad-externa.port.ts` — third role interface in the existing file (design §4), NOT a method added to `IVerificadorIdentidadExterna`. Confirm `IdentidadExterna` / `VerificacionIdentidadFallidaError` are reused verbatim (assert no shape change).
+- [x] **A1.4.** Implement the `IVerificadorIdTokenExterno` addition to `verificador-identidad-externa.port.ts` per design §4: `verificarIdToken(idToken: string): Promise<Result<IdentidadExterna, VerificacionIdentidadFallidaError>>`. Run A1.3 green. Grep-confirm `LoginConGoogleUseCase` is untouched (design's zero-change guarantee).
 
 ### Infrastructure — verifier adapter
 
-- [ ] **A1.5.** Write failing unit tests for `apps/api/src/infrastructure/oidc/google-id-token.adapter.spec.ts` against a hand-written `ClienteVerificadorIdToken` double (design §5.2), covering:
+- [x] **A1.5.** Write failing unit tests for `apps/api/src/infrastructure/oidc/google-id-token.adapter.spec.ts` against a hand-written `ClienteVerificadorIdToken` double (design §5.2), covering:
   - empty/blank `idToken` → `Result.fail` **without** calling the double (assert not invoked)
   - valid payload → correct `IdentidadExterna` mapping (`email` null when absent, `emailVerificado` only when strictly `true`)
   - payload `undefined` → fail
   - `sub` missing from payload → fail
   - double's `verifyIdToken` throws (bad signature / wrong `aud` / wrong `iss` / expired / network failure) → `Result.fail`, **the adapter never throws** across the port
   - audience array passed through correctly with one entry and with several entries
-- [ ] **A1.6.** Implement `apps/api/src/infrastructure/oidc/google-id-token.adapter.ts` — `GoogleIdTokenVerifier implements IVerificadorIdTokenExterno`, constructor `(audiencias: readonly string[], cliente: ClienteVerificadorIdToken = new OAuth2Client())` per design §5.2. This is the **only** file in the repo importing `google-auth-library`. Every throw from `cliente.verifyIdToken` is caught and mapped to `Result.fail(new VerificacionIdentidadFallidaError(motivo))` — nothing from `google-auth-library` crosses the port. Run A1.5 green.
+- [x] **A1.6.** Implement `apps/api/src/infrastructure/oidc/google-id-token.adapter.ts` — `GoogleIdTokenVerifier implements IVerificadorIdTokenExterno`, constructor `(audiencias: readonly string[], cliente: ClienteVerificadorIdToken = new OAuth2Client())` per design §5.2. This is the **only** file in the repo importing `google-auth-library`. Every throw from `cliente.verifyIdToken` is caught and mapped to `Result.fail(new VerificacionIdentidadFallidaError(motivo))` — nothing from `google-auth-library` crosses the port. Run A1.5 green.
 
 ### Slice close-out
 
-- [ ] **A1.7.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **A1.8.** Confirm `application/` still imports nothing from `google-auth-library`, Express, or Prisma directly (grep check, ADR-005 invariant — the adapter is the sole importer).
-- [ ] **A1.9.** Open PR #1 (chained-pr skill: state start/finish/rollback in the PR body; dependency diagram with 📍 on this PR).
+- [x] **A1.7.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
+- [x] **A1.8.** Confirm `application/` still imports nothing from `google-auth-library`, Express, or Prisma directly (grep check, ADR-005 invariant — the adapter is the sole importer).
+- [x] **A1.9.** Open PR #1 (chained-pr skill: state start/finish/rollback in the PR body; dependency diagram with 📍 on this PR). **Not opened by sdd-apply per delivery instructions** — branch pushed; a fresh-context 4R review runs first, orchestrator opens the PR.
 
 **Verified by:** `pnpm api test` (unit specs).
 **Rollback:** revert PR; nothing imports the adapter or the new port method.
