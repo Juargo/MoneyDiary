@@ -364,6 +364,7 @@ Query counts, corrected against §5.3's actual algorithm (step 2's `buscarPorGoo
 | found by `sub`, not demo → **success** | 1 (`buscarPorGoogleSub`) | + session `INSERT` |
 | found by `sub`, demo → reject | 1 (`buscarPorGoogleSub`) | none |
 | not found by `sub`, `email_verified: false` → reject | 1 (`buscarPorGoogleSub`) | none — `buscarPorEmail` never runs |
+| not found by `sub`, verified, `email` null or malformed (`Email.crear` fails) → reject | 1 (`buscarPorGoogleSub`) | none — `buscarPorEmail` never runs |
 | not found by `sub`, verified, no match (`sin-match`) → reject | 2 (`buscarPorGoogleSub` + `buscarPorEmail`) | none |
 | not found by `sub`, verified, match is demo → reject | 2 | none |
 | not found by `sub`, verified, match already linked to another `sub` (★) → reject | 2 | none |
@@ -374,6 +375,7 @@ Unlike `LoginUseCase`, **no dummy work is needed**, but the argument is scoped c
 
 - The enumeration oracle AUTH-02 guards against is "does this email have a MoneyDiary account". An attacker probing an **arbitrary target email** cannot reach the `sub`-based branches for that email unless they already hold a Google account whose `sub` is linked to the target — which means they already know the account exists and is linked, so no new information leaks from that path being cheaper. The realistic oracle path is always the *not-found-by-`sub`, verified* set: no-match vs. demo-match vs. already-linked. **All three cost exactly 2 indexed queries before diverging — genuinely structurally identical**, not merely asserted.
 - The `email_verified: false` branch does cost fewer queries (1) than the verified-and-checked branches (2), but it leaks only the `email_verified` flag of the **attacker's own Google account**, which the attacker already knows. Not an oracle about MoneyDiary — the earlier "zero queries" framing was wrong about the mechanism, but the underlying "not an oracle" conclusion still holds.
+- Same reasoning applies to the `email === null` / malformed-email branch: it also costs 1 query and diverges before `buscarPorEmail` ever runs. What it leaks is a property of the **presenter's own Google identity** (that the `email` claim was absent or failed `Email.crear`'s validation) — never an oracle about whether any MoneyDiary account exists, because no MoneyDiary lookup happened yet.
 - Success costs the same 2 reads as the other verified branches, plus a write (`UPDATE` and/or session `INSERT`), but success is already observable by other means — you end up logged in — so the extra write does not leak new information.
 
 **Decision: argue the quantified, scoped bound above (option b) rather than add symmetric dummy work (option a).** A no-op lookup added to the `sub`-found and unverified-email branches to force every branch to 2 queries would paper over a distinction shown above to be non-exploitable, and would add meaningless work to a hot path — against this design's own KISS stance (§3, §5.1). Recorded here so a reviewer does not "fix" this by adding dummy work, and so `sdd-verify` checks the counts in this table against §5.3 rather than trusting the earlier draft.

@@ -85,6 +85,7 @@
   - adapter **never throws** across the port boundary — wrap `openid-client` exceptions into `Result.fail`
   - discovery failure → `Result.fail`, memo cleared on rejection so a subsequent call retries (assert discovery is re-attempted, not permanently poisoned)
   - `access_token`/`refresh_token` never appear in the returned `IdentidadExterna` shape (AUTH-18 port-level guarantee)
+  - fail-closed coalescing of optional claims: `email ?? null`, `email_verified ?? false` — a **missing** `email_verified` claim (not merely `undefined` read via JS truthiness, but the explicit coalesce) MUST resolve to `false`, asserted against a stubbed claim set that omits the key entirely (4R carry-forward)
 - [ ] **B4.** Implement `apps/api/src/infrastructure/oidc/openid-client-google.adapter.ts` — `OpenIdClientGoogleAdapter implements IIniciadorLoginExterno, IVerificadorIdentidadExterna`, lazy memoised discovery per design §4.2. This is the **only** file in the repo importing `openid-client`. Run B3 green.
 
 ### Infrastructure — persistence (real implementation)
@@ -94,7 +95,9 @@
   - `buscarPorEmail` finds by `emailBlindIndex`, proving the blind index computed here matches the one the existing login path writes (reuse the same `HmacBlindIndexService` instance/derivation — do not re-derive)
   - `vincularGoogleSub` writes once, returns `true`; second call on an already-linked row returns `false`, does **not** overwrite
   - a `P2002` unique-constraint collision (simulated concurrent link) returns `false` rather than throwing
+  - **both race paths proven in the same test suite, neither ever throws across the port:** the `updateMany` count===0 path (loser of the conditional update) AND the caught `P2002` path (TOCTOU collision) both resolve to `vincularGoogleSub` returning `false` — assert this explicitly rather than relying on only one of the two being exercised (4R carry-forward, design §5.4)
   - demo rows surface with `esDemo: true`
+  - the adapter uses the **container's single shared `HmacBlindIndexService` instance** to compute `emailBlindIndex` — assert reference/derivation equality against the same instance `PrismaUserCredentialRepository` uses (not a freshly re-derived key), since a differently-derived key silently breaks linking with no error (4R carry-forward, design §5.5)
 - [ ] **B6.** Implement `apps/api/src/infrastructure/persistence/prisma-identidad-google.repository.ts` implementing `IIdentidadGoogleRepository` per design §5.2/§5.4/§5.5. `vincularGoogleSub` uses the conditional `updateMany({ where: { id, googleSub: null } })` pattern (design §5.4), catches `P2002` and returns `false`. Run B5 green (requires local Postgres — see `apps/api/docs/local-test-db.md`, `ALLOW_DESTRUCTIVE_DB=1`).
 
 ### Config — env schema (ADR-029)
@@ -148,16 +151,17 @@
 - [ ] **C1.9.** Write failing unit test for `apps/api/src/infrastructure/http-express/middleware/redactar-query-params-sensibles.spec.ts` (or co-located with `request-logger.middleware.ts`): `code`/`state`/`id_token`/`access_token`/`refresh_token`/`token`/`code_verifier` values redacted to `[REDACTED]`; `periodo`/`anio` and other non-sensitive params untouched; malformed/no-query URLs handled safely.
 - [ ] **C1.10.** Implement `redactarQueryParamsSensibles(url: string): string` (pure function, ~20 lines) and wire it as `serializers.req` in `createRequestLoggerMiddleware` (`apps/api/src/infrastructure/http-express/middleware/request-logger.middleware.ts`). Run C1.9 green.
 - [ ] **C1.11.** Investigate P5 (whether `res.headers` including `Set-Cookie` is currently logged). Write a failing regression test capturing the NDJSON pino stream for a login/demo response and asserting no token value appears. Add `'res.headers["set-cookie"]'` to `SENSITIVE_REDACT_PATHS` (`apps/api/src/infrastructure/logging/pino-logger.ts`) if the test proves the leak exists. Run the regression test green. **Note in the PR description that this fix is a pre-existing-bug closure, not new-feature scope** — flag to the reviewer per P5.
+- [ ] **C1.12.** Write a failing test asserting `errorMiddleware` (`apps/api/src/infrastructure/http-express/middleware/error.middleware.ts`) never serializes `LoginConGoogleFallidoError`'s `motivo` property into any client-facing response body — pass a `LoginConGoogleFallidoError` with each `motivo` value through the middleware and assert the JSON response contains only the generic message, never a `motivo` key or its value. This is an AUTH-15 consistency guard shared with C2 (re-run against the real callback route's error path in C2.3/C2.7, not just this unit-level check) — 4R carry-forward.
 
 ### OpenAPI (partial — capabilities only; the two Google routes land in C2)
 
-- [ ] **C1.12.** Register `/api/auth/capabilities` `get` in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (appended at the end of `paths`, never reordering existing entries — design §10 determinism contract). Run `pnpm api openapi:emit` and `openapi:check`.
+- [ ] **C1.13.** Register `/api/auth/capabilities` `get` in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (appended at the end of `paths`, never reordering existing entries — design §10 determinism contract). Run `pnpm api openapi:emit` and `openapi:check`.
 
 ### Slice close-out
 
-- [ ] **C1.13.** `pnpm api test` and `pnpm api test:integration` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **C1.14.** Manual smoke: confirm both Google paths 404 and `/api/auth/capabilities` returns `false` with zero Google credentials configured locally.
-- [ ] **C1.15.** Open PR #3, dependency diagram 📍 on this PR, prior dependency = PR #2.
+- [ ] **C1.14.** `pnpm api test` and `pnpm api test:integration` green. `pnpm api exec tsc --noEmit` green.
+- [ ] **C1.15.** Manual smoke: confirm both Google paths 404 and `/api/auth/capabilities` returns `false` with zero Google credentials configured locally.
+- [ ] **C1.16.** Open PR #3, dependency diagram 📍 on this PR, prior dependency = PR #2.
 
 **Verified by:** supertest specs + log regression test in CI.
 **Rollback:** revert PR; `/api/auth/google` returns to 401-by-fallthrough (an unreachable state pre-this-change anyway — no client calls it).
@@ -185,10 +189,14 @@
   - callback happy path (fake verifier double) → `Set-Cookie: md_session` with attributes equal to the password-login cookie (AUTH-13) + `302 /`
   - callback failure paths (tampered/expired id_token via fake verifier, no-match via fake use case) → identical `302 /login?error=google` response shape across causes (AUTH-15 — assert byte-identical `error` value across at least three distinct failure causes)
   - both endpoints `404` when `container.googleAuth` is `undefined` (regression guard, already covered in C1.5 — re-run, do not duplicate)
+  - **infra fault mid-flow (DB error inside `loginConGoogle`'s repository/session calls, simulated via a double that rejects):** explicit test proving the route handler wraps the use-case call so an unexpected throw ALSO produces the uniform `302 /login?error=google` redirect — the AUTH-15 no-enumeration guarantee must hold even for unhandled infra faults, not just modeled `Result.fail` branches (4R carry-forward). If the design decision is instead to let it propagate to a 500 via `errorMiddleware`, document that carve-out explicitly here and in design §6 before implementing, rather than leaving it implicit.
+  - **benign partial-state ordering (design §5.1):** when `vincularGoogleSub` succeeds but the subsequent session-issuance step fails (simulated via a `sessions.crear` double that rejects after a successful link), assert no rollback is attempted and no duplicate link occurs on the immediate retry path — the account is left linked-but-not-logged-in, self-repairing on the next attempt via `buscarPorGoogleSub` (4R carry-forward)
 - [ ] **C2.4.** Implement the real handlers in `apps/api/src/infrastructure/http-express/routes/auth-google.routes.ts` (`registrarAuthGoogle`), replacing the C1 placeholder wiring so the `app.ts` branch now calls the real registrar when `container.googleAuth` is defined:
   - initiate: Sec-Fetch guard → shared `IpRateLimiter` (`google:ip:`, 10/15min) → `iniciador.iniciar()` → set `md_oauth` → 302
   - callback: read + immediately clear `md_oauth` (before any other work, on every outcome) → compare `state` → `verificador.verificar()` → `loginConGoogle` use case → on success set `md_session` (same attributes as password login) + 302 `/`; on any failure 302 `/login?error=google`
   - Sec-Fetch guard is applied to **both** endpoints (design §3 CSRF posture — not just initiate)
+  - callback handler wraps the `loginConGoogle` call (and any unexpected throw from its collaborators) so an infra fault redirects to `/login?error=google` exactly like a modeled failure — per the C2.3 carry-forward test above — unless design §6 documents an explicit 500 carve-out instead
+  - on the benign linked-but-not-logged-in partial state (link succeeds, session issuance fails), log it at a level distinguishable from a routine failure (observability for the 4R carry-forward above) — do not attempt a compensating rollback
   - Run C2.3 green.
 
 ### Composition — wire the shared rate limiter instance
