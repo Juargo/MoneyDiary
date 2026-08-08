@@ -135,6 +135,7 @@ Conocimiento no obvio del código ya entregado — durable, no derivable de un v
 - **Aislamiento multi-tenant (RNF-SEC-006):** todo repo que devuelve datos de usuario filtra por `userId` en el WHERE (p. ej. `account: { userId }`), **no** en memoria. `periodo` ausente → mes en curso; inválido → 400 con scrub.
 - **db-safety:** las mutaciones destructivas de BD exigen opt-in `ALLOW_DESTRUCTIVE_DB=1` y rechazan connection strings de prod. El gate bloquea e2e/int contra Supabase (por eso necesitan una DB local; ver `apps/api/docs/local-test-db.md`).
 - **Cifrado de columnas sensibles:** ver ADR-013 (`docs/adr/`).
+- **Landing (Tailwind 4 CSS-first):** la utility `rounded` a secas lee el token `--radius` — el nombre `--radius-DEFAULT` se ignora en silencio y `rounded` cae al fallback de 4px sin error de build. Al tocar tokens de `@theme`, verificar el mapping en el CSS de `dist/`. Tipografía: DM Sans (cuerpo) + Plus Jakarta Sans (títulos) con tinta `#022030` — excepción scoped documentada en `DESIGN.md` (las apps siguen en Inter). El header sticky exige `scroll-mt-*` en los targets de anchors (`#como-funciona`, `#main`).
 
 ---
 
