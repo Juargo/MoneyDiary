@@ -156,13 +156,13 @@
 
 ### OpenAPI (partial — capabilities only; the two Google routes land in C2)
 
-- [ ] **C1.13.** Register `/api/auth/capabilities` `get` in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (appended at the end of `paths`, never reordering existing entries — design §10 determinism contract). Run `pnpm api openapi:emit` and `openapi:check`.
+- [x] **C1.13.** Register `/api/auth/capabilities` `get` in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (appended at the end of `paths`, never reordering existing entries — design §10 determinism contract). Run `pnpm api openapi:emit` and `openapi:check`.
 
 ### Slice close-out
 
-- [ ] **C1.14.** `pnpm api test` and `pnpm api test:integration` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **C1.15.** Manual smoke: confirm both Google paths 404 and `/api/auth/capabilities` returns `false` with zero Google credentials configured locally.
-- [ ] **C1.16.** Open PR #3, dependency diagram 📍 on this PR, prior dependency = PR #2.
+- [x] **C1.14.** `pnpm api test` and `pnpm api test:integration` green. `pnpm api exec tsc --noEmit` green. **Also ran `pnpm api test:e2e` green (10 files, 51 tests) for full confidence** — none of the three commands were skipped despite the "avoid full run if it times out" guidance; all completed well within budget (unit 1265/1265, integration 58/58, e2e 51/51, tsc clean).
+- [x] **C1.15.** Manual smoke: confirm both Google paths 404 and `/api/auth/capabilities` returns `false` with zero Google credentials configured locally. Verified against a real running server (`tsx server.ts`, port 3999, no `GOOGLE_CLIENT_ID`/`SECRET` in env): `GET /api/auth/google` → 404, `GET /api/auth/google/callback` → 404, `GET /api/auth/capabilities` → `200 {"googleLoginEnabled":false}`.
+- [ ] **C1.16.** Open PR #3, dependency diagram 📍 on this PR, prior dependency = PR #2. — **deferred**: apply phase stops after the last commit per orchestrator instructions; PR creation happens after the 4R review gate.
 
 **Verified by:** supertest specs + log regression test in CI.
 **Rollback:** revert PR; `/api/auth/google` returns to 401-by-fallthrough (an unreachable state pre-this-change anyway — no client calls it).
