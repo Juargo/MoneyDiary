@@ -27,19 +27,19 @@
 
 ### Domain
 
-- [ ] **A1.** Write failing unit test for `LoginConGoogleFallidoError` (`apps/api/src/domain/errors/login-con-google-fallido.error.spec.ts`): fixed `message`, `motivo` is one of the six enum values (`'sin-match' | 'email-no-verificado' | 'usuario-demo' | 'ya-vinculado-a-otra-identidad' | 'link-perdio-la-carrera' | 'email-invalido'`), message is identical across all six motivos.
-- [ ] **A2.** Implement `apps/api/src/domain/errors/login-con-google-fallido.error.ts` per design §6.1. Run A1 green.
+- [x] **A1.** Write failing unit test for `LoginConGoogleFallidoError` (`apps/api/src/domain/errors/login-con-google-fallido.error.spec.ts`): fixed `message`, `motivo` is one of the six enum values (`'sin-match' | 'email-no-verificado' | 'usuario-demo' | 'ya-vinculado-a-otra-identidad' | 'link-perdio-la-carrera' | 'email-invalido'`), message is identical across all six motivos.
+- [x] **A2.** Implement `apps/api/src/domain/errors/login-con-google-fallido.error.ts` per design §6.1. Run A1 green.
 
 ### Application — ports
 
-- [ ] **A3.** Write failing type-level/contract tests (or a minimal double + compile check) for `apps/api/src/application/ports/verificador-identidad-externa.port.ts`: `InicioAutorizacion`, `IdentidadExterna`, `ParametrosCallback`, `IIniciadorLoginExterno`, `IVerificadorIdentidadExterna` — both interfaces return `Result<T, VerificacionIdentidadFallidaError>` (confirm/create `VerificacionIdentidadFallidaError` alongside if not already present from a prior auth change).
-- [ ] **A4.** Implement `verificador-identidad-externa.port.ts` per design §4.1. Two role interfaces in one file, per ISP rationale — do not merge into one interface.
-- [ ] **A5.** Write failing unit tests for `apps/api/src/application/ports/identidad-google-repository.port.ts` shape (`UsuarioVinculable`, `IIdentidadGoogleRepository` with `buscarPorGoogleSub`, `buscarPorEmail`, `vincularGoogleSub`) — test via a hand-written double used later by A7.
-- [ ] **A6.** Implement `identidad-google-repository.port.ts` per design §5.2. Confirm `IUserCredentialRepository` is **not** modified (grep the diff before committing — this is a hard constraint from design §5.2).
+- [x] **A3.** Write failing type-level/contract tests (or a minimal double + compile check) for `apps/api/src/application/ports/verificador-identidad-externa.port.ts`: `InicioAutorizacion`, `IdentidadExterna`, `ParametrosCallback`, `IIniciadorLoginExterno`, `IVerificadorIdentidadExterna` — both interfaces return `Result<T, VerificacionIdentidadFallidaError>` (confirm/create `VerificacionIdentidadFallidaError` alongside if not already present from a prior auth change).
+- [x] **A4.** Implement `verificador-identidad-externa.port.ts` per design §4.1. Two role interfaces in one file, per ISP rationale — do not merge into one interface.
+- [x] **A5.** Write failing unit tests for `apps/api/src/application/ports/identidad-google-repository.port.ts` shape (`UsuarioVinculable`, `IIdentidadGoogleRepository` with `buscarPorGoogleSub`, `buscarPorEmail`, `vincularGoogleSub`) — test via a hand-written double used later by A7.
+- [x] **A6.** Implement `identidad-google-repository.port.ts` per design §5.2. Confirm `IUserCredentialRepository` is **not** modified (grep the diff before committing — this is a hard constraint from design §5.2).
 
 ### Application — use case
 
-- [ ] **A7.** Write failing unit tests for `apps/api/src/application/use-cases/login-con-google.use-case.spec.ts` with port doubles (`IVerificadorIdentidadExterna` double + `IIdentidadGoogleRepository` double + session collaborators double), covering every branch in design §5.3/§11.2:
+- [x] **A7.** Write failing unit tests for `apps/api/src/application/use-cases/login-con-google.use-case.spec.ts` with port doubles (`IVerificadorIdentidadExterna` double + `IIdentidadGoogleRepository` double + session collaborators double), covering every branch in design §5.3/§11.2:
   - existing `googleSub` match, non-demo → session issued, no email lookup performed (assert repo double's `buscarPorEmail` never called)
   - existing `googleSub` match, demo user → generic failure, no session
   - first-time link, `emailVerificado: true`, unmatched user found → `vincularGoogleSub` called, session issued
@@ -50,18 +50,18 @@
   - `vincularGoogleSub` returns `false` (race lost) → generic failure
   - every failure branch produces the **identical** `LoginConGoogleFallidoError.message`
   - session issuance shape matches `LoginUseCase`: opaque token + SHA-256 hash + `expiresAt` = now + 7 days (reuse the same `IReloj`/token-service/session-repository ports the password `LoginUseCase` uses — do not introduce parallel ports)
-- [ ] **A8.** Implement `apps/api/src/application/use-cases/login-con-google.use-case.ts` per design §5.1/§5.3/§5.4/§5.5. No explicit transaction (design §5.1 rationale — do not add one). Uses `Email.crear` only when a lookup is about to happen; a malformed Google email is a generic failure (`motivo: 'email-invalido'`), never `EmailInvalidoError` surfaced raw. Run A7 green.
+- [x] **A8.** Implement `apps/api/src/application/use-cases/login-con-google.use-case.ts` per design §5.1/§5.3/§5.4/§5.5. No explicit transaction (design §5.1 rationale — do not add one). Uses `Email.crear` only when a lookup is about to happen; a malformed Google email is a generic failure (`motivo: 'email-invalido'`), never `EmailInvalidoError` surfaced raw. Run A7 green.
 
 ### Infrastructure — persistence (contract only, real impl deferred to Slice B)
 
-- [ ] **A9.** Prisma schema delta: add `googleSub String? @unique` to `User` model in `apps/api/prisma/schema.prisma`.
-- [ ] **A10.** Generate the additive migration (`pnpm api exec prisma migrate dev --name add_user_google_sub` or CI-equivalent). Confirm it is additive-only: `ALTER TABLE "User" ADD COLUMN "googleSub" TEXT` + unique index, no data rewrite, no backfill. Verify existing rows get `NULL`.
+- [x] **A9.** Prisma schema delta: add `googleSub String? @unique` to `User` model in `apps/api/prisma/schema.prisma`.
+- [x] **A10.** Generate the additive migration (`pnpm api exec prisma migrate dev --name add_user_google_sub` or CI-equivalent). Confirm it is additive-only: `ALTER TABLE "User" ADD COLUMN "googleSub" TEXT` + unique index, no data rewrite, no backfill. Verify existing rows get `NULL`.
 
 ### Slice close-out
 
-- [ ] **A11.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **A12.** Confirm nothing in `domain/` or `application/` imports `openid-client`, Express, or Prisma directly (grep check, design §1 invariant).
-- [ ] **A13.** Open PR #1 (chained-pr skill: state start/finish/rollback in the PR body; dependency diagram with 📍 on this PR). Rollback: revert PR, column becomes inert (nothing reads it yet).
+- [x] **A11.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
+- [x] **A12.** Confirm nothing in `domain/` or `application/` imports `openid-client`, Express, or Prisma directly (grep check, design §1 invariant).
+- [ ] **A13.** Open PR #1 (chained-pr skill: state start/finish/rollback in the PR body; dependency diagram with 📍 on this PR). Rollback: revert PR, column becomes inert (nothing reads it yet). — **deferred**: apply phase stops after the last commit per orchestrator instructions; PR creation happens after the 4R review gate.
 
 **Verified by:** unit tests + `prisma migrate` dry-run/apply in CI's integration job.
 **Rollback:** revert PR; `googleSub` column becomes inert (nothing reads it).
