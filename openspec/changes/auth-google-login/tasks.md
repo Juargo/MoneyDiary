@@ -208,6 +208,10 @@
 
 - [ ] **C2.6.** Register `/api/auth/google` `get` and `/api/auth/google/callback` `get` in `openapi-document.ts` (appended at the end of `paths`, design §10): `302`(+`Location`)/`403`/`404`/`429` for initiate; `302`(both outcomes, documenting the AUTH-15 indistinguishability as the contract itself)/`403`/`404`/`429` for callback. Run `pnpm api openapi:emit` and `openapi:check`.
 
+### Capabilities/route drift guard (4R C1 carry-forward)
+
+- [ ] **C2.6a.** Boot-time (or CI) guard that FAILS if `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are present but the real Google routes aren't registered — closes the C1-only drift where `/api/auth/capabilities` reports `true` while `/api/auth/google` 404s. (R4 C1 carry-forward; can only exist once C2 provides the real routes.)
+
 ### Slice close-out
 
 - [ ] **C2.7.** `pnpm api test` and `pnpm api test:integration` green (integration: one end-to-end callback with a verifier **double**, never live Google, asserting a real `Session` row with SHA-256 hash + `expiresAt` = creation + 7 days, indistinguishable from a password-login row — design §11.3). `pnpm api exec tsc --noEmit` green.
