@@ -200,7 +200,7 @@ describe('useGoogleIdToken', () => {
 
     expect(idToken).toBe('a-real-id-token');
     expect(mockMakeRedirectUri).toHaveBeenCalledWith({
-      scheme: 'com.googleusercontent.apps.12345-android',
+      scheme: 'com.googleusercontent.apps.a-client-id',
       path: 'oauthredirect',
     });
     expect(mockUseAutoDiscovery).toHaveBeenCalledWith(
