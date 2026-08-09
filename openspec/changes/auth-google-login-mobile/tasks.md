@@ -128,7 +128,7 @@
 
 - [x] **B1.7.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
 - [x] **B1.8.** Manual smoke: confirm `POST /api/auth/google/token` 404s and `GET /api/auth/google` (web) is unaffected, with zero `GOOGLE_CLIENT_ID_ANDROID` configured locally.
-- [ ] **B1.9.** Open PR #3 targeting Slice A2's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #2. Recommend `judgment-day` on this PR (new externally-reachable trust boundary, design §13 cross-cutting note).
+- [x] **B1.9.** Open PR #3 targeting Slice A2's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #2. Recommend `judgment-day` on this PR (new externally-reachable trust boundary, design §13 cross-cutting note).
 
 **Verified by:** supertest specs + `openapi:check` in CI.
 **Rollback:** revert PR **or** unset `GOOGLE_CLIENT_ID_ANDROID` (instant, no deploy).
