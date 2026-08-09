@@ -11,11 +11,15 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://moneydiary-api.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://moneydiary-api.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "166622457070-ad4jtn1m3q0oo8vo08iti86uvdsof2b5.apps.googleusercontent.com"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "166622457070-ad4jtn1m3q0oo8vo08iti86uvdsof2b5.apps.googleusercontent.com"
+      }
     }
   },
   "submit": {
