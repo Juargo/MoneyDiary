@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { GoogleLoginButton } from './GoogleLoginButton';
+import { COLORS } from '../theme/colors';
 
 // RED-first (C2.1, MOB-06 §9.2): pure presentational button — no fetch, no
 // SecureStore, no navigation. `LoginScreen`/`app/login.tsx` own visibility
@@ -21,7 +22,7 @@ describe('GoogleLoginButton', () => {
       .filter((style): style is Record<string, unknown> => !!style)
       .map((style) => style.backgroundColor)
       .filter(Boolean);
-    expect(backgroundColors).not.toContain('#3B4266');
+    expect(backgroundColors).not.toContain(COLORS.ingreso);
   });
 
   it('calls onPress when tapped and is disabled while submitting', async () => {
