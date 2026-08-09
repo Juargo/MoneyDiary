@@ -66,30 +66,30 @@
 
 ### Config — env schema (ADR-029)
 
-- [ ] **A2.1.** Write failing unit tests for `apps/api/src/config/env.spec.ts` additions:
+- [x] **A2.1.** Write failing unit tests for `apps/api/src/config/env.spec.ts` additions:
   - `GOOGLE_CLIENT_ID_ANDROID` absent → schema accepts, feature off, no error in any environment
   - present, ends with `.apps.googleusercontent.com` → schema accepts
   - present, wrong suffix (e.g. truncated value or a pasted client secret) → boot fails
   - present, equal to `GOOGLE_CLIENT_ID` → boot fails (copy-paste-of-web-client-id guard, design §7 point 3)
   - **all four** web × mobile on/off combinations are valid and independently computed (design §7 point 4)
   - no production-specific rule exists (a production deploy with the mobile feature off is valid)
-- [ ] **A2.2.** Implement the `GOOGLE_CLIENT_ID_ANDROID` addition to `apps/api/src/config/env.ts`: optional string, `min(1)`, `.describe(...)`d. Add `refineGoogleAuthMobileEnv` as a sibling of `refineGoogleAuthEnv`, wired from `refineByEnvironment` — a separate function per design §7's readability rationale, not merged into the web refine. Run A2.1 green.
-- [ ] **A2.3.** Regenerate `.env.example` (`pnpm api env:example`) and confirm the CI check that diffs it against the schema stays green.
+- [x] **A2.2.** Implement the `GOOGLE_CLIENT_ID_ANDROID` addition to `apps/api/src/config/env.ts`: optional string, `min(1)`, `.describe(...)`d. Add `refineGoogleAuthMobileEnv` as a sibling of `refineGoogleAuthEnv`, wired from `refineByEnvironment` — a separate function per design §7's readability rationale, not merged into the web refine. Run A2.1 green.
+- [x] **A2.3.** Regenerate `.env.example` (`pnpm api env:example`) and confirm the CI check that diffs it against the schema stays green.
 
 ### Composition — activation seam
 
-- [ ] **A2.4.** Write failing unit tests for `apps/api/src/composition/crear-auth-google-mobile.spec.ts`: returns `undefined` when `GOOGLE_CLIENT_ID_ANDROID` is absent; returns a `GoogleAuthMobileGraph` (`verificadorIdToken`, `loginConGoogle`, `googleTokenRateLimiter`) when present; receives (never re-derives) the existing `blindIndex` instance (assert reference equality, not a fresh HKDF derivation); constructs a **second, independent** `LoginConGoogleUseCase` instance (not shared with `crearAuthGoogle`'s).
-- [ ] **A2.5.** Implement `apps/api/src/composition/crear-auth-google-mobile.ts` — `crearAuthGoogleMobile(prisma, env, blindIndex): GoogleAuthMobileGraph | undefined` per design §7, mirroring `crear-auth-google.ts`'s pattern. Run A2.4 green.
-- [ ] **A2.6.** Wire `container.ts`'s `Container.googleAuthMobile?: GoogleAuthMobileGraph`, constructed by `crearAuthGoogleMobile(prisma, env, blindIndex)` reusing the container's already-derived `blindIndex` instance. Add/adjust `container.spec.ts` coverage for the new field.
+- [x] **A2.4.** Write failing unit tests for `apps/api/src/composition/crear-auth-google-mobile.spec.ts`: returns `undefined` when `GOOGLE_CLIENT_ID_ANDROID` is absent; returns a `GoogleAuthMobileGraph` (`verificadorIdToken`, `loginConGoogle`, `googleTokenRateLimiter`) when present; receives (never re-derives) the existing `blindIndex` instance (assert reference equality, not a fresh HKDF derivation); constructs a **second, independent** `LoginConGoogleUseCase` instance (not shared with `crearAuthGoogle`'s).
+- [x] **A2.5.** Implement `apps/api/src/composition/crear-auth-google-mobile.ts` — `crearAuthGoogleMobile(prisma, env, blindIndex): GoogleAuthMobileGraph | undefined` per design §7, mirroring `crear-auth-google.ts`'s pattern. Run A2.4 green.
+- [x] **A2.6.** Wire `container.ts`'s `Container.googleAuthMobile?: GoogleAuthMobileGraph`, constructed by `crearAuthGoogleMobile(prisma, env, blindIndex)` reusing the container's already-derived `blindIndex` instance. Add/adjust `container.spec.ts` coverage for the new field.
 
 ### Composition — boot assertion
 
-- [ ] **A2.7.** Write failing unit test for `assertGoogleAuthMobileActivationConsistency` (sibling in `apps/api/src/composition/assert-google-auth-activation-consistency.ts`): throws when `GOOGLE_CLIENT_ID_ANDROID` is present but `googleAuthMobile` is `undefined` (composition-bug guard); silent otherwise. Document the deliberate near-identical duplication with the web sibling per the `yagni` skill's three-strikes rule (design §7 — do not extract, two occurrences is not the threshold).
-- [ ] **A2.8.** Implement `assertGoogleAuthMobileActivationConsistency(env, googleAuthMobile)`. Run A2.7 green. Wire the call in `apps/api/src/infrastructure/http-express/server.ts` right after `createContainer`, next to the existing web assertion, before `app.listen()`.
+- [x] **A2.7.** Write failing unit test for `assertGoogleAuthMobileActivationConsistency` (sibling in `apps/api/src/composition/assert-google-auth-activation-consistency.ts`): throws when `GOOGLE_CLIENT_ID_ANDROID` is present but `googleAuthMobile` is `undefined` (composition-bug guard); silent otherwise. Document the deliberate near-identical duplication with the web sibling per the `yagni` skill's three-strikes rule (design §7 — do not extract, two occurrences is not the threshold).
+- [x] **A2.8.** Implement `assertGoogleAuthMobileActivationConsistency(env, googleAuthMobile)`. Run A2.7 green. Wire the call in `apps/api/src/infrastructure/http-express/server.ts` right after `createContainer`, next to the existing web assertion, before `app.listen()`.
 
 ### Slice close-out
 
-- [ ] **A2.9.** `pnpm api test` green, `env:example:check` green. `pnpm api exec tsc --noEmit` green.
+- [x] **A2.9.** `pnpm api test` green, `env:example:check` green. `pnpm api exec tsc --noEmit` green.
 - [ ] **A2.10.** Open PR #2 targeting Slice A1's branch/PR per the chosen chain strategy — dependency diagram with 📍 on this PR, prior dependency = PR #1.
 
 **Verified by:** `pnpm api test` (unit specs) + `env:example:check` in CI.
