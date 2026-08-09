@@ -198,6 +198,40 @@ describe('useGoogleIdToken', () => {
     const idToken = await result.current.obtenerIdToken();
 
     expect(idToken).toBe('a-real-id-token');
+    expect(mockMakeRedirectUri).toHaveBeenCalledWith({
+      scheme: 'cl.moneydiary.app',
+      path: 'oauthredirect',
+    });
+    expect(mockUseAutoDiscovery).toHaveBeenCalledWith(
+      'https://accounts.google.com',
+    );
+  });
+
+  it('obtenerIdToken omits extraParams when the request has no codeVerifier', async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID:
+        'a-client-id.apps.googleusercontent.com',
+    };
+    const promptAsync = jest
+      .fn()
+      .mockResolvedValue({ type: 'success', params: { code: 'auth-code' } });
+    const requestWithoutVerifier = { codeVerifier: undefined } as AuthRequest;
+    mockUseAuthRequest.mockReturnValue([
+      requestWithoutVerifier,
+      null,
+      promptAsync,
+    ]);
+    mockExchangeCodeAsync.mockResolvedValue({ idToken: 'a-real-id-token' });
+    const { useGoogleIdToken } = requireHook();
+    const { result } = await renderHook(() => useGoogleIdToken());
+
+    await result.current.obtenerIdToken();
+
+    expect(mockExchangeCodeAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ extraParams: undefined }),
+      FAKE_DISCOVERY,
+    );
   });
 
   it('obtenerIdToken resolves null without prompting when the request is not ready', async () => {
