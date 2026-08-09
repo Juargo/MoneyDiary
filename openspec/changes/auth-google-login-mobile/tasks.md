@@ -165,16 +165,16 @@
 **Independently shippable:** yes — additive, live web client unaffected (verified structural guard, design §8).
 **~Lines:** ~160.
 
-- [ ] **B3.1.** Write failing unit/supertest tests for `auth-capabilities.schema.ts` + `auth-capabilities.routes.ts` covering all **four** activation states of `(googleLoginEnabled, googleLoginMobileEnabled)`, independently computed; response type/schema stay in sync (compile-time coupling via the route's `const body: AuthCapabilitiesResponse` annotation, design header correction 2).
-- [ ] **B3.2.** Implement the `googleLoginMobileEnabled` addition to `apps/api/src/infrastructure/http-express/schemas/auth-capabilities.schema.ts` (additive field, schema is NOT `.strict()` — no unknown-key-rejection test needed, per design header correction 2).
-- [ ] **B3.3.** Implement the `auth-capabilities.routes.ts` signature change: `registrarAuthCapabilities(router, { googleAuth, googleAuthMobile })` — an **object**, not two positional nullable params (avoids trivial-swap risk). Still receives the graph fields, not pre-computed booleans ("the type is the flag"). Run B3.1 green.
-- [ ] **B3.4.** Update the `app.ts` call site for the new `registrarAuthCapabilities` signature.
-- [ ] **B3.5.** Register the field's description text in `openapi-document.ts` (the schema component updates itself since it's referenced, not duplicated). Run `pnpm api openapi:emit` — CI's `openapi:check` fails otherwise.
-- [ ] **B3.6.** Manual/structural verification that the live `apps/web` client tolerates the new key: confirm `apps/web/src/api/capabilities.ts`'s `esAuthCapabilitiesDto` guard checks only `typeof candidato.googleLoginEnabled === 'boolean'` and ignores unknown keys (read-only check — **no `apps/web` file changes in this change**, per design §8).
+- [x] **B3.1.** Write failing unit/supertest tests for `auth-capabilities.schema.ts` + `auth-capabilities.routes.ts` covering all **four** activation states of `(googleLoginEnabled, googleLoginMobileEnabled)`, independently computed; response type/schema stay in sync (compile-time coupling via the route's `const body: AuthCapabilitiesResponse` annotation, design header correction 2).
+- [x] **B3.2.** Implement the `googleLoginMobileEnabled` addition to `apps/api/src/infrastructure/http-express/schemas/auth-capabilities.schema.ts` (additive field, schema is NOT `.strict()` — no unknown-key-rejection test needed, per design header correction 2).
+- [x] **B3.3.** Implement the `auth-capabilities.routes.ts` signature change: `registrarAuthCapabilities(router, { googleAuth, googleAuthMobile })` — an **object**, not two positional nullable params (avoids trivial-swap risk). Still receives the graph fields, not pre-computed booleans ("the type is the flag"). Run B3.1 green.
+- [x] **B3.4.** Update the `app.ts` call site for the new `registrarAuthCapabilities` signature.
+- [x] **B3.5.** Register the field's description text in `openapi-document.ts` (the schema component updates itself since it's referenced, not duplicated). Run `pnpm api openapi:emit` — CI's `openapi:check` fails otherwise.
+- [x] **B3.6.** Manual/structural verification that the live `apps/web` client tolerates the new key: confirm `apps/web/src/api/capabilities.ts`'s `esAuthCapabilitiesDto` guard checks only `typeof candidato.googleLoginEnabled === 'boolean'` and ignores unknown keys (read-only check — **no `apps/web` file changes in this change**, per design §8).
 
 ### Slice close-out
 
-- [ ] **B3.7.** `pnpm api test` green, `openapi:check` green. `pnpm api exec tsc --noEmit` green.
+- [x] **B3.7.** `pnpm api test` green, `openapi:check` green. `pnpm api exec tsc --noEmit` green.
 - [ ] **B3.8.** Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B2; **C2 requires this slice merged.**
 
 **Verified by:** route spec (all four states) + web-client-untouched structural check.
