@@ -214,7 +214,7 @@
 ### Slice close-out
 
 - [x] **C1.10.** `pnpm --filter @moneydiary/mobile test` green.
-- [ ] **C1.11.** Open PR #4 targeting Slice B1's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1).
+- [x] **C1.11.** Open PR #4 targeting Slice B1's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1).
 
 **Verified by:** jest-expo specs.
 **Rollback:** revert PR; no UI path exists yet, nothing references the transport functions.
