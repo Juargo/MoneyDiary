@@ -15,7 +15,11 @@ import {
   screen,
   waitFor,
 } from 'expo-router/testing-library';
-import type { ApiResult, LoginResponseDto } from '../src/api/client';
+import type {
+  ApiResult,
+  AuthCapabilitiesDto,
+  LoginResponseDto,
+} from '../src/api/client';
 import type { MeDto, ResumenMesDto } from '../src/domain/resumen.types';
 
 // Import after jest.mock is registered — real screen components, wired
@@ -53,6 +57,10 @@ const mockFetchResumen = jest.fn<
   Promise<ApiResult<ResumenMesDto>>,
   [string?]
 >();
+const mockFetchAuthCapabilities = jest.fn<
+  Promise<ApiResult<AuthCapabilitiesDto>>,
+  []
+>();
 
 jest.mock('../src/api/client', () => ({
   postLogin: (email: string, password: string) =>
@@ -60,6 +68,21 @@ jest.mock('../src/api/client', () => ({
   postLogout: () => mockPostLogout(),
   fetchMe: () => mockFetchMe(),
   fetchResumen: (periodo?: string) => mockFetchResumen(periodo),
+  fetchAuthCapabilities: () => mockFetchAuthCapabilities(),
+}));
+
+// MOB-06: this suite exercises the REAL `app/login.tsx`, which now also
+// mounts `useGoogleIdToken` — the only file importing `expo-auth-session`,
+// which is unmocked here and would otherwise fire a genuine network call to
+// Google's discovery document (`useAutoDiscovery`) inside jest's fetch
+// polyfill. This suite is about the navigation gate, not Google sign-in
+// (covered end-to-end in `app/login.spec.tsx`), so the hook is stubbed to
+// `listo: false` — the Google button never renders here.
+jest.mock('../src/api/use-google-id-token', () => ({
+  useGoogleIdToken: () => ({
+    listo: false,
+    obtenerIdToken: async () => null,
+  }),
 }));
 
 const mockSecureStoreMemoria = new Map<string, string>();
@@ -148,6 +171,10 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
     mockFetchResumen
       .mockReset()
       .mockResolvedValue({ ok: true, value: resumenDto });
+    mockFetchAuthCapabilities.mockReset().mockResolvedValue({
+      ok: true,
+      value: { googleLoginEnabled: false, googleLoginMobileEnabled: false },
+    });
   });
 
   afterEach(() => {

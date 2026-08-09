@@ -1,5 +1,4 @@
 import { Pressable, Text } from 'react-native';
-import { COLORS } from '../theme/colors';
 
 /**
  * GoogleLoginButton — pure presentational `Pressable` (MOB-06, design §9.2).
