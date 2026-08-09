@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_KEY } from './config';
+import { conTimeout, NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 import { leerToken } from './session-store';
 import type { MeDto, ResumenMesDto } from '../domain/resumen.types';
 
@@ -235,14 +236,17 @@ export async function postGoogleIdToken(
 
   let res: Response;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'x-api-key': API_KEY ?? '',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ idToken }),
-    });
+    res = await conTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-api-key': API_KEY ?? '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
+      }),
+      NETWORK_LEG_TIMEOUT_MS,
+    );
   } catch {
     return { ok: false, error: { tag: 'network' } };
   }
@@ -286,7 +290,10 @@ export async function fetchAuthCapabilities(): Promise<
 
   let res: Response;
   try {
-    res = await fetch(url, { headers: { 'x-api-key': API_KEY ?? '' } });
+    res = await conTimeout(
+      fetch(url, { headers: { 'x-api-key': API_KEY ?? '' } }),
+      NETWORK_LEG_TIMEOUT_MS,
+    );
   } catch {
     return { ok: false, error: { tag: 'network' } };
   }

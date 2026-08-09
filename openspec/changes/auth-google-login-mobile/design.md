@@ -364,6 +364,15 @@ New mobile deps, installed with `npx expo install` so versions are SDK-pinned: *
 
 Not in `SessionProvider`: that context owns the session gate (SRP), and putting the fetch there would issue the call on every cold start including already-authenticated ones, for a screen that may never render. Same posture as web's `staleTime: Infinity, retry: false`. No layout jump to manage — an absent button simply is not there.
 
+### 9.4 Bounding the flow's network legs (judgment-day fix, post-implementation)
+
+The Google flow has three network legs plus one user-driven leg, and only the network legs are time-bounded:
+
+- `exchangeCodeAsync` (`use-google-id-token.ts`), `postGoogleIdToken`'s fetch, and `fetchAuthCapabilities`'s fetch are wrapped in `conTimeout` (`src/api/con-timeout.ts`) at `NETWORK_LEG_TIMEOUT_MS = 20_000`. A timeout rejects the same way any other failure of that leg already did — `exchangeCodeAsync`'s existing try/catch collapses it to `null`; the two `fetch` calls' existing try/catch collapses it to `{ ok: false, error: { tag: 'network' } }`. No new branches, no sentinel values.
+- `promptAsync` is **deliberately left unbounded**. It is user-driven (the user is inside a Custom Tab; a legitimate 2FA challenge can take minutes) and browser dismissal already resolves the promise — there is no hang risk that a client-side timer would meaningfully mitigate, only a risk of cutting off a slow-but-legitimate user.
+- 20s mirrors the backend's `ID_TOKEN_HTTP_TIMEOUT_MS` convention (`apps/api/src/infrastructure/oidc/google-id-token.adapter.ts`, 10s for a server-to-Google call) scaled up for a mobile network's higher latency variance.
+- **Residual accepted risk:** a pathological `promptAsync` hang (a library bug that never settles, not a slow user) still locks the shared `submitting` state machine indefinitely, since only the network legs are bounded. This is judged acceptable because the user is physically inside the Custom Tab during that window, and dismissing it resolves the promise — the failure mode requires an unresponsive library bug, not ordinary network conditions, and is distinguishable in practice from the network hangs this fix targets.
+
 ---
 
 ## 10. Data flow summary for the security-critical path

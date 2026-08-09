@@ -5,6 +5,7 @@ import {
   useAutoDiscovery,
 } from 'expo-auth-session';
 import { GOOGLE_CLIENT_ID_ANDROID } from './config';
+import { conTimeout, NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 
 /**
  * useGoogleIdToken — the ONLY file in the repo importing `expo-auth-session`
@@ -25,6 +26,13 @@ import { GOOGLE_CLIENT_ID_ANDROID } from './config';
  * absent `GOOGLE_CLIENT_ID_ANDROID` is handled by passing `''` and
  * reporting `listo: false` (MOB-06's fail-closed gate reads this flag).
  * Every failure path collapses to `null` — nothing here ever throws.
+ *
+ * `exchangeCodeAsync` is bounded by `conTimeout`/`NETWORK_LEG_TIMEOUT_MS`
+ * (design.md §9.4) so a hung token endpoint cannot lock the login screen
+ * forever — a timeout falls into the same catch block as any other
+ * exchange failure and resolves `null`. `promptAsync` above is deliberately
+ * left unbounded: it is user-driven (Custom Tab, a legitimate 2FA prompt
+ * can take minutes) and browser dismissal already resolves it.
  */
 export interface UseGoogleIdToken {
   readonly listo: boolean;
@@ -70,16 +78,19 @@ export function useGoogleIdToken(): UseGoogleIdToken {
     }
 
     try {
-      const tokenResponse = await exchangeCodeAsync(
-        {
-          clientId: GOOGLE_CLIENT_ID_ANDROID ?? '',
-          code,
-          redirectUri,
-          extraParams: request.codeVerifier
-            ? { code_verifier: request.codeVerifier }
-            : undefined,
-        },
-        discovery ?? {},
+      const tokenResponse = await conTimeout(
+        exchangeCodeAsync(
+          {
+            clientId: GOOGLE_CLIENT_ID_ANDROID ?? '',
+            code,
+            redirectUri,
+            extraParams: request.codeVerifier
+              ? { code_verifier: request.codeVerifier }
+              : undefined,
+          },
+          discovery ?? {},
+        ),
+        NETWORK_LEG_TIMEOUT_MS,
       );
       return tokenResponse.idToken ?? null;
     } catch {
