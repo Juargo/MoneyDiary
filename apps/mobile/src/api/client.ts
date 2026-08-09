@@ -59,6 +59,23 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
   );
 }
 
+/** Mirror of `GET /api/auth/capabilities`'s response body (AC-10, MOB-06). */
+export interface AuthCapabilitiesDto {
+  readonly googleLoginEnabled: boolean;
+  readonly googleLoginMobileEnabled: boolean;
+}
+
+function esAuthCapabilitiesDto(value: unknown): value is AuthCapabilitiesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<AuthCapabilitiesDto>;
+  return (
+    typeof candidato.googleLoginEnabled === 'boolean' &&
+    typeof candidato.googleLoginMobileEnabled === 'boolean'
+  );
+}
+
 function esLoginResponseDto(value: unknown): value is LoginResponseDto {
   if (typeof value !== 'object' || value === null) {
     return false;
@@ -192,6 +209,103 @@ export async function postLogin(
   }
 
   if (!esLoginResponseDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * postGoogleIdToken — POST {base}/api/auth/google/token with `{idToken}`.
+ * Mirrors `postLogin` exactly: no session exists yet, so only `x-api-key` is
+ * sent, and the response reuses the *same* `esLoginResponseDto` guard and
+ * `LoginResponseDto` shape (AUTH-20, design.md §9.1 — the body genuinely is
+ * the same DTO). Every failure branch (bad token, unverified email, no
+ * matching user, demo, already-linked, rate-limited) collapses to the usual
+ * `ApiError` tags — never throws.
+ */
+export async function postGoogleIdToken(
+  idToken: string,
+): Promise<ApiResult<LoginResponseDto>> {
+  if (!API_BASE_URL) {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  const url = `${API_BASE_URL}/api/auth/google/token`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'x-api-key': API_KEY ?? '',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ idToken }),
+    });
+  } catch {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized' } };
+  }
+  if (!res.ok) {
+    return { ok: false, error: { tag: 'http', status: res.status } };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  if (!esLoginResponseDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * fetchAuthCapabilities — GET {base}/api/auth/capabilities with `x-api-key`
+ * only. Explicit headers, **not** `construirHeadersSesion`: there is no
+ * session at this point in the login flow, and attaching a stale Bearer
+ * would be noise (design.md §9.1). Consumed by `app/login.tsx`'s mount-time
+ * fetch to gate the Google button (MOB-06, fail-closed) — never throws.
+ */
+export async function fetchAuthCapabilities(): Promise<
+  ApiResult<AuthCapabilitiesDto>
+> {
+  if (!API_BASE_URL) {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  const url = `${API_BASE_URL}/api/auth/capabilities`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { 'x-api-key': API_KEY ?? '' } });
+  } catch {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized' } };
+  }
+  if (!res.ok) {
+    return { ok: false, error: { tag: 'http', status: res.status } };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  if (!esAuthCapabilitiesDto(body)) {
     return { ok: false, error: { tag: 'parse' } };
   }
 

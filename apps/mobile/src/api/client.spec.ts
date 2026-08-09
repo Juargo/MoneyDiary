@@ -405,3 +405,187 @@ describe('postLogout', () => {
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
   });
 });
+
+describe('postGoogleIdToken', () => {
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    mockLeerToken.mockReset().mockResolvedValue(null);
+    process.env = {
+      ...ORIGINAL_ENV,
+      EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
+      EXPO_PUBLIC_API_KEY: 'test-api-key',
+    };
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+    jest.restoreAllMocks();
+  });
+
+  it('POSTs {idToken} to /api/auth/google/token with only x-api-key (no session yet, mirrors postLogin, design §9.1)', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validLoginResponse),
+    });
+    const { postGoogleIdToken } = requireClient();
+
+    await postGoogleIdToken('a-google-id-token');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/api/auth/google/token',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'x-api-key': 'test-api-key' }),
+        body: JSON.stringify({ idToken: 'a-google-id-token' }),
+      }),
+    );
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(
+      (options.headers as Record<string, string>).Authorization,
+    ).toBeUndefined();
+  });
+
+  it('resolves {ok:true, value:{token,userId,expiresAt}} on success, reusing the LoginResponseDto guard', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validLoginResponse),
+    });
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('a-google-id-token');
+
+    expect(result).toEqual({ ok: true, value: validLoginResponse });
+  });
+
+  it('maps a 401 (generic — no matching user, unverified email, invalid token, etc.) to {tag:"unauthorized"} (AUTH-21)', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('bad-token');
+
+    expect(result).toEqual({ ok: false, error: { tag: 'unauthorized' } });
+  });
+
+  it('maps a 429 (rate limited) to {tag:"http", status:429}', async () => {
+    mockFetchOnce({ ok: false, status: 429 });
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('a-google-id-token');
+
+    expect(result).toEqual({ ok: false, error: { tag: 'http', status: 429 } });
+  });
+
+  it('maps a fetch rejection to {tag:"network"} (never throws)', async () => {
+    (global as unknown as { fetch: typeof fetch }).fetch = jest
+      .fn()
+      .mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('a-google-id-token');
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+  });
+
+  it('maps a malformed 2xx body to {tag:"parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ unexpected: true }),
+    });
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('a-google-id-token');
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+});
+
+describe('fetchAuthCapabilities', () => {
+  const ORIGINAL_ENV = process.env;
+  const validCapabilities = {
+    googleLoginEnabled: true,
+    googleLoginMobileEnabled: true,
+  };
+
+  beforeEach(() => {
+    jest.resetModules();
+    mockLeerToken.mockReset().mockResolvedValue(null);
+    process.env = {
+      ...ORIGINAL_ENV,
+      EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
+      EXPO_PUBLIC_API_KEY: 'test-api-key',
+    };
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+    jest.restoreAllMocks();
+  });
+
+  it('GETs /api/auth/capabilities with only x-api-key — no construirHeadersSesion, no session exists yet (design §9.1)', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validCapabilities),
+    });
+    const { fetchAuthCapabilities } = requireClient();
+
+    await fetchAuthCapabilities();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/api/auth/capabilities',
+      { headers: { 'x-api-key': 'test-api-key' } },
+    );
+    expect(mockLeerToken).not.toHaveBeenCalled();
+  });
+
+  it('resolves {ok:true, value:{googleLoginEnabled,googleLoginMobileEnabled}} on success', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validCapabilities),
+    });
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: true, value: validCapabilities });
+  });
+
+  it('maps a fetch rejection to {tag:"network"} (never throws, MOB-06 fail-closed)', async () => {
+    (global as unknown as { fetch: typeof fetch }).fetch = jest
+      .fn()
+      .mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+  });
+
+  it('maps a non-2xx response to {tag:"http", status}', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'http', status: 500 } });
+  });
+
+  it('maps a malformed 2xx body to {tag:"parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ unexpected: true }),
+    });
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+});
