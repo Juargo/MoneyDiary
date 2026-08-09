@@ -142,16 +142,16 @@
 **Independently shippable:** yes — tests only.
 **~Lines:** ~230.
 
-- [ ] **B2.1.** Write failing integration tests (`pnpm api test:integration`, real Postgres, **runs in CI**) for `POST /api/auth/google/token`, all using a **double** of `IVerificadorIdTokenExterno` — never live Google:
+- [x] **B2.1.** Write failing integration tests (`pnpm api test:integration`, real Postgres, **runs in CI**) for `POST /api/auth/google/token`, all using a **double** of `IVerificadorIdTokenExterno` — never live Google:
   - happy path writes a real `Session` row: SHA-256 hash, `expiresAt` = creation + 7 days, indistinguishable from a password-login row
   - unknown identity → 401 and the `user` row count is unchanged
   - `email_verified: false` → 401 and no `googleSub` written
   - demo account (via both the `googleSub` path and the email path) → 401
   - email matches a user already linked to a *different* `googleSub` (★) → 401, stored value **not** overwritten
   - endpoint 404s when the container has no mobile graph
-- [ ] **B2.2.** Confirm rate limiting stays out of this suite — it is in-process state with no DB involvement (already covered in B1.1).
-- [ ] **B2.3.** `pnpm api test:integration` green in CI.
-- [ ] **B2.4.** Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B3; does not block C1.
+- [x] **B2.2.** Confirm rate limiting stays out of this suite — it is in-process state with no DB involvement (already covered in B1.1). Confirmed: each test's `IpRateLimiter` gets a fresh instance with a generous budget (1000/15min), never exercised as a failure path.
+- [x] **B2.3.** `pnpm api test:integration` green — verified LOCALLY against a real disposable Postgres (`docker compose up`, apps/api/docs/local-test-db.md), 7/7 new tests + 67/67 full integration suite (no regressions). CI's `integration` job (`postgres:16-alpine`) will re-confirm on push.
+- [ ] **B2.4.** Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B3; does not block C1. **Not opened by sdd-apply per delivery instructions** — branch pushed; a fresh-context review runs first, orchestrator opens the PR.
 
 **Verified by:** CI integration job (`postgres:16-alpine` service container).
 **Rollback:** revert PR; tests only, no runtime behavior change.
