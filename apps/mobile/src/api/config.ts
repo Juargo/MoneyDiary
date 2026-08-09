@@ -12,3 +12,13 @@
  */
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || undefined;
 export const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
+
+/**
+ * Google Android OAuth client ID for the mobile sign-in transport (ADR-035,
+ * design.md §9.1). A Google client ID is a public identifier — unlike
+ * `API_KEY` it needs no EAS Secret, it lives in `eas.json`'s per-profile
+ * `env`. Same "absent means not configured" discipline as `API_BASE_URL`:
+ * `use-google-id-token.ts` handles `undefined` by reporting `listo: false`.
+ */
+export const GOOGLE_CLIENT_ID_ANDROID =
+  process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID || undefined;

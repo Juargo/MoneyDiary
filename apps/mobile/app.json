@@ -2,7 +2,7 @@
   "expo": {
     "name": "MoneyDiary",
     "slug": "moneydiary",
-    "scheme": "moneydiary",
+    "scheme": ["moneydiary", "cl.moneydiary.app"],
     "version": "0.1.0",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,7 +14,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
