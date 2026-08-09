@@ -502,6 +502,30 @@ describe('postGoogleIdToken', () => {
 
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
   });
+
+  it('maps a 2xx body whose json() throws to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('a-google-id-token');
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  it('returns {tag: "network"} without fetching when API_BASE_URL is missing', async () => {
+    process.env.EXPO_PUBLIC_API_BASE_URL = '';
+    const fetchMock = mockFetchOnce({ ok: true, status: 200 });
+    const { postGoogleIdToken } = requireClient();
+
+    const result = await postGoogleIdToken('a-google-id-token');
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('fetchAuthCapabilities', () => {
@@ -576,6 +600,15 @@ describe('fetchAuthCapabilities', () => {
     expect(result).toEqual({ ok: false, error: { tag: 'http', status: 500 } });
   });
 
+  it('maps a 401 (missing/bad x-api-key) to {tag:"unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'unauthorized' } });
+  });
+
   it('maps a malformed 2xx body to {tag:"parse"}', async () => {
     mockFetchOnce({
       ok: true,
@@ -587,5 +620,29 @@ describe('fetchAuthCapabilities', () => {
     const result = await fetchAuthCapabilities();
 
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  it('maps a 2xx body whose json() throws to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  it('returns {tag: "network"} without fetching when API_BASE_URL is missing', async () => {
+    process.env.EXPO_PUBLIC_API_BASE_URL = '';
+    const fetchMock = mockFetchOnce({ ok: true, status: 200 });
+    const { fetchAuthCapabilities } = requireClient();
+
+    const result = await fetchAuthCapabilities();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
