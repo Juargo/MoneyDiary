@@ -90,7 +90,7 @@
 ### Slice close-out
 
 - [x] **A2.9.** `pnpm api test` green, `env:example:check` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **A2.10.** Open PR #2 targeting Slice A1's branch/PR per the chosen chain strategy — dependency diagram with 📍 on this PR, prior dependency = PR #1.
+- [x] **A2.10.** Open PR #2 targeting Slice A1's branch/PR per the chosen chain strategy — dependency diagram with 📍 on this PR, prior dependency = PR #1.
 
 **Verified by:** `pnpm api test` (unit specs) + `env:example:check` in CI.
 **Rollback:** revert PR; the `googleAuthMobile` graph field disappears, nothing else references it.
