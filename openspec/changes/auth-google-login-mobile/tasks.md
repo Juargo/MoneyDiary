@@ -191,29 +191,29 @@
 
 ### Dependencies + config
 
-- [ ] **C1.1.** Blocking check: confirm P2 (`expo-auth-session`/`expo-crypto`/`expo-web-browser` via `npx expo install`, SDK-pinned).
-- [ ] **C1.2.** Add the three deps to `apps/mobile/package.json` explicitly (pnpm's isolated resolution does not hoist transitive deps).
-- [ ] **C1.3.** Update `apps/mobile/app.json`: `"scheme": ["moneydiary", "cl.moneydiary.app"]` — keep the existing `moneydiary` scheme (deep links/expo-router depend on it), add the package-name scheme for OAuth only (design §2.4). Document the reversed-client-id-scheme (`com.googleusercontent.apps.<id>`) contingency as a code comment or in the PR body, not implemented speculatively.
+- [x] **C1.1.** Blocking check: confirm P2 (`expo-auth-session`/`expo-crypto`/`expo-web-browser` via `npx expo install`, SDK-pinned).
+- [x] **C1.2.** Add the three deps to `apps/mobile/package.json` explicitly (pnpm's isolated resolution does not hoist transitive deps).
+- [x] **C1.3.** Update `apps/mobile/app.json`: `"scheme": ["moneydiary", "cl.moneydiary.app"]` — keep the existing `moneydiary` scheme (deep links/expo-router depend on it), add the package-name scheme for OAuth only (design §2.4). Document the reversed-client-id-scheme (`com.googleusercontent.apps.<id>`) contingency as a code comment or in the PR body, not implemented speculatively.
 
 ### API — transport functions
 
-- [ ] **C1.4.** Write failing unit test for `apps/mobile/src/api/config.ts`'s new export `GOOGLE_CLIENT_ID_ANDROID` (reads `EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID`, `undefined` when absent — same "absent means not configured" discipline as `API_BASE_URL`).
-- [ ] **C1.5.** Implement the `GOOGLE_CLIENT_ID_ANDROID` export in `apps/mobile/src/api/config.ts`. Run C1.4 green.
-- [ ] **C1.6.** Write failing unit tests (stubbed `fetch`) for `apps/mobile/src/api/client.ts`'s two new functions:
+- [x] **C1.4.** Write failing unit test for `apps/mobile/src/api/config.ts`'s new export `GOOGLE_CLIENT_ID_ANDROID` (reads `EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID`, `undefined` when absent — same "absent means not configured" discipline as `API_BASE_URL`).
+- [x] **C1.5.** Implement the `GOOGLE_CLIENT_ID_ANDROID` export in `apps/mobile/src/api/config.ts`. Run C1.4 green.
+- [x] **C1.6.** Write failing unit tests (stubbed `fetch`) for `apps/mobile/src/api/client.ts`'s two new functions:
   - `postGoogleIdToken(idToken)` — mirrors `postLogin` exactly (same `x-api-key`-only headers, reuses the *existing* `esLoginResponseDto` guard, same `LoginResponseDto`, same typed failure tags), never throws
   - `fetchAuthCapabilities()` — `GET /api/auth/capabilities` with `x-api-key` only, explicit headers (**not** `construirHeadersSesion` — no session exists at this point), never throws
-- [ ] **C1.7.** Implement `postGoogleIdToken` and `fetchAuthCapabilities` in `apps/mobile/src/api/client.ts` per design §9.1. Run C1.6 green.
-- [ ] **C1.8.** Write failing unit tests (`jest.mock('expo-auth-session')`, mocking `useAutoDiscovery`, `useAuthRequest`, `exchangeCodeAsync`, `makeRedirectUri`) for `apps/mobile/src/api/use-google-id-token.ts`:
+- [x] **C1.7.** Implement `postGoogleIdToken` and `fetchAuthCapabilities` in `apps/mobile/src/api/client.ts` per design §9.1. Run C1.6 green.
+- [x] **C1.8.** Write failing unit tests (`jest.mock('expo-auth-session')`, mocking `useAutoDiscovery`, `useAuthRequest`, `exchangeCodeAsync`, `makeRedirectUri`) for `apps/mobile/src/api/use-google-id-token.ts`:
   - exposes `{ listo: boolean; obtenerIdToken: () => Promise<string | null> }`
   - absent client ID → `useAuthRequest` called with `''`, `listo: false` (hooks can't be called conditionally)
   - `promptAsync` → `dismiss`/`cancel`/`error` → `null`, never throws
   - throwing `exchangeCodeAsync` → `null`, never throws
   - token response with no `idToken` → `null`
-- [ ] **C1.9.** Implement `apps/mobile/src/api/use-google-id-token.ts` per design §2.1/§9.1 — the only file importing `expo-auth-session`: `useAutoDiscovery('https://accounts.google.com')`, `makeRedirectUri({ scheme: 'cl.moneydiary.app', path: 'oauthredirect' })`, `useAuthRequest({ clientId: GOOGLE_CLIENT_ID_ANDROID ?? '', scopes: ['openid','email','profile'], redirectUri, responseType: 'code', usePKCE: true }, discovery)`, `exchangeCodeAsync` with `code_verifier` from `request.codeVerifier`. Run C1.8 green.
+- [x] **C1.9.** Implement `apps/mobile/src/api/use-google-id-token.ts` per design §2.1/§9.1 — the only file importing `expo-auth-session`: `useAutoDiscovery('https://accounts.google.com')`, `makeRedirectUri({ scheme: 'cl.moneydiary.app', path: 'oauthredirect' })`, `useAuthRequest({ clientId: GOOGLE_CLIENT_ID_ANDROID ?? '', scopes: ['openid','email','profile'], redirectUri, responseType: 'code', usePKCE: true }, discovery)`, `exchangeCodeAsync` with `code_verifier` from `request.codeVerifier`. Run C1.8 green.
 
 ### Slice close-out
 
-- [ ] **C1.10.** `pnpm --filter @moneydiary/mobile test` green.
+- [x] **C1.10.** `pnpm --filter @moneydiary/mobile test` green.
 - [ ] **C1.11.** Open PR #4 targeting Slice B1's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1).
 
 **Verified by:** jest-expo specs.
