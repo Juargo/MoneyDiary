@@ -106,7 +106,7 @@
 
 ### Infrastructure — the route
 
-- [ ] **B1.1.** Write failing supertest specs (fake-container pattern) for `apps/api/src/infrastructure/http-express/routes/auth-google-token.routes.ts` per design §6:
+- [x] **B1.1.** Write failing supertest specs (fake-container pattern) for `apps/api/src/infrastructure/http-express/routes/auth-google-token.routes.ts` per design §6:
   - `POST /api/auth/google/token` → **404** when `container.googleAuthMobile === undefined` (registrarAuthGoogleTokenDeshabilitado, the same 404-vs-401 trap AUTH-16/§6.1 documents for the disabled web stub — the router's own branch, not a fallthrough into `sessionMiddleware`)
   - happy path (verifier double) → `200 { token, userId, expiresAt }`, exact body shape (reuses `authLoginResponseSchema`)
   - missing/non-string `idToken` → **401** generic (not 400) — mirrors `/auth/login`'s body-handling exactly
@@ -115,20 +115,20 @@
   - `Set-Cookie` **absent** on every response (mobile is Bearer-only, MOB-02)
   - log capture regression: the `idToken` value never appears in the captured NDJSON stream (body isn't serialized by `pino-http`, but assert it explicitly rather than trusting the omission)
   - no Sec-Fetch guard mounted (design §6.3 — decided explicitly, not copied; a POST with no `Sec-Fetch-*` headers from a native client would fail-open anyway)
-- [ ] **B1.2.** Write failing unit test pinning AUTH-23 (no-nonce regression): the request schema/handler requires and validates **no** `nonce` field — a request carrying an unexpected `nonce` key is accepted and ignored (not rejected), so the accepted no-nonce tradeoff cannot silently regress into a required-nonce contract.
-- [ ] **B1.3.** Implement `apps/api/src/infrastructure/http-express/schemas/auth-google-token.schema.ts` (request contract — `{ idToken: string }`, no `nonce`).
-- [ ] **B1.4.** Implement `apps/api/src/infrastructure/http-express/routes/auth-google-token.routes.ts` — `registrarAuthGoogleToken(router, deps)` + `registrarAuthGoogleTokenDeshabilitado(router)` per design §6.1–6.4: body handling mirrors `/auth/login` (`typeof body?.idToken === 'string' ? body.idToken : ''`, no 400); dedicated `IpRateLimiter('google-token:ip:', 30, 15 * 60_000)`; `appLogger.warn` + `motivo` on modeled failures, `.error` + `errorName` on unexpected throws (ADR-033/AUTH-18, never the token/email/`googleSub`/session token). Run B1.1 and B1.2 green.
-- [ ] **B1.5.** Wire `app.ts`: a **separate** router (not a branch inside `authGoogleApi`) — `authGoogleTokenApi`, mounted immediately after `authGoogleApi`, branching on `container.googleAuthMobile !== undefined` per design §6.1's exact snippet.
+- [x] **B1.2.** Write failing unit test pinning AUTH-23 (no-nonce regression): the request schema/handler requires and validates **no** `nonce` field — a request carrying an unexpected `nonce` key is accepted and ignored (not rejected), so the accepted no-nonce tradeoff cannot silently regress into a required-nonce contract.
+- [x] **B1.3.** Implement `apps/api/src/infrastructure/http-express/schemas/auth-google-token.schema.ts` (request contract — `{ idToken: string }`, no `nonce`).
+- [x] **B1.4.** Implement `apps/api/src/infrastructure/http-express/routes/auth-google-token.routes.ts` — `registrarAuthGoogleToken(router, deps)` + `registrarAuthGoogleTokenDeshabilitado(router)` per design §6.1–6.4: body handling mirrors `/auth/login` (`typeof body?.idToken === 'string' ? body.idToken : ''`, no 400); dedicated `IpRateLimiter('google-token:ip:', 30, 15 * 60_000)`; `appLogger.warn` + `motivo` on modeled failures, `.error` + `errorName` on unexpected throws (ADR-033/AUTH-18, never the token/email/`googleSub`/session token). Run B1.1 and B1.2 green.
+- [x] **B1.5.** Wire `app.ts`: a **separate** router (not a branch inside `authGoogleApi`) — `authGoogleTokenApi`, mounted immediately after `authGoogleApi`, branching on `container.googleAuthMobile !== undefined` per design §6.1's exact snippet.
 
 ### OpenAPI
 
-- [ ] **B1.6.** Register `POST /api/auth/google/token` in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts`, appended at the end of `paths` (never reordering existing entries). The operation reuses `authLoginResponseSchema` verbatim for the 200 response, so the document proves body identity rather than asserting it in prose. Run `pnpm api openapi:emit` and `openapi:check`.
+- [x] **B1.6.** Register `POST /api/auth/google/token` in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts`, appended at the end of `paths` (never reordering existing entries). The operation reuses `authLoginResponseSchema` verbatim for the 200 response, so the document proves body identity rather than asserting it in prose. Run `pnpm api openapi:emit` and `openapi:check`.
 
 ### Slice close-out
 
-- [ ] **B1.7.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **B1.8.** Manual smoke: confirm `POST /api/auth/google/token` 404s and `GET /api/auth/google` (web) is unaffected, with zero `GOOGLE_CLIENT_ID_ANDROID` configured locally.
-- [ ] **B1.9.** Open PR #3 targeting Slice A2's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #2. Recommend `judgment-day` on this PR (new externally-reachable trust boundary, design §13 cross-cutting note).
+- [x] **B1.7.** `pnpm api test` green. `pnpm api exec tsc --noEmit` green.
+- [x] **B1.8.** Manual smoke: confirm `POST /api/auth/google/token` 404s and `GET /api/auth/google` (web) is unaffected, with zero `GOOGLE_CLIENT_ID_ANDROID` configured locally.
+- [x] **B1.9.** Open PR #3 targeting Slice A2's branch/PR — dependency diagram with 📍 on this PR, prior dependency = PR #2. Recommend `judgment-day` on this PR (new externally-reachable trust boundary, design §13 cross-cutting note).
 
 **Verified by:** supertest specs + `openapi:check` in CI.
 **Rollback:** revert PR **or** unset `GOOGLE_CLIENT_ID_ANDROID` (instant, no deploy).
