@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { COLORS } from '../theme/colors';
+import { GoogleLoginButton } from './GoogleLoginButton';
 
 /**
  * Login screen state — mirrors `app/index.tsx`'s {loading|error|data}
@@ -27,6 +28,8 @@ export function LoginScreen({
   onChangeEmail,
   onChangePassword,
   onSubmit,
+  mostrarGoogle,
+  onGoogleSubmit,
 }: {
   readonly email: string;
   readonly password: string;
@@ -34,6 +37,14 @@ export function LoginScreen({
   readonly onChangeEmail: (value: string) => void;
   readonly onChangePassword: (value: string) => void;
   readonly onSubmit: () => void;
+  /**
+   * Fail-closed visibility gate for the Google affordance (MOB-06, design
+   * §9.2/§9.3) — decided by the caller (`app/login.tsx`), never here. Absent
+   * or `false` renders nothing, matching the web client's "no button, not a
+   * disabled button" posture.
+   */
+  readonly mostrarGoogle?: boolean;
+  readonly onGoogleSubmit?: () => void;
 }) {
   const enviando = estado.fase === 'submitting';
   // View-only state (presentational concern): toggles the password mask so
@@ -102,6 +113,10 @@ export function LoginScreen({
           {enviando ? 'Ingresando…' : 'Ingresar'}
         </Text>
       </Pressable>
+
+      {mostrarGoogle && onGoogleSubmit && (
+        <GoogleLoginButton onPress={onGoogleSubmit} disabled={enviando} />
+      )}
     </View>
   );
 }
