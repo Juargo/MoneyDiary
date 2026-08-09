@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-native';
 import type { AuthRequest } from 'expo-auth-session';
+import { NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 
 /**
  * `expo-auth-session` reaches a real native boundary (Custom Tabs, PKCE
@@ -199,7 +200,7 @@ describe('useGoogleIdToken', () => {
 
     expect(idToken).toBe('a-real-id-token');
     expect(mockMakeRedirectUri).toHaveBeenCalledWith({
-      scheme: 'cl.moneydiary.app',
+      scheme: 'com.googleusercontent.apps.a-client-id',
       path: 'oauthredirect',
     });
     expect(mockUseAutoDiscovery).toHaveBeenCalledWith(
@@ -246,5 +247,43 @@ describe('useGoogleIdToken', () => {
 
     expect(idToken).toBeNull();
     expect(promptAsync).not.toHaveBeenCalled();
+  });
+
+  // FIX 1 (CRITICAL, design §9.4): `exchangeCodeAsync` is a bounded network
+  // leg — a hung token endpoint must not lock the login screen forever.
+  // `promptAsync` itself is deliberately NOT bounded (user-driven, Custom
+  // Tab dismissal already resolves it) — only the exchange leg times out.
+  it('obtenerIdToken resolves null within the timeout budget when exchangeCodeAsync hangs (bounded network leg)', async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID:
+        'a-client-id.apps.googleusercontent.com',
+    };
+    const promptAsync = jest
+      .fn()
+      .mockResolvedValue({ type: 'success', params: { code: 'auth-code' } });
+    mockUseAuthRequest.mockReturnValue([FAKE_REQUEST, null, promptAsync]);
+    // Never resolves — simulates a hung token endpoint.
+    mockExchangeCodeAsync.mockReturnValue(new Promise(() => {}));
+    const { useGoogleIdToken } = requireHook();
+    const { result } = await renderHook(() => useGoogleIdToken());
+
+    // Fake timers are enabled only around the timed leg itself — enabling
+    // them before `renderHook` starves React's scheduler of the real timers
+    // it needs to flush effects.
+    jest.useFakeTimers();
+    try {
+      const idTokenPromise = result.current.obtenerIdToken();
+      // `obtenerIdToken` awaits `promptAsync()` (a microtask) BEFORE the
+      // `conTimeout` timer is even created, so a plain `advanceTimersByTime`
+      // would run before the timer exists. `advanceTimersByTimeAsync`
+      // interleaves microtask flushes with timer advancement, which lets
+      // the timer get created and then fire within the same call.
+      await jest.advanceTimersByTimeAsync(NETWORK_LEG_TIMEOUT_MS);
+
+      await expect(idTokenPromise).resolves.toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

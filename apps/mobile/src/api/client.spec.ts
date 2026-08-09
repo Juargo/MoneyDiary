@@ -1,4 +1,5 @@
 import type { ResumenMesDto, MeDto } from '../domain/resumen.types';
+import { NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 
 const validDto: ResumenMesDto = {
   periodo: '2026-07',
@@ -526,6 +527,30 @@ describe('postGoogleIdToken', () => {
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  // FIX 1 (CRITICAL, design §9.4): a hung fetch (dead connection, no
+  // rejection) must still resolve within the bounded network-leg timeout
+  // instead of leaving the login screen stuck in `submitting` forever.
+  it('maps a hung fetch to {tag: "network"} once the network-leg timeout elapses (bounded network leg)', async () => {
+    jest.useFakeTimers();
+    try {
+      // Never resolves — simulates a hung connection.
+      (global as unknown as { fetch: typeof fetch }).fetch = jest
+        .fn()
+        .mockReturnValue(new Promise(() => {})) as unknown as typeof fetch;
+      const { postGoogleIdToken } = requireClient();
+
+      const resultPromise = postGoogleIdToken('a-google-id-token');
+      jest.advanceTimersByTime(NETWORK_LEG_TIMEOUT_MS);
+
+      await expect(resultPromise).resolves.toEqual({
+        ok: false,
+        error: { tag: 'network' },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('fetchAuthCapabilities', () => {
@@ -644,5 +669,28 @@ describe('fetchAuthCapabilities', () => {
 
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // FIX 1 (CRITICAL, design §9.4): same bounded-network-leg guarantee as
+  // `postGoogleIdToken` — a hung capabilities fetch must not block mount
+  // forever (MOB-06 fail-closed gate needs this to resolve).
+  it('maps a hung fetch to {tag: "network"} once the network-leg timeout elapses (bounded network leg)', async () => {
+    jest.useFakeTimers();
+    try {
+      (global as unknown as { fetch: typeof fetch }).fetch = jest
+        .fn()
+        .mockReturnValue(new Promise(() => {})) as unknown as typeof fetch;
+      const { fetchAuthCapabilities } = requireClient();
+
+      const resultPromise = fetchAuthCapabilities();
+      jest.advanceTimersByTime(NETWORK_LEG_TIMEOUT_MS);
+
+      await expect(resultPromise).resolves.toEqual({
+        ok: false,
+        error: { tag: 'network' },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

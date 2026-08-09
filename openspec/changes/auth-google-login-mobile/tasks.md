@@ -230,26 +230,26 @@
 
 ### UI — button component
 
-- [ ] **C2.1.** Write failing RNTL test for `apps/mobile/src/components/GoogleLoginButton.tsx`: pure presentational `Pressable`, `testID="login-google"`, `accessibilityRole="button"`, label "Ingresar con Google", visually secondary (outlined/neutral, not `COLORS.ingreso` primary).
-- [ ] **C2.2.** Implement `apps/mobile/src/components/GoogleLoginButton.tsx` per design §9.2. Run C2.1 green.
+- [x] **C2.1.** Write failing RNTL test for `apps/mobile/src/components/GoogleLoginButton.tsx`: pure presentational `Pressable`, `testID="login-google"`, `accessibilityRole="button"`, label "Ingresar con Google", visually secondary (outlined/neutral, not `COLORS.ingreso` primary).
+- [x] **C2.2.** Implement `apps/mobile/src/components/GoogleLoginButton.tsx` per design §9.2. Run C2.1 green.
 
 ### UI — LoginScreen wiring
 
-- [ ] **C2.3.** Write failing RNTL tests for `apps/mobile/src/components/LoginScreen.tsx`'s new optional props `mostrarGoogle?: boolean` and `onGoogleSubmit?: () => void`:
+- [x] **C2.3.** Write failing RNTL tests for `apps/mobile/src/components/LoginScreen.tsx`'s new optional props `mostrarGoogle?: boolean` and `onGoogleSubmit?: () => void`:
   - button renders below the submit `Pressable` only when `mostrarGoogle` is true
   - `submitting` disables both affordances (existing `LoginEstado` reused, not extended)
   - `error` state shows the existing `MENSAJE_ERROR_GENERICO` regardless of which flow failed
-- [ ] **C2.4.** Implement the `mostrarGoogle`/`onGoogleSubmit` props in `LoginScreen.tsx`. Run C2.3 green. Confirm `LoginEstado` is NOT extended (one state machine, one message, per the locked assumption).
+- [x] **C2.4.** Implement the `mostrarGoogle`/`onGoogleSubmit` props in `LoginScreen.tsx`. Run C2.3 green. Confirm `LoginEstado` is NOT extended (one state machine, one message, per the locked assumption).
 
 ### UI — orchestration
 
-- [ ] **C2.5.** Write failing RNTL tests for `apps/mobile/app/login.tsx`:
+- [x] **C2.5.** Write failing RNTL tests for `apps/mobile/app/login.tsx`:
   - button hidden when the capabilities call fails, when the flag is `false`, when `GOOGLE_CLIENT_ID_ANDROID` is undefined, and when the auth request isn't ready — all three fail-closed conditions independently tested
   - button visible only when all three conditions hold
   - success path: `promptAsync` → `exchangeCodeAsync` → `postGoogleIdToken` → `guardarToken` called with the returned token → `signIn` called
   - cancel / error / no `idToken` in the exchange response / 401 from the API → generic error shown and **`guardarToken` never called**
   - double-tap guard: a second press while `submitting` is a no-op (reuses the existing `enviar` guard pattern)
-- [ ] **C2.6.** Implement `app/login.tsx` orchestration per design §9.2/§9.3: capability `useState<boolean>(false)`, default `false`, mount-time `useEffect` calling `fetchAuthCapabilities` (not in `SessionProvider` — SRP, avoids firing on every cold start), no retry on failure, `ingresarConGoogle` with the same double-tap guard as `enviar`. On success: `guardarToken(token)` → `signIn(token)`. On any failure: `setEstado({ fase: 'error' })`, no token written. Run C2.5 green.
+- [x] **C2.6.** Implement `app/login.tsx` orchestration per design §9.2/§9.3: capability `useState<boolean>(false)`, default `false`, mount-time `useEffect` calling `fetchAuthCapabilities` (not in `SessionProvider` — SRP, avoids firing on every cold start), no retry on failure, `ingresarConGoogle` with the same double-tap guard as `enviar`. On success: `guardarToken(token)` → `signIn(token)`. On any failure: `setEstado({ fase: 'error' })`, no token written. Run C2.5 green.
 
 ### Manual device gate (hard pre-merge requirement, NOT executed by `sdd-apply`)
 
@@ -263,7 +263,7 @@
 
 ### Slice close-out
 
-- [ ] **C2.10.** `pnpm --filter @moneydiary/mobile test` green.
+- [x] **C2.10.** `pnpm --filter @moneydiary/mobile test` green.
 - [ ] **C2.11.** Open PR #5 targeting Slices B3 and C1's branches/PRs — dependency diagram with 📍 on this PR, prior dependencies = PR #3 (B3, capabilities) and PR #4 (C1, transport). PR description MUST include the pasted §11.4 checklist results (C2.7–C2.9) before requesting merge.
 
 **Verified by:** RNTL specs + the mandatory manual device gate (C2.7–C2.9).
