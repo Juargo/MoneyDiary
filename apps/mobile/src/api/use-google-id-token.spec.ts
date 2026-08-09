@@ -200,7 +200,7 @@ describe('useGoogleIdToken', () => {
 
     expect(idToken).toBe('a-real-id-token');
     expect(mockMakeRedirectUri).toHaveBeenCalledWith({
-      scheme: 'cl.moneydiary.app',
+      scheme: 'com.googleusercontent.apps.12345-android',
       path: 'oauthredirect',
     });
     expect(mockUseAutoDiscovery).toHaveBeenCalledWith(

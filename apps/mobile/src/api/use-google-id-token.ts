@@ -16,11 +16,13 @@ import { conTimeout, NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
  * ID (never a web client, never the ambiguity the `expo-auth-session/providers/google`
  * helper would introduce — design §2.2).
  *
- * Redirect scheme: `cl.moneydiary.app` (package-name-derived — Google's
- * Android clients do not accept the app's own `moneydiary://` scheme,
- * design §2.4). On-device contingency if this is rejected: add the
- * reversed-client-id scheme (`com.googleusercontent.apps.<id>`) as a second
- * `app.json` scheme entry — not implemented speculatively (C1.3).
+ * Redirect scheme: reversed-client-id (`com.googleusercontent.apps.<id>`),
+ * derived from `GOOGLE_CLIENT_ID_ANDROID` so the two values can never drift.
+ * The package-name scheme (`cl.moneydiary.app`) the design bet on first was
+ * rejected on-device by Google (`Error 400: invalid_request`, gate C2.8,
+ * 2026-08-09) — this is the design's pre-approved contingency (design §2.4).
+ * The static counterpart lives in `app.json`'s scheme array (build-time
+ * intent filter) and must contain the literal reversed scheme.
  *
  * `useAuthRequest` is a hook and cannot be called conditionally, so an
  * absent `GOOGLE_CLIENT_ID_ANDROID` is handled by passing `''` and
@@ -39,10 +41,15 @@ export interface UseGoogleIdToken {
   readonly obtenerIdToken: () => Promise<string | null>;
 }
 
+/** `NNN-xxx.apps.googleusercontent.com` → `com.googleusercontent.apps.NNN-xxx`. */
+function esquemaReversedClientId(clientId: string): string {
+  return `com.googleusercontent.apps.${clientId.replace(/\.apps\.googleusercontent\.com$/, '')}`;
+}
+
 export function useGoogleIdToken(): UseGoogleIdToken {
   const discovery = useAutoDiscovery('https://accounts.google.com');
   const redirectUri = makeRedirectUri({
-    scheme: 'cl.moneydiary.app',
+    scheme: esquemaReversedClientId(GOOGLE_CLIENT_ID_ANDROID ?? ''),
     path: 'oauthredirect',
   });
   const [request, , promptAsync] = useAuthRequest(
