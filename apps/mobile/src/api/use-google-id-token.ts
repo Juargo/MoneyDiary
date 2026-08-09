@@ -1,0 +1,91 @@
+import {
+  exchangeCodeAsync,
+  makeRedirectUri,
+  useAuthRequest,
+  useAutoDiscovery,
+} from 'expo-auth-session';
+import { GOOGLE_CLIENT_ID_ANDROID } from './config';
+
+/**
+ * useGoogleIdToken — the ONLY file in the repo importing `expo-auth-session`
+ * (design.md §2.1/§9.1, ADR-035 M1). Generic `useAuthRequest` against
+ * Google's discovery document, `response_type=code` + PKCE S256, using the
+ * *Android* OAuth client ID — the code is exchanged on-device via
+ * `exchangeCodeAsync` so the minted `id_token`'s `aud` is the Android client
+ * ID (never a web client, never the ambiguity the `expo-auth-session/providers/google`
+ * helper would introduce — design §2.2).
+ *
+ * Redirect scheme: `cl.moneydiary.app` (package-name-derived — Google's
+ * Android clients do not accept the app's own `moneydiary://` scheme,
+ * design §2.4). On-device contingency if this is rejected: add the
+ * reversed-client-id scheme (`com.googleusercontent.apps.<id>`) as a second
+ * `app.json` scheme entry — not implemented speculatively (C1.3).
+ *
+ * `useAuthRequest` is a hook and cannot be called conditionally, so an
+ * absent `GOOGLE_CLIENT_ID_ANDROID` is handled by passing `''` and
+ * reporting `listo: false` (MOB-06's fail-closed gate reads this flag).
+ * Every failure path collapses to `null` — nothing here ever throws.
+ */
+export interface UseGoogleIdToken {
+  readonly listo: boolean;
+  readonly obtenerIdToken: () => Promise<string | null>;
+}
+
+export function useGoogleIdToken(): UseGoogleIdToken {
+  const discovery = useAutoDiscovery('https://accounts.google.com');
+  const redirectUri = makeRedirectUri({
+    scheme: 'cl.moneydiary.app',
+    path: 'oauthredirect',
+  });
+  const [request, , promptAsync] = useAuthRequest(
+    {
+      clientId: GOOGLE_CLIENT_ID_ANDROID ?? '',
+      scopes: ['openid', 'email', 'profile'],
+      redirectUri,
+      responseType: 'code',
+      usePKCE: true,
+    },
+    discovery,
+  );
+
+  const obtenerIdToken = async (): Promise<string | null> => {
+    if (!request) {
+      return null;
+    }
+
+    let promptResult: Awaited<ReturnType<typeof promptAsync>>;
+    try {
+      promptResult = await promptAsync();
+    } catch {
+      return null;
+    }
+
+    if (promptResult.type !== 'success') {
+      return null;
+    }
+
+    const code = promptResult.params?.code;
+    if (!code) {
+      return null;
+    }
+
+    try {
+      const tokenResponse = await exchangeCodeAsync(
+        {
+          clientId: GOOGLE_CLIENT_ID_ANDROID ?? '',
+          code,
+          redirectUri,
+          extraParams: request.codeVerifier
+            ? { code_verifier: request.codeVerifier }
+            : undefined,
+        },
+        discovery ?? {},
+      );
+      return tokenResponse.idToken ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  return { listo: request !== null, obtenerIdToken };
+}
