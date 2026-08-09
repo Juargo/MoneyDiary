@@ -16,7 +16,7 @@
 
 - [ ] **P1.** Confirm `google-auth-library`'s target release is older than 7 days (`.npmrc` `minimum-release-age=10080`): `npm view google-auth-library time`. Blocks A1's install step.
 - [ ] **P2.** Confirm mobile deps (`expo-auth-session`, `expo-crypto`, `expo-web-browser`) via `npx expo install` (SDK-pinned, normally well past the 7-day quarantine). Blocks C1's install step.
-- [ ] **P3.** ADR-035 amendment: append a one-line deviation note to `docs/adr/ADR-035-login-google-mobile-token-exchange.md` §Decision point 4, recording that this change uses an independent `googleLoginMobileEnabled` flag instead of the single shared `googleLoginEnabled` ADR-035 prescribed (design §8, "Deviation from ADR-035 point 4"). Placed in Slice D (see D-ADR below) — user-approved, rides the implementation PR.
+- [x] **P3.** ADR-035 amendment: append a one-line deviation note to `docs/adr/ADR-035-login-google-mobile-token-exchange.md` §Decision point 4, recording that this change uses an independent `googleLoginMobileEnabled` flag instead of the single shared `googleLoginEnabled` ADR-035 prescribed (design §8, "Deviation from ADR-035 point 4"). Placed in Slice D (see D-ADR below) — user-approved, rides the implementation PR.
 - [ ] **P4.** Manual device gate (design §11.4) — physical Android device, EAS build, real Google account — is a hard pre-merge gate for Slice C2 (see C2 manual-gate tasks below). Not automatable in CI. Owner: human operator.
 - [ ] **P5.** Post-merge activation runbook (design §12) is a manual, documented gate — actual Google Cloud Console client creation + Render/EAS env configuration is explicitly out of scope of `sdd-apply` (proposal non-goal). Slice D delivers the runbook only.
 
@@ -278,7 +278,7 @@
 **Independently shippable:** yes — docs only, cheap review.
 **~Lines:** ~180 (excluded from the code-review budget per design §13).
 
-- [ ] **D1.** Write `apps/api/docs/google-login-mobile-runbook.md` covering, in order (design §12):
+- [x] **D1.** Write `apps/api/docs/google-login-mobile-runbook.md` covering, in order (design §12):
   1. Read the EAS keystore SHA-1 (`eas credentials -p android` → Keystore → SHA-1 Fingerprint).
   2. Google Cloud Console → same OAuth project as the web client → Credentials → Create OAuth client ID → Android → package name `cl.moneydiary.app` → the SHA-1 from step 1.
   3. (Optional, local dev only) repeat for the debug keystore (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`).
@@ -288,8 +288,8 @@
   7. Verify via `curl -H "x-api-key: …" https://api.moneydiary.cl/api/auth/capabilities` → `googleLoginMobileEnabled: true`.
   8. Build and install the internal APK; run the §11.4 checklist (cross-reference C2.7–C2.9).
   9. Kill switch: unset `GOOGLE_CLIENT_ID_ANDROID` in Render → restart. Endpoint 404s, button disappears on next capabilities fetch. No deploy, no data change, web/password login untouched.
-- [ ] **D-ADR.** Append the one-line ADR-035 amendment (P3 above) to `docs/adr/ADR-035-login-google-mobile-token-exchange.md` §Decision point 4: record the deviation to an independent `googleLoginMobileEnabled` flag instead of the shared `googleLoginEnabled` ADR-035 originally prescribed, referencing design §8's rationale (the two gates are genuinely independent env configurations).
-- [ ] **D2.** Review the runbook against design §12 line by line — no code changes, no test run required.
+- [x] **D-ADR.** Append the one-line ADR-035 amendment (P3 above) to `docs/adr/ADR-035-login-google-mobile-token-exchange.md` §Decision point 4: record the deviation to an independent `googleLoginMobileEnabled` flag instead of the shared `googleLoginEnabled` ADR-035 originally prescribed, referencing design §8's rationale (the two gates are genuinely independent env configurations).
+- [x] **D2.** Review the runbook against design §12 line by line — no code changes, no test run required.
 - [ ] **D3.** Open the docs PR — dependency diagram with 📍 on this PR, prior dependency = PR #2 (A2). Order-independent relative to B1/B2/B3/C1, but MUST merge before anyone runs the production activation runbook (i.e. before the manual activation gate in C2 is executed against production).
 
 **Verified by:** reading it against design §12.
