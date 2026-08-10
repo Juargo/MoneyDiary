@@ -3,7 +3,17 @@
 - **Change slug**: `group-transactions-by-category`
 - **User request (verbatim)**: "quiero hacer que la sección de transacciones se agrupen por categorías."
 - **Scope**: web only (`apps/web`) + one incidental backend contract fix (`apps/api`)
-- **Status**: proposed — ready for spec + design
+- **Status**: SUPERSEDED by `us-013-categorias` (archived 2026-08-09, never fully applied)
+
+> **Closure note (2026-08-09).** Slice 1 (backend fold `bucketId` → domain `Bucket`)
+> shipped via PR #73 and remains in `main` — US-013 builds on it. Slice 2 (the
+> grouped web panel, phases 4–7 of `tasks.md`) was fully implemented on branch
+> `feat/group-transactions-by-category-web` but its PR #75 was closed unmerged
+> on 2026-07-19 in favor of US-013's drill-down design (click bucket →
+> transactions of that bucket grouped by categoría + manual reclassification),
+> which shipped via PR #83 (`2026-07-19-us-013-categorias` in this archive).
+> The unchecked tasks in `tasks.md` describe UI that was deliberately not built.
+> The orphan branches were deleted when this change was archived.
 
 ---
 
