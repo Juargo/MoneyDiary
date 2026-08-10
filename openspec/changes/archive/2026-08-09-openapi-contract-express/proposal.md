@@ -1,5 +1,14 @@
 # Proposal: openapi-contract-express — Zod-sourced `openapi.json` on Express
 
+> **Closure note (2026-08-09).** COMPLETED — the whole change shipped on
+> 2026-08-03 via 8 merged PRs: #211 (plan), #212 (Slice 0 toolchain + /version),
+> #213 (Slice 1 /api/resumen), #214 (ADR-011/012 amendments), #215 (rollout 10.1,
+> 4 GET reads), #216/#218/#217 (rollout 10.2a/b/c, auth + writes + ingesta).
+> `apps/api/openapi.json` is emitted and guarded fail-closed in CI (`openapi:check`).
+> No task box was ever ticked; all 29 were checked off retroactively against those
+> PRs when the change was archived. `packages/api-client` (ADR-012) is out of this
+> change's scope and remains tracked as separate debt.
+
 > SDD propose artifact. Hybrid store — mirror of Engram topic `sdd/openapi-contract-express/proposal`.
 > Reads from `explore.md` (Engram id 426). This is a PROPOSAL: intent, scope, approach, risk, slicing —
 > not the spec, not the design, not code.
