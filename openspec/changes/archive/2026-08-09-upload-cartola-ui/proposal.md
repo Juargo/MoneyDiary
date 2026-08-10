@@ -1,5 +1,8 @@
 # Proposal: Sprint 8 — Subir cartola desde el cliente (`upload-cartola-ui`)
 
+> **Closure note (2026-08-09).** COMPLETED — shipped via PRs #94/#96 (web) and #150/#187 (mobile US-033).
+> Remaining unchecked boxes (if any) were ticked retroactively against this evidence when the change was archived.
+
 Build the "subir cartola" surface in the clients — **web** (both authenticated app and demo mode) and **mobile** (authenticated only) — on top of the already-complete ingesta backend, so a user can pick a `.xlsx`/`.pdf` bank statement, watch the upload, read a result summary, and see their 50/30/20 resumen refresh without a manual reload. This is a thin client surface over a done, session-bound `POST /api/ingestas` — no domain logic, no new endpoint, no backend change.
 
 ## Why

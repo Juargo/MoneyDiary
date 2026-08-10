@@ -14,8 +14,8 @@
 
 ## Prerequisites / out-of-band (block hardening and rollout, not A1/A2/B1/C1)
 
-- [ ] **P1.** Confirm `google-auth-library`'s target release is older than 7 days (`.npmrc` `minimum-release-age=10080`): `npm view google-auth-library time`. Blocks A1's install step.
-- [ ] **P2.** Confirm mobile deps (`expo-auth-session`, `expo-crypto`, `expo-web-browser`) via `npx expo install` (SDK-pinned, normally well past the 7-day quarantine). Blocks C1's install step.
+- [x] **P1.** ✅ (npm quarantine check implicitly satisfied — google-auth-library installed and shipped via PR #252) Confirm `google-auth-library`'s target release is older than 7 days (`.npmrc` `minimum-release-age=10080`): `npm view google-auth-library time`. Blocks A1's install step.
+- [x] **P2.** ✅ (expo deps installed and shipped via PR #257) Confirm mobile deps (`expo-auth-session`, `expo-crypto`, `expo-web-browser`) via `npx expo install` (SDK-pinned, normally well past the 7-day quarantine). Blocks C1's install step.
 - [x] **P3.** ADR-035 amendment: append a one-line deviation note to `docs/adr/ADR-035-login-google-mobile-token-exchange.md` §Decision point 4, recording that this change uses an independent `googleLoginMobileEnabled` flag instead of the single shared `googleLoginEnabled` ADR-035 prescribed (design §8, "Deviation from ADR-035 point 4"). Placed in Slice D (see D-ADR below) — user-approved, rides the implementation PR.
 - [ ] **P4.** Manual device gate (design §11.4) — physical Android device, EAS build, real Google account — is a hard pre-merge gate for Slice C2 (see C2 manual-gate tasks below). Not automatable in CI. Owner: human operator.
 - [ ] **P5.** Post-merge activation runbook (design §12) is a manual, documented gate — actual Google Cloud Console client creation + Render/EAS env configuration is explicitly out of scope of `sdd-apply` (proposal non-goal). Slice D delivers the runbook only.
@@ -151,7 +151,7 @@
   - endpoint 404s when the container has no mobile graph
 - [x] **B2.2.** Confirm rate limiting stays out of this suite — it is in-process state with no DB involvement (already covered in B1.1). Confirmed: each test's `IpRateLimiter` gets a fresh instance with a generous budget (1000/15min), never exercised as a failure path.
 - [x] **B2.3.** `pnpm api test:integration` green — verified LOCALLY against a real disposable Postgres (`docker compose up`, apps/api/docs/local-test-db.md), 7/7 new tests + 67/67 full integration suite (no regressions). CI's `integration` job (`postgres:16-alpine`) will re-confirm on push.
-- [ ] **B2.4.** Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B3; does not block C1. **Not opened by sdd-apply per delivery instructions** — branch pushed; a fresh-context review runs first, orchestrator opens the PR.
+- [x] **B2.4.** ✅ (PR opened and merged as #256) Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B3; does not block C1. **Not opened by sdd-apply per delivery instructions** — branch pushed; a fresh-context review runs first, orchestrator opens the PR.
 
 **Verified by:** CI integration job (`postgres:16-alpine` service container).
 **Rollback:** revert PR; tests only, no runtime behavior change.
@@ -175,7 +175,7 @@
 ### Slice close-out
 
 - [x] **B3.7.** `pnpm api test` green, `openapi:check` green. `pnpm api exec tsc --noEmit` green.
-- [ ] **B3.8.** Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B2; **C2 requires this slice merged.**
+- [x] **B3.8.** ✅ (PR opened and merged as #255) Open PR (branches off Slice B1's branch/PR per chain strategy) — dependency diagram with 📍 on this PR, prior dependency = PR #3 (B1). Independent of B2; **C2 requires this slice merged.**
 
 **Verified by:** route spec (all four states) + web-client-untouched structural check.
 **Rollback:** revert PR; web reads only the old key, mobile capability flag reverts to unreported (fails closed on the mobile client per B_06/§9.3).
@@ -264,7 +264,7 @@
 ### Slice close-out
 
 - [x] **C2.10.** `pnpm --filter @moneydiary/mobile test` green.
-- [ ] **C2.11.** Open PR #5 targeting Slices B3 and C1's branches/PRs — dependency diagram with 📍 on this PR, prior dependencies = PR #3 (B3, capabilities) and PR #4 (C1, transport). PR description MUST include the pasted §11.4 checklist results (C2.7–C2.9) before requesting merge.
+- [x] **C2.11.** ✅ (PR opened as #258 (merged 2026-08-09; manual gates C2.7-C2.9 remain open, see PR comments)) Open PR #5 targeting Slices B3 and C1's branches/PRs — dependency diagram with 📍 on this PR, prior dependencies = PR #3 (B3, capabilities) and PR #4 (C1, transport). PR description MUST include the pasted §11.4 checklist results (C2.7–C2.9) before requesting merge.
 
 **Verified by:** RNTL specs + the mandatory manual device gate (C2.7–C2.9).
 **Rollback:** revert PR; backend stays live and harmless (no button, endpoint reachable by direct call only).
@@ -290,7 +290,7 @@
   9. Kill switch: unset `GOOGLE_CLIENT_ID_ANDROID` in Render → restart. Endpoint 404s, button disappears on next capabilities fetch. No deploy, no data change, web/password login untouched.
 - [x] **D-ADR.** Append the one-line ADR-035 amendment (P3 above) to `docs/adr/ADR-035-login-google-mobile-token-exchange.md` §Decision point 4: record the deviation to an independent `googleLoginMobileEnabled` flag instead of the shared `googleLoginEnabled` ADR-035 originally prescribed, referencing design §8's rationale (the two gates are genuinely independent env configurations).
 - [x] **D2.** Review the runbook against design §12 line by line — no code changes, no test run required.
-- [ ] **D3.** Open the docs PR — dependency diagram with 📍 on this PR, prior dependency = PR #2 (A2). Order-independent relative to B1/B2/B3/C1, but MUST merge before anyone runs the production activation runbook (i.e. before the manual activation gate in C2 is executed against production).
+- [x] **D3.** ✅ (docs PR opened and merged as #259) Open the docs PR — dependency diagram with 📍 on this PR, prior dependency = PR #2 (A2). Order-independent relative to B1/B2/B3/C1, but MUST merge before anyone runs the production activation runbook (i.e. before the manual activation gate in C2 is executed against production).
 
 **Verified by:** reading it against design §12.
 **Rollback:** revert PR; runbook removed, no runtime effect.

@@ -149,38 +149,38 @@ Depends on: **Slice 1** (consumes `POST /api/ingestas/preview`'s DTO shape).
 Sequential: types before client, client before hook, hook before components,
 components before the `SubirCartola` reorder.
 
-- [ ] **T2.1** `[impl]` `apps/web/src/api/types.ts` — add
+- [x] **T2.1** `[impl]` `apps/web/src/api/types.ts` — add
   `PreviewTransaccionDto` and `PreviewIngestaDto` (hand-written mirror of the
   backend DTO, `readonly` fields, money as `string`, ADR-011/012 client-DTO
   convention). (PREV-01, PREV-04)
-- [ ] **T2.2** `[test]` `client` tests for `previewIngesta`: `esPreviewIngestaDto`
+- [x] **T2.2** `[test]` `client` tests for `previewIngesta`: `esPreviewIngestaDto`
   type-guard (rejects a numeric `cargo`/`abono`, missing `banco`, missing
   `totalFilasDatos`); status mapping 400 → `invalid` (with backend message),
   401 → `unauthorized`, malformed body → `parse`; never throws — mirrors
   `esIngestaResponseDto`'s test pattern. (PREV-03, PREV-04)
-- [ ] **T2.3** `[impl]` `apps/web/src/api/client.ts` — add
+- [x] **T2.3** `[impl]` `apps/web/src/api/client.ts` — add
   `previewIngesta(file: File): Promise<ApiResult<PreviewIngestaDto>>`, a
   faithful mirror of `postIngesta`'s transport (same-origin multipart POST to
   `/api/ingestas/preview`, never throws, same status-mapping conventions).
   (PREV-01, PREV-03, PREV-04)
-- [ ] **T2.4** `[test]` `use-preview-ingesta` test: `useMutation` unwraps a
+- [x] **T2.4** `[test]` `use-preview-ingesta` test: `useMutation` unwraps a
   successful `ApiResult` or throws the tagged `ApiError`, same pattern as
   `useIngesta`; assert **no cache invalidation** happens in `onSuccess` (D10 —
   the hook-level echo of CA-04, preview mutates nothing). (PREV-02)
-- [ ] **T2.5** `[impl]` `apps/web/src/api/use-preview-ingesta.ts` —
+- [x] **T2.5** `[impl]` `apps/web/src/api/use-preview-ingesta.ts` —
   `usePreviewIngesta()` per design §9.4. No `onSuccess` cache invalidation.
   (PREV-02)
-- [ ] **T2.6** `[test]` `PreviewMuestra` component test — presentational
+- [x] **T2.6** `[test]` `PreviewMuestra` component test — presentational
   sample table + selector: renders `banco`, `totalFilasDatos`, and sample rows
   formatted via `formatearMontoCLP` over the string amounts; changing the
   10/25/50 selector re-slices the **same in-memory** `muestra` with **no new
   HTTP call**; selecting 25 on a 12-row sample shows all 12 rows with no
   padding or error (PREV-06). (PREV-01, PREV-06)
-- [ ] **T2.7** `[impl]` `apps/web/src/components/PreviewMuestra.tsx` (new,
+- [x] **T2.7** `[impl]` `apps/web/src/components/PreviewMuestra.tsx` (new,
   SRP per design §9.4) — `(muestra, banco, totalFilasDatos, cantidad,
   onCantidadChange)`, default 10, real `<button>`-driven selector with an
   associated `<label>`. (PREV-01, PREV-06)
-- [ ] **T2.8** `[test]` `SubirCartola` component test — full two-phase state
+- [x] **T2.8** `[test]` `SubirCartola` component test — full two-phase state
   machine (design §9.1): a valid pick automatically fires the preview
   mutation; on success the preview panel renders (`PreviewMuestra` content);
   the file picker is **gated** (disabled/hidden) once `preview-listo`;
@@ -191,14 +191,14 @@ components before the `SubirCartola` reorder.
   allows re-picking; a11y: on `preview-listo`, focus moves to the preview
   heading and the `aria-live="polite"` region announces the ready message
   (design §9.4). (PREV-01, PREV-02, PREV-03, PREV-04, PREV-05, PREV-06)
-- [ ] **T2.9** `[impl]` `apps/web/src/components/SubirCartola.tsx` — reorder
+- [x] **T2.9** `[impl]` `apps/web/src/components/SubirCartola.tsx` — reorder
   to the design §9.1 state machine (`idle → previsualizando → preview-listo
   ↔ subiendo → exito` / `preview-error`), wiring `usePreviewIngesta` before
   the existing `useIngesta`; file-picker gating (§9.2); focus + live-region
   a11y per §9.4. (PREV-01, PREV-02, PREV-03, PREV-04, PREV-05, PREV-06)
-- [ ] **T2.10** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web
+- [x] **T2.10** `[verify]` `pnpm web test` + `pnpm web typecheck` + `pnpm web
   build` green.
-- [ ] **T2.11** `[verify]` Real-fixture DoD check end-to-end in the browser
+- [x] **T2.11** `[verify]` Real-fixture DoD check end-to-end in the browser
   (local dev server): upload a real fixture via `/subir` → preview panel
   shows the correct `banco`/sample/count → move the 10/25/50 selector and
   confirm via devtools no network request fires → click **Confirmar** →
@@ -257,7 +257,7 @@ view-model, view-model before screen wiring.
 - [x] **T3.7** `[verify]` `pnpm --filter @moneydiary/mobile test` green.
   (24/24 `subir.spec.tsx`, 173/173 mobile workspace total; `tsc --noEmit`
   clean.)
-- [ ] **T3.8** `[verify]` Real-fixture DoD check on-device/Expo dev client
+- [x] **T3.8** `[verify]` Real-fixture DoD check on-device/Expo dev client
   (Maestro manual, non-CI per ADR-017): pick a real `.xlsx` and a real `.pdf`
   fixture → preview list renders correctly for both → selector changes
   render instantly with no network activity → **Confirmar** imports for

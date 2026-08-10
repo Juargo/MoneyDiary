@@ -1,5 +1,8 @@
 # Proposal: Demo/Trial Mode
 
+> **Closure note (2026-08-09).** COMPLETED — shipped via PRs #63/#65/#66 (+#67/#68 CI), later restructured by the Express migration (PR #109) and the demo/login split (PR #236). Deliverables verified present under their post-migration paths.
+> Remaining unchecked boxes (if any) were ticked retroactively against this evidence when the change was archived.
+
 ## Intent
 
 Let anonymous visitors try MoneyDiary instantly — no email, no password. A "Probar demo" button creates an isolated demo user with realistic Chilean transactions and full app access, gated by rate limiting and auto-cleaned.

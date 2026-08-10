@@ -4,6 +4,13 @@
 **Store:** hybrid · **Scope:** `apps/api` + `apps/web` + `apps/mobile` (backend rich, thin clients — ADR-024)
 **Sprint:** Sprint-10 "Cierre de ingesta"
 
+> **Closure note (2026-08-09).** COMPLETED — shipped to `main` across all three
+> clients: backend `POST /api/ingestas/preview` (PR #191), web two-phase preview
+> UI (PR #192), mobile (PR #193), Maestro flows (PR #195). Issue #155 closed as
+> completed on 2026-08-02 with the DoD verified (including T2.11, real browser
+> flow). The task checkboxes for Slices 2–3 were never ticked at the time; they
+> were checked off retroactively against those PRs when this change was archived.
+
 ---
 
 ## 1. Why / problem
