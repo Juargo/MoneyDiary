@@ -12,6 +12,7 @@
     "e2e": "maestro test .maestro/"
   },
   "dependencies": {
+    "@moneydiary/api-client": "workspace:*",
     "expo": "~57.0.4",
     "expo-auth-session": "~57.0.6",
     "expo-crypto": "~57.0.1",
