@@ -184,7 +184,7 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 - [x] 9.3 [verify] Run `pnpm api-client typecheck` (unaffected, sanity check package still compiles alone).
 - [x] 9.4 Confirm hand-written line delta is within the ~340-line estimate (`git diff --stat`); if it
       materially exceeds 400, stop and re-consult delivery strategy (`ask-on-risk`) before opening the PR.
-- [ ] 9.5 Open PR 2 targeting `main` (stacked-to-main, depends on PR 1 merged). Include dependency diagram
+- [x] 9.5 Open PR 2 targeting `main` (stacked-to-main, depends on PR 1 merged). Include dependency diagram
       (PR 1 ✅, 📍 PR 2, PR 3 pending), chain context, rollback scope (revert restores the 14 hand-written
       interfaces, zero consumer-file impact since imports are unchanged).
 
