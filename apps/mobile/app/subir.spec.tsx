@@ -103,6 +103,7 @@ const ingestaExitosa = {
   numeroCuenta: '123456789',
   archivo: { nombre: 'cartola.xlsx', extension: 'xlsx', tamanoBytes: 20480 },
   totalTransacciones: 12,
+  duplicadosOmitidos: 0,
   transacciones: [],
 };
 

@@ -106,7 +106,7 @@ const successLogin: LoginResponseDto = {
   expiresAt: '2026-07-25T00:00:00.000Z',
 };
 
-const meOk: MeDto = { userId: 'user-1', email: 'a@b.com' };
+const meOk: MeDto = { userId: 'user-1', email: 'a@b.com', esDemo: false };
 
 const resumenDto: ResumenMesDto = {
   periodo: '2026-07',

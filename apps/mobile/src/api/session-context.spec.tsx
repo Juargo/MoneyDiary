@@ -25,7 +25,7 @@ jest.mock('./client', () => ({
   fetchMe: () => mockFetchMe(),
 }));
 
-const meDto: MeDto = { userId: 'user-1', email: 'a@b.com' };
+const meDto: MeDto = { userId: 'user-1', email: 'a@b.com', esDemo: false };
 
 describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
   beforeEach(() => {
