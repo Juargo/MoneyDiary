@@ -45,7 +45,10 @@ describe('fetchAuthCapabilities', () => {
   });
 
   it('en éxito resuelve {ok: true, value: AuthCapabilitiesDto}', async () => {
-    const dto: AuthCapabilitiesDto = { googleLoginEnabled: true };
+    const dto: AuthCapabilitiesDto = {
+      googleLoginEnabled: true,
+      googleLoginMobileEnabled: true,
+    };
     mockFetchOnce({ ok: true, status: 200, json: () => Promise.resolve(dto) });
 
     const result = await fetchAuthCapabilities();
