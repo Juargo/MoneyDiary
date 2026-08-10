@@ -1,7 +1,20 @@
 import { API_BASE_URL, API_KEY } from './config';
 import { conTimeout, NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 import { leerToken } from './session-store';
+import type {
+  AuthCapabilitiesDto,
+  LoginResponseDto,
+} from '@moneydiary/api-client';
 import type { MeDto, ResumenMesDto } from '../domain/resumen.types';
+
+/**
+ * `LoginResponseDto` — mirror of `POST /api/auth/login`'s success body
+ * (MOB-01, MOB-04). `AuthCapabilitiesDto` — mirror of
+ * `GET /api/auth/capabilities`'s response body (AC-10, MOB-06). Both are
+ * now aliases over `@moneydiary/api-client`'s generated types (ADR-012
+ * slice); re-exported here so importers keep `from './client'` unchanged.
+ */
+export type { AuthCapabilitiesDto, LoginResponseDto };
 
 /**
  * ApiError — every way the mobile HTTP client can fail, mirroring the
@@ -41,13 +54,6 @@ export function copiaPorApiError(error: ApiError): string {
   }
 }
 
-/** Mirror of `POST /api/auth/login`'s success body (MOB-01, MOB-04). */
-export interface LoginResponseDto {
-  readonly token: string;
-  readonly userId: string;
-  readonly expiresAt: string;
-}
-
 /** Light shape guard — enough to catch a malformed/unexpected 2xx body. */
 function esResumenMesDto(value: unknown): value is ResumenMesDto {
   if (typeof value !== 'object' || value === null) {
@@ -58,12 +64,6 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
     typeof candidato.totalIngreso === 'string' &&
     Array.isArray(candidato.buckets)
   );
-}
-
-/** Mirror of `GET /api/auth/capabilities`'s response body (AC-10, MOB-06). */
-export interface AuthCapabilitiesDto {
-  readonly googleLoginEnabled: boolean;
-  readonly googleLoginMobileEnabled: boolean;
 }
 
 function esAuthCapabilitiesDto(value: unknown): value is AuthCapabilitiesDto {
