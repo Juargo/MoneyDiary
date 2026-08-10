@@ -86,6 +86,9 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
       pin for `ResumenMesDto['totalIngreso']`, `BucketResumenDto['total']`,
       `DetalleBucketTransaccionDto['cargo']`, `DetalleBucketTransaccionDto['abono']` — each asserted `string`
       (AC-04). Export all four (not local consts) so `noUnusedLocals` does not flag them.
+      *Amended post-review (judgment-day round 2, commit `1fb8b78`): coverage extended to 10 assertions —
+      all decimal-string fields in the contract (`TransaccionResponseDto`/`PreviewTransaccionDto`
+      `cargo`/`abono` via aliases, `MovimientosMesResponse.transacciones[]` via direct schema access).*
 - [x] 3.3 Run `pnpm api-client typecheck`. Green confirms both the alias layer resolves and the money
       assertions compile (this is AC-04's "type-level test" scenario — no separate test runner needed).
 - [x] 3.4 [verify] Manually inspect `src/index.ts`: confirm zero runtime exports (functions, classes, values)

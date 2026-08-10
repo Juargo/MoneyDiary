@@ -6,7 +6,9 @@
  * assertion. A backend change that widens a money field to `number` fails
  * this file to compile, which fails the `api-client` CI job.
  *
- * Exported (not local consts) so `noUnusedLocals` never flags them.
+ * Exported (not local consts) as convention-consistency with the apps'
+ * stricter compiler settings (`noUnusedLocals` in apps/web); this package's
+ * own tsconfig does not enable that flag today.
  */
 import type {
   ResumenMesDto,
