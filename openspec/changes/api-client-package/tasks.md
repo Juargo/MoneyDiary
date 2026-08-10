@@ -110,7 +110,7 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 - [x] 4.4 Add `|| needs.changes.outputs.packages == 'true'` to the `mobile` job's existing `if:` condition
       (AC-06).
 - [x] 4.5 Add `api-client` to `ci-success`'s `needs:` list.
-- [ ] 4.6 [verify] Push the branch and confirm in GitHub Actions: a commit touching only
+- [x] 4.6 [verify] Push the branch and confirm in GitHub Actions: a commit touching only
       `packages/api-client/**` runs `web` and `mobile` jobs (not skipped) plus the new `api-client` job
       (AC-06 scenario).
 
@@ -126,7 +126,7 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 - [x] 5.3 [verify] Run `pnpm install --frozen-lockfile` from clean, `pnpm api-client typecheck`, `pnpm api
       test`, `pnpm api exec tsc --noEmit` — all green. Confirm no `apps/web`/`apps/mobile` file was touched
       in this slice (PR 1 is inert — adds a package nothing imports yet).
-- [ ] 5.4 Open PR 1 targeting `main` (stacked-to-main). Include the dependency diagram (📍 PR 1, PR 2/PR 3
+- [x] 5.4 Open PR 1 targeting `main` (stacked-to-main). Include the dependency diagram (📍 PR 1, PR 2/PR 3
       pending), chain context, and note `packages/api-client/src/types.gen.ts` is a regenerated build
       artifact reviewed by re-running `pnpm api-client generate` + clean `git diff`, not by reading.
 
