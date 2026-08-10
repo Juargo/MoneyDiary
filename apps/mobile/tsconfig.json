@@ -3,7 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "verbatimModuleSyntax": true
   },
   "include": ["app", "src", "*.ts", "*.tsx", "nativewind-env.d.ts"]
 }
