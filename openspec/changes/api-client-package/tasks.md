@@ -254,7 +254,7 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 - [x] 12.5 [verify] Run `pnpm --filter @moneydiary/mobile exec tsc --noEmit` and `pnpm --filter
       @moneydiary/mobile test` — both fully green (MAC-01 "typecheck and test suite pass" scenario).
 - [x] 12.6 Confirm hand-written line delta is within the ~140-line estimate.
-- [ ] 12.7 Open PR 3 targeting `main` (stacked-to-main, depends on PR 1 merged; independent of PR 2).
+- [x] 12.7 Open PR 3 targeting `main` (stacked-to-main, depends on PR 1 merged; independent of PR 2).
       Include dependency diagram (PR 1 ✅, PR 2 ✅ or pending — note either is fine since 2⊥3, 📍 PR 3),
       the spike results (Phase 10) in the PR description, chain context, and rollback scope (revert restores
       the 5 hand-written mobile files, zero session/fetch-logic impact).
