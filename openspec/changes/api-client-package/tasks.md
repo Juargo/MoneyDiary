@@ -40,39 +40,39 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 
 ## Phase 1: Slice 1 — Resolve generator version + confirm flags (PR 1)
 
-- [ ] 1.1 Run `npm view openapi-typescript time --json` (or `pnpm view`). Pick the newest `7.x` release whose
+- [x] 1.1 Run `npm view openapi-typescript time --json` (or `pnpm view`). Pick the newest `7.x` release whose
       publish date is ≥ 8 days before today. Record the exact version (no caret) for task 1.4.
-- [ ] 1.2 Run `npx openapi-typescript@<resolved-version> --help` (or check the package's README at that
+- [x] 1.2 Run `npx openapi-typescript@<resolved-version> --help` (or check the package's README at that
       version via Context7/npm) and confirm the `--immutable` flag exists under that exact name.
       - If absent/renamed: switch scripts.generate to omit `--immutable`, and note in `src/index.ts`'s
         top-of-file comment that generated types are mutable (widening — no consumer mutates a DTO).
-- [ ] 1.3 Add `packages/*` to `pnpm-workspace.yaml`'s `packages:` list (alongside `apps/*`).
+- [x] 1.3 Add `packages/*` to `pnpm-workspace.yaml`'s `packages:` list (alongside `apps/*`).
 
 ## Phase 2: Slice 1 — Package skeleton (PR 1)
 
-- [ ] 2.1 Create `packages/api-client/package.json`: `name: "@moneydiary/api-client"`, `private: true`,
+- [x] 2.1 Create `packages/api-client/package.json`: `name: "@moneydiary/api-client"`, `private: true`,
       `version: "0.1.0"`, `type: "module"`, `types: "./src/index.ts"`,
       `exports: { ".": { "types": "./src/index.ts" } }` (no `default`/`import` condition — deliberate, see
       design "missing runtime entry is a feature"), `scripts.generate`
       (`openapi-typescript ../../apps/api/openapi.json --immutable --output ./src/types.gen.ts`, or without
       `--immutable` per 1.2's contingency), `scripts.typecheck` (`tsc --noEmit`),
       `devDependencies: { openapi-typescript: "<exact pin from 1.1>", typescript }`.
-- [ ] 2.2 Create `packages/api-client/tsconfig.json` per design's standalone config: `strict: true`,
+- [x] 2.2 Create `packages/api-client/tsconfig.json` per design's standalone config: `strict: true`,
       `noEmit: true`, `target: "es2023"`, `module: "esnext"`, `moduleResolution: "bundler"`,
       `skipLibCheck: true`, `types: []`, `include: ["src"]`.
-- [ ] 2.3 Add root convenience scripts to the repo-root `package.json`: `"contract:sync": "pnpm api
+- [x] 2.3 Add root convenience scripts to the repo-root `package.json`: `"contract:sync": "pnpm api
       openapi:emit && pnpm api-client generate"` and `"api-client": "pnpm --filter @moneydiary/api-client"`.
-- [ ] 2.4 Add `packages/api-client/src/types.gen.ts` to root `.prettierignore` (same rationale/entry style as
+- [x] 2.4 Add `packages/api-client/src/types.gen.ts` to root `.prettierignore` (same rationale/entry style as
       the existing `apps/api/openapi.json` line — determinism, prevents drift-gate false positives). Do NOT
       add a `packages/**` route to `.lintstagedrc.json`.
-- [ ] 2.5 Run `pnpm install` at the repo root (adds `openapi-typescript`/`typescript` devDeps, links the new
+- [x] 2.5 Run `pnpm install` at the repo root (adds `openapi-typescript`/`typescript` devDeps, links the new
       workspace member). Confirm `pnpm-lock.yaml` updates.
-- [ ] 2.6 Run `pnpm api-client generate`. Confirm `packages/api-client/src/types.gen.ts` is created,
+- [x] 2.6 Run `pnpm api-client generate`. Confirm `packages/api-client/src/types.gen.ts` is created,
       committable, `readonly` properties present (or absent per 1.2 contingency). Do not hand-edit.
 
 ## Phase 3: Slice 1 — Alias layer + money-contract assertion (AC-01, AC-04) (PR 1)
 
-- [ ] 3.1 Create `packages/api-client/src/index.ts`: `export type { paths, components, operations } from
+- [x] 3.1 Create `packages/api-client/src/index.ts`: `export type { paths, components, operations } from
       './types.gen'`, plus one type alias per line for the 15 DTOs/sub-shapes listed in design's adoption
       mapping tables (`ResumenMesDto`, `BucketResumenDto`, `ResumenAnualDto`, `DetalleBucketDto`,
       `DetalleBucketTransaccionDto`, `MeDto`, `ReclasificarCategoriaDto`, `IngestaResponseDto`,
@@ -82,45 +82,45 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
       `apps/web/src/api/types.ts` (money-as-string discipline, `esDemo`/`email` invariant,
       `totalFilasDatos` pre-dedupe note, US-004 widening history). No re-declared fields, no widening beyond
       what the wire schema states.
-- [ ] 3.2 Create `packages/api-client/src/money-contract.assert.ts` with the compile-time `Assert<Eq<A,B>>`
+- [x] 3.2 Create `packages/api-client/src/money-contract.assert.ts` with the compile-time `Assert<Eq<A,B>>`
       pin for `ResumenMesDto['totalIngreso']`, `BucketResumenDto['total']`,
       `DetalleBucketTransaccionDto['cargo']`, `DetalleBucketTransaccionDto['abono']` — each asserted `string`
       (AC-04). Export all four (not local consts) so `noUnusedLocals` does not flag them.
-- [ ] 3.3 Run `pnpm api-client typecheck`. Green confirms both the alias layer resolves and the money
+- [x] 3.3 Run `pnpm api-client typecheck`. Green confirms both the alias layer resolves and the money
       assertions compile (this is AC-04's "type-level test" scenario — no separate test runner needed).
-- [ ] 3.4 [verify] Manually inspect `src/index.ts`: confirm zero runtime exports (functions, classes, values)
+- [x] 3.4 [verify] Manually inspect `src/index.ts`: confirm zero runtime exports (functions, classes, values)
       per AC-01's "package contains no runtime code" scenario.
 
 ## Phase 4: Slice 1 — CI wiring (AC-03, AC-06) (PR 1)
 
-- [ ] 4.1 In `.github/workflows/ci.yml`'s `changes` job: add `packages: ['packages/**']` to `filters:` and
+- [x] 4.1 In `.github/workflows/ci.yml`'s `changes` job: add `packages: ['packages/**']` to `filters:` and
       expose it as a job output (mirror the existing `api`/`web`/`mobile`/`shared` outputs at lines 33-37).
-- [ ] 4.2 Add a new `api-client` job: `needs: changes`, `if:
+- [x] 4.2 Add a new `api-client` job: `needs: changes`, `if:
       ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.packages == 'true' ||
       needs.changes.outputs.shared == 'true' }}`. Steps: checkout, pnpm/setup-node,
       `pnpm install --frozen-lockfile`, `pnpm api-client generate`, then
       `git diff --exit-code -- packages/api-client/src/types.gen.ts` (fail with the
       `::error::types.gen.ts is out of date...` message on non-zero diff — AC-03), then
       `pnpm api-client typecheck`.
-- [ ] 4.3 Add `|| needs.changes.outputs.packages == 'true'` to the `web` job's existing `if:` condition
+- [x] 4.3 Add `|| needs.changes.outputs.packages == 'true'` to the `web` job's existing `if:` condition
       (AC-06).
-- [ ] 4.4 Add `|| needs.changes.outputs.packages == 'true'` to the `mobile` job's existing `if:` condition
+- [x] 4.4 Add `|| needs.changes.outputs.packages == 'true'` to the `mobile` job's existing `if:` condition
       (AC-06).
-- [ ] 4.5 Add `api-client` to `ci-success`'s `needs:` list.
+- [x] 4.5 Add `api-client` to `ci-success`'s `needs:` list.
 - [ ] 4.6 [verify] Push the branch and confirm in GitHub Actions: a commit touching only
       `packages/api-client/**` runs `web` and `mobile` jobs (not skipped) plus the new `api-client` job
       (AC-06 scenario).
 
 ## Phase 5: Slice 1 — ADR-012 note + verification (PR 1)
 
-- [ ] 5.1 Append the dated note to `docs/adr/ADR-012-packages-api-client.md` per design's draft prose
+- [x] 5.1 Append the dated note to `docs/adr/ADR-012-packages-api-client.md` per design's draft prose
       (Spanish, matching the ADR's existing style, appended next to the 2026-08-02 note): types-only first
       slice, no `client.ts`/`auth.ts`/`errors.ts`, no `tsup`, `types.gen.ts` committed (correcting the
       original `.gitignore` prescription), source stays `apps/api/openapi.json`, `tsup`/`.gitignore` deferred
       to the runtime-client slice with mobile as first adopter.
-- [ ] 5.2 [verify] Run `pnpm api-client generate` twice with no changes in between; confirm byte-identical
+- [x] 5.2 [verify] Run `pnpm api-client generate` twice with no changes in between; confirm byte-identical
       `types.gen.ts` (AC-03 "no-op diff" scenario / design's determinism guarantee).
-- [ ] 5.3 [verify] Run `pnpm install --frozen-lockfile` from clean, `pnpm api-client typecheck`, `pnpm api
+- [x] 5.3 [verify] Run `pnpm install --frozen-lockfile` from clean, `pnpm api-client typecheck`, `pnpm api
       test`, `pnpm api exec tsc --noEmit` — all green. Confirm no `apps/web`/`apps/mobile` file was touched
       in this slice (PR 1 is inert — adds a package nothing imports yet).
 - [ ] 5.4 Open PR 1 targeting `main` (stacked-to-main). Include the dependency diagram (📍 PR 1, PR 2/PR 3
