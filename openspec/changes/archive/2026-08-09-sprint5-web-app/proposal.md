@@ -1,5 +1,8 @@
 # Proposal: Sprint 5 — Web App UI ("Grupo W")
 
+> **Closure note (2026-08-09).** COMPLETED — the deferred prod-deploy box shipped: Vercel project money-diary-web is live at app.moneydiary.cl (domain map documented in PR #134).
+> Remaining unchecked boxes (if any) were ticked retroactively against this evidence when the change was archived.
+
 Resume the deferred web UI in `apps/web`, consuming the backend already in `main`, so a user can open the 50/30/20 monthly resumen, read the semaforo, and drill into a bucket's transactions from a browser — without any API key ever reaching the browser bundle.
 
 ## Why

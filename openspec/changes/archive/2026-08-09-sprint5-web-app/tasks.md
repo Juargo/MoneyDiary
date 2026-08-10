@@ -66,7 +66,7 @@ call Render directly (exposing a key in fetch calls) or 401 against `ApiKeyGuard
     were proven to fail on a deliberately planted `VITE_API_KEY`/`x-api-key` string). Full manual
     browser round-trip (`pnpm web dev` + `pnpm api start:dev`, live `/api/resumen` call) still needs a
     human with a real `.env.local` `API_KEY` — not run by this automated apply pass.
-  - [ ] Prod (blocked — no Vercel project exists yet; deferred to the end of the sprint, tracked here
+  - [x] Prod (blocked — no Vercel project exists yet; deferred to the end of the sprint, tracked here
     so it isn't dropped): deployed Vercel URL returns 200 from `/api/resumen`, `dist/` has no
     `x-api-key`/`VITE_API_KEY` string (spot-check with the same grep used in CI).
 

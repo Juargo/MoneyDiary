@@ -1,5 +1,8 @@
 # Proposal — migrate-api-to-express: replace NestJS with Express + TypeScript on `apps/api`
 
+> **Closure note (2026-08-09).** COMPLETED — task 1.3 was a deferral to Slice 7 (sec-fetch-guard reused verbatim, task 7.1); task 8d.2's remainder shipped via PR #116 (session e2e bit-rot fixes) and PR #149 (e2e/int run in CI against ephemeral Postgres).
+> Remaining unchecked boxes (if any) were ticked retroactively against this evidence when the change was archived.
+
 Migrate the MoneyDiary backend (`apps/api`) from **NestJS** to **Express + TypeScript (strict)**, per **ADR-028**. This is a **framework-only** migration: the HTTP transport layer is rewritten, everything behind the ports is left untouched. `domain/` and `application/` do **not** change (audited: 0 imports of `@nestjs`/`@prisma` in either). Prisma stays (ADR-002 out of scope). The external HTTP contract (routes, DTOs, status codes) is preserved byte-for-byte, so web/mobile clients never notice (ADR-024, contract-first).
 
 **Cutover strategy: parallel Express server + final cutover.** The new Express app is built alongside Nest on a long-lived branch; endpoints are ported one reviewable PR at a time but **production keeps running Nest, untouched, until the very last PR** flips the entrypoint and deletes Nest. One rehearsed moment of risk instead of a moving target.

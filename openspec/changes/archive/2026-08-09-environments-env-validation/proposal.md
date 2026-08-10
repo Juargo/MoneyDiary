@@ -1,5 +1,8 @@
 # Proposal — environments-env-validation: first-class NODE_ENV + Zod-validated, injected config on `apps/api`
 
+> **Closure note (2026-08-09).** COMPLETED — task 7.6 (one-off manual local e2e/int run, blocked at the time by a local port conflict) checked off retroactively: the goal is permanently covered by CI's ephemeral-Postgres integration job since PR #149.
+> Remaining unchecked boxes (if any) were ticked retroactively against this evidence when the change was archived.
+
 Give MoneyDiary's backend (`apps/api`) a **single, first-class notion of "which environment am I in"** and a **fail-fast, typed, schema-validated environment config** that is loaded **once at boot** and **injected via DI** — replacing today's scattered, ad-hoc `process.env` reads spread across 5+ files, each with its own parsing and its own (inconsistent) validation. This implements **ADR-029 (DECIDED)**. Scope is **only `apps/api`**; web/mobile stay policy-only.
 
 The environment is governed by a single `NODE_ENV ∈ {development, test, production}` — no parallel `APP_ENV`. Config is validated with **Zod (`^4.4.3`)** in a net-new `apps/api/src/config/env.ts` (infrastructure layer), exposed as a **function** `loadEnv(source = process.env): Env` that parses once, fails fast on a bad/missing var, and returns a typed, immutable object threaded down through the composition root. `.env.example` stops being a hand-maintained file and becomes a **derived artifact** emitted from the schema, guarded by a CI divergence check.
