@@ -17,7 +17,7 @@ import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
 // annual load independent of the main resumen query).
 function mesConDatos(
   periodo: string,
-  estadoGlobal: string | null = 'verde',
+  estadoGlobal: ResumenMesDto['estadoGlobal'] = 'verde',
 ): ResumenMesDto {
   return {
     periodo,

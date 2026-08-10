@@ -132,15 +132,15 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 
 ## Phase 6: Slice 2 — Web dependency + fixture baseline (WAC-01/WAC-02) (PR 2)
 
-- [ ] 6.1 Add `"@moneydiary/api-client": "workspace:*"` to `apps/web/package.json` dependencies. Run `pnpm
+- [x] 6.1 Add `"@moneydiary/api-client": "workspace:*"` to `apps/web/package.json` dependencies. Run `pnpm
       install`.
-- [ ] 6.2 [TEST] Run the current web suite (`pnpm web test`) and typecheck (`pnpm web typecheck`) before any
+- [x] 6.2 [TEST] Run the current web suite (`pnpm web test`) and typecheck (`pnpm web typecheck`) before any
       `types.ts` edit — record as the pre-migration green baseline that WAC-01/WAC-02's "passes unmodified"
       scenarios are measured against.
 
 ## Phase 7: Slice 2 — `types.ts` alias barrel rewrite (WAC-01) (PR 2)
 
-- [ ] 7.1 Rewrite `apps/web/src/api/types.ts` (238 lines, 14 interfaces + 1 type alias) into an alias/re-export
+- [x] 7.1 Rewrite `apps/web/src/api/types.ts` (238 lines, 14 interfaces + 1 type alias) into an alias/re-export
       barrel: for each of the 13 direct-alias DTOs in design's adoption table (`ResumenMesDto`,
       `ResumenAnualDto`, `DetalleBucketTransaccionDto`, `DetalleBucketDto`, `MeDto`,
       `ReclasificarCategoriaDto`, `TransaccionResponseDto`, `IngestaResponseDto`, `IngestaListItemDto`,
@@ -148,43 +148,43 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
       body with `export type X = <import from @moneydiary/api-client>` (or a local re-export from an
       `import type { ... } from '@moneydiary/api-client'` block), preserving each block's existing "why"
       doc comment verbatim.
-- [ ] 7.2 `BucketResumenDto`: alias to `ResumenMesDto['buckets'][number]` from the package (accept the
+- [x] 7.2 `BucketResumenDto`: alias to `ResumenMesDto['buckets'][number]` from the package (accept the
       `estadoSemaforo` narrowing `string | null` → `'verde'|'amarillo'|'rojo'|null` per design's policy —
       do not widen the alias to compensate).
-- [ ] 7.3 `AuthCapabilitiesDto`: alias to the package's `AuthCapabilitiesResponse` (accept the wider type —
+- [x] 7.3 `AuthCapabilitiesDto`: alias to the package's `AuthCapabilitiesResponse` (accept the wider type —
       gains required `googleLoginMobileEnabled`; do not narrow the alias). Leave `esAuthCapabilitiesDto`'s
       runtime guard checking only `googleLoginEnabled` (WAC-02 — guard behavior unchanged).
-- [ ] 7.4 `EstadoIngestaResumen` stays hand-written exactly as-is (not on the wire — a UI-level projection,
+- [x] 7.4 `EstadoIngestaResumen` stays hand-written exactly as-is (not on the wire — a UI-level projection,
       per design). Do not attempt to alias or generate it.
-- [ ] 7.5 [verify] Confirm zero hand-written `interface` bodies remain in `apps/web/src/api/types.ts` for the
+- [x] 7.5 [verify] Confirm zero hand-written `interface` bodies remain in `apps/web/src/api/types.ts` for the
       13 covered DTOs (WAC-01 "no hand-written interface remains" scenario) — grep for `interface ` in the
       file.
 
 ## Phase 8: Slice 2 — Fixture + fallout fixes (WAC-01/WAC-02) (PR 2)
 
-- [ ] 8.1 [TEST → fix] Run `pnpm web typecheck`. Fix each compile error surfaced by the narrowing/widening
+- [x] 8.1 [TEST → fix] Run `pnpm web typecheck`. Fix each compile error surfaced by the narrowing/widening
       changes (enum literal unions, the new required `googleLoginMobileEnabled` field) strictly at the
       call/fixture site — never by editing the alias layer in `types.ts` or in the package.
-- [ ] 8.2 Update `capabilities.test.tsx` fixtures to include `googleLoginMobileEnabled` (per design's
+- [x] 8.2 Update `capabilities.test.tsx` fixtures to include `googleLoginMobileEnabled` (per design's
       adoption table note).
-- [ ] 8.3 [TEST → fix] Run `pnpm web test`. Fix any remaining fixture typed as bare `string` where the
+- [x] 8.3 [TEST → fix] Run `pnpm web test`. Fix any remaining fixture typed as bare `string` where the
       generated type now demands the narrower `estadoSemaforo`/`estadoGlobal` literal union — fix the
       fixture's literal, not the guard or the alias.
-- [ ] 8.4 [verify] Confirm the WAC-02 guard-behavior scenario: run the existing test asserting
+- [x] 8.4 [verify] Confirm the WAC-02 guard-behavior scenario: run the existing test asserting
       `esMontoStringValido` rejects a non-numeric string and `esResumenMesDto` rejects a payload missing
       `totalIngreso`, with zero edits to that test file itself.
-- [ ] 8.5 [verify] `git diff` inspection: confirm no edit touches `apps/web/src/api/client.ts` guard bodies,
+- [x] 8.5 [verify] `git diff` inspection: confirm no edit touches `apps/web/src/api/client.ts` guard bodies,
       `ApiError` type/tag set, `apps/web/src/api/auth.ts`, any TanStack Query hook, or any component (design
       "What explicitly does NOT change").
 
 ## Phase 9: Slice 2 — Verification + PR (PR 2)
 
-- [ ] 9.1 [verify] Run `pnpm web typecheck` — zero errors attributable to the migration (WAC-01 scenario).
-- [ ] 9.2 [verify] Run `pnpm web test` — full suite green.
-- [ ] 9.3 [verify] Run `pnpm api-client typecheck` (unaffected, sanity check package still compiles alone).
-- [ ] 9.4 Confirm hand-written line delta is within the ~340-line estimate (`git diff --stat`); if it
+- [x] 9.1 [verify] Run `pnpm web typecheck` — zero errors attributable to the migration (WAC-01 scenario).
+- [x] 9.2 [verify] Run `pnpm web test` — full suite green.
+- [x] 9.3 [verify] Run `pnpm api-client typecheck` (unaffected, sanity check package still compiles alone).
+- [x] 9.4 Confirm hand-written line delta is within the ~340-line estimate (`git diff --stat`); if it
       materially exceeds 400, stop and re-consult delivery strategy (`ask-on-risk`) before opening the PR.
-- [ ] 9.5 Open PR 2 targeting `main` (stacked-to-main, depends on PR 1 merged). Include dependency diagram
+- [x] 9.5 Open PR 2 targeting `main` (stacked-to-main, depends on PR 1 merged). Include dependency diagram
       (PR 1 ✅, 📍 PR 2, PR 3 pending), chain context, rollback scope (revert restores the 14 hand-written
       interfaces, zero consumer-file impact since imports are unchanged).
 
