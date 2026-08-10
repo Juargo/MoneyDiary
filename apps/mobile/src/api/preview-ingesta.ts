@@ -1,31 +1,22 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { File } from 'expo-file-system';
+import type {
+  PreviewIngestaDto,
+  PreviewTransaccionDto,
+} from '@moneydiary/api-client';
 import { API_BASE_URL } from './config';
 import { construirHeadersSesion } from './client';
 
 /**
- * PreviewTransaccionDto/PreviewIngestaDto — hand-written mirror of
- * `POST /api/ingestas/preview`'s success body (US-003, design.md §10.2; same
- * ADR-011/012 deferred-codegen note as `post-ingesta.ts`). Source of truth:
- * `apps/api/src/infrastructure/http/dto/preview-ingesta.dto.ts`. Money
- * fields stay as decimal strings, never parsed to `number` here — mobile
- * DOES render per-row money in the preview list, unlike `post-ingesta.ts`
- * which never renders `transacciones` and so skips validating it.
+ * `PreviewTransaccionDto`/`PreviewIngestaDto` — mirror of
+ * `POST /api/ingestas/preview`'s success body (US-003, design.md §10.2), now
+ * aliases over `@moneydiary/api-client`'s generated types (ADR-012 slice).
+ * Money fields stay as decimal strings, never parsed to `number` here —
+ * mobile DOES render per-row money in the preview list, unlike
+ * `post-ingesta.ts` which never renders `transacciones` and so skips
+ * validating it.
  */
-export interface PreviewTransaccionDto {
-  readonly fecha: string;
-  readonly descripcion: string;
-  readonly cargo: string;
-  readonly abono: string;
-}
-
-export interface PreviewIngestaDto {
-  readonly banco: string;
-  readonly tipoCuenta: string;
-  readonly numeroCuenta: string;
-  readonly estructura: { readonly totalFilasDatos: number };
-  readonly muestra: readonly PreviewTransaccionDto[];
-}
+export type { PreviewIngestaDto, PreviewTransaccionDto };
 
 /**
  * PreviewIngestaError — same shape as `PostIngestaError` (post-ingesta.ts):

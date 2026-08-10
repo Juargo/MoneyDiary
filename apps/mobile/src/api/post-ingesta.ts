@@ -1,35 +1,21 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { File } from 'expo-file-system';
+import type {
+  IngestaResponseDto,
+  TransaccionResponseDto,
+} from '@moneydiary/api-client';
 import { API_BASE_URL } from './config';
 import { construirHeadersSesion } from './client';
 
 /**
- * TransaccionResponseDto/IngestaResponseDto — hand-written mirror of
- * `POST /api/ingestas`'s success body (ADR-011/012 note: same deferred
- * `@moneydiary/api-client` debt as `resumen.types.ts`). Source of truth:
- * `apps/api/src/infrastructure/http/dto/ingesta-response.dto.ts`. Money
- * fields stay as decimal strings, never parsed to `number` here.
+ * `TransaccionResponseDto`/`IngestaResponseDto` — mirror of
+ * `POST /api/ingestas`'s success body, now aliases over
+ * `@moneydiary/api-client`'s generated types (ADR-012 slice). Money fields
+ * stay as decimal strings, never parsed to `number` here. `IngestaResponseDto`
+ * gains a required `duplicadosOmitidos` field from the package; mobile never
+ * renders it.
  */
-export interface TransaccionResponseDto {
-  readonly fecha: string;
-  readonly descripcion: string;
-  readonly cargo: string;
-  readonly abono: string;
-}
-
-export interface IngestaResponseDto {
-  readonly ingestaId: string;
-  readonly banco: string;
-  readonly tipoCuenta: string;
-  readonly numeroCuenta: string;
-  readonly archivo: {
-    readonly nombre: string;
-    readonly extension: string;
-    readonly tamanoBytes: number;
-  };
-  readonly totalTransacciones: number;
-  readonly transacciones: readonly TransaccionResponseDto[];
-}
+export type { IngestaResponseDto, TransaccionResponseDto };
 
 /**
  * PostIngestaError — a small, LOCAL extension of the shared `ApiError` union

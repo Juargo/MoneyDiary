@@ -27,6 +27,7 @@ const validIngestaResponse = {
   numeroCuenta: '123456789',
   archivo: { nombre: 'cartola.xlsx', extension: 'xlsx', tamanoBytes: 20480 },
   totalTransacciones: 2,
+  duplicadosOmitidos: 0,
   transacciones: [
     {
       fecha: '2026-07-01T00:00:00.000Z',

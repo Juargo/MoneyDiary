@@ -190,16 +190,16 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 
 ## Phase 10: Slice 3 — Spike gate (must run before any mobile code change) (PR 3)
 
-- [ ] 10.1 Add `"@moneydiary/api-client": "workspace:*"` to `apps/mobile/package.json` dependencies (needed
+- [x] 10.1 Add `"@moneydiary/api-client": "workspace:*"` to `apps/mobile/package.json` dependencies (needed
       so the spike imports the real merged package, per design's re-ordering rationale). Run `pnpm install`.
-- [ ] 10.2 [spike 1/3 — TS resolution] Write a scratch file doing
+- [x] 10.2 [spike 1/3 — TS resolution] Write a scratch file doing
       `import type { ResumenMesDto } from '@moneydiary/api-client'` and building a fixture value typed
       against it. Run `pnpm --filter @moneydiary/mobile exec tsc --noEmit`. Must pass before proceeding.
-- [ ] 10.3 [spike 2/3 — jest-expo transform] Add the same import to a throwaway `.spec.ts` file. Run `pnpm
+- [x] 10.3 [spike 2/3 — jest-expo transform] Add the same import to a throwaway `.spec.ts` file. Run `pnpm
       --filter @moneydiary/mobile test`. Must pass before proceeding.
-- [ ] 10.4 [spike 3/3 — Metro bundle, the real unknown] Run `npx expo export --platform android` inside
+- [x] 10.4 [spike 3/3 — Metro bundle, the real unknown] Run `npx expo export --platform android` inside
       `apps/mobile` with the scratch import present. This is the go/no-go checkpoint.
-- [ ] 10.5 **Go/no-go decision:**
+- [x] 10.5 **Go/no-go decision:**
       - If 10.4 is green: delete the scratch files from 10.2/10.3, proceed to Phase 11.
       - If 10.4 fails: try exactly one bounded remedy — `metro.config.js` monorepo defaults
         (`watchFolders` = workspace root, `nodeModulesPaths`, `unstable_enableSymlinks`), time-boxed. Re-run
@@ -212,49 +212,49 @@ PR 2 and PR 3 are independent of each other — either can be dropped without to
 
 ## Phase 11: Slice 3 — `verbatimModuleSyntax` + aliasing (MAC-01/MAC-02) (PR 3)
 
-- [ ] 11.1 Add `verbatimModuleSyntax: true` to `apps/mobile/tsconfig.json`'s `compilerOptions`.
-- [ ] 11.2 [TEST → fix] Run `pnpm --filter @moneydiary/mobile exec tsc --noEmit`. Fix any pre-existing
+- [x] 11.1 Add `verbatimModuleSyntax: true` to `apps/mobile/tsconfig.json`'s `compilerOptions`.
+- [x] 11.2 [TEST → fix] Run `pnpm --filter @moneydiary/mobile exec tsc --noEmit`. Fix any pre-existing
       value-position type import surfaced by the flag (expected: few, mobile already uses `import type`
       broadly per design). **Contingency if it cascades:** revert 11.1, instead add
       `@typescript-eslint/consistent-type-imports` to mobile's ESLint config; record the flag as debt with
       trigger "next time mobile's tsconfig is touched" (do not spend further budget chasing the cascade).
-- [ ] 11.3 In `apps/mobile/src/domain/resumen.types.ts`: alias `BucketResumenDto`/`ResumenMesDto` to the
+- [x] 11.3 In `apps/mobile/src/domain/resumen.types.ts`: alias `BucketResumenDto`/`ResumenMesDto` to the
       package's `ResumenMesResponse[...]` (same enum-narrowing acceptance as web 7.2); keep file location
       and existing comments (do not rename/move — pre-existing `domain/` naming wart is out of scope, per
       design).
-- [ ] 11.4 In `apps/mobile/src/domain/resumen.types.ts`: alias `MeDto` to the package's `AuthMeResponse`
+- [x] 11.4 In `apps/mobile/src/domain/resumen.types.ts`: alias `MeDto` to the package's `AuthMeResponse`
       (adopt the full type — gains required `esDemo`, `email` widens to `string | null`). Do not "fix"
       `esMeDto`'s existing `email`-must-be-`string` guard behavior for demo accounts — that is pre-existing
       runtime behavior, unchanged by this slice (record as already-known debt per design, no new note
       needed beyond this task's own trace).
-- [ ] 11.5 In `apps/mobile/src/api/client.ts`: alias `LoginResponseDto` to `AuthLoginResponse` and
+- [x] 11.5 In `apps/mobile/src/api/client.ts`: alias `LoginResponseDto` to `AuthLoginResponse` and
       `AuthCapabilitiesDto` to `AuthCapabilitiesResponse` (direct aliases, no mismatch — mobile already has
       both flags).
-- [ ] 11.6 In `apps/mobile/src/api/post-ingesta.ts`: alias `TransaccionResponseDto`/`IngestaResponseDto` to
+- [x] 11.6 In `apps/mobile/src/api/post-ingesta.ts`: alias `TransaccionResponseDto`/`IngestaResponseDto` to
       `IngestaUploadResponse[...]` (adopt the gained required `duplicadosOmitidos`; mobile never renders it).
-- [ ] 11.7 In `apps/mobile/src/api/preview-ingesta.ts`: alias `PreviewTransaccionDto`/`PreviewIngestaDto` to
+- [x] 11.7 In `apps/mobile/src/api/preview-ingesta.ts`: alias `PreviewTransaccionDto`/`PreviewIngestaDto` to
       `PreviewIngestaResponse[...]` (direct aliases, no mismatch).
-- [ ] 11.8 [verify] Confirm every `import type { ... } from '@moneydiary/api-client'` in the four touched
+- [x] 11.8 [verify] Confirm every `import type { ... } from '@moneydiary/api-client'` in the four touched
       mobile files uses the `import type` form exactly (MAC-02 — required by `verbatimModuleSyntax`).
 
 ## Phase 12: Slice 3 — Fixture fallout + verification (MAC-01/MAC-03) (PR 3)
 
-- [ ] 12.1 [TEST → fix] Run `pnpm --filter @moneydiary/mobile test`. Update fixtures in `client.spec.ts`,
+- [x] 12.1 [TEST → fix] Run `pnpm --filter @moneydiary/mobile test`. Update fixtures in `client.spec.ts`,
       `session-context.spec.tsx`, `test/auth-navigation.integration.spec.tsx` to add `esDemo: false` where
       `MeDto`-shaped fixtures are built.
-- [ ] 12.2 [TEST → fix] Update fixtures in `post-ingesta.spec.ts` to add `duplicadosOmitidos` where
+- [x] 12.2 [TEST → fix] Update fixtures in `post-ingesta.spec.ts` to add `duplicadosOmitidos` where
       `IngestaResponseDto`-shaped fixtures are built.
-- [ ] 12.3 [verify] Confirm the MAC-03 guard-behavior scenario: run the existing test asserting
+- [x] 12.3 [verify] Confirm the MAC-03 guard-behavior scenario: run the existing test asserting
       `esResumenMesDto` rejects a payload where `totalIngreso` is not a string, with zero edits to that test
       file itself.
-- [ ] 12.4 [verify] `git diff` inspection: confirm no edit touches mobile's `ApiError` type/tag set
+- [x] 12.4 [verify] `git diff` inspection: confirm no edit touches mobile's `ApiError` type/tag set
       (`unauthorized | network | parse | http`), `copiaPorApiError`, `construirHeadersSesion`, `conTimeout`
       / `NETWORK_LEG_TIMEOUT_MS`, `session-store.ts`, `session-context.tsx`, or `use-google-id-token.ts`
       (design "What explicitly does NOT change" / MAC-03).
-- [ ] 12.5 [verify] Run `pnpm --filter @moneydiary/mobile exec tsc --noEmit` and `pnpm --filter
+- [x] 12.5 [verify] Run `pnpm --filter @moneydiary/mobile exec tsc --noEmit` and `pnpm --filter
       @moneydiary/mobile test` — both fully green (MAC-01 "typecheck and test suite pass" scenario).
-- [ ] 12.6 Confirm hand-written line delta is within the ~140-line estimate.
-- [ ] 12.7 Open PR 3 targeting `main` (stacked-to-main, depends on PR 1 merged; independent of PR 2).
+- [x] 12.6 Confirm hand-written line delta is within the ~140-line estimate.
+- [x] 12.7 Open PR 3 targeting `main` (stacked-to-main, depends on PR 1 merged; independent of PR 2).
       Include dependency diagram (PR 1 ✅, PR 2 ✅ or pending — note either is fine since 2⊥3, 📍 PR 3),
       the spike results (Phase 10) in the PR description, chain context, and rollback scope (revert restores
       the 5 hand-written mobile files, zero session/fetch-logic impact).
