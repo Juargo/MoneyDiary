@@ -41,135 +41,135 @@ the full pair only.
 
 ### Phase 0: Gate
 
-- [ ] 0.1 Verify `prisma/schema.prisma` needs NO change (`nombre`, `email`, `emailBlindIndex`,
+- [x] 0.1 Verify `prisma/schema.prisma` needs NO change (`nombre`, `email`, `emailBlindIndex`,
   `passwordHash`, `Session.tokenHash @unique`, `Session.userId @@index` all already exist — design
   §3.6). **If a migration seems required, STOP and escalate — do not proceed.**
 
 ### Phase 1: Domain errors
 
-- [ ] 1.1 RED `domain/errors/nombre-perfil-invalido.error.spec.ts` — PERF040-01 addition (design §3.1)
-- [ ] 1.2 GREEN implement `nombre-perfil-invalido.error.ts` → `400 NOMBRE_INVALIDO`
-- [ ] 1.3 RED `domain/errors/perfil-rechazado.error.spec.ts` — one fixed message, no interpolated input
-- [ ] 1.4 GREEN implement `perfil-rechazado.error.ts` — the shared generic rejection (PERF040-03/04)
-- [ ] 1.5 RED `domain/errors/perfil-demo-solo-lectura.error.spec.ts`
-- [ ] 1.6 GREEN implement `perfil-demo-solo-lectura.error.ts` — own class, `DEMO_SOLO_LECTURA` (PERF040-08)
-- [ ] 1.7 RED `domain/errors/email-no-disponible.error.spec.ts` — docblock: never crosses HTTP boundary
-- [ ] 1.8 GREEN implement `email-no-disponible.error.ts` — port-only, collapsed by the use case (D-01)
-- [ ] 1.9 Add missing `nombre` empty/over-80-char scenario to `specs/perfil-usuario/spec.md` PERF040-01
+- [x] 1.1 RED `domain/errors/nombre-perfil-invalido.error.spec.ts` — PERF040-01 addition (design §3.1)
+- [x] 1.2 GREEN implement `nombre-perfil-invalido.error.ts` → `400 NOMBRE_INVALIDO`
+- [x] 1.3 RED `domain/errors/perfil-rechazado.error.spec.ts` — one fixed message, no interpolated input
+- [x] 1.4 GREEN implement `perfil-rechazado.error.ts` — the shared generic rejection (PERF040-03/04)
+- [x] 1.5 RED `domain/errors/perfil-demo-solo-lectura.error.spec.ts`
+- [x] 1.6 GREEN implement `perfil-demo-solo-lectura.error.ts` — own class, `DEMO_SOLO_LECTURA` (PERF040-08)
+- [x] 1.7 RED `domain/errors/email-no-disponible.error.spec.ts` — docblock: never crosses HTTP boundary
+- [x] 1.8 GREEN implement `email-no-disponible.error.ts` — port-only, collapsed by the use case (D-01)
+- [x] 1.9 Add missing `nombre` empty/over-80-char scenario to `specs/perfil-usuario/spec.md` PERF040-01
   (design §3.1 action item — required so `sdd-verify` checks it)
 
 ### Phase 2: Port + repository — the email write-invariant's ONE home (D-01)
 
-- [ ] 2.1 Modify `application/ports/user-credential-repository.port.ts`: `IdentidadUsuario` gains
+- [x] 2.1 Modify `application/ports/user-credential-repository.port.ts`: `IdentidadUsuario` gains
   REQUIRED `nombre: string`; add `buscarCredencialPorId(userId)`, `actualizarPerfil(input: {userId,
   nombre?, email?: Email})` — **`email` is the VALUE OBJECT, never a raw string; a string must not
   type-check** (D-01)
-- [ ] 2.2 Run `pnpm api exec tsc --noEmit` to enumerate every broken fixture (D-06) before editing them
-- [ ] 2.3 GREEN fix `obtener-identidad.use-case.spec.ts` fixtures (+`nombre`); assert passthrough — AUTH-09
-- [ ] 2.4 RED extend `prisma-user-credential.repository.spec.ts`: `buscarIdentidad` select gains
+- [x] 2.2 Run `pnpm api exec tsc --noEmit` to enumerate every broken fixture (D-06) before editing them
+- [x] 2.3 GREEN fix `obtener-identidad.use-case.spec.ts` fixtures (+`nombre`); assert passthrough — AUTH-09
+- [x] 2.4 RED extend `prisma-user-credential.repository.spec.ts`: `buscarIdentidad` select gains
   `nombre`; grow `makePrismaMock` with `user.update`
-- [ ] 2.5 GREEN update `buscarIdentidad`'s select; extract shared private `aIdentidadUsuario(row)`
-- [ ] 2.6 RED repository spec for private `camposEmail(email)`: nombre-only ⇒
+- [x] 2.5 GREEN update `buscarIdentidad`'s select; extract shared private `aIdentidadUsuario(row)`
+- [x] 2.6 RED repository spec for private `camposEmail(email)`: nombre-only ⇒
   `Object.keys(data)` deep-equals `['nombre']`; email present ⇒ `data.email`/`data.emailBlindIndex`
   both derived from the SAME `email.valor`, using the container's INJECTED `crypto`/`blindIndex`
   doubles (G1-G4). **GUARD: this is the ONLY other derivation site in the app besides `seed.ts` and
   `backfill-email-blind-index.ts` — do not open-code the pair a third time anywhere else.**
-- [ ] 2.7 GREEN implement `camposEmail` — `{}` or the FULL pair; never `{email: undefined,
+- [x] 2.7 GREEN implement `camposEmail` — `{}` or the FULL pair; never `{email: undefined,
   emailBlindIndex: undefined}` (design §1/Q4a)
-- [ ] 2.8 RED repository spec for `actualizarPerfil`'s P2002 catch — the 4 pinned cases (design §4.2):
+- [x] 2.8 RED repository spec for `actualizarPerfil`'s P2002 catch — the 4 pinned cases (design §4.2):
   `target: ['emailBlindIndex']` ⇒ `Result.fail(EmailNoDisponibleError)`; `target: ['googleSub']` ⇒
   **rethrows**; `target: undefined` ⇒ **rethrows** (fail-closed); `target: 'User_emailBlindIndex_key'`
   (string form) ⇒ `Result.fail`. **A bare `error.code === 'P2002'` catch must fail this spec.**
-- [ ] 2.9 GREEN implement `actualizarPerfil`: one `prisma.user.update()`, `where: {id: userId}`, the
+- [x] 2.9 GREEN implement `actualizarPerfil`: one `prisma.user.update()`, `where: {id: userId}`, the
   `apuntaA(meta, 'emailBlindIndex')` guard inspecting `error.meta.target`, the inconsistent-row throw
   (design §4.1) — PERF040-01/02
-- [ ] 2.10 RED repository spec for `buscarCredencialPorId`: `where: {id: userId}`; `null` for absent
+- [x] 2.10 RED repository spec for `buscarCredencialPorId`: `where: {id: userId}`; `null` for absent
   row AND for `passwordHash === null` (Google-only user, design §1/Q3); never selects `email`
-- [ ] 2.11 GREEN implement `buscarCredencialPorId`
+- [x] 2.11 GREEN implement `buscarCredencialPorId`
 
 ### Phase 3: Use case — `ActualizarPerfilUseCase` (PERF040-01/02/03/04/07/08)
 
-- [ ] 3.1 RED `application/use-cases/actualizar-perfil.use-case.spec.ts` — guard order (design §4.1):
+- [x] 3.1 RED `application/use-cases/actualizar-perfil.use-case.spec.ts` — guard order (design §4.1):
   demo (no repo call) → `nombre` trim/1-80 → `Email.crear` → `passwordActual` missing on email change
   (**schema-bypass test**: call use case directly, bypass Zod) → `buscarCredencialPorId → null` → wrong
   password → `EmailNoDisponibleError` collapsed to `PerfilRechazadoError` (assert message equality
   against the SAME instance, not a copied literal); **port receives an `Email` instance, not a
   string** (`toBeInstanceOf(Email)`), normalized `.valor` for `'  Jorge@Example.COM '`; **no log call
   ever carries a `nombre`/`email`/`password` VALUE** (inspect the logger double's recorded contexts)
-- [ ] 3.2 GREEN implement `ActualizarPerfilUseCase` — `esDemo: boolean` REQUIRED input (compile-enforced,
+- [x] 3.2 GREEN implement `ActualizarPerfilUseCase` — `esDemo: boolean` REQUIRED input (compile-enforced,
   D-05); `nombre?`/`emailRaw?`/`passwordActual?`; `logger.debug` lines carry only field
   names/booleans (e.g. `{cambiaNombre, cambiaEmail}`), never values (D-07)
 
 ### Phase 4: HTTP layer
 
-- [ ] 4.1 RED `infrastructure/http-express/routes/perfil-http-error.spec.ts` — 4 classes map to exact
+- [x] 4.1 RED `infrastructure/http-express/routes/perfil-http-error.spec.ts` — 4 classes map to exact
   `(status, code)`: `NombrePerfilInvalidoError→400`, `EmailInvalidoError→400`,
   `PerfilDemoSoloLecturaError→403`, `PerfilRechazadoError→403`; the `403` body is identical regardless
   of cause
-- [ ] 4.2 GREEN implement `aPerfilHttpError` for `ActualizarPerfilError`, with `const _exhaustive: never
+- [x] 4.2 GREEN implement `aPerfilHttpError` for `ActualizarPerfilError`, with `const _exhaustive: never
   = error` (D-06) — `EmailNoDisponibleError` must NOT be a member of this union (compile error if added)
-- [ ] 4.3 RED `infrastructure/http-express/schemas/perfil.schema.spec.ts` — both `.refine`s; `.strict()`
+- [x] 4.3 RED `infrastructure/http-express/schemas/perfil.schema.spec.ts` — both `.refine`s; `.strict()`
   rejects an extra `userId` field (PERF040-07); layer-honesty: no length/format enforced on `nombre`/`email`
-- [ ] 4.4 GREEN implement `perfilUpdateRequestSchema` + `perfilErrorResponseSchema` — NO `.min()`/`.max()`/
+- [x] 4.4 GREEN implement `perfilUpdateRequestSchema` + `perfilErrorResponseSchema` — NO `.min()`/`.max()`/
   `.email()` (§5.4 layer-honesty gate)
-- [ ] 4.5 RED extend `auth-me.schema.spec.ts` — `nombre` required; body without it is rejected
-- [ ] 4.6 GREEN `authMeResponseSchema` gains `nombre: z.string()`; `meta.description` names both endpoints
-- [ ] 4.7 RED `perfil.routes.spec.ts` (PATCH /api/perfil only): `200` `AuthMeResponse` body; `400
+- [x] 4.5 RED extend `auth-me.schema.spec.ts` — `nombre` required; body without it is rejected
+- [x] 4.6 GREEN `authMeResponseSchema` gains `nombre: z.string()`; `meta.description` names both endpoints
+- [x] 4.7 RED `perfil.routes.spec.ts` (PATCH /api/perfil only): `200` `AuthMeResponse` body; `400
   BODY_INVALIDO` for `{}`, `{email}` without `passwordActual`, and `{nombre, userId:'otro'}`
   (`.strict()`); each use-case error → its status/code; `esDemo` threaded from `req.esDemo!`
-- [ ] 4.8 GREEN implement `registrarPerfil(router, perfil)` PATCH /api/perfil — `.safeParse()`, never
+- [x] 4.8 GREEN implement `registrarPerfil(router, perfil)` PATCH /api/perfil — `.safeParse()`, never
   echoes body or Zod issues
-- [ ] 4.9 RED extend `auth.routes.spec.ts` + `app.auth.spec.ts` — `/auth/me` payload includes `nombre`
-- [ ] 4.10 GREEN update `auth.routes.ts` — `nombre` in `/auth/me` (AUTH-09)
+- [x] 4.9 RED extend `auth.routes.spec.ts` + `app.auth.spec.ts` — `/auth/me` payload includes `nombre`
+- [x] 4.10 GREEN update `auth.routes.ts` — `nombre` in `/auth/me` (AUTH-09)
 
 ### Phase 5: Composition + logging
 
-- [ ] 5.1 Create `composition/crear-perfil.ts` — `crearPerfil(prisma, crypto, blindIndex, logger)` →
+- [x] 5.1 Create `composition/crear-perfil.ts` — `crearPerfil(prisma, crypto, blindIndex, logger)` →
   `PerfilGraph`. **GUARD (non-negotiable): MUST NOT call `deriveBlindIndexKey`, `new
   AesGcmCryptoService`, or `new HmacBlindIndexService` — receive the container's single instances only**
   (`crearAuthGoogle` precedent)
-- [ ] 5.2 Modify `composition/container.ts` (one line: `const perfil = crearPerfil(...)` + field/docblock);
+- [x] 5.2 Modify `composition/container.ts` (one line: `const perfil = crearPerfil(...)` + field/docblock);
   mount `registrarPerfil(protectedApi, container.perfil)` in `http-express/app.ts`, after `sessionMiddleware`
-- [ ] 5.3 RED `infrastructure/logging/pino-logger.spec.ts` — assert `{nombre}` context is redacted
-- [ ] 5.4 GREEN add `'nombre'`, `'*.nombre'` to `SENSITIVE_REDACT_PATHS` (D-07) — defense in depth, not
+- [x] 5.3 RED `infrastructure/logging/pino-logger.spec.ts` — assert `{nombre}` context is redacted
+- [x] 5.4 GREEN add `'nombre'`, `'*.nombre'` to `SENSITIVE_REDACT_PATHS` (D-07) — defense in depth, not
   the rule (the rule stays: log field names/booleans, never values)
 
 ### Phase 6: Contract sync
 
-- [ ] 6.1 Add `perfilUpdateOperation` + `/api/perfil` PATCH path to `openapi-document.ts` (append-only);
+- [x] 6.1 Add `perfilUpdateOperation` + `/api/perfil` PATCH path to `openapi-document.ts` (append-only);
   extend `openapi-document.spec.ts` inventory — PERF040-09
-- [ ] 6.2 `pnpm api openapi:emit && pnpm --filter @moneydiary/api-client generate && pnpm api
+- [x] 6.2 `pnpm api openapi:emit && pnpm --filter @moneydiary/api-client generate && pnpm api
   openapi:check && pnpm --filter @moneydiary/api-client typecheck` — commit regenerated
   `openapi.json` + `types.gen.ts` WITH the code
 
 ### Phase 7: Integration + the binding e2e
 
-- [ ] 7.1 New `test/perfil-crud.int-spec.ts` — PERF040-01 (nombre-only leaves email columns
+- [x] 7.1 New `test/perfil-crud.int-spec.ts` — PERF040-01 (nombre-only leaves email columns
   byte-identical, read straight from DB; nombre+email together reflected in `/auth/me`); PERF040-03
   email half (wrong `passwordActual` on email change ⇒ 403, columns unchanged); PERF040-04 (user B
   owns the target email; A's PATCH with A's correct password ⇒ body deep-equals the wrong-password
   case; B's row untouched); AUTH-09 (`/auth/me` returns `nombre`)
-- [ ] 7.2 New `test/perfil-demo-gate.int-spec.ts` (scaffolded from `catalogo-demo-gate.int-spec.ts`) —
+- [x] 7.2 New `test/perfil-demo-gate.int-spec.ts` (scaffolded from `catalogo-demo-gate.int-spec.ts`) —
   demo session PATCH /api/perfil ⇒ `403 DEMO_SOLO_LECTURA`; `/auth/me` still `200`; no `User` column
   changed — PERF040-08
-- [ ] 7.3 Extend `test/auth-isolation.int-spec.ts` — body naming another user's id ⇒ `400` via
+- [x] 7.3 Extend `test/auth-isolation.int-spec.ts` — body naming another user's id ⇒ `400` via
   `.strict()`, other user's row byte-identical afterward — PERF040-07
-- [ ] 7.4 **THE BINDING E2E — own task, the change's headline proof (design §6.4).** New
+- [x] 7.4 **THE BINDING E2E — own task, the change's headline proof (design §6.4).** New
   `test/perfil-email-change.e2e-spec.ts`: seed via `buildEncryptedEmailFields` (never hand-roll
   encryption) → login with OLD email succeeds → `PATCH /api/perfil` with new email (mixed case +
   surrounding spaces, to also pin normalization) → login with NEW email succeeds → login with OLD
   email fails `401` → independently re-derive `crypto.decrypt(row.email)` and
   `blindIndex.compute(...)` from the DB row and confirm BOTH match. **Verification:**
   `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e -- perfil-email-change`
-- [ ] 7.5 Regression check: `test/auth-login.e2e-spec.ts`, `test/catalogo-demo-gate.int-spec.ts` stay
+- [x] 7.5 Regression check: `test/auth-login.e2e-spec.ts`, `test/catalogo-demo-gate.int-spec.ts` stay
   green, unmodified
 
 ### Phase 8: PR #1 gate
 
-- [ ] 8.1 Full green bar: `pnpm api test`; `pnpm api exec tsc --noEmit`; `ALLOW_DESTRUCTIVE_DB=1 pnpm
+- [x] 8.1 Full green bar: `pnpm api test`; `pnpm api exec tsc --noEmit`; `ALLOW_DESTRUCTIVE_DB=1 pnpm
   api test:integration`; `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e`; `pnpm api openapi:check`; `pnpm
   --filter @moneydiary/api-client typecheck`
-- [ ] 8.2 **Verify zero files changed under `apps/web/` and `apps/mobile/`** and no
+- [x] 8.2 **Verify zero files changed under `apps/web/` and `apps/mobile/`** and no
   `prisma/schema.prisma`/migration file in the PR diff — STOP and escalate if either is touched
 
 ---
