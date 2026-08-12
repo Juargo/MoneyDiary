@@ -493,7 +493,7 @@ export interface paths {
         };
         /**
          * List the caller's category catalog
-         * @description Authenticated endpoint returning the caller's own categories with their nested classification patterns (US-038, CAT038-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, CAT038-08).
+         * @description Authenticated endpoint returning the caller's own categories with their nested classification patterns and an all-history `transaccionesCount` per category — the caller-scoped impact preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, CAT038-08).
          */
         readonly get: {
             readonly parameters: {
@@ -1396,7 +1396,7 @@ export interface components {
         readonly CatalogoResponse: {
             readonly categorias: readonly components["schemas"]["CategoriaResponse"][];
         };
-        /** @description A category with its nested classification patterns (US-038). */
+        /** @description A category with its nested classification patterns and the all-history count of the caller's own referencing transactions (US-038, US-039 CAT039-01). */
         readonly CategoriaResponse: {
             readonly bucket: string;
             readonly id: string;
@@ -1408,6 +1408,7 @@ export interface components {
                 readonly patron: string;
                 readonly prioridad: number;
             }[];
+            readonly transaccionesCount: number;
         };
         /** @description GET /api/buckets/:bucket — bucket drill-down (US-017). */
         readonly DetalleBucketResponse: {
