@@ -493,7 +493,7 @@ export interface paths {
         };
         /**
          * List the caller's category catalog
-         * @description Authenticated endpoint returning the caller's own categories with their nested classification patterns (US-038, CAT038-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, CAT038-08).
+         * @description Authenticated endpoint returning the caller's own categories with their nested classification patterns and an all-history `transaccionesCount` per category — the caller-scoped impact preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, CAT038-08).
          */
         readonly get: {
             readonly parameters: {
@@ -592,7 +592,7 @@ export interface paths {
         readonly post?: never;
         /**
          * Delete a category
-         * @description Authenticated endpoint that deletes a category and cascades its patterns, atomically (US-038, CAT038-04). Rejected if any Transaccion (any period) still references the category. Requires x-api-key + a valid session. Rejected for demo sessions.
+         * @description Authenticated endpoint that deletes a category and cascades its patterns, atomically (US-038, CAT038-04 as modified by US-039). The delete always succeeds for a category owned by the caller, whether it is referenced by transactions or not. Every Transaccion that referenced the deleted category survives with categoriaId: null and its original bucketId unchanged — no money moves between buckets. Requires x-api-key + a valid session. Rejected for demo sessions.
          */
         readonly delete: {
             readonly parameters: {
@@ -623,15 +623,6 @@ export interface paths {
                 };
                 /** @description Anti-enumeration: the category does not exist or does not belong to the authenticated user. */
                 readonly 404: {
-                    headers: {
-                        readonly [name: string]: unknown;
-                    };
-                    content: {
-                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
-                    };
-                };
-                /** @description The category is referenced by at least one Transaccion (any period). */
-                readonly 409: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
@@ -1396,7 +1387,7 @@ export interface components {
         readonly CatalogoResponse: {
             readonly categorias: readonly components["schemas"]["CategoriaResponse"][];
         };
-        /** @description A category with its nested classification patterns (US-038). */
+        /** @description A category with its nested classification patterns and the all-history count of the caller's own referencing transactions (US-038, US-039 CAT039-01). */
         readonly CategoriaResponse: {
             readonly bucket: string;
             readonly id: string;
@@ -1408,6 +1399,7 @@ export interface components {
                 readonly patron: string;
                 readonly prioridad: number;
             }[];
+            readonly transaccionesCount: number;
         };
         /** @description GET /api/buckets/:bucket — bucket drill-down (US-017). */
         readonly DetalleBucketResponse: {
