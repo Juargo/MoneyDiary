@@ -2,14 +2,13 @@
 
 ## Purpose
 
-Turns the classification catalog (`Categoria` + `PatronClasificacion`) from a
-single global row set shared by every user into a per-user owned row set,
-created by copying a fixed template at account-creation time. Covers the
-schema invariant, the copy-on-creation hook (bootstrap user + demo users),
+Defines the system design for catalog ownership (`Categoria` + `PatronClasificacion`):
+a per-user owned row set, created by copying a fixed template at account-creation time.
+Covers the schema invariant, the copy-on-creation hook (bootstrap user + demo users),
 the guarded backfill of existing rows, `userId`-scoped categorization and
 reclassification, the RNF-SEC-006 isolation guarantee, the read-path fold
-fix, and demo cleanup. This is **ownership only** — catalog CRUD (create,
-rename, delete a categoría/pattern) is out of scope and deferred to US-038.
+mechanism, and demo cleanup. This spec addresses **ownership only** — catalog CRUD
+(create, rename, delete a categoría/pattern) is deferred to future work.
 
 ## Requirements
 
@@ -17,14 +16,14 @@ rename, delete a categoría/pattern) is out of scope and deferred to US-038.
 
 `Categoria` and `PatronClasificacion` MUST both carry a NOT NULL `userId`.
 `Categoria` MUST be unique per `(userId, nombre)` — the previous global
-`nombre` unique constraint MUST NOT exist after this change. Existing
+`nombre` unique constraint MUST NOT exist. Existing
 production rows MUST be owned by the pre-existing bootstrap user, with no
 `Transaccion.categoriaId` or `PatronClasificacion.categoriaId` foreign key
 repointed by the migration.
 
 #### Scenario: Categoria requires a userId
 
-- GIVEN the post-migration schema
+- GIVEN the schema with the catalog-ownership migration applied
 - WHEN a `Categoria` row is created without a `userId`
 - THEN the database rejects the insert
 
@@ -37,7 +36,7 @@ repointed by the migration.
 
 #### Scenario: Backfill preserves existing transaction links
 
-- GIVEN a pre-migration database with one real (non-demo) user and their
+- GIVEN the pre-migration database with one real (non-demo) user and their
   existing `Transaccion` rows pointing at global `Categoria` ids
 - WHEN the backfill migration runs
 - THEN every existing `Categoria` and `PatronClasificacion` row is owned by
@@ -58,13 +57,11 @@ created atomically with the user (same transaction as the user-creation
 call site). Re-running the bootstrap seed MUST be idempotent: it MUST NOT
 duplicate rows and MUST NOT move the bootstrap user's existing row ids.
 
-Product constraint (decision 2026-08-11): a demo user's catalog copy is
+Product constraint: a demo user's catalog copy is
 **read-only**. Demo users MUST NOT be able to modify their categories or
-patterns; when catalog modification capabilities land (US-038), any
-mutation attempt from a demo session MUST be rejected with guidance to
-register an account. This change ships no catalog-modification endpoint,
-so no runtime enforcement is required here — the constraint is recorded
-as a binding precondition for US-038.
+patterns; any catalog mutation endpoint MUST reject demo sessions
+with guidance to register an account. This constraint is a binding precondition
+for future catalog-modification work.
 
 #### Scenario: A fresh demo user starts with a full private catalog
 
@@ -181,7 +178,7 @@ code path.
 
 #### Scenario: The legacy backfill script cannot write across tenants
 
-- GIVEN the one-off `prisma/backfill-categorias.ts` script and a database
+- GIVEN the one-off backfill script and a database
   with more than one user
 - WHEN the script runs
 - THEN it only touches transactions belonging to the bootstrap user
@@ -194,17 +191,16 @@ Because per-user catalog rows use freshly generated ids that do not match
 the legacy global id constant, every read repository that folds a raw
 `categoriaId` back to the domain `Categoria` enum (movimientos, resumen,
 detalle-bucket) MUST resolve the fold by the stored row's `nombre` — not by
-looking the physical id up in the legacy global id map. After this change,
+looking the physical id up in a legacy global id map. After this change,
 no runtime read path MUST depend on the legacy global id constant to
-resolve a category name; it MAY still be used as the seed/template's own id
-source.
+resolve a category name; it MAY still be used only for seed/template initialization.
 
 #### Scenario: A non-seed user's categorized transactions still show their category
 
 - GIVEN a demo user (a non-seed user) with a transaction classified into
   their own "Streaming" categoría
 - WHEN that user requests movimientos or detalle-bucket for the period
-- THEN the response's `categoria` field for that row is `{ nombre:
+- THEN the response's `categoria` field for that row is `{ nome:
   "Streaming", ... }`, not `null`
 
 #### Scenario: A second user sees categories on the dashboard
@@ -236,9 +232,9 @@ chain MUST NOT raise a foreign-key violation.
 ## Non-Goals
 
 - Catalog CRUD (create, rename, delete a categoría or pattern) and any
-  endpoint or UI for it — deferred to US-038.
+  endpoint or UI for it — deferred to future work.
 - Dismantling the closed `Categoria` TypeScript enum or the
-  `CATEGORIA_BUCKET` total map — both survive this change untouched.
+  `CATEGORIA_BUCKET` total map — both remain untouched.
 - Importing/merging suggested categories into an existing user's catalog.
 - Any new signup flow — the copy hook only lands in the two user-creation
   points that exist today.
