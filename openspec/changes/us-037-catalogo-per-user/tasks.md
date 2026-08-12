@@ -96,7 +96,7 @@ Tracker merges to `main` only after PR7 lands on the accumulated branch and 6.9/
 - [ ] 6.6 Extend `apps/api/test/reclasificar-categoria.int-spec.ts`: response `categoria.id` equals the caller's own persisted row id; differs between two users reclassifying to the same category name (CAT037-04).
 - [ ] 6.7 New shared fixture `apps/api/test/support/catalogo.fixture.ts` exporting `crearCatalogoParaUsuario(prisma, userId)` (thin wrapper over `copiarCatalogoTemplate`); apply it at every existing `*.int-spec.ts` user-creation call site so test users have a non-empty catalog. **Flagged as the largest single line-count contributor** — consider a dedicated child PR if it alone risks >400 lines.
 - [ ] 6.8 [RED+GREEN] Update `apps/api/prisma/backfill-categorias.ts` (D-10): add explicit `account: { userId: USER_ID_FIJO }` filter + frozen/bootstrap-only docblock; extend `apps/api/src/infrastructure/persistence/backfill-categorias.spec.ts` and `apps/api/test/backfill-categorias.int-spec.ts` to assert cross-tenant rows are never touched (CAT037-05 legacy-script scenario).
-- [ ] 6.9 Migration rehearsal, run 3 (not CI-automated): re-run against a restored prod snapshot immediately before the production deploy; record the result in the PR/deploy notes.
+- [ ] 6.9 Migration rehearsal, run 3 (not CI-automated): re-run against a restored prod snapshot immediately before the production deploy; record the result in the PR/deploy notes (re-runs the prod-like scenario against the snapshot).
 - [ ] 6.10 Cross-workspace verification: `pnpm web test` green with **zero** frontend edits (proves category names preserved); `pnpm api test`; `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration`; `pnpm api exec tsc --noEmit`.
 
 ## Phase 7: ADR-036 + docs (seam 7)
