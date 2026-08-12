@@ -99,8 +99,8 @@ Tracker merges to `main` only after PR7 lands on the accumulated branch and 6.9/
 - [ ] 6.9 Migration rehearsal, run 3 (not CI-automated): re-run against a restored prod snapshot immediately before the production deploy; record the result in the PR/deploy notes. **MANUAL pre-deploy gate — not attempted this batch.**
 - [x] 6.10 Cross-workspace verification: `pnpm web test` green with **zero** frontend edits (proves category names preserved) — 61/560 unchanged; `pnpm api test` — 174/1429 green; `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration` — 17/83 green (+13 new); `pnpm api exec tsc --noEmit` — zero errors.
 
-## Phase 7: ADR-036 + docs (seam 7)
+## Phase 7: ADR-036 + docs (seam 7) — ✅ DONE (2026-08-11, PR7)
 
-- [ ] 7.1 Write `docs/adr/ADR-036-catalogo-clasificacion-por-usuario.md`: record decisions D-01…D-10; explicitly record (a) demo catalog is read-only — binding precondition for US-038 (CAT037-02 amendment), and (b) the D-06 fallback, if taken in 1.3b, as a US-038 precondition (design §10.2). This task satisfies CAT037's CA-06 process criterion.
-- [ ] 7.2 Add the ADR-036 row to `docs/adr/README.md` index.
-- [ ] 7.3 Add the ADR-036 one-line summary row to the ADR table in `/Users/jorge/dev/MoneyDiary/CLAUDE.md`.
+- [x] 7.1 Write `docs/adr/ADR-036-catalogo-clasificacion-por-usuario.md`: record decisions D-01…D-10; explicitly record (a) demo catalog is read-only — binding precondition for US-038 (CAT037-02 amendment), and (b) the D-06 fallback, if taken in 1.3b, as a US-038 precondition (design §10.2). This task satisfies CAT037's CA-06 process criterion. **OUTCOME:** D-06 fallback was NOT taken (composite FK confirmed live) — no fallback precondition applies. Also recorded the judgment-day PR #301 finding that hardened D-10 beyond the design's literal wording (backfill's pattern-catalog read scoped to `USER_ID_FIJO` too, closing a cross-tenant priority-hijack), and flagged task 6.9 as an open pre-deploy gate.
+- [x] 7.2 Add the ADR-036 row to `docs/adr/README.md` index.
+- [x] 7.3 Add the ADR-036 one-line summary row to the ADR table in `/Users/jorge/dev/MoneyDiary/CLAUDE.md`.
