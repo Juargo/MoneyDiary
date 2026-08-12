@@ -850,7 +850,7 @@ export interface paths {
             readonly requestBody?: {
                 readonly content: {
                     readonly "application/json": {
-                        /** @description Category name (Categoria enum member, e.g. "Supermercado"). Validated against the domain enum by the use case (CategoriaInvalidaError), not this schema. */
+                        /** @description Category name (e.g. "Supermercado"), resolved against the caller's own catalog (ADR-036/ADR-037 — no closed enum) by the use case (CategoriaDesconocidaError if it does not resolve), not this schema. */
                         readonly categoria: string;
                     };
                 };
