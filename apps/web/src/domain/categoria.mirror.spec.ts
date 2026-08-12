@@ -11,7 +11,22 @@ import {
 /**
  * Hardening test (sdd-verify SUGGESTION, US-013 S6b): guards against silent
  * drift between the web `CATEGORIA_BUCKET` mirror (this workspace) and the
- * backend source of truth `apps/api/src/domain/value-objects/categoria.ts`.
+ * backend source of truth for the seed/template catalog.
+ *
+ * ADR-037 (us-038) retires the closed `Categoria` TypeScript enum: category
+ * identity becomes a userId-scoped row, not a compile-time type — the
+ * enum + `CATEGORIA_BUCKET` total map this guard used to read from
+ * `apps/api/src/domain/value-objects/categoria.ts` no longer exist. The one
+ * compile-time consistency proof ADR-037 explicitly KEEPS (design.md D-02)
+ * is `CATEGORIA_TEMPLATE` in
+ * `apps/api/src/infrastructure/persistence/catalogo-template.ts` — the
+ * literal `as const` list of the 8 seed/template categories with their
+ * bucket. This guard now reads THAT file instead: same purpose (catch web
+ * drift from the backend's 8 template categories), new source of truth.
+ * Web's hardcoded 8-name reclassify `<select>` (`apps/web/src/domain/categoria.ts`)
+ * itself is untouched — it going stale for a USER-CREATED category name is
+ * accepted debt closed by US-043 (design.md §10); this guard only pins the
+ * 8 template names, which is the one set that still has a canonical source.
  *
  * ADR-008 forbids web PRODUCTION code from importing backend domain code —
  * but this is a TEST, and it reads the backend file as plain TEXT (never
@@ -28,7 +43,7 @@ const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(THIS_DIR, '../../../..');
 const BACKEND_CATEGORIA_PATH = resolve(
   REPO_ROOT,
-  'apps/api/src/domain/value-objects/categoria.ts',
+  'apps/api/src/infrastructure/persistence/catalogo-template.ts',
 );
 
 function readBackendSource(): string {
@@ -45,23 +60,24 @@ function readBackendSource(): string {
 }
 
 /**
- * Extracts the `Categoria` enum member names from the backend source, e.g.
- *   Supermercado = 'Supermercado',
- * Tolerates leading/trailing whitespace and an optional trailing comma;
- * intentionally does NOT require single quotes so a future style change
- * (double quotes) does not spuriously fail this parse.
+ * Extracts the `CATEGORIA_TEMPLATE` entries' `nombre` values from the
+ * backend source, e.g. `{ nombre: 'Supermercado', bucket: Bucket.Necesidades }`.
+ * Tolerates whitespace; intentionally does NOT require a specific quote
+ * style so a future style change does not spuriously fail this parse.
  */
 function parseCategoriaEnumKeys(source: string): string[] {
-  const enumBlockMatch = source.match(/export enum Categoria\s*{([^}]*)}/);
+  const enumBlockMatch = source.match(
+    /export const CATEGORIA_TEMPLATE\s*=\s*\[([^\]]*)\]/,
+  );
   if (!enumBlockMatch) {
     throw new Error(
-      'Could not find "export enum Categoria { ... }" block in the backend source. ' +
+      'Could not find "export const CATEGORIA_TEMPLATE = [ ... ]" block in the backend source. ' +
         'The backend file format may have changed — update the parser in categoria.mirror.spec.ts.',
     );
   }
 
   const body = enumBlockMatch[1];
-  const keyPattern = /(\w+)\s*=\s*['"][^'"]*['"]\s*,?/g;
+  const keyPattern = /nombre:\s*['"](\w+)['"]/g;
   const keys: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = keyPattern.exec(body)) !== null) {
@@ -70,8 +86,8 @@ function parseCategoriaEnumKeys(source: string): string[] {
 
   if (keys.length === 0) {
     throw new Error(
-      'Parsed zero Categoria enum keys from the backend source — the regex parser ' +
-        'likely needs updating for a new file format (categoria.mirror.spec.ts).',
+      'Parsed zero CATEGORIA_TEMPLATE nombre entries from the backend source — the regex ' +
+        'parser likely needs updating for a new file format (categoria.mirror.spec.ts).',
     );
   }
 
@@ -79,23 +95,23 @@ function parseCategoriaEnumKeys(source: string): string[] {
 }
 
 /**
- * Extracts `CATEGORIA_BUCKET` entries from the backend source, e.g.
- *   [Categoria.Supermercado]: Bucket.Necesidades,
- * Tolerates whitespace and an optional trailing comma.
+ * Extracts `CATEGORIA_TEMPLATE` (nombre, bucket) pairs from the backend
+ * source, e.g. `{ nombre: 'Supermercado', bucket: Bucket.Necesidades }`.
+ * Tolerates whitespace.
  */
 function parseBackendCategoriaBucket(source: string): Record<string, string> {
   const mapBlockMatch = source.match(
-    /export const CATEGORIA_BUCKET[^{]*{([^}]*)}/,
+    /export const CATEGORIA_TEMPLATE\s*=\s*\[([^\]]*)\]/,
   );
   if (!mapBlockMatch) {
     throw new Error(
-      'Could not find "export const CATEGORIA_BUCKET = { ... }" block in the backend source. ' +
+      'Could not find "export const CATEGORIA_TEMPLATE = [ ... ]" block in the backend source. ' +
         'The backend file format may have changed — update the parser in categoria.mirror.spec.ts.',
     );
   }
 
   const body = mapBlockMatch[1];
-  const entryPattern = /\[Categoria\.(\w+)\]\s*:\s*Bucket\.(\w+)\s*,?/g;
+  const entryPattern = /nombre:\s*['"](\w+)['"]\s*,\s*bucket:\s*Bucket\.(\w+)/g;
   const entries: Record<string, string> = {};
   let match: RegExpExecArray | null;
   while ((match = entryPattern.exec(body)) !== null) {
@@ -105,8 +121,8 @@ function parseBackendCategoriaBucket(source: string): Record<string, string> {
 
   if (Object.keys(entries).length === 0) {
     throw new Error(
-      'Parsed zero CATEGORIA_BUCKET entries from the backend source — the regex parser ' +
-        'likely needs updating for a new file format (categoria.mirror.spec.ts).',
+      'Parsed zero CATEGORIA_TEMPLATE (nombre, bucket) entries from the backend source — the ' +
+        'regex parser likely needs updating for a new file format (categoria.mirror.spec.ts).',
     );
   }
 
