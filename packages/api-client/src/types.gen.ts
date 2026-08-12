@@ -484,6 +484,236 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/categorias": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * List the caller's category catalog
+         * @description Authenticated endpoint returning the caller's own categories with their nested classification patterns (US-038, CAT038-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, CAT038-08).
+         */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description The caller's full catalog. */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoResponse"];
+                    };
+                };
+            };
+        };
+        readonly put?: never;
+        /**
+         * Create a category
+         * @description Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01). Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly bucket: string;
+                        readonly nombre: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Category created. */
+                readonly 201: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CategoriaResponse"];
+                    };
+                };
+                /** @description Invalid nombre/bucket, or a malformed request body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description The calling session is a demo session (read-only catalog). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description A category with that nombre already exists for this user (case-insensitive). */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/categorias/{id}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        readonly post?: never;
+        /**
+         * Delete a category
+         * @description Authenticated endpoint that deletes a category and cascades its patterns, atomically (US-038, CAT038-04). Rejected if any Transaccion (any period) still references the category. Requires x-api-key + a valid session. Rejected for demo sessions.
+         */
+        readonly delete: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly id: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Category (and its patterns) deleted. No response body. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The calling session is a demo session (read-only catalog). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description Anti-enumeration: the category does not exist or does not belong to the authenticated user. */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description The category is referenced by at least one Transaccion (any period). */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly options?: never;
+        readonly head?: never;
+        /**
+         * Rename and/or re-bucket a category
+         * @description Authenticated endpoint that partially updates a category (US-038, CAT038-03). At least one of `nombre`/`bucket` MUST be present. When `bucket` actually changes, every historical Transaccion pointing at the category is re-stamped atomically. Requires x-api-key + a valid session. Rejected for demo sessions.
+         */
+        readonly patch: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly id: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly bucket?: string;
+                        readonly nombre?: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Category updated. */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CategoriaResponse"];
+                    };
+                };
+                /** @description Invalid nombre/bucket, an empty body, or a malformed request body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description The calling session is a demo session (read-only catalog). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description Anti-enumeration: the category does not exist or does not belong to the authenticated user. */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description A category with that nombre already exists for this user (case-insensitive). */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly trace?: never;
+    };
     readonly "/api/ingestas": {
         readonly parameters: {
             readonly query?: never;
@@ -722,6 +952,216 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/patrones": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Create a classification pattern
+         * @description Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session. Rejected for demo sessions.
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly categoriaId: string;
+                        readonly matchType: string;
+                        readonly patron: string;
+                        readonly prioridad?: number;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Pattern created. */
+                readonly 201: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PatronResponse"];
+                    };
+                };
+                /** @description Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a malformed request body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description The calling session is a demo session (read-only catalog). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user. */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description A pattern with that text already exists for this user (case-insensitive). */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/patrones/{id}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        readonly post?: never;
+        /**
+         * Delete a classification pattern
+         * @description Authenticated endpoint that deletes a pattern (US-038, CAT038-05/07). Requires x-api-key + a valid session. Rejected for demo sessions.
+         */
+        readonly delete: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly id: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Pattern deleted. No response body. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The calling session is a demo session (read-only catalog). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description Anti-enumeration: the pattern does not exist or does not belong to the authenticated user. */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly options?: never;
+        readonly head?: never;
+        /**
+         * Update a classification pattern
+         * @description Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid session. Rejected for demo sessions.
+         */
+        readonly patch: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    readonly id: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly matchType?: string;
+                        readonly patron?: string;
+                        readonly prioridad?: number;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Pattern updated. */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PatronResponse"];
+                    };
+                };
+                /** @description Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description The calling session is a demo session (read-only catalog). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description Anti-enumeration: the pattern does not exist or does not belong to the authenticated user. */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+                /** @description A pattern with that text already exists for this user (case-insensitive). */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly trace?: never;
+    };
     readonly "/api/resumen": {
         readonly parameters: {
             readonly query?: never;
@@ -947,6 +1387,28 @@ export interface components {
             readonly esDemo: boolean;
             readonly userId: string;
         };
+        /** @description Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. */
+        readonly CatalogoErrorResponse: {
+            readonly code: string;
+            readonly message: string;
+        };
+        /** @description GET /api/categorias — the authenticated caller's full catalog (US-038, CAT038-02). */
+        readonly CatalogoResponse: {
+            readonly categorias: readonly components["schemas"]["CategoriaResponse"][];
+        };
+        /** @description A category with its nested classification patterns (US-038). */
+        readonly CategoriaResponse: {
+            readonly bucket: string;
+            readonly id: string;
+            readonly nombre: string;
+            readonly patrones: readonly {
+                readonly categoriaId: string;
+                readonly id: string;
+                readonly matchType: string;
+                readonly patron: string;
+                readonly prioridad: number;
+            }[];
+        };
         /** @description GET /api/buckets/:bucket — bucket drill-down (US-017). */
         readonly DetalleBucketResponse: {
             /** @description Validated bucket name (echo, not raw input). */
@@ -1038,6 +1500,14 @@ export interface components {
                 readonly numeroCuenta: string;
                 readonly tipoCuenta: string;
             }[];
+        };
+        /** @description A classification pattern (US-038). */
+        readonly PatronResponse: {
+            readonly categoriaId: string;
+            readonly id: string;
+            readonly matchType: string;
+            readonly patron: string;
+            readonly prioridad: number;
         };
         /** @description POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003). */
         readonly PreviewIngestaResponse: {
