@@ -865,7 +865,7 @@ export interface paths {
                         readonly "application/json": components["schemas"]["TransaccionesCategoriaResponse"];
                     };
                 };
-                /** @description Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError). */
+                /** @description Invalid categoria — the given name does not resolve against the caller's own catalog (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired). */
                 readonly 400: {
                     headers: {
                         readonly [name: string]: unknown;
