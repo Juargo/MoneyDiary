@@ -27,6 +27,12 @@ describe('mensajeDeApiError — la tabla de ocho códigos (WCFG-09 / design Q8b)
       'No se pudo cambiar la password. Revisa tu password actual.',
     ],
     [
+      '403 PERFIL_RECHAZADO, origen google (VINC041-07: misma password check que perfil-usuario)',
+      server(403, 'PERFIL_RECHAZADO'),
+      'google',
+      'No se pudo completar la acción. Revisa tu password actual.',
+    ],
+    [
       '400 NOMBRE_INVALIDO',
       server(400, 'NOMBRE_INVALIDO'),
       'perfil',
