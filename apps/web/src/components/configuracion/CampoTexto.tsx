@@ -1,4 +1,5 @@
-import type { ChangeEvent } from 'react';
+import { forwardRef } from 'react';
+import type { ChangeEvent, Ref } from 'react';
 
 /**
  * CampoTexto — `<label>` envolviendo un `<input>` (US-042 design.md §1/Q1a).
@@ -11,28 +12,39 @@ import type { ChangeEvent } from 'react';
  * El `<label>` envolviendo el `<input>` es el mecanismo exacto del que
  * depende `getByLabelText` (WCFG-12/CA-05) — `jsx-a11y/label-has-associated-
  * control` (scoped `error` en este directorio) lo hace cumplir en lint.
+ *
+ * `forwardRef` (PR #2, task 5.3): `ConfirmarPasswordDialog` reutiliza este
+ * componente para su propio campo `Password actual` — mismo `dry` que evitó
+ * un segundo `<label>`-wrapped-`<input>` en este directorio — y necesita un
+ * ref al `<input>` para el mecanismo de foco-al-abrir (design.md §1/Q7c).
+ * Los cuatro usos existentes en `PerfilForm` no pasan `ref` — opcional, no
+ * rompe nada.
  */
-export function CampoTexto({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  required = false,
-  disabled = false,
-  autoComplete,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly type?: 'text' | 'email' | 'password';
-  readonly required?: boolean;
-  readonly disabled?: boolean;
-  readonly autoComplete?: string;
-}) {
+export const CampoTexto = forwardRef(function CampoTexto(
+  {
+    label,
+    value,
+    onChange,
+    type = 'text',
+    required = false,
+    disabled = false,
+    autoComplete,
+  }: {
+    readonly label: string;
+    readonly value: string;
+    readonly onChange: (value: string) => void;
+    readonly type?: 'text' | 'email' | 'password';
+    readonly required?: boolean;
+    readonly disabled?: boolean;
+    readonly autoComplete?: string;
+  },
+  ref: Ref<HTMLInputElement>,
+) {
   return (
     <label className="flex flex-col gap-1 text-sm text-slate-600">
       {label}
       <input
+        ref={ref}
         type={type}
         value={value}
         onChange={(event: ChangeEvent<HTMLInputElement>) =>
@@ -45,4 +57,4 @@ export function CampoTexto({
       />
     </label>
   );
-}
+});
