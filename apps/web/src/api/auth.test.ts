@@ -7,12 +7,14 @@ const validMeDto: MeDto = {
   email: 'usuario@moneydiary.cl',
   esDemo: false,
   nombre: 'Usuario de Prueba',
+  googleVinculado: false,
 };
 const validDemoMeDto: MeDto = {
   userId: 'demo-1',
   email: null,
   esDemo: true,
   nombre: 'Demo-abc123',
+  googleVinculado: false,
 };
 
 function mockFetchOnce(response: {

@@ -113,7 +113,9 @@ failure. The other account's row MUST remain completely untouched.
 
 - GIVEN user B's account already has `googleSub` set to a given identity
 - WHEN user A completes the OIDC round trip using that same Google identity
-- THEN the response is the same generic failure outcome as VINC041-03's rejections
+- THEN the response is the one generic failure outcome shared by every link-mode failure — a single,
+  indistinguishable destination whether the cause is another account's identity, an identity already
+  present on the caller's own account, a demo user, a lost race, or a missing user
 - AND user A's account gains no `googleSub`
 - AND user B's account is unchanged
 
