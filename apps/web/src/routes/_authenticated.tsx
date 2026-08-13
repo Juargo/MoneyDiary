@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { fetchMe } from '@/api/auth';
+import { ME_QUERY_KEY } from '@/api/use-me';
 import { requireSession } from '@/lib/require-session';
 import { DemoBanner } from '@/components/DemoBanner';
 import { AppShell } from '@/components/app-shell/AppShell';
@@ -35,10 +36,22 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * (outside this layout) never does, with no extra path guard needed. See
  * `test/app-shell-layout.test.tsx` for the end-to-end proof (real route
  * tree, same pattern as the two tests above).
+ *
+ * US-042 design.md §1/Q3b: `beforeLoad` primes `['auth-me']`
+ * (`context.queryClient.setQueryData`) with the SAME `me` it already paid
+ * for, right after `requireSession` resolves. `useMe()` (`api/use-me.ts`)
+ * mounted anywhere inside the same navigation then reads a fresh cache entry
+ * under the production `staleTime` and issues NO second `/api/auth/me` call
+ * (WCFG-03). The return shape stays `{ esDemo: me.esDemo }` — unchanged on
+ * purpose: `_authenticated/subir.tsx` reads it, and widening the route
+ * context to carry the whole `me` would create a second source of truth for
+ * identity (route context vs. query cache) that drifts the instant a
+ * mutation invalidates the cache.
  */
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const me = await requireSession(fetchMe, location.href);
+    context.queryClient.setQueryData(ME_QUERY_KEY, me);
     return { esDemo: me.esDemo };
   },
   component: RouteComponent,
