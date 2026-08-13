@@ -33,7 +33,7 @@ the normal 400-line budget and get no exception.
 
 | Unit | Goal | PR | Base branch |
 |------|------|----|-------------|
-| 1 | Query foundation, `esMeDto` hardening, route/nav/a11y wiring | PR #1a | `feature/us-042-web-configuracion-perfil` (tracker, draft/no-merge) |
+| 1 | Query foundation, `esMeDto` hardening, route/nav/a11y wiring | PR #1a | `feat/us-042-web-configuracion-perfil` (tracker, draft/no-merge) |
 | 2 | `perfil.ts` (profile/password) + sequential save + `PerfilForm` + page composition | PR #1b | PR #1a's branch |
 | 3 | Google link/unlink + `?google=` contract + fluid T1 layout | PR #2 | PR #1b's branch |
 

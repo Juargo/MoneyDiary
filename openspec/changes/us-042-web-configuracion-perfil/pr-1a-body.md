@@ -1,13 +1,16 @@
 # PR #1a — Infrastructure, identity guard, entry points
 
+Part of #276 (US-042). **Does not close it** — this is PR 1 of 3 in a chain; the tracker branch
+closes the issue once all three are integrated.
+
 **Change**: `us-042-web-configuracion-perfil` · **Chain**: feature-branch-chain, targets
-`feature/us-042-web-configuracion-perfil` (tracker, draft/no-merge) · **PR 1 of 3**
+`feat/us-042-web-configuracion-perfil` (tracker, draft/no-merge) · **PR 1 of 3**
 (`#1a` → `#1b` → `#2`, each targeting the previous branch)
 
 ## Dependency diagram
 
 ```
-feature/us-042-web-configuracion-perfil (tracker, draft/no-merge)
+feat/us-042-web-configuracion-perfil (tracker, draft/no-merge)
   └── 📍 PR #1a — infra, identity guard, entry points   (this PR)
         └── PR #1b — perfil form (size:exception, see tasks.md guard decision 2026-08-13)
               └── PR #2 — Google section + layout
@@ -47,26 +50,50 @@ window, never API-first.**
 (ADR-030) — there is no coupling that could refuse the wrong order. This sentence is the mitigation:
 documentation in front of whoever presses revert.
 
-## Pre-flight status (task 0.1)
+## Pre-flight status (task 0.1) — ✅ PASS
 
-**Not yet run — this is a required gate before merge, not before opening this PR as a draft.** The
-`PATCH /api/perfil` proxy pre-flight (design.md §Q5a) needs a real browser session on a Vercel
-preview deployment of this branch and cannot be automated from an apply session. Record the observed
-status code in `tasks.md` task 0.1 before merging. Pass = `200` with the updated `nombre` echoed. A
-platform-layer refusal blocks the change — escalate, do not add `X-HTTP-Method-Override`.
+Run by the maintainer from the browser console against **production** (`https://app.moneydiary.cl`)
+with a real session, 2026-08-13:
 
-(Note: the underlying risk is independently downgraded to Low/High by design.md §Q5 — `PATCH` already
-flows through the same proxy mechanism as the shipped `postReclasificarCategoria`, method-agnostic by
-construction. The pre-flight remains required as a cheap, two-minute confirmation.)
+| Field | Observed |
+|-------|----------|
+| `location.origin` | `https://app.moneydiary.cl` |
+| `status` | **`200`** |
+| `content-type` | `application/json; charset=utf-8` |
+| body | `{"userId":"usuario-fijo-moneydiary","nombre":"Preflight",…}` |
+
+Both failure modes are affirmatively excluded: not `405`/`501`/`502`, and the response is JSON rather
+than `text/html` (which would have meant the SPA shell answered and the request never reached the
+API). `nombre` echoes back the value sent. **Vercel's platform layer forwards `PATCH` to the API** —
+§Q5b's fallback ladder is not needed, and `X-HTTP-Method-Override` stays rejected.
+
+Run against production rather than a branch preview because `apps/web/api/proxy.ts` and `vercel.json`
+are untouched by this change, so production exercises the identical platform path.
+
+## Judgment Day — APPROVED ✅
+
+Two blind adversarial reviewers, two rounds. Round 1 confirmed two `WARNING (real)` findings, both
+fixed and re-judged clean in round 2 (zero CRITICAL, zero real WARNING).
+
+| Finding | Fix |
+|---|---|
+| The app-wide `jsx-a11y` severity derivation used `Object.keys(...).map(r => [r, 'warn'])`, which turned on the 3 rules the plugin ships as `'off'` and discarded the options on 7 tuple-valued rules — producing 6 warnings in files this PR never touches | `73d8ccd` — switched to `Object.entries(...)`, preserving `'off'` and re-attaching each tuple's options |
+| `configuracion.tsx`'s `validateSearch` had no direct test, unlike `/login`'s equivalent `?error=` narrowing | `29f2bbd` — added `src/test/configuracion-validate-search.test.tsx`, mutation-verified to fail against a pass-through implementation |
+| `design.md` §Q7a still showed the buggy derivation verbatim — a future reader copying the binding artifact would have reintroduced the bug | `fefea84` — sample corrected, with a note pointing at `eslint.config.js` as source of truth |
+
+Both tiers verified empirically with `eslint --print-config`, not by reading the config: route file →
+31 error / 0 warn / 3 off; untouched component → 0 error / 31 warn / 3 off, with `label-has-for` at
+`[0]` and `no-noninteractive-element-interactions` at `[1, {handlers…}]`.
 
 ## Gates
 
 - [x] `pnpm web typecheck` — green (adds a new route file; `tsr generate` regenerates the tree)
-- [x] `pnpm web test` — green, 576/576
-- [x] `pnpm web lint` — green, 0 errors (6 pre-existing app-wide `jsx-a11y` warnings, unrelated to
-      this change — the burn-down PR #1a's `warn` tier now enables)
+- [x] `pnpm web test` — green, **582/582** (65 files)
+- [x] `pnpm web lint` — green, 0 errors, 2 warnings. Both are legitimate
+      `no-noninteractive-element-interactions` findings in components this PR does not touch, surfaced
+      by the new `warn` tier and deliberately not silenced — the start of the ADR-018 burn-down.
 - [x] Zero diffs under `apps/api/**` and `apps/mobile/**`
-- [ ] Task 0.1 pre-flight recorded (user-gated, see above)
+- [x] Task 0.1 pre-flight recorded — `200`, see above
 
 ## Out of scope (this PR)
 
