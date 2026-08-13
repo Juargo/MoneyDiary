@@ -162,7 +162,7 @@ export function useGuardarPerfil() {
         (r.tipo === 'ok' && r.perfilGuardado) ||
         (r.tipo === 'password-fallo' && r.perfilGuardado);
       if (identidadCambio) {
-        queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
+        return queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
       }
     },
   });
