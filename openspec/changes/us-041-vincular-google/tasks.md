@@ -441,18 +441,18 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
 
 Depends on: PR #2 (targets its branch; needs only the route file and translator PR #2 extends).
 
-- [ ] **3.1** RED then GREEN: `domain/errors/vinculo-requiere-password.error.ts` (+ `.spec.ts`) — fixed
+- [x] **3.1** RED then GREEN: `domain/errors/vinculo-requiere-password.error.ts` (+ `.spec.ts`) — fixed
   message: *"configurá una contraseña antes de desvincular Google"*, no interpolated input.
   - Verify: `pnpm api test -- vinculo-requiere-password`.
   - Tag: VINC041-05, design §3.1.
 
-- [ ] **3.2** `IIdentidadGoogleRepository` gains `desvincularGoogleSub(userId): Promise<boolean>`. Let
+- [x] **3.2** `IIdentidadGoogleRepository` gains `desvincularGoogleSub(userId): Promise<boolean>`. Let
   `tsc --noEmit` enumerate the fallout: the same single double
   (`test/support/identidad-google-repository.double.ts`) and the port spec.
   - Verify: `pnpm api exec tsc --noEmit`, then `pnpm api test -- identidad-google-repository`.
   - Tag: VINC041-05, design §5.1.
 
-- [ ] **3.3** RED then GREEN: `PrismaIdentidadGoogleRepository.desvincularGoogleSub` — the CA-03
+- [x] **3.3** RED then GREEN: `PrismaIdentidadGoogleRepository.desvincularGoogleSub` — the CA-03
   conditional write.
   - **GUARD note (binding item #5, CA-03 single conditional write — non-negotiable)**:
     ```ts
@@ -478,7 +478,7 @@ Depends on: PR #2 (targets its branch; needs only the route file and translator 
   - Verify: `pnpm api test -- prisma-identidad-google.repository`.
   - Tag: VINC041-05, design §1/Q4, D-06.
 
-- [ ] **3.4** RED then GREEN: `DesvincularGoogleUseCase` — steps `esDemo → buscarCredencialPorId (null
+- [x] **3.4** RED then GREEN: `DesvincularGoogleUseCase` — steps `esDemo → buscarCredencialPorId (null
   ⇒ VinculoRequierePasswordError) → hasher.verificar (false ⇒ PerfilRechazadoError) →
   desvincularGoogleSub(userId) (true or false ⇒ 204)`. `esDemo` is a **required** input
   (`req.esDemo!`) — this use case has a session (D-05).
@@ -490,7 +490,7 @@ Depends on: PR #2 (targets its branch; needs only the route file and translator 
   - Verify: `pnpm api test -- desvincular-google`.
   - Tag: VINC041-05, design §4.3, §5.2.
 
-- [ ] **3.5** RED then GREEN: `crear-perfil.ts` — builds
+- [x] **3.5** RED then GREEN: `crear-perfil.ts` — builds
   `new PrismaIdentidadGoogleRepository(prisma, blindIndex)` and `DesvincularGoogleUseCase`;
   `PerfilGraph` gains `desvincularGoogle`. This use case goes in `PerfilGraph`, not `GoogleAuthGraph` —
   it must work when Google is off (design §1/Q2b, D-04).
@@ -498,13 +498,13 @@ Depends on: PR #2 (targets its branch; needs only the route file and translator 
   - Verify: `pnpm api test -- crear-perfil`.
   - Tag: design D-04, §3.4.
 
-- [ ] **3.6** RED then GREEN: `perfil-google.schema.ts` gains
+- [x] **3.6** RED then GREEN: `perfil-google.schema.ts` gains
   `desvincularGoogleRequestSchema` (`.strict()`, `{ passwordActual: z.string() }`, no `.min()`) —
   extends the file created in task 2.11.
   - Verify: `pnpm api test -- perfil-google.schema`.
   - Tag: VINC041-05, design §5.4.
 
-- [ ] **3.7** RED then GREEN: `perfil-google.routes.ts` gains
+- [x] **3.7** RED then GREEN: `perfil-google.routes.ts` gains
   `registrarPerfilGoogleDesvincular(router, perfil)`.
   - **GUARD note (binding item #4, second half — deliberate, not an omission)**: unlink is mounted on
     `protectedApi` **always**, with **no** activation gate. A user who linked while Google was on must
@@ -517,28 +517,28 @@ Depends on: PR #2 (targets its branch; needs only the route file and translator 
   - Verify: `pnpm api test -- perfil-google.routes`.
   - Tag: VINC041-05, design §1/Q2b, D-04.
 
-- [ ] **3.8** RED then GREEN: `perfil-http-error.ts` gains the `VinculoRequierePasswordError` branch
+- [x] **3.8** RED then GREEN: `perfil-http-error.ts` gains the `VinculoRequierePasswordError` branch
   (`403 VINCULO_REQUIERE_PASSWORD`); `const _exhaustive: never` guard stays unchanged.
   - Verify: `pnpm api test -- perfil-http-error`.
   - Tag: design D-08.
 
-- [ ] **3.9** `app.ts`: mount `registrarPerfilGoogleDesvincular` on `protectedApi`, unconditionally
+- [x] **3.9** `app.ts`: mount `registrarPerfilGoogleDesvincular` on `protectedApi`, unconditionally
   (task 3.7's guard).
   - Verify: `pnpm api test -- app.auth`.
   - Tag: design §1/Q2b.
 
-- [ ] **3.10** RED then GREEN: `openapi-document.ts` — `perfilGoogleDesvincularOperation` +
+- [x] **3.10** RED then GREEN: `openapi-document.ts` — `perfilGoogleDesvincularOperation` +
   `'/api/perfil/google/desvincular'` path (append-only: `204`/`400`/`403`/`401`).
   - Verify: `pnpm api test -- openapi-document`.
   - Tag: VINC041-09, design §5.5.
 
-- [ ] **3.11** Regenerate the contract: `pnpm api openapi:emit` →
+- [x] **3.11** Regenerate the contract: `pnpm api openapi:emit` →
   `pnpm --filter @moneydiary/api-client generate` → `pnpm api openapi:check` →
   `pnpm --filter @moneydiary/api-client typecheck`. Commit both artifacts with this PR's code.
   - Verify: all four commands, green.
   - Tag: VINC041-09, design §5.6.
 
-- [ ] **3.12** Integration coverage, extending existing suites rather than duplicating scaffolding:
+- [x] **3.12** Integration coverage, extending existing suites rather than duplicating scaffolding:
   - **Binding proof (b)** in `test/vinculacion-google.int-spec.ts`: seed a user directly with
     `passwordHash: null` and a `googleSub`; unlink ⇒ `403 VINCULO_REQUIERE_PASSWORD`, `googleSub`
     unchanged.
@@ -553,7 +553,7 @@ Depends on: PR #2 (targets its branch; needs only the route file and translator 
     auth-isolation`.
   - Tag: VINC041-05/06/07/08/09, design §6.3(b), §6.4.
 
-- [ ] **3.13** ADR-034 amendment: append `## Amendment (US-041, 2026-08-13)` to
+- [x] **3.13** ADR-034 amendment: append `## Amendment (US-041, 2026-08-13)` to
   `docs/adr/ADR-034-login-con-google-oidc.md`. **Amendment, not a new ADR** — this is an
   explicit-instruction guard note (binding item #8): a mobile link flow would need a new ADR
   (ADR-035 shape, no `md_oauth`, no round trip); this change deviates from nothing ADR-034 committed to,
@@ -573,7 +573,7 @@ Depends on: PR #2 (targets its branch; needs only the route file and translator 
     original text untouched.
   - Tag: design §1/Q6, §6.b.
 
-- [ ] **3.14** Full PR #3 / full-change verification (full green bar, design §6.6): `pnpm api test`,
+- [x] **3.14** Full PR #3 / full-change verification (full green bar, design §6.6): `pnpm api test`,
   `pnpm api exec tsc --noEmit`, `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration`,
   `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e`, `pnpm api openapi:check`,
   `pnpm --filter @moneydiary/api-client typecheck`, `pnpm web typecheck`,
