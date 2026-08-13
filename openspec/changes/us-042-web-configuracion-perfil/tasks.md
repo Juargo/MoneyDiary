@@ -122,9 +122,12 @@ Tracker merges to `main` only after all three are reviewed and integrated (featu
   Verify: `pnpm web lint`. [WCFG-12, design Q7a]
 
 **PR #1a status (2026-08-13): tasks 1.1–3.6 complete. `pnpm web typecheck && pnpm web test && pnpm
-web lint` all green (576 tests, 0 lint errors — 6 pre-existing app-wide jsx-a11y warnings, unrelated
-to this change). Task 0.1 remains unchecked and is a gate the user must run and record before the PR
-is opened — not automatable from an apply session.**
+web lint` all green (582 tests, 0 lint errors — 2 pre-existing app-wide jsx-a11y warnings, unrelated
+to this change). The app-wide severity derivation (3.6) was hardened post-review to preserve `'off'`
+rules and per-rule options from `jsxA11y.flatConfigs.recommended.rules` instead of flattening every
+key to `'warn'`; that bug had spuriously turned on `label-has-for` (5 of the original 6 warnings) and
+dropped `no-noninteractive-element-interactions`'s options. Task 0.1 remains unchecked and is a gate
+the user must run and record before the PR is opened — not automatable from an apply session.**
 
 ---
 
