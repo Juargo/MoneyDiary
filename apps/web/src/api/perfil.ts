@@ -37,6 +37,27 @@ export type PasswordPatch = {
   readonly passwordNueva: string;
 };
 
+/**
+ * IniciarVinculacionGoogle — el body de éxito de
+ * `POST /api/perfil/google/vincular` (VINC041-01): `200 { urlAutorizacion }`.
+ * A diferencia de `PerfilPatch`/`PasswordPatch`, este SÍ se lee — es la URL a
+ * la que `use-google-vinculo.ts` navega (design.md §1/Q9c, "the jsdom
+ * gotcha").
+ */
+export type IniciarVinculacionGoogle = {
+  readonly urlAutorizacion: string;
+};
+
+function esIniciarVinculacionGoogle(
+  value: unknown,
+): value is IniciarVinculacionGoogle {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { urlAutorizacion?: unknown }).urlAutorizacion === 'string'
+  );
+}
+
 async function errorConCodigo(res: Response): Promise<ApiError> {
   let body: unknown;
   try {
@@ -57,15 +78,23 @@ async function errorConCodigo(res: Response): Promise<ApiError> {
   };
 }
 
-async function enviarPatch(
+/**
+ * enviarMutacion — el fetch + mapeo de error compartido por PATCH y POST
+ * (`dry`: red/401/no-2xx son la MISMA lógica en las cuatro funciones de este
+ * archivo). Devuelve el `Response` crudo en éxito — cada caller decide si
+ * necesita leer el body (`postVincularGoogle`) o descartarlo
+ * (`patchPerfil`/`patchPassword`/`postDesvincularGoogle`).
+ */
+async function enviarMutacion(
   url: string,
-  body: PerfilPatch | PasswordPatch,
-): Promise<ApiResult<void>> {
+  method: 'PATCH' | 'POST',
+  body: unknown,
+): Promise<ApiResult<Response>> {
   let res: Response;
   try {
     res = await fetch(url, {
       ...SESSION_FETCH_OPTIONS,
-      method: 'PATCH',
+      method,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -89,10 +118,18 @@ async function enviarPatch(
     return { ok: false, error: await errorConCodigo(res) };
   }
 
-  // 200 (perfil) o 204 (password) — ningún caller lee el body de éxito
-  // (ver docblock de arriba). 204 no trae body de todos modos (mismo gotcha
-  // que `deleteIngesta`, D7).
-  return { ok: true, value: undefined };
+  return { ok: true, value: res };
+}
+
+async function enviarPatch(
+  url: string,
+  body: PerfilPatch | PasswordPatch,
+): Promise<ApiResult<void>> {
+  const r = await enviarMutacion(url, 'PATCH', body);
+  // 200 (perfil) o 204 (password) — ningún caller lee el body de éxito (ver
+  // docblock de arriba). 204 no trae body de todos modos (mismo gotcha que
+  // `deleteIngesta`, D7).
+  return r.ok ? { ok: true, value: undefined } : r;
 }
 
 /** `PATCH /api/perfil` — PERF040-01/02/03/04/07/08. */
@@ -107,4 +144,49 @@ export async function patchPassword(
   patch: PasswordPatch,
 ): Promise<ApiResult<void>> {
   return enviarPatch('/api/perfil/password', patch);
+}
+
+/**
+ * `POST /api/perfil/google/vincular` — VINC041-01. A diferencia de las
+ * PATCH de arriba, el body de éxito SÍ se lee (`urlAutorizacion` — la URL a
+ * la que `useVincularGoogle` navega vía `window.location.assign`), así que
+ * está guardado igual que `esMeDto` en `auth.ts`: una forma inesperada en un
+ * 200 se mapea a `{ tag: 'parse' }`, nunca lanza.
+ */
+export async function postVincularGoogle(
+  passwordActual: string,
+): Promise<ApiResult<IniciarVinculacionGoogle>> {
+  const r = await enviarMutacion('/api/perfil/google/vincular', 'POST', {
+    passwordActual,
+  });
+  if (!r.ok) {
+    return r;
+  }
+
+  let body: unknown;
+  try {
+    body = await r.value.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+  if (!esIniciarVinculacionGoogle(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+  return { ok: true, value: body };
+}
+
+/** `POST /api/perfil/google/desvincular` — VINC041-06, `204` sin body. */
+export async function postDesvincularGoogle(
+  passwordActual: string,
+): Promise<ApiResult<void>> {
+  const r = await enviarMutacion('/api/perfil/google/desvincular', 'POST', {
+    passwordActual,
+  });
+  return r.ok ? { ok: true, value: undefined } : r;
 }
