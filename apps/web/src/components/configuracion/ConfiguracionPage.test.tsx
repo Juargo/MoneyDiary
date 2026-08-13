@@ -102,10 +102,17 @@ describe('ConfiguracionPage', () => {
     expect(screen.getByLabelText('Password nueva')).toBeInTheDocument();
   });
 
-  it('monta la región del aviso de Google, vacía (se llena en PR #2)', async () => {
+  it('monta las dos regiones del aviso de Google, vacías cuando avisoGoogle no llega por props', async () => {
     await renderConfiguracionPage();
-    const aviso = screen.getByTestId('aviso-google');
-    expect(aviso).toBeInTheDocument();
-    expect(aviso).toBeEmptyDOMElement();
+    expect(screen.getByTestId('aviso-google')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('aviso-google-error')).toBeEmptyDOMElement();
+  });
+
+  it('renderiza el tercer bloque (Cuenta de Google) — No vinculada por defecto en el fixture', async () => {
+    await renderConfiguracionPage();
+    expect(screen.getByText('No vinculada')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Vincular con Google' }),
+    ).toBeInTheDocument();
   });
 });
