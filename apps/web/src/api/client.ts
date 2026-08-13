@@ -28,7 +28,19 @@ export type ApiError =
   | { tag: 'unauthorized'; message: string } // 401 — sin acceso
   | { tag: 'network'; message: string } // fetch rechazado (offline, DNS…)
   | { tag: 'parse'; message: string } // 2xx pero el body no tiene la forma esperada
-  | { tag: 'server'; status: number; message: string }; // cualquier otro no-2xx (5xx, 404…)
+  | {
+      tag: 'server';
+      status: number;
+      message: string;
+      // `code` (US-042 design.md §1/Q8): the perfil endpoints answer every
+      // non-2xx with a body `{ message, code }` where `code` is the specific
+      // domain reason (`PERFIL_RECHAZADO`, `DEMO_SOLO_LECTURA`, …) — the
+      // client picks its own copy by `status + code` and NEVER renders
+      // `message` (design.md D-04, the anti-enumeration constraint).
+      // Optional and unused by every existing `'server'` producer in this
+      // file, so this is additive, not a breaking widen.
+      code?: string;
+    }; // cualquier otro no-2xx (5xx, 404…)
 
 export type ApiResult<T> =
   | { ok: true; value: T }
