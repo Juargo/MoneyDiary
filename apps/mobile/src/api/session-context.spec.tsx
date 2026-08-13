@@ -30,6 +30,7 @@ const meDto: MeDto = {
   email: 'a@b.com',
   esDemo: false,
   nombre: 'Usuario de Prueba',
+  googleVinculado: false,
 };
 
 describe('SessionProvider / useSession (synchronous auth-context gate)', () => {
