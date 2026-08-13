@@ -77,6 +77,32 @@ The Perfil form end to end — CA-01/CA-02's first two blocks, CA-03, CA-05:
    was covered. Closed in this same PR: `MENSAJE_DEMO_SOLO_LECTURA` extracted as a shared exported
    constant in `mensajes.ts`, wired into `PerfilForm` behind `me.esDemo`.
 
+## Judgment Day — APPROVED ✅ (3 rounds, 2 fix iterations)
+
+Two blind adversarial reviewers. Round 3 closed with **zero CRITICAL and zero real WARNING** from
+both. What the process actually caught, in order:
+
+| Round | Finding | Fix |
+|---|---|---|
+| 1 | `onSuccess` fired `invalidateQueries` without returning it. `Mutation.execute()` awaits `onSuccess` before dispatching success, so `Guardar cambios` re-enabled **before** the identity refetch landed — a fast second submit would read a stale pre-save `me` and re-derive already-applied changes | `9e8902c` |
+| 1 | Both message regions rendered lines as adjacent inline `<span>`s. The two-line partial-failure message — *"Se guardaron tus datos, pero no se pudo cambiar la password."* + the password error — ran together as one blob | `34370d7` |
+| 1 | `ConfiguracionPage.test.tsx` built its `QueryClient` without `QUERY_CLIENT_DEFAULTS`, inheriting `staleTime: 0`, so it made a real unstubbed network call that passed only because `fetchMe()` swallows failures | `4719b45` |
+| 2 | **The round-1 invalidation fix had zero regression coverage** — a reviewer removed the `return` and all 73 tests still passed. Nothing mounted a live `useMe()` observer, so `invalidateQueries` never had a query to refetch | `6419e66` |
+| 2 | **Spec conformance gap**: `WCFG-02` names `Cambiar password` as one of three divided blocks; the string existed nowhere in the codebase — the password fields were separated only by a Tailwind gap | `6419e66` |
+
+The invalidation regression test was mutation-verified three times independently (both judges plus
+the orchestrator): with the `return` removed it fails deterministically; restored, the suite is green.
+A test that passes with the bug reintroduced is not a regression test.
+
+Remaining as INFO, not fixed: two `(Q1c)` citations in `PerfilForm.tsx`/`PerfilForm.test.tsx` that
+should read `(Q2b)`, and `mensajeDeApiError` lacking the `const _exhaustive: never` guard its sibling
+`mensajeDeResultado` has (`noImplicitReturns` is off, so a future `ApiError` tag would silently return
+`undefined` rather than fail the build).
+
+**Open product decision, deliberately not taken here**: `passwordActual` is not cleared after a
+successful save that changed no password. Two judges raised it across two rounds; `design.md` Q2c is
+silent on that sub-case, so it is left to the maintainer rather than settled by a fix agent.
+
 ## Gates
 
 - [x] `pnpm web typecheck` — green
