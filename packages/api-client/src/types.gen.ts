@@ -1512,11 +1512,13 @@ export interface components {
             readonly token: string;
             readonly userId: string;
         };
-        /** @description GET /api/auth/me and PATCH /api/perfil — the authenticated user identity (AUTH-09, US-040). */
+        /** @description GET /api/auth/me and PATCH /api/perfil — the authenticated user identity, including whether Google is linked (AUTH-09, US-040, VINC041-08). */
         readonly AuthMeResponse: {
             /** @description null only for esDemo=true (demo) accounts — a domain invariant, not enforced by this schema. */
             readonly email: string | null;
             readonly esDemo: boolean;
+            /** @description VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary. */
+            readonly googleVinculado: boolean;
             readonly nombre: string;
             readonly userId: string;
         };
