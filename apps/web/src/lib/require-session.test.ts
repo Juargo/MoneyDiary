@@ -92,6 +92,7 @@ describe('requireSession', () => {
       userId: 'user-1',
       email: 'usuario@moneydiary.cl',
       esDemo: false,
+      nombre: 'Usuario de Prueba',
     };
     const fetchMe = vi.fn(
       async (): Promise<ApiResult<MeDto>> => ({ ok: true, value: me }),
@@ -102,7 +103,12 @@ describe('requireSession', () => {
   });
 
   it('resolves with esDemo:true for a demo session, without a second fetchMe call', async () => {
-    const me: MeDto = { userId: 'demo-1', email: null, esDemo: true };
+    const me: MeDto = {
+      userId: 'demo-1',
+      email: null,
+      esDemo: true,
+      nombre: 'Demo-abc123',
+    };
     const fetchMe = vi.fn(
       async (): Promise<ApiResult<MeDto>> => ({ ok: true, value: me }),
     );
