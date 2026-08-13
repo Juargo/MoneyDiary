@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { ConfiguracionPage } from '@/components/configuracion/ConfiguracionPage';
 
 type ConfiguracionSearch = { readonly google?: 'vinculado' | 'error' };
 
@@ -14,21 +15,18 @@ type ConfiguracionSearch = { readonly google?: 'vinculado' | 'error' };
  * URL SELECTS a client constant, it never supplies content that gets
  * rendered or interpolated.
  *
- * `component` is a thin placeholder in THIS PR (#1a) — it only proves the
- * route exists and is reachable (WCFG-01). The `?google=` read/clean effect
- * (design.md §1/Q6b) and the full page composition (`ConfiguracionPage`) land
- * in PR #1b (task 4.11) and PR #2 (task 6.1) respectively; wiring them here
- * early would render a Google-outcome message on a page with no Google
- * section, which design.md's PR #1→#2 window explicitly rejects.
+ * `component` renders the full `ConfiguracionPage` composition as of PR #1b
+ * (task 4.11) — the `?google=` read/clean effect (design.md §1/Q6b) still
+ * lands in PR #2 (task 6.1); reading `google` here early would render a
+ * Google-outcome message on a page with no Google section yet, which
+ * design.md's PR #1→#2 window explicitly rejects. `search.google` is
+ * therefore still validated (so the URL never carries an un-narrowed value
+ * through this route) but deliberately unused by `component` until then.
  */
 export const Route = createFileRoute('/_authenticated/configuracion')({
   validateSearch: (search: Record<string, unknown>): ConfiguracionSearch => {
     const valor = search.google;
     return valor === 'vinculado' || valor === 'error' ? { google: valor } : {};
   },
-  component: ConfiguracionRoute,
+  component: ConfiguracionPage,
 });
-
-function ConfiguracionRoute() {
-  return <h1>Editar perfil</h1>;
-}
