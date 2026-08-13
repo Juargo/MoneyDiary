@@ -53,14 +53,20 @@ describe('BottomTabs', () => {
     expect(link).toHaveAttribute('href', '/subir');
   });
 
-  it('renders the placeholders as inert, disabled tabs', async () => {
+  // US-042 WCFG-01: "Configuración" flipped from placeholder to a real link.
+  it('renders "Configuración" as a real nav link to /configuracion', async () => {
+    await renderBottomTabs();
+
+    const link = screen.getByRole('link', { name: 'Configuración' });
+    expect(link).toHaveAttribute('href', '/configuracion');
+  });
+
+  it('renders the remaining placeholder as an inert, disabled tab', async () => {
     const router = await renderBottomTabs();
 
-    for (const label of ['Configuración', 'Ayuda']) {
-      const button = screen.getByRole('button', { name: label });
-      expect(button).toBeDisabled();
-      fireEvent.click(button);
-    }
+    const button = screen.getByRole('button', { name: 'Ayuda' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
 
     expect(router.state.location.pathname).toBe('/');
   });

@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import { UserRound } from 'lucide-react';
 import { fetchMe } from '@/api/auth';
 import { ME_QUERY_KEY } from '@/api/use-me';
 import { requireSession } from '@/lib/require-session';
@@ -47,6 +48,14 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * context to carry the whole `me` would create a second source of truth for
  * identity (route context vs. query cache) that drifts the instant a
  * mutation invalidates the cache.
+ *
+ * The sidebar footer also carries a compact icon link to `/configuracion`
+ * (US-042 WCFG-01, proposal §1: the literal "avatar" of CA-01) — icon +
+ * `aria-label="Configuración de la cuenta"`, deliberately no user name
+ * rendered (a name read from route context would go stale the moment the
+ * user renames themselves on that very page). `AppShell`/`Sidebar.tsx` are
+ * untouched: this rides the existing `sidebarFooter` prop, so the addition is
+ * a one-call-site change here.
  */
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location, context }) => {
@@ -60,7 +69,20 @@ export const Route = createFileRoute('/_authenticated')({
 function RouteComponent() {
   const { esDemo } = Route.useRouteContext();
   return (
-    <AppShell sidebarFooter={<ApiVersionBadge />}>
+    <AppShell
+      sidebarFooter={
+        <div className="flex flex-col gap-2">
+          <ApiVersionBadge />
+          <Link
+            to="/configuracion"
+            aria-label="Configuración de la cuenta"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+          >
+            <UserRound className="size-5" aria-hidden="true" />
+          </Link>
+        </div>
+      }
+    >
       <DemoBanner esDemo={esDemo} />
       <Outlet />
     </AppShell>
