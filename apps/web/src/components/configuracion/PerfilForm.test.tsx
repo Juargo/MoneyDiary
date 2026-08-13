@@ -167,6 +167,34 @@ describe('PerfilForm', () => {
     expect(screen.getByLabelText('Password nueva')).toHaveValue('');
   });
 
+  it('password-only falla (perfilGuardado: false): mantiene AMBOS campos de password', async () => {
+    stubFetch({
+      '/api/perfil/password': {
+        status: 403,
+        body: { code: 'PERFIL_RECHAZADO' },
+      },
+    });
+    await renderPerfilForm();
+
+    fireEvent.change(screen.getByLabelText('Password actual'), {
+      target: { value: 'correcta' },
+    });
+    fireEvent.change(screen.getByLabelText('Password nueva'), {
+      target: { value: 'nueva12345' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'No se pudo cambiar la password. Revisa tu password actual.',
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Password actual')).toHaveValue('correcta');
+    expect(screen.getByLabelText('Password nueva')).toHaveValue('nueva12345');
+  });
+
   it('falla parcial (row 11): mantiene los campos de password para que el retry solo mande la password', async () => {
     stubFetch({
       '/api/perfil': { status: 200 },
@@ -195,11 +223,19 @@ describe('PerfilForm', () => {
         ),
       ).toBeInTheDocument(),
     );
-    expect(
-      screen.getByText(
-        'No se pudo cambiar la password. Revisa tu password actual.',
-      ),
-    ).toBeInTheDocument();
+    const lineaUno = screen.getByText(
+      'Se guardaron tus datos, pero no se pudo cambiar la password.',
+    );
+    const lineaDos = screen.getByText(
+      'No se pudo cambiar la password. Revisa tu password actual.',
+    );
+    expect(lineaDos).toBeInTheDocument();
+    // Cada línea vive en su propio bloque (no `<span>` inline adyacente):
+    // asegura la separación visual/semántica de las dos oraciones, no solo
+    // su presencia (`getByText` solo probaría eso).
+    expect(lineaUno.tagName).toBe('P');
+    expect(lineaDos.tagName).toBe('P');
+    expect(screen.getByRole('alert').children).toHaveLength(2);
     expect(screen.getByLabelText('Password actual')).toHaveValue('correcta');
     expect(screen.getByLabelText('Password nueva')).toHaveValue('nueva12345');
   });

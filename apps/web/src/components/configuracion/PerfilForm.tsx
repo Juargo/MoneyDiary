@@ -119,14 +119,14 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           Guardar cambios
         </button>
       </div>
-      <p aria-live="polite" className="text-sm text-emerald-700">
+      <div aria-live="polite" className="text-sm text-emerald-700">
         {mensaje?.tono === 'ok' &&
-          mensaje.lineas.map((linea) => <span key={linea}>{linea}</span>)}
-      </p>
-      <p role="alert" className="text-sm text-red-600">
+          mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
+      </div>
+      <div role="alert" className="text-sm text-red-600">
         {mensaje?.tono === 'error' &&
-          mensaje.lineas.map((linea) => <span key={linea}>{linea}</span>)}
-      </p>
+          mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
+      </div>
     </form>
   );
 }
