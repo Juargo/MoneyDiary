@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useGuardarPerfil } from '@/api/use-guardar-perfil';
 import type { MeDto } from '@/api/types';
 import { CampoTexto } from './CampoTexto';
-import { mensajeDeResultado } from './mensajes';
+import { MENSAJE_DEMO_SOLO_LECTURA, mensajeDeResultado } from './mensajes';
 import type { Mensaje } from './mensajes';
 
 /**
@@ -23,6 +23,12 @@ import type { Mensaje } from './mensajes';
  * `/login` SIN mostrar mensaje (WCFG-09) — se intercepta ANTES de llamar a
  * `mensajeDeResultado`, así ninguna región llega a mostrar la cadena vacía
  * que `mensajeDeApiError` devuelve para ese tag.
+ *
+ * `me.esDemo` deshabilita el form PROACTIVAMENTE (design.md §Q9c): los
+ * cuatro `CampoTexto`, el botón, y un `role="note"` con
+ * `MENSAJE_DEMO_SOLO_LECTURA` — la misma constante que la fila reactiva
+ * `403:DEMO_SOLO_LECTURA` de `mensajes.ts` usa si igual llegara a
+ * dispararse un submit (`dry`, una sola copia de la advertencia).
  */
 export function PerfilForm({ me }: { readonly me: MeDto }) {
   const navigate = useNavigate();
@@ -69,6 +75,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           value={nombre}
           onChange={setNombre}
           autoComplete="name"
+          disabled={me.esDemo}
         />
         <CampoTexto
           label="Email"
@@ -76,6 +83,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           onChange={setEmail}
           type="email"
           autoComplete="email"
+          disabled={me.esDemo}
         />
       </div>
       <div className="flex flex-col gap-4">
@@ -86,6 +94,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           type="password"
           required={emailSucio}
           autoComplete="current-password"
+          disabled={me.esDemo}
         />
         <CampoTexto
           label="Password nueva"
@@ -93,12 +102,18 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           onChange={setPasswordNueva}
           type="password"
           autoComplete="new-password"
+          disabled={me.esDemo}
         />
       </div>
+      {me.esDemo && (
+        <p role="note" className="text-sm text-slate-500">
+          {MENSAJE_DEMO_SOLO_LECTURA}
+        </p>
+      )}
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || me.esDemo}
           className="rounded-full bg-slate-800 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           Guardar cambios

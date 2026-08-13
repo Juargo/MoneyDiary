@@ -212,9 +212,15 @@ half-wired sequential save is worse than a large diff.** [design §10]
   a two-tone pair like `PerfilForm`'s regions once the `?google=error` case is wired in.)
 - [x] 4.11 Wire `configuracion.tsx`'s component to render `ConfiguracionPage`, replacing PR #1a's
   placeholder. Verify: `pnpm web typecheck && pnpm web test && pnpm web lint`. [WCFG-13]
+- [x] 4.12 RED+GREEN: `PerfilForm` proactive demo gate — closes a design §Q9c verification-matrix
+  requirement the original 4.x breakdown omitted (4.9 only wired the reactive `403
+  DEMO_SOLO_LECTURA` mapping). `mensajes.ts` exports `MENSAJE_DEMO_SOLO_LECTURA` (single source for
+  both halves, `dry`); `PerfilForm` disables the four `CampoTexto` and `Guardar cambios` when
+  `me.esDemo`, and renders a `role="note"` element carrying that same string only in that case.
+  [design Q9c]
 
-**PR #1b status (2026-08-13): tasks 4.1-4.11 complete. `pnpm web typecheck && pnpm web test && pnpm
-web lint` all green (72 test files, 652 tests, 0 lint errors — same 2 pre-existing app-wide
+**PR #1b status (2026-08-13): tasks 4.1-4.12 complete. `pnpm web typecheck && pnpm web test && pnpm
+web lint` all green (72 test files, 654 tests, 0 lint errors — same 2 pre-existing app-wide
 jsx-a11y warnings as PR #1a's baseline, unrelated to this change). Confirmed zero diffs under
 `apps/api/**` and `apps/mobile/**`. `ApiError`'s `'server'` tag widened with an optional `code?:
 string` field in `client.ts` (additive, non-breaking) so `perfil.ts`/`mensajes.ts` can carry

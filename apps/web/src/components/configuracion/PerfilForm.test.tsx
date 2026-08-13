@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PerfilForm } from './PerfilForm';
+import { MENSAJE_DEMO_SOLO_LECTURA } from './mensajes';
 import { ME_QUERY_KEY } from '@/api/use-me';
 import type { MeDto } from '@/api/types';
 
@@ -242,5 +243,33 @@ describe('PerfilForm', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     expect(screen.getByText('pantalla de login')).toBeInTheDocument();
+  });
+
+  it('demo (esDemo=true): los cuatro campos y el botón quedan disabled, con el aviso role="note" (design Q9c)', async () => {
+    await renderPerfilForm({ ...ME, esDemo: true });
+
+    expect(screen.getByLabelText('Nombre')).toBeDisabled();
+    expect(screen.getByLabelText('Email')).toBeDisabled();
+    expect(screen.getByLabelText('Password actual')).toBeDisabled();
+    expect(screen.getByLabelText('Password nueva')).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('note')).toHaveTextContent(
+      MENSAJE_DEMO_SOLO_LECTURA,
+    );
+  });
+
+  it('no-demo (esDemo=false): nada queda disabled y no se monta ningún role="note" (design Q9c)', async () => {
+    await renderPerfilForm();
+
+    expect(screen.getByLabelText('Nombre')).not.toBeDisabled();
+    expect(screen.getByLabelText('Email')).not.toBeDisabled();
+    expect(screen.getByLabelText('Password actual')).not.toBeDisabled();
+    expect(screen.getByLabelText('Password nueva')).not.toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).not.toBeDisabled();
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 });

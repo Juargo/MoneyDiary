@@ -25,6 +25,17 @@ export type Mensaje = {
 const GENERICO = 'Ocurrió un error inesperado. Intenta nuevamente.';
 
 /**
+ * MENSAJE_DEMO_SOLO_LECTURA — copy verbatim de WCFG-09/design.md §Q9c,
+ * exportada porque `PerfilForm` la necesita DOS veces: reactivamente (acá,
+ * como fila de `mensajeDeServerError`, cuando el 403 `DEMO_SOLO_LECTURA`
+ * llega del servidor) y proactivamente (el `role="note"` que deshabilita el
+ * form antes de que el usuario intente guardar). Una sola constante evita
+ * que las dos copias diverjan (`dry`).
+ */
+export const MENSAJE_DEMO_SOLO_LECTURA =
+  'Estás en una cuenta de demostración. Crea una cuenta real para editar tu perfil.';
+
+/**
  * mensajeDeServerError — la tabla de ocho códigos (Q8a/Q8b), cerrada sobre
  * `status + code`. `origen` distingue las dos únicas filas que lo
  * necesitan (`PERFIL_RECHAZADO` en el llamado de perfil vs. el de
@@ -48,7 +59,7 @@ function mensajeDeServerError(
     case '400:PASSWORD_INVALIDA':
       return 'La password nueva no cumple los requisitos mínimos.';
     case '403:DEMO_SOLO_LECTURA':
-      return 'Estás en una cuenta de demostración. Crea una cuenta real para editar tu perfil.';
+      return MENSAJE_DEMO_SOLO_LECTURA;
     case '403:VINCULO_REQUIERE_PASSWORD':
       return 'No puedes desvincular Google sin una password en tu cuenta.';
     case '409:GOOGLE_YA_VINCULADO':

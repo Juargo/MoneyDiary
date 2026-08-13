@@ -53,7 +53,10 @@ The Perfil form end to end — CA-01/CA-02's first two blocks, CA-03, CA-05:
 - **`src/components/configuracion/{CampoTexto,ConfiguracionTabs,PerfilForm,ConfiguracionPage}.tsx`** —
   the visible page: four labeled fields, `Guardar cambios` disabled while pending, two always-mounted
   message regions (`aria-live="polite"` + `role="alert"`, never one shared region), `Password actual`
-  gains native `required` the instant `Email` is dirty.
+  gains native `required` the instant `Email` is dirty. `PerfilForm` also gates proactively on
+  `me.esDemo`: the four fields and the submit button become `disabled`, and a `role="note"` element
+  carries `mensajes.ts`'s exported `MENSAJE_DEMO_SOLO_LECTURA` — the same string the reactive `403
+  DEMO_SOLO_LECTURA` mapping already used, now a single source (design §Q9c, task 4.12).
 - **`configuracion.tsx`** now renders `ConfiguracionPage`, replacing PR #1a's placeholder heading.
 
 ## Apply-time deviations from the task list (recorded, not scope creep)
@@ -68,11 +71,16 @@ The Perfil form end to end — CA-01/CA-02's first two blocks, CA-03, CA-05:
 3. **The Google-outcome placeholder region (task 4.10) ships as a single always-mounted
    `aria-live="polite"` element**, not a two-region pair — PR #2 (task 6.1) decides whether it needs
    to become symmetric with `PerfilForm`'s regions once `?google=error` is wired in.
+4. **Task 4.12 (added after the initial 4.1-4.11 batch)**: design §Q9c's verification matrix
+   required a proactive demo gate (`disabled` controls + `role="note"`) that the original 4.x
+   breakdown never listed as a sub-step — only the reactive `403 DEMO_SOLO_LECTURA` message mapping
+   was covered. Closed in this same PR: `MENSAJE_DEMO_SOLO_LECTURA` extracted as a shared exported
+   constant in `mensajes.ts`, wired into `PerfilForm` behind `me.esDemo`.
 
 ## Gates
 
 - [x] `pnpm web typecheck` — green
-- [x] `pnpm web test` — green, **652/652** (72 files, +70 tests over PR #1a's 582)
+- [x] `pnpm web test` — green, **654/654** (72 files, +72 tests over PR #1a's 582)
 - [x] `pnpm web lint` — green, 0 errors, 2 warnings (identical pre-existing
       `no-noninteractive-element-interactions` findings from PR #1a's baseline — untouched by this PR)
 - [x] Zero diffs under `apps/api/**` and `apps/mobile/**`
