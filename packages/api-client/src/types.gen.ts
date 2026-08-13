@@ -1153,6 +1153,147 @@ export interface paths {
         };
         readonly trace?: never;
     };
+    readonly "/api/perfil": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        /**
+         * Update the current user profile (nombre and/or email)
+         * @description Authenticated endpoint that updates the caller's own nombre and/or email (US-040, PERF040-01/02/03/04/07). `passwordActual` is REQUIRED whenever `email` is present. On an email change the ciphertext and blind index are rewritten together in one atomic update, so login keeps working with the NEW address and stops working with the old one. A wrong `passwordActual` and an email already claimed by another account return the SAME generic 403 PERFIL_RECHAZADO (anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         */
+        readonly patch: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly email?: string;
+                        readonly nombre?: string;
+                        readonly passwordActual?: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Profile updated; the full updated identity is returned. */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["AuthMeResponse"];
+                    };
+                };
+                /** @description Malformed body, or an invalid nombre/email. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description No valid session (missing, expired, or invalid token). */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Demo session, wrong current password, or the email is already in use. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly trace?: never;
+    };
+    readonly "/api/perfil/password": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        /**
+         * Change the current user's password
+         * @description Authenticated endpoint that changes the caller's own password (US-040, PERF040-03/05/06). `passwordActual` is REQUIRED. On success, EVERY OTHER active session belonging to the caller's user is revoked — the session that made this request stays valid. A wrong `passwordActual` returns the SAME generic 403 PERFIL_RECHAZADO used by `PATCH /api/perfil` (anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. `passwordNueva` must satisfy the domain password rules (8-128 characters) — an invalid one is rejected with 400 PASSWORD_INVALIDA before any write. Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         */
+        readonly patch: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly passwordActual: string;
+                        readonly passwordNueva: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Password changed. No response body — every other session was revoked. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Malformed body, or an invalid passwordNueva. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description No valid session (missing, expired, or invalid token). */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Demo session, or an incorrect current password. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly trace?: never;
+    };
     readonly "/api/resumen": {
         readonly parameters: {
             readonly query?: never;
@@ -1371,11 +1512,12 @@ export interface components {
             readonly token: string;
             readonly userId: string;
         };
-        /** @description GET /api/auth/me — the authenticated user identity (AUTH-09). */
+        /** @description GET /api/auth/me and PATCH /api/perfil — the authenticated user identity (AUTH-09, US-040). */
         readonly AuthMeResponse: {
             /** @description null only for esDemo=true (demo) accounts — a domain invariant, not enforced by this schema. */
             readonly email: string | null;
             readonly esDemo: boolean;
+            readonly nombre: string;
             readonly userId: string;
         };
         /** @description Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. */
@@ -1500,6 +1642,11 @@ export interface components {
             readonly matchType: string;
             readonly patron: string;
             readonly prioridad: number;
+        };
+        /** @description Error body for the /api/perfil* endpoints (US-040). */
+        readonly PerfilErrorResponse: {
+            readonly code: string;
+            readonly message: string;
         };
         /** @description POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003). */
         readonly PreviewIngestaResponse: {
