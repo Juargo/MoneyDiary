@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { routeTree } from '@/routeTree.gen';
+import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
 
 /**
  * Integration proof for demo-trial-mode DEMO-UI-02, using the REAL generated
@@ -20,6 +21,10 @@ function buildFetchStub(meResponse: {
   userId: string;
   email: string | null;
   esDemo: boolean;
+  // US-042 WCFG-04: `esMeDto` now rejects a payload missing either field
+  // (design.md §1/Q4b) — both required in every stub payload from here on.
+  nombre: string;
+  googleVinculado: boolean;
 }) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
@@ -36,10 +41,19 @@ function buildFetchStub(meResponse: {
 
 function renderApp() {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: {
+      queries: {
+        ...QUERY_CLIENT_DEFAULTS.defaultOptions?.queries,
+        retry: false,
+      },
+    },
   });
   const router = createRouter({
     routeTree,
+    // `createRootRouteWithContext<{ queryClient }>` (design.md §1/Q3c/D-07)
+    // makes this required — `_authenticated.tsx`'s `beforeLoad` reads
+    // `context.queryClient.setQueryData` to prime `['auth-me']`.
+    context: { queryClient },
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 
@@ -63,6 +77,8 @@ describe('DemoBanner wiring in _authenticated layout (real route tree)', () => {
       userId: 'demo-1',
       email: null,
       esDemo: true,
+      nombre: 'Demo-abc123',
+      googleVinculado: false,
     });
     vi.stubGlobal('fetch', fetchStub);
 
@@ -96,6 +112,8 @@ describe('DemoBanner wiring in _authenticated layout (real route tree)', () => {
       userId: 'user-1',
       email: 'usuario@moneydiary.cl',
       esDemo: false,
+      nombre: 'Usuario de Prueba',
+      googleVinculado: false,
     });
     vi.stubGlobal('fetch', fetchStub);
 

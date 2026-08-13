@@ -39,6 +39,10 @@ function buildFetchStub() {
                 userId: 'user-1',
                 email: 'usuario@moneydiary.cl',
                 esDemo: false,
+                // US-042 WCFG-04: `esMeDto` now rejects a payload missing
+                // either field (design.md §1/Q4b).
+                nombre: 'Usuario de Prueba',
+                googleVinculado: false,
               }),
           }
         : { ok: false, status: 401 };
@@ -67,6 +71,10 @@ function renderApp(initialPath: string) {
   });
   const router = createRouter({
     routeTree,
+    // `createRootRouteWithContext<{ queryClient }>` (design.md §1/Q3c/D-07)
+    // makes this required — `_authenticated.tsx`'s `beforeLoad` reads
+    // `context.queryClient.setQueryData` to prime `['auth-me']`.
+    context: { queryClient },
     history: createMemoryHistory({ initialEntries: [initialPath] }),
   });
 

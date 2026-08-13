@@ -74,6 +74,28 @@ export async function postLogin(input: {
 // `email: string` — a `null` email on a non-demo account is rejected, not
 // silently accepted, even though it type-checks field-by-field. A demo user
 // (`esDemo=true`) is the only shape allowed to have `email: null`.
+//
+// US-042 WCFG-04 (design.md §1/Q4a): `nombre`/`googleVinculado` are REQUIRED
+// in the generated contract (`MeDto`) but were unchecked here — a payload
+// missing or mistyping either passed silently and downstream code read
+// `undefined` through a `string`/`boolean` type. Both are REJECTED, never
+// defaulted: `googleVinculado ?? false` would render a false statement about
+// the user's account security (and a button guaranteed to 409); `nombre ??
+// ''` would let `Guardar cambios` write a blank name over a good one. `nombre`
+// is deliberately NOT length-validated here — the guard's job is shape,
+// PERF040-01's 1..80 rule is a domain rule that lives server-side (ADR-024).
+//
+// This hardening is a runtime-only check (`tsc` cannot catch a shape drift in
+// a JSON payload) whose failure mode is app-wide: `requireSession`
+// (`lib/require-session.ts`) maps ANY non-ok `fetchMe` result — including
+// `{ tag: 'parse' }` — to a `/login` redirect, with no discrimination by
+// `error.tag`. If `/api/auth/me` ever stops sending either field, every
+// `_authenticated` route bounces to `/login` for every user, with no
+// client-side recovery. Deploy-ordering consequence (design.md §1/Q4c): an
+// `apps/api` rollback past US-040/US-041 MUST revert this hardening first, or
+// in the same window — never API-first. Nothing in the toolchain enforces
+// that ordering; it is a documentation-only mitigation, restated in the PR
+// description of the PR that carries this change.
 function esMeDto(value: unknown): value is MeDto {
   if (typeof value !== 'object' || value === null) {
     return false;
@@ -81,7 +103,9 @@ function esMeDto(value: unknown): value is MeDto {
   const candidato = value as Partial<MeDto>;
   if (
     typeof candidato.userId !== 'string' ||
+    typeof candidato.nombre !== 'string' ||
     typeof candidato.esDemo !== 'boolean' ||
+    typeof candidato.googleVinculado !== 'boolean' ||
     (candidato.email !== null && typeof candidato.email !== 'string')
   ) {
     return false;
