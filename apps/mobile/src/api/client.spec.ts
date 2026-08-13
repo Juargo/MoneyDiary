@@ -35,7 +35,12 @@ const validDto: ResumenMesDto = {
   estadoGlobal: 'amarillo',
 };
 
-const validMeDto: MeDto = { userId: 'user-1', email: 'a@b.com', esDemo: false };
+const validMeDto: MeDto = {
+  userId: 'user-1',
+  email: 'a@b.com',
+  esDemo: false,
+  nombre: 'Usuario de Prueba',
+};
 
 const validLoginResponse = {
   token: 'session-token',

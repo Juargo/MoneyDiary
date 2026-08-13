@@ -6,8 +6,14 @@ const validMeDto: MeDto = {
   userId: 'user-1',
   email: 'usuario@moneydiary.cl',
   esDemo: false,
+  nombre: 'Usuario de Prueba',
 };
-const validDemoMeDto: MeDto = { userId: 'demo-1', email: null, esDemo: true };
+const validDemoMeDto: MeDto = {
+  userId: 'demo-1',
+  email: null,
+  esDemo: true,
+  nombre: 'Demo-abc123',
+};
 
 function mockFetchOnce(response: {
   ok: boolean;
