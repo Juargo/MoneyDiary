@@ -45,14 +45,30 @@ Tracker merges to `main` only after all three are reviewed and integrated (featu
 
 ### Phase 0: Pre-flight (before any file is written)
 
-- [ ] 0.1 **DEFERRED — user-gated, requires a real browser session on a Vercel preview.** On a Vercel
-  preview of this branch, with a real session, run the `PATCH /api/perfil` snippet from design §Q5a.
-  **Record the observed status code in this checkbox.** Pass = `200` with updated `nombre` echoed.
-  Fail (`405`/`501`/`502`, or `200` with `text/html`) = diagnose per §Q5b before writing code; a
-  platform-layer refusal **blocks the change** — escalate, do not add `X-HTTP-Method-Override`
-  (rejected, needs an API change). [design Q5a/Q5b]
-  **This gate must pass before PR #1a is opened.** Not automatable — cannot be run from this apply
-  session; left unchecked deliberately for the user to execute and record.
+- [x] 0.1 **PASS — observed status `200`.** Run the `PATCH /api/perfil` snippet from design §Q5a with
+  a real session. Pass = `200` with updated `nombre` echoed. Fail (`405`/`501`/`502`, or `200` with
+  `text/html`) = diagnose per §Q5b before writing code; a platform-layer refusal **blocks the
+  change** — escalate, do not add `X-HTTP-Method-Override` (rejected, needs an API change).
+  [design Q5a/Q5b]
+
+  **Recorded evidence (2026-08-13, executed by the maintainer from the browser console):**
+
+  | Field | Observed |
+  |-------|----------|
+  | `location.origin` | `https://app.moneydiary.cl` (production Vercel deployment) |
+  | `status` | **`200`** |
+  | `content-type` | `application/json; charset=utf-8` |
+  | body | `{"userId":"usuario-fijo-moneydiary","nombre":"Preflight","esDemo":false,"googleVinculado":true,…}` |
+
+  Both failure modes are affirmatively excluded: the status is not `405`/`501`/`502`, and the
+  `content-type` is JSON rather than `text/html`, so the request reached the API instead of being
+  answered by the SPA shell. `nombre` echoes back the value sent. **Vercel's platform layer forwards
+  `PATCH` to the API — the change is unblocked and §Q5b's fallback ladder is not needed.**
+
+  Ran against the **production** deployment rather than a branch preview: `apps/web/api/proxy.ts` and
+  `vercel.json` are untouched by this change, so production exercises the identical platform path.
+  Note the earlier false start — `method: 'PATH'` (typo) returns `400`, and a run against
+  `localhost:5173` proves nothing, since Vite's dev proxy is not the Vercel function under test.
 
 ### Phase 1: Query foundation (type-level — let `tsc` enumerate the fallout, do not grep)
 
