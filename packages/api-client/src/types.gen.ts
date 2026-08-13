@@ -1225,6 +1225,75 @@ export interface paths {
         };
         readonly trace?: never;
     };
+    readonly "/api/perfil/password": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        /**
+         * Change the current user's password
+         * @description Authenticated endpoint that changes the caller's own password (US-040, PERF040-03/05/06). `passwordActual` is REQUIRED. On success, EVERY OTHER active session belonging to the caller's user is revoked — the session that made this request stays valid. A wrong `passwordActual` returns the SAME generic 403 PERFIL_RECHAZADO used by `PATCH /api/perfil` (anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. `passwordNueva` must satisfy the domain password rules (8-128 characters) — an invalid one is rejected with 400 PASSWORD_INVALIDA before any write. Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         */
+        readonly patch: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly passwordActual: string;
+                        readonly passwordNueva: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Password changed. No response body — every other session was revoked. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Malformed body, or an invalid passwordNueva. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description No valid session (missing, expired, or invalid token). */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Demo session, or an incorrect current password. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly trace?: never;
+    };
     readonly "/api/resumen": {
         readonly parameters: {
             readonly query?: never;

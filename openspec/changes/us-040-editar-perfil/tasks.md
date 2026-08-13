@@ -178,44 +178,44 @@ the full pair only.
 
 ### Phase 9: Domain — `Password` VO
 
-- [ ] 9.1 RED `domain/value-objects/password.spec.ts` — boundaries 7/8/128/129 (fail/ok/ok/fail);
+- [x] 9.1 RED `domain/value-objects/password.spec.ts` — boundaries 7/8/128/129 (fail/ok/ok/fail);
   `valor` unmodified (no trim — spaces are legitimate password chars); `JSON.stringify(pwd)` contains
   `'[REDACTED]'`, never the plaintext
-- [ ] 9.2 GREEN implement `Password.crear()` (8-128 chars, length over composition), `toJSON() →
+- [x] 9.2 GREEN implement `Password.crear()` (8-128 chars, length over composition), `toJSON() →
   '[REDACTED]'` (D-02)
-- [ ] 9.3 RED `domain/errors/password-invalida.error.spec.ts` — states the rule; **NO `rawValue`
+- [x] 9.3 RED `domain/errors/password-invalida.error.spec.ts` — states the rule; **NO `rawValue`
   property** (unlike `EmailInvalidoError` — a password is a secret); `JSON.stringify` contains no
   substring of the attempted password
-- [ ] 9.4 GREEN implement `PasswordInvalidaError`
+- [x] 9.4 GREEN implement `PasswordInvalidaError`
 
 ### Phase 10: Ports — session revocation (PERF040-06)
 
-- [ ] 10.1 Modify `application/ports/session-repository.port.ts`: add
+- [x] 10.1 Modify `application/ports/session-repository.port.ts`: add
   `revocarOtrasPorUserId(userId, tokenHashActual): Promise<void>`
-- [ ] 10.2 Modify `application/ports/user-credential-repository.port.ts`: add
+- [x] 10.2 Modify `application/ports/user-credential-repository.port.ts`: add
   `actualizarPassword(userId, passwordHash): Promise<void>` (already-hashed input, per `IPasswordHasher`)
-- [ ] 10.3 RED `prisma-session.repository.spec.ts` — `revocarOtrasPorUserId`: `deleteMany` where
+- [x] 10.3 RED `prisma-session.repository.spec.ts` — `revocarOtrasPorUserId`: `deleteMany` where
   deep-equals `{userId, tokenHash: {not: tokenHashActual}}`; idempotent (0 rows deleted = success)
-- [ ] 10.4 GREEN implement `revocarOtrasPorUserId` in `PrismaSessionRepository`
-- [ ] 10.5 RED repository spec `actualizarPassword` — `update` with `data: {passwordHash}`, no other key
-- [ ] 10.6 GREEN implement `actualizarPassword` in `PrismaUserCredentialRepository` — uses `update`
+- [x] 10.4 GREEN implement `revocarOtrasPorUserId` in `PrismaSessionRepository`
+- [x] 10.5 RED repository spec `actualizarPassword` — `update` with `data: {passwordHash}`, no other key
+- [x] 10.6 GREEN implement `actualizarPassword` in `PrismaUserCredentialRepository` — uses `update`
   (not `updateMany`), so a deleted row (F8) is loud
 
 ### Phase 11: `tokenHash` surfacing — `req.sessionTokenHash`
 
-- [ ] 11.1 RED `validar-sesion.use-case.spec.ts` — `ValidarSesionResult` gains REQUIRED `tokenHash`;
+- [x] 11.1 RED `validar-sesion.use-case.spec.ts` — `ValidarSesionResult` gains REQUIRED `tokenHash`;
   assert it EQUALS what `tokens.hashToken` already computes (not a re-hash)
-- [ ] 11.2 GREEN add `tokenHash` to `ValidarSesionResult` — the value already computed at line 34,
+- [x] 11.2 GREEN add `tokenHash` to `ValidarSesionResult` — the value already computed at line 34,
   currently discarded; one-field change (design §4.3)
-- [ ] 11.3 RED `session.middleware.spec.ts` — double now returns `{userId, esDemo, tokenHash}`
+- [x] 11.3 RED `session.middleware.spec.ts` — double now returns `{userId, esDemo, tokenHash}`
   (compile error otherwise); assert `req.sessionTokenHash` set on success, `undefined` on the 401 paths
-- [ ] 11.4 GREEN `session.middleware.ts` writes `req.sessionTokenHash = sesion.tokenHash`; add
+- [x] 11.4 GREEN `session.middleware.ts` writes `req.sessionTokenHash = sesion.tokenHash`; add
   `sessionTokenHash?: string` to `express-request.d.ts` — docblock: SHA-256 hash, DB's stored form,
   never the raw token, single consumer, never logged/serialized
 
 ### Phase 12: Use case — `CambiarPasswordUseCase` (PERF040-03 password half/05/06)
 
-- [ ] 12.1 RED `application/use-cases/cambiar-password.use-case.spec.ts` — demo ⇒ error, NO repo call;
+- [x] 12.1 RED `application/use-cases/cambiar-password.use-case.spec.ts` — demo ⇒ error, NO repo call;
   `buscarCredencialPorId → null` ⇒ `PerfilRechazadoError`; wrong current ⇒ `PerfilRechazadoError` AND
   neither `revocarOtrasPorUserId` nor `actualizarPassword` called; short password ⇒
   `PasswordInvalidaError` AFTER verify, no write; happy path ⇒ **invocation-order assertion**:
@@ -223,51 +223,51 @@ the full pair only.
   `toHaveBeenCalled`s — §4.3/F3); `revocarOtrasPorUserId` receives EXACTLY `input.tokenHashActual`
   (**pins the F7 empty-string pass-through degradation** — no runtime guard exists, this test is the
   only pin); value passed to `actualizarPassword` is the hasher's output, never the plaintext
-- [ ] 12.2 GREEN implement `CambiarPasswordUseCase` — `esDemo: boolean` and `tokenHashActual: string`
+- [x] 12.2 GREEN implement `CambiarPasswordUseCase` — `esDemo: boolean` and `tokenHashActual: string`
   REQUIRED inputs (compile-enforced, D-05); order: demo → credencial lookup → verify current → hash →
   **revoke-then-write ORDERING (not a cross-aggregate transaction)** → `actualizarPassword`
 
 ### Phase 13: HTTP layer extension
 
-- [ ] 13.1 RED extend `perfil-http-error.spec.ts` — `PasswordInvalidaError → 400 PASSWORD_INVALIDA`;
+- [x] 13.1 RED extend `perfil-http-error.spec.ts` — `PasswordInvalidaError → 400 PASSWORD_INVALIDA`;
   the widened `never` guard still compiles for `CambiarPasswordError` (D-06)
-- [ ] 13.2 GREEN extend `aPerfilHttpError` to cover `CambiarPasswordError`
-- [ ] 13.3 RED extend `perfil.schema.spec.ts` — `passwordUpdateRequestSchema` `.strict()`;
+- [x] 13.2 GREEN extend `aPerfilHttpError` to cover `CambiarPasswordError`
+- [x] 13.3 RED extend `perfil.schema.spec.ts` — `passwordUpdateRequestSchema` `.strict()`;
   layer-honesty: a 3-char `passwordNueva` parses fine at schema level (domain rejects it)
-- [ ] 13.4 GREEN implement `passwordUpdateRequestSchema`
-- [ ] 13.5 RED extend `perfil.routes.spec.ts` — PATCH /api/perfil/password: `204` no-body on ok;
+- [x] 13.4 GREEN implement `passwordUpdateRequestSchema`
+- [x] 13.5 RED extend `perfil.routes.spec.ts` — PATCH /api/perfil/password: `204` no-body on ok;
   `esDemo` AND `tokenHashActual` threaded from `req`
-- [ ] 13.6 GREEN implement PATCH /api/perfil/password in `perfil.routes.ts`, wired through
+- [x] 13.6 GREEN implement PATCH /api/perfil/password in `perfil.routes.ts`, wired through
   `PerfilGraph.cambiarPassword`
 
 ### Phase 14: Contract sync
 
-- [ ] 14.1 Add `perfilPasswordUpdateOperation` + `/api/perfil/password` PATCH path to
+- [x] 14.1 Add `perfilPasswordUpdateOperation` + `/api/perfil/password` PATCH path to
   `openapi-document.ts` (append-only); extend inventory spec — PERF040-09
-- [ ] 14.2 `pnpm api openapi:emit && pnpm --filter @moneydiary/api-client generate && pnpm api
+- [x] 14.2 `pnpm api openapi:emit && pnpm --filter @moneydiary/api-client generate && pnpm api
   openapi:check && pnpm --filter @moneydiary/api-client typecheck` — commit regenerated artifacts with code
 
 ### Phase 15: Integration — the two-session revocation proof
 
-- [ ] 15.1 **THE BINDING SESSION-REVOCATION TEST — own task (design §6.5).** New
+- [x] 15.1 **THE BINDING SESSION-REVOCATION TEST — own task (design §6.5).** New
   `test/perfil-password-sessions.int-spec.ts`, scaffolded from `catalogo-demo-gate.int-spec.ts` with
   `crearSesionParaUsuario`. Sequence: seed 1 user + 2 real sessions A, B → pre-assert BOTH work
   (`/auth/me` `200`/`200`) → `PATCH /api/perfil/password` with A ⇒ `204` → `/auth/me` with **B ⇒
   401** (other session rejected) → `/auth/me` with **A ⇒ 200** (caller's still works) →
   `session.count({userId})` === 1, its `tokenHash` is A's → login with NEW password ⇒ `200`, OLD ⇒
   `401`. **Verification:** `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration -- perfil-password-sessions`
-- [ ] 15.2 Extend `test/perfil-crud.int-spec.ts` — PERF040-03 password half (wrong `passwordActual`
+- [x] 15.2 Extend `test/perfil-crud.int-spec.ts` — PERF040-03 password half (wrong `passwordActual`
   on `/password` ⇒ `403`, `passwordHash` unchanged AND both seeded sessions still valid); PERF040-05
   (7-char `passwordNueva` ⇒ `400 PASSWORD_INVALIDA`, hash unchanged; valid ⇒ `204`, stored value
   starts with `$argon2id$`, never plaintext)
-- [ ] 15.3 Extend `test/perfil-demo-gate.int-spec.ts` — demo session PATCH /api/perfil/password ⇒ `403
+- [x] 15.3 Extend `test/perfil-demo-gate.int-spec.ts` — demo session PATCH /api/perfil/password ⇒ `403
   DEMO_SOLO_LECTURA`
 
 ### Phase 16: PR #2 gate
 
-- [ ] 16.1 Full green bar (same command list as 8.1) + regression: `auth-login.e2e-spec.ts`,
+- [x] 16.1 Full green bar (same command list as 8.1) + regression: `auth-login.e2e-spec.ts`,
   `auth-isolation.int-spec.ts`, `catalogo-demo-gate.int-spec.ts` stay green
-- [ ] 16.2 **Verify zero files changed under `apps/web/` and `apps/mobile/`** and no migration file in
+- [x] 16.2 **Verify zero files changed under `apps/web/` and `apps/mobile/`** and no migration file in
   the PR diff — STOP and escalate if either is touched
 
 ---
