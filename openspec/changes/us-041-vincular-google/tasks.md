@@ -141,7 +141,7 @@ Depends on: nothing (first PR in the chain). Target branch: tracker/feature bran
 Depends on: PR #1 (targets its branch per `feature-branch-chain`). This is the highest-risk PR in the
 chain — it introduces a new cryptographic mechanism on an auth hot path.
 
-- [ ] **2.1** RED then GREEN: `deriveLinkIntentKey` — second named export in
+- [x] **2.1** RED then GREEN: `deriveLinkIntentKey` — second named export in
   `composition/derive-blind-index-key.ts`, HKDF-SHA256 over `ENCRYPTION_KEY`, info string
   `LINK_INTENT_HKDF_INFO = 'oauth-link-intent-v1'`, 32 bytes. Same file as `deriveBlindIndexKey`,
   deliberately — a second derivation in a second file is how salt/hash/length drift apart (the
@@ -157,7 +157,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- derive-blind-index-key`.
   - Tag: VINC041-03, design §1/Q1a, D-02.
 
-- [ ] **2.2** RED then GREEN: `infrastructure/http/auth/link-intent.ts` — `mensajeLinkIntent`,
+- [x] **2.2** RED then GREEN: `infrastructure/http/auth/link-intent.ts` — `mensajeLinkIntent`,
   `firmarLinkIntent`, `verificarLinkIntent`. Plain functions taking the key, no class, no port
   (design D-01 — cookie integrity is transport, the application layer never learns a MAC exists).
   - **GUARD note (binding item #1, message encoding)**: the signed message is
@@ -180,7 +180,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- link-intent`.
   - Tag: VINC041-03, design §1/Q1b-c, D-01.
 
-- [ ] **2.3** RED then GREEN: `oauth-transient-cookie.ts` — `OauthTransientState` gains optional
+- [x] **2.3** RED then GREEN: `oauth-transient-cookie.ts` — `OauthTransientState` gains optional
   `readonly link?: LinkIntent`; `isOauthTransientState` accepts both shapes and returns `undefined` for
   the **whole** cookie when `link` is present but malformed (not an object, missing `userId`/`mac`,
   wrong types). Amend the "unsigned by design" docblock paragraph in place: quote the original sentence
@@ -195,7 +195,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- oauth-transient-cookie`.
   - Tag: VINC041-03, D-03, design §6.2.
 
-- [ ] **2.4** RED then GREEN: three new domain errors + specs — `GoogleYaVinculadoError` (fixed
+- [x] **2.4** RED then GREEN: three new domain errors + specs — `GoogleYaVinculadoError` (fixed
   message, docblock: UX pre-flight, not a security control), `VinculacionGoogleNoDisponibleError`
   (dependency outage), `VinculacionGoogleFallidaError` (renamed from the proposal's
   `vinculacion-rechazada.error.ts`; `motivo: 'usuario-inexistente' | 'usuario-demo' |
@@ -208,7 +208,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- domain/errors`.
   - Tag: design D-08, §3.1.
 
-- [ ] **2.5** `IIdentidadGoogleRepository` gains `buscarPorId(userId): Promise<UsuarioVinculable | null>`
+- [x] **2.5** `IIdentidadGoogleRepository` gains `buscarPorId(userId): Promise<UsuarioVinculable | null>`
   (reuses the existing `UsuarioVinculable` projection). Let `tsc --noEmit` enumerate the fallout: the
   **only** double of this port, `test/support/identidad-google-repository.double.ts`, plus
   `application/ports/identidad-google-repository.port.spec.ts` (design D-07, verified single-double
@@ -216,14 +216,14 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api exec tsc --noEmit`, then `pnpm api test -- identidad-google-repository`.
   - Tag: VINC041-03/04, design §5.1.
 
-- [ ] **2.6** RED then GREEN: `PrismaIdentidadGoogleRepository.buscarPorId` — `findUnique where {id}`,
+- [x] **2.6** RED then GREEN: `PrismaIdentidadGoogleRepository.buscarPorId` — `findUnique where {id}`,
   same `select` shape as the other lookups, private mapper reused.
   - Files: `infrastructure/persistence/prisma-identidad-google.repository.ts` (+ `.spec.ts`).
   - Spec: `where` deep-equals `{ id: userId }`, same `select`, `null` when absent.
   - Verify: `pnpm api test -- prisma-identidad-google.repository`.
   - Tag: VINC041-03, design §3.3.
 
-- [ ] **2.7** RED then GREEN: `IniciarVinculacionGoogleUseCase` — guard order
+- [x] **2.7** RED then GREEN: `IniciarVinculacionGoogleUseCase` — guard order
   `esDemo → creds.buscarCredencialPorId → hasher.verificar → identidades.buscarPorId → iniciador.iniciar()`.
   `esDemo` is a **required** input (`req.esDemo!`), per D-05 — this use case has a session, so omitting
   the gate must be a compile error.
@@ -240,7 +240,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- iniciar-vinculacion-google`.
   - Tag: VINC041-01, design §4.1, §5.2.
 
-- [ ] **2.8** RED then GREEN: `VincularGoogleUseCase.execute({ userId, sub })` — **exactly two fields,
+- [x] **2.8** RED then GREEN: `VincularGoogleUseCase.execute({ userId, sub })` — **exactly two fields,
   no `esDemo` input**.
   - **GUARD note (design D-05, non-negotiable)**: `esDemo` is **read from the row** via `buscarPorId`,
     never passed in — there is no session at the callback by construction, and an **optional** `esDemo?`
@@ -261,7 +261,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- vincular-google`.
   - Tag: VINC041-02/04, CA-05, design §4.2, §5.2 (CORRECTION).
 
-- [ ] **2.9** RED then GREEN: `crear-auth-google.ts` gains a `crypto: ICryptoService` parameter (builds
+- [x] **2.9** RED then GREEN: `crear-auth-google.ts` gains a `crypto: ICryptoService` parameter (builds
   a `PrismaUserCredentialRepository` for password verification, mirroring `crearPerfil`'s signature);
   builds `IniciarVinculacionGoogleUseCase` + `VincularGoogleUseCase`; `GoogleAuthGraph` gains both.
   - **GUARD note**: `crearAuthGoogle` **never** calls `deriveBlindIndexKey`/`deriveLinkIntentKey` and
@@ -274,13 +274,13 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- crear-auth-google`.
   - Tag: design §3.4, D-04.
 
-- [ ] **2.10** `container.ts`: `const linkIntentKey = deriveLinkIntentKey(encryptionKey);` next to the
+- [x] **2.10** `container.ts`: `const linkIntentKey = deriveLinkIntentKey(encryptionKey);` next to the
   existing `blindIndex` derivation (single derivation site), threaded into `crearAuthGoogle` and exposed
   as a `Container` field for `AuthGoogleDeps`.
   - Verify: `pnpm api exec tsc --noEmit`.
   - Tag: design §3.4.
 
-- [ ] **2.11** RED then GREEN: `perfil-google.schema.ts` — `vincularGoogleRequestSchema` (`.strict()`,
+- [x] **2.11** RED then GREEN: `perfil-google.schema.ts` — `vincularGoogleRequestSchema` (`.strict()`,
   `{ passwordActual: z.string() }`, no `.min()`) and `vincularGoogleResponseSchema`
   (`{ urlAutorizacion: z.string() }`, no `.url()`).
   - **GUARD note (layer-honesty)**: no `.min()` on `passwordActual` — the password is *verified*, not
@@ -295,7 +295,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- perfil-google.schema`.
   - Tag: VINC041-01, design §5.4.
 
-- [ ] **2.12** RED then GREEN: `perfil-google.routes.ts` — `registrarPerfilGoogleVincular(router, deps)`
+- [x] **2.12** RED then GREEN: `perfil-google.routes.ts` — `registrarPerfilGoogleVincular(router, deps)`
   mounted on `protectedApi` only when `container.googleAuth !== undefined`, and
   `registrarPerfilGoogleVincularDeshabilitado(router)` mounted otherwise (`404` on
   `POST /perfil/google/vincular`, no body — AUTH-16 parity). `.safeParse()` at the boundary; body and
@@ -318,7 +318,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- perfil-google.routes`.
   - Tag: VINC041-01, design §1/Q2b (CORRECTION), D-04.
 
-- [ ] **2.13** RED then GREEN: `perfil-http-error.ts` union widens to include
+- [x] **2.13** RED then GREEN: `perfil-http-error.ts` union widens to include
   `IniciarVinculacionGoogleError` (`GoogleYaVinculadoError` → `409 GOOGLE_YA_VINCULADO`,
   `VinculacionGoogleNoDisponibleError` → `503 GOOGLE_NO_DISPONIBLE`); the `const _exhaustive: never`
   guard stays unchanged (it is what makes a new unmapped error class a compile error — and, in reverse,
@@ -330,7 +330,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- perfil-http-error`.
   - Tag: design D-08, §5.3.
 
-- [ ] **2.14** RED then GREEN: `auth-google.routes.ts` callback branching. Order, exactly:
+- [x] **2.14** RED then GREEN: `auth-google.routes.ts` callback branching. Order, exactly:
   clear `md_oauth` → Sec-Fetch guard → rate limiter → parse cookie → `state === query.state` check →
   **if `link` present, `verificarLinkIntent`** → `verificador.verificar()` → branch to
   `completarLogin` (unchanged tail) or `completarVinculacion` (new tail,
@@ -362,14 +362,14 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- auth-google.routes`.
   - Tag: VINC041-02/03, AUTH-12 (delta), design §1/Q1c, §1/Q2a, §4.2.
 
-- [ ] **2.15** `app.ts`: mount `registrarPerfilGoogleVincular`/`registrarPerfilGoogleVincularDeshabilitado`
+- [x] **2.15** `app.ts`: mount `registrarPerfilGoogleVincular`/`registrarPerfilGoogleVincularDeshabilitado`
   on `protectedApi` immediately after `registrarPerfil`, per the `container.googleAuth !== undefined`
   gate (task 2.12). Unlink mounting happens in PR #3.
   - Files: `infrastructure/http-express/app.ts` (+ `app.auth.spec.ts`).
   - Verify: `pnpm api test -- app.auth`.
   - Tag: design §3.3, D-04.
 
-- [ ] **2.16** RED then GREEN: `openapi-document.ts` — `perfilGoogleVincularOperation` +
+- [x] **2.16** RED then GREEN: `openapi-document.ts` — `perfilGoogleVincularOperation` +
   `'/api/perfil/google/vincular'` path (append-only); amend `authGoogleCallbackOperation`'s
   **description** (no response-shape change) to document the dual mode and both link redirect targets —
   this description is the cross-workspace source US-042 reads for the `/configuracion?google=…`
@@ -378,13 +378,13 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `pnpm api test -- openapi-document`.
   - Tag: VINC041-09, design §5.5.
 
-- [ ] **2.17** Regenerate the contract: `pnpm api openapi:emit` →
+- [x] **2.17** Regenerate the contract: `pnpm api openapi:emit` →
   `pnpm --filter @moneydiary/api-client generate` → `pnpm api openapi:check` →
   `pnpm --filter @moneydiary/api-client typecheck`. Commit both artifacts with this PR's code.
   - Verify: all four commands, green.
   - Tag: VINC041-09, design §5.6.
 
-- [ ] **2.18** New integration spec `test/vinculacion-google.int-spec.ts` (real Postgres,
+- [x] **2.18** New integration spec `test/vinculacion-google.int-spec.ts` (real Postgres,
   `ALLOW_DESTRUCTIVE_DB=1`), scaffolded from `auth-google-callback.int-spec.ts` (own graph, per-run
   ids, full `afterAll` teardown) plus `test/support/session.fixture.ts`. Cover:
   - VINC041-01: authenticated non-demo + correct password ⇒ `200 { urlAutorizacion }`; assert the raw
@@ -411,7 +411,7 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
   - Verify: `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration -- vinculacion-google`.
   - Tag: VINC041-01/02/03/04, design §6.3, §6.4.
 
-- [ ] **2.19** Login-regression check: `test/auth-google-callback.int-spec.ts` and
+- [x] **2.19** Login-regression check: `test/auth-google-callback.int-spec.ts` and
   `auth-google.routes.spec.ts` — **only** their deps/graph literals may grow (new required fields on
   `AuthGoogleDeps`/`GoogleAuthGraph`). No scenario, no `expect(...)`, no expected status, redirect
   target, or DB assertion may change. A diff touching an assertion in either file means the login path
@@ -421,14 +421,14 @@ chain — it introduces a new cryptographic mechanism on an auth hot path.
     `pnpm api test -- auth-google.routes`.
   - Tag: design §6.1, §6.5.
 
-- [ ] **2.20** AUTH-16-parity integration case: a container built **without** `GOOGLE_CLIENT_ID` ⇒
+- [x] **2.20** AUTH-16-parity integration case: a container built **without** `GOOGLE_CLIENT_ID` ⇒
   `POST /api/perfil/google/vincular` is `404` (not `500`) — this is the exact case the proposal's
   original wiring would have shipped as a `500` (binding item #4). Add to
   `test/vinculacion-google.int-spec.ts` or a dedicated activation-gate spec.
   - Verify: `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration -- vinculacion-google`.
   - Tag: design §1/Q2b, §6.4 (AUTH-16 parity row).
 
-- [ ] **2.21** Full PR #2 verification (full green bar, design §6.6): `pnpm api test`,
+- [x] **2.21** Full PR #2 verification (full green bar, design §6.6): `pnpm api test`,
   `pnpm api exec tsc --noEmit`, `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration`,
   `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:e2e`, `pnpm api openapi:check`,
   `pnpm --filter @moneydiary/api-client typecheck`, `pnpm web typecheck`,
