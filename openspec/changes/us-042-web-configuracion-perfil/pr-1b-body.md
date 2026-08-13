@@ -80,7 +80,9 @@ The Perfil form end to end — CA-01/CA-02's first two blocks, CA-03, CA-05:
 ## Gates
 
 - [x] `pnpm web typecheck` — green
-- [x] `pnpm web test` — green, **655/655** (72 files, +73 tests over PR #1a's 582)
+- [x] `pnpm web test` — green, **658/658** (72 files, +76 tests over PR #1a's 582 — includes 3 tests
+      from the judgment-day fix iteration 2: the `Cambiar password` fieldset/legend grouping, the
+      `mensajes.test.ts` `unauthorized` row, and the `invalidateQueries`-pending regression test)
 - [x] `pnpm web lint` — green, 0 errors, 2 warnings (identical pre-existing
       `no-noninteractive-element-interactions` findings from PR #1a's baseline — untouched by this PR)
 - [x] Zero diffs under `apps/api/**` and `apps/mobile/**`

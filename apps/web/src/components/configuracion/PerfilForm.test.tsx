@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMemoryHistory,
@@ -80,6 +86,16 @@ describe('PerfilForm', () => {
     expect(screen.getByLabelText('Email')).toHaveValue('ana@example.com');
     expect(screen.getByLabelText('Password actual')).toHaveValue('');
     expect(screen.getByLabelText('Password nueva')).toHaveValue('');
+  });
+
+  it('los campos de password están agrupados bajo el label "Cambiar password" (WCFG-02)', async () => {
+    await renderPerfilForm();
+
+    const grupo = screen.getByRole('group', { name: 'Cambiar password' });
+    expect(within(grupo).getByLabelText('Password actual')).toBeInTheDocument();
+    expect(within(grupo).getByLabelText('Password nueva')).toBeInTheDocument();
+    // Nombre/Email quedan fuera del grupo — solo el bloque de password lo tiene.
+    expect(within(grupo).queryByLabelText('Nombre')).not.toBeInTheDocument();
   });
 
   it('las dos regiones de mensaje están SIEMPRE montadas, vacías al inicio (Q7d)', async () => {

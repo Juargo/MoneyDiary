@@ -75,6 +75,15 @@ describe('mensajeDeApiError — la tabla de ocho códigos (WCFG-09 / design Q8b)
       'No se pudo conectar con el servidor.',
     ],
     [
+      // `unauthorized` no tiene copy (WCFG-09: `PerfilForm` navega a /login
+      // ANTES de llamar a este traductor) — pinnea el `''` deliberado para
+      // que la tabla siga siendo exhaustiva sobre los tags de `ApiError`.
+      'unauthorized',
+      { tag: 'unauthorized', message: 'x' },
+      'perfil',
+      '',
+    ],
+    [
       'un código de servidor no mapeado cae al genérico',
       server(418, 'ALGO_NUEVO'),
       'perfil',

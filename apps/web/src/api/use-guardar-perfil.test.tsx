@@ -3,7 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { construirPerfilPatch, useGuardarPerfil } from './use-guardar-perfil';
-import { ME_QUERY_KEY } from './use-me';
+import { ME_QUERY_KEY, useMe } from './use-me';
+import { QUERY_CLIENT_DEFAULTS } from './query-client-defaults';
 import type { MeDto } from './types';
 import type { DraftPerfil } from './use-guardar-perfil';
 
@@ -246,7 +247,7 @@ describe('useGuardarPerfil — la orquestación secuencial (Q2b/Q2c/Q9a)', () =>
     expect(llamadas).toEqual(['PATCH /api/perfil/password']);
   });
 
-  it('un fallo de perfil (row 10) invalida onSuccess pero NO invalida ["auth-me"] — nada cambió', async () => {
+  it('un fallo de perfil (row 6) invalida onSuccess pero NO invalida ["auth-me"] — nada cambió', async () => {
     const { fetchMock } = stubFetchOrdenado({
       '/api/perfil': {
         status: 403,
@@ -344,6 +345,71 @@ describe('useGuardarPerfil — la orquestación secuencial (Q2b/Q2c/Q9a)', () =>
       passwordCambiada: true,
     });
     expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it('mutation.isPending sigue true hasta que el refetch de ["auth-me"] que invalidateQueries dispara resuelve (regresión: el `return` de onSuccess)', async () => {
+    // `/api/auth/me` queda colgado en `authMePromise` — controlado a mano
+    // (nunca un timer real) hasta que el test decide destrabarlo. Simula un
+    // refetch de identidad lento tras guardar el perfil.
+    let resolverAuthMe: (value: unknown) => void = () => {};
+    const authMePromise = new Promise((resolve) => {
+      resolverAuthMe = resolve;
+    });
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        const metodo = init?.method ?? 'GET';
+        if (metodo === 'PATCH' && url === '/api/perfil') {
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        if (url === '/api/auth/me') {
+          await authMePromise;
+          return { ok: true, status: 200, json: async () => ME };
+        }
+        return { ok: false, status: 500, json: async () => ({}) };
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    // `QUERY_CLIENT_DEFAULTS` (mismo staleTime que producción): la caché ya
+    // primada no dispara un fetch al montar `useMe()` — la ÚNICA llamada a
+    // `/api/auth/me` esperada es la que `invalidateQueries` dispara.
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          ...QUERY_CLIENT_DEFAULTS.defaultOptions?.queries,
+          retry: false,
+        },
+      },
+    });
+    queryClient.setQueryData(ME_QUERY_KEY, ME);
+
+    const { result } = renderHook(
+      () => ({ me: useMe(), mutation: useGuardarPerfil() }),
+      { wrapper: crearWrapper(queryClient) },
+    );
+
+    expect(result.current.me.isSuccess).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    result.current.mutation.mutate(draftDeMe({ nombre: 'Ana Nueva' }));
+
+    // El PATCH de perfil ya resolvió, `onSuccess` disparó `invalidateQueries`,
+    // y el refetch de `auth-me` está en vuelo — pero colgado en
+    // `authMePromise`.
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/me', expect.anything()),
+    );
+
+    // Sin el `return` de `use-guardar-perfil.ts`, `onSuccess` no espera la
+    // promesa de `invalidateQueries` y la mutación ya habría despachado
+    // `success` acá — este assert es el que pinnea la regresión.
+    expect(result.current.mutation.isPending).toBe(true);
+    expect(result.current.mutation.isSuccess).toBe(false);
+
+    resolverAuthMe(undefined);
+
+    await waitFor(() => expect(result.current.mutation.isSuccess).toBe(true));
   });
 });
 

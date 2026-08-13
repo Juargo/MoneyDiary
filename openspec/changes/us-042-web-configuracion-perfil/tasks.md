@@ -220,13 +220,23 @@ half-wired sequential save is worse than a large diff.** [design §10]
   [design Q9c]
 
 **PR #1b status (2026-08-13): tasks 4.1-4.12 complete. `pnpm web typecheck && pnpm web test && pnpm
-web lint` all green (72 test files, 655 tests, 0 lint errors — same 2 pre-existing app-wide
+web lint` all green (72 test files, 658 tests, 0 lint errors — same 2 pre-existing app-wide
 jsx-a11y warnings as PR #1a's baseline, unrelated to this change). Confirmed zero diffs under
 `apps/api/**` and `apps/mobile/**`. `ApiError`'s `'server'` tag widened with an optional `code?:
 string` field in `client.ts` (additive, non-breaking) so `perfil.ts`/`mensajes.ts` can carry
 `aPerfilHttpError`'s body `code` through to the closed copy table — this is the one production file
 outside `openspec/changes/us-042-web-configuracion-perfil/` and `apps/web/src/{api,components/
-configuracion,routes/_authenticated}/` touched by this batch.**
+configuracion,routes/_authenticated}/` touched by this batch.
+
+**judgment-day fix iteration 2 (2026-08-13): `PerfilForm`'s password fields are now grouped under a
+`<fieldset>`/`<legend>Cambiar password</legend>` (WCFG-02's third-block label, verbatim) with a
+`role=group` regression test; `use-guardar-perfil.test.tsx` gained a regression test that mounts an
+active `useMe()` observer alongside the save flow with a manually-deferred `/api/auth/me` and pins
+`mutation.isPending` staying `true` until that refetch resolves (empirically verified to fail when
+the `return` on `invalidateQueries` is removed, and pass with it restored); the row-10-labeled test
+at `use-guardar-perfil.test.tsx` was retitled to row 6 (assertions unchanged — they were already
+correct for row 6); `mensajes.test.ts` gained the missing `unauthorized` row (`''`) in the `it.each`
+table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing warnings).**
 
 ---
 

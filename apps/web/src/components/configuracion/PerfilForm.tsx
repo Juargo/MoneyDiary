@@ -86,7 +86,10 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           disabled={me.esDemo}
         />
       </div>
-      <div className="flex flex-col gap-4">
+      <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
+        <legend className="p-0 text-sm font-semibold text-slate-700">
+          Cambiar password
+        </legend>
         <CampoTexto
           label="Password actual"
           value={passwordActual}
@@ -104,7 +107,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           autoComplete="new-password"
           disabled={me.esDemo}
         />
-      </div>
+      </fieldset>
       {me.esDemo && (
         <p role="note" className="text-sm text-slate-500">
           {MENSAJE_DEMO_SOLO_LECTURA}
