@@ -172,7 +172,7 @@ export interface paths {
         };
         /**
          * Complete Google sign-in
-         * @description Public endpoint (requires x-api-key only, session-public) — Google's redirect target after consent. Validates `state` against the `md_oauth` cookie and the `id_token` (signature/iss/aud/exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them.
+         * @description Public endpoint (requires x-api-key only, session-public) — Google's redirect target after consent. Validates `state` against the `md_oauth` cookie and the `id_token` (signature/iss/aud/exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them. DUAL MODE (US-041, VINC041-02/03): when `md_oauth` carries a signed `link` marker (set by POST /api/perfil/google/vincular), this same endpoint completes an EXPLICIT LINK instead of a login — it binds a Google identity to the CALLER's own account, issues NO new session, and redirects to `/configuracion?google=vinculado` on success or `/configuracion?google=error` on a modelled failure. A `link` marker that fails its integrity check rejects the WHOLE callback to the generic `/login?error=google` — it never falls back to the login path.
          */
         readonly get: {
             readonly parameters: {
@@ -1225,6 +1225,169 @@ export interface paths {
         };
         readonly trace?: never;
     };
+    readonly "/api/perfil/google/desvincular": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Unlink the Google identity from the current account
+         * @description Authenticated endpoint (US-041, VINC041-05) that re-verifies the current password and clears the CALLER's own googleSub. Idempotent: a second call after success still responds 204. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account has no passwordHash (403 VINCULO_REQUIERE_PASSWORD — CA-03: an account may never be left without an access method). Mounted unconditionally, independent of whether Google login is currently active.
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly passwordActual: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description The Google identity is no longer linked. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Malformed body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description No valid session (missing, expired, or invalid token). */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Demo session, an incorrect current password, or the account has no passwordHash to fall back on. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/perfil/google/vincular": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Start linking a Google identity to the current account
+         * @description Authenticated endpoint (US-041, VINC041-01/02) that re-verifies the current password and starts the OIDC round trip that will bind a Google identity to the CALLER's own account — no email matching is involved. Responds with the authorization URL and sets the short-lived `md_oauth` cookie carrying an HMAC-signed link intent; the client performs a top-level navigation to that URL. Completion happens at GET /api/auth/google/callback, which redirects to `/configuracion?google=vinculado` or `/configuracion?google=error` and issues NO new session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account already carries a Google identity (409 GOOGLE_YA_VINCULADO — unlink first). 404 when Google login is not active (AUTH-16).
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly passwordActual: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description The Google OAuth authorization URL to navigate to. Sets Set-Cookie: md_oauth (state, nonce, codeVerifier, signed link). */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["VincularGoogleResponse"];
+                    };
+                };
+                /** @description Malformed body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description No valid session (missing, expired, or invalid token). */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Demo session, or an incorrect current password. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description Google login is not active — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not both configured (AUTH-16). */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The account already has a linked Google identity. */
+                readonly 409: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description Google authorization is temporarily unreachable. */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/perfil/password": {
         readonly parameters: {
             readonly query?: never;
@@ -1722,6 +1885,10 @@ export interface components {
             readonly ref: string;
             /** @description Package version (release-please, ADR-030). */
             readonly version: string;
+        };
+        /** @description POST /api/perfil/google/vincular — the Google OAuth authorization URL to navigate to (VINC041-01). */
+        readonly VincularGoogleResponse: {
+            readonly urlAutorizacion: string;
         };
     };
     responses: never;
