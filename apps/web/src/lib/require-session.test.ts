@@ -93,6 +93,7 @@ describe('requireSession', () => {
       email: 'usuario@moneydiary.cl',
       esDemo: false,
       nombre: 'Usuario de Prueba',
+      googleVinculado: false,
     };
     const fetchMe = vi.fn(
       async (): Promise<ApiResult<MeDto>> => ({ ok: true, value: me }),
@@ -108,6 +109,7 @@ describe('requireSession', () => {
       email: null,
       esDemo: true,
       nombre: 'Demo-abc123',
+      googleVinculado: false,
     };
     const fetchMe = vi.fn(
       async (): Promise<ApiResult<MeDto>> => ({ ok: true, value: me }),

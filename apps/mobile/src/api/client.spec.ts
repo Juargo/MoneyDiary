@@ -40,6 +40,7 @@ const validMeDto: MeDto = {
   email: 'a@b.com',
   esDemo: false,
   nombre: 'Usuario de Prueba',
+  googleVinculado: false,
 };
 
 const validLoginResponse = {
