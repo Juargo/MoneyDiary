@@ -1225,6 +1225,74 @@ export interface paths {
         };
         readonly trace?: never;
     };
+    readonly "/api/perfil/google/desvincular": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Unlink the Google identity from the current account
+         * @description Authenticated endpoint (US-041, VINC041-05) that re-verifies the current password and clears the CALLER's own googleSub. Idempotent: a second call after success still responds 204. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account has no passwordHash (403 VINCULO_REQUIERE_PASSWORD — CA-03: an account may never be left without an access method). Mounted unconditionally, independent of whether Google login is currently active.
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly passwordActual: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description The Google identity is no longer linked. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Malformed body. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+                /** @description No valid session (missing, expired, or invalid token). */
+                readonly 401: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Demo session, an incorrect current password, or the account has no passwordHash to fall back on. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["PerfilErrorResponse"];
+                    };
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/perfil/google/vincular": {
         readonly parameters: {
             readonly query?: never;
