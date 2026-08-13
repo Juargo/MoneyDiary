@@ -242,13 +242,20 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
 
 ## PR #2 — Google section and layout (base: PR #1b's branch)
 
-- [ ] 5.1 RED+GREEN: `src/api/perfil.ts` gains `postVincularGoogle`/`postDesvincularGoogle`
+- [x] 5.1 RED+GREEN: `src/api/perfil.ts` gains `postVincularGoogle`/`postDesvincularGoogle`
   (+ test), mapping `403 VINCULO_REQUIERE_PASSWORD` too.
-- [ ] 5.2 Add two literal-hex tokens to `src/index.css`: `--color-vinculo-activo` /
+  **Apply-time refactor: generalized the PATCH-only `enviarPatch` fetch/error-mapping helper into
+  `enviarMutacion(url, method, body)` — returns the raw `Response` on success so PATCH callers keep
+  discarding the body (`value: undefined`) while `postVincularGoogle` reads+guards it
+  (`esIniciarVinculacionGoogle`). Avoided duplicating the network/401/error-code mapping a third time
+  (`dry`).**
+- [x] 5.2 Add two literal-hex tokens to `src/index.css`: `--color-vinculo-activo` /
   `-foreground` (`#d1fae5` / `#065f46`), **literal**, never `var(--color-ingreso)` — an alias-by-
   reference would make the income card the source of truth for a security-state color. Record the
   inherited 6.78:1 AA ratio in this task. [design Q11]
-- [ ] 5.3 RED+GREEN: `src/components/configuracion/ConfirmarPasswordDialog.tsx` (+test) —
+  **Ratio recorded: 6.78:1 (AA) — same verified pair as `--color-ingreso`, per the design's own
+  measurement; not re-measured, inherited by construction (identical hex values).**
+- [x] 5.3 RED+GREEN: `src/components/configuracion/ConfirmarPasswordDialog.tsx` (+test) —
   `role="alertdialog"`, `aria-modal="false"` **explicit** (no focus trap ⇒ `"true"` would lie to
   assistive tech), focus moves to the **password input** on open (deliberate divergence from
   `EliminarIngestaControl`'s `Confirmar`-focus, because this dialog's first required action is
@@ -256,24 +263,83 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
   wired to the leaving-the-app warning paragraph (`aria-labelledby`+`aria-describedby`, not
   `aria-label`, so the warning is announced), inline `role="alert"` error, `Confirmar` disabled while
   pending but the password input stays enabled. [WCFG-08, WCFG-12, design Q7c]
-- [ ] 5.4 RED+GREEN: `src/api/use-google-vinculo.test.ts` then `.ts` — link mutation calls
+  **Apply-time discovery: `jsx-a11y/no-noninteractive-element-interactions` DOES fire on
+  `role="alertdialog"` + `onKeyDown` — its ARIA superclass chain is `window > dialog`, not `widget`
+  (verified against aria-query 5.3.2), so the plugin never recognizes it as interactive, contrary to
+  design §1/Q7b's table entry. Scoped `eslint-disable-next-line` with the investigated reason (config
+  left untouched, per the "do not weaken the config" rule) — `EliminarIngestaControl`'s existing,
+  unscoped instance of the same shape only warns today because it sits outside the scoped directory.
+  Also gave `CampoTexto` optional `forwardRef` support (backward-compatible) so the dialog's password
+  input reuses it instead of a second labelled-input implementation (`dry`).**
+- [x] 5.4 RED+GREEN: `src/api/use-google-vinculo.test.ts` then `.ts` — link mutation calls
   `window.location.assign(urlAutorizacion)` (a **method**, not `location.href =`, so it is spy-able
   under jsdom); unlink mutation invalidates `['auth-me']` on success and announces
   `Desvinculaste tu cuenta de Google.`
-- [ ] 5.5 RED+GREEN: `src/components/configuracion/GoogleVinculoSection.tsx` (+test) — linked
+  **Apply-time discovery: jsdom's `window.location.assign` is a non-configurable property —
+  `vi.spyOn(window.location, 'assign')` throws "Cannot redefine property". Worked around with the
+  standard technique: `Object.defineProperty(window, 'location', { value: {...window.location,
+  assign: vi.fn()}, writable: true, configurable: true })`.**
+- [x] 5.5 RED+GREEN: `src/components/configuracion/GoogleVinculoSection.tsx` (+test) — linked
   (green pill `Vinculada: {me.email}` + `Desvincular`) and not-linked (neutral pill `No vinculada` +
   `Vincular con Google`) states, structurally symmetric. When `me.email === null`, render `Vinculada`
   with no colon/address — not a dangling `Vinculada: `. [WCFG-02]
-- [ ] 5.6 Wire `GoogleVinculoSection` into `ConfiguracionPage.tsx`'s third block.
-- [ ] 6.1 RED+GREEN: extend `configuracion.tsx`'s mount effect — capture `google` into local state on
+  **Apply-time gap closed: VINC041-07 maps a wrong `passwordActual` on link/unlink to the SAME `403
+  PERFIL_RECHAZADO` code `perfil-usuario` uses, but design §1/Q8b's copy table only rows the
+  `perfil`/`password` origins for that code — falling through to the `perfil` row would reference an
+  email field this dialog never shows. Added a third `origen === 'google'` line to
+  `mensajeDeServerError` (`mensajes.ts`): "No se pudo completar la acción. Revisa tu password
+  actual." Also added the demo proactive gate (disabled button + shared `role="note"`,
+  `MENSAJE_DEMO_SOLO_LECTURA`) per proposal §6/WCFG-07's "Vincular con Google and Desvincular are
+  rendered disabled" — not explicitly re-stated in this task's literal wording but required by the
+  spec's demo requirement family. Scoped out `tag: 'unauthorized'` → `/login` navigation (unlike
+  `PerfilForm`) — not required by design for this control and would need a full router context in
+  the component test; `mensajeDeApiError` already returns `''` for that tag defensively.**
+- [x] 5.6 Wire `GoogleVinculoSection` into `ConfiguracionPage.tsx`'s third block.
+  **`avisoGoogle`/`onAvisoGoogleChange` added as `ConfiguracionPage` props (not yet driven by the
+  route until 6.1) — the single aviso region became two (`aviso-google` polite/ok,
+  `aviso-google-error` alert/error), same two-region idiom as `PerfilForm`'s Q7d, because
+  `?google=error` needs alert tone.**
+- [x] 6.1 RED+GREEN: extend `configuracion.tsx`'s mount effect — capture `google` into local state on
   first render, `navigate({ to: '/configuracion', search: {}, replace: true })`, message survives the
   rewrite, does not reappear on refresh/back, unknown values render nothing. Opening a Google dialog
   clears `avisoGoogle` (the one coordination rule between the two message regions). [WCFG-10, design
   Q6b, Q1c]
-- [ ] 6.2 Pin the test: landing on `?google=vinculado` still fetches `/api/auth/me` **exactly once**
+  **Implemented as `ConfiguracionRoute`, the thin wrapper `configuracion.tsx`'s `component` now
+  points to (per design §1/Q1a's tree) — owns the `avisoGoogle` state + cleanup effect, passes both
+  down to `ConfiguracionPage` as props.**
+- [x] 6.2 Pin the test: landing on `?google=vinculado` still fetches `/api/auth/me` **exactly once**
   — no manual refetch added. [WCFG-03, WCFG-10, design Q6c]
-- [ ] 6.3 Implement the fluid T1 grid in `ConfiguracionPage.tsx` (`max-w-*` + fixed-first-track
+  **Apply-time discovery (saved to engram): TanStack Router's `beforeLoad` re-runs on EVERY internal
+  navigation with no caching — the cleanup `navigate({replace:true})` naturally triggers a SECOND
+  `/api/auth/me` fetch. Confirmed via a throwaway debug test that this is pre-existing, accepted
+  baseline behavior (navigating between any two `_authenticated` routes already double-fetches
+  identity today) — not a regression this task introduces, and no manual refetch/invalidate was
+  added. The pin test isolates the landing's own `beforeLoad` with `router.load()` alone (same
+  technique as `use-me-priming.test.tsx`) rather than asserting on the cumulative count through a
+  full render, which would conflate two separate, both-natural navigation events.**
+- [x] 6.3 Implement the fluid T1 grid in `ConfiguracionPage.tsx` (`max-w-*` + fixed-first-track
   `grid`) reproducing T1's measured proportions with **no** new `layout.ts` constant; below `lg` the
   two columns stack (heading+tabs above panel). [WCFG-11]
-- [ ] 6.4 Full-suite verify: `pnpm web typecheck && pnpm web test && pnpm web lint`. Confirm zero
+- [x] 6.4 Full-suite verify: `pnpm web typecheck && pnpm web test && pnpm web lint`. Confirm zero
   diffs under `apps/api/**` and `apps/mobile/**`. [WCFG-13]
+
+**PR #2 status (2026-08-13): tasks 5.1-6.4 complete. `pnpm web typecheck && pnpm web test && pnpm web
+lint` all green (76 test files, 700 tests, 0 lint errors — same 2 pre-existing app-wide jsx-a11y
+warnings as PR #1a/#1b's baseline, unrelated to this change). Confirmed zero diffs under
+`apps/api/**` and `apps/mobile/**`.**
+
+**⚠️ BUDGET FLAG — unresolved, needs a maintainer decision before this PR is opened.** This slice
+was forecast at ~450-550 changed lines with **no** `size:exception` granted (only PR #1b got one).
+Actual: **`git diff --shortstat feat/us-042-pr1b-perfil-form...HEAD -- apps/web` = 1525
+insertions(+), 56 deletions(-) across 16 files (1581 total changed lines)** — roughly **3.5x** the
+400-line budget and ~3x the forecast. Breakdown: ~605 non-test lines (implementation) vs. ~920 test
+lines (the same verbose docblock-per-decision convention already established and exception-approved
+in PR #1a/#1b). No further split is sanctioned by design (§10: PR #2's own scope — Google link/unlink
++ layout — is already the smallest coherent unit; splitting `GoogleVinculoSection` from
+`ConfirmarPasswordDialog`/`use-google-vinculo.ts` would ship a button with no working dialog). Options
+for the maintainer, mirroring the guard's PR #1b precedent: (a) accept PR #2 as a second documented
+`size:exception` slice, citing this same "half-wired feature is worse than a large diff" reasoning
+plus the doc-density convention already exception-approved once this chain; or (b) request trimming
+(e.g., moving some docblock rationale out of source comments and into this tasks.md/design.md instead)
+before opening the PR. **This was not decided unilaterally during apply — flagged here per the
+apply-time instruction to stop and report rather than silently ship a third oversized slice.**
