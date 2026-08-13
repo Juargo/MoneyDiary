@@ -600,7 +600,10 @@ Appended to `apps/web/eslint.config.js` **after** the base block and **before**
     files: ['**/*.tsx'],
     extends: [jsxA11y.flatConfigs.recommended],
     rules: Object.fromEntries(
-      Object.keys(jsxA11y.flatConfigs.recommended.rules).map((regla) => [regla, 'warn']),
+      Object.entries(jsxA11y.flatConfigs.recommended.rules).map(([regla, valor]) => {
+        const [severidad, ...opciones] = Array.isArray(valor) ? valor : [valor];
+        return [regla, severidad === 'off' ? 'off' : ['warn', ...opciones]];
+      }),
     ),
   },
   // Scoped ERROR — the files this change authors. Globs the DIRECTORY, not
@@ -615,10 +618,19 @@ Appended to `apps/web/eslint.config.js` **after** the base block and **before**
   },
 ```
 
-The severity derivation is three lines and drift-proof across plugin upgrades; hand-listing ~30 rule
-names at `warn` would be the real anti-pattern (`dry`: it would need re-syncing on every upgrade).
-The plugin ships no `warn` preset today — **if a future version does, replace the derivation with
-it**, and this note is the trigger.
+The severity derivation is drift-proof across plugin upgrades; hand-listing ~30 rule names at `warn`
+would be the real anti-pattern (`dry`: it would need re-syncing on every upgrade). The plugin ships
+no `warn` preset today — **if a future version does, replace the derivation with it**, and this note
+is the trigger.
+
+> **Corrected 2026-08-13 (judgment-day, PR #1a).** The derivation above originally read
+> `Object.keys(...).map((regla) => [regla, 'warn'])`. That flattening was a bug: of the plugin's 34
+> recommended rules, **3 ship as `'off'`** (`anchor-ambiguous-text`, `control-has-associated-label`,
+> `label-has-for` — the last deprecated in favour of `label-has-associated-control`) and **7 ship as
+> `[severity, options]` tuples**. Mapping every key to a bare `'warn'` turned the 3 off-rules on and
+> discarded the 7 rules' options, producing 6 warnings in files the change never touched. Preserve
+> `'off'` and re-attach `...opciones`, as shown. `apps/web/eslint.config.js` is the source of truth —
+> do not copy this sample without checking it.
 
 #### Q7b — Which rules actually matter here (not a gesture at "a11y")
 
