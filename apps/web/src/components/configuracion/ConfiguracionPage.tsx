@@ -31,8 +31,15 @@ import type { Mensaje } from './mensajes';
  * antes de que esta ruta pudiera montar (WCFG-01/03) — `me` ausente no es
  * un estado alcanzable en producción, solo una guarda defensiva.
  *
- * Grid — el tier fluido T1 completo (proporciones medidas, stack bajo `lg`)
- * es tarea 6.3, PR #2. No se adelanta acá.
+ * Grid FLUIDO (CA-04, task 6.3, D-08): `max-w-*` + un `grid` de primera
+ * columna fija — reproduce las proporciones de T1 en el ancho de T1 y en
+ * todo ancho intermedio, sin un tier `md:` nuevo. El único breakpoint es
+ * `lg` — el MISMO que ya usa el shell para Sidebar↔BottomTabs
+ * (`layout.ts`'s `SIDEBAR_CONTENT_OFFSET_CLASS = 'lg:pl-64'`), no uno
+ * inventado para esta página. Debajo de `lg` las dos columnas se APILAN en
+ * una sola (heading+tabs arriba del panel) — el `Sidebar` ya cedió su lugar
+ * a `BottomTabs` ahí, así que esta página se queda con el ancho completo.
+ * `AppShell`/`Sidebar.tsx`/`BottomTabs.tsx` permanecen intactos.
  */
 export function ConfiguracionPage({
   avisoGoogle,
@@ -48,9 +55,12 @@ export function ConfiguracionPage({
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-semibold text-slate-900">Editar perfil</h1>
-      <div className="mt-6 grid grid-cols-[200px_1fr] gap-8">
+      <div
+        data-testid="configuracion-grid"
+        className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[200px_1fr]"
+      >
         <ConfiguracionTabs />
         <div className="flex flex-col gap-8">
           <PerfilForm me={me} />

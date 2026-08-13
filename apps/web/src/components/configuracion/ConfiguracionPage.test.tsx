@@ -115,4 +115,15 @@ describe('ConfiguracionPage', () => {
       screen.getByRole('button', { name: 'Vincular con Google' }),
     ).toBeInTheDocument();
   });
+
+  it('grid fluido T1 (CA-04, task 6.3): columna fija bajo lg, apila en una sola columna debajo', async () => {
+    await renderConfiguracionPage();
+    const grid = screen.getByTestId('configuracion-grid');
+    // Sin tier `md:` nuevo (D-08): solo `lg` (el mismo breakpoint que el
+    // shell usa para Sidebar vs BottomTabs, `layout.ts`'s
+    // `SIDEBAR_CONTENT_OFFSET_CLASS = 'lg:pl-64'`). Por defecto (debajo de
+    // `lg`) UNA columna — heading+tabs arriba del panel.
+    expect(grid).toHaveClass('grid-cols-1');
+    expect(grid).toHaveClass('lg:grid-cols-[200px_1fr]');
+  });
 });
