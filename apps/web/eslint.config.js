@@ -69,10 +69,14 @@ export default defineConfig([
     files: ['**/*.tsx'],
     extends: [jsxA11y.flatConfigs.recommended],
     rules: Object.fromEntries(
-      Object.keys(jsxA11y.flatConfigs.recommended.rules).map((regla) => [
-        regla,
-        'warn',
-      ]),
+      Object.entries(jsxA11y.flatConfigs.recommended.rules).map(
+        ([regla, valor]) => {
+          const [severidad, ...opciones] = Array.isArray(valor)
+            ? valor
+            : [valor];
+          return [regla, severidad === 'off' ? 'off' : ['warn', ...opciones]];
+        },
+      ),
     ),
   },
   // Scoped ERROR — the files this change (and its PR #1b/#2 follow-ups)
