@@ -475,6 +475,131 @@ describe('CategoriasPanel', () => {
     ).toHaveFocus();
   });
 
+  /**
+   * judgment-day PR #5 (WARNING, both judges): the round-2 test above proves
+   * `eliminadoRecientemente` protects THIS delete's own refetch settling.
+   * This test proves the OTHER half — that the guard does not silently
+   * outlive that window. `dataUpdatedAt` only advances on a fetch that
+   * SUCCEEDS: the delete's own background refetch below is stubbed to
+   * succeed, which must clear the guard; a LATER, unrelated `['categorias']`
+   * failure (simulated via a manual `refetchQueries` after swapping the
+   * `fetch` stub) must then take the full-page `ErrorState` path again — not
+   * the softened inline one. A boolean latch that is only ever set `true`
+   * and never reset (the pre-fix shape) fails this assertion: the heading
+   * would still be mounted because `eliminadoRecientemente` never went back
+   * to `false`.
+   */
+  it('tras un refetch exitoso posterior al delete, un fallo NUEVO Y NO relacionado sí vuelve al ErrorState de página completa (el guard no es un ratchet)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            categorias: CATALOGO.categorias.filter(
+              (c) => c.id !== 'cat-necesidades',
+            ),
+          }),
+      });
+    });
+    const queryClient = renderPanel({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+      fetchMock,
+    });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    // La refetch propia del delete (profile B) tuvo éxito: dataUpdatedAt
+    // avanzó y el guard ya se auto-limpió.
+    await vi.waitFor(() =>
+      expect(screen.queryByText('Supermercado')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Un fallo posterior, sin relación con el delete (p.ej. un refetch por
+    // window refocus horas después), debe caer en la página completa de
+    // error — no en el guard inline que protegía el delete.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    await queryClient.refetchQueries({ queryKey: CATEGORIAS_QUERY_KEY });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', {
+        level: 2,
+        name: 'Categorías y patrones',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * judgment-day PR #5 (SUGGESTION, Judge B): while the inline error path
+   * (`eliminadoRecientemente`) is up, the catalog fetch is genuinely
+   * failing — offering `Nueva categoría` in that state is confusing even
+   * though nothing crashes (`NuevaCategoriaForm` doesn't read `query.data`).
+   * Same deferred-promise idiom as the round-2 test: assert the button is
+   * gone only AFTER the background refetch has actually settled as a
+   * failure, not merely mid-flight.
+   */
+  it('mientras el ErrorState inline está activo por un delete cuyo refetch falló, el botón Nueva categoría no se muestra', async () => {
+    const user = userEvent.setup();
+    let resolverRefetch!: (value: {
+      readonly ok: boolean;
+      readonly status: number;
+    }) => void;
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return new Promise<{ ok: boolean; status: number }>((resolve) => {
+        resolverRefetch = resolve;
+      });
+    });
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO, fetchMock });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          level: 2,
+          name: 'Categorías y patrones',
+        }),
+      ).toHaveFocus(),
+    );
+
+    resolverRefetch({ ok: false, status: 500 });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Nueva categoría' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('un refetch fallido de ["categorias"] con el form abierto NO destruye el draft en progreso (judgment-day PR #336/#337, fix 1)', async () => {
     const user = userEvent.setup();
     const queryClient = renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });

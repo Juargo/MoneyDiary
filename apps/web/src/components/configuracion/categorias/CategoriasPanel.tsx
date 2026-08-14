@@ -98,12 +98,44 @@ import {
  * silently to `<body>` and the user is never told the delete itself
  * succeeded. This is the SAME mechanism as the draft-survival guard
  * documented above (an unconditional full-page early return destroying
- * state that must survive), so it reuses the SAME shape rather than a third
- * mechanism: `eliminadoRecientemente` joins `creando` in both the early
- * return's negative guard and the inline `ErrorState` condition below, so a
- * post-delete refetch failure renders the SAME inline, still-perceivable
- * `ErrorState` the draft-survival case already uses — the heading (and its
- * focus) stays mounted instead of being torn down.
+ * state that must survive), so it reuses the SAME shape: `eliminadoRecientemente`
+ * joins `creando` in both the early return's negative guard and the inline
+ * `ErrorState` condition below, so a post-delete refetch failure renders the
+ * SAME inline, still-perceivable `ErrorState` the draft-survival case
+ * already uses — the heading (and its focus) stays mounted instead of being
+ * torn down.
+ *
+ * **`eliminadoRecientemente` is derived, not a latch (judgment-day PR #5,
+ * WARNING, both judges):** the guard protects THIS delete's OWN refetch
+ * settling, not "any query failure for the rest of the panel's lifetime". A
+ * boolean flipped `true` in `manejarEliminado` and never reset would widen
+ * that scope silently — after the FIRST delete, every later, unrelated
+ * `['categorias']` failure (e.g. a window-refocus refetch hours later —
+ * `QUERY_CLIENT_DEFAULTS` doesn't set `refetchOnWindowFocus`, so TanStack's
+ * default `true` applies) would keep taking the softened inline path
+ * instead of the full-page one. Resetting on `query.isSuccess` via a
+ * `useEffect` doesn't work either: at the moment `manejarEliminado` runs,
+ * `query` is still holding the PREVIOUS successful data (this delete's own
+ * refetch hasn't started), so `isSuccess` is already `true` and an effect
+ * keyed on it would clear the guard immediately — re-arming the full-page
+ * early return inside the exact window it exists to protect. Instead the
+ * state is self-clearing by construction: `manejarEliminado` snapshots
+ * `query.dataUpdatedAt` (the timestamp of the query's last SUCCESSFUL
+ * fetch), and `eliminadoRecientemente` is simply "that snapshot hasn't
+ * advanced yet". `dataUpdatedAt` only moves forward on a fetch that
+ * SUCCEEDS, so: a failed refetch leaves it unchanged (guard still active,
+ * ROUND 2 behaviour preserved); the delete's own refetch succeeding moves it
+ * forward (guard clears itself, no effect needed); and any LATER, unrelated
+ * failure after that point sees an already-advanced snapshot and correctly
+ * falls through to the full-page `ErrorState` — the ratchet is gone.
+ *
+ * **`Nueva categoría` button hidden during the inline error path (judgment-
+ * day PR #5, SUGGESTION, Judge B):** the button's visibility only checked
+ * `!creando`, so while `eliminadoRecientemente` alone keeps the inline
+ * `ErrorState` up (catalog genuinely failing, form closed) the button stayed
+ * clickable — `NuevaCategoriaForm` doesn't depend on `query.data` so nothing
+ * breaks, but offering "create" while the catalog fetch is failing is
+ * confusing. The button's guard now also excludes that state.
  */
 export function CategoriasPanel() {
   const query = useCategorias();
@@ -111,10 +143,15 @@ export function CategoriasPanel() {
   const esDemo = me?.esDemo ?? false;
   const [creando, setCreando] = useState(false);
   const [anuncio, setAnuncio] = useState({ mensaje: '', id: 0 });
-  // Ver docstring "Heading survives a post-delete refetch failure" arriba:
-  // mismo mecanismo que `creando` (guarda el early-return + inline
-  // ErrorState), disparado por un delete exitoso en vez de un form abierto.
-  const [eliminadoRecientemente, setEliminadoRecientemente] = useState(false);
+  // Ver docstring "`eliminadoRecientemente` is derived, not a latch" arriba:
+  // snapshot de `query.dataUpdatedAt` en el momento del delete — NO un
+  // booleano que haya que recordar resetear.
+  const [dataUpdatedAtAlEliminar, setDataUpdatedAtAlEliminar] = useState<
+    number | null
+  >(null);
+  const eliminadoRecientemente =
+    dataUpdatedAtAlEliminar !== null &&
+    query.dataUpdatedAt === dataUpdatedAtAlEliminar;
   const tituloRef = useRef<HTMLHeadingElement>(null);
 
   function manejarEliminado(nombre: string) {
@@ -122,14 +159,16 @@ export function CategoriasPanel() {
       mensaje: `Categoría «${nombre}» eliminada.`,
       id: actual.id + 1,
     }));
-    setEliminadoRecientemente(true);
+    setDataUpdatedAtAlEliminar(query.dataUpdatedAt);
     tituloRef.current?.focus();
   }
+
+  const formularioOEliminadoReciente = creando || eliminadoRecientemente;
 
   if (query.isPending) {
     return <Loading message="Cargando categorías…" />;
   }
-  if (query.isError && !creando && !eliminadoRecientemente) {
+  if (query.isError && !formularioOEliminadoReciente) {
     return (
       <ErrorState
         error={query.error}
@@ -160,7 +199,7 @@ export function CategoriasPanel() {
             patrones permiten la auto-categorización.
           </p>
         </div>
-        {!creando && (
+        {!creando && !(query.isError && eliminadoRecientemente) && (
           <button
             type="button"
             aria-label="Nueva categoría"
@@ -183,7 +222,7 @@ export function CategoriasPanel() {
         </p>
       )}
 
-      {query.isError && (creando || eliminadoRecientemente) && (
+      {query.isError && formularioOEliminadoReciente && (
         <ErrorState
           error={query.error}
           mensaje={mensajeDeErrorCatalogo(query.error)}
