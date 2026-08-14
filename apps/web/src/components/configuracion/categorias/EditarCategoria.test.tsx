@@ -807,6 +807,45 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     resolverDelete({ ok: true, status: 204 });
     await screen.findByText('Lista');
   });
+
+  it('PatronesSection (fila de patrón + Agregar patrón) se deshabilita mientras un diálogo de confirmación está abierto (judgment-day finding, PR #4)', async () => {
+    const user = userEvent.setup();
+    const patron: PatronDto = {
+      id: 'pat-1',
+      categoriaId: 'cat-1',
+      patron: 'netflix',
+      matchType: 'CONTAINS',
+      prioridad: 100,
+    };
+    renderEditar({
+      me: ME_NO_DEMO,
+      categorias: {
+        categorias: [{ ...CATEGORIA_SUPERMERCADO, patrones: [patron] }],
+      },
+    });
+
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+
+    // `ConfirmarImpactoDialog` is intentionally non-modal (no focus trap) —
+    // without this gate a keyboard user could Tab past it into these
+    // still-live pattern controls while a confirmation reads a frozen
+    // snapshot.
+    expect(screen.getByLabelText('Patrón')).toBeDisabled();
+    expect(screen.getByLabelText('Tipo de coincidencia')).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Eliminar patrón netflix' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Agregar patrón' }),
+    ).toBeDisabled();
+  });
 });
 
 /**

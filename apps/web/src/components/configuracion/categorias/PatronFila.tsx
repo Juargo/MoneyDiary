@@ -62,11 +62,20 @@ export function PatronFila({
   categoriaId,
   patron,
   esDemo,
+  bloqueado = false,
   onDescartar,
 }: {
   readonly categoriaId: string;
   readonly patron?: PatronDto;
   readonly esDemo: boolean;
+  /**
+   * External gate (e.g. a `ConfirmarImpactoDialog` open elsewhere on the
+   * screen, `EditarCategoria`'s judgment-day fix) — combined with `esDemo`
+   * into `bloqueadoTotal` below. Not part of this row's OWN mutation state
+   * (see `filaOcupada`), so it needs its own prop rather than folding into
+   * `esDemo`, whose name is reserved for the demo-session concept.
+   */
+  readonly bloqueado?: boolean;
   readonly onDescartar?: () => void;
 }) {
   const crear = useCrearPatron();
@@ -80,15 +89,42 @@ export function PatronFila({
 
   const idCreado = patron?.id;
 
+  const bloqueadoTotal = esDemo || bloqueado;
+
+  // Judgment-day finding (PR #4, 2026-08-14): `commit()`/`eliminarFila()`
+  // had NO preconditions beyond `esDemo` — each symptom (a re-entrant POST
+  // on a not-yet-created row, an empty-value commit, a delete racing an
+  // in-flight create) got patched individually across FOUR review rounds of
+  // the PREVIOUS PR (#3b); an ad-hoc `disabled` per symptom kept closing one
+  // case and opening an adjacent one. `filaOcupada` is the ONE precondition
+  // both functions below share: while ANY of this row's three mutations
+  // (`crear`/`actualizar`/`eliminar`) is in flight, neither function does
+  // anything — this is what stops a second commit fired mid-`POST` (blur
+  // then an immediate `matchType` change, or double-Enter) from becoming a
+  // second persisted pattern, and what stops `eliminarFila` from taking the
+  // "not created yet" branch (zero network calls, `onDescartar` only) while
+  // a `POST` for the SAME row is still in flight underneath it.
+  const filaOcupada =
+    crear.isPending || actualizar.isPending || eliminar.isPending;
+
   function commit(overrides?: {
     readonly valor?: string;
     readonly matchType?: string;
   }) {
-    if (esDemo) {
+    if (bloqueadoTotal || filaOcupada) {
       return;
     }
     const valorFinal = overrides?.valor ?? valor;
     const matchTypeFinal = overrides?.matchType ?? matchType;
+
+    // A blank (or whitespace-only) value is "not ready to commit yet", not
+    // a validation error — no request, no `role="alert"`. Reachable on a
+    // brand-new row by picking `matchType` before typing (the natural
+    // "pick the type, then write the text" order), and on an existing row
+    // by clearing the text and then changing `matchType`.
+    if (valorFinal.trim() === '') {
+      return;
+    }
 
     if (idCreado === undefined) {
       crear.mutate(
@@ -120,6 +156,9 @@ export function PatronFila({
   }
 
   function eliminarFila() {
+    if (bloqueadoTotal || filaOcupada) {
+      return;
+    }
     if (idCreado === undefined) {
       onDescartar?.();
       return;
@@ -155,20 +194,20 @@ export function PatronFila({
           value={matchType}
           onChange={alCambiarMatchType}
           options={OPCIONES_MATCH_TYPE}
-          disabled={esDemo}
+          disabled={bloqueadoTotal}
         />
         <CampoTexto
           label="Patrón"
           value={valor}
           onChange={setValor}
-          disabled={esDemo}
+          disabled={bloqueadoTotal}
           onBlur={() => commit()}
           onKeyDown={alPresionarTecla}
         />
       </div>
       <button
         type="button"
-        disabled={esDemo || eliminar.isPending}
+        disabled={bloqueadoTotal || filaOcupada}
         onClick={eliminarFila}
         aria-label={
           valor ? `Eliminar patrón ${valor}` : 'Eliminar patrón nuevo'

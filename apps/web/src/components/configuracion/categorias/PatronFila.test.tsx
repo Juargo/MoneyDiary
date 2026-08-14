@@ -185,13 +185,67 @@ describe('PatronFila — fila existente', () => {
       wrapper: crearWrapper(),
     });
 
+    // A non-empty value here — a BLANK value must not even reach the
+    // server (see "un valor vacío ... NO commitea" below), so this test
+    // exercises a genuine server-side rejection instead.
     const input = screen.getByLabelText('Patrón');
-    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.change(input, { target: { value: 'ab' } });
     fireEvent.blur(input);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'El patrón debe tener entre 1 y 200 caracteres.',
     );
+  });
+
+  it('un valor vacío (o solo espacios) en Patrón NO commitea: sin request, sin error (fila existente)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.blur(input);
+
+    // No `waitFor` timeout to eat — assert synchronously that the guard
+    // never even reaches the mutation, then confirm nothing shows up async.
+    expect(fetchMock).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('un segundo commit disparado mientras el PRIMER PATCH está en vuelo (actualizar.isPending) NO dispara un segundo PATCH', async () => {
+    let resolverFetch: (value: {
+      ok: boolean;
+      status: number;
+    }) => void = () => {};
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolverFetch({ ok: true, status: 200 });
+    await screen.findByText('Patrón guardado.');
   });
 
   it('sesión demo: Patrón, Tipo de coincidencia y el botón eliminar quedan deshabilitados (WCTG-11)', () => {
@@ -265,5 +319,116 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
 
     expect(onDescartar).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('elegir un Tipo de coincidencia ANTES de escribir texto NO dispara POST (valor vacío no commitea)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const onDescartar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        esDemo={false}
+        onDescartar={onDescartar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText('Tipo de coincidencia');
+    fireEvent.change(select, { target: { value: 'REGEX' } });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onDescartar).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('un segundo commit disparado mientras el PRIMER POST está en vuelo (blur, luego cambiar Tipo de coincidencia ANTES de que resuelva) NO dispara un segundo POST — regresión del hallazgo crítico de judgment-day', async () => {
+    let resolverFetch: (value: {
+      ok: boolean;
+      status: number;
+    }) => void = () => {};
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onDescartar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        esDemo={false}
+        onDescartar={onDescartar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'uber' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // The FIRST `POST` is still pending (`resolverFetch` not yet called) —
+    // `idCreado` stays `undefined` for this whole window. Picking a
+    // different `matchType` here used to fire a SECOND `POST` because
+    // `commit()` had no `crear.isPending` guard.
+    const select = screen.getByLabelText('Tipo de coincidencia');
+    fireEvent.change(select, { target: { value: 'REGEX' } });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onDescartar).not.toHaveBeenCalled();
+
+    resolverFetch({ ok: true, status: 201 });
+    await waitFor(() => expect(onDescartar).toHaveBeenCalledTimes(1));
+    // Still exactly one request — `onSuccess` only ever fired once.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('eliminar mientras el POST de creación está en vuelo queda bloqueado (botón deshabilitado, sin llamar a onDescartar hasta que resuelva)', async () => {
+    const user = userEvent.setup();
+    let resolverFetch: (value: {
+      ok: boolean;
+      status: number;
+    }) => void = () => {};
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onDescartar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        esDemo={false}
+        onDescartar={onDescartar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'uber' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const boton = screen.getByRole('button', { name: /eliminar patrón/i });
+    expect(boton).toBeDisabled();
+
+    // Against the OLD implementation this click takes the "not created
+    // yet" branch — zero network calls, `onDescartar` fires immediately —
+    // while the in-flight `POST` still lands underneath it.
+    await user.click(boton);
+    expect(onDescartar).not.toHaveBeenCalled();
+
+    resolverFetch({ ok: true, status: 201 });
+    await waitFor(() => expect(onDescartar).toHaveBeenCalledTimes(1));
+    expect(onDescartar).toHaveBeenCalledTimes(1);
   });
 });

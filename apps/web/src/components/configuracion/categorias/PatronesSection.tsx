@@ -33,10 +33,20 @@ export function PatronesSection({
   categoriaId,
   patrones,
   esDemo,
+  bloqueado = false,
 }: {
   readonly categoriaId: string;
   readonly patrones: ReadonlyArray<PatronDto>;
   readonly esDemo: boolean;
+  /**
+   * Judgment-day finding (PR #4, 2026-08-14): `ConfirmarImpactoDialog` is
+   * intentionally non-modal (no focus trap), so a keyboard user could Tab
+   * past an OPEN confirmation into this section's still-live rows/button.
+   * `EditarCategoria` passes `dialogo !== null` here — the SAME condition
+   * that already gates `Nombre`/`Bucket`/`Cancelar`/`Guardar` on that
+   * screen, not a new mechanism.
+   */
+  readonly bloqueado?: boolean;
 }) {
   const [filasNuevas, setFilasNuevas] = useState<ReadonlyArray<number>>([]);
 
@@ -61,6 +71,7 @@ export function PatronesSection({
             categoriaId={categoriaId}
             patron={patron}
             esDemo={esDemo}
+            bloqueado={bloqueado}
           />
         ))}
         {filasNuevas.map((clave) => (
@@ -68,6 +79,7 @@ export function PatronesSection({
             key={clave}
             categoriaId={categoriaId}
             esDemo={esDemo}
+            bloqueado={bloqueado}
             onDescartar={() => quitarFilaNueva(clave)}
           />
         ))}
@@ -75,7 +87,7 @@ export function PatronesSection({
       <div>
         <button
           type="button"
-          disabled={esDemo}
+          disabled={esDemo || bloqueado}
           onClick={agregarFila}
           className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
