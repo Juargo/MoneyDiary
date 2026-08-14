@@ -38,12 +38,22 @@ const SCREENS = [
 
 // SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception: a target "in a sentence or
 // whose size is otherwise constrained by the line-height of non-target
-// text" is exempt from the 24×24 minimum. `EditarCategoria`'s 3-level
-// breadcrumb links are inline text (`text-sm`, ~20px tall, embedded in a
-// sentence-like path) — a naive `button, a` sweep would flag them and
-// invite inflating a breadcrumb to satisfy a criterion that never applied
-// to it (design.md §4, `E-11` note).
+// text" is exempt from the 24×24 minimum. Two families of unstyled text
+// links in `EditarCategoria` rely on it:
+// - The 3-level breadcrumb links, inline text (`text-sm`, ~20px tall,
+//   embedded in a sentence-like path) inside
+//   `nav[aria-label="Ruta de navegación"]` (measured ~17px tall — genuinely
+//   below the 24px floor, so this exemption is load-bearing, not
+//   defensive theatre).
+// - The plain "Volver a Categorías" link rendered in the query-error and
+//   not-found branches (`EditarCategoria.tsx:147,158`) — no button/padding
+//   styling, sized purely by its own text line-height, same rationale as
+//   the breadcrumb, just outside the `nav`.
+// A naive `button, a` sweep would flag either and invite inflating them to
+// satisfy a criterion that never applied to them (design.md §4, `E-11`
+// note).
 const RUTA_NAVEGACION_SELECTOR = 'nav[aria-label="Ruta de navegación"]';
+const VOLVER_A_CATEGORIAS_TEXT = 'Volver a Categorías';
 
 async function standaloneControlsInMain(page: Page): Promise<Locator[]> {
   const controlsLocator = page.locator('main').locator('button, a[href]');
@@ -60,8 +70,12 @@ async function standaloneControlsInMain(page: Page): Promise<Locator[]> {
   const standalone: Locator[] = [];
   for (const control of all) {
     const isInlineTextLink = await control.evaluate(
-      (el, selector) => el.closest(selector) !== null,
-      RUTA_NAVEGACION_SELECTOR,
+      (el, { selector, exemptText }) =>
+        el.closest(selector) !== null || el.textContent?.trim() === exemptText,
+      {
+        selector: RUTA_NAVEGACION_SELECTOR,
+        exemptText: VOLVER_A_CATEGORIAS_TEXT,
+      },
     );
     if (!isInlineTextLink) {
       standalone.push(control);
