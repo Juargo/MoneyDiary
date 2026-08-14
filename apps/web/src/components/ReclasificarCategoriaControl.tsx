@@ -43,7 +43,17 @@ function etiqueta(bucket: string): string {
  * queda deshabilitado en silencio, sin explicación ni forma de recuperarse.
  * Este control lee `error` de `useCategorias()` y lo muestra con el mismo
  * patrón `role="alert"` que usa para errores de mutación, más un botón
- * "Reintentar" que llama `refetch()` — nunca un candado mudo.
+ * "Reintentar" que llama `refetch()` — nunca un candado mudo. El banner SOLO
+ * se muestra cuando `data === undefined && catalogoError`: `refetchOnReconnect`
+ * queda en su default `true` en producción (`main.tsx` solo pisa
+ * `refetchOnWindowFocus`), así que un refetch de fondo que falla sobre datos
+ * ya cargados y válidos deja `catalogoError` truthy con `data` intacta — el
+ * `<select>` sigue andando con la última data buena y no debe aparentar estar
+ * roto. Mientras ese refetch (inicial o el disparado por "Reintentar",
+ * incluyendo los backoffs internos de `shouldRetryQuery` en `main.tsx`, hasta
+ * 3 intentos) está en vuelo, `useCategorias().isFetching` también deshabilita
+ * el botón "Reintentar" — sin eso, un click durante un cold-start de Render
+ * no da ninguna señal hasta que resuelve.
  *
  * a11y (ADR-018, WCAT-05): `<label htmlFor>` visualmente oculto pero con
  * nombre accesible real ("Cambiar categoría de {descripcion}", no un genérico
@@ -53,11 +63,23 @@ function etiqueta(bucket: string): string {
  * dropdown custom); Escape dentro del diálogo cancela igual que el botón
  * "Cancelar" (sin foco-trap completo — innecesario para este widget inline
  * por fila). El control se DESHABILITA (no se oculta) mientras la mutación
- * está en curso. El estado "catálogo cargando" es indistinguible VISUALMENTE
- * del "mutación pendiente" (ambos deshabilitan el mismo `<select>`), pero se
- * distinguen para lectores de pantalla vía `aria-busy` + un `role="status"`
- * oculto ("Cargando categorías…") que solo aparece mientras el catálogo está
- * en vuelo — nunca durante una mutación pendiente ni durante un error.
+ * está en curso. El estado "catálogo en vuelo" (carga inicial o refetch,
+ * incluyendo reintentos) se expone SOLO como `aria-busy` en el `<select>` —
+ * NUNCA como `role="status"` por fila: `useCategorias()` comparte una única
+ * query `['categorias']` entre todas las filas montadas (`use-categorias.ts`),
+ * así que un `role="status"` por control anunciaría la MISMA frase N veces
+ * para un solo fetch en cada carga normal de un panel de bucket. `aria-busy`
+ * es correcto por fila porque es ESTADO, no anuncio; una announcement
+ * compartida (una sola vez por fetch) requeriría vivir en un ancestro con
+ * una única instancia — deuda registrada, ver nota más abajo.
+ *
+ * **Deuda aceptada (alcance de este control, no de `BucketDetailList`):** si
+ * el catálogo falla SIN datos en caché (nunca cargó), cada fila sigue
+ * renderizando su propio `role="alert"` + botón "Reintentar" — N duplicados
+ * en el estado genuinamente roto. Elevar el error/retry del catálogo a
+ * `BucketDetailList` (una sola instancia por panel) es el follow-up limpio;
+ * se difiere a propósito para mantener el blast radius de esta ronda en un
+ * único componente ya en producción.
  */
 export function ReclasificarCategoriaControl({
   transaccionId,
@@ -88,8 +110,8 @@ export function ReclasificarCategoriaControl({
     data,
     error: catalogoError,
     refetch: refetchCategorias,
+    isFetching: catalogoEnVuelo,
   } = useCategorias();
-  const catalogoCargando = data === undefined && !catalogoError;
   const grupos = agruparPorBucket(data?.categorias ?? []);
   const bucketDe = (nombre: string): string | undefined =>
     data?.categorias.find((c) => c.nombre === nombre)?.bucket;
@@ -170,7 +192,7 @@ export function ReclasificarCategoriaControl({
         ref={selectRef}
         value={valor}
         disabled={mutacion.isPending || data === undefined}
-        aria-busy={catalogoCargando}
+        aria-busy={catalogoEnVuelo}
         onChange={alCambiar}
         className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -204,23 +226,19 @@ export function ReclasificarCategoriaControl({
           </>
         )}
       </select>
-      {catalogoCargando && (
-        <span role="status" className="sr-only">
-          Cargando categorías…
-        </span>
-      )}
       <span aria-live="polite" className="sr-only">
         {mutacion.isSuccess && !pendiente
           ? `Categoría actualizada a ${mutacion.data?.categoria.nombre}.`
           : ''}
       </span>
-      {catalogoError && (
+      {data === undefined && catalogoError && (
         <p role="alert" className="text-xs text-red-600">
           {catalogoError.message}{' '}
           <button
             type="button"
             onClick={() => void refetchCategorias()}
-            className="underline"
+            disabled={catalogoEnVuelo}
+            className="underline disabled:cursor-not-allowed disabled:opacity-50"
           >
             Reintentar
           </button>

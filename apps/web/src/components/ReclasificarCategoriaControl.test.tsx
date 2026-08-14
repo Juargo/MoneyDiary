@@ -6,15 +6,22 @@ import type { ReactNode } from 'react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
 import type { CatalogoDto, ReclasificarCategoriaDto } from '@/api/types';
 
+// `Wrapper.queryClient` is attached so a handful of tests can drive a
+// background refetch directly (`wrapper.queryClient.refetchQueries(...)`)
+// without a UI trigger for it — React ignores the extra property when using
+// `Wrapper` as the `render(..., { wrapper })` option, so every pre-existing
+// `{ wrapper: crearWrapper() }` call site keeps working unchanged.
 function crearWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return function Wrapper({ children }: { children: ReactNode }) {
+  function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
-  };
+  }
+  Wrapper.queryClient = queryClient;
+  return Wrapper;
 }
 
 // The 8 seed-template categorías (US-043 §7 retires the hardcoded web copy,
@@ -741,13 +748,26 @@ describe('ReclasificarCategoriaControl', () => {
   });
 
   it('when the catalog fetch fails, surfaces an accessible error with a retry affordance instead of locking silently forever (WCAT-04 delta)', async () => {
+    let resolverReintento: (value: unknown) => void = () => {};
+    let catalogoFetchCount = 0;
     const fetchMock = vi.fn((url: string) => {
       if (url === '/api/categorias') {
-        return Promise.resolve({ ok: false, status: 500 });
+        catalogoFetchCount += 1;
+        if (catalogoFetchCount === 1) {
+          return Promise.resolve({ ok: false, status: 500 });
+        }
+        // Second call is the "Reintentar" click — deferred so the in-flight
+        // retry state (busy `<select>`, disabled button) is observable
+        // before it settles, same as the documented Render cold-start retry
+        // (`shouldRetryQuery` in `main.tsx`, up to 3 backoff attempts).
+        return new Promise((resolve) => {
+          resolverReintento = resolve;
+        });
       }
       throw new Error(`unexpected fetch to ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
 
     render(
       <ReclasificarCategoriaControl
@@ -772,11 +792,37 @@ describe('ReclasificarCategoriaControl', () => {
     );
     // The select stays disabled (never a bare, unexplained lock — the
     // catalog genuinely never loaded) but the failure is now announced and
-    // recoverable, not silent forever.
+    // recoverable, not silent forever. No shared live region announces this
+    // per row (issue 1) — the alert itself is the only cue.
     expect(select).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: 'Reintentar' }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    const reintentar = screen.getByRole('button', { name: 'Reintentar' });
+    expect(reintentar).toBeInTheDocument();
+
+    await user.click(reintentar);
+
+    // While the retry is in flight, the user gets immediate feedback: the
+    // stale error banner clears and the select's busy signal activates —
+    // clicking "Reintentar" must not be a silent no-op until the deferred
+    // promise settles. (`useCategorias()` has no cached data yet in this
+    // scenario, so TanStack Query's own `fetch` transition resets `error`
+    // together with `isFetching`, which is why the banner — not a lingering
+    // disabled button — is the observable "it's retrying" cue here; see the
+    // sibling "background catalog refetch" test above for the case where
+    // cached data IS present and the banner itself stays gated.)
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
+    );
+    expect(select).toHaveAttribute('aria-busy', 'true');
+
+    resolverReintento(respuestaCatalogo(CATALOGO_FIXTURE));
+
+    // Recovery: `refetch()`'s error clears once the retry succeeds — the
+    // select becomes enabled with the live catalog and the alert stays
+    // gone, previously unverified.
+    await waitFor(() => expect(select).not.toBeDisabled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('option')).toHaveLength(8);
   });
 
   it('an unresolved categoría (not found in the live catalog) is rejected as an error, never auto-committed as if same-bucket (ADR-015 fail-safe direction)', async () => {
@@ -825,7 +871,7 @@ describe('ReclasificarCategoriaControl', () => {
     ).toHaveLength(0);
   });
 
-  it('the catalog-loading state exposes an accessible status cue, distinct from the mutation-pending disabled state (a11y)', async () => {
+  it('the catalog-loading state marks the select aria-busy, with NO per-row live-region announcement (a11y — one shared query, N mounted rows would otherwise announce N times)', async () => {
     let resolverCatalogo: (value: unknown) => void = () => {};
     const fetchMock = vi.fn((url: string) => {
       if (url === '/api/categorias') {
@@ -854,14 +900,73 @@ describe('ReclasificarCategoriaControl', () => {
     ) as HTMLSelectElement;
 
     expect(select).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Cargando categorías…',
-    );
+    // `role="status"` is a shared live region — with `useCategorias()`
+    // fanning one `['categorias']` fetch out to every mounted row
+    // (use-categorias.ts), a per-row `role="status"` would announce the
+    // same sentence once per transaction row on every normal page load.
+    // `aria-busy` on the `<select>` is the correct per-row signal instead:
+    // it is state, not an announcement.
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
 
     resolverCatalogo(respuestaCatalogo(CATALOGO_FIXTURE));
 
     await waitFor(() => expect(select).not.toBeDisabled());
     expect(select).not.toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('a background catalog refetch that fails over already-loaded, valid data does not show an error banner and keeps the select working (WCAT-04 delta)', async () => {
+    let resolveSegundoFetch: (value: unknown) => void = () => {};
+    let catalogoFetchCount = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        catalogoFetchCount += 1;
+        if (catalogoFetchCount === 1) {
+          return Promise.resolve(respuestaCatalogo(CATALOGO_FIXTURE));
+        }
+        return new Promise((resolve) => {
+          resolveSegundoFetch = resolve;
+        });
+      }
+      throw new Error(`unexpected fetch to ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const wrapper = crearWrapper();
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual="Supermercado"
+        periodo="2026-07"
+      />,
+      { wrapper },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+    expect(screen.getAllByRole('option')).toHaveLength(8);
+
+    // Simulates the failure mode this error path exists for: a background
+    // refetch (e.g. `refetchOnReconnect`, TanStack's default `true`, left
+    // untouched in `main.tsx` unlike `refetchOnWindowFocus`) over data that
+    // is already loaded and still valid.
+    void wrapper.queryClient.refetchQueries({ queryKey: ['categorias'] });
+    await waitFor(() => expect(select).toHaveAttribute('aria-busy', 'true'));
+
+    resolveSegundoFetch({ ok: false, status: 500 });
+
+    await waitFor(() =>
+      expect(select).not.toHaveAttribute('aria-busy', 'true'),
+    );
+    // The control must keep working: no error banner, select still enabled,
+    // still offering the full, previously-loaded catalog.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(select).not.toBeDisabled();
+    expect(screen.getAllByRole('option')).toHaveLength(8);
   });
 });
