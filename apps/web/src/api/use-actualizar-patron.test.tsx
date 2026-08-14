@@ -107,12 +107,21 @@ describe('useActualizarPatron', () => {
     });
   });
 
-  it('LA EXCLUSIÓN (non-negotiable #4, task 39) — NO invalida ninguna clave del dashboard', async () => {
+  it('LA EXCLUSIÓN (non-negotiable #4, task 39) — actualizar un patrón NO invalida las claves LIVE del dashboard', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 200 }),
     );
-    const { queryClient, claves } = crearQueryClientEspiado();
+    const { queryClient } = crearQueryClientEspiado();
+    // Seed the three dashboard keys as LIVE queries (see
+    // `use-crear-patron.test.tsx`'s dedicated exclusion test for why —
+    // exact-array-equality on `claves()` already proves the inclusion test
+    // above; a byte-identical second `it` on the same spy adds zero
+    // coverage. Asserting the seeded queries' OWN `isInvalidated` state
+    // gives this test an independent failure mode).
+    queryClient.setQueryData(['resumen'], { total: 1 });
+    queryClient.setQueryData(['resumen-anual'], { total: 1 });
+    queryClient.setQueryData(['detalle-bucket'], { total: 1 });
 
     const { result } = renderHook(() => useActualizarPatron(), {
       wrapper: crearWrapper(queryClient),
@@ -121,6 +130,12 @@ describe('useActualizarPatron', () => {
     result.current.mutate({ id: 'pat-1', patch: { patron: 'spotify' } });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(claves()).toEqual([['categorias']]);
+    expect(queryClient.getQueryState(['resumen'])?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(['resumen-anual'])?.isInvalidated).toBe(
+      false,
+    );
+    expect(queryClient.getQueryState(['detalle-bucket'])?.isInvalidated).toBe(
+      false,
+    );
   });
 });

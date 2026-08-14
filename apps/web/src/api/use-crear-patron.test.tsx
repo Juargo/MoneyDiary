@@ -131,12 +131,24 @@ describe('useCrearPatron', () => {
     });
   });
 
-  it('LA EXCLUSIÓN (non-negotiable #4, task 39) — NO invalida ninguna clave del dashboard', async () => {
+  it('LA EXCLUSIÓN (non-negotiable #4, task 39) — un patrón creado NO invalida las claves LIVE del dashboard', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 201 }),
     );
-    const { queryClient, claves } = crearQueryClientEspiado();
+    const { queryClient } = crearQueryClientEspiado();
+    // Seed the three dashboard keys as LIVE queries (§0.3, WCTG-09) instead
+    // of duplicating the inclusion test's `claves()`-only assertion —
+    // exact-array-equality on the SAME spy already proves both directions
+    // at once, so a byte-identical second `it` adds zero coverage a
+    // reverted `invalidarCatalogo → invalidarCatalogoYDashboard` swap
+    // wouldn't already fail on the inclusion test. Asserting these seeded
+    // queries' OWN `isInvalidated` state gives this test an independent
+    // failure mode: it fails if the create hook ever invalidates the
+    // dashboard, even if the assertion above it were ever weakened.
+    queryClient.setQueryData(['resumen'], { total: 1 });
+    queryClient.setQueryData(['resumen-anual'], { total: 1 });
+    queryClient.setQueryData(['detalle-bucket'], { total: 1 });
 
     const { result } = renderHook(() => useCrearPatron(), {
       wrapper: crearWrapper(queryClient),
@@ -149,8 +161,12 @@ describe('useCrearPatron', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    // Exact array equality — una TERCERA clave (p.ej. ['resumen']) rompe esta
-    // aserción, no se infiere por ausencia (design.md §0.3, WCTG-09).
-    expect(claves()).toEqual([['categorias']]);
+    expect(queryClient.getQueryState(['resumen'])?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(['resumen-anual'])?.isInvalidated).toBe(
+      false,
+    );
+    expect(queryClient.getQueryState(['detalle-bucket'])?.isInvalidated).toBe(
+      false,
+    );
   });
 });
