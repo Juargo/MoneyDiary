@@ -9,12 +9,23 @@ import {
  * mensajes-catalogo.test.ts, error-table portion (US-043 design.md §1/Q8,
  * WCTG-12) — the 12-code closed union, keyed by `code` alone (Q8a): one
  * error class ⇒ one status ⇒ one code, verified against
- * `catalogo-http-error.ts`'s own `_exhaustive: never` guard. `BODY_INVALIDO`
- * is NOT driven through `servidor()` below: nothing in this codebase ever
- * sets `code: 'BODY_INVALIDO'` on a `tag: 'server'` response — that shape is
- * a client-only invention and asserting against it proves nothing about the
- * row it claims to cover. It has its own dedicated test against the real
- * `tag: 'parse'` shape instead (see below).
+ * `catalogo-http-error.ts`'s own `_exhaustive: never` guard.
+ *
+ * `BODY_INVALIDO` has TWO real producers, both covered below:
+ * - `tag: 'server', status: 400, code: 'BODY_INVALIDO'` — the backend emits
+ *   this literal shape via `res.status(400).json(BODY_INVALIDO)` in
+ *   `apps/api/src/infrastructure/http-express/routes/categorias.routes.ts`
+ *   and `apps/api/src/infrastructure/http-express/routes/patrones.routes.ts`
+ *   whenever `.safeParse()` rejects a mutation body. `errorConCodigo`
+ *   (`apps/web/src/api/categorias.ts`) lifts any `code` string from a
+ *   non-2xx body verbatim into `{ tag: 'server', status, code }`, so this is
+ *   a genuine, reachable production shape (malformed write payload, id-path
+ *   schema rejection, or client/API skew) — not a client-only invention.
+ * - `tag: 'parse'` — produced client-side by `fetchCatalogo` when a 2xx body
+ *   fails `esCatalogoDto` (no `code` field exists on this tag at all).
+ *
+ * Both shapes are asserted below: two distinct producers converge on the
+ * same `COPY.BODY_INVALIDO` message.
  */
 
 function servidor(status: number, code: string): ApiError {
@@ -31,7 +42,7 @@ describe('MENSAJE_DEMO_CATALOGO', () => {
   });
 });
 
-describe('mensajeDeErrorCatalogo — la tabla cerrada de 11 códigos servidor + BODY_INVALIDO (parse)', () => {
+describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos (11 vía `it.each` + BODY_INVALIDO, con dos productores: `tag: "server"` real del backend y `tag: "parse"` del cliente)', () => {
   it.each([
     ['NOMBRE_INVALIDO', 'El nombre debe tener entre 1 y 40 caracteres.'],
     ['BUCKET_NO_ASIGNABLE', 'Elige un bucket: Necesidades, Gustos o Ahorro.'],
@@ -67,6 +78,12 @@ describe('mensajeDeErrorCatalogo — la tabla cerrada de 11 códigos servidor + 
         message: 'Respuesta inesperada del servidor.',
       }),
     ).toBe(
+      'No se pudo procesar la solicitud. Revisa los datos e intenta nuevamente.',
+    );
+  });
+
+  it('`tag: "server", status: 400, code: "BODY_INVALIDO"` (la forma REAL que emite el backend cuando `.safeParse()` rechaza el body de una mutación — ver `categorias.routes.ts`/`patrones.routes.ts`) mapea al MISMO COPY.BODY_INVALIDO', () => {
+    expect(mensajeDeErrorCatalogo(servidor(400, 'BODY_INVALIDO'))).toBe(
       'No se pudo procesar la solicitud. Revisa los datos e intenta nuevamente.',
     );
   });
