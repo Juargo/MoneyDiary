@@ -117,7 +117,16 @@ export function EditarCategoria({
   }
 
   return (
+    // `key={categoria.id}` (judgment-day finding, 2026-08-14): without it,
+    // navigating from one category's edit screen to another within the SAME
+    // mounted route instance keeps `EditarCategoriaCargada`'s `nombre`/
+    // `bucket` `useState` seeded from the PREVIOUS category — React
+    // reconciles by component type/position, not by prop value, so the
+    // `categoria` prop changing alone does not reset that draft. The key
+    // forces a remount (and a fresh `useState` seed) whenever the resolved
+    // category's identity actually changes.
     <EditarCategoriaCargada
+      key={categoria.id}
       categoria={categoria}
       eliminacion={eliminacion}
       esDemo={esDemo}
@@ -204,7 +213,18 @@ function EditarCategoriaCargada({
 
   function guardarIdentidad(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Re-entrancy guard: the submit button's `disabled` attribute does NOT
+    // stop a form submission triggered by Enter inside `Nombre`, so a rapid
+    // double-Enter (or an Enter while the OTHER mutation/dialog is busy)
+    // can still reach this handler. `dialogo !== null` additionally blocks
+    // submitting the identity form while a confirmation dialog is open —
+    // otherwise `Guardar` could race its own PATCH against an in-flight
+    // DELETE from the footer's delete confirmation.
+    if (dialogo !== null || actualizacion.isPending || eliminacion.isPending) {
+      return;
+    }
     if (bucketSucio) {
+      actualizacion.reset();
       setDialogo('cambiar-bucket');
       return;
     }
@@ -220,7 +240,16 @@ function EditarCategoriaCargada({
         id: categoria.id,
         patch: { nombre, bucket: bucket as BucketAsignable },
       },
-      { onSuccess: () => setDialogo(null) },
+      {
+        onSuccess: () => {
+          setDialogo(null);
+          // Escape/Cancelar restores focus via `cerrarDialogo` — a
+          // successful confirm skips that path (it goes through
+          // `onSuccess`, not `onCancelar`) and would otherwise drop focus
+          // to `<body>`, since this dialog does not navigate away.
+          guardarRef.current?.focus();
+        },
+      },
     );
   }
 
@@ -309,8 +338,21 @@ function EditarCategoriaCargada({
         <button
           ref={eliminarRef}
           type="button"
-          disabled={esDemo}
-          onClick={() => setDialogo('eliminar')}
+          // `dialogo === 'cambiar-bucket'` (not `dialogo !== null`,
+          // deliberately): blocking only the OTHER dialog stops the silent
+          // dialog-swap race (clicking here while the bucket-change confirm
+          // is open) without ALSO disabling this button while ITS OWN
+          // dialog is open, which would leave `eliminarRef` non-focusable
+          // the instant `cerrarDialogo` tries to restore focus to it (the
+          // DOM `disabled` attribute only clears on the next commit, after
+          // that synchronous `.focus()` call already ran).
+          disabled={
+            esDemo || dialogo === 'cambiar-bucket' || actualizacion.isPending
+          }
+          onClick={() => {
+            eliminacion.reset();
+            setDialogo('eliminar');
+          }}
           aria-label={`Eliminar categoría ${categoria.nombre}`}
           className="rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -330,7 +372,19 @@ function EditarCategoriaCargada({
             ref={guardarRef}
             type="submit"
             form="form-identidad"
-            disabled={esDemo || actualizacion.isPending}
+            // `dialogo === 'eliminar'` (mirrors the Eliminar button's
+            // comment above, inverted): blocks Guardar while the DELETE
+            // confirm is open — otherwise it could race its PATCH against
+            // an in-flight DELETE — without disabling it while its OWN
+            // bucket-change dialog is open, which would break
+            // `cerrarDialogo`'s synchronous focus restore back to this
+            // same button.
+            disabled={
+              esDemo ||
+              actualizacion.isPending ||
+              eliminacion.isPending ||
+              dialogo === 'eliminar'
+            }
             className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Guardar

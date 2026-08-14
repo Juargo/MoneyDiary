@@ -8,6 +8,7 @@ import {
   createRouter,
   Outlet,
   RouterProvider,
+  useParams,
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CATEGORIAS_QUERY_KEY } from '@/api/use-categorias';
@@ -50,6 +51,14 @@ const CATEGORIA_SUPERMERCADO = {
 };
 
 const CATALOGO: CatalogoDto = { categorias: [CATEGORIA_SUPERMERCADO] };
+
+const CATEGORIA_STREAMING = {
+  id: 'cat-2',
+  nombre: 'Streaming',
+  bucket: 'Deseos',
+  patrones: [],
+  transaccionesCount: 1,
+};
 
 function renderEditar(options: {
   readonly categoriaId?: string;
@@ -99,10 +108,21 @@ function renderEditar(options: {
     path: '/configuracion/categorias',
     component: () => <p>Lista</p>,
   });
+  // Reads `categoriaId` REACTIVELY off the route's own params (mirrors the
+  // real `configuracion_.categorias.$categoriaId.tsx` route, `Route.
+  // useParams()`), instead of closing over the outer `categoriaId` variable
+  // fixed at setup — a fixed closure would never re-render this leaf on
+  // navigation, defeating the "same mounted instance, categoriaId changes"
+  // reproduction the `key={categoria.id}` regression test needs (below).
+  // `useParams({ strict: false })` (the generic hook, not `Route.
+  // useParams()`) sidesteps `editarRoute` referencing its own
+  // not-yet-inferred type inside its own `component`. Named + capitalized
+  // (`EditarCategoriaRouteTest`, not an anonymous arrow) so eslint's
+  // `react-hooks/rules-of-hooks` recognizes it as a component.
   const editarRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/configuracion/categorias/$categoriaId',
-    component: () => <EditarCategoria categoriaId={categoriaId} />,
+    component: EditarCategoriaRouteTest,
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([
@@ -117,6 +137,11 @@ function renderEditar(options: {
 
   render(<RouterProvider router={router} />);
   return { queryClient, router };
+}
+
+function EditarCategoriaRouteTest() {
+  const params = useParams({ strict: false });
+  return <EditarCategoria categoriaId={params.categoriaId as string} />;
 }
 
 describe('EditarCategoria — resolution states (Q1e)', () => {
@@ -558,6 +583,245 @@ describe('EditarCategoria — delete from the edit screen (Q6d, WCTG-05, WCTG-08
     );
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.queryByText('Lista')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Judgment-day fixes, 2026-08-14 (PR #3b review):
+ * - the in-flight-delete guard destroyed the open confirm dialog for the
+ *   FULL delete round-trip (pinned above, task 34 section);
+ * - stale mutation errors bled into a freshly opened dialog (no `.reset()`
+ *   on open, `EliminarIngestaControl.tsx:90-93` precedent);
+ * - missing `key={categoria.id}` kept a stale identity draft across
+ *   in-place navigation between two categories' edit screens;
+ * - the footer's OTHER trigger stayed clickable while a dialog was open,
+ *   allowing a silent dialog swap / a submit racing an in-flight delete;
+ * - focus was not restored to `Guardar` after a SUCCESSFUL bucket-change
+ *   confirm (only the cancel/Escape path did);
+ * - `guardarIdentidad` had no `isPending` re-entrancy guard, so a rapid
+ *   double-Enter in `Nombre` could fire two overlapping `PATCH` requests
+ *   (a form submit bypasses the submit button's `disabled` attribute).
+ */
+describe('EditarCategoria — stale mutation state on dialog reopen', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('un guardado directo fallido (bucket limpio) no deja un error residual visible al abrir el diálogo de cambio de bucket', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const nombre = await screen.findByLabelText('Nombre');
+    fireEvent.change(nombre, { target: { value: 'Super Jumbo' } });
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alert');
+
+    await user.selectOptions(
+      screen.getByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('un delete fallido no deja un error residual al reabrir el diálogo de eliminar', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    const primerDialogo = await screen.findByRole('alertdialog');
+    await user.click(
+      within(primerDialogo).getByRole('button', { name: 'Eliminar' }),
+    );
+    await within(primerDialogo).findByRole('alert');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+
+    const segundoDialogo = await screen.findByRole('alertdialog');
+    expect(within(segundoDialogo).queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('EditarCategoria — key={categoria.id} evita un draft de identidad obsoleto', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('navegar de una categoría a otra dentro de la MISMA instancia de ruta resiembra Nombre/Bucket con los valores de la categoría nueva', async () => {
+    const catalogoDosCategorias: CatalogoDto = {
+      categorias: [CATEGORIA_SUPERMERCADO, CATEGORIA_STREAMING],
+    };
+    const { router } = renderEditar({
+      me: ME_NO_DEMO,
+      categorias: catalogoDosCategorias,
+    });
+
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Supermercado');
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue(
+      'Necesidades',
+    );
+
+    await router.navigate({
+      to: '/configuracion/categorias/$categoriaId',
+      params: { categoriaId: 'cat-2' },
+    });
+
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Nombre')).toHaveValue('Streaming'),
+    );
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue('Deseos');
+  });
+});
+
+describe('EditarCategoria — los triggers del footer se bloquean con un diálogo abierto', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('Eliminar categoría se deshabilita mientras el diálogo de cambio de bucket está abierto', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+
+    expect(
+      screen.getByRole('button', { name: 'Eliminar categoría Supermercado' }),
+    ).toBeDisabled();
+  });
+
+  it('Guardar se deshabilita mientras el diálogo de eliminar está abierto, y reenviar el formulario NO emite un PATCH', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await screen.findByRole('alertdialog');
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('EditarCategoria — foco tras un confirm exitoso (SUGGESTION)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('un cambio de bucket confirmado con éxito restaura el foco a Guardar', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) =>
+      opciones?.method === 'PATCH'
+        ? Promise.resolve({ ok: true, status: 200 })
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => CATALOGO,
+          }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Cambiar bucket',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Guardar' })).toHaveFocus();
+  });
+});
+
+describe('EditarCategoria — guardarIdentidad no reentra mientras está pendiente', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('reenviar el formulario (vía fireEvent.submit, bypaseando disabled) mientras el PATCH está en vuelo NO emite un segundo PATCH', async () => {
+    let resolverFetch!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn(
+      (_url: string, _opciones?: RequestInit) =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    const nombre = await screen.findByLabelText('Nombre');
+    fireEvent.change(nombre, { target: { value: 'Super Jumbo' } });
+    vi.stubGlobal('fetch', fetchMock);
+    const form = document.getElementById('form-identidad') as HTMLFormElement;
+
+    fireEvent.submit(form);
+    // `actualizacion.isPending` flips to `true` only once the mutation's
+    // internal state update actually commits — a microtask away, not
+    // synchronously inside `fireEvent.submit`'s `act()` wrapper. Waiting for
+    // the FIRST fetch call mirrors two real, separately-dispatched Enter
+    // keydowns (each its own browser task, with the microtask queue drained
+    // in between) rather than two submits crammed into one synchronous tick,
+    // which `isPending` cannot observe in time either way.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fireEvent.submit(form);
+    resolverFetch({ ok: true, status: 200 });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const patches = fetchMock.mock.calls.filter(
+      ([, opciones]) =>
+        (opciones as RequestInit | undefined)?.method === 'PATCH',
+    );
+    expect(patches).toHaveLength(1);
   });
 });
 
