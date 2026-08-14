@@ -64,6 +64,15 @@ export function ConfirmarPasswordDialog({
 
   function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // WCFG-08 escenario 2: con la password vacía la confirmación queda
+    // BLOQUEADA. El `required` del input de abajo es la afordancia; ESTA
+    // guarda es el portón real, porque `fireEvent.submit`/`user.click` sobre
+    // un submit saltean la validación de constraint nativa en jsdom (mismo
+    // par de capas que `PerfilForm`, design Q1c). Comparación con `''`
+    // estricta, sin `trim`, igual que el gate `falta-password-actual` de
+    // `use-guardar-perfil.ts`: una password de espacios puede ser legítima y
+    // no nos toca a nosotros rechazarla.
+    if (passwordActual === '') return;
     onConfirmar(passwordActual);
   }
 
@@ -103,6 +112,7 @@ export function ConfirmarPasswordDialog({
           value={passwordActual}
           onChange={setPasswordActual}
           type="password"
+          required
           autoComplete="current-password"
         />
         {error !== null && (

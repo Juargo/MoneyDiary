@@ -87,6 +87,25 @@ describe('ConfirmarPasswordDialog', () => {
     expect(onConfirmar).toHaveBeenCalledWith('secreta');
   });
 
+  it('Confirmar con la password vacía NO llama a onConfirmar (WCFG-08 escenario 2)', async () => {
+    // El spec exige que la acción de confirmar quede BLOQUEADA hasta que haya
+    // un valor. Sin esta guarda el diálogo mandaba `''` al servidor. Dos
+    // capas, igual que `PerfilForm` (design Q1c): `required` nativo es la
+    // afordancia, la guarda en JS es el portón — `fireEvent`/`user.click`
+    // sobre un submit saltea la validación de constraint nativa en jsdom, así
+    // que un test que confiara solo en `required` pasaría en verde sin que el
+    // bloqueo exista.
+    const user = userEvent.setup();
+    const { onConfirmar } = renderDialog({ textoConfirmar: 'Desvincular' });
+    await user.click(screen.getByRole('button', { name: 'Desvincular' }));
+    expect(onConfirmar).not.toHaveBeenCalled();
+  });
+
+  it('el input de password del diálogo es required (afordancia nativa, WCFG-08)', () => {
+    renderDialog();
+    expect(screen.getByLabelText('Password actual')).toBeRequired();
+  });
+
   it('Confirmar está disabled mientras pendiente, pero el input de password sigue habilitado', () => {
     renderDialog({ pendiente: true });
     expect(screen.getByRole('button', { name: 'Vincular' })).toBeDisabled();

@@ -310,6 +310,24 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
   unscoped instance of the same shape only warns today because it sits outside the scoped directory.
   Also gave `CampoTexto` optional `forwardRef` support (backward-compatible) so the dialog's password
   input reuses it instead of a second labelled-input implementation (`dry`).**
+
+  **CRITICAL closed at `sdd-verify` (2026-08-13): WCFG-08's second scenario was never built.** The
+  spec requires "GIVEN either dialog is open / WHEN the user attempts to confirm with `Password
+  actual` empty / THEN the confirm action is blocked until a value is entered". The dialog's input
+  carried no `required` and `enviar()` called `onConfirmar(passwordActual)` unconditionally — an empty
+  password went straight to the server. Fixed with the same two-layer pattern `PerfilForm` already
+  uses (design Q1c): `required` on the input as the affordance, and an `if (passwordActual === '')
+  return;` guard in `enviar()` as the real gate, because `fireEvent.submit` / `user.click` on a submit
+  bypass native constraint validation in jsdom — a test trusting `required` alone would pass green
+  with no blocking in place. Strict `=== ''`, no `trim`, matching `use-guardar-perfil.ts`'s
+  `falta-password-actual` gate: a whitespace password may be legitimate and is the server's call.
+
+  **Why three judgment-day rounds missed it**: the judges' criteria were built from design Q7c's
+  a11y checklist (role, `aria-modal`, focus, `describedby`, disabled-while-pending) — all verified
+  exhaustively — and nobody walked the spec's scenarios. `sdd-verify` found it immediately by going
+  requirement by requirement. The two layers do not overlap: adversarial review checks the code that
+  exists, verification checks it against the contract that was promised. Neither substitutes for the
+  other.
 - [x] 5.4 RED+GREEN: `src/api/use-google-vinculo.test.ts` then `.ts` — link mutation calls
   `window.location.assign(urlAutorizacion)` (a **method**, not `location.href =`, so it is spy-able
   under jsdom); unlink mutation invalidates `['auth-me']` on success and announces
