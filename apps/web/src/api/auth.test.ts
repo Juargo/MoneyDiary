@@ -205,6 +205,68 @@ describe('fetchMe', () => {
     expect(!result.ok && result.error.tag).toBe('parse');
   });
 
+  // US-042 WCFG-04 (design.md §1/Q4a): `nombre` y `googleVinculado` son
+  // REQUERIDOS en el contrato generado (`MeDto`), pero el guard histórico no
+  // los validaba — un payload que los omitiera o los mal-tipara pasaba y el
+  // código aguas abajo leía `undefined` a través de un tipo `string`/`boolean`.
+  // Rechazado, NUNCA defaulteado (ver `esMeDto` — un `googleVinculado ?? false`
+  // mentiría sobre el estado de seguridad de la cuenta).
+  it('rechaza un payload sin nombre (aunque googleVinculado sea válido)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          userId: 'user-1',
+          email: 'usuario@moneydiary.cl',
+          esDemo: false,
+          googleVinculado: false,
+        }),
+    });
+
+    const result = await fetchMe();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('rechaza un payload sin googleVinculado (aunque nombre sea válido)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          userId: 'user-1',
+          email: 'usuario@moneydiary.cl',
+          esDemo: false,
+          nombre: 'Usuario de Prueba',
+        }),
+    });
+
+    const result = await fetchMe();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it.each([
+    ['nombre: 42', { nombre: 42 }],
+    ['nombre: null', { nombre: null }],
+    ['googleVinculado: "si"', { googleVinculado: 'si' }],
+    ['googleVinculado: 1', { googleVinculado: 1 }],
+  ])('rechaza un payload mal tipado (%s)', async (_label, override) => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validMeDto, ...override }),
+    });
+
+    const result = await fetchMe();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
   it.each([
     ['"true"', 'true'],
     ['1', 1],

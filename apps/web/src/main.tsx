@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
+import { QUERY_CLIENT_DEFAULTS } from './api/query-client-defaults';
 import type { ApiError } from './api/client';
 // Self-hosted Inter Variable (Serene Finance typography) — same-origin,
 // bundled font file, no render-blocking Google Fonts CDN. Referenced by
@@ -59,7 +60,7 @@ export function shouldRetryQuery(
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      ...QUERY_CLIENT_DEFAULTS.defaultOptions?.queries,
       refetchOnWindowFocus: false,
       retry: shouldRetryQuery,
     },

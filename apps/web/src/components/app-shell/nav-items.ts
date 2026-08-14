@@ -46,14 +46,20 @@ export type NavItemModel =
  * nav target). "Subir nuevo archivo" was a `'placeholder'` until the
  * `upload-cartola-ui` route landed; "Gestionar cartolas" likewise was a gap
  * until `us-018-eliminar-ingesta` Slice 2 landed the `/ingestas` route
- * (T2.13) — now both are live links. "Configuración" and "Ayuda" stay
- * `'placeholder'` items (WDS-03) — visible, announced as disabled, never
- * navigable, until their routes/features exist.
+ * (T2.13) — now both are live links. "Configuración" (US-042, WCFG-01) is
+ * now a live link too, to `/configuracion`. "Ayuda" stays a `'placeholder'`
+ * item (WDS-03) — visible, announced as disabled, never navigable, until its
+ * route/feature exists.
  */
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
   { kind: 'link', label: 'Subir nuevo archivo', to: '/subir', icon: Upload },
   { kind: 'link', label: 'Gestionar cartolas', to: '/ingestas', icon: Files },
-  { kind: 'placeholder', label: 'Configuración', icon: Settings },
+  {
+    kind: 'link',
+    label: 'Configuración',
+    to: '/configuracion',
+    icon: Settings,
+  },
   { kind: 'placeholder', label: 'Ayuda', icon: HelpCircle },
 ];

@@ -17,7 +17,15 @@ import { routeTree } from '@/routeTree.gen';
  * does.
  */
 function buildFetchStub(
-  meResponse: { userId: string; email: string | null; esDemo: boolean } | null,
+  meResponse: {
+    userId: string;
+    email: string | null;
+    esDemo: boolean;
+    // US-042 WCFG-04: `esMeDto` now rejects a payload missing either
+    // field (design.md §1/Q4b).
+    nombre: string;
+    googleVinculado: boolean;
+  } | null,
 ) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
@@ -48,6 +56,10 @@ function renderApp(initialPath: string) {
   });
   const router = createRouter({
     routeTree,
+    // `createRootRouteWithContext<{ queryClient }>` (design.md §1/Q3c/D-07)
+    // makes this required — `_authenticated.tsx`'s `beforeLoad` reads
+    // `context.queryClient.setQueryData` to prime `['auth-me']`.
+    context: { queryClient },
     history: createMemoryHistory({ initialEntries: [initialPath] }),
   });
 
@@ -71,6 +83,8 @@ describe('AppShell wiring in the route tree (real route tree)', () => {
       userId: 'user-1',
       email: 'usuario@moneydiary.cl',
       esDemo: false,
+      nombre: 'Usuario de Prueba',
+      googleVinculado: false,
     });
     vi.stubGlobal('fetch', fetchStub);
 

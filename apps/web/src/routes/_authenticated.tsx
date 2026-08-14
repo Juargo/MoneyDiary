@@ -1,5 +1,7 @@
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import { UserRound } from 'lucide-react';
 import { fetchMe } from '@/api/auth';
+import { ME_QUERY_KEY } from '@/api/use-me';
 import { requireSession } from '@/lib/require-session';
 import { DemoBanner } from '@/components/DemoBanner';
 import { AppShell } from '@/components/app-shell/AppShell';
@@ -35,10 +37,30 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * (outside this layout) never does, with no extra path guard needed. See
  * `test/app-shell-layout.test.tsx` for the end-to-end proof (real route
  * tree, same pattern as the two tests above).
+ *
+ * US-042 design.md §1/Q3b: `beforeLoad` primes `['auth-me']`
+ * (`context.queryClient.setQueryData`) with the SAME `me` it already paid
+ * for, right after `requireSession` resolves. `useMe()` (`api/use-me.ts`)
+ * mounted anywhere inside the same navigation then reads a fresh cache entry
+ * under the production `staleTime` and issues NO second `/api/auth/me` call
+ * (WCFG-03). The return shape stays `{ esDemo: me.esDemo }` — unchanged on
+ * purpose: `_authenticated/subir.tsx` reads it, and widening the route
+ * context to carry the whole `me` would create a second source of truth for
+ * identity (route context vs. query cache) that drifts the instant a
+ * mutation invalidates the cache.
+ *
+ * The sidebar footer also carries a compact icon link to `/configuracion`
+ * (US-042 WCFG-01, proposal §1: the literal "avatar" of CA-01) — icon +
+ * `aria-label="Configuración de la cuenta"`, deliberately no user name
+ * rendered (a name read from route context would go stale the moment the
+ * user renames themselves on that very page). `AppShell`/`Sidebar.tsx` are
+ * untouched: this rides the existing `sidebarFooter` prop, so the addition is
+ * a one-call-site change here.
  */
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const me = await requireSession(fetchMe, location.href);
+    context.queryClient.setQueryData(ME_QUERY_KEY, me);
     return { esDemo: me.esDemo };
   },
   component: RouteComponent,
@@ -47,7 +69,20 @@ export const Route = createFileRoute('/_authenticated')({
 function RouteComponent() {
   const { esDemo } = Route.useRouteContext();
   return (
-    <AppShell sidebarFooter={<ApiVersionBadge />}>
+    <AppShell
+      sidebarFooter={
+        <div className="flex flex-col gap-2">
+          <ApiVersionBadge />
+          <Link
+            to="/configuracion"
+            aria-label="Configuración de la cuenta"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+          >
+            <UserRound className="size-5" aria-hidden="true" />
+          </Link>
+        </div>
+      }
+    >
       <DemoBanner esDemo={esDemo} />
       <Outlet />
     </AppShell>
