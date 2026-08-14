@@ -15,7 +15,7 @@ import type { MeDto } from './types';
  * excepción).
  *
  * Declarado antes que la orquestación misma (4.6/4.7) porque
- * `components/configuracion/mensajes.ts` (4.3) necesita el tipo para su
+ * `components/configuracion/perfil/mensajes.ts` (4.3) necesita el tipo para su
  * propia firma total (`mensajeDeResultado`) — sequencing tipo-primero
  * (design.md D-07).
  */

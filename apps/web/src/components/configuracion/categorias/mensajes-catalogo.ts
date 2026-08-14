@@ -35,9 +35,13 @@ export const MENSAJE_DEMO_CATALOGO =
  * deployed catalog API devuelve (verificado contra
  * `catalogo-http-error.ts`'s propio `_exhaustive: never` guard, design.md
  * §1/Q8a: una clase de error ⇒ exactamente un status ⇒ exactamente un
- * código, ningún código aparece en dos statuses) más un `BODY_INVALIDO`
- * client-only, para el caso `tag: 'parse'` (body malformado, falla la
- * guarda de runtime). Doce miembros en total.
+ * código, ningún código aparece en dos statuses) más `BODY_INVALIDO`. Este
+ * último tiene DOS productores reales, no uno: el backend lo emite
+ * literalmente (`res.status(400).json({ code: 'BODY_INVALIDO', ... })` en
+ * `categorias.routes.ts`/`patrones.routes.ts` cuando `.safeParse()` rechaza
+ * el body de una mutación) y el cliente lo produce vía `tag: 'parse'`
+ * cuando `fetchCatalogo` recibe un body 2xx que falla la guarda de runtime.
+ * Doce miembros en total.
  */
 export type CodigoCatalogo =
   | 'NOMBRE_INVALIDO'
