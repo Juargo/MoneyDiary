@@ -389,6 +389,13 @@ describe('BucketDetailList', () => {
     const select = (await screen.findByLabelText(
       'Cambiar categoría de Transferencia recibida',
     )) as HTMLSelectElement;
+    // Waits for the catalog fetch to settle (like the sibling test above) —
+    // asserting `select.value` beforehand only passed by coincidence: the
+    // loading branch's disabled placeholder and the loaded branch's
+    // "Sin categoría" placeholder both happen to render the same `''` value
+    // for `categoriaActual === null`, so it never actually verified
+    // post-load behaviour.
+    await waitFor(() => expect(select).not.toBeDisabled());
     expect(select.value).toBe('');
   });
 

@@ -489,11 +489,17 @@ describe('ReclasificarCategoriaControl', () => {
     await user.selectOptions(select, 'Combustible');
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    // Re-scoped by URL (not a bare `fetchMock` call count) because
+    // `useCategorias()` also fires a `GET /api/categorias` on mount — but the
+    // exactly-once guarantee on the PATCH itself must stay intact: this is
+    // the whole point of the test, proving the dismissed stale confirmation
+    // does not double-fire alongside the new same-bucket commit.
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/transacciones/tx-1/categoria',
-        expect.anything(),
-      ),
+      expect(
+        fetchMock.mock.calls.filter(
+          ([url]) => url === '/api/transacciones/tx-1/categoria',
+        ),
+      ).toHaveLength(1),
     );
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
