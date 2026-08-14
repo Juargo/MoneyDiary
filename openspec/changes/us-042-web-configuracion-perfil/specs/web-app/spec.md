@@ -60,8 +60,15 @@ by `me.googleVinculado`.
 
 `useMe()` (query key `['auth-me']`) MUST NOT issue a network request when the route guard's
 `beforeLoad` has already primed the cache for the same visit. `GET /api/auth/me` MUST be requested
-exactly once when landing on `/configuracion`. Every successful profile, password, link, or unlink
-mutation MUST invalidate `['auth-me']`.
+exactly once when landing on `/configuracion`.
+
+A mutation MUST invalidate `['auth-me']` exactly when it changed a field the endpoint reports **and**
+the client remains on the page to observe it. Concretely: a successful **profile** save and a
+successful **unlink** MUST invalidate. A **password-only** success MUST NOT — no `MeDto` field
+changed, so a refetch would cost a round trip to re-read identical data. A **link** MUST NOT — it
+hands off to Google through a full-page navigation, so the cache is discarded and `beforeLoad`
+re-primes on return; invalidating would spend a request the navigation already makes. A **failed**
+mutation MUST NOT invalidate, except that a partial failure whose profile half succeeded MUST.
 
 #### Scenario: Exactly one fetch on landing
 
@@ -69,11 +76,25 @@ mutation MUST invalidate `['auth-me']`.
 - WHEN the user navigates to `/configuracion`
 - THEN `GET /api/auth/me` is called exactly once (by `beforeLoad`), not a second time by `useMe()`
 
-#### Scenario: A successful save invalidates identity
+#### Scenario: A successful profile save invalidates identity
 
 - GIVEN the profile save succeeds
 - WHEN the mutation resolves
 - THEN `['auth-me']` is invalidated and any component reading `useMe()` re-renders with fresh data
+
+#### Scenario: A password-only success does not invalidate identity
+
+- GIVEN only the password fields changed and the password call succeeds
+- WHEN the mutation resolves
+- THEN `['auth-me']` is NOT invalidated, because no field the endpoint reports has changed
+
+#### Scenario: Unlink invalidates identity, link does not
+
+- GIVEN the user confirms `Desvincular` and the request succeeds
+- THEN `['auth-me']` is invalidated, because `googleVinculado` flipped
+- GIVEN the user confirms `Vincular con Google` and the authorisation URL is returned
+- THEN `['auth-me']` is NOT invalidated, because the client is leaving for Google and `beforeLoad`
+  re-primes identity when the callback returns
 
 ### Requirement: WCFG-04 — `esMeDto` rejects a payload missing or mistyping `nombre`/`googleVinculado`
 

@@ -116,6 +116,38 @@ describe('useVincularGoogle', () => {
       message: 'Ocurrió un error inesperado. Intenta nuevamente.',
     });
   });
+
+  it('en éxito NO invalida [auth-me] — el cliente se va a Google y beforeLoad re-primea al volver', async () => {
+    // Contraparte deliberada de `useDesvincularGoogle`, que SÍ invalida.
+    // Vincular termina en `window.location.assign`: la caché se descarta con
+    // el documento y el `beforeLoad` del callback vuelve a primearla, así que
+    // invalidar acá gasta un round trip que la navegación ya hace. Escrito
+    // porque WCFG-03 ahora afirma esta exclusión y una afirmación del
+    // contrato sin test que la sostenga es exactamente cómo se esconde un
+    // requisito no construido.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          urlAutorizacion: 'https://accounts.google.com/o/oauth2/v2/auth?x=1',
+        }),
+      }),
+    );
+    stubLocationAssign();
+
+    const queryClient = clienteConMe();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useVincularGoogle(), {
+      wrapper: crearWrapper(queryClient),
+    });
+
+    result.current.mutate('actual123');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe('useDesvincularGoogle', () => {
