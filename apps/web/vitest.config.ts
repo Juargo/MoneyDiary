@@ -1,4 +1,4 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config';
 import viteConfig from './vite.config';
 
 // Vitest reusa el pipeline de Vite existente (ADR-016) — mismo plugin de React
@@ -18,6 +18,13 @@ export default defineConfig((configEnv) =>
         globals: true,
         environment: 'jsdom',
         setupFiles: ['./src/test/setup.ts'],
+        // Vitest's default `include` (`**/*.{test,spec}.?(c|m)[jt]s?(x)`)
+        // would otherwise collect `e2e/*.e2e.ts` too and fail importing
+        // `@playwright/test` in a jsdom environment (US-063 design.md
+        // §1.6 detail 1). The `.e2e.ts` naming convention (matched by
+        // `playwright.config.ts`'s own `testMatch`) is the FIRST guard;
+        // this exclude is the second, independent one.
+        exclude: [...configDefaults.exclude, 'e2e/**'],
         css: true,
         coverage: {
           provider: 'v8',
