@@ -17,8 +17,23 @@ import { stubApi } from './fixtures/api-stubs';
  */
 
 const SCREENS = [
-  { name: 'list', path: '/configuracion/categorias' },
-  { name: 'edit', path: '/configuracion/categorias/cat-1' },
+  {
+    name: 'list',
+    path: '/configuracion/categorias',
+    // Content-only heading — `CategoriasPanel` only reaches this `<h2>` past
+    // its `query.isPending`/`query.isError` early returns (`role="status"`
+    // "Cargando…" renders instead until then), so waiting for it rules out
+    // measuring the loading skeleton (see `standaloneControlsInMain`'s
+    // docblock for why `page.goto`'s `load` event alone is not enough).
+    heading: 'Categorías y patrones',
+  },
+  {
+    name: 'edit',
+    path: '/configuracion/categorias/cat-1',
+    // Same reasoning — `EditarCategoria`'s `<h1>` only renders past its own
+    // pending/error/not-found early returns.
+    heading: 'Editar categoría',
+  },
 ] as const;
 
 // SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception: a target "in a sentence or
@@ -103,6 +118,14 @@ test.describe('mobile floor — must already hold on main (WCTG-13, WCTG-14 scen
       page,
     }) => {
       await page.goto(screen.path);
+      // Same race as `standaloneControlsInMain` (E-11): `page.goto`'s `load`
+      // resolves once the SPA's initial script has run — for a
+      // client-rendered app that's the FIRST render (`role="status"`
+      // "Cargando…"), not the populated screen this assertion exists to
+      // measure. Waiting for the screen's own heading (only reachable past
+      // the pending/error early returns, see `SCREENS` above) proves real
+      // content is on the page before reading `scrollWidth`/`clientWidth`.
+      await page.getByRole('heading', { name: screen.heading }).waitFor();
       const overflow = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
