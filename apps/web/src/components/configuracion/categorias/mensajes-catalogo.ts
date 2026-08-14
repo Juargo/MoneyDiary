@@ -87,22 +87,57 @@ const COPY: Record<CodigoCatalogo, string> = {
 const GENERICO = 'Ocurrió un error inesperado. Intenta nuevamente.';
 
 /**
- * mensajeDeErrorCatalogo — keyed by `code` ALONE (Q8a), never
- * `${status}:${code}` — US-042's composite would carry a discriminator that
- * discriminates nothing here. The guard reads `COPY`'s own keys — no second
- * list to keep in sync (`dry`). `tag: 'unauthorized'` is intentionally NOT a
- * row: the caller navigates to `/login`, as everywhere else in the app.
+ * mensajeDeErrorCatalogo — total over `ApiError.tag` (5 members), closed
+ * with `const _exhaustive: never` so a sixth tag fails `tsc`. This is a
+ * DIFFERENT axis from `COPY`'s totality above (`code`, 12 members) — both
+ * guards are needed, neither replaces the other (design's Q8b CORRECTION
+ * governs `COPY` only).
+ *
+ * `code` is keyed ALONE (Q8a), never `${status}:${code}` — US-042's
+ * composite would carry a discriminator that discriminates nothing here.
+ *
+ * - `network` → fixed connection message.
+ * - `parse` → `COPY.BODY_INVALIDO`. This is the shape `fetchCatalogo`
+ *   actually produces when `esCatalogoDto` rejects a 2xx body (no `code`
+ *   field exists on `tag: 'parse'` at all) — before this fix, `parse` fell
+ *   through to `GENERICO` and `BODY_INVALIDO` was unreachable dead code.
+ * - `server` → `COPY[code]` when `code` is present and a known
+ *   `CodigoCatalogo`, else `GENERICO`.
+ * - `unauthorized` → `''`, same treatment as `mensajes.ts` (perfil,
+ *   WCFG-09): every page lives under the `_authenticated` layout, whose
+ *   `beforeLoad` guard (`require-session.ts`) redirects to `/login` on a
+ *   401 before any catalog screen renders. No caller wires this function to
+ *   the UI yet (that lands with the categories page itself), so this isn't
+ *   a today-verified caller interception like `PerfilForm`'s — but it
+ *   follows the same app-wide pattern, so a rendered `unauthorized` message
+ *   is expected to stay unreachable once wired. `''` keeps the function
+ *   total without inventing user-facing copy for a state the user isn't
+ *   meant to see.
+ * - `invalid` (400 período inválido) → `GENERICO`. This tag belongs to the
+ *   dashboard endpoints (`fetchResumen`/`fetchResumenAnual`/
+ *   `fetchDetalleBucket`, all keyed on `periodo`), not the catalog ones —
+ *   no catalog call produces it today. Falling back to `GENERICO` (rather
+ *   than a dedicated string) keeps the total switch honest about that: it's
+ *   defensive coverage for a tag this module doesn't own, not a real UI
+ *   state.
  */
 export function mensajeDeErrorCatalogo(error: ApiError): string {
-  if (error.tag === 'network') {
-    return 'No se pudo conectar con el servidor.';
+  switch (error.tag) {
+    case 'network':
+      return 'No se pudo conectar con el servidor.';
+    case 'parse':
+      return COPY.BODY_INVALIDO;
+    case 'server':
+      return error.code !== undefined && Object.hasOwn(COPY, error.code)
+        ? COPY[error.code as CodigoCatalogo]
+        : GENERICO;
+    case 'unauthorized':
+      return '';
+    case 'invalid':
+      return GENERICO;
+    default: {
+      const _exhaustive: never = error;
+      return _exhaustive;
+    }
   }
-  if (
-    error.tag === 'server' &&
-    error.code !== undefined &&
-    Object.hasOwn(COPY, error.code)
-  ) {
-    return COPY[error.code as CodigoCatalogo];
-  }
-  return GENERICO;
 }

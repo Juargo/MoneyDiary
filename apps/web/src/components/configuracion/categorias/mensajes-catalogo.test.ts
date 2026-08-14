@@ -9,7 +9,12 @@ import {
  * mensajes-catalogo.test.ts, error-table portion (US-043 design.md §1/Q8,
  * WCTG-12) — the 12-code closed union, keyed by `code` alone (Q8a): one
  * error class ⇒ one status ⇒ one code, verified against
- * `catalogo-http-error.ts`'s own `_exhaustive: never` guard.
+ * `catalogo-http-error.ts`'s own `_exhaustive: never` guard. `BODY_INVALIDO`
+ * is NOT driven through `servidor()` below: nothing in this codebase ever
+ * sets `code: 'BODY_INVALIDO'` on a `tag: 'server'` response — that shape is
+ * a client-only invention and asserting against it proves nothing about the
+ * row it claims to cover. It has its own dedicated test against the real
+ * `tag: 'parse'` shape instead (see below).
  */
 
 function servidor(status: number, code: string): ApiError {
@@ -26,7 +31,7 @@ describe('MENSAJE_DEMO_CATALOGO', () => {
   });
 });
 
-describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos', () => {
+describe('mensajeDeErrorCatalogo — la tabla cerrada de 11 códigos servidor + BODY_INVALIDO (parse)', () => {
   it.each([
     ['NOMBRE_INVALIDO', 'El nombre debe tener entre 1 y 40 caracteres.'],
     ['BUCKET_NO_ASIGNABLE', 'Elige un bucket: Necesidades, Gustos o Ahorro.'],
@@ -34,10 +39,6 @@ describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos', () => {
     ['MATCH_TYPE_INVALIDO', 'Elige un tipo de coincidencia válido.'],
     ['REGEX_INVALIDA', 'Esa expresión regular no es válida.'],
     ['PRIORIDAD_INVALIDA', 'La prioridad debe ser un número entre 1 y 999.'],
-    [
-      'BODY_INVALIDO',
-      'No se pudo procesar la solicitud. Revisa los datos e intenta nuevamente.',
-    ],
     ['DEMO_SOLO_LECTURA', MENSAJE_DEMO_CATALOGO],
     [
       'CATEGORIA_NO_ENCONTRADA',
@@ -57,6 +58,29 @@ describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos', () => {
         message: 'ignored',
       }),
     ).toBe('No se pudo conectar con el servidor.');
+  });
+
+  it('`tag: "parse"` (la forma REAL que produce fetchCatalogo cuando el body 2xx no tiene la forma esperada) mapea a COPY.BODY_INVALIDO', () => {
+    expect(
+      mensajeDeErrorCatalogo({
+        tag: 'parse',
+        message: 'Respuesta inesperada del servidor.',
+      }),
+    ).toBe(
+      'No se pudo procesar la solicitud. Revisa los datos e intenta nuevamente.',
+    );
+  });
+
+  it('`tag: "unauthorized"` mapea a cadena vacía — el guard _authenticated redirige a /login antes de renderizar', () => {
+    expect(
+      mensajeDeErrorCatalogo({ tag: 'unauthorized', message: 'ignored' }),
+    ).toBe('');
+  });
+
+  it('`tag: "invalid"` (400 período inválido, ajeno a los endpoints de catálogo) cae al fallback genérico', () => {
+    expect(mensajeDeErrorCatalogo({ tag: 'invalid', message: 'ignored' })).toBe(
+      'Ocurrió un error inesperado. Intenta nuevamente.',
+    );
   });
 
   it('un código no documentado (12° hipotético) cae al fallback genérico', () => {
