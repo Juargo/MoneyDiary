@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import type { UseMutationResult } from '@tanstack/react-query';
 import { useActualizarCategoria } from '@/api/use-actualizar-categoria';
 import { useCategorias } from '@/api/use-categorias';
 import { useEliminarCategoria } from '@/api/use-eliminar-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
+import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CampoTexto } from '../CampoTexto';
@@ -96,7 +98,9 @@ export function EditarCategoria({
     );
   }
 
-  return <EditarCategoriaCargada categoria={categoria} />;
+  return (
+    <EditarCategoriaCargada categoria={categoria} eliminacion={eliminacion} />
+  );
 }
 
 /**
@@ -107,36 +111,54 @@ export function EditarCategoria({
  *
  * `#form-identidad` + the `form=` attribute mechanism (§1/Q3b mechanism 1):
  * `Guardar`/`Cancelar` are NOT nested inside the `<form>` — they are
- * associated to it via the HTML `form` attribute, so the footer can later
- * (task 34) host `Eliminar categoría` alongside them without that button
- * accidentally submitting the identity form. `Guardar`'s accessible name
- * stays plain "Guardar" (no `aria-label` — the visible text is already
- * unambiguous, unlike `Cancelar`/`Eliminar categoría` which need
- * disambiguation because a screen reader could otherwise conflate them
- * with `NuevaCategoriaForm`'s own `Cancelar`, §1/Q3b mechanism 3).
+ * associated to it via the HTML `form` attribute, so the footer can host
+ * `Eliminar categoría` alongside them without that button accidentally
+ * submitting the identity form. `Guardar`'s accessible name stays plain
+ * "Guardar" (no `aria-label` — the visible text is already unambiguous,
+ * unlike `Cancelar`/`Eliminar categoría` which need disambiguation because
+ * a screen reader could otherwise conflate them with `NuevaCategoriaForm`'s
+ * own `Cancelar`, §1/Q3b mechanism 3).
  *
  * **Bucket-change impact confirmation** (§1/Q3b, task 33, WCTG-07 — ships
  * in the SAME task as the `PATCH` that can trigger it, non-negotiable #3):
  * `guardarIdentidad` never calls `useActualizarCategoria` directly when
  * `bucket` is dirty relative to the loaded `categoria.bucket` — it opens
  * `ConfirmarImpactoDialog` with `fraseDeImpacto({tipo:'cambiar-bucket', …})`
- * instead. Only `confirmarCambioBucket` (the dialog's `onConfirmar`) fires
- * the mutation. Escape/`Cancelar` on the dialog closes it via
- * `cerrarDialogo` WITHOUT touching `bucket` — the dirty draft stays on
- * screen exactly as `EliminarIngestaControl`'s precedent behaves, and focus
- * returns to `Guardar` (`guardarRef`), not to the `<select>` — `Guardar` is
- * what opened the dialog.
+ * instead.
+ *
+ * **Delete from the edit screen** (§1/Q6d, task 34, WCTG-05/WCTG-08 — first
+ * of the two entry points, the second is the list row, PR #5): the
+ * footer's red `Eliminar categoría` button opens the SAME
+ * `ConfirmarImpactoDialog` shell with `fraseDeImpacto({tipo:'eliminar', …})`
+ * sourced from the ALREADY-LOADED `categoria.transaccionesCount` (decision
+ * 3 — never a fresh fetch). Confirming calls `eliminacion.mutate` (the hook
+ * instance created in the PARENT — see `EditarCategoria`'s doc comment for
+ * why) and, on success, navigates back to `/configuracion/categorias`.
+ *
+ * **One `dialogo` union, not two booleans** (`kiss`): only one of the two
+ * confirmations can be open at a time (both are triggered by the SAME
+ * footer), so `dialogo: 'cambiar-bucket' | 'eliminar' | null` is the
+ * correct shape — two independent booleans would allow (and have to guard
+ * against) both being true simultaneously. Escape/`Cancelar` on EITHER
+ * dialog closes it via `cerrarDialogo`, which restores focus to whichever
+ * button opened it (`guardarRef`/`eliminarRef`) — never touching the draft.
  */
 function EditarCategoriaCargada({
   categoria,
+  eliminacion,
 }: {
   readonly categoria: CategoriaDto;
+  readonly eliminacion: UseMutationResult<void, ApiError, string>;
 }) {
+  const navigate = useNavigate();
   const actualizacion = useActualizarCategoria();
   const [nombre, setNombre] = useState(categoria.nombre);
   const [bucket, setBucket] = useState(categoria.bucket);
-  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [dialogo, setDialogo] = useState<'cambiar-bucket' | 'eliminar' | null>(
+    null,
+  );
   const guardarRef = useRef<HTMLButtonElement>(null);
+  const eliminarRef = useRef<HTMLButtonElement>(null);
 
   const bucketSucio = bucket !== categoria.bucket;
 
@@ -148,7 +170,7 @@ function EditarCategoriaCargada({
   function guardarIdentidad(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (bucketSucio) {
-      setDialogoAbierto(true);
+      setDialogo('cambiar-bucket');
       return;
     }
     actualizacion.mutate({
@@ -163,13 +185,22 @@ function EditarCategoriaCargada({
         id: categoria.id,
         patch: { nombre, bucket: bucket as BucketAsignable },
       },
-      { onSuccess: () => setDialogoAbierto(false) },
+      { onSuccess: () => setDialogo(null) },
     );
   }
 
+  function confirmarEliminar() {
+    eliminacion.mutate(categoria.id, {
+      onSuccess: () => {
+        void navigate({ to: '/configuracion/categorias' });
+      },
+    });
+  }
+
   function cerrarDialogo() {
-    setDialogoAbierto(false);
-    guardarRef.current?.focus();
+    const abriaEliminar = dialogo === 'eliminar';
+    setDialogo(null);
+    (abriaEliminar ? eliminarRef : guardarRef).current?.focus();
   }
 
   return (
@@ -212,40 +243,58 @@ function EditarCategoriaCargada({
       </form>
 
       {/*
-        `!dialogoAbierto`: `actualizacion` is the SAME mutation for both the
+        `dialogo === null`: `actualizacion` is the SAME mutation for both the
         direct (bucket-clean) save and the dialog-gated (bucket-dirty)
-        confirm — while the dialog is open, ITS OWN inline `error` prop
-        already renders this exact message; showing both here too would
-        duplicate the alert on a failed bucket-change confirm.
+        confirm — while ITS dialog is open, the dialog's OWN inline `error`
+        prop already renders this exact message; showing both here too
+        would duplicate the alert on a failed bucket-change confirm.
       */}
-      {actualizacion.isError && !dialogoAbierto && (
+      {actualizacion.isError && dialogo === null && (
         <p role="alert" className="text-sm text-red-600">
           {mensajeDeErrorCatalogo(actualizacion.error)}
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
+      {/*
+        `border-t` + `justify-between` (§1/Q3b mechanism 4): the DOM states
+        what the layout alone no longer can after decision 10 put the
+        destructive action in the SAME footer row as Cancelar/Guardar — the
+        red button is never adjacent to Guardar, and the divider marks it as
+        a separate cluster.
+      */}
+      <footer className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <button
+          ref={eliminarRef}
           type="button"
-          form="form-identidad"
-          onClick={cancelarIdentidad}
-          aria-label="Cancelar cambios de nombre y bucket"
-          className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+          onClick={() => setDialogo('eliminar')}
+          aria-label={`Eliminar categoría ${categoria.nombre}`}
+          className="rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive"
         >
-          Cancelar
+          Eliminar categoría
         </button>
-        <button
-          ref={guardarRef}
-          type="submit"
-          form="form-identidad"
-          disabled={actualizacion.isPending}
-          className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          Guardar
-        </button>
-      </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            form="form-identidad"
+            onClick={cancelarIdentidad}
+            aria-label="Cancelar cambios de nombre y bucket"
+            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+          >
+            Cancelar
+          </button>
+          <button
+            ref={guardarRef}
+            type="submit"
+            form="form-identidad"
+            disabled={actualizacion.isPending}
+            className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Guardar
+          </button>
+        </div>
+      </footer>
 
-      {dialogoAbierto && (
+      {dialogo === 'cambiar-bucket' && (
         <ConfirmarImpactoDialog
           {...fraseDeImpacto({
             tipo: 'cambiar-bucket',
@@ -261,6 +310,24 @@ function EditarCategoriaCargada({
               : null
           }
           onConfirmar={confirmarCambioBucket}
+          onCancelar={cerrarDialogo}
+        />
+      )}
+
+      {dialogo === 'eliminar' && (
+        <ConfirmarImpactoDialog
+          {...fraseDeImpacto({
+            tipo: 'eliminar',
+            nombre: categoria.nombre,
+            transaccionesCount: categoria.transaccionesCount,
+          })}
+          pendiente={eliminacion.isPending}
+          error={
+            eliminacion.isError
+              ? mensajeDeErrorCatalogo(eliminacion.error)
+              : null
+          }
+          onConfirmar={confirmarEliminar}
           onCancelar={cerrarDialogo}
         />
       )}

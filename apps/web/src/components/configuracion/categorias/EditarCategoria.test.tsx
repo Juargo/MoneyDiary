@@ -6,6 +6,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -68,11 +69,17 @@ function renderEditar(options: {
     vi.stubGlobal('fetch', options.fetchMock);
   }
 
+  // A real `<Outlet/>` on the root route (unlike `CategoriasPanel.test.tsx`,
+  // which never actually navigates) — `EditarCategoria`'s delete flow (task
+  // 34) calls `navigate({to: '/configuracion/categorias'})` on success, and
+  // that route swap must be OBSERVABLE for the navigation tests to mean
+  // anything; a rootRoute that renders the edited screen directly (with no
+  // `<Outlet/>`) would stay static regardless of the URL.
   const categoriaId = options.categoriaId ?? 'cat-1';
   const rootRoute = createRootRoute({
     component: () => (
       <QueryClientProvider client={queryClient}>
-        <EditarCategoria categoriaId={categoriaId} />
+        <Outlet />
       </QueryClientProvider>
     ),
   });
@@ -86,9 +93,20 @@ function renderEditar(options: {
     path: '/configuracion/categorias',
     component: () => <p>Lista</p>,
   });
+  const editarRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/configuracion/categorias/$categoriaId',
+    component: () => <EditarCategoria categoriaId={categoriaId} />,
+  });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([configuracionRoute, listaRoute]),
-    history: createMemoryHistory({ initialEntries: ['/'] }),
+    routeTree: rootRoute.addChildren([
+      configuracionRoute,
+      listaRoute,
+      editarRoute,
+    ]),
+    history: createMemoryHistory({
+      initialEntries: [`/configuracion/categorias/${categoriaId}`],
+    }),
   });
 
   render(<RouterProvider router={router} />);
@@ -387,5 +405,130 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
       'Ocurrió un error inesperado. Intenta nuevamente.',
     );
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Task 34 — delete from the edit screen (first of the two entry points,
+ * Q6d — the second, from the list row, is PR #5). The footer's red
+ * `Eliminar categoría` button opens `ConfirmarImpactoDialog` with
+ * `fraseDeImpacto({tipo:'eliminar', …})`, sourced from the ALREADY-LOADED
+ * `transaccionesCount` (decision 3 — never a fresh fetch); confirming calls
+ * `useEliminarCategoria` and, on success, navigates back to
+ * `/configuracion/categorias`.
+ *
+ * Also pins the in-flight-delete guard first established in task 31
+ * (design.md §1/Q1e "the trap") — it can only be exercised now that the
+ * actual delete TRIGGER exists (`useMutation` state is local per hook call,
+ * so the guard can't be driven except through this screen's own button).
+ */
+describe('EditarCategoria — delete from the edit screen (Q6d, WCTG-05, WCTG-08)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('el footer trae el botón rojo "Eliminar categoría" con aria-label desambiguado, separado de Cancelar/Guardar', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const eliminar = await screen.findByRole('button', {
+      name: 'Eliminar categoría Supermercado',
+    });
+    expect(eliminar).toHaveTextContent('Eliminar categoría');
+    expect(eliminar).toHaveClass('text-destructive');
+  });
+
+  it('click en Eliminar categoría abre el diálogo con fraseDeImpacto(eliminar) usando el transaccionesCount YA CARGADO', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(within(dialogo).getByText('Eliminar categoría')).toBeInTheDocument();
+    expect(
+      within(dialogo).getByText('Vas a eliminar «Supermercado».'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialogo).getByText(
+        '3 transacciones quedan en Sin categoría, en todos los períodos.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('confirmar elimina (DELETE) y navega de vuelta a /configuracion/categorias en éxito', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'DELETE',
+      }),
+    );
+    await screen.findByText('Lista');
+  });
+
+  it('EL GUARDIÁN in-flight (Q1e "the trap", pinned desde task 31): tras un delete exitoso, "Esa categoría ya no existe." NUNCA aparece en el documento', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    await screen.findByText('Lista');
+    expect(
+      screen.queryByText('Esa categoría ya no existe.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('un delete fallido mantiene el diálogo abierto con el error inline, sin navegar', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    const dialogo = await screen.findByRole('alertdialog');
+    await user.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+      'Ocurrió un error inesperado. Intenta nuevamente.',
+    );
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.queryByText('Lista')).not.toBeInTheDocument();
   });
 });
