@@ -99,9 +99,20 @@ should read `(Q2b)`, and `mensajeDeApiError` lacking the `const _exhaustive: nev
 `mensajeDeResultado` has (`noImplicitReturns` is off, so a future `ApiError` tag would silently return
 `undefined` rather than fail the build).
 
-**Open product decision, deliberately not taken here**: `passwordActual` is not cleared after a
-successful save that changed no password. Two judges raised it across two rounds; `design.md` Q2c is
-silent on that sub-case, so it is left to the maintainer rather than settled by a fix agent.
+**Product decision, resolved by the maintainer (2026-08-13): `passwordActual` is now cleared on any
+`ok` result.** Two judges raised it across two rounds and `design.md` Q2c was silent on the sub-case,
+so it was held open rather than settled by a fix agent. Decision: `Password actual` authorizes the
+email change (Q1c); once the save succeeds its purpose is spent, and keeping the typed credential in
+component state and in the DOM is retention with no function.
+
+The clearing condition went from `r.tipo === 'ok' && r.passwordCambiada` to `r.tipo === 'ok'`.
+`passwordNueva` is already empty in that branch — with both password fields filled the result would be
+`ok` + `passwordCambiada` or `password-fallo` — so clearing both is equivalent to branching, and
+simpler. **Non-`ok` results still clear nothing**: Q2c rows 8/10/11 require the typed password to
+survive a partial failure so the retry can send only the password call, and those tests stay green.
+
+Written red-first: the new test (`éxito de email (sin cambio de password)…`) was verified to fail
+against the old condition before the one-line change landed.
 
 ## Gates
 

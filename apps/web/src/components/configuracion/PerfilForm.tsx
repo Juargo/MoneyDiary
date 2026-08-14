@@ -55,10 +55,22 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
             return;
           }
           setMensaje(mensajeDeResultado(r));
-          // Solo un `ok` con `passwordCambiada` limpia los campos de
-          // password (row 7/9 de Q2c) — `nombre`/`email` NUNCA se resetean
-          // por código: ya son iguales al `me` refrescado (Q2a).
-          if (r.tipo === 'ok' && r.passwordCambiada) {
+          // CUALQUIER `ok` limpia los dos campos de password; un resultado
+          // que no sea `ok` NO limpia ninguno (rows 8/10/11 de Q2c: el retry
+          // tras una falla parcial necesita la password todavía tipeada).
+          //
+          // El caso `ok` sin `passwordCambiada` es una decisión de producto
+          // del mantenedor (2026-08-13) que Q2c no resolvía: `Password
+          // actual` autoriza el cambio de email (Q1c), y una vez que el
+          // guardado salió bien su función está cumplida — dejarla en el
+          // estado y en el DOM es retención sin propósito. `passwordNueva`
+          // ya está vacía en esa rama (con las dos cargadas el resultado
+          // sería `ok`+`passwordCambiada` o `password-fallo`), así que
+          // limpiar ambas es equivalente y más simple que ramificar.
+          //
+          // `nombre`/`email` NUNCA se resetean por código: ya son iguales al
+          // `me` refrescado (Q2a).
+          if (r.tipo === 'ok') {
             setPasswordActual('');
             setPasswordNueva('');
           }
