@@ -102,10 +102,28 @@ describe('ConfiguracionPage', () => {
     expect(screen.getByLabelText('Password nueva')).toBeInTheDocument();
   });
 
-  it('monta la región del aviso de Google, vacía (se llena en PR #2)', async () => {
+  it('monta las dos regiones del aviso de Google, vacías cuando avisoGoogle no llega por props', async () => {
     await renderConfiguracionPage();
-    const aviso = screen.getByTestId('aviso-google');
-    expect(aviso).toBeInTheDocument();
-    expect(aviso).toBeEmptyDOMElement();
+    expect(screen.getByTestId('aviso-google')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('aviso-google-error')).toBeEmptyDOMElement();
+  });
+
+  it('renderiza el tercer bloque (Cuenta de Google) — No vinculada por defecto en el fixture', async () => {
+    await renderConfiguracionPage();
+    expect(screen.getByText('No vinculada')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Vincular con Google' }),
+    ).toBeInTheDocument();
+  });
+
+  it('grid fluido T1 (CA-04, task 6.3): columna fija bajo lg, apila en una sola columna debajo', async () => {
+    await renderConfiguracionPage();
+    const grid = screen.getByTestId('configuracion-grid');
+    // Sin tier `md:` nuevo (D-08): solo `lg` (el mismo breakpoint que el
+    // shell usa para Sidebar vs BottomTabs, `layout.ts`'s
+    // `SIDEBAR_CONTENT_OFFSET_CLASS = 'lg:pl-64'`). Por defecto (debajo de
+    // `lg`) UNA columna — heading+tabs arriba del panel.
+    expect(grid).toHaveClass('grid-cols-1');
+    expect(grid).toHaveClass('lg:grid-cols-[200px_1fr]');
   });
 });

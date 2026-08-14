@@ -49,6 +49,17 @@ function mensajeDeServerError(
   const clave = `${error.status}:${error.code ?? ''}`;
   switch (clave) {
     case '403:PERFIL_RECHAZADO':
+      // Apply-time addition (PR #2, task 5.5): VINC041-07 maps a wrong
+      // `passwordActual` on link/unlink to the SAME `PerfilRechazadoError` →
+      // `403 PERFIL_RECHAZADO` that `perfil-usuario` uses — design.md §1/Q8b's
+      // table only rows the `perfil`/`password` origins for this code, not
+      // `google`. Falling through to the `perfil` row's "...y el email." would
+      // reference a field ConfirmarPasswordDialog never shows. A third,
+      // origen-specific line closes the gap without naming which of link/
+      // unlink failed (anti-enumeration, PERF040-04, still honoured).
+      if (origen === 'google') {
+        return 'No se pudo completar la acción. Revisa tu password actual.';
+      }
       return origen === 'password'
         ? 'No se pudo cambiar la password. Revisa tu password actual.'
         : 'No se pudieron guardar los cambios. Revisa tu password actual y el email.';

@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { UserRound } from 'lucide-react';
 import { fetchMe } from '@/api/auth';
-import { ME_QUERY_KEY } from '@/api/use-me';
+import { ME_QUERY_KEY, meQueryOptions } from '@/api/use-me';
 import { requireSession } from '@/lib/require-session';
+import { consumeSkipNextAuthRefetch } from '@/lib/skip-next-auth-refetch';
 import { DemoBanner } from '@/components/DemoBanner';
 import { AppShell } from '@/components/app-shell/AppShell';
 import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
@@ -49,6 +50,23 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * identity (route context vs. query cache) that drifts the instant a
  * mutation invalidates the cache.
  *
+ * `beforeLoad` still calls the raw `fetchMe()` on EVERY re-run — this is the
+ * session guard's actual security semantics: a fresh server check on each
+ * `beforeLoad`, immediate failure, no retry, no cache (an earlier PR#2 fix
+ * routed this through `queryClient.ensureQueryData` instead; reverted, since
+ * it silently stopped re-validating a stale-but-present `['auth-me']` entry
+ * for the rest of the SPA session). The ONE exception is the single
+ * self-rewrite `/configuracion`'s `?google=` cleanup effect performs
+ * (`router.history.replace`, WCFG-10 Q6b): that rewrite still notifies
+ * TanStack Router's `Transitioner` and re-runs `beforeLoad` — there is no
+ * public API that changes the URL without doing so — for the SAME landing
+ * whose identity was just fetched. `consumeSkipNextAuthRefetch`
+ * (`lib/skip-next-auth-refetch.ts`) is a purpose-built one-tick guard armed
+ * by only that one call site, so only that synthetic re-run reads the just-
+ * primed cache instead of paying for a second `/api/auth/me`. Pinned by
+ * `test/configuracion-google-aviso.test.tsx`'s task-6.2 "exactly once" test
+ * and its companion "genuine navigation still refetches" test.
+ *
  * The sidebar footer also carries a compact icon link to `/configuracion`
  * (US-042 WCFG-01, proposal §1: the literal "avatar" of CA-01) — icon +
  * `aria-label="Configuración de la cuenta"`, deliberately no user name
@@ -59,7 +77,10 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  */
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location, context }) => {
-    const me = await requireSession(fetchMe, location.href);
+    const cachedMe = consumeSkipNextAuthRefetch()
+      ? context.queryClient.getQueryData(meQueryOptions().queryKey)
+      : undefined;
+    const me = cachedMe ?? (await requireSession(fetchMe, location.href));
     context.queryClient.setQueryData(ME_QUERY_KEY, me);
     return { esDemo: me.esDemo };
   },
