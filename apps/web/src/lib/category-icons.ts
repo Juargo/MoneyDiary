@@ -12,10 +12,13 @@ import {
 } from 'lucide-react';
 
 /**
- * The 8 canonical categorías (`ORDEN_CATEGORIAS` in `@/domain/categoria`,
- * itself a deliberate web-side mirror of the backend's `Categoria` enum —
- * ADR-008) → decorative icon. lucide-react is already a dependency
- * (`^0.469.0`), tree-shakeable and self-hosted — no external icon font/CDN.
+ * The 8 seed-template categoría names (ADR-036's `CATEGORIA_TEMPLATE`) →
+ * decorative icon. Any other name — a user-created categoría, or an
+ * unrecognized/missing value — falls back to the generic `Receipt` icon
+ * below; this map is decoration only, never a validity check (US-043 §7:
+ * the catalog is a per-user row set, no closed enum to mirror). lucide-react
+ * is already a dependency (`^0.469.0`), tree-shakeable and self-hosted — no
+ * external icon font/CDN.
  */
 const ICONO_POR_CATEGORIA: Record<string, LucideIcon> = {
   Supermercado: ShoppingCart,
