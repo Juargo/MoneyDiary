@@ -29,6 +29,32 @@ slice inside the chain. Rationale: design §10 prohibits splitting `use-guardar-
 description must carry the `size:exception` label and cite this line. PR #1a and PR #2 stay within
 the normal 400-line budget and get no exception.
 
+**Second guard decision (2026-08-13): PR #2 also accepted as `size:exception`.** The line above
+withheld an exception from PR #2; PR #2 landed at **1581 changed lines** against a ~450-550 forecast,
+so the maintainer was asked again and accepted.
+
+Rationale, with the number that actually matters: **925 of those 1581 lines (59%) are tests**.
+Production code is **656 lines across 9 files** — `GoogleVinculoSection` 146, `ConfirmarPasswordDialog`
+132, `perfil.ts` 98, `ConfiguracionPage` 86, the route file 62, `use-google-vinculo` 60, `CampoTexto`
+50, plus 22 of tokens and copy. Splitting was evaluated and rejected on evidence, not assertion: the
+only natural seam (Google section vs `?google=` + layout) yields ~1150 / ~430, leaving the first half
+still ~3x over. The bulk *is* the Google section, and its client + hook + dialog + section are one
+unit — split, PR #2a ships a dialog nothing invokes. Trimming tests to make the number look better
+would degrade the PR to flatter a metric.
+
+**Forecast accuracy, recorded for future planning.** All three slices overran in the same direction:
+
+| Slice | Forecast | Actual | Factor |
+|---|---|---|---|
+| PR #1a | 350-450 | 670 | 1.7x |
+| PR #1b | 900-1100 | 1953 | 1.9x |
+| PR #2 | 450-550 | 1581 | 3.1x |
+
+This is a systematic bias in the `tasks` phase, not three unlucky slices. The likely cause is that
+the forecast sized production code while Strict TDD obliges a test suite that here runs ~1.4x the
+production line count. A future `sdd-tasks` run on a TDD-strict change should forecast tests
+explicitly, or state that its budget numbers exclude them.
+
 ### Suggested Work Units
 
 | Unit | Goal | PR | Base branch |
