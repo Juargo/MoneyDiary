@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { BucketDetailList } from './BucketDetailList';
+import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
 import type { CatalogoDto, DetalleBucketDto } from '@/api/types';
 
 // Owns the fetch (via useDetalleBucket), the {loading|error|empty|data}
@@ -51,15 +53,56 @@ const emptyDto: DetalleBucketDto = {
   transacciones: [],
 };
 
+// Two rows in the SAME categoría group so both mount
+// `ReclasificarCategoriaControl` — used by the catalog fetch-lifecycle
+// surface tests below (WCAT-04 delta) to prove the status/alert render
+// exactly ONCE per panel, not once per mounted row.
+const dosFilasDto: DetalleBucketDto = {
+  periodo: '2026-07',
+  bucket: 'Necesidades',
+  transacciones: [
+    dataDto.transacciones[0],
+    {
+      id: 'tx-1b',
+      fecha: '2026-07-16T00:00:00.000Z',
+      descripcion: 'Supermercado Jumbo',
+      cargo: '5000',
+      abono: '0',
+      banco: 'BancoEstado',
+      tipoCuenta: 'CuentaRUT',
+      numeroCuenta: '12345678',
+      categoria: { id: 'categoria-supermercado', nombre: 'Supermercado' },
+    },
+  ],
+};
+
+// `QUERY_CLIENT_DEFAULTS` (same `staleTime` as production, same fix class as
+// judgment-day PR #336/#337 fix 2 on `CategoriasPanel.test.tsx`): without it,
+// the test client falls back to TanStack's own default (`staleTime: 0`), and
+// once `BucketDetailList` itself calls `useCategorias()` (WCAT-04 delta)
+// ahead of the per-row `ReclasificarCategoriaControl` mounts, a NEW observer
+// joining an already-settled, `staleTime: 0` query triggers a spurious
+// refetch-on-mount that has nothing to do with the component under test —
+// this bit the "no extra network request" assertion below before this fix.
+// `Wrapper.queryClient` is attached (mirrors
+// `ReclasificarCategoriaControl.test.tsx`'s own `crearWrapper`) so tests can
+// drive a background refetch directly via `wrapper.queryClient.refetchQueries(...)`.
 function crearWrapper() {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: {
+      queries: {
+        ...QUERY_CLIENT_DEFAULTS.defaultOptions?.queries,
+        retry: false,
+      },
+    },
   });
-  return function Wrapper({ children }: { children: ReactNode }) {
+  function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
-  };
+  }
+  Wrapper.queryClient = queryClient;
+  return Wrapper;
 }
 
 // `ReclasificarCategoriaControl` (rendered per row, US-013 S6b) depends on
@@ -512,5 +555,236 @@ describe('BucketDetailList', () => {
       ).toBeInTheDocument(),
     );
     expect(screen.queryByText('Deseos')).not.toBeInTheDocument();
+  });
+
+  // WCAT-04 delta — catalog fetch-lifecycle surface lifted here from
+  // `ReclasificarCategoriaControl` (three judgment-day rounds converged on
+  // this root cause: catalog-scoped state was rendered per row, duplicating
+  // N times for a single shared `['categorias']` query). These tests prove
+  // the lift: exactly one announcement/alert per panel regardless of row
+  // count, no extra network request, and no conflation with the unrelated
+  // transactions query's own Loading/ErrorState/Empty branches above.
+  describe('catalog fetch-lifecycle surface (WCAT-04 delta)', () => {
+    it('BucketDetailList calling useCategorias() itself adds no extra network request — deduped by queryKey across the parent + N row observers', async () => {
+      const fetchMock = mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(dosFilasDto),
+      });
+
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper: crearWrapper(),
+      });
+
+      await waitFor(() =>
+        expect(screen.getAllByRole('combobox')).toHaveLength(2),
+      );
+
+      expect(
+        fetchMock.mock.calls.filter(([url]) => url === '/api/categorias'),
+      ).toHaveLength(1);
+    });
+
+    it('with multiple rows mounted, exactly one role="status" catalog-loading announcement exists — not one per row', async () => {
+      let resolverCatalogo: (value: unknown) => void = () => {};
+      const fetchMock = vi.fn((url: string) => {
+        if (url === '/api/categorias') {
+          return new Promise((resolve) => {
+            resolverCatalogo = resolve;
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dosFilasDto),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper: crearWrapper(),
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Supermercado Líder')).toBeInTheDocument(),
+      );
+      // Two rows mounted (two `ReclasificarCategoriaControl` instances, each
+      // with `data === undefined` right now), but the announcement lives
+      // ONCE at the panel level.
+      expect(screen.getAllByRole('status')).toHaveLength(1);
+      const selects = screen.getAllByRole('combobox');
+      expect(selects).toHaveLength(2);
+      selects.forEach((select) => expect(select).toBeDisabled());
+
+      resolverCatalogo({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(CATALOGO_FIXTURE),
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByRole('status')).not.toBeInTheDocument(),
+      );
+      selects.forEach((select) => expect(select).not.toBeDisabled());
+    });
+
+    it('with multiple rows mounted, a catalog failure with no data shows exactly one role="alert" and one "Reintentar" — not one per row', async () => {
+      const fetchMock = vi.fn((url: string) => {
+        if (url === '/api/categorias') {
+          return Promise.resolve({ ok: false, status: 500 });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dosFilasDto),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper: crearWrapper(),
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Supermercado Líder')).toBeInTheDocument(),
+      );
+      await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1));
+      expect(
+        screen.getAllByRole('button', { name: 'Reintentar' }),
+      ).toHaveLength(1);
+      // The catalog genuinely never loaded: both rows' selects stay
+      // disabled, but the failure itself is announced/recoverable exactly
+      // once at the panel level, not duplicated per row.
+      const selects = screen.getAllByRole('combobox');
+      expect(selects).toHaveLength(2);
+      selects.forEach((select) => expect(select).toBeDisabled());
+    });
+
+    it('clicking "Reintentar" and resolving successfully clears the alert and enables the selects (recovery path)', async () => {
+      // A boolean success flag rather than a call-count branch: with N rows
+      // mounted, a query that never got data (`dataUpdatedAt === 0`) is
+      // ALWAYS considered stale regardless of `staleTime` — TanStack Query
+      // may legitimately fire more than one automatic refetch-on-mount
+      // attempt as each row's own `useCategorias()` observer joins (all
+      // still failing until this flag flips). Gating on a flag instead of a
+      // fixed call number keeps the test correct regardless of exactly how
+      // many of those automatic attempts happen before the user's own click.
+      let catalogoOk = false;
+      const fetchMock = vi.fn((url: string) => {
+        if (url === '/api/categorias') {
+          return Promise.resolve(
+            catalogoOk
+              ? {
+                  ok: true,
+                  status: 200,
+                  json: () => Promise.resolve(CATALOGO_FIXTURE),
+                }
+              : { ok: false, status: 500 },
+          );
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dosFilasDto),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const user = userEvent.setup();
+
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper: crearWrapper(),
+      });
+
+      await waitFor(() =>
+        expect(screen.getByText('Supermercado Líder')).toBeInTheDocument(),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toBeInTheDocument(),
+      );
+
+      catalogoOk = true;
+      await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+      await waitFor(() =>
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
+      );
+      const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+      await waitFor(() =>
+        selects.forEach((select) => expect(select).not.toBeDisabled()),
+      );
+    });
+
+    it('a background catalog refetch over already-loaded data shows neither the status nor the alert at the panel level, and does not disable the selects', async () => {
+      let catalogoFetchCount = 0;
+      let resolveSegundoFetch: (value: unknown) => void = () => {};
+      const fetchMock = vi.fn((url: string) => {
+        if (url === '/api/categorias') {
+          catalogoFetchCount += 1;
+          if (catalogoFetchCount === 1) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve(CATALOGO_FIXTURE),
+            });
+          }
+          return new Promise((resolve) => {
+            resolveSegundoFetch = resolve;
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dataDto),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const wrapper = crearWrapper();
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper,
+      });
+
+      const select = (await screen.findByLabelText(
+        'Cambiar categoría de Supermercado Líder',
+      )) as HTMLSelectElement;
+      await waitFor(() => expect(select).not.toBeDisabled());
+
+      void wrapper.queryClient.refetchQueries({ queryKey: ['categorias'] });
+      await waitFor(() => expect(catalogoFetchCount).toBe(2));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(select).not.toBeDisabled();
+
+      resolveSegundoFetch({ ok: false, status: 500 });
+
+      await waitFor(() =>
+        expect(
+          wrapper.queryClient.getQueryState(['categorias'])?.fetchStatus,
+        ).toBe('idle'),
+      );
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(select).not.toBeDisabled();
+    });
+
+    it('the catalog surface does not conflate with the transactions query — a failed transactions fetch still shows its own ErrorState, not the catalog banner', async () => {
+      mockFetchOnce({ ok: false, status: 500 });
+
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper: crearWrapper(),
+      });
+
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toBeInTheDocument(),
+      );
+      // Exactly one alert (the transactions `ErrorState`) — the early
+      // return happens before the catalog's own status/alert markup, so
+      // there is no double surface even though `useCategorias()` is still
+      // called unconditionally by this component.
+      expect(screen.getAllByRole('alert')).toHaveLength(1);
+      expect(
+        screen.getByRole('button', { name: 'Reintentar' }),
+      ).toBeInTheDocument();
+    });
   });
 });

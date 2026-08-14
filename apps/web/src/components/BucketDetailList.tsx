@@ -4,6 +4,7 @@ import { Empty } from './states/Empty';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
 import { Badge } from './ui/badge';
 import { useDetalleBucket } from '@/api/use-detalle-bucket';
+import { useCategorias } from '@/api/use-categorias';
 import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model';
 import { agruparDetallePorCategoria } from '@/domain/agrupar-detalle-por-categoria';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
@@ -64,6 +65,46 @@ import { iconoDeCategoria } from '@/lib/category-icons';
  * `<h3>` regardless of context (as design.md §7.3 literally reads) would
  * skip a level on the standalone `h1` route; deriving it from `headingLevel`
  * keeps the outline valid in both places.
+ *
+ * **Catálogo — fetch-lifecycle surface owned HERE, once per panel**
+ * (WCAT-04 delta, closes the debt three judgment-day rounds converged on):
+ * this list is `ReclasificarCategoriaControl`'s ONLY render site (verified —
+ * no other parent mounts it), and every mounted instance plus this
+ * component share the exact same `['categorias']` query
+ * (`use-categorias.ts`). Calling `useCategorias()` here too adds one more
+ * *observer* on that shared query, not a second network request — TanStack
+ * Query dedupes by `queryKey`: a new observer either reads the already
+ * populated cache or joins the fetch already in flight (confirmed by a
+ * dedicated test asserting `fetch('/api/categorias')` is called exactly
+ * once with N rows mounted, see `BucketDetailList.test.tsx`). **This does
+ * rely on `staleTime: 30_000`** (`main.tsx`'s production `QueryClient`, via
+ * `QUERY_CLIENT_DEFAULTS`): this component's own `useCategorias()` mounts
+ * ahead of the per-row ones (rows only exist once the SEPARATE
+ * `useDetalleBucket` query resolves), so if the catalog fetch already
+ * *succeeded* and settled by the time rows mount, a query with no
+ * `staleTime` protection would be immediately stale again and trigger a
+ * redundant refetch-on-mount — this bit the "exactly once" test until its
+ * `QueryClient` was built with the same `staleTime` as production (same fix
+ * class as judgment-day PR #336/#337 fix 2 on `CategoriasPanel.test.tsx`).
+ * A catalog fetch that FAILS with no data (`dataUpdatedAt === 0`) is a
+ * different story — that state is always considered stale regardless of
+ * `staleTime`, so a genuine failure can still trigger more than one
+ * automatic retry attempt as rows mount; the error/retry surface here
+ * tolerates that (it only cares about the current `error`/`data` snapshot,
+ * not how many attempts produced it). That's why the announcement/error
+ * surface belongs HERE instead of per row: a
+ * `role="status"` while the catalog loads for the first time
+ * (`data === undefined && isFetching`), and a `role="alert"` + "Reintentar"
+ * when it fails with no usable data (`data === undefined && error`) —
+ * rendered ONCE per panel regardless of row count, instead of the N
+ * duplicates a per-row surface would produce for a single shared fetch.
+ * This is a DIFFERENT query from `useDetalleBucket` above (the
+ * `query`/`Loading`/`ErrorState`/`Empty` block governs the TRANSACTIONS
+ * fetch, not the catalog) — they are independent and not conflated: the
+ * catalog can still be loading or failed while transactions already render,
+ * in which case each row's own `<select>` just stays disabled
+ * (`ReclasificarCategoriaControl`'s own `disabled={... || data === undefined}`)
+ * until the catalog resolves.
  */
 export function BucketDetailList({
   bucket,
@@ -75,6 +116,7 @@ export function BucketDetailList({
   readonly headingLevel?: 'h1' | 'h2';
 }) {
   const query = useDetalleBucket(bucket, periodo);
+  const categoriasQuery = useCategorias();
 
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
@@ -99,8 +141,31 @@ export function BucketDetailList({
   const Heading = headingLevel;
   const HeadingGrupo = headingLevel === 'h1' ? 'h2' : 'h3';
 
+  const categoriasCargandoInicial =
+    categoriasQuery.data === undefined && categoriasQuery.isFetching;
+  const categoriasFallidasSinDatos =
+    categoriasQuery.data === undefined && categoriasQuery.error !== null;
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-4">
+      {categoriasCargandoInicial && (
+        <p role="status" className="sr-only">
+          Cargando categorías…
+        </p>
+      )}
+      {categoriasFallidasSinDatos && categoriasQuery.error && (
+        <p role="alert" className="text-xs text-red-600">
+          {categoriasQuery.error.message}{' '}
+          <button
+            type="button"
+            onClick={() => void categoriasQuery.refetch()}
+            disabled={categoriasQuery.isFetching}
+            className="underline disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Reintentar
+          </button>
+        </p>
+      )}
       <Heading className="text-lg font-semibold text-foreground">
         {ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket}
       </Heading>
