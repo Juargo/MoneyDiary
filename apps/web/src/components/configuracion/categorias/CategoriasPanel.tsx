@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useCategorias } from '@/api/use-categorias';
 import { useMe } from '@/api/use-me';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
@@ -6,6 +7,7 @@ import { Loading } from '../../states/Loading';
 import { ErrorState } from '../../states/Error';
 import { Empty } from '../../states/Empty';
 import { CategoriaFila } from './CategoriaFila';
+import { NuevaCategoriaForm } from './NuevaCategoriaForm';
 import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
 
 /**
@@ -18,9 +20,13 @@ import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
  * sola fuente compartida con `CategoriaFila`/el futuro dropdown de
  * reclasificar) → filas vía `CategoriaFila`.
  *
- * El botón `Nueva categoría` NO vive acá — PR #3a (task 26) lo agrega junto
- * con `NuevaCategoriaForm` para que nunca exista un botón muerto
- * (design.md's tasks.md task 20 nota explícita).
+ * El botón `Nueva categoría` (task 26, este PR) vive junto al título:
+ * `aria-label` estable en todo ancho (jsdom no tiene viewport, así que
+ * `getByRole('button', {name: 'Nueva categoría'})` funciona siempre — §8c),
+ * texto visible que se acorta a `Nueva` bajo `lg` vía dos `<span>` (mismo
+ * mecanismo de la frase del footer de abajo). Click abre `NuevaCategoriaForm`
+ * en el tope de la lista (Q9a) y oculta el propio botón mientras el form
+ * está abierto — `Cancelar` o un `201` exitoso lo vuelven a mostrar.
  *
  * El banner demo (`role="note"`, `MENSAJE_DEMO_CATALOGO`) es la única
  * diferencia visible para una sesión demo en esta pantalla — el catálogo
@@ -38,6 +44,7 @@ export function CategoriasPanel() {
   const query = useCategorias();
   const { data: me } = useMe();
   const esDemo = me?.esDemo ?? false;
+  const [creando, setCreando] = useState(false);
 
   if (query.isPending) {
     return <Loading message="Cargando categorías…" />;
@@ -50,20 +57,40 @@ export function CategoriasPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900">
-          Categorías y patrones
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tu catálogo propio: toda categoría pertenece a un bucket. Los patrones
-          permiten la auto-categorización.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">
+            Categorías y patrones
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tu catálogo propio: toda categoría pertenece a un bucket. Los
+            patrones permiten la auto-categorización.
+          </p>
+        </div>
+        {!creando && (
+          <button
+            type="button"
+            aria-label="Nueva categoría"
+            onClick={() => setCreando(true)}
+            className="shrink-0 rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white"
+          >
+            <span className="lg:hidden">Nueva</span>
+            <span className="hidden lg:inline">Nueva categoría</span>
+          </button>
+        )}
       </div>
 
       {esDemo && (
         <p role="note" className="text-sm text-slate-500">
           {MENSAJE_DEMO_CATALOGO}
         </p>
+      )}
+
+      {creando && (
+        <NuevaCategoriaForm
+          esDemo={esDemo}
+          onCerrar={() => setCreando(false)}
+        />
       )}
 
       {grupos.length === 0 ? (

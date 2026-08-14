@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMemoryHistory,
@@ -27,6 +28,13 @@ import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
  * same combined idiom as `PerfilPanel.test.tsx` (router) +
  * `use-categorias.test.tsx` (query client), because this panel is the first
  * component in the feature to need both at once.
+ *
+ * The `Nueva categoría` button and its wiring to `NuevaCategoriaForm` (PR
+ * #3a task 26) ARE tested here now — deferred from PR #2 (task 20) so no
+ * dead button ever shipped. `NuevaCategoriaForm`'s own field/mutation/demo
+ * behaviour is covered exhaustively by `NuevaCategoriaForm.test.tsx`; the
+ * tests below only pin the open/close wiring — they would be redundant if
+ * they re-asserted the form's internals.
  */
 const ME_NO_DEMO: MeDto = {
   userId: 'u1',
@@ -203,5 +211,68 @@ describe('CategoriasPanel', () => {
     );
     expect(corta).toHaveClass('lg:hidden');
     expect(larga).toHaveClass('hidden', 'lg:inline');
+  });
+
+  it('el botón Nueva categoría tiene nombre accesible estable con las dos variantes responsivas (§8c)', async () => {
+    renderPanel({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+      fetchMock: vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(CATALOGO),
+      }),
+    });
+
+    const boton = await screen.findByRole('button', {
+      name: 'Nueva categoría',
+    });
+    expect(boton.querySelector('.lg\\:hidden')).toHaveTextContent('Nueva');
+    expect(boton.querySelector('.hidden.lg\\:inline')).toHaveTextContent(
+      'Nueva categoría',
+    );
+  });
+
+  it("hacer click en Nueva categoría abre NuevaCategoriaForm (task 26 closes WCTG-02's button clause)", async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+      fetchMock: vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(CATALOGO),
+      }),
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Nueva categoría' }),
+    );
+
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeInTheDocument();
+  });
+
+  it('Cancelar en el form recién abierto lo cierra y vuelve a mostrar el botón Nueva categoría', async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+      fetchMock: vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(CATALOGO),
+      }),
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Nueva categoría' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Nueva categoría' }),
+    ).toBeInTheDocument();
   });
 });
