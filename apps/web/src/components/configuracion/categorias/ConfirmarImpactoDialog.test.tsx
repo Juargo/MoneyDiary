@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
@@ -99,5 +99,49 @@ describe('ConfirmarImpactoDialog', () => {
     renderDialog({ pendiente: true });
 
     expect(screen.getByRole('button', { name: 'Eliminar' })).toBeDisabled();
+  });
+
+  /**
+   * Judgment-day round 3, WCTG-07: `onKeyDown`'s Escape (and the "Cancelar"
+   * button) used to call `onCancelar()` unconditionally, unlike the confirm
+   * button which already respects `pendiente`. This let a user "cancel" the
+   * dialog while ITS OWN mutation was still in flight — the caller then
+   * tried to restore focus to a trigger it had itself disabled for the same
+   * pending state (a disabled element cannot receive focus, so focus fell
+   * to `<body>`), and the in-flight mutation's `onSuccess` still fired
+   * later regardless, contradicting the dialog having visually "closed".
+   * Gating BOTH controls on `pendiente`, mirroring the confirm button, is
+   * the single place that answers "what happens on Escape/Cancel while our
+   * own mutation is pending": nothing, until it settles.
+   */
+  it('pendiente=true bloquea Escape — NO llama a onCancelar mientras la propia mutación está en vuelo', () => {
+    const { onCancelar } = renderDialog({ pendiente: true });
+
+    // `fireEvent.keyDown` directo sobre el contenedor `alertdialog`, no
+    // `user.keyboard`: con `pendiente=true` desde el montaje, el botón de
+    // confirmación YA nace `disabled` y el efecto de foco-al-montar no
+    // puede posarlo ahí (un elemento disabled no es focuseable) — el foco
+    // real de jsdom queda en `<body>`, fuera del árbol del diálogo, así que
+    // `user.keyboard` (que despacha sobre `document.activeElement`) nunca
+    // llegaría al `onKeyDown` del propio diálogo y el test pasaría por la
+    // razón equivocada. Disparar el evento directo sobre el contenedor
+    // ejercita el guard real, independiente de dónde esté el foco del DOM.
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+
+    expect(onCancelar).not.toHaveBeenCalled();
+  });
+
+  it('pendiente=true deshabilita el botón Cancelar y su click NO llama a onCancelar', async () => {
+    const { onCancelar } = renderDialog({ pendiente: true });
+
+    const cancelar = screen.getByRole('button', { name: 'Cancelar' });
+    expect(cancelar).toBeDisabled();
+
+    // `fireEvent` bypasea el `disabled` (jsdom no impone interactability como
+    // `userEvent`) — ejercita el guard directamente, no solo el atributo
+    // visual, como el resto de la suite hace con los triggers del footer.
+    fireEvent.click(cancelar);
+
+    expect(onCancelar).not.toHaveBeenCalled();
   });
 });

@@ -57,6 +57,33 @@ export function ConfirmarImpactoDialog({
     confirmarRef.current?.focus();
   }, []);
 
+  // `cancelar` (judgment-day round 3, WCTG-07): the SINGLE place that
+  // answers "what can dismiss this dialog while its own mutation is in
+  // flight" — nothing, until `pendiente` clears, mirroring the confirm
+  // button's own `disabled={pendiente}`. Both Escape and the "Cancelar"
+  // button route through this guard instead of calling `onCancelar`
+  // directly.
+  //
+  // Before this guard, Escape called `onCancelar()` unconditionally. The
+  // caller's `cerrarDialogo` (`EditarCategoria.tsx`) then synchronously
+  // tried to restore focus to whichever trigger opened this dialog — but
+  // that SAME trigger is disabled for the SAME pending state (round 2), and
+  // a disabled element cannot receive focus, so focus silently fell to
+  // `<body>`. Worse, the in-flight mutation was never aborted: it still
+  // resolved later and its mutate-level `onSuccess` still fired (navigate/
+  // re-stamp) even though the dialog had already visually "closed" on
+  // Escape — contradicting Escape's framing as a cancel action (WCTG-07).
+  // Locking the dialog while `pendiente` is the fix that closes the WHOLE
+  // class: `cerrarDialogo` is simply never invoked mid-flight, so there is
+  // no disabled-trigger focus attempt and no premature "closed" state to
+  // contradict.
+  function cancelar() {
+    if (pendiente) {
+      return;
+    }
+    onCancelar();
+  }
+
   return (
     // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`, not
     // `widget` (verified against aria-query, same finding recorded on
@@ -73,7 +100,7 @@ export function ConfirmarImpactoDialog({
       aria-label={titulo}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
-          onCancelar();
+          cancelar();
         }
       }}
       className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground shadow-sm"
@@ -90,8 +117,9 @@ export function ConfirmarImpactoDialog({
       <div className="flex justify-end gap-2">
         <button
           type="button"
-          onClick={onCancelar}
-          className="rounded-full border border-border px-3 py-1 font-semibold text-muted-foreground"
+          onClick={cancelar}
+          disabled={pendiente}
+          className="rounded-full border border-border px-3 py-1 font-semibold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancelar
         </button>
