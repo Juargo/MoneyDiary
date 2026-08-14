@@ -373,6 +373,40 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
   `RouterProvider` (reusing the file's existing render helper), asserts exactly one `/api/auth/me`
   call, and was verified by mutation testing against (2): reverting it makes the test fail with 2
   calls; restoring it makes it pass with 1.**
+  **CORRECTION #2 (judgment-day corrective fix batch, still 2026-08-13): part (2) above —
+  `context.queryClient.ensureQueryData(meQueryOptions())` in `_authenticated.tsx`'s `beforeLoad` — was
+  reverted. Two independent blind reviewers found it introduced a WORSE CRITICAL: `ensureQueryData`
+  only fetches when the cache is empty, and never revalidates a stale-but-present `['auth-me']` entry
+  without `revalidateIfStale: true` (not passed by `meQueryOptions()`); combined with `beforeLoad`'s
+  unconditional `setQueryData` afterwards (which always stamps a fresh `dataUpdatedAt`), this meant
+  `beforeLoad` stopped issuing a real `/api/auth/me` for the rest of the SPA session once `['auth-me']`
+  was first populated — a revoked server session no longer bounced the user to `/login` at the route
+  boundary. A second, invisible-to-tests defect rode along: the guard inherited the production
+  `shouldRetryQuery` predicate, so network/server/parse failures retried 3× with backoff instead of
+  failing fast (every test `QueryClient` hardcodes `retry: false`, so no test caught it).
+  **DO NOT re-attempt routing `_authenticated.tsx`'s `beforeLoad` through `queryClient.ensureQueryData`
+  (or any other caching of the session check itself) to fix this bug — it was tried, reviewed, and
+  rejected specifically because it widens what is a security-relevant guard on every route, not just
+  the one self-triggered navigation that needed a fix.** `beforeLoad` now calls the raw, always-fetching
+  `fetchMe()` again (restored byte-for-byte to the guard's pre-PR#2 semantics — verified by diffing
+  `_authenticated.tsx` against `feat/us-042-pr1b-perfil-form`). The double-fetch is instead prevented by
+  a narrow, purpose-built one-tick guard (`lib/skip-next-auth-refetch.ts`,
+  `markSkipNextAuthRefetch`/`consumeSkipNextAuthRefetch`): `configuracion.tsx`'s cleanup effect arms it
+  immediately before its OWN synthetic `router.history.replace('/configuracion')` call, and
+  `_authenticated.tsx`'s `beforeLoad` consumes it (read + clear) on the very next run only, reading the
+  identity already primed in `['auth-me']` instead of re-fetching. Any other `beforeLoad` run — a
+  genuine navigation to a different authenticated page, a fresh document load, anything not immediately
+  preceded by that one call site — never sees the flag armed, so it fetches `/api/auth/me` exactly as
+  before this whole investigation started. An `unverified TanStack Router `cause` ('enter'/'stay'/
+  'preload') lead was investigated first and rejected: empirically (a throwaway mutation test against
+  the installed `@tanstack/router-core@1.171.13` source) `cause` is `'stay'` for the `_authenticated`
+  pathless layout's match on ANY navigation after the first — including a genuine navigation between two
+  distinct authenticated pages, not just the self-rewrite — because the layout's `matchId` doesn't
+  depend on which child route is active, so it never distinguishes the two cases. Mutation-verified:
+  reverting the one-tick guard reproduces the 2-call failure on the task-6.2 pin; restoring it passes at
+  1 call. A companion test pins the inverse invariant the caching approach destroyed: a genuine
+  navigation between two authenticated pages (`/configuracion` → `/ingestas`) still fetches
+  `/api/auth/me` a second time.**
 - [x] 6.3 Implement the fluid T1 grid in `ConfiguracionPage.tsx` (`max-w-*` + fixed-first-track
   `grid`) reproducing T1's measured proportions with **no** new `layout.ts` constant; below `lg` the
   two columns stack (heading+tabs above panel). [WCFG-11]

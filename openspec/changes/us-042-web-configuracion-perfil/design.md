@@ -549,21 +549,24 @@ value is never rendered, never interpolated into copy, never logged.
 ```tsx
 function ConfiguracionRoute() {
   const { google } = Route.useSearch();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [avisoGoogle, setAvisoGoogle] = useState(google);   // captured on FIRST render
 
   useEffect(() => {
     if (google === undefined) return;
-    void navigate({ to: '/configuracion', search: {}, replace: true });
-  }, [google, navigate]);
+    markSkipNextAuthRefetch();               // see Q6c
+    router.history.replace('/configuracion');
+  }, [google, router]);
   …
 }
 ```
 
 - `useState(google)` captures the value on the **first render**, before the effect strips the URL. The
   message therefore lives in state, not derived from the URL, and survives the rewrite.
-- `replace: true` so Back does not return to the parameterised URL — the message cannot reappear
-  through history.
+- `router.history.replace('/configuracion')` rewrites the URL through TanStack Router's own history
+  wrapper, so `router.state.location`, the address bar, and back/forward all stay coherent, and — like
+  `navigate({ replace: true })` — Back does not return to the parameterised URL: the message cannot
+  reappear through history.
 - Refreshing the cleaned URL shows nothing. Correct: the confirmation reports an **event that just
   happened**, not a property of the page.
 - **Dismissal rule**: `setAvisoGoogle(undefined)` when a Google dialog opens, so a stale
@@ -572,16 +575,36 @@ function ConfiguracionRoute() {
 Copy: `vinculado` → `Vinculaste tu cuenta de Google.` (polite) · `error` →
 `No se pudo vincular tu cuenta de Google. Intenta nuevamente.` (alert).
 
-#### Q6c — Identity refetch: **none, deliberately**
+#### Q6c — Identity refetch: exactly once, via a one-tick guard (revised in PR#2)
 
 The callback is a `302` from `api.moneydiary.cl` to `app.moneydiary.cl/configuracion?google=…` — a
-**full document load**. React remounts, the router runs `_authenticated`'s `beforeLoad`,
+**full document load**. React mounts, the router runs `_authenticated`'s `beforeLoad`,
 `requireSession` fetches `/api/auth/me` fresh, and Q3b primes `['auth-me']` with the **post-link**
-identity. The pill is correct on first paint with zero extra work.
+identity.
 
-This is the entire payoff of the priming decision, and it is stated because the naive instinct —
-"invalidate `['auth-me']` after the redirect" — would add a second round trip that changes nothing.
-Pinned as a test: **on a `?google=vinculado` landing, `/api/auth/me` is still fetched exactly once.**
+The naive assumption — "that's the only `beforeLoad` run for this landing" — is wrong: `router.history.
+replace(...)` in Q6b is still a REPLACE history event, and TanStack Router's `Transitioner` re-runs
+`beforeLoad` for **any** REPLACE/PUSH, including one the router's own history wrapper raises (there is
+no public API that changes the URL without doing so). Left unguarded, `_authenticated`'s `beforeLoad`
+would call `fetchMe()` a second time for the same landing.
+
+The fix shipped in PR#2 first tried making `beforeLoad` **cache-backed** (`queryClient.
+ensureQueryData`) so any re-run within the `['auth-me']` `staleTime` was a cache hit. Blind review
+caught the regression this introduced: `ensureQueryData` never revalidates a stale-but-present entry
+without `revalidateIfStale`, so **every** subsequent `beforeLoad` across the whole SPA session became a
+cache hit too — a revoked server session stopped bouncing the user to `/login` at the route boundary.
+That approach was reverted.
+
+The shipped mechanism is a **purpose-built one-tick guard**
+(`lib/skip-next-auth-refetch.ts`, `markSkipNextAuthRefetch`/`consumeSkipNextAuthRefetch`), armed by
+exactly one call site — the Q6b cleanup effect, right before `router.history.replace(...)` — and
+consumed by exactly one other call site — `_authenticated`'s `beforeLoad`, on the very next run. When
+armed, `beforeLoad` reads the identity already primed in `['auth-me']` moments ago instead of paying
+for a second `/api/auth/me`; every other `beforeLoad` run — including a genuine navigation to a
+different authenticated route — keeps calling the raw `fetchMe()` unconditionally, exactly as before
+this change. Pinned as tests: **on a `?google=vinculado` landing, `/api/auth/me` is fetched exactly
+once**, and **a genuine navigation between two authenticated pages still fetches `/api/auth/me`
+again.**
 
 ---
 
