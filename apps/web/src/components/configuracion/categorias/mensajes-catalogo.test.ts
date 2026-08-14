@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ApiError } from '@/api/client';
+import { MATCH_TYPES } from '@/api/catalogo-constantes';
+import type { MatchType } from '@/api/catalogo-constantes';
 import {
+  ETIQUETA_MATCH_TYPE,
   fraseDeImpacto,
   MENSAJE_DEMO_CATALOGO,
   mensajeDeErrorCatalogo,
@@ -215,5 +218,21 @@ describe('fraseDeImpacto', () => {
       ],
       textoConfirmar: 'Cambiar bucket',
     });
+  });
+});
+
+describe('ETIQUETA_MATCH_TYPE (US-043 PR #4, design.md §1/Q9b/D-07)', () => {
+  it.each<readonly [MatchType, string]>([
+    ['CONTAINS', 'CONTIENE'],
+    ['STARTS_WITH', 'EMPIEZA CON'],
+    ['REGEX', 'REGEX'],
+  ])('etiqueta %s como %s', (matchType, etiqueta) => {
+    expect(ETIQUETA_MATCH_TYPE[matchType]).toBe(etiqueta);
+  });
+
+  it('es total sobre los tres MATCH_TYPES — cada miembro tiene una fila', () => {
+    for (const matchType of MATCH_TYPES) {
+      expect(ETIQUETA_MATCH_TYPE[matchType]).toBeDefined();
+    }
   });
 });
