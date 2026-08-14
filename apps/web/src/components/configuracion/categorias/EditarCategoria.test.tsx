@@ -516,11 +516,24 @@ describe('EditarCategoria — delete from the edit screen (Q6d, WCTG-05, WCTG-08
   });
 
   it('un delete fallido mantiene el diálogo abierto con el error inline, sin navegar', async () => {
-    const user = userEvent.setup();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    // DEFERRED promise (the resolve trigger is captured, not baked into
+    // `mockResolvedValue`) — deliberately, per the judgment-day finding
+    // (2026-08-14): a `mockResolvedValue` promise is ALREADY resolved by
+    // the time React processes the click, so React can coalesce the
+    // pending→error transition into a single commit and the in-flight
+    // render never actually happens in the test, even though production
+    // `fetch` always has a real network round-trip. This test must observe
+    // the IN-FLIGHT render (dialog still mounted, mid-request) before
+    // resolving, or it does not exercise the bug it is pinning.
+    let resolverFetch!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
     );
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', fetchMock);
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
 
     await user.click(
@@ -530,6 +543,15 @@ describe('EditarCategoria — delete from the edit screen (Q6d, WCTG-05, WCTG-08
     );
     const dialogo = await screen.findByRole('alertdialog');
     await user.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+    // Mid-flight: the DELETE has not resolved yet (`eliminacion.isPending`
+    // is true, `isSuccess` is still false) — the dialog must stay mounted.
+    // Against the old `isPending || isSuccess` guard, this assertion times
+    // out because the whole `EditarCategoriaCargada` subtree — including
+    // this dialog — unmounts for the duration of the request.
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    resolverFetch({ ok: false, status: 500 });
 
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
       'Ocurrió un error inesperado. Intenta nuevamente.',

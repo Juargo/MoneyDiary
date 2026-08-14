@@ -61,11 +61,22 @@ const OPCIONES_BUCKET = BUCKETS_ASIGNABLES.map((bucket) => ({
  * before the mutate-level `onSuccess` (task 34) navigates away — React
  * Query runs the hook-level `onSuccess` (invalidate) BEFORE the
  * mutate-level one (navigate), so ordering alone does not fix it. Without
- * this guard, "Esa categoría ya no existe." would flash false for those two
- * ticks. `eliminacion` is created HERE, not in the child, so the SAME hook
+ * this guard, "Esa categoría ya no existe." would flash false for that one
+ * tick. `eliminacion` is created HERE, not in the child, so the SAME hook
  * instance backs both the guard and (from task 34) the footer's delete
  * trigger — `useMutation` state is local per hook call, not shared across
  * instances, so there can only be one.
+ *
+ * **Guards on `isSuccess` ONLY, never `isPending`** (judgment-day finding,
+ * 2026-08-14): also gating on `isPending` unmounts this component's ENTIRE
+ * subtree — including an already-open `ConfirmarImpactoDialog` — for the
+ * FULL delete network round-trip, not "two ticks". If the request then
+ * fails, `isPending` flips back to `false` while `isSuccess` stays `false`,
+ * so the guard stops blocking and `EditarCategoriaCargada` remounts FRESH
+ * with `dialogo: null` — the confirmation dialog and its inline error
+ * vanish and the failed delete surfaces nothing to the user (breaking task
+ * 28's "dialog does not close on failure"). `isSuccess` alone is enough: it
+ * is the actual "we are about to navigate away" signal this guard needs.
  */
 export function EditarCategoria({
   categoriaId,
@@ -77,7 +88,7 @@ export function EditarCategoria({
   const { data: me } = useMe();
   const esDemo = me?.esDemo ?? false;
 
-  if (eliminacion.isPending || eliminacion.isSuccess) {
+  if (eliminacion.isSuccess) {
     return null;
   }
 
