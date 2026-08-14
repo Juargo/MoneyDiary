@@ -36,24 +36,37 @@ const SCREENS = [
   },
 ] as const;
 
-// SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception: a target "in a sentence or
-// whose size is otherwise constrained by the line-height of non-target
-// text" is exempt from the 24×24 minimum. Two families of unstyled text
-// links in `EditarCategoria` rely on it:
-// - The 3-level breadcrumb links, inline text (`text-sm`, ~20px tall,
-//   embedded in a sentence-like path) inside
-//   `nav[aria-label="Ruta de navegación"]` (measured ~17px tall — genuinely
-//   below the 24px floor, so this exemption is load-bearing, not
-//   defensive theatre).
-// - The plain "Volver a Categorías" link rendered in the query-error and
-//   not-found branches (`EditarCategoria.tsx:147,158`) — no button/padding
-//   styling, sized purely by its own text line-height, same rationale as
-//   the breadcrumb, just outside the `nav`.
-// A naive `button, a` sweep would flag either and invite inflating them to
-// satisfy a criterion that never applied to them (design.md §4, `E-11`
-// note).
+// SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception exempts a target "in a
+// sentence, or whose size is otherwise constrained by the line-height of
+// non-target text" from the 24×24 minimum.
+//
+// **Exactly ONE family qualifies here**: the 3-level breadcrumb links inside
+// `nav[aria-label="Ruta de navegación"]`. They are separated by literal "/"
+// text within a path — real non-target text on the same line constraining
+// them — which is the canonical shape the exception describes. Measured at
+// ~17px tall, genuinely below the floor, so this exemption is load-bearing,
+// not defensive theatre.
+//
+// **`Volver a Categorías` does NOT qualify, and is deliberately NOT exempt.**
+// An earlier revision of this file exempted it by exact text match. That was
+// wrong (judgment-day round 2): those links (`EditarCategoria.tsx:147,158`)
+// are `<Link>` siblings of a `<p>`, alone on their own line, with no
+// surrounding non-target text — they are standalone back controls, precisely
+// what SC 2.5.8 exists to catch. Measured `{ width: 147.8, height: 20 }`:
+// a genuine violation, not an exempt case. Exempting it would have made this
+// harness — the change's ONLY acceptance layer — assert compliance that does
+// not exist.
+//
+// Consequence, recorded deliberately: no spec currently reaches those
+// branches, so nothing goes red today. The first spec that renders the
+// error/not-found state WILL fail here, and that failure is correct — see
+// the product defect recorded in `tasks.md` for PR #4, which owns the edit
+// surface. Do not silence it by re-adding an exemption; fix the control.
+//
+// Matching is structural (`closest()`), never by text content: a text match
+// would also exempt any future large, padded control that happened to reuse
+// the same string, turning a real regression into a silent green.
 const RUTA_NAVEGACION_SELECTOR = 'nav[aria-label="Ruta de navegación"]';
-const VOLVER_A_CATEGORIAS_TEXT = 'Volver a Categorías';
 
 async function standaloneControlsInMain(page: Page): Promise<Locator[]> {
   const controlsLocator = page.locator('main').locator('button, a[href]');
@@ -70,12 +83,8 @@ async function standaloneControlsInMain(page: Page): Promise<Locator[]> {
   const standalone: Locator[] = [];
   for (const control of all) {
     const isInlineTextLink = await control.evaluate(
-      (el, { selector, exemptText }) =>
-        el.closest(selector) !== null || el.textContent?.trim() === exemptText,
-      {
-        selector: RUTA_NAVEGACION_SELECTOR,
-        exemptText: VOLVER_A_CATEGORIAS_TEXT,
-      },
+      (el, selector) => el.closest(selector) !== null,
+      RUTA_NAVEGACION_SELECTOR,
     );
     if (!isInlineTextLink) {
       standalone.push(control);
