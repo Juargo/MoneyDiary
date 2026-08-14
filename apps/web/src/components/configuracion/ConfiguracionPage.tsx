@@ -1,8 +1,8 @@
 import { useMe } from '@/api/use-me';
 import { ConfiguracionTabs } from './ConfiguracionTabs';
-import { PerfilForm } from './PerfilForm';
-import { GoogleVinculoSection } from './GoogleVinculoSection';
-import type { Mensaje } from './mensajes';
+import { PerfilForm } from './perfil/PerfilForm';
+import { GoogleVinculoSection } from './perfil/GoogleVinculoSection';
+import type { Mensaje } from './perfil/mensajes';
 
 /**
  * ConfiguracionPage — la composición completa de CA-02 (US-042 design.md

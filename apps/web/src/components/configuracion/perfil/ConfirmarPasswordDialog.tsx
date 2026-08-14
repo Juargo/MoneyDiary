@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { CampoTexto } from './CampoTexto';
+import { CampoTexto } from '../CampoTexto';
 
 /**
  * ConfirmarPasswordDialog — el diálogo `role="alertdialog"` hand-rolled que
