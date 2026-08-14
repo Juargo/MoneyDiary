@@ -192,7 +192,7 @@ export function fraseDeImpacto(i: ImpactoCatalogo): {
         i.transaccionesCount > 0
           ? [
               `Vas a eliminar «${i.nombre}».`,
-              `${etiquetaTransacciones(i.transaccionesCount)} quedan en Sin categoría, en todos los períodos.`,
+              `${etiquetaTransacciones(i.transaccionesCount)} ${i.transaccionesCount === 1 ? 'queda' : 'quedan'} en Sin categoría, en todos los períodos.`,
               'Esta acción no se puede deshacer.',
             ]
           : [

@@ -148,7 +148,7 @@ describe('fraseDeImpacto', () => {
     });
   });
 
-  it('eliminar, n = 1: usa la forma singular de etiquetaTransacciones — el verbo del template no se conjuga (design.md §1/Q6b, verbatim)', () => {
+  it('eliminar, n = 1: el verbo concuerda con la forma singular de etiquetaTransacciones', () => {
     const frase = fraseDeImpacto({
       tipo: 'eliminar',
       nombre: 'Supermercado',
@@ -156,7 +156,7 @@ describe('fraseDeImpacto', () => {
     });
 
     expect(frase.lineas[1]).toBe(
-      '1 transacción quedan en Sin categoría, en todos los períodos.',
+      '1 transacción queda en Sin categoría, en todos los períodos.',
     );
   });
 
