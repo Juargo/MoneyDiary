@@ -37,14 +37,57 @@ layout" as the smallest coherent PR #2 unit; splitting `GoogleVinculoSection` fr
 working confirmation flow behind it — the same "half-wired feature is worse than a large diff"
 reasoning PR #1b's exception already rests on.
 
-**This was not decided unilaterally during apply.** Per instruction, surfacing it here instead of
-silently shipping a third oversized slice. Options for the maintainer:
+**Resolved (2026-08-13): accepted as a second documented `size:exception`.** Recorded in `tasks.md`
+under "Second guard decision". Splitting was evaluated with a measurement, not an assertion: the only
+natural seam (Google section vs `?google=` + layout) yields ~1150 / ~430, leaving the big half still
+~3x over — so the split buys nothing and would ship a dialog nothing invokes.
 
-- **(a)** Accept PR #2 as a second documented `size:exception`, citing the same reasoning as PR #1b's
-  (§10 prohibition on splitting a load-bearing unit) plus the doc-density convention this chain has
-  already exception-approved once.
-- **(b)** Request trimming before merge (e.g., moving some in-source docblock rationale into
-  `design.md`/`tasks.md` instead of repeating it per-file) and re-measure.
+The forecast was wrong on **all three** slices of this change, always in the same direction — PR #1a
+1.7x, PR #1b 1.9x, PR #2 3.1x. That is a systematic bias in the `tasks` phase, not three unlucky
+slices: it sized production code while Strict TDD obliges a test suite running ~1.4x that. Recorded in
+`tasks.md` so the next TDD-strict change forecasts tests explicitly.
+
+## Judgment Day — APPROVED ✅ (3 rounds, 2 CRITICALs, 2 fix iterations)
+
+Two blind adversarial reviewers. Round 3 closed with **zero CRITICAL and zero real WARNING** from
+both. This slice was the hardest of the three; the process earned its cost here:
+
+**Round 1 — CRITICAL, found independently by both judges.** Landing on `/configuracion?google=vinculado`
+fetched `/api/auth/me` **twice**, violating `WCFG-03`'s exactly-once MUST, on 100% of Google round
+trips — against an API whose free-tier cold start has been measured at 73s. The task-6.2 test that
+claimed to pin the invariant used bare `router.load()` and never mounted the component whose effect
+caused the second fetch, so it **could not fail**. It shipped carrying an 11-line comment arguing that
+scope was correct.
+
+**Round 2 — a WORSE CRITICAL, introduced by the round-1 fix, again found by both judges.** The fix had
+rewired `beforeLoad` to `queryClient.ensureQueryData(...)`. But `ensureQueryData` does not revalidate a
+stale-but-present entry without `revalidateIfStale`, and `beforeLoad`'s unconditional `setQueryData`
+re-stamps `dataUpdatedAt` on every run — so once `['auth-me']` was populated, **the session guard never
+validated again for the rest of the SPA session**. It had also silently inherited the app's retry
+policy: 3 retries with ~7s backoff on a security boundary, invisible to the suite because every test
+`QueryClient` hardcodes `retry: false`. Reverted.
+
+**Round 3 — the narrow fix, cleared.** `beforeLoad` is back to raw `fetchMe()`; the double fetch is
+solved by a purpose-built one-tick guard (`lib/skip-next-auth-refetch.ts`) armed at exactly one call
+site immediately before the synthetic `router.history.replace`, consumed as `beforeLoad`'s first
+statement, falling through to a real `requireSession` on cache miss. **93+/36- across 4 files**, versus
+the ~2000-line blast radius of the approach it replaced. Both judges traced
+`@tanstack/router-core@1.171.13` / `@tanstack/history@1.162.0` to prove arm and consume execute in one
+synchronous JS turn, leaving no window for an interleaved navigation to steal the flag.
+
+Two leads investigated and **rejected with evidence**, so nobody re-attempts them:
+- `router.history.replace()` / `window.history.replaceState` do **not** avoid the re-run — the router
+  intercepts both. There is no public API that changes the URL without re-running `beforeLoad`.
+- `beforeLoad`'s `cause` (`'enter' | 'stay'`) cannot discriminate: under a pathless layout route it is
+  `'stay'` for every navigation after the first, genuine ones included.
+
+Both invariants are now pinned by **two separate, non-redundant tests** — reintroducing the round-2 bug
+makes the companion test fail while the task-6.2 pin still passes, which is exactly why both must exist.
+
+**Registered debt** (both judges raised it independently, deliberately deferred): carry the skip intent
+in history state — `router.history.replace(path, { skipAuthRefetch: true })` read as `location.state` —
+so the invariant becomes structural rather than an emergent property of synchronous execution. Full
+rationale in `tasks.md` under task 6.2.
 
 ## Summary
 
@@ -132,9 +175,10 @@ Google link/unlink end to end — CA-02's third block, CA-04, WCFG-02/08/10/11/1
 ## Gates
 
 - [x] `pnpm web typecheck` — green
-- [x] `pnpm web test` — green, **705/705** (76 files; 700 at original apply-time, +5 from the
-      judgment-day fix batch: the unauthorized→/login test ×2, the check-icon test, the control-case
-      fetch-count test, and the Q6b DOM-level integration test)
+- [x] `pnpm web test` — green, **706/706** (76 files; 700 at original apply-time, +6 across the two
+      judgment-day fix batches: the unauthorized→/login tests ×2, the check-icon test, the control-case
+      fetch-count test, the Q6b DOM-level integration test, and the "genuine navigation still refetches
+      identity" companion pin added in round 3)
 - [x] `pnpm web lint` — green, 0 errors, 2 warnings (identical pre-existing
       `no-noninteractive-element-interactions` findings from PR #1a's baseline — untouched by this
       PR)
