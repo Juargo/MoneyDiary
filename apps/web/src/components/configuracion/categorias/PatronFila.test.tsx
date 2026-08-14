@@ -435,6 +435,113 @@ describe('PatronFila — fila existente', () => {
     expect(screen.getByLabelText('Patrón')).toHaveValue('en-progreso');
   });
 
+  it('un Enter SIN cambios (dirty-check no-op) no deja el flag de restaurar foco pegado en true: una edición real commiteada por blur DESPUÉS no roba el foco (judgment-day round 3 CRITICAL: el flag solo se limpiaba en el useEffect y en alCambiarMatchType, nunca en los early-return de commit())', async () => {
+    // Deferred promise (not `mockResolvedValue`) — the mutation MUST stay
+    // observably in-flight (`accionesBloqueadas` true across a render) so
+    // the focus-restoration `useEffect` gets a genuine false→true→false
+    // transition to react to; an already-resolved mock can collapse both
+    // transitions into a single render and never exercise the effect.
+    let resolverFetch: (value: {
+      ok: boolean;
+      status: number;
+    }) => void = () => {};
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón') as HTMLInputElement;
+    const focoSpy = vi.spyOn(input, 'focus');
+
+    // Enter with NO edit — the dirty check in `commit()` bails BEFORE any
+    // `fetch` call, so `accionesBloqueadas` never even starts cycling for
+    // this press.
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // A later, real edit committed via ordinary blur — NOT Enter — DOES
+    // start a mutation this time.
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(input).toBeDisabled();
+    expect(focoSpy).not.toHaveBeenCalled();
+
+    resolverFetch({ ok: true, status: 200 });
+
+    // The fields re-enable once the blur-triggered PATCH resolves — the
+    // focus-restoration effect must NOT fire, because this commit was
+    // never Enter-driven.
+    await waitFor(() => expect(input).not.toBeDisabled());
+    expect(focoSpy).not.toHaveBeenCalled();
+  });
+
+  it('cambiar Tipo de coincidencia mientras Patrón está vacío en una fila EXISTENTE revierte AMBOS campos al último valor comprometido, no solo el texto — y un blur posterior con el par revertido no dispara un PATCH fantasma (judgment-day round 3 CRITICAL: la guarda de valor vacío solo revertía `valor`, dejando `matchType` avanzado sin confirmar)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: '' } });
+
+    const select = screen.getByLabelText('Tipo de coincidencia');
+    fireEvent.change(select, { target: { value: 'REGEX' } });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Patrón')).toHaveValue('netflix');
+    expect(screen.getByLabelText('Tipo de coincidencia')).toHaveValue(
+      'CONTAINS',
+    );
+
+    // The dirty-check baseline must ALSO be back to the confirmed pair —
+    // otherwise the next blur sees an unchanged `valor` but a changed
+    // `matchType` and fires a PATCH sending the OLD text under the NEW
+    // match type, a pair the user never confirmed together.
+    fireEvent.blur(input);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('mousedown en Eliminar SIN que un clic real lo siga (arrastre fuera del target de 24×24) recupera y commitea la edición que el blur había dejado pendiente, en vez de perderla en silencio (judgment-day round 3 WARNING: clicEliminarEnCursoRef se limpiaba en el blur asumiendo que un clic real vendría después)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón');
+    const boton = screen.getByRole('button', { name: /eliminar patrón/i });
+
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.mouseDown(boton);
+    fireEvent.blur(input);
+
+    // The blur alone must not commit yet — a genuine click might still
+    // land right after and discard the row, making the commit pointless.
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // No `click` ever follows (the pointer released elsewhere) — the
+    // recovery must fire once the gesture is known to have ended.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith('/api/patrones/pat-1', {
+      credentials: 'same-origin',
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ patron: 'spotify', matchType: 'CONTAINS' }),
+    });
+  });
+
   it('un Enter que dispara un PATCH llama a input.focus() una vez que el input se re-habilita (redesign, judgment-day PR #4, causa estructural #4: un navegador real pierde el foco al deshabilitar un control enfocado; jsdom no reproduce ese auto-blur de forma confiable, así que este test verifica el fix real — la llamada a `.focus()` guiada por el ref — en vez de `document.activeElement`)', async () => {
     let resolverFetch: (value: {
       ok: boolean;

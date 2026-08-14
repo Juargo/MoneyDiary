@@ -136,10 +136,19 @@ export function PatronFila({
   const actualizar = useActualizarPatron();
   const eliminar = useEliminarPatron();
 
+  // `PatronDto.matchType` is deliberately plain `string` at the HTTP
+  // boundary (see `types.ts`'s docblock) — this ONE cast at the seed point
+  // is the trust boundary (the server only ever returns a valid literal);
+  // from here on, local state is the closed `MatchType` union, so it gets
+  // the same compile-time exhaustiveness as `ETIQUETA_MATCH_TYPE` instead
+  // of degrading to `string` and forcing `as MatchType` casts back in at
+  // both `crear.mutate`/`actualizar.mutate` below (judgment-day round 3
+  // SUGGESTION).
+  const matchTypeInicial =
+    (patron?.matchType as MatchType | undefined) ?? MATCH_TYPES[0];
+
   const [valor, setValor] = useState(patron?.patron ?? '');
-  const [matchType, setMatchType] = useState<string>(
-    patron?.matchType ?? MATCH_TYPES[0],
-  );
+  const [matchType, setMatchType] = useState<MatchType>(matchTypeInicial);
   // Last value actually sent to the server (or the row's initial loaded
   // value) — the dirty-check baseline for `commit()` below. Judgment-day
   // round 2: only advances on a SUCCESSFUL `actualizar`, never
@@ -148,7 +157,7 @@ export function PatronFila({
   // check.
   const [ultimoComprometido, setUltimoComprometido] = useState({
     valor: patron?.patron ?? '',
-    matchType: patron?.matchType ?? MATCH_TYPES[0],
+    matchType: matchTypeInicial,
   });
 
   const idCreado = patron?.id;
@@ -210,11 +219,13 @@ export function PatronFila({
       valor === ultimoComprometido.valor &&
       matchType === ultimoComprometido.matchType;
     if (sinEdicionLocalPendiente) {
+      // Same DTO-boundary trust as `matchTypeInicial` above.
+      const matchTypeSincronizado = patron.matchType as MatchType;
       setValor(patron.patron);
-      setMatchType(patron.matchType);
+      setMatchType(matchTypeSincronizado);
       setUltimoComprometido({
         valor: patron.patron,
-        matchType: patron.matchType,
+        matchType: matchTypeSincronizado,
       });
     }
   }
@@ -243,7 +254,7 @@ export function PatronFila({
 
   function commit(overrides?: {
     readonly valor?: string;
-    readonly matchType?: string;
+    readonly matchType?: MatchType;
   }) {
     if (accionesBloqueadas) {
       return;
@@ -260,10 +271,25 @@ export function PatronFila({
     // staying blank forever, permanently diverged from the still-live
     // server value (redesign structural cause #3) — a not-yet-created row
     // has nothing to revert to, so it just stays blank.
+    //
+    // Judgment-day round 3 CRITICAL: reverting ONLY `valor` here left
+    // `matchType` at whatever a same-tick `alCambiarMatchType` had already
+    // moved it to (e.g. blank Patrón + immediately picking a new match
+    // type) — the displayed pair was never jointly confirmed, and the next
+    // blur's dirty check would then see `valor` unchanged but `matchType`
+    // changed and fire a real PATCH for a pair the user never committed.
+    // Revert BOTH fields together, so the dirty-check baseline itself is
+    // restored, not just the visible text.
     if (valorFinal === '') {
       if (idCreado !== undefined) {
         setValor(ultimoComprometido.valor);
+        setMatchType(ultimoComprometido.matchType);
       }
+      // No mutation starts on this path — any Enter-driven focus-restore
+      // intent set just before this call (see `restaurarFocoPatronRef`
+      // above) would otherwise stay stuck `true` forever: `accionesBloqueadas`
+      // never cycles, so the `useEffect` that normally clears it never runs.
+      restaurarFocoPatronRef.current = false;
       return;
     }
 
@@ -276,6 +302,9 @@ export function PatronFila({
       valorFinal === ultimoComprometido.valor &&
       matchTypeFinal === ultimoComprometido.matchType
     ) {
+      // Same reasoning as the blank guard above — no mutation starts here
+      // either (judgment-day round 3 CRITICAL).
+      restaurarFocoPatronRef.current = false;
       return;
     }
 
@@ -284,7 +313,7 @@ export function PatronFila({
         {
           categoriaId,
           patron: valorFinal,
-          matchType: matchTypeFinal as MatchType,
+          matchType: matchTypeFinal,
         },
         {
           onSuccess: () => {
@@ -298,7 +327,7 @@ export function PatronFila({
     actualizar.mutate(
       {
         id: idCreado,
-        patch: { patron: valorFinal, matchType: matchTypeFinal as MatchType },
+        patch: { patron: valorFinal, matchType: matchTypeFinal },
       },
       {
         onSuccess: () => {
@@ -318,8 +347,14 @@ export function PatronFila({
     // this commit isn't via Enter, so it must not later steal focus back to
     // `Patrón` once ITS mutation resolves.
     restaurarFocoPatronRef.current = false;
-    setMatchType(nuevoMatchType);
-    commit({ matchType: nuevoMatchType });
+    // The single legitimate `MatchType` cast for a value that ORIGINATES as
+    // a raw `string` (judgment-day round 3 SUGGESTION): `OPCIONES_MATCH_TYPE`
+    // is built directly from `MATCH_TYPES`, so `CampoSelect`'s `<option>`s —
+    // and therefore this callback's argument — can only ever be one of the
+    // three known literals.
+    const matchTypeSeleccionado = nuevoMatchType as MatchType;
+    setMatchType(matchTypeSeleccionado);
+    commit({ matchType: matchTypeSeleccionado });
   }
 
   // Redesign (structural causes #1 and #2, see this component's docblock):
@@ -332,17 +367,37 @@ export function PatronFila({
   // discard signal). `clicEliminarEnCursoRef` (set by the button's own
   // `onMouseDown`) carries that intent; a bare `relatedTarget` check cannot,
   // because it fires identically for both.
+  //
+  // Judgment-day round 3 WARNING: skipping the commit outright the moment
+  // the flag is seen `true` assumed a real `click` was always about to
+  // follow — false on a 24×24 target, where the pointer can drag off the
+  // button before release. `mousedown`+`blur` always fire together (this
+  // component relies on the browser focusing the button on `mousedown`),
+  // but `click` only fires if `mouseup` also lands on the button — so this
+  // handler can't yet tell the two cases apart. Defer the decision instead
+  // of deciding it here: `eliminarFila`'s `onClick` runs SYNCHRONOUSLY,
+  // before any `setTimeout(0)` macrotask, so it always wins the race and
+  // clears the flag first when a click genuinely lands; if no click lands,
+  // this replays the commit that was provisionally skipped, instead of
+  // silently dropping the user's edit.
   function alPerderFocoPatron(_event: FocusEvent<HTMLInputElement>) {
-    // Read-then-clear unconditionally, even on a not-yet-created row (whose
-    // `blur` never commits anyway) — otherwise a click on the delete button
-    // BEFORE this row is ever created would leave the flag permanently
-    // `true` with no later `blur` able to reset it.
-    const clicEliminarEnCurso = clicEliminarEnCursoRef.current;
-    clicEliminarEnCursoRef.current = false;
     if (idCreado === undefined) {
+      // A not-yet-created row's `blur` never commits (see this component's
+      // docblock) — but the flag still needs clearing here, otherwise a
+      // `mousedown` on the delete button before the row is ever created
+      // would leave it permanently `true` with no later `blur` able to
+      // reset it (no deferred replay either: `commit()` would auto-create
+      // the row from a blur, which this row type must never do).
+      clicEliminarEnCursoRef.current = false;
       return;
     }
-    if (clicEliminarEnCurso) {
+    if (clicEliminarEnCursoRef.current) {
+      setTimeout(() => {
+        if (clicEliminarEnCursoRef.current) {
+          clicEliminarEnCursoRef.current = false;
+          commit();
+        }
+      }, 0);
       return;
     }
     commit();
@@ -361,6 +416,11 @@ export function PatronFila({
   }
 
   function eliminarFila() {
+    // A real click landed on the delete button — cancel any deferred
+    // recovery `alPerderFocoPatron` scheduled for the `blur` this click's
+    // own `mousedown` just caused (see that function above); the row is
+    // about to be discarded, so replaying the commit would be wasted.
+    clicEliminarEnCursoRef.current = false;
     if (accionesBloqueadas) {
       return;
     }
