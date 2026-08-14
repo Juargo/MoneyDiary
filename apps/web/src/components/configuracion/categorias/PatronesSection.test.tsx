@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -119,5 +119,81 @@ describe('PatronesSection', () => {
     expect(
       screen.getByRole('button', { name: 'Agregar patrón' }),
     ).toBeDisabled();
+  });
+
+  it('expone un role="status" aria-live, vacío al montar, FUERA de la lista de filas (judgment-day round 2 WARNING)', () => {
+    render(
+      <PatronesSection
+        categoriaId="cat-1"
+        patrones={[PATRON_1]}
+        esDemo={false}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
+  it('anuncia "Patrón guardado." cuando el PATCH de una fila existente resuelve con éxito (mecanismo 2)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <PatronesSection
+        categoriaId="cat-1"
+        patrones={[PATRON_1]}
+        esDemo={false}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'hulu' } });
+    fireEvent.blur(input);
+
+    expect(await screen.findByText('Patrón guardado.')).toBeInTheDocument();
+  });
+
+  it('anuncia "Patrón guardado." al crear una fila nueva, y el anuncio SOBREVIVE a que la fila se descarte del DOM (regresión del bug de unmount-antes-de-anunciar)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <PatronesSection categoriaId="cat-1" patrones={[]} esDemo={false} />,
+      {
+        wrapper: crearWrapper(),
+      },
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Agregar patrón' }));
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'uber' } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(screen.queryAllByLabelText('Patrón')).toHaveLength(0),
+    );
+    expect(screen.getByText('Patrón guardado.')).toBeInTheDocument();
+  });
+
+  it('anuncia "Patrón eliminado." cuando el DELETE de una fila existente resuelve con éxito', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <PatronesSection
+        categoriaId="cat-1"
+        patrones={[PATRON_1]}
+        esDemo={false}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await user.click(screen.getByRole('button', { name: /eliminar patrón/i }));
+
+    expect(await screen.findByText('Patrón eliminado.')).toBeInTheDocument();
   });
 });

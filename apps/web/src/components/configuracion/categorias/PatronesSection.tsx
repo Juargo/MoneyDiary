@@ -28,6 +28,18 @@ let contadorFilasNuevas = 0;
  * conditional zero-state. It reads oddly above several listed patterns;
  * that was settled in the proposal against the drawn evidence and is not
  * re-litigated here.
+ *
+ * **Success announcement (judgment-day round 2 WARNING, design.md §1/Q3
+ * mechanism 2)**: a `role="status"` live region lives HERE, not inside
+ * `PatronFila`. Structural clone of `ListaIngestas`'s fix for the same
+ * class of bug (`EliminarIngestaControl`'s docblock): a per-row `aria-live`
+ * span unmounts along with its `<li>` the moment the row it announces about
+ * disappears — a successful create removes the placeholder via
+ * `onDescartar`, a successful delete removes the row via the `['categorias']`
+ * refetch — racing the announcement against its own removal. This region is
+ * OUTSIDE the `<ul>`, so it survives any individual row unmounting.
+ * `PatronFila` calls `onAnunciar(mensaje)` on each successful mutation
+ * instead of announcing anything itself.
  */
 export function PatronesSection({
   categoriaId,
@@ -49,6 +61,7 @@ export function PatronesSection({
   readonly bloqueado?: boolean;
 }) {
   const [filasNuevas, setFilasNuevas] = useState<ReadonlyArray<number>>([]);
+  const [anuncio, setAnuncio] = useState('');
 
   function agregarFila() {
     contadorFilasNuevas += 1;
@@ -64,6 +77,9 @@ export function PatronesSection({
       <h2 id="titulo-patrones" className="text-sm font-semibold text-slate-900">
         Patrones de auto-categorización
       </h2>
+      <span role="status" aria-live="polite" className="sr-only">
+        {anuncio}
+      </span>
       <ul className="flex flex-col">
         {patrones.map((patron) => (
           <PatronFila
@@ -72,6 +88,7 @@ export function PatronesSection({
             patron={patron}
             esDemo={esDemo}
             bloqueado={bloqueado}
+            onAnunciar={setAnuncio}
           />
         ))}
         {filasNuevas.map((clave) => (
@@ -81,6 +98,7 @@ export function PatronesSection({
             esDemo={esDemo}
             bloqueado={bloqueado}
             onDescartar={() => quitarFilaNueva(clave)}
+            onAnunciar={setAnuncio}
           />
         ))}
       </ul>
