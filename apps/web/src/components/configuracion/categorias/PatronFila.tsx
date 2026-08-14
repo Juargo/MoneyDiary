@@ -137,18 +137,22 @@ export function PatronFila({
   const eliminar = useEliminarPatron();
 
   // `PatronDto.matchType` is deliberately plain `string` at the HTTP
-  // boundary (see `types.ts`'s docblock) — this ONE cast at the seed point
-  // is the trust boundary (the server only ever returns a valid literal);
-  // from here on, local state is the closed `MatchType` union, so it gets
-  // the same compile-time exhaustiveness as `ETIQUETA_MATCH_TYPE` instead
-  // of degrading to `string` and forcing `as MatchType` casts back in at
-  // both `crear.mutate`/`actualizar.mutate` below (judgment-day round 3
-  // SUGGESTION).
-  const matchTypeInicial =
-    (patron?.matchType as MatchType | undefined) ?? MATCH_TYPES[0];
+  // boundary (see `types.ts`'s docblock, design.md Q2b/Q4c) — the server is
+  // the authority on validity (ADR-024), and a value the web does not
+  // recognise must still round-trip, not vanish. Local state keeps that
+  // same `string` boundary all the way through (mirrors `EditarCategoria`'s
+  // `bucket`) — `esPatronDto` (`api/categorias.ts`) only checks
+  // `typeof === 'string'`, never membership in `MATCH_TYPES`, so narrowing
+  // to `MatchType` here would assert an invariant nothing actually
+  // enforces. The single legitimate `MatchType` cast happens at the two
+  // mutate call sites below, the same boundary `bucket as BucketAsignable`
+  // uses in `EditarCategoria` — a value the user picked FROM
+  // `OPCIONES_MATCH_TYPE` (built from `MATCH_TYPES`) really can only be one
+  // of the three literals by the time it's sent.
+  const matchTypeInicial = patron?.matchType ?? MATCH_TYPES[0];
 
   const [valor, setValor] = useState(patron?.patron ?? '');
-  const [matchType, setMatchType] = useState<MatchType>(matchTypeInicial);
+  const [matchType, setMatchType] = useState(matchTypeInicial);
   // Last value actually sent to the server (or the row's initial loaded
   // value) — the dirty-check baseline for `commit()` below. Judgment-day
   // round 2: only advances on a SUCCESSFUL `actualizar`, never
@@ -219,13 +223,11 @@ export function PatronFila({
       valor === ultimoComprometido.valor &&
       matchType === ultimoComprometido.matchType;
     if (sinEdicionLocalPendiente) {
-      // Same DTO-boundary trust as `matchTypeInicial` above.
-      const matchTypeSincronizado = patron.matchType as MatchType;
       setValor(patron.patron);
-      setMatchType(matchTypeSincronizado);
+      setMatchType(patron.matchType);
       setUltimoComprometido({
         valor: patron.patron,
-        matchType: matchTypeSincronizado,
+        matchType: patron.matchType,
       });
     }
   }
@@ -297,7 +299,7 @@ export function PatronFila({
 
   function commit(overrides?: {
     readonly valor?: string;
-    readonly matchType?: MatchType;
+    readonly matchType?: string;
   }) {
     if (accionesBloqueadas) {
       return;
@@ -356,7 +358,7 @@ export function PatronFila({
         {
           categoriaId,
           patron: valorFinal,
-          matchType: matchTypeFinal,
+          matchType: matchTypeFinal as MatchType,
         },
         {
           onSuccess: () => {
@@ -370,7 +372,7 @@ export function PatronFila({
     actualizar.mutate(
       {
         id: idCreado,
-        patch: { patron: valorFinal, matchType: matchTypeFinal },
+        patch: { patron: valorFinal, matchType: matchTypeFinal as MatchType },
       },
       {
         onSuccess: () => {
@@ -390,14 +392,8 @@ export function PatronFila({
     // this commit isn't via Enter, so it must not later steal focus back to
     // `Patrón` once ITS mutation resolves.
     restaurarFocoPatronRef.current = false;
-    // The single legitimate `MatchType` cast for a value that ORIGINATES as
-    // a raw `string` (judgment-day round 3 SUGGESTION): `OPCIONES_MATCH_TYPE`
-    // is built directly from `MATCH_TYPES`, so `CampoSelect`'s `<option>`s —
-    // and therefore this callback's argument — can only ever be one of the
-    // three known literals.
-    const matchTypeSeleccionado = nuevoMatchType as MatchType;
-    setMatchType(matchTypeSeleccionado);
-    commit({ matchType: matchTypeSeleccionado });
+    setMatchType(nuevoMatchType);
+    commit({ matchType: nuevoMatchType });
   }
 
   // Redesign (structural causes #1 and #2, see this component's docblock):

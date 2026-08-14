@@ -60,6 +60,47 @@ describe('PatronFila — fila existente', () => {
     ).toBeInTheDocument();
   });
 
+  it('un matchType que el web no reconoce (fuera de MATCH_TYPES) NO se pierde: la fila sigue renderizando y el valor sin reconocer viaja INTACTO en un commit que solo edita el texto (design.md Q2b/Q4c, ADR-024: el servidor es la autoridad de validez, el web nunca lo rechaza como parse failure — revert judgment-day PR #4 de la unión cerrada MatchType en el estado local, que contradecía esta decisión sin que `esPatronDto` la reforzara en runtime)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+    const patronConMatchTypeDesconocido: PatronDto = {
+      ...PATRON,
+      matchType: 'ALGO_QUE_EL_WEB_NO_CONOCE',
+    };
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        patron={patronConMatchTypeDesconocido}
+        esDemo={false}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    // The row still renders — an unrecognised `matchType` never throws or
+    // hides the row.
+    const input = screen.getByLabelText('Patrón');
+    expect(input).toHaveValue('netflix');
+
+    // Editing ONLY the pattern text and committing must send the
+    // unrecognised `matchType` back UNCHANGED — never coerced/defaulted to
+    // one of the three literals the web happens to know about.
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/patrones/pat-1', {
+        credentials: 'same-origin',
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          patron: 'spotify',
+          matchType: 'ALGO_QUE_EL_WEB_NO_CONOCE',
+        }),
+      }),
+    );
+  });
+
   it('blur después de editar Patrón commitea EXACTAMENTE un PATCH /api/patrones/:id y llama a onAnunciar("Patrón guardado.") (mecanismo 2, judgment-day round 2: el aria-live vive ahora en PatronesSection — ver PatronesSection.test.tsx)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     vi.stubGlobal('fetch', fetchMock);
