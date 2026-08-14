@@ -31,7 +31,7 @@ const CATALOGO_FIXTURE = {
     {
       id: 'cat-1',
       nombre: 'Supermercado',
-      bucket: 'necesidades',
+      bucket: 'Necesidades',
       transaccionesCount: 3,
       patrones: [
         {
@@ -46,7 +46,7 @@ const CATALOGO_FIXTURE = {
     {
       id: 'cat-2',
       nombre: 'Streaming',
-      bucket: 'gustos',
+      bucket: 'Deseos',
       transaccionesCount: 0,
       patrones: [],
     },
