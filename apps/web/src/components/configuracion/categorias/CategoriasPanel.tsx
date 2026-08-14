@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useCategorias } from '@/api/use-categorias';
 import { useMe } from '@/api/use-me';
 import {
@@ -60,12 +60,35 @@ import {
  * closed (`!creando`); while `creando` is true the form stays mounted and
  * the same `ErrorState` (still `role="alert"`, still perceivable) renders
  * inline above it instead.
+ *
+ * **Focus on successful row delete (judgment-day WARNING, WCAG 2.4.3):**
+ * `CategoriaFila`'s delete confirms via `ConfirmarImpactoDialog`, which
+ * moves focus to its own confirm button on mount and hands focus
+ * restoration to the caller. The row itself disappears on success (the
+ * mutation's own profile-B `['categorias']` refetch), so its trigger cannot
+ * be the restore target — this panel's `Categorías y patrones` heading is,
+ * `tabIndex={-1}` so it is programmatically focusable without joining the
+ * Tab order (the conventional pattern for "the item you acted on is gone").
+ * The same handler also announces the deletion via a `role="status"` live
+ * region OUTSIDE the row list, reusing `PatronesSection`'s exact idiom
+ * (survives the announced row's own unmount) rather than inventing a
+ * second notification mechanism.
  */
 export function CategoriasPanel() {
   const query = useCategorias();
   const { data: me } = useMe();
   const esDemo = me?.esDemo ?? false;
   const [creando, setCreando] = useState(false);
+  const [anuncio, setAnuncio] = useState({ mensaje: '', id: 0 });
+  const tituloRef = useRef<HTMLHeadingElement>(null);
+
+  function manejarEliminado(nombre: string) {
+    setAnuncio((actual) => ({
+      mensaje: `Categoría «${nombre}» eliminada.`,
+      id: actual.id + 1,
+    }));
+    tituloRef.current?.focus();
+  }
 
   if (query.isPending) {
     return <Loading message="Cargando categorías…" />;
@@ -89,7 +112,11 @@ export function CategoriasPanel() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2
+            ref={tituloRef}
+            tabIndex={-1}
+            className="text-xl font-semibold text-slate-900 focus:outline-none"
+          >
             Categorías y patrones
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -109,6 +136,10 @@ export function CategoriasPanel() {
           </button>
         )}
       </div>
+
+      <span role="status" aria-live="polite" className="sr-only">
+        <span key={anuncio.id}>{anuncio.mensaje}</span>
+      </span>
 
       {esDemo && !creando && (
         <p role="note" className="text-sm text-slate-500">
@@ -150,6 +181,7 @@ export function CategoriasPanel() {
                       key={categoria.id}
                       categoria={categoria}
                       esDemo={esDemo}
+                      onEliminado={manejarEliminado}
                     />
                   ))}
                 </ul>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -297,6 +297,104 @@ describe('CategoriasPanel', () => {
     expect(
       screen.getByRole('button', { name: 'Nueva categoría' }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * judgment-day fix 1 (WARNING, both judges verified by orchestrator):
+   * `ConfirmarImpactoDialog` moves focus onto its own confirm button on
+   * mount and states its contract is that the CALLER restores focus after.
+   * `CategoriaFila`'s cancel/Escape path already does that
+   * (`eliminarRef.current?.focus()`), but the success path did not — and
+   * unlike the edit screen's own delete (which navigates and resets focus
+   * context), this list entry point deliberately stays on the same screen,
+   * so nothing was restoring focus on a successful delete: it fell to
+   * `<body>`. The row's own trigger cannot be the target either — the row
+   * unmounts via the profile-B `['categorias']` refetch this same DELETE
+   * triggers — so focus must land on a target that survives the row's
+   * removal, here the panel's own `Categorías y patrones` heading.
+   *
+   * This assertion proves `document.activeElement` is a real, still-mounted
+   * element (the heading) after the row disappears — not that any specific
+   * ARIA announcement happened (no `disabled` transition is involved here,
+   * so `document.activeElement` is a legitimate proof).
+   */
+  it('un delete exitoso desde la fila mueve el foco al heading del panel (WCAG 2.4.3), no lo deja en <body>', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            categorias: CATALOGO.categorias.filter(
+              (c) => c.id !== 'cat-necesidades',
+            ),
+          }),
+      });
+    });
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO, fetchMock });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(screen.queryByText('Supermercado')).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Categorías y patrones' }),
+    ).toHaveFocus();
+  });
+
+  /**
+   * judgment-day fix 2 (WARNING, BOTH judges): `ConfirmarImpactoDialog` sets
+   * `aria-label={titulo}`, and `fraseDeImpacto`'s `titulo` for a delete is
+   * the FIXED string `'Eliminar categoría'` — never the row's own category
+   * name. That was harmless with a single-instance caller (the edit
+   * screen), but this panel renders one `CategoriaFila` per category, each
+   * with its own independent `dialogoAbierto` state and no cross-row
+   * coordination, and the dialog is deliberately non-modal (no focus trap)
+   * so other rows' triggers stay reachable — a user can leave row A's
+   * dialog open and open row B's too, producing two `role="alertdialog"`
+   * elements with the IDENTICAL accessible name. `CategoriaFila`
+   * disambiguates via `ariaLabel` the same way its own icon buttons already
+   * do (`Eliminar categoría {nombre}`).
+   */
+  it('dos filas con su ConfirmarImpactoDialog abiertos a la vez tienen accessible names distintos (WCAG 4.1.2)', async () => {
+    const user = userEvent.setup();
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Ahorro programado',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Eliminar categoría Supermercado' }),
+    );
+
+    const dialogos = screen.getAllByRole('alertdialog');
+    expect(dialogos).toHaveLength(2);
+    // Ambos siguen mostrando el mismo título VISIBLE — solo el nombre
+    // accesible se desambigua.
+    expect(
+      within(dialogos[0]).getByText('Eliminar categoría'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialogos[1]).getByText('Eliminar categoría'),
+    ).toBeInTheDocument();
+    const nombresAccesibles = dialogos.map((d) => d.getAttribute('aria-label'));
+    expect(new Set(nombresAccesibles).size).toBe(2);
   });
 
   it('un refetch fallido de ["categorias"] con el form abierto NO destruye el draft en progreso (judgment-day PR #336/#337, fix 1)', async () => {

@@ -37,13 +37,37 @@ import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
  * Eliminar se deshabilita PROACTIVAMENTE en una sesión demo (WCTG-11); el
  * `Link` de editar sigue activo — el catálogo de un demo sigue siendo
  * navegable de solo lectura (segundo escenario de WCTG-11).
+ *
+ * `ariaLabel` en `ConfirmarImpactoDialog` (judgment-day, both judges,
+ * WCAG 4.1.2): `CategoriasPanel` renders one independent, non-modal
+ * instance of this component per row — the dialog is deliberately
+ * non-modal, so a user can leave row A's dialog open (e.g. after a failed
+ * delete, shown inline) and Tab into row B's still-enabled delete icon,
+ * producing TWO `role="alertdialog"` elements at once. `fraseDeImpacto`'s
+ * `titulo` for a delete is the fixed string `'Eliminar categoría'`, so
+ * without disambiguation both would share one accessible name. Reuses the
+ * exact same per-row name this row's own icon buttons already carry
+ * (`Eliminar categoría {nombre}`), the `EliminarIngestaControl` precedent.
+ *
+ * `onEliminado` (judgment-day, WARNING, WCAG 2.4.3): `ConfirmarImpactoDialog`
+ * moves focus to its own confirm button on mount and documents that
+ * restoring focus afterwards is the CALLER's job — `cerrarDialogo` already
+ * does that for cancel/Escape. The success path did not: unlike the edit
+ * screen's delete (which navigates away and resets focus context), this
+ * entry point deliberately stays on the same screen, so nothing restored
+ * focus and it fell to `<body>`. The row's OWN trigger cannot be the
+ * target either — the row unmounts via the same profile-B `['categorias']`
+ * refetch this DELETE triggers — so the caller (`CategoriasPanel`) is
+ * handed a stable target of its own choosing instead.
  */
 export function CategoriaFila({
   categoria,
   esDemo,
+  onEliminado,
 }: {
   readonly categoria: CategoriaDto;
   readonly esDemo: boolean;
+  readonly onEliminado: (nombre: string) => void;
 }) {
   const eliminacion = useEliminarCategoria();
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
@@ -61,6 +85,7 @@ export function CategoriaFila({
     eliminacion.mutate(categoria.id, {
       onSuccess: () => {
         setDialogoAbierto(false);
+        onEliminado(categoria.nombre);
       },
     });
   }
@@ -110,6 +135,7 @@ export function CategoriaFila({
               nombre: categoria.nombre,
               transaccionesCount: categoria.transaccionesCount,
             })}
+            ariaLabel={`Eliminar categoría ${categoria.nombre}`}
             pendiente={esDemo || eliminacion.isPending}
             error={
               eliminacion.isError

@@ -43,6 +43,7 @@ function renderFila(props: {
   readonly categoria?: CategoriaDto;
   readonly esDemo?: boolean;
   readonly fetchMock?: ReturnType<typeof vi.fn>;
+  readonly onEliminado?: (nombre: string) => void;
 }) {
   if (props.fetchMock) {
     vi.stubGlobal('fetch', props.fetchMock);
@@ -65,6 +66,7 @@ function renderFila(props: {
           <CategoriaFila
             categoria={props.categoria ?? CATEGORIA}
             esDemo={props.esDemo ?? false}
+            onEliminado={props.onEliminado ?? (() => {})}
           />
         </ul>
       </QueryClientProvider>
@@ -177,6 +179,60 @@ describe('CategoriaFila', () => {
           '3 transacciones quedan en Sin categoría, en todos los períodos.',
         ),
       ).toBeInTheDocument();
+    });
+
+    /**
+     * judgment-day fix 2 (WARNING, BOTH judges, WCAG 4.1.2): the VISIBLE
+     * title stays the fixed `'Eliminar categoría'` (assertion above), but
+     * the accessible name must carry the row's own category name — this is
+     * what lets two simultaneously open, non-modal dialogs (one per row,
+     * `CategoriasPanel.test.tsx`) stay distinguishable to a screen reader.
+     */
+    it('el aria-label del diálogo incluye el nombre de la categoría, distinto del título visible', async () => {
+      const user = userEvent.setup();
+      renderFila({});
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: 'Eliminar categoría Supermercado',
+        }),
+      );
+
+      const dialogo = await screen.findByRole('alertdialog');
+      expect(dialogo).toHaveAttribute(
+        'aria-label',
+        'Eliminar categoría Supermercado',
+      );
+    });
+
+    /**
+     * judgment-day fix 1 (WARNING, WCAG 2.4.3): `CategoriaFila` cannot
+     * restore focus to its own trigger on success (the row unmounts via the
+     * profile-B refetch) — it delegates the choice of a stable focus target
+     * to its caller via `onEliminado`. This is the unit-level half of the
+     * fix; `CategoriasPanel.test.tsx` covers the actual focus landing on a
+     * real, still-mounted element.
+     */
+    it('confirmar elimina exitosamente invoca onEliminado con el nombre de la categoría', async () => {
+      const user = userEvent.setup();
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+      const onEliminado = vi.fn();
+      renderFila({ fetchMock, onEliminado });
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: 'Eliminar categoría Supermercado',
+        }),
+      );
+      await user.click(
+        within(await screen.findByRole('alertdialog')).getByRole('button', {
+          name: 'Eliminar',
+        }),
+      );
+
+      await vi.waitFor(() =>
+        expect(onEliminado).toHaveBeenCalledWith('Supermercado'),
+      );
     });
 
     it('confirmar elimina (DELETE) y cierra el diálogo de la fila SIN navegar', async () => {
