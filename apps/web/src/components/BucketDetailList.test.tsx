@@ -565,24 +565,48 @@ describe('BucketDetailList', () => {
   // count, no extra network request, and no conflation with the unrelated
   // transactions query's own Loading/ErrorState/Empty branches above.
   describe('catalog fetch-lifecycle surface (WCAT-04 delta)', () => {
-    it('BucketDetailList calling useCategorias() itself adds no extra network request — deduped by queryKey across the parent + N row observers', async () => {
-      const fetchMock = mockFetchOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(dosFilasDto),
+    // Judgment-day fix (PR #6): the previous version of this test asserted
+    // "exactly one /api/categorias call with N rows mounted" — but that
+    // guarantee comes entirely from TanStack Query's per-`queryKey` dedup
+    // across the row-level observers, which predates this component's own
+    // `useCategorias()` call (proven empirically: reverting
+    // `BucketDetailList.tsx` to the commit before it existed and re-running
+    // the old assertion still passed). To isolate what THIS component's own
+    // call actually adds, keep the transactions query permanently
+    // `isPending` — no row (and therefore no row-level `useCategorias()`
+    // observer) ever mounts — and assert the catalog request still fires.
+    // This can only pass if the panel itself owns an observer independent
+    // of any row. This same assertion also PINS the "prefetch is
+    // unconditional" decision from the component's JSDoc (Issue 3): the
+    // catalog request fires before the transactions query has resolved to
+    // any state at all.
+    it("BucketDetailList's own useCategorias() call fires the catalog request even when no row ever mounts (isolates the panel-level observer from the pre-existing per-row dedup; pins the unconditional prefetch)", async () => {
+      const fetchMock = vi.fn((url: string) => {
+        if (url === '/api/categorias') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(CATALOGO_FIXTURE),
+          });
+        }
+        // The transactions request never resolves — `query.isPending` stays
+        // `true` forever, so the component never reaches the JSX that
+        // renders any row/`ReclasificarCategoriaControl`.
+        return new Promise(() => {});
       });
+      vi.stubGlobal('fetch', fetchMock);
 
       render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
         wrapper: crearWrapper(),
       });
 
+      expect(screen.getByText('Cargando movimientos…')).toBeInTheDocument();
       await waitFor(() =>
-        expect(screen.getAllByRole('combobox')).toHaveLength(2),
+        expect(
+          fetchMock.mock.calls.filter(([url]) => url === '/api/categorias'),
+        ).toHaveLength(1),
       );
-
-      expect(
-        fetchMock.mock.calls.filter(([url]) => url === '/api/categorias'),
-      ).toHaveLength(1);
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     });
 
     it('with multiple rows mounted, exactly one role="status" catalog-loading announcement exists — not one per row', async () => {
@@ -767,8 +791,20 @@ describe('BucketDetailList', () => {
       expect(select).not.toBeDisabled();
     });
 
-    it('the catalog surface does not conflate with the transactions query — a failed transactions fetch still shows its own ErrorState, not the catalog banner', async () => {
-      mockFetchOnce({ ok: false, status: 500 });
+    // Judgment-day fix (PR #6): the previous version of this test used
+    // `mockFetchOnce`, which always resolves `/api/categorias` successfully
+    // — so `categoriasFallidasSinDatos` was never `true` and the catalog's
+    // own `role="alert"` branch was unreachable regardless of the assertion.
+    // The test passed against a component with NO early-return guard at all
+    // for the same reason: nothing ever put the catalog into its error
+    // branch. Failing BOTH queries at once makes the assertion actually
+    // discriminating — if a regression moved the catalog's alert markup
+    // above the transactions early returns, this would observe two alerts.
+    it('the catalog surface does not conflate with the transactions query — a failed transactions fetch still shows its own ErrorState, not the catalog banner, even when the catalog itself also fails', async () => {
+      const fetchMock = vi.fn(() =>
+        Promise.resolve({ ok: false, status: 500 }),
+      );
+      vi.stubGlobal('fetch', fetchMock);
 
       render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
         wrapper: crearWrapper(),
@@ -777,14 +813,74 @@ describe('BucketDetailList', () => {
       await waitFor(() =>
         expect(screen.getByRole('alert')).toBeInTheDocument(),
       );
-      // Exactly one alert (the transactions `ErrorState`) — the early
-      // return happens before the catalog's own status/alert markup, so
-      // there is no double surface even though `useCategorias()` is still
-      // called unconditionally by this component.
+      // Both the transactions query AND the catalog query are failing here.
+      // The transactions `ErrorState`'s early return happens before the
+      // catalog's own status/alert markup is ever reached, so exactly one
+      // alert renders — not two, which is what a conflation regression
+      // would produce.
       expect(screen.getAllByRole('alert')).toHaveLength(1);
       expect(
         screen.getByRole('button', { name: 'Reintentar' }),
       ).toBeInTheDocument();
+    });
+
+    // Judgment-day finding (Judge B) — VERIFIED, and CORRECTED after
+    // empirical investigation: Judge B's diagnosis was that
+    // `disabled={categoriasQuery.isFetching}` would strand a keyboard
+    // user's focus on retry. Reverting to the pre-fix code and forcing a
+    // genuinely in-flight retry (a held/never-resolving mocked fetch)
+    // proved something more specific: this whole block is gated on
+    // `categoriasQuery.error !== null`, and TanStack Query resets a
+    // still-dataless query's `error` to `null` (and `status` to
+    // `'pending'`) at the START of every fetch — including this button's
+    // own `refetch()` — so the block (button included) UNMOUNTS the
+    // instant a retry begins; `categoriasQuery.isFetching` was never
+    // observably `true` while the button was still mounted. `disabled`
+    // was therefore dead code (same class as the dead `disabled` already
+    // removed from `ReclasificarCategoriaControl` in an earlier round),
+    // not a reachable, harmful binding as originally framed — this test
+    // only asserts what removing it actually proves: no render of this
+    // button ever carries `disabled`. It does NOT assert focus survives a
+    // retry — that would be false; the real focus-stranding cause is the
+    // unmount described above, which is a separate, still-open issue (see
+    // the component's own JSDoc note) outside this fix's scope.
+    it('the catalog banner "Reintentar" button never carries a `disabled` attribute, in any render where it is on screen (dead-code binding removed)', async () => {
+      let intentos = 0;
+      const fetchMock = vi.fn((url: string) => {
+        if (url === '/api/categorias') {
+          intentos += 1;
+          return Promise.resolve({ ok: false, status: 500 });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dataDto),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const user = userEvent.setup();
+
+      render(<BucketDetailList bucket="Necesidades" periodo="2026-07" />, {
+        wrapper: crearWrapper(),
+      });
+
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toBeInTheDocument(),
+      );
+      let boton = screen.getByRole('button', { name: 'Reintentar' });
+      expect(boton).not.toBeDisabled();
+
+      const intentosAntes = intentos;
+      await user.click(boton);
+      await waitFor(() => expect(intentos).toBeGreaterThan(intentosAntes));
+
+      // The click's own retry settles back to a failure (this mock always
+      // fails) — a fresh render of the same banner, still never disabled.
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toBeInTheDocument(),
+      );
+      boton = screen.getByRole('button', { name: 'Reintentar' });
+      expect(boton).not.toBeDisabled();
     });
   });
 });
