@@ -9,6 +9,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { routeTree } from '@/routeTree.gen';
 import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
+import { resetSkipNextAuthRefetch } from '@/lib/skip-next-auth-refetch';
 import type { MeDto } from '@/api/types';
 
 /**
@@ -68,6 +69,11 @@ describe('/configuracion ?google= return contract (real route tree, WCFG-10)', (
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    // `armed` vive a nivel de módulo y `isolate` de vitest no aísla entre los
+    // `it()` de un mismo archivo. Si un test falla ENTRE el arme y el
+    // `beforeLoad` que lo consume, el flag se filtra al siguiente y le hace
+    // saltear su fetch real. Incondicional, para que limpie también en falla.
+    resetSkipNextAuthRefetch();
   });
 
   it('?google=vinculado shows the polite success message, then cleans the URL, and the message survives the rewrite', async () => {

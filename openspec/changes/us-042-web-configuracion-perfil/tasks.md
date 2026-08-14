@@ -407,6 +407,34 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
   1 call. A companion test pins the inverse invariant the caching approach destroyed: a genuine
   navigation between two authenticated pages (`/configuracion` → `/ingestas`) still fetches
   `/api/auth/me` a second time.**
+
+  **Round-3 outcome and registered debt.** Both reviewers cleared the one-tick guard — no CRITICAL, no
+  real WARNING — after tracing the installed `@tanstack/router-core@1.171.13` / `@tanstack/history@1.162.0`
+  source: `history.replace()` → `notify()` → `router.load` → `startTransition` (React invokes the callback
+  synchronously) → `loadMatches` → `beforeLoad`, whose **first statement** is `consumeSkipNextAuthRefetch()`,
+  before any `await`. Arm and consume therefore execute in one synchronous JS turn; a click is a macrotask
+  and has no window to interleave. StrictMode's dev double-invoke self-pairs (arm→consume→arm→consume).
+
+  Two follow-ups both reviewers raised independently:
+
+  1. **Done in this batch** — `resetSkipNextAuthRefetch()` added and called from the test file's
+     unconditional `afterEach`. `armed` is module-level state and vitest's `isolate: true` isolates
+     between files, not between the `it()`s of one file; a test failing *between* arm and consume would
+     have leaked `armed = true` into the next test, making it skip its real fetch. Cheap, so it was closed
+     rather than deferred.
+  2. **DEFERRED DEBT — carry the skip intent in history state instead of a module global.**
+     `router.history.replace(path, state)` takes a second argument: `router.history.replace('/configuracion',
+     { skipAuthRefetch: true })`, read back as `location.state?.skipAuthRefetch` in `beforeLoad`. The intent
+     would then travel with the specific history entry, making "the flag can only ever be consumed by the
+     navigation that armed it" **structurally true** instead of an emergent property of synchronous
+     execution. Today's correctness rests on an invariant no type or test enforces — *no code path may
+     introduce an async gap between arm and consume* — which a future TanStack Router upgrade could void
+     silently. Related: `createBrowserHistory` batches history actions through a microtask
+     (`queueHistoryAction` → `Promise.resolve().then(flush)`), coalescing same-tick mutations, while
+     `createMemoryHistory` (used by every test here) does not — so the suite never exercises production's
+     actual timing model. **Deferred deliberately**: this would be the third rewrite of the same code in
+     one session, the shipped mechanism is verified safe by two independent source-level traces, and the
+     change deserves its own slice rather than a rushed patch at the tail of a three-PR chain.
 - [x] 6.3 Implement the fluid T1 grid in `ConfiguracionPage.tsx` (`max-w-*` + fixed-first-track
   `grid`) reproducing T1's measured proportions with **no** new `layout.ts` constant; below `lg` the
   two columns stack (heading+tabs above panel). [WCFG-11]

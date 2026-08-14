@@ -34,3 +34,20 @@ export function consumeSkipNextAuthRefetch(): boolean {
   armed = false;
   return wasArmed;
 }
+
+/**
+ * Solo para tests. `armed` es estado mutable a nivel de módulo, e `isolate`
+ * de vitest aísla ENTRE archivos, no entre los `it()` de un mismo archivo. En
+ * producción armar y consumir ocurren en el mismo turno sincrónico de JS (ver
+ * el comentario de arriba), así que el flag nunca sobrevive a su navegación;
+ * pero un test que falle o expire ENTRE `markSkipNextAuthRefetch()` y el
+ * `beforeLoad` que lo consume dejaría `armed = true` filtrándose al siguiente
+ * test del archivo, que saltearía su fetch real y leería caché ausente — un
+ * falso verde, o una falla en un test que no tiene nada que ver.
+ *
+ * Llamar desde un `afterEach` incondicional, no desde el cuerpo del test: el
+ * punto es limpiar TAMBIÉN cuando el test falló a mitad de camino.
+ */
+export function resetSkipNextAuthRefetch(): void {
+  armed = false;
+}
