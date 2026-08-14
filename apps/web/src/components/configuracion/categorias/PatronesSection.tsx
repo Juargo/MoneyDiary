@@ -40,6 +40,20 @@ let contadorFilasNuevas = 0;
  * OUTSIDE the `<ul>`, so it survives any individual row unmounting.
  * `PatronFila` calls `onAnunciar(mensaje)` on each successful mutation
  * instead of announcing anything itself.
+ *
+ * **Re-announcing an identical message (judgment-day redesign, PR #4,
+ * 2026-08-14)**: two successes in a row producing the SAME sentence (e.g.
+ * `Patrón guardado.` twice) used to collapse into one identical `setState`
+ * — React bails, the DOM text never actually changes, and assistive tech
+ * never re-announces the second one. `anuncio` carries a monotonically
+ * increasing `id` alongside the message text, and that `id` is used as the
+ * `key` of the inner `<span>` that actually holds the text — a `key` change
+ * forces React to unmount the old text node and mount a genuinely new one
+ * (a real `childList` DOM mutation), which screen readers'
+ * `MutationObserver`-based live-region watchers pick up even when the text
+ * CONTENT is unchanged. This idiom is copied from `ListaIngestas`'s
+ * `role="status"` region — fixing the re-announce gap here does not
+ * obligate fixing it there too (out of scope for this PR).
  */
 export function PatronesSection({
   categoriaId,
@@ -61,7 +75,7 @@ export function PatronesSection({
   readonly bloqueado?: boolean;
 }) {
   const [filasNuevas, setFilasNuevas] = useState<ReadonlyArray<number>>([]);
-  const [anuncio, setAnuncio] = useState('');
+  const [anuncio, setAnuncio] = useState({ mensaje: '', id: 0 });
 
   function agregarFila() {
     contadorFilasNuevas += 1;
@@ -72,13 +86,17 @@ export function PatronesSection({
     setFilasNuevas((actual) => actual.filter((c) => c !== clave));
   }
 
+  function anunciar(mensaje: string) {
+    setAnuncio((actual) => ({ mensaje, id: actual.id + 1 }));
+  }
+
   return (
     <section aria-labelledby="titulo-patrones" className="flex flex-col gap-3">
       <h2 id="titulo-patrones" className="text-sm font-semibold text-slate-900">
         Patrones de auto-categorización
       </h2>
       <span role="status" aria-live="polite" className="sr-only">
-        {anuncio}
+        <span key={anuncio.id}>{anuncio.mensaje}</span>
       </span>
       <ul className="flex flex-col">
         {patrones.map((patron) => (
@@ -88,7 +106,7 @@ export function PatronesSection({
             patron={patron}
             esDemo={esDemo}
             bloqueado={bloqueado}
-            onAnunciar={setAnuncio}
+            onAnunciar={anunciar}
           />
         ))}
         {filasNuevas.map((clave) => (
@@ -98,7 +116,7 @@ export function PatronesSection({
             esDemo={esDemo}
             bloqueado={bloqueado}
             onDescartar={() => quitarFilaNueva(clave)}
-            onAnunciar={setAnuncio}
+            onAnunciar={anunciar}
           />
         ))}
       </ul>

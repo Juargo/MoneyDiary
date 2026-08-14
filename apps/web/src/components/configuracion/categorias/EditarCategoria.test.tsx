@@ -1543,7 +1543,10 @@ describe('EditarCategoria — PatronesSection wiring (task 42, Q3b DOM boundary)
     const nuevoInput = screen.getAllByLabelText('Patrón').at(-1) as HTMLElement;
     vi.stubGlobal('fetch', fetchMock);
     await user.type(nuevoInput, 'uber');
-    fireEvent.blur(nuevoInput);
+    // A not-yet-created row's first commit requires an EXPLICIT confirm
+    // (Enter) — `blur` alone never commits it (PatronFila's judgment-day
+    // redesign, PR #4, 2026-08-14).
+    fireEvent.keyDown(nuevoInput, { key: 'Enter' });
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(

@@ -9,8 +9,17 @@ import { PatronFila } from './PatronFila';
 /**
  * PatronFila.test.tsx (US-043 PR #4, design.md §1/Q9b, WCTG-04, WCTG-09,
  * WCTG-13) — one pattern row. `matchType` `<select>` + `patron` `<input>`,
- * both `<label>`-associated; commits on blur-or-Enter, immediate, per row —
- * never batched. Delete fires with NO dialog (a pattern carries no impact).
+ * both `<label>`-associated, immediate per-row commits — never batched.
+ * Delete fires with NO dialog (a pattern carries no impact).
+ *
+ * **Redesign (judgment-day, 2026-08-14, see `PatronFila`'s own docblock)**:
+ * an EXISTING row (`patron` prop present) commits on blur-or-Enter, same as
+ * before. A NOT-YET-CREATED row (`patron` prop absent) commits ONLY on an
+ * explicit confirm (Enter, or picking `matchType` once `Patrón` already has
+ * text) — `blur` never commits it, regardless of where focus goes next.
+ * Several tests below were rewritten because they pinned the PREVIOUS
+ * (defective) "blur creates a new row" mechanism — see each test's comment
+ * for what changed and why.
  */
 function crearWrapper() {
   const queryClient = new QueryClient({
@@ -323,6 +332,140 @@ describe('PatronFila — fila existente', () => {
       screen.getByRole('button', { name: /eliminar patrón/i }),
     ).toBeDisabled();
   });
+
+  it('escribir texto y Tab hacia el botón eliminar SÍ commitea el PATCH en una fila EXISTENTE (judgment-day CRITICAL, redesign PR #4: Tab no es un clic — perder la edición sin avisar era el hallazgo de la ronda 2)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    await user.type(screen.getByLabelText('Patrón'), '-plus');
+    await user.tab();
+
+    expect(
+      screen.getByRole('button', { name: /eliminar patrón/i }),
+    ).toHaveFocus();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith('/api/patrones/pat-1', {
+      credentials: 'same-origin',
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ patron: 'netflix-plus', matchType: 'CONTAINS' }),
+    });
+  });
+
+  it('escribir texto y hacer CLIC en eliminar en una fila EXISTENTE NO dispara un PATCH antes del DELETE — solo el DELETE (el clic no debe commitear una edición que el usuario está a punto de descartar junto con la fila)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    await user.type(screen.getByLabelText('Patrón'), '-plus');
+    await user.click(screen.getByRole('button', { name: /eliminar patrón/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith('/api/patrones/pat-1', {
+      credentials: 'same-origin',
+      method: 'DELETE',
+    });
+  });
+
+  it('limpiar el texto de un patrón EXISTENTE a vacío y perder el foco revierte la vista al último valor comprometido, en vez de quedar vacío para siempre divergido del servidor (redesign, judgment-day PR #4)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Patrón')).toHaveValue('netflix');
+  });
+
+  it('cuando el prop patron cambia (refetch en background) SIN edición local pendiente, Patrón y Tipo de coincidencia se resincronizan a la verdad del servidor (redesign, judgment-day PR #4, causa estructural #1)', () => {
+    const { rerender } = render(
+      <PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    expect(screen.getByLabelText('Patrón')).toHaveValue('netflix');
+
+    rerender(
+      <PatronFila
+        categoriaId="cat-1"
+        patron={{ ...PATRON, patron: 'disney', matchType: 'STARTS_WITH' }}
+        esDemo={false}
+      />,
+    );
+
+    expect(screen.getByLabelText('Patrón')).toHaveValue('disney');
+    expect(screen.getByLabelText('Tipo de coincidencia')).toHaveValue(
+      'STARTS_WITH',
+    );
+  });
+
+  it('si el usuario tiene una edición local SIN GUARDAR, un refetch en background NO la sobrescribe', () => {
+    const { rerender } = render(
+      <PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    fireEvent.change(screen.getByLabelText('Patrón'), {
+      target: { value: 'en-progreso' },
+    });
+
+    rerender(
+      <PatronFila
+        categoriaId="cat-1"
+        patron={{ ...PATRON, patron: 'disney' }}
+        esDemo={false}
+      />,
+    );
+
+    expect(screen.getByLabelText('Patrón')).toHaveValue('en-progreso');
+  });
+
+  it('un Enter que dispara un PATCH llama a input.focus() una vez que el input se re-habilita (redesign, judgment-day PR #4, causa estructural #4: un navegador real pierde el foco al deshabilitar un control enfocado; jsdom no reproduce ese auto-blur de forma confiable, así que este test verifica el fix real — la llamada a `.focus()` guiada por el ref — en vez de `document.activeElement`)', async () => {
+    let resolverFetch: (value: {
+      ok: boolean;
+      status: number;
+    }) => void = () => {};
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    const input = screen.getByLabelText('Patrón') as HTMLInputElement;
+    const focoSpy = vi.spyOn(input, 'focus');
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(input).toBeDisabled();
+    expect(focoSpy).not.toHaveBeenCalled();
+
+    resolverFetch({ ok: true, status: 200 });
+
+    await waitFor(() => expect(input).not.toBeDisabled());
+    await waitFor(() => expect(focoSpy).toHaveBeenCalledTimes(1));
+  });
 });
 
 describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
@@ -331,7 +474,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     vi.restoreAllMocks();
   });
 
-  it('arranca vacía, y el primer commit (blur) dispara POST /api/patrones con categoriaId y luego llama a onDescartar', async () => {
+  it('arranca vacía, y el primer commit EXPLÍCITO (Enter) dispara POST /api/patrones con categoriaId y luego llama a onDescartar (redesign, judgment-day PR #4 — blur ya NO commitea una fila sin crear, ver el test siguiente)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201 });
     vi.stubGlobal('fetch', fetchMock);
     const onDescartar = vi.fn();
@@ -349,7 +492,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
 
     const input = screen.getByLabelText('Patrón');
     fireEvent.change(input, { target: { value: 'uber' } });
-    fireEvent.blur(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(onDescartar).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith('/api/patrones', {
@@ -362,6 +505,35 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
         matchType: 'CONTAINS',
       }),
     });
+  });
+
+  it('blur en una fila SIN crear (el foco se va a CUALQUIER lugar, no solo al botón eliminar) NO dispara POST — la creación exige un confirm explícito (redesign, judgment-day PR #4, reemplaza el mecanismo de la ronda 2 que ató la creación a un blur ambiguo)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const onDescartar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        esDemo={false}
+        onDescartar={onDescartar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'uber' } });
+    fireEvent.blur(input);
+
+    // No `waitFor` timeout to eat — synchronous assertion, then confirm
+    // nothing shows up async either.
+    expect(fetchMock).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onDescartar).not.toHaveBeenCalled();
+    // The typed text stays put — the user can still confirm it with Enter,
+    // or discard the whole row with Eliminar.
+    expect(screen.getByLabelText('Patrón')).toHaveValue('uber');
   });
 
   it('eliminar una fila NO creada todavía llama a onDescartar sin emitir ninguna request', async () => {
@@ -407,7 +579,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('un segundo commit disparado mientras el PRIMER POST está en vuelo (blur, luego cambiar Tipo de coincidencia ANTES de que resuelva) NO dispara un segundo POST — regresión del hallazgo crítico de judgment-day', async () => {
+  it('un segundo commit disparado mientras el PRIMER POST está en vuelo (Enter, luego cambiar Tipo de coincidencia ANTES de que resuelva) NO dispara un segundo POST — regresión del hallazgo crítico de judgment-day (trigger actualizado a Enter: blur ya no crea, redesign PR #4)', async () => {
     let resolverFetch: (value: {
       ok: boolean;
       status: number;
@@ -432,7 +604,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
 
     const input = screen.getByLabelText('Patrón');
     fireEvent.change(input, { target: { value: 'uber' } });
-    fireEvent.blur(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
@@ -452,7 +624,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('escribir texto y luego hacer CLIC en eliminar (el clic dispara el blur del propio Patrón, con relatedTarget = el botón) NO commitea el patrón: cero POST, la fila se descarta de inmediato (judgment-day round 2 CRITICAL — reemplaza la versión anterior de este test, que pinneaba el estado final incorrecto: el "bloqueo" del botón hacía que el POST igual aterrizara y el patrón que el usuario quería descartar terminaba persistido)', async () => {
+  it('escribir texto y luego hacer CLIC en eliminar en una fila SIN crear NO commitea el patrón: cero POST, la fila se descarta de inmediato (redesign PR #4: blur NUNCA commitea una fila sin crear, así que ni siquiera hace falta distinguir el clic del botón — reemplaza el mecanismo `relatedTarget` de la ronda 2, que resolvía esto ad-hoc solo para ESTE caso)', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201 });
     vi.stubGlobal('fetch', fetchMock);
@@ -477,7 +649,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     expect(onDescartar).toHaveBeenCalledTimes(1);
   });
 
-  it('escribir texto y luego Tab hacia el botón eliminar (sin clic) tampoco commitea — el mecanismo cubre teclado, no solo mouse', async () => {
+  it('escribir texto y luego Tab hacia el botón eliminar (sin clic) tampoco commitea en una fila SIN crear — blur nunca commitea una fila sin crear, independientemente de a dónde vaya el foco (contraste: en una fila EXISTENTE, Tab SÍ commitea — ver "PatronFila — fila existente")', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -502,7 +674,7 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     expect(onDescartar).not.toHaveBeenCalled();
   });
 
-  it('eliminar mientras el POST de creación está en vuelo (disparado por un blur AJENO al clic de eliminar) queda bloqueado hasta que resuelve, y la fila se descarta igual al resolver — escenario distinto de la race del clic, cubierto arriba', async () => {
+  it('eliminar mientras el POST de creación está en vuelo (disparado por un Enter AJENO al clic de eliminar) queda bloqueado hasta que resuelve, y la fila se descarta igual al resolver — escenario distinto de la race del clic, cubierto arriba (trigger actualizado a Enter: blur ya no crea, redesign PR #4)', async () => {
     const user = userEvent.setup();
     let resolverFetch: (value: {
       ok: boolean;
@@ -528,10 +700,9 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
 
     const input = screen.getByLabelText('Patrón');
     fireEvent.change(input, { target: { value: 'uber' } });
-    // A blur UNRELATED to the delete button (e.g. the user tabbed to the
-    // Tipo de coincidencia select, or clicked elsewhere) — this is a
-    // legitimate commit trigger, not the ambiguous race above.
-    fireEvent.blur(input);
+    // An explicit Enter confirm, UNRELATED to the delete button (blur alone
+    // never creates a not-yet-created row any more — see the tests above).
+    fireEvent.keyDown(input, { key: 'Enter' });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 

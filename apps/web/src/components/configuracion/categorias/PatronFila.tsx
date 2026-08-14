@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FocusEvent, KeyboardEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,27 +26,71 @@ const OPCIONES_MATCH_TYPE = MATCH_TYPES.map((matchType) => ({
  * one pattern row inside `PatronesSection`. Two independently `<label>`-
  * associated controls (`Tipo de coincidencia` `<select>`, `Patrón`
  * `<input>`) that commit IMMEDIATELY, per row — never batched with
- * `Guardar` (WCTG-04's second, independent commit surface). `matchType`
- * commits the moment a new option is picked (a discrete action, no
- * "half-typed" state); `patron`'s free text commits on blur-or-Enter.
+ * `Guardar` (WCTG-04's second, independent commit surface).
  *
- * **No `patron` prop → a not-yet-created row** (design.md §1/Q9a): the
- * mutation success bodies are discarded everywhere in this feature (Q2a),
+ * **Redesign (judgment-day, 2026-08-14, after three fix rounds each of
+ * which opened the next round's defect — see `docs/adr/` change log for the
+ * full account)**: the frozen spec (`specs/web-app/spec.md`) only requires
+ * patterns to commit "the moment each row action is confirmed" — it never
+ * said `blur`. The three previous rounds all treated `blur` as ONE
+ * ambiguous commit trigger shared by both a not-yet-created row and an
+ * existing one, then patched each new misfire individually. This version
+ * splits the two cases instead:
+ *
+ * - **A not-yet-created row** (`patron` prop absent, design.md §1/Q9a) does
+ *   **not** commit on blur AT ALL — its first commit is an EXPLICIT confirm
+ *   (Enter in `Patrón`, or picking a `matchType` once `Patrón` already has
+ *   text — both are discrete, deliberate actions, unlike `blur`, which
+ *   fires just as often when the user is merely leaving the field). This
+ *   kills the entire "delete races an in-flight create" class structurally:
+ *   a not-yet-created row can ALWAYS be discarded via `onDescartar` with
+ *   **zero** network calls, because nothing ever auto-creates behind the
+ *   user's back.
+ * - **An existing row** (`patron` id known) keeps commit-on-blur-or-Enter —
+ *   delete is always well-defined here (there is always a server id). The
+ *   remaining ambiguity — Tab-ing onto the delete button must still commit
+ *   the edit, but a real CLICK on it must not fire a save the user is about
+ *   to discard — is resolved by tracking genuine POINTER intent
+ *   (`onMouseDown` on the delete button, which always precedes a real
+ *   click but never a Tab landing), not by inspecting `blur`'s
+ *   `relatedTarget` (round 2's approach, which conflated the two: it also
+ *   ate a keyboard user's edit on a plain Tab, no signal given).
+ *
+ * Mutation success bodies are discarded everywhere in this feature (Q2a),
  * so this component can never learn a freshly `POST`ed pattern's server id
- * from the response — its FIRST commit is a `POST`, and on success it asks
- * the parent to drop this local-only placeholder (`onDescartar`) rather
- * than try to adopt an id it was never given. The persisted row then
- * appears through `PatronesSection`'s normal render of `categoria.patrones`
- * once profile A's invalidation refetches `['categorias']`. Deleting a
- * not-yet-created row is the same `onDescartar` path with **zero** network
- * calls — there is nothing on the server to delete yet.
+ * from the response — on success it asks the parent to drop the local-only
+ * placeholder (`onDescartar`); the persisted row then appears through
+ * `PatronesSection`'s normal render of `categoria.patrones` once profile
+ * A's invalidation refetches `['categorias']`.
+ *
+ * **Resync from `patron`**: local `valor`/`matchType` seed once from props
+ * but ALSO resync whenever the incoming `patron.patron`/`patron.matchType`
+ * diverge from what this row last knew as committed (e.g. a background
+ * `['categorias']` refetch) — but ONLY when the user has no unsaved local
+ * edit (`valor`/`matchType` still equal the last-committed baseline). An
+ * active, unsaved edit is never clobbered by a refetch.
+ *
+ * **A blank commit reverts, it doesn't freeze**: clearing an EXISTING row's
+ * `Patrón` to blank and leaving the field is a no-op (no request — a blank
+ * pattern is meaningless), but the display now reverts to the last
+ * committed text instead of staying blank forever, permanently diverged
+ * from the still-live server value. A not-yet-created row has nothing to
+ * revert to, so it just stays blank.
+ *
+ * **Focus restoration**: setting `disabled` on a focused native control
+ * blurs it to `<body>` synchronously — the Enter-commit path re-disables
+ * `Patrón` while its mutation is in flight, so without this, every
+ * Enter-commit silently drops the user's place. Mirrors
+ * `EditarCategoria`'s `restaurarFocoGuardarRef` (a ref flag + a `useEffect`
+ * keyed on the fields being re-enabled, deferring `.focus()` until React
+ * has actually committed `disabled: false`).
  *
  * **REGEX pre-validation is a hint, not a gate** (design.md §1/Q9b): the
  * browser's `RegExp` engine is not guaranteed to match the server's, so a
  * client-side *block* would refuse patterns the API would accept (ADR-024).
  * An inline `role="status"` hint renders when `matchType === 'REGEX'` and
  * the current text fails `new RegExp(...)`, but the commit path is
- * untouched — blur/Enter still fires the mutation.
+ * untouched.
  *
  * **Delete fires with no confirmation dialog** — a pattern touches no
  * persisted transaction (`CAT038-04` does not apply; a confirmation for a
@@ -110,6 +154,7 @@ export function PatronFila({
   const idCreado = patron?.id;
   const filaId = useId();
   const botonEliminarRef = useRef<HTMLButtonElement>(null);
+  const inputPatronRef = useRef<HTMLInputElement>(null);
 
   const bloqueadoTotal = esDemo || bloqueado;
 
@@ -125,12 +170,76 @@ export function PatronFila({
   // from under the very click that was about to fire it. `accionesBloqueadas`
   // is still the ONE precondition every gate below shares (mutation pending,
   // OR demo, OR an external dialog open) — round 2 additionally disables the
-  // row's OWN inputs on it (see the JSX below) and fixes the `blur` trigger
-  // itself (see `alPerderFocoPatron`) rather than adding a fifth `disabled`
-  // condition on top.
+  // row's OWN inputs on it (see the JSX below); the redesign (see this
+  // component's docblock) fixes the `blur` trigger itself for good instead
+  // of adding a sixth `disabled` condition on top.
   const filaOcupada =
     crear.isPending || actualizar.isPending || eliminar.isPending;
   const accionesBloqueadas = bloqueadoTotal || filaOcupada;
+
+  // Resync from `patron` (redesign structural cause #1): local state seeds
+  // once from props on mount, but a background `['categorias']` refetch
+  // (this same screen's OWN pattern mutations invalidate that key) can move
+  // the server truth without this row ever re-mounting (`key={patron.id}`
+  // stays stable). Compared against the PREVIOUS `patron` prop
+  // (`patronPrevio`), never against `ultimoComprometido` — a successful
+  // mutation legitimately advances `ultimoComprometido` AHEAD of the still-
+  // stale `patron` prop (the invalidated refetch hasn't landed yet), so
+  // comparing against `ultimoComprometido` would misread that ordinary lag
+  // as "the server changed" and immediately stomp the very edit that just
+  // succeeded. Only resync when the user has NO unsaved local edit —
+  // `valor`/`matchType` still equal the last-committed baseline — so an
+  // active, in-progress edit is never clobbered by a refetch landing
+  // mid-type either.
+  //
+  // This is React's own "adjusting state when a prop changes" recipe
+  // (https://react.dev/learn/you-might-not-need-an-effect) — a conditional
+  // `setState` call DURING RENDER, guarded by comparing against a snapshot
+  // of the previous prop kept in state, NOT a `useEffect`. `setPatronPrevio`
+  // always runs inside the same guard, so the condition is false again on
+  // the very next render — self-limiting, no extra render pass, and (unlike
+  // an effect) no `react-hooks/set-state-in-effect` lint violation either.
+  const [patronPrevio, setPatronPrevio] = useState(patron);
+  if (
+    patron &&
+    (patron.patron !== patronPrevio?.patron ||
+      patron.matchType !== patronPrevio?.matchType)
+  ) {
+    setPatronPrevio(patron);
+    const sinEdicionLocalPendiente =
+      valor === ultimoComprometido.valor &&
+      matchType === ultimoComprometido.matchType;
+    if (sinEdicionLocalPendiente) {
+      setValor(patron.patron);
+      setMatchType(patron.matchType);
+      setUltimoComprometido({
+        valor: patron.patron,
+        matchType: patron.matchType,
+      });
+    }
+  }
+
+  // Focus restoration (redesign structural cause #4): setting `disabled` on
+  // a focused native control blurs it to `<body>` synchronously — the
+  // Enter-commit path re-disables `Patrón` while its own mutation is in
+  // flight, so without this the user loses their place on every single
+  // Enter-commit. Same shape as `EditarCategoria`'s `restaurarFocoGuardarRef`
+  // (a ref flag set at the moment of the user's OWN gesture + a `useEffect`
+  // keyed on the fields being re-enabled — effects run after React commits
+  // `disabled: false`, so `.focus()` is never a no-op here).
+  const restaurarFocoPatronRef = useRef(false);
+  useEffect(() => {
+    if (!accionesBloqueadas && restaurarFocoPatronRef.current) {
+      inputPatronRef.current?.focus();
+      restaurarFocoPatronRef.current = false;
+    }
+  }, [accionesBloqueadas]);
+
+  // Pointer-intent flag for the delete button (redesign structural cause
+  // #2, replaces round 2's `relatedTarget` check — see `alPerderFocoPatron`
+  // below). Set in the button's OWN `onMouseDown`, which always precedes a
+  // real click but never a Tab landing.
+  const clicEliminarEnCursoRef = useRef(false);
 
   function commit(overrides?: {
     readonly valor?: string;
@@ -146,8 +255,15 @@ export function PatronFila({
     // a validation error — no request, no `role="alert"`. Reachable on a
     // brand-new row by picking `matchType` before typing (the natural
     // "pick the type, then write the text" order), and on an existing row
-    // by clearing the text and then changing `matchType`.
+    // by clearing the text and then changing `matchType`. On an EXISTING
+    // row, the display reverts to the last committed text instead of
+    // staying blank forever, permanently diverged from the still-live
+    // server value (redesign structural cause #3) — a not-yet-created row
+    // has nothing to revert to, so it just stays blank.
     if (valorFinal === '') {
+      if (idCreado !== undefined) {
+        setValor(ultimoComprometido.valor);
+      }
       return;
     }
 
@@ -197,24 +313,36 @@ export function PatronFila({
   }
 
   function alCambiarMatchType(nuevoMatchType: string) {
+    // Reset any focus-restoration intent left over from an earlier Enter
+    // press that turned out to be a no-op (e.g. the dirty check bailed) —
+    // this commit isn't via Enter, so it must not later steal focus back to
+    // `Patrón` once ITS mutation resolves.
+    restaurarFocoPatronRef.current = false;
     setMatchType(nuevoMatchType);
     commit({ matchType: nuevoMatchType });
   }
 
-  // Judgment-day round 2 CRITICAL #1 fix: `blur` is an AMBIGUOUS commit
-  // trigger — it cannot tell "I finished editing, save this" from "I am
-  // leaving this field to press this row's own delete button". A native
-  // click ALWAYS fires `blur` (with `relatedTarget` = the element about to
-  // receive focus) before dispatching `click` — so an unguarded `commit()`
-  // here starts a real mutation for text the user is about to discard, and
-  // (for a not-yet-created row) that create's `onSuccess` unconditionally
-  // re-adds the pattern the user tried to delete. Comparing
-  // `event.relatedTarget` against the delete button's own ref fixes the
-  // TRIGGER instead of gating the CONSEQUENCE — and, unlike
-  // `onMouseDown`+`preventDefault()`, this also covers keyboard Tab onto the
-  // delete button, not just a mouse click.
-  function alPerderFocoPatron(event: FocusEvent<HTMLInputElement>) {
-    if (event.relatedTarget === botonEliminarRef.current) {
+  // Redesign (structural causes #1 and #2, see this component's docblock):
+  // a not-yet-created row's FIRST commit must be an EXPLICIT confirm
+  // (Enter, or picking `matchType` once `Patrón` already has text) — `blur`
+  // never commits it, full stop, regardless of where focus goes next. An
+  // EXISTING row keeps commit-on-blur, but must still distinguish a genuine
+  // CLICK on the delete button (skip the commit — the row is about to be
+  // discarded anyway) from a Tab landing on it (commit — Tab is not a
+  // discard signal). `clicEliminarEnCursoRef` (set by the button's own
+  // `onMouseDown`) carries that intent; a bare `relatedTarget` check cannot,
+  // because it fires identically for both.
+  function alPerderFocoPatron(_event: FocusEvent<HTMLInputElement>) {
+    // Read-then-clear unconditionally, even on a not-yet-created row (whose
+    // `blur` never commits anyway) — otherwise a click on the delete button
+    // BEFORE this row is ever created would leave the flag permanently
+    // `true` with no later `blur` able to reset it.
+    const clicEliminarEnCurso = clicEliminarEnCursoRef.current;
+    clicEliminarEnCursoRef.current = false;
+    if (idCreado === undefined) {
+      return;
+    }
+    if (clicEliminarEnCurso) {
       return;
     }
     commit();
@@ -223,8 +351,13 @@ export function PatronFila({
   function alPresionarTecla(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Enter') {
       event.preventDefault();
+      restaurarFocoPatronRef.current = true;
       commit();
     }
+  }
+
+  function alMouseDownBotonEliminar() {
+    clicEliminarEnCursoRef.current = true;
   }
 
   function eliminarFila() {
@@ -293,6 +426,7 @@ export function PatronFila({
           disabled={accionesBloqueadas}
         />
         <CampoTexto
+          ref={inputPatronRef}
           label="Patrón"
           value={valor}
           onChange={setValor}
@@ -307,6 +441,7 @@ export function PatronFila({
         type="button"
         disabled={accionesBloqueadas}
         onClick={eliminarFila}
+        onMouseDown={alMouseDownBotonEliminar}
         aria-label={
           valorParaEtiqueta
             ? `Eliminar patrón ${valorParaEtiqueta}`
