@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import type { ChangeEvent, Ref } from 'react';
+import type { ChangeEvent, FocusEvent, KeyboardEvent, Ref } from 'react';
 
 /**
  * CampoTexto — `<label>` envolviendo un `<input>` (US-042 design.md §1/Q1a).
@@ -19,6 +19,18 @@ import type { ChangeEvent, Ref } from 'react';
  * ref al `<input>` para el mecanismo de foco-al-abrir (design.md §1/Q7c).
  * Los cuatro usos existentes en `PerfilForm` no pasan `ref` — opcional, no
  * rompe nada.
+ *
+ * `onBlur`/`onKeyDown` (US-043 PR #4, design.md §1/Q9b): opcionales,
+ * pass-through al `<input>` nativo. `PatronFila`'s los usa para su
+ * mecanismo "commits on blur-or-Enter" — los cuatro usos existentes de
+ * `PerfilForm`/`NuevaCategoriaForm`/`EditarCategoria` no los pasan, así que
+ * esta extensión es puramente aditiva.
+ *
+ * `ariaDescribedBy` (US-043 PR #4, judgment-day round 2 SUGGESTION):
+ * opcional, pass-through a `aria-describedby`. `PatronFila` lo usa para
+ * asociar su hint de REGEX (`role="status"`) y su error (`role="alert"`)
+ * con el `<input>` `Patrón` — mismo criterio aditivo que `onBlur`/
+ * `onKeyDown`, los demás usos no lo pasan.
  */
 export const CampoTexto = forwardRef(function CampoTexto(
   {
@@ -29,6 +41,9 @@ export const CampoTexto = forwardRef(function CampoTexto(
     required = false,
     disabled = false,
     autoComplete,
+    onBlur,
+    onKeyDown,
+    ariaDescribedBy,
   }: {
     readonly label: string;
     readonly value: string;
@@ -37,6 +52,9 @@ export const CampoTexto = forwardRef(function CampoTexto(
     readonly required?: boolean;
     readonly disabled?: boolean;
     readonly autoComplete?: string;
+    readonly onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
+    readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+    readonly ariaDescribedBy?: string;
   },
   ref: Ref<HTMLInputElement>,
 ) {
@@ -50,9 +68,12 @@ export const CampoTexto = forwardRef(function CampoTexto(
         onChange={(event: ChangeEvent<HTMLInputElement>) =>
           onChange(event.target.value)
         }
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
         required={required}
         disabled={disabled}
         autoComplete={autoComplete}
+        aria-describedby={ariaDescribedBy}
         className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
       />
     </label>

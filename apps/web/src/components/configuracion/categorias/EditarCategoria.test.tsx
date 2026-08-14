@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -14,7 +21,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CATEGORIAS_QUERY_KEY } from '@/api/use-categorias';
 import { ME_QUERY_KEY } from '@/api/use-me';
 import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
-import type { CatalogoDto, MeDto } from '@/api/types';
+import type { CatalogoDto, MeDto, PatronDto } from '@/api/types';
 import { EditarCategoria } from './EditarCategoria';
 import {
   MENSAJE_DEMO_CATALOGO,
@@ -800,6 +807,45 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     resolverDelete({ ok: true, status: 204 });
     await screen.findByText('Lista');
   });
+
+  it('PatronesSection (fila de patrón + Agregar patrón) se deshabilita mientras un diálogo de confirmación está abierto (judgment-day finding, PR #4)', async () => {
+    const user = userEvent.setup();
+    const patron: PatronDto = {
+      id: 'pat-1',
+      categoriaId: 'cat-1',
+      patron: 'netflix',
+      matchType: 'CONTAINS',
+      prioridad: 100,
+    };
+    renderEditar({
+      me: ME_NO_DEMO,
+      categorias: {
+        categorias: [{ ...CATEGORIA_SUPERMERCADO, patrones: [patron] }],
+      },
+    });
+
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+
+    // `ConfirmarImpactoDialog` is intentionally non-modal (no focus trap) —
+    // without this gate a keyboard user could Tab past it into these
+    // still-live pattern controls while a confirmation reads a frozen
+    // snapshot.
+    expect(screen.getByLabelText('Patrón')).toBeDisabled();
+    expect(screen.getByLabelText('Tipo de coincidencia')).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Eliminar patrón netflix' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Agregar patrón' }),
+    ).toBeDisabled();
+  });
 });
 
 /**
@@ -1417,5 +1463,120 @@ describe('EditarCategoria — un PATCH directo (sin diálogo) en vuelo bloquea l
     ).toBeDisabled();
 
     resolverFetch({ ok: true, status: 200 });
+  });
+});
+
+/**
+ * Task 42 — wire `PatronesSection` into `EditarCategoria`, **outside**
+ * `#form-identidad` (design.md §1/Q3b's DOM boundary, mechanism 1) — the
+ * pattern rows are a fully independent commit surface from `Guardar`/
+ * `Cancelar` (WCTG-04). The cross-cutting integration test below is the
+ * one design calls out explicitly: adding a pattern (which commits
+ * immediately) survives `Cancelar`, which only discards the identity draft.
+ */
+describe('EditarCategoria — PatronesSection wiring (task 42, Q3b DOM boundary)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('PatronesSection se monta FUERA de #form-identidad', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Patrones de auto-categorización',
+    });
+    const form = document.getElementById('form-identidad') as HTMLFormElement;
+    expect(form.contains(heading)).toBe(false);
+  });
+
+  it('renderiza una PatronFila por cada patrón ya cargado de la categoría', async () => {
+    const patron: PatronDto = {
+      id: 'pat-1',
+      categoriaId: 'cat-1',
+      patron: 'netflix',
+      matchType: 'CONTAINS',
+      prioridad: 100,
+    };
+    renderEditar({
+      me: ME_NO_DEMO,
+      categorias: {
+        categorias: [{ ...CATEGORIA_SUPERMERCADO, patrones: [patron] }],
+      },
+    });
+
+    expect(await screen.findByLabelText('Patrón')).toHaveValue('netflix');
+  });
+
+  it('agregar un patrón sobrevive a Cancelar (commit inmediato, independiente de Guardar) — el patrón está presente al reabrir la categoría, y Cancelar emite CERO llamadas adicionales', async () => {
+    const user = userEvent.setup();
+    let patronesActuales: PatronDto[] = [];
+    const fetchMock = vi.fn((url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'POST' && url === '/api/patrones') {
+        patronesActuales = [
+          {
+            id: 'pat-nuevo',
+            categoriaId: 'cat-1',
+            patron: 'uber',
+            matchType: 'CONTAINS',
+            prioridad: 100,
+          },
+        ];
+        return Promise.resolve({ ok: true, status: 201 });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          categorias: [
+            { ...CATEGORIA_SUPERMERCADO, patrones: patronesActuales },
+          ],
+        }),
+      });
+    });
+    const { router } = renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Agregar patrón' }),
+    );
+    const nuevoInput = screen.getAllByLabelText('Patrón').at(-1) as HTMLElement;
+    vi.stubGlobal('fetch', fetchMock);
+    await user.type(nuevoInput, 'uber');
+    // A not-yet-created row's first commit requires an EXPLICIT confirm
+    // (Enter) — `blur` alone never commits it (PatronFila's judgment-day
+    // redesign, PR #4, 2026-08-14).
+    fireEvent.keyDown(nuevoInput, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/patrones',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    );
+
+    const nombre = screen.getByLabelText('Nombre');
+    await user.clear(nombre);
+    await user.type(nombre, 'Cambio sin guardar');
+
+    const llamadasAntesDeCancelar = fetchMock.mock.calls.length;
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Cancelar cambios de nombre y bucket',
+      }),
+    );
+
+    await screen.findByText('Lista');
+    expect(fetchMock.mock.calls.length).toBe(llamadasAntesDeCancelar);
+
+    await router.navigate({
+      to: '/configuracion/categorias/$categoriaId',
+      params: { categoriaId: 'cat-1' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Patrón')).toHaveValue('uber'),
+    );
   });
 });

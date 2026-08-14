@@ -1,4 +1,5 @@
 import type { ApiError } from '@/api/client';
+import type { MatchType } from '@/api/catalogo-constantes';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { etiquetaTransacciones } from './plural';
 
@@ -31,6 +32,19 @@ import { etiquetaTransacciones } from './plural';
  */
 export const MENSAJE_DEMO_CATALOGO =
   'Estás en una cuenta de demostración. Crea una cuenta real para editar tus categorías.';
+
+/**
+ * ETIQUETA_MATCH_TYPE — `MatchType` → UI label (US-043 PR #4, design.md
+ * §1/Q9b/D-07). Same shape as `ETIQUETA_BUCKET` (A1): the wire vocabulary
+ * (`MATCH_TYPES`, `catalogo-constantes.ts`) stays plain and server-facing;
+ * the display label lives here, one `Record` per D-07's table so a new
+ * `MatchType` member fails `tsc` until this row is added.
+ */
+export const ETIQUETA_MATCH_TYPE: Record<MatchType, string> = {
+  CONTAINS: 'CONTIENE',
+  STARTS_WITH: 'EMPIEZA CON',
+  REGEX: 'REGEX',
+};
 
 /**
  * CodigoCatalogo — el union literal cerrado de los 11 códigos que el

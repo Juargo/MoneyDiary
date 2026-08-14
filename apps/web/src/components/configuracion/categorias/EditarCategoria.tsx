@@ -14,6 +14,7 @@ import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
+import { PatronesSection } from './PatronesSection';
 import {
   fraseDeImpacto,
   MENSAJE_DEMO_CATALOGO,
@@ -454,6 +455,25 @@ function EditarCategoriaCargada({
           {mensajeDeErrorCatalogo(actualizacion.error)}
         </p>
       )}
+
+      {/*
+        PatronesSection lives OUTSIDE `#form-identidad` (§1/Q3b's DOM
+        boundary, mechanism 1) — pattern rows commit immediately, per row,
+        fully independent of `Guardar`/`Cancelar` (WCTG-04). `Cancelar`
+        scopes to the identity draft ONLY; a pattern added earlier in the
+        visit survives it (task 42's cross-cutting integration test).
+      */}
+      <PatronesSection
+        categoriaId={categoria.id}
+        patrones={categoria.patrones}
+        esDemo={esDemo}
+        // Judgment-day finding (PR #4, 2026-08-14): `ConfirmarImpactoDialog`
+        // is intentionally non-modal, so without this the pattern rows and
+        // `Agregar patrón` stayed fully interactive while a confirmation
+        // read a frozen `snapshotAlAbrirDialogo` — the SAME `dialogo !==
+        // null` condition already gates `Nombre`/`Bucket`/`Cancelar` above.
+        bloqueado={dialogo !== null}
+      />
 
       {/*
         `border-t` + `justify-between` (§1/Q3b mechanism 4): the DOM states
