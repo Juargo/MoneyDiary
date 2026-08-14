@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -738,5 +738,130 @@ describe('ReclasificarCategoriaControl', () => {
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
     );
+  });
+
+  it('when the catalog fetch fails, surfaces an accessible error with a retry affordance instead of locking silently forever (WCAT-04 delta)', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        return Promise.resolve({ ok: false, status: 500 });
+      }
+      throw new Error(`unexpected fetch to ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual="Supermercado"
+        periodo="2026-07"
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Ocurrió un error inesperado. Intenta nuevamente.',
+      ),
+    );
+    // The select stays disabled (never a bare, unexplained lock — the
+    // catalog genuinely never loaded) but the failure is now announced and
+    // recoverable, not silent forever.
+    expect(select).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Reintentar' }),
+    ).toBeInTheDocument();
+  });
+
+  it('an unresolved categoría (not found in the live catalog) is rejected as an error, never auto-committed as if same-bucket (ADR-015 fail-safe direction)', async () => {
+    const fetchMock = mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual="Supermercado"
+        periodo="2026-07"
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // Simulates `alCambiar` receiving a value the live catalog snapshot
+    // cannot resolve to a bucket — unreachable via `userEvent.selectOptions`
+    // (it only picks real rendered `<option>`s, which always match `data`),
+    // so a raw DOM `<option>` is appended to stand in for the edge case
+    // (e.g. a stale option surviving a concurrent catalog change). Guards
+    // the fail-safe direction: this must error, never silently commit as
+    // "same bucket".
+    const fantasma = document.createElement('option');
+    fantasma.value = 'Fantasma';
+    select.appendChild(fantasma);
+    fireEvent.change(select, { target: { value: 'Fantasma' } });
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(select.value).toBe('Supermercado');
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url]) => url === '/api/transacciones/tx-1/categoria',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('the catalog-loading state exposes an accessible status cue, distinct from the mutation-pending disabled state (a11y)', async () => {
+    let resolverCatalogo: (value: unknown) => void = () => {};
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        return new Promise((resolve) => {
+          resolverCatalogo = resolve;
+        });
+      }
+      throw new Error(`unexpected fetch to ${url} while catalog is in flight`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual="Supermercado"
+        periodo="2026-07"
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+
+    expect(select).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Cargando categorías…',
+    );
+
+    resolverCatalogo(respuestaCatalogo(CATALOGO_FIXTURE));
+
+    await waitFor(() => expect(select).not.toBeDisabled());
+    expect(select).not.toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
