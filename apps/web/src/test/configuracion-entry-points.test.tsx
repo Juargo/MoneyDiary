@@ -82,6 +82,17 @@ describe('/configuracion entry points and session guard (real route tree, WCFG-0
     });
   });
 
+  it('redirects an unauthenticated visit to the nested categorías edit route (WCTG-01/WCFG-01 delta), via the same _authenticated guard, no new guard code', async () => {
+    vi.stubGlobal('fetch', buildFetchStub(false));
+
+    const router = renderApp('/configuracion/categorias/abc123');
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(router.state.location.search).toEqual({
+      redirect: '/configuracion/categorias/abc123',
+    });
+  });
+
   it('navigates to /configuracion when the Configuración nav item is activated', async () => {
     vi.stubGlobal('fetch', buildFetchStub(true));
 
