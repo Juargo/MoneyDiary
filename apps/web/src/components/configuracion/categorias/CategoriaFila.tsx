@@ -38,16 +38,35 @@ import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
  * `Link` de editar sigue activo — el catálogo de un demo sigue siendo
  * navegable de solo lectura (segundo escenario de WCTG-11).
  *
- * `ariaLabel` en `ConfirmarImpactoDialog` (judgment-day, both judges,
- * WCAG 4.1.2): `CategoriasPanel` renders one independent, non-modal
+ * `ariaLabel` en `ConfirmarImpactoDialog` (judgment-day ROUND 1, both
+ * judges, WCAG 4.1.2): `CategoriasPanel` renders one independent, non-modal
  * instance of this component per row — the dialog is deliberately
  * non-modal, so a user can leave row A's dialog open (e.g. after a failed
  * delete, shown inline) and Tab into row B's still-enabled delete icon,
  * producing TWO `role="alertdialog"` elements at once. `fraseDeImpacto`'s
  * `titulo` for a delete is the fixed string `'Eliminar categoría'`, so
- * without disambiguation both would share one accessible name. Reuses the
- * exact same per-row name this row's own icon buttons already carry
- * (`Eliminar categoría {nombre}`), the `EliminarIngestaControl` precedent.
+ * without disambiguation both would share one accessible name.
+ *
+ * **ROUND 2 issue 3 (WARNING, Judge B):** round 1's disambiguated label
+ * reused the trigger button's OWN `aria-label` verbatim
+ * (`Eliminar categoría {nombre}`) — so even the NORMAL single-row case (one
+ * open dialog, its still-visible, still-enabled trigger) had two elements
+ * sharing one accessible name, not just the two-dialogs-open edge case
+ * round 1 targeted. The dialog now gets its own label
+ * (`etiquetaConfirmarEliminar`, "Confirmar eliminación de categoría
+ * {nombre}") that still disambiguates across rows but no longer collides
+ * with the trigger's. The VISIBLE title is untouched — `fraseDeImpacto`'s
+ * `titulo` (`'Eliminar categoría'`) still renders as-is; only the
+ * accessible name changed. `EditarCategoria.tsx`'s two call sites omit
+ * `ariaLabel` (single-instance screen, no collision risk) and stay
+ * unchanged.
+ *
+ * ROUND 2 issue 4 (SUGGESTION, Judge B): `categoria.nombre`'s interpolation
+ * is computed once into `etiquetaEliminar`/`etiquetaConfirmarEliminar`
+ * below instead of being repeated inline in both the trigger's `aria-label`
+ * and the dialog's `ariaLabel` — the two labels' shared relationship (both
+ * key off the same category name) now has one source instead of two
+ * hand-maintained template literals.
  *
  * `onEliminado` (judgment-day, WARNING, WCAG 2.4.3): `ConfirmarImpactoDialog`
  * moves focus to its own confirm button on mount and documents that
@@ -72,6 +91,9 @@ export function CategoriaFila({
   const eliminacion = useEliminarCategoria();
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const eliminarRef = useRef<HTMLButtonElement>(null);
+  // Fuente única para ambas etiquetas (issue 4) — ver docstring del archivo.
+  const etiquetaEliminar = `Eliminar categoría ${categoria.nombre}`;
+  const etiquetaConfirmarEliminar = `Confirmar eliminación de categoría ${categoria.nombre}`;
 
   function abrirEliminar() {
     // `.reset()` al abrir (precedente `EliminarIngestaControl.tsx:90-93`,
@@ -119,7 +141,7 @@ export function CategoriaFila({
         type="button"
         disabled={esDemo || eliminacion.isPending}
         onClick={abrirEliminar}
-        aria-label={`Eliminar categoría ${categoria.nombre}`}
+        aria-label={etiquetaEliminar}
         className={cn(
           CLASE_BOTON_ICONO,
           'text-destructive disabled:cursor-not-allowed disabled:opacity-50',
@@ -135,7 +157,7 @@ export function CategoriaFila({
               nombre: categoria.nombre,
               transaccionesCount: categoria.transaccionesCount,
             })}
-            ariaLabel={`Eliminar categoría ${categoria.nombre}`}
+            ariaLabel={etiquetaConfirmarEliminar}
             pendiente={esDemo || eliminacion.isPending}
             error={
               eliminacion.isError

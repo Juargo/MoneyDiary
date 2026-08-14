@@ -182,11 +182,19 @@ describe('CategoriaFila', () => {
     });
 
     /**
-     * judgment-day fix 2 (WARNING, BOTH judges, WCAG 4.1.2): the VISIBLE
-     * title stays the fixed `'Eliminar categoría'` (assertion above), but
-     * the accessible name must carry the row's own category name — this is
-     * what lets two simultaneously open, non-modal dialogs (one per row,
-     * `CategoriasPanel.test.tsx`) stay distinguishable to a screen reader.
+     * judgment-day ROUND 1 fix 2 (WARNING, BOTH judges, WCAG 4.1.2): the
+     * VISIBLE title stays the fixed `'Eliminar categoría'` (assertion
+     * above), but the accessible name must carry the row's own category
+     * name — this is what lets two simultaneously open, non-modal dialogs
+     * (one per row, `CategoriasPanel.test.tsx`) stay distinguishable to a
+     * screen reader.
+     *
+     * judgment-day ROUND 2 issue 3 (WARNING, Judge B): round 1's dialog
+     * label exactly duplicated the trigger button's own `aria-label`
+     * (`Eliminar categoría {nombre}`), so even the NORMAL single-row case —
+     * one open dialog, one still-visible trigger — had two elements sharing
+     * one accessible name. The dialog's label must now differ from the
+     * trigger's while still carrying the category name.
      */
     it('el aria-label del diálogo incluye el nombre de la categoría, distinto del título visible', async () => {
       const user = userEvent.setup();
@@ -201,7 +209,28 @@ describe('CategoriaFila', () => {
       const dialogo = await screen.findByRole('alertdialog');
       expect(dialogo).toHaveAttribute(
         'aria-label',
-        'Eliminar categoría Supermercado',
+        'Confirmar eliminación de categoría Supermercado',
+      );
+    });
+
+    it('el aria-label del diálogo difiere del aria-label del botón trigger, incluso con una sola fila (WCAG 4.1.2, issue 3)', async () => {
+      const user = userEvent.setup();
+      renderFila({});
+
+      const trigger = await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      });
+      await user.click(trigger);
+
+      const dialogo = await screen.findByRole('alertdialog');
+      // El trigger sigue montado y habilitado mientras el diálogo está
+      // abierto (no es modal) — si compartieran nombre accesible, un
+      // usuario de lector de pantalla enumerando botones y luego diálogos
+      // vería un nombre ambiguo duplicado.
+      expect(trigger).toBeInTheDocument();
+      expect(trigger).not.toBeDisabled();
+      expect(dialogo.getAttribute('aria-label')).not.toBe(
+        trigger.getAttribute('aria-label'),
       );
     });
 
