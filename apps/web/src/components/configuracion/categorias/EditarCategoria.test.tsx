@@ -1366,3 +1366,56 @@ describe('EditarCategoria — demo (WCTG-11)', () => {
     ).toBe(MENSAJE_DEMO_CATALOGO);
   });
 });
+
+/**
+ * Judgment-day round 4 (both judges, confirmed): the in-flight guards added
+ * in rounds 2-3 only covered the two DIALOG-gated mutation paths. They
+ * missed the third and most common one — a direct `Guardar` on a
+ * bucket-clean (rename-only) save, where `guardarIdentidad` calls
+ * `actualizacion.mutate` with no dialog at all, so `dialogo` stays `null`
+ * for the whole in-flight window. During that window `Cancelar` navigated
+ * away while the `PATCH` was still outstanding: the request is never
+ * aborted, so the rename COMMITS after the user believes they cancelled.
+ * Round 3 explicitly left this case as-is, reasoning that the direct path
+ * has no per-call `onSuccess` to race — true, but beside the point. The
+ * defect is the user's intent, not the callback ordering.
+ */
+describe('EditarCategoria — un PATCH directo (sin diálogo) en vuelo bloquea la edición y Cancelar', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('deshabilita Nombre, Bucket y Cancelar mientras un Guardar sin diálogo está en vuelo', async () => {
+    let resolverFetch!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    const nombre = await screen.findByLabelText('Nombre');
+    fireEvent.change(nombre, { target: { value: 'Super Jumbo' } });
+    vi.stubGlobal('fetch', fetchMock);
+
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // No dialog is involved on this path — `dialogo` is `null` throughout.
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Nombre')).toBeDisabled(),
+    );
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Cancelar cambios de nombre y bucket',
+      }),
+    ).toBeDisabled();
+
+    resolverFetch({ ok: true, status: 200 });
+  });
+});

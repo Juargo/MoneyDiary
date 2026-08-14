@@ -412,12 +412,19 @@ function EditarCategoriaCargada({
           (above) also defends against; disabling here is the first,
           user-facing layer of that same fix.
         */}
+        {/*
+          `actualizacion.isPending` (judgment-day round 4): `dialogo !== null`
+          alone covers only the two DIALOG-gated paths. A bucket-clean
+          (rename-only) `Guardar` mutates directly, with no dialog, so
+          `dialogo` stays `null` for the whole in-flight window — leaving
+          these fields editable while their own values are mid-`PATCH`.
+        */}
         <CampoTexto
           label="Nombre"
           value={nombre}
           onChange={setNombre}
           required
-          disabled={esDemo || dialogo !== null}
+          disabled={esDemo || dialogo !== null || actualizacion.isPending}
         />
         <CampoSelect
           label="Bucket (obligatorio)"
@@ -425,7 +432,7 @@ function EditarCategoriaCargada({
           onChange={setBucket}
           options={OPCIONES_BUCKET}
           required
-          disabled={esDemo || dialogo !== null}
+          disabled={esDemo || dialogo !== null || actualizacion.isPending}
         />
       </form>
 
@@ -518,7 +525,17 @@ function EditarCategoriaCargada({
             // `snapshotAlAbrirDialogo` snapshot (above) closed that hole.
             // `esDemo` is deliberately NOT part of this condition —
             // `Cancelar` issues zero requests and stays enabled in demo.
-            disabled={dialogo !== null}
+            //
+            // `actualizacion.isPending` (judgment-day round 4, both judges):
+            // on a bucket-clean (rename-only) save there is NO dialog, so
+            // `dialogo` stays `null` while the `PATCH` is in flight. Left
+            // enabled, `Cancelar` navigated back to the list without
+            // aborting that request — it resolves anyway and the rename
+            // COMMITS, after the user believes they cancelled it. Round 3
+            // deferred this on the grounds that the direct path has no
+            // per-call `onSuccess` to race; the defect is the user's
+            // intent, not the callback ordering.
+            disabled={dialogo !== null || actualizacion.isPending}
             onClick={cancelarIdentidad}
             aria-label="Cancelar cambios de nombre y bucket"
             className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
