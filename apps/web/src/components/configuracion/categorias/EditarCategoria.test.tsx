@@ -15,6 +15,10 @@ import { ME_QUERY_KEY } from '@/api/use-me';
 import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
 import type { CatalogoDto, MeDto } from '@/api/types';
 import { EditarCategoria } from './EditarCategoria';
+import {
+  MENSAJE_DEMO_CATALOGO,
+  mensajeDeErrorCatalogo,
+} from './mensajes-catalogo';
 
 /**
  * EditarCategoria.test.tsx (US-043 PR #3b, design.md §1/Q1d/Q1e, WCTG-01,
@@ -34,6 +38,8 @@ const ME_NO_DEMO: MeDto = {
   esDemo: false,
   googleVinculado: false,
 };
+
+const ME_DEMO: MeDto = { ...ME_NO_DEMO, esDemo: true, email: null };
 
 const CATEGORIA_SUPERMERCADO = {
   id: 'cat-1',
@@ -530,5 +536,63 @@ describe('EditarCategoria — delete from the edit screen (Q6d, WCTG-05, WCTG-08
     );
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.queryByText('Lista')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Task 35 — demo (WCTG-11, all 3 scenarios for this screen's controls).
+ * Proactively disables `Guardar`, both dialogs' confirm buttons, and the
+ * mutating fields, with a `role="note"` explanation (`MENSAJE_DEMO_CATALOGO`).
+ * The `403 DEMO_SOLO_LECTURA` mapping is asserted directly on the
+ * translator (already covered exhaustively by `mensajes-catalogo.test.ts`'s
+ * `it.each` table, Q6c/D-05) — the read path (edit-by-id from the list)
+ * still renders normally for a demo session.
+ */
+describe('EditarCategoria — demo (WCTG-11)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('una sesión demo deshabilita Nombre, Bucket, Guardar y Eliminar categoría, y muestra role="note" con MENSAJE_DEMO_CATALOGO', async () => {
+    renderEditar({ me: ME_DEMO, categorias: CATALOGO });
+
+    expect(await screen.findByLabelText('Nombre')).toBeDisabled();
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Eliminar categoría Supermercado' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('note')).toHaveTextContent(MENSAJE_DEMO_CATALOGO);
+  });
+
+  it('Cancelar sigue habilitado en demo — no es un control de mutación', async () => {
+    renderEditar({ me: ME_DEMO, categorias: CATALOGO });
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Cancelar cambios de nombre y bucket',
+      }),
+    ).not.toBeDisabled();
+  });
+
+  it('el catálogo (Nombre/Bucket pre-poblados) sigue renderizando normalmente para una sesión demo — solo lectura, no vacío ni roto', async () => {
+    renderEditar({ me: ME_DEMO, categorias: CATALOGO });
+
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Supermercado');
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue(
+      'Necesidades',
+    );
+  });
+
+  it('el mapeo defensivo 403 DEMO_SOLO_LECTURA está disponible en el traductor — no solo detrás de un botón deshabilitado (Q6c/D-05)', () => {
+    expect(
+      mensajeDeErrorCatalogo({
+        tag: 'server',
+        status: 403,
+        code: 'DEMO_SOLO_LECTURA',
+        message: 'ignored',
+      }),
+    ).toBe(MENSAJE_DEMO_CATALOGO);
   });
 });

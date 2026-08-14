@@ -5,6 +5,7 @@ import type { UseMutationResult } from '@tanstack/react-query';
 import { useActualizarCategoria } from '@/api/use-actualizar-categoria';
 import { useCategorias } from '@/api/use-categorias';
 import { useEliminarCategoria } from '@/api/use-eliminar-categoria';
+import { useMe } from '@/api/use-me';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { ApiError } from '@/api/client';
@@ -13,7 +14,11 @@ import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
-import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
+import {
+  fraseDeImpacto,
+  MENSAJE_DEMO_CATALOGO,
+  mensajeDeErrorCatalogo,
+} from './mensajes-catalogo';
 
 const OPCIONES_BUCKET = BUCKETS_ASIGNABLES.map((bucket) => ({
   value: bucket,
@@ -69,6 +74,8 @@ export function EditarCategoria({
 }) {
   const query = useCategorias();
   const eliminacion = useEliminarCategoria();
+  const { data: me } = useMe();
+  const esDemo = me?.esDemo ?? false;
 
   if (eliminacion.isPending || eliminacion.isSuccess) {
     return null;
@@ -99,7 +106,11 @@ export function EditarCategoria({
   }
 
   return (
-    <EditarCategoriaCargada categoria={categoria} eliminacion={eliminacion} />
+    <EditarCategoriaCargada
+      categoria={categoria}
+      eliminacion={eliminacion}
+      esDemo={esDemo}
+    />
   );
 }
 
@@ -142,13 +153,26 @@ export function EditarCategoria({
  * against) both being true simultaneously. Escape/`Cancelar` on EITHER
  * dialog closes it via `cerrarDialogo`, which restores focus to whichever
  * button opened it (`guardarRef`/`eliminarRef`) — never touching the draft.
+ *
+ * **Demo** (§1/Q6c, task 35, WCTG-11): `esDemo` proactively disables
+ * `Nombre`/`Bucket`/`Guardar`/`Eliminar categoría` and both dialogs' confirm
+ * buttons (via their shared `pendiente` prop — `ConfirmarImpactoDialog`
+ * doesn't need a separate demo-aware prop, `pendiente` already disables the
+ * confirm control, `dry`), with a `role="note"` explanation
+ * (`MENSAJE_DEMO_CATALOGO`) — the `PerfilForm`/`NuevaCategoriaForm` idiom.
+ * `Cancelar` stays enabled (not a mutation control, issues zero request).
+ * The read path (fields pre-populated, breadcrumb, everything else) renders
+ * exactly as for a real session — a demo user's catalog still reads
+ * normally (WCTG-11's second scenario).
  */
 function EditarCategoriaCargada({
   categoria,
   eliminacion,
+  esDemo,
 }: {
   readonly categoria: CategoriaDto;
   readonly eliminacion: UseMutationResult<void, ApiError, string>;
+  readonly esDemo: boolean;
 }) {
   const navigate = useNavigate();
   const actualizacion = useActualizarCategoria();
@@ -232,6 +256,7 @@ function EditarCategoriaCargada({
           value={nombre}
           onChange={setNombre}
           required
+          disabled={esDemo}
         />
         <CampoSelect
           label="Bucket (obligatorio)"
@@ -239,8 +264,15 @@ function EditarCategoriaCargada({
           onChange={setBucket}
           options={OPCIONES_BUCKET}
           required
+          disabled={esDemo}
         />
       </form>
+
+      {esDemo && (
+        <p role="note" className="text-sm text-slate-500">
+          {MENSAJE_DEMO_CATALOGO}
+        </p>
+      )}
 
       {/*
         `dialogo === null`: `actualizacion` is the SAME mutation for both the
@@ -266,9 +298,10 @@ function EditarCategoriaCargada({
         <button
           ref={eliminarRef}
           type="button"
+          disabled={esDemo}
           onClick={() => setDialogo('eliminar')}
           aria-label={`Eliminar categoría ${categoria.nombre}`}
-          className="rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive"
+          className="rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
         >
           Eliminar categoría
         </button>
@@ -286,7 +319,7 @@ function EditarCategoriaCargada({
             ref={guardarRef}
             type="submit"
             form="form-identidad"
-            disabled={actualizacion.isPending}
+            disabled={esDemo || actualizacion.isPending}
             className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Guardar
@@ -303,7 +336,7 @@ function EditarCategoriaCargada({
             bucketAnterior: categoria.bucket,
             bucketNuevo: bucket,
           })}
-          pendiente={actualizacion.isPending}
+          pendiente={esDemo || actualizacion.isPending}
           error={
             actualizacion.isError
               ? mensajeDeErrorCatalogo(actualizacion.error)
@@ -321,7 +354,7 @@ function EditarCategoriaCargada({
             nombre: categoria.nombre,
             transaccionesCount: categoria.transaccionesCount,
           })}
-          pendiente={eliminacion.isPending}
+          pendiente={esDemo || eliminacion.isPending}
           error={
             eliminacion.isError
               ? mensajeDeErrorCatalogo(eliminacion.error)
