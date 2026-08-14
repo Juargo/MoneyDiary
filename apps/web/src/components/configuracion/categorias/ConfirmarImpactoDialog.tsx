@@ -26,6 +26,16 @@ import { useEffect, useRef } from 'react';
  * `onCancelar` fires on Escape and on the "Cancelar" click; the CALLER
  * decides what to focus next (mirrors `EliminarIngestaControl.cancelar()`'s
  * `triggerRef.current?.focus()`, just inverted: the ref lives one level up).
+ *
+ * `ariaLabel` (judgment-day, both judges, WCAG 4.1.2): defaults to `titulo`
+ * so the single-instance edit-screen call sites are unchanged. `titulo` for
+ * a delete is the fixed string `'Eliminar categoría'` — harmless while only
+ * one instance of this component could ever exist, but `CategoriasPanel`
+ * renders one independent, non-modal instance per row, so two rows' dialogs
+ * open at once would otherwise share one identical accessible name. The
+ * VISIBLE title stays `titulo` either way — only the accessible name needs
+ * disambiguating, so this stays an optional prop on top of rendered copy
+ * rather than a `modo`/category-aware branch inside the component.
  */
 export function ConfirmarImpactoDialog({
   titulo,
@@ -35,6 +45,7 @@ export function ConfirmarImpactoDialog({
   error,
   onConfirmar,
   onCancelar,
+  ariaLabel = titulo,
 }: {
   readonly titulo: string;
   readonly lineas: readonly string[];
@@ -43,6 +54,7 @@ export function ConfirmarImpactoDialog({
   readonly error: string | null;
   readonly onConfirmar: () => void;
   readonly onCancelar: () => void;
+  readonly ariaLabel?: string;
 }) {
   const confirmarRef = useRef<HTMLButtonElement>(null);
 
@@ -97,7 +109,7 @@ export function ConfirmarImpactoDialog({
     <div
       role="alertdialog"
       aria-modal="false"
-      aria-label={titulo}
+      aria-label={ariaLabel}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           cancelar();

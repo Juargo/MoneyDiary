@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -297,6 +297,307 @@ describe('CategoriasPanel', () => {
     expect(
       screen.getByRole('button', { name: 'Nueva categoría' }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * judgment-day fix 1 (WARNING, both judges verified by orchestrator):
+   * `ConfirmarImpactoDialog` moves focus onto its own confirm button on
+   * mount and states its contract is that the CALLER restores focus after.
+   * `CategoriaFila`'s cancel/Escape path already does that
+   * (`eliminarRef.current?.focus()`), but the success path did not — and
+   * unlike the edit screen's own delete (which navigates and resets focus
+   * context), this list entry point deliberately stays on the same screen,
+   * so nothing was restoring focus on a successful delete: it fell to
+   * `<body>`. The row's own trigger cannot be the target either — the row
+   * unmounts via the profile-B `['categorias']` refetch this same DELETE
+   * triggers — so focus must land on a target that survives the row's
+   * removal, here the panel's own `Categorías y patrones` heading.
+   *
+   * This assertion proves `document.activeElement` is a real, still-mounted
+   * element (the heading) after the row disappears — not that any specific
+   * ARIA announcement happened (no `disabled` transition is involved here,
+   * so `document.activeElement` is a legitimate proof).
+   */
+  it('un delete exitoso desde la fila mueve el foco al heading del panel (WCAG 2.4.3), no lo deja en <body>', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            categorias: CATALOGO.categorias.filter(
+              (c) => c.id !== 'cat-necesidades',
+            ),
+          }),
+      });
+    });
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO, fetchMock });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(screen.queryByText('Supermercado')).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Categorías y patrones' }),
+    ).toHaveFocus();
+  });
+
+  /**
+   * judgment-day fix 2 (WARNING, BOTH judges): `ConfirmarImpactoDialog` sets
+   * `aria-label={titulo}`, and `fraseDeImpacto`'s `titulo` for a delete is
+   * the FIXED string `'Eliminar categoría'` — never the row's own category
+   * name. That was harmless with a single-instance caller (the edit
+   * screen), but this panel renders one `CategoriaFila` per category, each
+   * with its own independent `dialogoAbierto` state and no cross-row
+   * coordination, and the dialog is deliberately non-modal (no focus trap)
+   * so other rows' triggers stay reachable — a user can leave row A's
+   * dialog open and open row B's too, producing two `role="alertdialog"`
+   * elements with the IDENTICAL accessible name. `CategoriaFila`
+   * disambiguates via `ariaLabel` the same way its own icon buttons already
+   * do (`Eliminar categoría {nombre}`).
+   */
+  it('dos filas con su ConfirmarImpactoDialog abiertos a la vez tienen accessible names distintos (WCAG 4.1.2)', async () => {
+    const user = userEvent.setup();
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Ahorro programado',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Eliminar categoría Supermercado' }),
+    );
+
+    const dialogos = screen.getAllByRole('alertdialog');
+    expect(dialogos).toHaveLength(2);
+    // Ambos siguen mostrando el mismo título VISIBLE — solo el nombre
+    // accesible se desambigua.
+    expect(
+      within(dialogos[0]).getByText('Eliminar categoría'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialogos[1]).getByText('Eliminar categoría'),
+    ).toBeInTheDocument();
+    const nombresAccesibles = dialogos.map((d) => d.getAttribute('aria-label'));
+    expect(new Set(nombresAccesibles).size).toBe(2);
+  });
+
+  /**
+   * judgment-day ROUND 2, issue 1 (WARNING, both judges): the heading gets
+   * `focus:outline-none` with no replacement, so the WCAG 2.4.3 focus-restore
+   * fix above lands on an invisible target for a sighted keyboard user.
+   * jsdom performs no layout/paint, so this assertion can only prove the
+   * `focus-visible:outline-*` classes are present on the element — it does
+   * NOT prove a ring actually renders on screen.
+   */
+  it('el heading tiene las clases focus-visible:outline-* (mismo idioma que ListaIngestas/SubirCartola) — prueba la clase, no el render visual', async () => {
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Categorías y patrones',
+    });
+    expect(heading).toHaveClass(
+      'focus-visible:outline',
+      'focus-visible:outline-2',
+      'focus-visible:outline-ring',
+    );
+    expect(heading).not.toHaveClass('focus:outline-none');
+  });
+
+  /**
+   * judgment-day ROUND 2, issue 2 (WARNING, both judges): the same
+   * successful delete that focuses `tituloRef` also triggers profile B's
+   * background refetch of `['categorias']`. If THAT refetch fails, the
+   * unconditional `if (query.isError && !creando) return <ErrorState/>`
+   * unmounts the whole panel — including the just-focused heading — so
+   * focus silently drops to `<body>` and the user never sees confirmation
+   * the delete itself worked. Deferred promise for the background GET
+   * (not `mockResolvedValue`) so the test can assert the mid-flight/
+   * post-failure render, not just the final settled state.
+   */
+  it('un refetch fallido de ["categorias"] tras un delete exitoso NO destruye el heading recién enfocado', async () => {
+    const user = userEvent.setup();
+    let resolverRefetch!: (value: {
+      readonly ok: boolean;
+      readonly status: number;
+    }) => void;
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return new Promise<{ ok: boolean; status: number }>((resolve) => {
+        resolverRefetch = resolve;
+      });
+    });
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO, fetchMock });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          level: 2,
+          name: 'Categorías y patrones',
+        }),
+      ).toHaveFocus(),
+    );
+
+    resolverRefetch({ ok: false, status: 500 });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Categorías y patrones' }),
+    ).toHaveFocus();
+  });
+
+  /**
+   * judgment-day PR #5 (WARNING, both judges): the round-2 test above proves
+   * `eliminadoRecientemente` protects THIS delete's own refetch settling.
+   * This test proves the OTHER half — that the guard does not silently
+   * outlive that window. `dataUpdatedAt` only advances on a fetch that
+   * SUCCEEDS: the delete's own background refetch below is stubbed to
+   * succeed, which must clear the guard; a LATER, unrelated `['categorias']`
+   * failure (simulated via a manual `refetchQueries` after swapping the
+   * `fetch` stub) must then take the full-page `ErrorState` path again — not
+   * the softened inline one. A boolean latch that is only ever set `true`
+   * and never reset (the pre-fix shape) fails this assertion: the heading
+   * would still be mounted because `eliminadoRecientemente` never went back
+   * to `false`.
+   */
+  it('tras un refetch exitoso posterior al delete, un fallo NUEVO Y NO relacionado sí vuelve al ErrorState de página completa (el guard no es un ratchet)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            categorias: CATALOGO.categorias.filter(
+              (c) => c.id !== 'cat-necesidades',
+            ),
+          }),
+      });
+    });
+    const queryClient = renderPanel({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+      fetchMock,
+    });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    // La refetch propia del delete (profile B) tuvo éxito: dataUpdatedAt
+    // avanzó y el guard ya se auto-limpió.
+    await vi.waitFor(() =>
+      expect(screen.queryByText('Supermercado')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Un fallo posterior, sin relación con el delete (p.ej. un refetch por
+    // window refocus horas después), debe caer en la página completa de
+    // error — no en el guard inline que protegía el delete.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    await queryClient.refetchQueries({ queryKey: CATEGORIAS_QUERY_KEY });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', {
+        level: 2,
+        name: 'Categorías y patrones',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * judgment-day PR #5 (SUGGESTION, Judge B): while the inline error path
+   * (`eliminadoRecientemente`) is up, the catalog fetch is genuinely
+   * failing — offering `Nueva categoría` in that state is confusing even
+   * though nothing crashes (`NuevaCategoriaForm` doesn't read `query.data`).
+   * Same deferred-promise idiom as the round-2 test: assert the button is
+   * gone only AFTER the background refetch has actually settled as a
+   * failure, not merely mid-flight.
+   */
+  it('mientras el ErrorState inline está activo por un delete cuyo refetch falló, el botón Nueva categoría no se muestra', async () => {
+    const user = userEvent.setup();
+    let resolverRefetch!: (value: {
+      readonly ok: boolean;
+      readonly status: number;
+    }) => void;
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return new Promise<{ ok: boolean; status: number }>((resolve) => {
+        resolverRefetch = resolve;
+      });
+    });
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO, fetchMock });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          level: 2,
+          name: 'Categorías y patrones',
+        }),
+      ).toHaveFocus(),
+    );
+
+    resolverRefetch({ ok: false, status: 500 });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Nueva categoría' }),
+    ).not.toBeInTheDocument();
   });
 
   it('un refetch fallido de ["categorias"] con el form abierto NO destruye el draft en progreso (judgment-day PR #336/#337, fix 1)', async () => {

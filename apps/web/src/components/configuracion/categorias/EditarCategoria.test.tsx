@@ -249,6 +249,22 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
     expect(guardar).toHaveAttribute('form', 'form-identidad');
   });
 
+  /**
+   * PR #5, task 45 (design.md §1/Q10b, WCTG-13, WCTG-14): stock Tailwind
+   * `sm` (640px), no new tier in `layout.ts`. At 360px `grid-cols-1` stacks
+   * Nombre/Bucket; at T3/880px `sm:grid-cols-[1fr_220px]` renders them
+   * `356+200` side by side, within the fluid band. This is a class-name
+   * pin, not a rendered-geometry assertion — jsdom performs no layout
+   * (same honest limit as `estilos.ts`'s `CLASE_BOTON_ICONO`, Q10c).
+   */
+  it('el grid de Nombre/Bucket lleva grid-cols-1 (apilado a 360px) y sm:grid-cols-[1fr_220px] (lado a lado a 880px, Q10b)', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await screen.findByLabelText('Nombre');
+
+    const form = document.getElementById('form-identidad');
+    expect(form).toHaveClass('grid', 'grid-cols-1', 'sm:grid-cols-[1fr_220px]');
+  });
+
   it('un envío limpio (solo Nombre cambia, Bucket intacto) emite EXACTAMENTE una mutación — PATCH a /api/categorias/cat-1, nunca a /api/patrones', async () => {
     // El refetch de fondo de ['categorias'] que dispara la invalidación del
     // perfil B tras el éxito también pasa por `fetch` (un GET, sin `method`
