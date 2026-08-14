@@ -397,6 +397,84 @@ describe('CategoriasPanel', () => {
     expect(new Set(nombresAccesibles).size).toBe(2);
   });
 
+  /**
+   * judgment-day ROUND 2, issue 1 (WARNING, both judges): the heading gets
+   * `focus:outline-none` with no replacement, so the WCAG 2.4.3 focus-restore
+   * fix above lands on an invisible target for a sighted keyboard user.
+   * jsdom performs no layout/paint, so this assertion can only prove the
+   * `focus-visible:outline-*` classes are present on the element — it does
+   * NOT prove a ring actually renders on screen.
+   */
+  it('el heading tiene las clases focus-visible:outline-* (mismo idioma que ListaIngestas/SubirCartola) — prueba la clase, no el render visual', async () => {
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Categorías y patrones',
+    });
+    expect(heading).toHaveClass(
+      'focus-visible:outline',
+      'focus-visible:outline-2',
+      'focus-visible:outline-ring',
+    );
+    expect(heading).not.toHaveClass('focus:outline-none');
+  });
+
+  /**
+   * judgment-day ROUND 2, issue 2 (WARNING, both judges): the same
+   * successful delete that focuses `tituloRef` also triggers profile B's
+   * background refetch of `['categorias']`. If THAT refetch fails, the
+   * unconditional `if (query.isError && !creando) return <ErrorState/>`
+   * unmounts the whole panel — including the just-focused heading — so
+   * focus silently drops to `<body>` and the user never sees confirmation
+   * the delete itself worked. Deferred promise for the background GET
+   * (not `mockResolvedValue`) so the test can assert the mid-flight/
+   * post-failure render, not just the final settled state.
+   */
+  it('un refetch fallido de ["categorias"] tras un delete exitoso NO destruye el heading recién enfocado', async () => {
+    const user = userEvent.setup();
+    let resolverRefetch!: (value: {
+      readonly ok: boolean;
+      readonly status: number;
+    }) => void;
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return new Promise<{ ok: boolean; status: number }>((resolve) => {
+        resolverRefetch = resolve;
+      });
+    });
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO, fetchMock });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          level: 2,
+          name: 'Categorías y patrones',
+        }),
+      ).toHaveFocus(),
+    );
+
+    resolverRefetch({ ok: false, status: 500 });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Categorías y patrones' }),
+    ).toHaveFocus();
+  });
+
   it('un refetch fallido de ["categorias"] con el form abierto NO destruye el draft en progreso (judgment-day PR #336/#337, fix 1)', async () => {
     const user = userEvent.setup();
     const queryClient = renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
