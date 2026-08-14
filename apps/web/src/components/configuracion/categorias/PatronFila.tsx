@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import { useId, useRef, useState } from 'react';
+import type { FocusEvent, KeyboardEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCrearPatron } from '@/api/use-crear-patron';
@@ -57,6 +57,13 @@ const OPCIONES_MATCH_TYPE = MATCH_TYPES.map((matchType) => ({
  * Errors from any of the three mutations render `mensajeDeErrorCatalogo` in
  * a `role="alert"` — the same closed-table discipline as every other
  * mutation surface in this feature (never a server-supplied string).
+ *
+ * **`onAnunciar` (judgment-day round 2 WARNING)**: optional callback fired
+ * with a Spanish sentence on every successful mutation (`crear`/
+ * `actualizar`/`eliminar`). This component does NOT render its own
+ * `aria-live` region any more — see `PatronesSection`'s docblock for why
+ * (the region has to survive this row's own unmount, which a per-row span
+ * cannot).
  */
 export function PatronFila({
   categoriaId,
@@ -64,6 +71,7 @@ export function PatronFila({
   esDemo,
   bloqueado = false,
   onDescartar,
+  onAnunciar,
 }: {
   readonly categoriaId: string;
   readonly patron?: PatronDto;
@@ -77,6 +85,8 @@ export function PatronFila({
    */
   readonly bloqueado?: boolean;
   readonly onDescartar?: () => void;
+  /** See this component's docblock, "`onAnunciar`". */
+  readonly onAnunciar?: (mensaje: string) => void;
 }) {
   const crear = useCrearPatron();
   const actualizar = useActualizarPatron();
@@ -86,35 +96,50 @@ export function PatronFila({
   const [matchType, setMatchType] = useState<string>(
     patron?.matchType ?? MATCH_TYPES[0],
   );
+  // Last value actually sent to the server (or the row's initial loaded
+  // value) — the dirty-check baseline for `commit()` below. Judgment-day
+  // round 2: only advances on a SUCCESSFUL `actualizar`, never
+  // optimistically — a failed `PATCH` must stay retryable on the very next
+  // identical-looking blur/Enter, not get silently swallowed by the dirty
+  // check.
+  const [ultimoComprometido, setUltimoComprometido] = useState({
+    valor: patron?.patron ?? '',
+    matchType: patron?.matchType ?? MATCH_TYPES[0],
+  });
 
   const idCreado = patron?.id;
+  const filaId = useId();
+  const botonEliminarRef = useRef<HTMLButtonElement>(null);
 
   const bloqueadoTotal = esDemo || bloqueado;
 
-  // Judgment-day finding (PR #4, 2026-08-14): `commit()`/`eliminarFila()`
-  // had NO preconditions beyond `esDemo` — each symptom (a re-entrant POST
-  // on a not-yet-created row, an empty-value commit, a delete racing an
-  // in-flight create) got patched individually across FOUR review rounds of
-  // the PREVIOUS PR (#3b); an ad-hoc `disabled` per symptom kept closing one
-  // case and opening an adjacent one. `filaOcupada` is the ONE precondition
-  // both functions below share: while ANY of this row's three mutations
-  // (`crear`/`actualizar`/`eliminar`) is in flight, neither function does
-  // anything — this is what stops a second commit fired mid-`POST` (blur
-  // then an immediate `matchType` change, or double-Enter) from becoming a
-  // second persisted pattern, and what stops `eliminarFila` from taking the
-  // "not created yet" branch (zero network calls, `onDescartar` only) while
-  // a `POST` for the SAME row is still in flight underneath it.
+  // Judgment-day finding (PR #4, 2026-08-14, round 1): `commit()`/
+  // `eliminarFila()` had NO preconditions beyond `esDemo` — each symptom (a
+  // re-entrant POST on a not-yet-created row, an empty-value commit, a
+  // delete racing an in-flight create) got patched individually across FOUR
+  // review rounds of the PREVIOUS PR (#3b). `filaOcupada` closed those, but
+  // round 2 found it ALSO opened two new CRITICALs on its own: (a) it left
+  // `CampoSelect`/`CampoTexto` editable while their own mutation was in
+  // flight, silently discarding a second edit; (b) combined with the
+  // ambiguous `blur` commit trigger, it could disable the delete button out
+  // from under the very click that was about to fire it. `accionesBloqueadas`
+  // is still the ONE precondition every gate below shares (mutation pending,
+  // OR demo, OR an external dialog open) — round 2 additionally disables the
+  // row's OWN inputs on it (see the JSX below) and fixes the `blur` trigger
+  // itself (see `alPerderFocoPatron`) rather than adding a fifth `disabled`
+  // condition on top.
   const filaOcupada =
     crear.isPending || actualizar.isPending || eliminar.isPending;
+  const accionesBloqueadas = bloqueadoTotal || filaOcupada;
 
   function commit(overrides?: {
     readonly valor?: string;
     readonly matchType?: string;
   }) {
-    if (bloqueadoTotal || filaOcupada) {
+    if (accionesBloqueadas) {
       return;
     }
-    const valorFinal = overrides?.valor ?? valor;
+    const valorFinal = (overrides?.valor ?? valor).trim();
     const matchTypeFinal = overrides?.matchType ?? matchType;
 
     // A blank (or whitespace-only) value is "not ready to commit yet", not
@@ -122,7 +147,19 @@ export function PatronFila({
     // brand-new row by picking `matchType` before typing (the natural
     // "pick the type, then write the text" order), and on an existing row
     // by clearing the text and then changing `matchType`.
-    if (valorFinal.trim() === '') {
+    if (valorFinal === '') {
+      return;
+    }
+
+    // Dirty check (judgment-day round 2 CRITICAL #1 fix direction): nothing
+    // changed since the last successful commit — an incidental re-blur
+    // (e.g. focus bounced away and back without an edit) must not repeat an
+    // identical request. Also makes blur-commit idempotent under repeated
+    // Enter/blur on an unchanged field.
+    if (
+      valorFinal === ultimoComprometido.valor &&
+      matchTypeFinal === ultimoComprometido.matchType
+    ) {
       return;
     }
 
@@ -133,19 +170,54 @@ export function PatronFila({
           patron: valorFinal,
           matchType: matchTypeFinal as MatchType,
         },
-        { onSuccess: () => onDescartar?.() },
+        {
+          onSuccess: () => {
+            onAnunciar?.('Patrón guardado.');
+            onDescartar?.();
+          },
+        },
       );
       return;
     }
-    actualizar.mutate({
-      id: idCreado,
-      patch: { patron: valorFinal, matchType: matchTypeFinal as MatchType },
-    });
+    actualizar.mutate(
+      {
+        id: idCreado,
+        patch: { patron: valorFinal, matchType: matchTypeFinal as MatchType },
+      },
+      {
+        onSuccess: () => {
+          setUltimoComprometido({
+            valor: valorFinal,
+            matchType: matchTypeFinal,
+          });
+          onAnunciar?.('Patrón guardado.');
+        },
+      },
+    );
   }
 
   function alCambiarMatchType(nuevoMatchType: string) {
     setMatchType(nuevoMatchType);
     commit({ matchType: nuevoMatchType });
+  }
+
+  // Judgment-day round 2 CRITICAL #1 fix: `blur` is an AMBIGUOUS commit
+  // trigger — it cannot tell "I finished editing, save this" from "I am
+  // leaving this field to press this row's own delete button". A native
+  // click ALWAYS fires `blur` (with `relatedTarget` = the element about to
+  // receive focus) before dispatching `click` — so an unguarded `commit()`
+  // here starts a real mutation for text the user is about to discard, and
+  // (for a not-yet-created row) that create's `onSuccess` unconditionally
+  // re-adds the pattern the user tried to delete. Comparing
+  // `event.relatedTarget` against the delete button's own ref fixes the
+  // TRIGGER instead of gating the CONSEQUENCE — and, unlike
+  // `onMouseDown`+`preventDefault()`, this also covers keyboard Tab onto the
+  // delete button, not just a mouse click.
+  function alPerderFocoPatron(event: FocusEvent<HTMLInputElement>) {
+    if (event.relatedTarget === botonEliminarRef.current) {
+      return;
+    }
+    commit();
   }
 
   function alPresionarTecla(event: KeyboardEvent<HTMLInputElement>) {
@@ -156,14 +228,16 @@ export function PatronFila({
   }
 
   function eliminarFila() {
-    if (bloqueadoTotal || filaOcupada) {
+    if (accionesBloqueadas) {
       return;
     }
     if (idCreado === undefined) {
       onDescartar?.();
       return;
     }
-    eliminar.mutate(idCreado);
+    eliminar.mutate(idCreado, {
+      onSuccess: () => onAnunciar?.('Patrón eliminado.'),
+    });
   }
 
   const regexInvalida = (() => {
@@ -186,6 +260,28 @@ export function PatronFila({
         ? eliminar.error
         : null;
 
+  // Judgment-day round 2 SUGGESTION: associate the REGEX hint and the error
+  // with the `Patrón` input via `aria-describedby` so a screen-reader user
+  // returning to the field gets a persistent association, not just a
+  // one-time announcement. Only the ids that are actually rendered go in.
+  const idHint = `${filaId}-hint`;
+  const idError = `${filaId}-error`;
+  const describedBy =
+    [regexInvalida && idHint, errorMutacion && idError]
+      .filter((id): id is string => Boolean(id))
+      .join(' ') || undefined;
+
+  // Judgment-day round 2 SUGGESTION: trim before sending AND before
+  // building the accessible name — leading/trailing whitespace in `valor`
+  // silently changes CONTAINS/STARTS_WITH matching semantics, and an
+  // untrimmed `aria-label` would echo that same invisible whitespace back to
+  // a screen-reader user. Applied uniformly, including REGEX — this project
+  // has no `MatchType` where trailing/leading whitespace is a documented,
+  // intentional part of the pattern, so special-casing REGEX here would be
+  // silent, undiscussed behavior for a case nobody has asked for (see this
+  // PR's fix report for the explicit call-out).
+  const valorParaEtiqueta = valor.trim();
+
   return (
     <li className="flex flex-wrap items-start gap-2 border-b border-border py-2 last:border-b-0">
       <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2">
@@ -194,23 +290,27 @@ export function PatronFila({
           value={matchType}
           onChange={alCambiarMatchType}
           options={OPCIONES_MATCH_TYPE}
-          disabled={bloqueadoTotal}
+          disabled={accionesBloqueadas}
         />
         <CampoTexto
           label="Patrón"
           value={valor}
           onChange={setValor}
-          disabled={bloqueadoTotal}
-          onBlur={() => commit()}
+          disabled={accionesBloqueadas}
+          onBlur={alPerderFocoPatron}
           onKeyDown={alPresionarTecla}
+          ariaDescribedBy={describedBy}
         />
       </div>
       <button
+        ref={botonEliminarRef}
         type="button"
-        disabled={bloqueadoTotal || filaOcupada}
+        disabled={accionesBloqueadas}
         onClick={eliminarFila}
         aria-label={
-          valor ? `Eliminar patrón ${valor}` : 'Eliminar patrón nuevo'
+          valorParaEtiqueta
+            ? `Eliminar patrón ${valorParaEtiqueta}`
+            : 'Eliminar patrón nuevo'
         }
         className={cn(
           CLASE_BOTON_ICONO,
@@ -219,16 +319,13 @@ export function PatronFila({
       >
         <Trash2 aria-hidden="true" className="size-[18px]" />
       </button>
-      <span aria-live="polite" className="sr-only">
-        {actualizar.isSuccess ? 'Patrón guardado.' : ''}
-      </span>
       {regexInvalida && (
-        <p role="status" className="w-full text-xs text-amber-600">
+        <p id={idHint} role="status" className="w-full text-xs text-amber-600">
           Esa expresión regular podría no ser válida.
         </p>
       )}
       {errorMutacion && (
-        <p role="alert" className="w-full text-xs text-red-600">
+        <p id={idError} role="alert" className="w-full text-xs text-red-600">
           {mensajeDeErrorCatalogo(errorMutacion)}
         </p>
       )}

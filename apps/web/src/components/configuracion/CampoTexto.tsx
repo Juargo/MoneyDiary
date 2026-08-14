@@ -25,6 +25,12 @@ import type { ChangeEvent, FocusEvent, KeyboardEvent, Ref } from 'react';
  * mecanismo "commits on blur-or-Enter" — los cuatro usos existentes de
  * `PerfilForm`/`NuevaCategoriaForm`/`EditarCategoria` no los pasan, así que
  * esta extensión es puramente aditiva.
+ *
+ * `ariaDescribedBy` (US-043 PR #4, judgment-day round 2 SUGGESTION):
+ * opcional, pass-through a `aria-describedby`. `PatronFila` lo usa para
+ * asociar su hint de REGEX (`role="status"`) y su error (`role="alert"`)
+ * con el `<input>` `Patrón` — mismo criterio aditivo que `onBlur`/
+ * `onKeyDown`, los demás usos no lo pasan.
  */
 export const CampoTexto = forwardRef(function CampoTexto(
   {
@@ -37,6 +43,7 @@ export const CampoTexto = forwardRef(function CampoTexto(
     autoComplete,
     onBlur,
     onKeyDown,
+    ariaDescribedBy,
   }: {
     readonly label: string;
     readonly value: string;
@@ -47,6 +54,7 @@ export const CampoTexto = forwardRef(function CampoTexto(
     readonly autoComplete?: string;
     readonly onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
     readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+    readonly ariaDescribedBy?: string;
   },
   ref: Ref<HTMLInputElement>,
 ) {
@@ -65,6 +73,7 @@ export const CampoTexto = forwardRef(function CampoTexto(
         required={required}
         disabled={disabled}
         autoComplete={autoComplete}
+        aria-describedby={ariaDescribedBy}
         className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
       />
     </label>

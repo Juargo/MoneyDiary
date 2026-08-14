@@ -51,13 +51,20 @@ describe('PatronFila — fila existente', () => {
     ).toBeInTheDocument();
   });
 
-  it('blur después de editar Patrón commitea EXACTAMENTE un PATCH /api/patrones/:id y anuncia "Patrón guardado." (mecanismo 2)', async () => {
+  it('blur después de editar Patrón commitea EXACTAMENTE un PATCH /api/patrones/:id y llama a onAnunciar("Patrón guardado.") (mecanismo 2, judgment-day round 2: el aria-live vive ahora en PatronesSection — ver PatronesSection.test.tsx)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     vi.stubGlobal('fetch', fetchMock);
+    const onAnunciar = vi.fn();
 
-    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
-      wrapper: crearWrapper(),
-    });
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        patron={PATRON}
+        esDemo={false}
+        onAnunciar={onAnunciar}
+      />,
+      { wrapper: crearWrapper() },
+    );
 
     const input = screen.getByLabelText('Patrón');
     fireEvent.change(input, { target: { value: 'spotify' } });
@@ -72,7 +79,9 @@ describe('PatronFila — fila existente', () => {
       }),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText('Patrón guardado.')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(onAnunciar).toHaveBeenCalledWith('Patrón guardado.'),
+    );
   });
 
   it('Enter (sin blur previo) también commitea', async () => {
@@ -217,7 +226,7 @@ describe('PatronFila — fila existente', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('un segundo commit disparado mientras el PRIMER PATCH está en vuelo (actualizar.isPending) NO dispara un segundo PATCH', async () => {
+  it('un segundo commit disparado mientras el PRIMER PATCH está en vuelo (actualizar.isPending) NO dispara un segundo PATCH, y Patrón/Tipo de coincidencia quedan deshabilitados mientras tanto (judgment-day round 2 CRITICAL: evita perder una segunda edición en silencio)', async () => {
     let resolverFetch: (value: {
       ok: boolean;
       status: number;
@@ -228,6 +237,61 @@ describe('PatronFila — fila existente', () => {
           resolverFetch = resolve;
         }),
     );
+    vi.stubGlobal('fetch', fetchMock);
+    const onAnunciar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        patron={PATRON}
+        esDemo={false}
+        onAnunciar={onAnunciar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón');
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // In-flight assertion BEFORE resolving (deferred promise, not
+    // `mockResolvedValue`) — both fields must be disabled while THIS row's
+    // own mutation is in flight, otherwise a second edit here would update
+    // local state, `commit()` would silently drop it on `filaOcupada`, and
+    // the field would keep showing an unsent edit reported as "saved".
+    expect(screen.getByLabelText('Patrón')).toBeDisabled();
+    expect(screen.getByLabelText('Tipo de coincidencia')).toBeDisabled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolverFetch({ ok: true, status: 200 });
+    await waitFor(() =>
+      expect(onAnunciar).toHaveBeenCalledWith('Patrón guardado.'),
+    );
+    expect(screen.getByLabelText('Patrón')).not.toBeDisabled();
+    expect(screen.getByLabelText('Tipo de coincidencia')).not.toBeDisabled();
+  });
+
+  it('un blur con el MISMO valor y matchType que el último commit conocido NO dispara un PATCH (dirty check, judgment-day round 2)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
+      wrapper: crearWrapper(),
+    });
+
+    // No edit at all — blur with the value exactly as loaded from `patron`.
+    fireEvent.blur(screen.getByLabelText('Patrón'));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('tras un PATCH exitoso, un blur posterior con el MISMO valor ya guardado no repite el PATCH (dirty check idempotente)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />, {
@@ -240,12 +304,12 @@ describe('PatronFila — fila existente', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
-    fireEvent.keyDown(input, { key: 'Enter' });
+    // Same value as just committed — an incidental second blur (e.g. focus
+    // bounced away and back) must not repeat the request.
+    fireEvent.blur(input);
 
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    resolverFetch({ ok: true, status: 200 });
-    await screen.findByText('Patrón guardado.');
   });
 
   it('sesión demo: Patrón, Tipo de coincidencia y el botón eliminar quedan deshabilitados (WCTG-11)', () => {
@@ -388,7 +452,57 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('eliminar mientras el POST de creación está en vuelo queda bloqueado (botón deshabilitado, sin llamar a onDescartar hasta que resuelva)', async () => {
+  it('escribir texto y luego hacer CLIC en eliminar (el clic dispara el blur del propio Patrón, con relatedTarget = el botón) NO commitea el patrón: cero POST, la fila se descarta de inmediato (judgment-day round 2 CRITICAL — reemplaza la versión anterior de este test, que pinneaba el estado final incorrecto: el "bloqueo" del botón hacía que el POST igual aterrizara y el patrón que el usuario quería descartar terminaba persistido)', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201 });
+    vi.stubGlobal('fetch', fetchMock);
+    const onDescartar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        esDemo={false}
+        onDescartar={onDescartar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    // `user.type` (not `fireEvent.change`) so the input genuinely holds
+    // focus, matching the real "type, then click the trash icon" gesture —
+    // a real click always blurs the previously-focused element first.
+    await user.type(screen.getByLabelText('Patrón'), 'uber');
+    await user.click(screen.getByRole('button', { name: /eliminar patrón/i }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onDescartar).toHaveBeenCalledTimes(1);
+  });
+
+  it('escribir texto y luego Tab hacia el botón eliminar (sin clic) tampoco commitea — el mecanismo cubre teclado, no solo mouse', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const onDescartar = vi.fn();
+
+    render(
+      <PatronFila
+        categoriaId="cat-1"
+        esDemo={false}
+        onDescartar={onDescartar}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await user.type(screen.getByLabelText('Patrón'), 'uber');
+    await user.tab();
+
+    expect(
+      screen.getByRole('button', { name: /eliminar patrón/i }),
+    ).toHaveFocus();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(onDescartar).not.toHaveBeenCalled();
+  });
+
+  it('eliminar mientras el POST de creación está en vuelo (disparado por un blur AJENO al clic de eliminar) queda bloqueado hasta que resuelve, y la fila se descarta igual al resolver — escenario distinto de la race del clic, cubierto arriba', async () => {
     const user = userEvent.setup();
     let resolverFetch: (value: {
       ok: boolean;
@@ -414,6 +528,9 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
 
     const input = screen.getByLabelText('Patrón');
     fireEvent.change(input, { target: { value: 'uber' } });
+    // A blur UNRELATED to the delete button (e.g. the user tabbed to the
+    // Tipo de coincidencia select, or clicked elsewhere) — this is a
+    // legitimate commit trigger, not the ambiguous race above.
     fireEvent.blur(input);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -421,9 +538,6 @@ describe('PatronFila — fila nueva (sin patrón todavía creado)', () => {
     const boton = screen.getByRole('button', { name: /eliminar patrón/i });
     expect(boton).toBeDisabled();
 
-    // Against the OLD implementation this click takes the "not created
-    // yet" branch — zero network calls, `onDescartar` fires immediately —
-    // while the in-flight `POST` still lands underneath it.
     await user.click(boton);
     expect(onDescartar).not.toHaveBeenCalled();
 
