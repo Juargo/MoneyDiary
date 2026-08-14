@@ -195,6 +195,26 @@ describe('CategoriasPanel', () => {
     );
   });
 
+  it('el error de la lista usa mensajeDeErrorCatalogo, no el error.message crudo — misma copia que la pantalla de edición (WCTG-12)', async () => {
+    // Un 2xx cuyo body falla `esCatalogoDto` produce `tag: 'parse'`, cuyo
+    // `error.message` ('Respuesta inesperada del servidor.') difiere de la
+    // copia del catálogo. Es el caso que distingue las dos superficies: para
+    // `network` y para un 500 sin `code` ambas tablas coinciden por
+    // casualidad, así que un test sobre esos sería vacuo.
+    renderPanel({
+      me: ME_NO_DEMO,
+      fetchMock: vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ categorias: 'no es un array' }),
+      }),
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo procesar la solicitud. Revisa los datos e intenta nuevamente.',
+    );
+  });
+
   it('una sesión demo ve el banner role="note" con MENSAJE_DEMO_CATALOGO — y el catálogo igual renderiza (WCTG-11)', async () => {
     renderPanel({ me: ME_DEMO, categorias: CATALOGO });
 
