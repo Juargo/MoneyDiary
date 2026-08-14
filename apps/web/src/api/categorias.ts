@@ -1,3 +1,4 @@
+import type { BucketAsignable, MatchType } from './catalogo-constantes';
 import type { ApiError, ApiResult } from './client';
 import type { CatalogoDto, CategoriaDto, PatronDto } from './types';
 
@@ -11,6 +12,13 @@ import type { CatalogoDto, CategoriaDto, PatronDto } from './types';
  * `perfil.ts`'s `enviarMutacion`/`errorConCodigo`, repetido en un segundo
  * archivo en vez de un import cruzado: los dos módulos evolucionan por
  * razones distintas (perfil vs. catálogo) y no comparten un tipo de patch.
+ *
+ * ⚠️ SEGUNDA ocurrencia — la tercera OBLIGA a extraer (`dry`: 1ª escribe,
+ * 2ª anota, 3ª extrae). Y la justificación de arriba NO cubre a
+ * `errorConCodigo`: es agnóstico al tipo (`Response -> ApiError`) y nunca
+ * toca un patch, así que hoy son dos copias idénticas sin nada que las
+ * enlace — un fix en una no se propaga a la otra y ni tsc ni eslint lo
+ * detectan. Hallazgo de judgment-day sobre PR #334 (ambos jueces).
  *
  * Los bodies de éxito de las seis mutaciones se DESCARTAN sin leerlos — el
  * estado fresco llega por la invalidación de `['categorias']`
@@ -194,14 +202,23 @@ export async function fetchCatalogo(): Promise<ApiResult<CatalogoDto>> {
   return { ok: true, value: body };
 }
 
+/**
+ * Los tipos de ESCRITURA usan las uniones literales de `catalogo-constantes.ts`;
+ * los de LECTURA (guards) no. No es una inconsistencia: en la respuesta el
+ * servidor es la autoridad y un valor nuevo no debe romper el parseo (Q2b,
+ * ADR-024), pero lo que el cliente ENVÍA sí conviene fijarlo en compilación —
+ * si no, un `bucket: 'necesidades'` mal capitalizado sólo se descubre como
+ * `400 BUCKET_NO_ASIGNABLE` en runtime. Hallazgo de judgment-day sobre PR #334,
+ * confirmado por ambos jueces.
+ */
 export type CategoriaInput = {
   readonly nombre: string;
-  readonly bucket: string;
+  readonly bucket: BucketAsignable;
 };
 
 export type CategoriaPatch = {
   readonly nombre?: string;
-  readonly bucket?: string;
+  readonly bucket?: BucketAsignable;
 };
 
 /**
@@ -212,12 +229,12 @@ export type CategoriaPatch = {
 export type PatronInput = {
   readonly categoriaId: string;
   readonly patron: string;
-  readonly matchType: string;
+  readonly matchType: MatchType;
 };
 
 export type PatronPatch = {
   readonly patron?: string;
-  readonly matchType?: string;
+  readonly matchType?: MatchType;
 };
 
 /** `POST /api/categorias` — CAT038-01. Body de éxito descartado (Q2a). */
