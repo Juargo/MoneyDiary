@@ -98,8 +98,21 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           disabled={me.esDemo}
         />
       </div>
+      {/*
+        `mb-4` en el `legend`, no en el `fieldset`: un `<legend>` NO es un flex
+        item. El browser lo saca del flujo y lo posiciona sobre el borde del
+        fieldset, así que el `gap-4` de acá arriba separa los `CampoTexto`
+        entre sí pero NUNCA alcanza al legend — el rótulo quedaba pegado a
+        `Password actual` y los dos se leían como un bloque de dos líneas en
+        vez de un título con su sección. El `mb-4` reproduce a mano el mismo
+        ritmo que el `gap` da al resto.
+
+        Encontrado mirando la página desplegada, no por un test: jsdom no hace
+        layout, así que ninguna aserción de este repo puede ver un problema de
+        espaciado. Si tocás este bloque, verificalo en un browser.
+      */}
       <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
-        <legend className="p-0 text-sm font-semibold text-slate-700">
+        <legend className="mb-4 p-0 text-sm font-semibold text-slate-700">
           Cambiar password
         </legend>
         <CampoTexto
