@@ -169,3 +169,42 @@ export type { PreviewTransaccionDto } from '@moneydiary/api-client';
  * selector 10/25/50 (CA-01, PREV-06) re-slicea client-side, sin re-request.
  */
 export type { PreviewIngestaDto } from '@moneydiary/api-client';
+
+/**
+ * `PatronDto`/`CategoriaDto`/`CatalogoDto` — contrato HTTP del catálogo de
+ * clasificación por usuario (US-038/US-043, design.md §1/Q2a). **Excepción
+ * ADR-008 declarada**: a diferencia del resto de este archivo, estos tres
+ * tipos NO vienen de `@moneydiary/api-client` — `openapi.json` todavía no
+ * cubre `GET/POST/PATCH/DELETE /api/categorias` ni `/api/patrones` (esos
+ * schemas Zod existen en el backend pero el paquete generado no se ha
+ * regenerado para incluirlos). Se escriben a mano, verificados campo por
+ * campo contra los mappers del backend
+ * (`apps/api/src/infrastructure/http/dto/{categoria,patron,catalogo}.dto.ts`)
+ * — no importados, solo mirrored. Verificados por los runtime guards de
+ * `api/categorias.ts` (task 12), no por un test standalone propio.
+ *
+ * `matchType`/`bucket` son `string` plano, no la unión literal del web
+ * (`BucketAsignable`/`MatchType` en `catalogo-constantes.ts`) — el servidor
+ * es la autoridad de validez (ADR-024); una categoría con un bucket que el
+ * web no reconoce debe poder listarse igual (design.md Q4c), no rechazarse
+ * como un parse failure.
+ */
+export interface PatronDto {
+  readonly id: string;
+  readonly categoriaId: string;
+  readonly patron: string;
+  readonly matchType: string;
+  readonly prioridad: number;
+}
+
+export interface CategoriaDto {
+  readonly id: string;
+  readonly nombre: string;
+  readonly bucket: string;
+  readonly patrones: ReadonlyArray<PatronDto>;
+  readonly transaccionesCount: number;
+}
+
+export interface CatalogoDto {
+  readonly categorias: ReadonlyArray<CategoriaDto>;
+}
