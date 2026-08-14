@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useActualizarCategoria } from '@/api/use-actualizar-categoria';
@@ -10,7 +10,8 @@ import type { CategoriaDto } from '@/api/types';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
-import { mensajeDeErrorCatalogo } from './mensajes-catalogo';
+import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
+import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
 
 const OPCIONES_BUCKET = BUCKETS_ASIGNABLES.map((bucket) => ({
   value: bucket,
@@ -113,6 +114,18 @@ export function EditarCategoria({
  * unambiguous, unlike `Cancelar`/`Eliminar categoría` which need
  * disambiguation because a screen reader could otherwise conflate them
  * with `NuevaCategoriaForm`'s own `Cancelar`, §1/Q3b mechanism 3).
+ *
+ * **Bucket-change impact confirmation** (§1/Q3b, task 33, WCTG-07 — ships
+ * in the SAME task as the `PATCH` that can trigger it, non-negotiable #3):
+ * `guardarIdentidad` never calls `useActualizarCategoria` directly when
+ * `bucket` is dirty relative to the loaded `categoria.bucket` — it opens
+ * `ConfirmarImpactoDialog` with `fraseDeImpacto({tipo:'cambiar-bucket', …})`
+ * instead. Only `confirmarCambioBucket` (the dialog's `onConfirmar`) fires
+ * the mutation. Escape/`Cancelar` on the dialog closes it via
+ * `cerrarDialogo` WITHOUT touching `bucket` — the dirty draft stays on
+ * screen exactly as `EliminarIngestaControl`'s precedent behaves, and focus
+ * returns to `Guardar` (`guardarRef`), not to the `<select>` — `Guardar` is
+ * what opened the dialog.
  */
 function EditarCategoriaCargada({
   categoria,
@@ -122,6 +135,10 @@ function EditarCategoriaCargada({
   const actualizacion = useActualizarCategoria();
   const [nombre, setNombre] = useState(categoria.nombre);
   const [bucket, setBucket] = useState(categoria.bucket);
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const guardarRef = useRef<HTMLButtonElement>(null);
+
+  const bucketSucio = bucket !== categoria.bucket;
 
   function cancelarIdentidad() {
     setNombre(categoria.nombre);
@@ -130,10 +147,29 @@ function EditarCategoriaCargada({
 
   function guardarIdentidad(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (bucketSucio) {
+      setDialogoAbierto(true);
+      return;
+    }
     actualizacion.mutate({
       id: categoria.id,
       patch: { nombre, bucket: bucket as BucketAsignable },
     });
+  }
+
+  function confirmarCambioBucket() {
+    actualizacion.mutate(
+      {
+        id: categoria.id,
+        patch: { nombre, bucket: bucket as BucketAsignable },
+      },
+      { onSuccess: () => setDialogoAbierto(false) },
+    );
+  }
+
+  function cerrarDialogo() {
+    setDialogoAbierto(false);
+    guardarRef.current?.focus();
   }
 
   return (
@@ -175,7 +211,14 @@ function EditarCategoriaCargada({
         />
       </form>
 
-      {actualizacion.isError && (
+      {/*
+        `!dialogoAbierto`: `actualizacion` is the SAME mutation for both the
+        direct (bucket-clean) save and the dialog-gated (bucket-dirty)
+        confirm — while the dialog is open, ITS OWN inline `error` prop
+        already renders this exact message; showing both here too would
+        duplicate the alert on a failed bucket-change confirm.
+      */}
+      {actualizacion.isError && !dialogoAbierto && (
         <p role="alert" className="text-sm text-red-600">
           {mensajeDeErrorCatalogo(actualizacion.error)}
         </p>
@@ -192,6 +235,7 @@ function EditarCategoriaCargada({
           Cancelar
         </button>
         <button
+          ref={guardarRef}
           type="submit"
           form="form-identidad"
           disabled={actualizacion.isPending}
@@ -200,6 +244,26 @@ function EditarCategoriaCargada({
           Guardar
         </button>
       </div>
+
+      {dialogoAbierto && (
+        <ConfirmarImpactoDialog
+          {...fraseDeImpacto({
+            tipo: 'cambiar-bucket',
+            nombre: categoria.nombre,
+            transaccionesCount: categoria.transaccionesCount,
+            bucketAnterior: categoria.bucket,
+            bucketNuevo: bucket,
+          })}
+          pendiente={actualizacion.isPending}
+          error={
+            actualizacion.isError
+              ? mensajeDeErrorCatalogo(actualizacion.error)
+              : null
+          }
+          onConfirmar={confirmarCambioBucket}
+          onCancelar={cerrarDialogo}
+        />
+      )}
     </div>
   );
 }

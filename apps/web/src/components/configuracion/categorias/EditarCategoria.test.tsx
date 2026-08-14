@@ -257,3 +257,135 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
     expect(screen.getByLabelText('Nombre')).toHaveValue('Supermercado');
   });
 });
+
+/**
+ * Task 33 — the bucket-change impact confirmation, in the SAME task as the
+ * `PATCH` that can trigger it (non-negotiable #3). When `Bucket` is dirty
+ * relative to the loaded value, `Guardar`'s submit handler opens
+ * `ConfirmarImpactoDialog` with `fraseDeImpacto({tipo:'cambiar-bucket', …})`
+ * instead of calling `useActualizarCategoria` directly (design.md §1/Q3b,
+ * task 33, WCTG-07).
+ */
+describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('un Bucket sucio abre el diálogo de confirmación en vez de emitir el PATCH directamente', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const form = document.getElementById('form-identidad') as HTMLFormElement;
+    fireEvent.submit(form);
+
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('el diálogo muestra fraseDeImpacto para cambiar-bucket — título, ambos buckets vía A1, y el conteo de transacciones cargado', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+
+    expect(await screen.findByText('Cambiar el bucket')).toBeInTheDocument();
+    expect(
+      screen.getByText('«Supermercado» pasa de Necesidades a Gustos.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Esto mueve 3 transacciones en TODOS los períodos, incluidos los meses ya cerrados.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('confirmar el diálogo llama a la mutación PATCH con el nuevo bucket', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Cambiar bucket',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nombre: 'Supermercado', bucket: 'Deseos' }),
+      }),
+    );
+  });
+
+  it('Escape cierra el diálogo, restaura el foco a Guardar y NO emite ninguna request — Bucket sigue sucio en pantalla', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar' })).toHaveFocus();
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue('Deseos');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('un confirm fallido mantiene el diálogo abierto con el error inline (no se cierra en falla)', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    const dialogo = await screen.findByRole('alertdialog');
+
+    await user.click(
+      within(dialogo).getByRole('button', { name: 'Cambiar bucket' }),
+    );
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+      'Ocurrió un error inesperado. Intenta nuevamente.',
+    );
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  });
+});
