@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { Check } from 'lucide-react';
+import type { ApiError } from '@/api/client';
 import type { MeDto } from '@/api/types';
 import {
   useDesvincularGoogle,
@@ -16,8 +19,11 @@ const DESCRIPCION_DESVINCULAR =
  * GoogleVinculoSection — el tercer bloque de CA-02 (US-042 design.md
  * §1/Q1a/Q7c, WCFG-02/WCFG-08/WCFG-12). Dos estados ESTRUCTURALMENTE
  * simétricos, ambos leídos de `me.googleVinculado`:
- * - vinculada: pill verde (`--color-vinculo-activo*`, Q11) `Vinculada:
- *   {me.email}` + `Desvincular`.
+ * - vinculada: pill verde (`--color-vinculo-activo*`, Q11) con un ícono
+ *   `Check` (`aria-hidden`, decorativo — el texto adyacente ya nombra el
+ *   estado) + `Vinculada: {me.email}` + `Desvincular`. El ícono es el
+ *   segundo carrier de significado que Q11 exige: el color por sí solo no
+ *   puede ser la única señal (WCAG 1.4.1).
  * - no vinculada: pill neutra (`bg-muted`/`text-muted-foreground`) `No
  *   vinculada` + `Vincular con Google`.
  * `me.email === null` estando vinculada (inalcanzable hoy — una cuenta demo
@@ -57,6 +63,7 @@ export function GoogleVinculoSection({
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [abierto, setAbierto] = useState(false);
+  const navigate = useNavigate();
   const vincular = useVincularGoogle();
   const desvincular = useDesvincularGoogle();
   const mutacionActiva = me.googleVinculado ? desvincular : vincular;
@@ -73,6 +80,16 @@ export function GoogleVinculoSection({
     triggerRef.current?.focus();
   }
 
+  // WCFG-09's table is not scoped to `PerfilForm` — `tag: 'unauthorized'`
+  // navigates to `/login` with no message here too, same as `PerfilForm`'s
+  // `enviar`. A session can expire while THIS dialog is pending (link/unlink
+  // is no less likely to outlive a session than a profile save).
+  function onErrorMutacion(error: ApiError) {
+    if (error.tag === 'unauthorized') {
+      void navigate({ to: '/login' });
+    }
+  }
+
   function confirmar(passwordActual: string) {
     if (me.googleVinculado) {
       desvincular.mutate(passwordActual, {
@@ -81,14 +98,15 @@ export function GoogleVinculoSection({
           triggerRef.current?.focus();
           onDesvinculado?.();
         },
+        onError: onErrorMutacion,
       });
       return;
     }
-    vincular.mutate(passwordActual);
+    vincular.mutate(passwordActual, { onError: onErrorMutacion });
   }
 
   const pillClase = me.googleVinculado
-    ? 'rounded-full bg-vinculo-activo px-3 py-1 text-xs font-semibold text-vinculo-activo-foreground'
+    ? 'inline-flex items-center gap-1 rounded-full bg-vinculo-activo px-3 py-1 text-xs font-semibold text-vinculo-activo-foreground'
     : 'rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground';
 
   const pillTexto = me.googleVinculado
@@ -99,8 +117,8 @@ export function GoogleVinculoSection({
 
   // `mensajeDeApiError` nunca se llama con `tag: 'unauthorized'` — mismo
   // idioma que `PerfilForm`: un `''` renderizado sería un `role="alert"`
-  // vacío. Fuera de alcance de esta tarea interceptar y navegar a `/login`
-  // (no requerido por el diseño para este control).
+  // vacío. `onErrorMutacion` ya interceptó y navegó a `/login` para ese tag,
+  // así que este `null` es solo defensivo mientras esa navegación resuelve.
   const errorDialogo =
     mutacionActiva.error !== null && mutacionActiva.error.tag !== 'unauthorized'
       ? mensajeDeApiError(mutacionActiva.error, 'google')
@@ -115,7 +133,12 @@ export function GoogleVinculoSection({
         </p>
       )}
       <div className="flex items-center gap-3">
-        <span className={pillClase}>{pillTexto}</span>
+        <span className={pillClase}>
+          {me.googleVinculado && (
+            <Check aria-hidden="true" className="size-3.5" />
+          )}
+          {pillTexto}
+        </span>
         <button
           ref={triggerRef}
           type="button"

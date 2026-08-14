@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { ConfiguracionPage } from '@/components/configuracion/ConfiguracionPage';
 import type { Mensaje } from '@/components/configuracion/mensajes';
 
@@ -46,7 +46,7 @@ export const Route = createFileRoute('/_authenticated/configuracion')({
 
 function ConfiguracionRoute() {
   const { google } = Route.useSearch();
-  const navigate = useNavigate();
+  const router = useRouter();
   // Captured on the FIRST render, BEFORE the effect below strips the URL —
   // the message lives in state, not derived from the URL, and survives the
   // `replace: true` rewrite (design.md §1/Q6b). An unexpected value already
@@ -59,13 +59,22 @@ function ConfiguracionRoute() {
     if (google === undefined) {
       return;
     }
-    // `replace: true` so Back never returns to the parameterised URL — the
-    // message cannot reappear through history (design.md §1/Q6b). No
-    // `['auth-me']` invalidation here: the callback that produced this
-    // param is a full document load, so `beforeLoad` already primed the
-    // POST-link identity (Q6c) — pinned by task 6.2's "exactly once" test.
-    void navigate({ to: '/configuracion', search: {}, replace: true });
-  }, [google, navigate]);
+    // `router.history.replace(...)` rewrites the URL through TanStack
+    // Router's own history wrapper, so `router.state.location`, the address
+    // bar, and back/forward all stay coherent, and — same as `navigate()` —
+    // it IS still a REPLACE history event, which TanStack Router's
+    // `Transitioner` always turns into a fresh `router.load()` (there is no
+    // public API that rewrites the URL without doing so: even a raw
+    // `window.history.replaceState` call is intercepted the same way, since
+    // the router monkey-patches it). That re-runs `_authenticated`'s
+    // `beforeLoad` a second time for THIS landing — but `beforeLoad` is
+    // cache-aware (`fetchMeCached`/`ensureQueryData`, see
+    // `routes/_authenticated.tsx`), so the re-run is a cache hit, NOT a
+    // second `/api/auth/me` network call. Back never returns to the
+    // parameterised URL — the message cannot reappear through history
+    // (design.md §1/Q6b). Pinned by task 6.2's "exactly once" test.
+    router.history.replace('/configuracion');
+  }, [google, router]);
 
   return (
     <ConfiguracionPage

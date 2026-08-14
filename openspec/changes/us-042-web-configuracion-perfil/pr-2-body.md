@@ -103,17 +103,38 @@ Google link/unlink end to end — CA-02's third block, CA-04, WCFG-02/08/10/11/1
 6. **The demo proactive gate for `GoogleVinculoSection`** (task 5.5) — proposal §6/WCFG-07 requires
    `Vincular con Google`/`Desvincular` disabled for demo accounts too, alongside `Guardar cambios`;
    not spelled out as its own task sub-step but required by the spec's demo requirement family.
-7. **TanStack Router's `beforeLoad` re-runs on every internal navigation** (task 6.2) — the URL-cleanup
-   `navigate({replace:true})` naturally triggers a second `/api/auth/me` fetch. Confirmed this is
-   pre-existing, accepted baseline behavior (any two-hop navigation between `_authenticated` routes
-   already double-fetches identity today), not a regression, and no manual refetch/invalidate was
-   added. The 6.2 pin test isolates the landing's own `beforeLoad` with `router.load()` alone (same
-   technique as `use-me-priming.test.tsx`) rather than the cumulative count through a full render.
+7. **CORRECTED (judgment-day, PR #2 fix batch) — original point 7 was wrong, see below.** The original
+   claim was: "TanStack Router's `beforeLoad` re-runs on every internal navigation — the URL-cleanup
+   `navigate({replace:true})` naturally triggers a second `/api/auth/me` fetch... pre-existing,
+   accepted baseline behavior... not a regression." Both blind reviewers reproduced the real defect:
+   landing on `/configuracion?google=vinculado` with `ConfiguracionRoute` actually mounted fetched
+   `/api/auth/me` **twice**, 100% of the time — a real regression this PR's own cleanup effect
+   introduced, on an API that runs on Render's free tier (cold starts measured at 73s). The original
+   pin test couldn't catch it: it called `router.load()` directly without ever mounting
+   `ConfiguracionRoute` via `RouterProvider`, so the cleanup effect it claimed to cover never ran.
+   **Fix, two parts:** (a) `configuracion.tsx`'s cleanup effect now calls `router.history.replace(...)`
+   instead of `navigate(...)`; (b) `routes/_authenticated.tsx`'s `beforeLoad` now reads `['auth-me']`
+   through `context.queryClient.ensureQueryData(meQueryOptions())` instead of a raw, always-fetching
+   `fetchMe()` — this is the load-bearing half: TanStack Router's `Transitioner` re-runs `beforeLoad`
+   on ANY URL rewrite regardless of which API performs it (confirmed against `router-core` source and
+   by mutation testing), so making the SECOND `beforeLoad` run a cache hit is what actually fixes the
+   count, not the choice of rewrite API. The pin test now mounts `ConfiguracionRoute` through the real
+   `RouterProvider` and was mutation-verified: reverting (b) alone reproduces the 2-call failure.
+8. **`tag: 'unauthorized'` was silently a dead end in `GoogleVinculoSection`** (task 5.5, corrected in
+   judgment-day) — WCFG-09's copy table is not scoped to `PerfilForm`; the point-5 note above claiming
+   this was "scoped out... not required by design" was wrong. Fixed: `confirmar` now passes an
+   `onError` mutation callback that navigates to `/login` on that tag, mirroring `PerfilForm`.
+9. **The linked pill was missing the check icon design.md Q11 commits to** (task 5.5, corrected in
+   judgment-day) — "the linked pill also has a check icon and the word `Vinculada`... meaning survives
+   without colour (WCAG 1.4.1)." Added a `lucide-react` `Check`, `aria-hidden` (decorative — the
+   adjacent text already names the state).
 
 ## Gates
 
 - [x] `pnpm web typecheck` — green
-- [x] `pnpm web test` — green, **700/700** (76 files, +42 tests over PR #1b's 658)
+- [x] `pnpm web test` — green, **705/705** (76 files; 700 at original apply-time, +5 from the
+      judgment-day fix batch: the unauthorized→/login test ×2, the check-icon test, the control-case
+      fetch-count test, and the Q6b DOM-level integration test)
 - [x] `pnpm web lint` — green, 0 errors, 2 warnings (identical pre-existing
       `no-noninteractive-element-interactions` findings from PR #1a's baseline — untouched by this
       PR)

@@ -1,7 +1,9 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import type { QueryClient } from '@tanstack/react-query';
 import { UserRound } from 'lucide-react';
-import { fetchMe } from '@/api/auth';
-import { ME_QUERY_KEY } from '@/api/use-me';
+import type { ApiError, ApiResult } from '@/api/client';
+import { ME_QUERY_KEY, meQueryOptions } from '@/api/use-me';
+import type { MeDto } from '@/api/types';
 import { requireSession } from '@/lib/require-session';
 import { DemoBanner } from '@/components/DemoBanner';
 import { AppShell } from '@/components/app-shell/AppShell';
@@ -49,6 +51,19 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * identity (route context vs. query cache) that drifts the instant a
  * mutation invalidates the cache.
  *
+ * `fetchMeCached` (US-042 PR#2 fix, design.md §1/Q6c): `requireSession` is
+ * handed `context.queryClient.ensureQueryData(meQueryOptions())` instead of
+ * the raw `fetchMe`, wrapped back into the `ApiResult<MeDto>` shape
+ * `requireSession` expects. `ensureQueryData` respects `['auth-me']`'s own
+ * `staleTime` (30s, `query-client-defaults.ts`), so `beforeLoad` only issues
+ * a NEW network call when the cache is empty or stale — a raw `fetchMe()`
+ * unconditionally re-fetched on EVERY `beforeLoad` re-run, including one this
+ * layout's own children can trigger without a real navigation (the
+ * `/configuracion?google=` cleanup's `router.history.replace`, WCFG-10 Q6b,
+ * still notifies TanStack Router's `Transitioner` and re-runs `beforeLoad` —
+ * there is no public API that changes the URL without doing so). Pinned by
+ * `test/configuracion-google-aviso.test.tsx`'s task-6.2 "exactly once" test.
+ *
  * The sidebar footer also carries a compact icon link to `/configuracion`
  * (US-042 WCFG-01, proposal §1: the literal "avatar" of CA-01) — icon +
  * `aria-label="Configuración de la cuenta"`, deliberately no user name
@@ -57,9 +72,23 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * untouched: this rides the existing `sidebarFooter` prop, so the addition is
  * a one-call-site change here.
  */
+async function fetchMeCached(
+  queryClient: QueryClient,
+): Promise<ApiResult<MeDto>> {
+  try {
+    const value = await queryClient.ensureQueryData(meQueryOptions());
+    return { ok: true, value };
+  } catch (error) {
+    return { ok: false, error: error as ApiError };
+  }
+}
+
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location, context }) => {
-    const me = await requireSession(fetchMe, location.href);
+    const me = await requireSession(
+      () => fetchMeCached(context.queryClient),
+      location.href,
+    );
     context.queryClient.setQueryData(ME_QUERY_KEY, me);
     return { esDemo: me.esDemo };
   },

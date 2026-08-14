@@ -317,9 +317,17 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
   actual." Also added the demo proactive gate (disabled button + shared `role="note"`,
   `MENSAJE_DEMO_SOLO_LECTURA`) per proposal §6/WCFG-07's "Vincular con Google and Desvincular are
   rendered disabled" — not explicitly re-stated in this task's literal wording but required by the
-  spec's demo requirement family. Scoped out `tag: 'unauthorized'` → `/login` navigation (unlike
-  `PerfilForm`) — not required by design for this control and would need a full router context in
-  the component test; `mensajeDeApiError` already returns `''` for that tag defensively.**
+  spec's demo requirement family.
+  **CORRECTION (judgment-day, PR #2 fix batch): the "scoped out `tag: 'unauthorized'`" note above was
+  wrong — WCFG-09's copy table is not scoped to `PerfilForm`; `tag: 'unauthorized'` navigates to
+  `/login` with no message for EVERY consumer of that table, including this one. A session expiring
+  mid-dialog left the confirm action silently pending forever with zero feedback. Fixed: `confirmar`
+  now passes an `onError` mutation callback that navigates to `/login` on that tag, mirroring
+  `PerfilForm`'s `enviar`. Test added in `GoogleVinculoSection.test.tsx` (now router-wrapped, same
+  pattern as `PerfilForm.test.tsx`). Also, the linked pill was missing the check icon design.md Q11
+  explicitly commits to ("the linked pill also has a check icon and the word `Vinculada`... meaning
+  survives without colour, WCAG 1.4.1") — added a `lucide-react` `Check`, `aria-hidden` (decorative,
+  the adjacent text already names the state), with a test.**
 - [x] 5.6 Wire `GoogleVinculoSection` into `ConfiguracionPage.tsx`'s third block.
   **`avisoGoogle`/`onAvisoGoogleChange` added as `ConfiguracionPage` props (not yet driven by the
   route until 6.1) — the single aviso region became two (`aviso-google` polite/ok,
@@ -335,14 +343,36 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
   down to `ConfiguracionPage` as props.**
 - [x] 6.2 Pin the test: landing on `?google=vinculado` still fetches `/api/auth/me` **exactly once**
   — no manual refetch added. [WCFG-03, WCFG-10, design Q6c]
-  **Apply-time discovery (saved to engram): TanStack Router's `beforeLoad` re-runs on EVERY internal
-  navigation with no caching — the cleanup `navigate({replace:true})` naturally triggers a SECOND
-  `/api/auth/me` fetch. Confirmed via a throwaway debug test that this is pre-existing, accepted
-  baseline behavior (navigating between any two `_authenticated` routes already double-fetches
-  identity today) — not a regression this task introduces, and no manual refetch/invalidate was
-  added. The pin test isolates the landing's own `beforeLoad` with `router.load()` alone (same
-  technique as `use-me-priming.test.tsx`) rather than asserting on the cumulative count through a
-  full render, which would conflate two separate, both-natural navigation events.**
+  **CORRECTION (judgment-day, PR #2 fix batch): the original annotation below was wrong, and so was
+  the test it justified — both blind reviewers independently reproduced 2 fetches on a real landing.
+  Original (WRONG) text: "Apply-time discovery: TanStack Router's `beforeLoad` re-runs on EVERY
+  internal navigation with no caching — the cleanup `navigate({replace:true})` naturally triggers a
+  SECOND `/api/auth/me` fetch. Confirmed via a throwaway debug test that this is pre-existing,
+  accepted baseline behavior... not a regression this task introduces." That reasoning conflated two
+  different things: navigating between two DISTINCT, user-initiated pages (one fetch each — expected
+  baseline, unchanged) vs. a SINGLE landing that this task's own cleanup effect silently turned into
+  two fetches. The pin test itself was also wrong — it called `router.load()` directly without ever
+  mounting `ConfiguracionRoute` via `RouterProvider`, so the cleanup effect it claimed to cover never
+  ran inside it; a test that cannot observe the code path it pins cannot pin anything.
+  **Root cause (verified against TanStack Router's `Transitioner`/`router-core` source, empirically
+  confirmed with a real mutation test): ANY URL rewrite — `navigate()`, `router.history.replace()`,
+  even a raw `window.history.replaceState()` call, since the router monkey-patches it — is a REPLACE
+  history event, and `Transitioner` unconditionally re-runs `router.load()` (hence `beforeLoad`) on
+  EVERY history event. There is no public API that rewrites the URL without doing so. The actual fix
+  has two parts: (1) `configuracion.tsx`'s cleanup effect now calls `router.history.replace(...)`
+  instead of `navigate(...)` — a smaller, more direct call, though this alone does NOT stop the second
+  `beforeLoad` run; (2) `routes/_authenticated.tsx`'s `beforeLoad` now calls
+  `context.queryClient.ensureQueryData(meQueryOptions())` instead of a raw, always-fetching `fetchMe()`
+  — `ensureQueryData` respects `['auth-me']`'s own `staleTime` (30s, `query-client-defaults.ts`), so
+  the second, self-triggered `beforeLoad` run is a cache hit, not a network call. Load-bearing part of
+  the fix is (2): reverting `_authenticated.tsx` back to a raw `fetchMe()` reproduces the 2-call
+  failure even with `router.history.replace(...)` in place in `configuracion.tsx`; reverting only (1)
+  back to `navigate(...)` while keeping (2) still passes at 1 call — `router.history.replace` is a
+  real, independent improvement (no `buildLocation`/search-revalidation overhead) but not what the
+  "exactly once" invariant depends on. The pin test now mounts `ConfiguracionRoute` through the real
+  `RouterProvider` (reusing the file's existing render helper), asserts exactly one `/api/auth/me`
+  call, and was verified by mutation testing against (2): reverting it makes the test fail with 2
+  calls; restoring it makes it pass with 1.**
 - [x] 6.3 Implement the fluid T1 grid in `ConfiguracionPage.tsx` (`max-w-*` + fixed-first-track
   `grid`) reproducing T1's measured proportions with **no** new `layout.ts` constant; below `lg` the
   two columns stack (heading+tabs above panel). [WCFG-11]
@@ -353,6 +383,13 @@ table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing war
 lint` all green (76 test files, 700 tests, 0 lint errors — same 2 pre-existing app-wide jsx-a11y
 warnings as PR #1a/#1b's baseline, unrelated to this change). Confirmed zero diffs under
 `apps/api/**` and `apps/mobile/**`.**
+
+**judgment-day fix batch (2026-08-13, still PR #2): 4 confirmed findings fixed — the double
+`/api/auth/me` fetch on `?google=` landings (WCFG-03, see 6.2's correction above), the missing
+`tag: 'unauthorized'` → `/login` handling in `GoogleVinculoSection` (WCFG-09, see 5.5's correction
+above), the missing check icon on the linked pill (Q11, see 5.5's correction above), and one added
+integration test for Q6b's DOM-level coordination rule. `pnpm web typecheck && pnpm web test && pnpm
+web lint` all green (76 test files, 705 tests, 0 lint errors — same 2 pre-existing warnings).**
 
 **⚠️ BUDGET FLAG — unresolved, needs a maintainer decision before this PR is opened.** This slice
 was forecast at ~450-550 changed lines with **no** `size:exception` granted (only PR #1b got one).

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMemoryHistory,
@@ -105,37 +106,36 @@ describe('/configuracion ?google= return contract (real route tree, WCFG-10)', (
     expect(screen.getByTestId('aviso-google-error')).toBeEmptyDOMElement();
   });
 
-  it('landing on ?google=vinculado triggers exactly one /api/auth/me fetch for that landing (task 6.2 pin)', async () => {
-    // Same isolation technique as `use-me-priming.test.tsx`: `router.load()`
-    // runs ONLY the matched routes' `beforeLoad` for this ONE landing,
-    // without mounting `ConfiguracionRoute` — so the effect that cleans the
-    // URL (a SEPARATE, later navigation) never fires here. This is the
-    // correct scope for "no manual refetch added" (task 6.2): it isolates
-    // the landing's own priming from the fact that ANY subsequent internal
-    // navigation in this router re-runs `beforeLoad` and fetches again —
-    // confirmed to be true for a plain `/` → `/configuracion` `<Link>` click
-    // too (`_authenticated.tsx`'s beforeLoad has no such caching, by
-    // design), so that second, later fetch is baseline app behaviour, not a
-    // regression this task introduces.
-    const fetchStub = buildFetchStub();
-    vi.stubGlobal('fetch', fetchStub);
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: {
-          ...QUERY_CLIENT_DEFAULTS.defaultOptions?.queries,
-          retry: false,
-        },
-      },
-    });
-    const router = createRouter({
-      routeTree,
-      context: { queryClient },
-      history: createMemoryHistory({
-        initialEntries: ['/configuracion?google=vinculado'],
-      }),
-    });
+  it('landing on /configuracion without ?google= triggers exactly one /api/auth/me fetch (control case)', async () => {
+    const { router, fetchStub } = renderApp('/configuracion');
 
-    await router.load();
+    await screen.findByRole('heading', { name: 'Editar perfil' });
+
+    const meCalls = fetchStub.mock.calls.filter(([input]) =>
+      (typeof input === 'string' ? input : input.toString()).startsWith(
+        '/api/auth/me',
+      ),
+    );
+    expect(meCalls).toHaveLength(1);
+    // No `?google=` to clean, so nothing for the router to settle on.
+    expect(router.state.location.search).toEqual({});
+  });
+
+  it('landing on ?google=vinculado, with ConfiguracionRoute actually mounted, triggers exactly one /api/auth/me fetch (task 6.2 pin)', async () => {
+    // Mounts through the REAL `RouterProvider` (the `renderApp` helper used
+    // by every other test in this file) so `ConfiguracionRoute`'s cleanup
+    // effect actually fires — unlike a bare `router.load()`, which only runs
+    // `beforeLoad` for the landing and never mounts the component whose
+    // effect is the thing under test. The URL cleanup (`?google=` →
+    // `/configuracion`) MUST NOT cost a second `/api/auth/me` request
+    // (WCFG-03, design.md §1/Q6c): the identity primed by THIS landing's
+    // `beforeLoad` is still correct after the rewrite, so re-running
+    // `beforeLoad` for it would be pure waste — and, on Render's free tier,
+    // a cold start measured at 73s lands squarely on this second call.
+    const { router, fetchStub } = renderApp('/configuracion?google=vinculado');
+
+    await screen.findByText('Vinculaste tu cuenta de Google.');
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
 
     const meCalls = fetchStub.mock.calls.filter(([input]) =>
       (typeof input === 'string' ? input : input.toString()).startsWith(
@@ -149,6 +149,26 @@ describe('/configuracion ?google= return contract (real route tree, WCFG-10)', (
     renderApp('/configuracion');
 
     await screen.findByRole('heading', { name: 'Editar perfil' });
+    expect(screen.getByTestId('aviso-google')).toBeEmptyDOMElement();
+  });
+
+  it('abrir un diálogo de Google limpia la región aviso-google en el DOM (Q6b, la única regla de coordinación)', async () => {
+    const user = userEvent.setup();
+    renderApp('/configuracion?google=vinculado');
+
+    await screen.findByText('Vinculaste tu cuenta de Google.');
+    expect(screen.getByTestId('aviso-google')).toHaveTextContent(
+      'Vinculaste tu cuenta de Google.',
+    );
+
+    // `ME_DTO.googleVinculado === false`, así que el trigger visible es
+    // "Vincular con Google" — abrirlo debe limpiar el aviso viejo ANTES de
+    // que el usuario pueda confirmar un fallo fresco (Q6b).
+    await user.click(
+      screen.getByRole('button', { name: 'Vincular con Google' }),
+    );
+
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByTestId('aviso-google')).toBeEmptyDOMElement();
   });
 });
