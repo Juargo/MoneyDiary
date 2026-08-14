@@ -36,6 +36,18 @@ function buildFetchStub() {
     if (url.startsWith('/api/auth/me')) {
       return { ok: true, status: 200, json: () => Promise.resolve(ME) };
     }
+    if (url.startsWith('/api/categorias')) {
+      // `/configuracion/categorias` now renders the real `CategoriasPanel`
+      // (US-043 PR #2 task 21, replacing PR #1a task 2's `<p>Cargando…</p>`
+      // stub) — it needs a `GET /api/categorias` response too, or its own
+      // query would surface as an error/pending state instead of the
+      // `Categorías y patrones` heading the outlet test below looks for.
+      return {
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ categorias: [] }),
+      };
+    }
     return { ok: false, status: 401, json: () => Promise.resolve({}) };
   });
 }
@@ -105,6 +117,14 @@ describe('ConfiguracionLayout', () => {
   it('renderiza el contenido enrutado (children/Outlet) dentro del track', async () => {
     renderAt('/configuracion/categorias');
 
-    expect(await screen.findByText('Cargando…')).toBeInTheDocument();
+    // PR #1a task 2's `<p>Cargando…</p>` stub was replaced by the real
+    // `CategoriasPanel` in PR #2 task 21 — this test now looks for ITS
+    // content (the `Categorías y patrones` h2) instead of the stub text.
+    expect(
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'Categorías y patrones',
+      }),
+    ).toBeInTheDocument();
   });
 });
