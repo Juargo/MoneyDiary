@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { EditarCategoria } from '@/components/configuracion/categorias/EditarCategoria';
 
 /**
  * `/configuracion/categorias/:categoriaId` — CA-02 edit screen. The
@@ -15,8 +16,12 @@ import { createFileRoute } from '@tanstack/react-router';
  * do not "simplify" this filename by removing the underscore, that would
  * re-nest this route inside the tab layout it must escape.
  *
- * Placeholder for task 2 (route-file TDD exception, §5). PR #3b task 36
- * replaces this stub with the real `EditarCategoria`.
+ * Stays thin (§1/Q1f, `buckets.$bucket.tsx:12-18` precedent): only extracts
+ * `categoriaId` from the URL params and hands off. `EditarCategoria` owns
+ * the query, the four resolution states, the identity form, the
+ * bucket-change confirmation, delete, and demo — all unit-tested in
+ * `EditarCategoria.test.tsx`, none of which is cheaply testable through a
+ * `createFileRoute` component.
  */
 export const Route = createFileRoute(
   '/_authenticated/configuracion_/categorias/$categoriaId',
@@ -25,5 +30,6 @@ export const Route = createFileRoute(
 });
 
 function EditarCategoriaRoute() {
-  return <p>Cargando…</p>;
+  const { categoriaId } = Route.useParams();
+  return <EditarCategoria categoriaId={categoriaId} />;
 }

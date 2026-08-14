@@ -246,7 +246,7 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
     const mutaciones = () =>
       fetchMock.mock.calls
         .filter(([, opciones]) => opciones?.method !== undefined)
-        .map(([url, opciones]) => `${opciones.method} ${url}`);
+        .map(([url, opciones]) => `${opciones?.method} ${url}`);
 
     const form = document.getElementById('form-identidad') as HTMLFormElement;
     fireEvent.submit(form);
