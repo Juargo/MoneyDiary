@@ -152,21 +152,26 @@ the user must run and record before the PR is opened — not automatable from an
 **Prohibition: 4.6-4.9 (the save orchestration) must never be split across PRs or deferred — a
 half-wired sequential save is worse than a large diff.** [design §10]
 
-- [ ] 4.1 RED: `src/api/perfil.test.ts` for `patchPerfil`/`patchPassword` — never-throw `ApiResult<T>`,
+- [x] 4.1 RED: `src/api/perfil.test.ts` for `patchPerfil`/`patchPassword` — never-throw `ApiResult<T>`,
   `credentials: 'same-origin'`, `403` mapped by body `code` (`PERFIL_RECHAZADO`, `DEMO_SOLO_LECTURA`),
   each response guarded.
-- [ ] 4.2 GREEN: `src/api/perfil.ts` — `patchPerfil`/`patchPassword`.
-- [ ] 4.3 RED+GREEN: `src/components/configuracion/mensajes.ts` (+test) — `it.each` over
+- [x] 4.2 GREEN: `src/api/perfil.ts` — `patchPerfil`/`patchPassword`.
+- [x] 4.3 RED+GREEN: `src/components/configuracion/mensajes.ts` (+test) — `it.each` over
   `mensajeDeResultado`/`mensajeDeApiError` as pure functions, closed with `const _exhaustive: never
   = r`. Use the **eight-code** table (spec WCFG-09 / design Q8b), including the three the proposal's
   table omitted: `EMAIL_INVALIDO` (400), `GOOGLE_YA_VINCULADO` (409), `GOOGLE_NO_DISPONIBLE` (503).
   [WCFG-09]
-- [ ] 4.4 `src/components/configuracion/CampoTexto.tsx` (+test) — `<label>`-wrapped `<input>`, pure
+  **Apply-time dependency (not named in design's task order): `mensajeDeResultado`'s signature needs
+  `ResultadoGuardado`, whose type only gets defined in `use-guardar-perfil.ts` (task 4.6/4.7). Resolved
+  by declaring `ResultadoGuardado`/`DraftPerfil` as type-only exports in `use-guardar-perfil.ts`
+  BEFORE 4.3, then adding the `guardar`/`useGuardarPerfil` implementation in the same file at 4.7 —
+  same type-first sequencing design.md D-07 already prescribes elsewhere.**
+- [x] 4.4 `src/components/configuracion/CampoTexto.tsx` (+test) — `<label>`-wrapped `<input>`, pure
   presentational, 4 usages. [WCFG-12]
-- [ ] 4.5 `src/components/configuracion/ConfiguracionTabs.tsx` (+test) — `Perfil` with
+- [x] 4.5 `src/components/configuracion/ConfiguracionTabs.tsx` (+test) — `Perfil` with
   `aria-current="page"`; `Categorías` as `<button type="button" disabled aria-disabled="true">`
   (verbatim `NavItem` placeholder treatment).
-- [ ] 4.6 RED: `src/api/use-guardar-perfil.test.ts` — write these three sequence tests BEFORE the
+- [x] 4.6 RED: `src/api/use-guardar-perfil.test.ts` — write these three sequence tests BEFORE the
   implementation: (a) **order** test asserting the call-order **array** via
   `toEqual(['PATCH /api/perfil', 'PATCH /api/perfil/password'])` — NOT "both were called", which
   passes under a reversed implementation; (b) **abort** test asserting exactly one call
@@ -174,23 +179,77 @@ half-wired sequential save is worse than a large diff.** [design §10]
   a partial failure, a second submit sends only the password call, because change detection compares
   the draft against the **query cache**, never a mount-time snapshot. [WCFG-06, WCFG-07, design Q9a,
   Q2a]
-- [ ] 4.7 GREEN: implement `construirPerfilPatch` + the `guardar` orchestration in
+  (Written as `use-guardar-perfil.test.tsx` — needs JSX for the `QueryClientProvider` wrapper, same
+  reason `use-me.test.tsx` is `.tsx` not `.ts`, PR #1a task 1.3.)
+- [x] 4.7 GREEN: implement `construirPerfilPatch` + the `guardar` orchestration in
   `use-guardar-perfil.ts` exactly per design Q2b's shape — profile block physically first, password
   block second, abort as the first early return. `onSuccess` owns cache invalidation (invalidate on
   any `perfilGuardado`, never on password-only success). [WCFG-05, WCFG-06, WCFG-07, WCFG-08]
-- [ ] 4.8 RED+GREEN: rows 1-11 of design Q2c as discrete/`it.each` tests (no-op sends zero requests;
+  **`mutationFn` reads `me` directly from `queryClient.getQueryData(ME_QUERY_KEY)` at submit time
+  (not from a `mutate()` argument/component closure) — the most literal reading of Q2a's "compared
+  against the cache, never a mount-time snapshot", and it is what makes the retry-idempotent test
+  correct regardless of when React re-renders `PerfilForm` after invalidation.**
+- [x] 4.8 RED+GREEN: rows 1-11 of design Q2c as discrete/`it.each` tests (no-op sends zero requests;
   missing-`passwordActual` gate sends zero requests; password-only sends one call and clears both
   password fields; partial failure keeps password fields; full success clears them). [WCFG-05..08]
-- [ ] 4.9 `src/components/configuracion/PerfilForm.tsx` (+test): 4 fields via `CampoTexto`,
+  (Rows 1-6 and the invalidation matrix asserted at the hook level in `use-guardar-perfil.test.tsx`;
+  rows 7/9/11's field-clearing/keeping behavior asserted at the component level in
+  `PerfilForm.test.tsx`, task 4.9 — clearing is a `PerfilForm` concern, not the hook's.)
+- [x] 4.9 `src/components/configuracion/PerfilForm.tsx` (+test): 4 fields via `CampoTexto`,
   `Guardar cambios` `disabled={mutation.isPending}`, **two always-mounted** message regions
   (`aria-live="polite"` + `role="alert"`) — two regions, not one, because a page-level region would
   have two writers with no ordering rule. `Password actual` gets native `required` when the email
   input is dirty. [WCFG-08, WCFG-09, WCFG-12, design Q1c, Q7d]
-- [ ] 4.10 `src/components/configuracion/ConfiguracionPage.tsx` (+test): fluid grid skeleton (fixed
+  **Apply-time addition beyond the task's literal wording: `PerfilForm` also intercepts
+  `error.tag === 'unauthorized'` on either call and navigates to `/login` without rendering any
+  message — the WCFG-09 table's last row ("no message — `navigate({ to: '/login' })`"), which the
+  task list didn't call out as a sub-step but the spec requires.**
+
+  **Maintainer decision (2026-08-13, after judgment-day): the password-field clearing condition is
+  `r.tipo === 'ok'`, not `r.tipo === 'ok' && r.passwordCambiada`.** Two judges flagged across two
+  rounds that `passwordActual` survived a successful save that changed no password. `design.md` Q2c
+  never resolved that sub-case — it documents clearing only for rows 7/9/11 — so it was escalated
+  instead of being settled by a fix agent. Rationale: `Password actual` exists to authorize the email
+  change (Q1c); once the save succeeds the credential's purpose is spent and keeping it in component
+  state and in the DOM is retention with no function. `passwordNueva` is already empty in that branch
+  (with both filled, the outcome would be `ok`+`passwordCambiada` or `password-fallo`), so clearing
+  both is equivalent to branching and simpler. **Non-`ok` results still clear nothing** — Q2c rows
+  8/10/11 need the typed password to survive a partial failure so the retry sends only the password
+  call; those tests were re-run and stay green. Written red-first (new test verified failing against
+  the old condition). If `design.md` Q2c is ever revised, fold this in as its missing row.
+- [x] 4.10 `src/components/configuracion/ConfiguracionPage.tsx` (+test): fluid grid skeleton (fixed
   first column + flexible panel, no `md:` tier), tab list + `PerfilForm`, owns the Google-outcome
   message region (empty until PR #2 wires it). [WCFG-02]
-- [ ] 4.11 Wire `configuracion.tsx`'s component to render `ConfiguracionPage`, replacing PR #1a's
+  (Google-outcome region shipped as a single always-mounted `aria-live="polite"` `<p>`,
+  `data-testid="aviso-google"`, no content wired — PR #2 (task 6.1) decides whether it needs to become
+  a two-tone pair like `PerfilForm`'s regions once the `?google=error` case is wired in.)
+- [x] 4.11 Wire `configuracion.tsx`'s component to render `ConfiguracionPage`, replacing PR #1a's
   placeholder. Verify: `pnpm web typecheck && pnpm web test && pnpm web lint`. [WCFG-13]
+- [x] 4.12 RED+GREEN: `PerfilForm` proactive demo gate — closes a design §Q9c verification-matrix
+  requirement the original 4.x breakdown omitted (4.9 only wired the reactive `403
+  DEMO_SOLO_LECTURA` mapping). `mensajes.ts` exports `MENSAJE_DEMO_SOLO_LECTURA` (single source for
+  both halves, `dry`); `PerfilForm` disables the four `CampoTexto` and `Guardar cambios` when
+  `me.esDemo`, and renders a `role="note"` element carrying that same string only in that case.
+  [design Q9c]
+
+**PR #1b status (2026-08-13): tasks 4.1-4.12 complete. `pnpm web typecheck && pnpm web test && pnpm
+web lint` all green (72 test files, 658 tests, 0 lint errors — same 2 pre-existing app-wide
+jsx-a11y warnings as PR #1a's baseline, unrelated to this change). Confirmed zero diffs under
+`apps/api/**` and `apps/mobile/**`. `ApiError`'s `'server'` tag widened with an optional `code?:
+string` field in `client.ts` (additive, non-breaking) so `perfil.ts`/`mensajes.ts` can carry
+`aPerfilHttpError`'s body `code` through to the closed copy table — this is the one production file
+outside `openspec/changes/us-042-web-configuracion-perfil/` and `apps/web/src/{api,components/
+configuracion,routes/_authenticated}/` touched by this batch.
+
+**judgment-day fix iteration 2 (2026-08-13): `PerfilForm`'s password fields are now grouped under a
+`<fieldset>`/`<legend>Cambiar password</legend>` (WCFG-02's third-block label, verbatim) with a
+`role=group` regression test; `use-guardar-perfil.test.tsx` gained a regression test that mounts an
+active `useMe()` observer alongside the save flow with a manually-deferred `/api/auth/me` and pins
+`mutation.isPending` staying `true` until that refetch resolves (empirically verified to fail when
+the `return` on `invalidateQueries` is removed, and pass with it restored); the row-10-labeled test
+at `use-guardar-perfil.test.tsx` was retitled to row 6 (assertions unchanged — they were already
+correct for row 6); `mensajes.test.ts` gained the missing `unauthorized` row (`''`) in the `it.each`
+table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing warnings).**
 
 ---
 
