@@ -183,6 +183,29 @@ describe('PerfilForm', () => {
     expect(screen.getByLabelText('Password nueva')).toHaveValue('');
   });
 
+  it('éxito de email (sin cambio de password): limpia Password actual, su autorización ya se gastó', async () => {
+    // `Password actual` autoriza el cambio de email (Q1c); una vez que el
+    // guardado salió bien, la credencial cumplió su función y no tiene por
+    // qué seguir en el estado del componente ni en el DOM. Decisión de
+    // producto del mantenedor (2026-08-13): design.md Q2c no resolvía este
+    // sub-caso — solo documentaba el clearing de las filas 7/9/11.
+    stubFetch({ '/api/perfil': { status: 200 } });
+    await renderPerfilForm();
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'nueva@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password actual'), {
+      target: { value: 'correcta' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Cambios guardados.')).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Password actual')).toHaveValue('');
+  });
+
   it('password-only falla (perfilGuardado: false): mantiene AMBOS campos de password', async () => {
     stubFetch({
       '/api/perfil/password': {

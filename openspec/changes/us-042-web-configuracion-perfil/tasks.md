@@ -230,6 +230,19 @@ half-wired sequential save is worse than a large diff.** [design §10]
   `error.tag === 'unauthorized'` on either call and navigates to `/login` without rendering any
   message — the WCFG-09 table's last row ("no message — `navigate({ to: '/login' })`"), which the
   task list didn't call out as a sub-step but the spec requires.**
+
+  **Maintainer decision (2026-08-13, after judgment-day): the password-field clearing condition is
+  `r.tipo === 'ok'`, not `r.tipo === 'ok' && r.passwordCambiada`.** Two judges flagged across two
+  rounds that `passwordActual` survived a successful save that changed no password. `design.md` Q2c
+  never resolved that sub-case — it documents clearing only for rows 7/9/11 — so it was escalated
+  instead of being settled by a fix agent. Rationale: `Password actual` exists to authorize the email
+  change (Q1c); once the save succeeds the credential's purpose is spent and keeping it in component
+  state and in the DOM is retention with no function. `passwordNueva` is already empty in that branch
+  (with both filled, the outcome would be `ok`+`passwordCambiada` or `password-fallo`), so clearing
+  both is equivalent to branching and simpler. **Non-`ok` results still clear nothing** — Q2c rows
+  8/10/11 need the typed password to survive a partial failure so the retry sends only the password
+  call; those tests were re-run and stay green. Written red-first (new test verified failing against
+  the old condition). If `design.md` Q2c is ever revised, fold this in as its missing row.
 - [x] 4.10 `src/components/configuracion/ConfiguracionPage.tsx` (+test): fluid grid skeleton (fixed
   first column + flexible panel, no `md:` tier), tab list + `PerfilForm`, owns the Google-outcome
   message region (empty until PR #2 wires it). [WCFG-02]
