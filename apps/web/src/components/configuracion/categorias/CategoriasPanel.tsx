@@ -11,7 +11,10 @@ import { ErrorState } from '../../states/Error';
 import { Empty } from '../../states/Empty';
 import { CategoriaFila } from './CategoriaFila';
 import { NuevaCategoriaForm } from './NuevaCategoriaForm';
-import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
+import {
+  MENSAJE_DEMO_CATALOGO,
+  mensajeDeErrorCatalogo,
+} from './mensajes-catalogo';
 
 /**
  * CategoriasPanel (US-043, design.md §1/Q4a/Q8c, WCTG-02, WCTG-03,
@@ -68,7 +71,13 @@ export function CategoriasPanel() {
     return <Loading message="Cargando categorías…" />;
   }
   if (query.isError && !creando) {
-    return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
+    return (
+      <ErrorState
+        error={query.error}
+        mensaje={mensajeDeErrorCatalogo(query.error)}
+        onRetry={() => query.refetch()}
+      />
+    );
   }
 
   let grupos: ReadonlyArray<GrupoCategoriaPorBucket> = [];
@@ -108,7 +117,11 @@ export function CategoriasPanel() {
       )}
 
       {query.isError && creando && (
-        <ErrorState error={query.error} onRetry={() => query.refetch()} />
+        <ErrorState
+          error={query.error}
+          mensaje={mensajeDeErrorCatalogo(query.error)}
+          onRetry={() => query.refetch()}
+        />
       )}
 
       {creando && (

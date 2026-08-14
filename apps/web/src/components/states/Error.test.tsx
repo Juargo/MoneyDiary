@@ -31,6 +31,32 @@ describe('ErrorState', () => {
     ).toBeInTheDocument();
   });
 
+  // US-043: a feature that owns a richer error table than `client.ts`'s
+  // per-tag default (the catalog's `mensajeDeErrorCatalogo`) passes its own
+  // rendered copy instead of forking the component. `error` stays required —
+  // the retry affordance and the a11y contract are unchanged — and every
+  // other caller (ResumenPage, BucketDetailList, ListaIngestas, ResumenAnual)
+  // keeps the `error.message` default by omitting the prop.
+  it('renders the caller-supplied message instead of error.message when given', () => {
+    const error: ApiError = {
+      tag: 'parse',
+      message: 'Respuesta inesperada del servidor.',
+    };
+    render(
+      <ErrorState
+        error={error}
+        mensaje="No se pudo procesar la solicitud."
+        onRetry={() => {}}
+      />,
+    );
+    expect(
+      screen.getByText('No se pudo procesar la solicitud.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Respuesta inesperada del servidor.'),
+    ).not.toBeInTheDocument();
+  });
+
   // A11y (ADR-018): the message must live inside a `role="alert"` region so
   // a Data→Error refetch failure announces to assistive technology instead
   // of failing silently.
