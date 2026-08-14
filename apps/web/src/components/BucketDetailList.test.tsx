@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { BucketDetailList } from './BucketDetailList';
-import type { DetalleBucketDto } from '@/api/types';
+import type { CatalogoDto, DetalleBucketDto } from '@/api/types';
 
 // Owns the fetch (via useDetalleBucket), the {loading|error|empty|data}
 // state switch (reusing the shared Loading/ErrorState/Empty from W1), and
@@ -62,12 +62,39 @@ function crearWrapper() {
   };
 }
 
+// `ReclasificarCategoriaControl` (rendered per row, US-013 S6b) depends on
+// `useCategorias()` since US-043 §7 — a second, independent fetch from the
+// row's own `/api/detalle-bucket` one. `mockFetchOnce` routes it to a
+// minimal live catalog so the select isn't stuck disabled forever (a
+// mismatched-shape body fails `esCatalogoDto`'s guard and never resolves
+// `data`); every other URL keeps getting the caller's own `response`.
+const CATALOGO_FIXTURE: CatalogoDto = {
+  categorias: [
+    {
+      id: 'categoria-supermercado',
+      nombre: 'Supermercado',
+      bucket: 'Necesidades',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+  ],
+};
+
 function mockFetchOnce(response: {
   ok: boolean;
   status: number;
   json?: () => Promise<unknown>;
 }) {
-  const fetchMock = vi.fn().mockResolvedValue(response);
+  const fetchMock = vi.fn((url: string) => {
+    if (url === '/api/categorias') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(CATALOGO_FIXTURE),
+      });
+    }
+    return Promise.resolve(response);
+  });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
@@ -341,7 +368,7 @@ describe('BucketDetailList', () => {
     const select = (await screen.findByLabelText(
       'Cambiar categoría de Supermercado Líder',
     )) as HTMLSelectElement;
-    expect(select).not.toBeDisabled();
+    await waitFor(() => expect(select).not.toBeDisabled());
     expect(select.value).toBe('Supermercado');
     expect(
       screen.queryByRole('button', { name: /Editar categoría|Clasificar/ }),
