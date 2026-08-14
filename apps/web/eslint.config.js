@@ -81,11 +81,17 @@ export default defineConfig([
   },
   // Scoped ERROR — the files this change (and its PR #1b/#2 follow-ups)
   // author. Globs the DIRECTORY, not individual files, so a component added
-  // here later is gated automatically.
+  // here later is gated automatically. The route-file entry is a PATTERN
+  // (US-043 design.md D-10), not a single filename: `configuracion*.tsx`
+  // covers `configuracion.tsx`, `configuracion.index.tsx`,
+  // `configuracion.categorias.tsx` and
+  // `configuracion_.categorias.$categoriaId.tsx` — every route file the
+  // Categorías shell introduces, gated BEFORE any of them is authored so the
+  // a11y rules are never blind to code being written under them.
   {
     files: [
       'src/components/configuracion/**/*.tsx',
-      'src/routes/_authenticated/configuracion.tsx',
+      'src/routes/_authenticated/configuracion*.tsx',
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },

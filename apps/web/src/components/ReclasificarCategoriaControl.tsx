@@ -1,12 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useCategorias } from '@/api/use-categorias';
 import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
-import {
-  agruparCategoriasPorBucket,
-  CATEGORIA_BUCKET,
-} from '@/domain/categoria';
+import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
-
-const GRUPOS_CATEGORIA = agruparCategoriasPorBucket();
 
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
@@ -20,17 +16,36 @@ function etiqueta(bucket: string): string {
  * mismo mecanismo, `categoriaActual` simplemente llega `null` en el segundo
  * caso (design.md §7.3, DRY: no dos controles distintos).
  *
- * Ofrece las 8 categorías agrupadas por bucket vía `<optgroup>` (T6.0:
- * cross-bucket permitido, decisión confirmada explícitamente por el usuario
- * antes de esta implementación — la alternativa "solo mismo bucket" fue
- * descartada porque el caso de uso principal de reclasificar ES corregir un
- * bucket equivocado). Si la categoría elegida deriva a un bucket DISTINTO del
- * bucket actual de la fila, se pide confirmación mostrando el monto que se
- * mueve (money-move visible) ANTES de comprometer el cambio; mismo-bucket
- * commitea directo. `CATEGORIA_BUCKET` (mirror web de
- * `apps/api/src/domain/value-objects/categoria.ts`, ADR-008) es la única
- * fuente de verdad para esa comparación — nunca se acepta un bucket
- * independiente del cliente.
+ * Ofrece TODAS las categorías propias del caller, agrupadas por bucket vía
+ * `<optgroup>` (T6.0: cross-bucket permitido, decisión confirmada
+ * explícitamente por el usuario antes de esta implementación — la
+ * alternativa "solo mismo bucket" fue descartada porque el caso de uso
+ * principal de reclasificar ES corregir un bucket equivocado), sourced de
+ * `useCategorias()` — el mismo query `['categorias']` que alimenta
+ * `/configuracion/categorias` (US-043 design.md §7) — en vez de la lista
+ * estática que este control usaba antes (`domain/categoria.ts`, retirado):
+ * una categoría creada, renombrada o eliminada en Configuración se refleja
+ * acá sin cambio de código. Si la categoría elegida deriva a un bucket
+ * DISTINTO del bucket actual de la fila, se pide confirmación mostrando el
+ * monto que se mueve (money-move visible) ANTES de comprometer el cambio;
+ * mismo-bucket commitea directo. El bucket destino se deriva del propio
+ * campo `bucket` del DTO elegido — nunca de un mapa estático — así que un
+ * re-bucket hecho en Configuración dispara la confirmación correcta de
+ * inmediato (WCAT-04 delta, US-043 §7).
+ *
+ * **Mientras el catálogo carga** (`data === undefined`), el `<select>` se
+ * DESHABILITA y ofrece solo la categoría actual — nunca un `<select>` vacío
+ * en una superficie de dashboard ya en producción.
+ *
+ * **Este control NO renderiza banner de error ni botón "Reintentar" propios
+ * para el catálogo.** `useCategorias()` comparte una única query
+ * `['categorias']` entre TODAS las filas montadas (`use-categorias.ts`), y
+ * `BucketDetailList` es su único punto de montaje (una instancia por panel,
+ * verificado — ver su propio JSDoc). Por eso todo el fetch-lifecycle surface
+ * del catálogo — el `role="status"` de carga inicial y el `role="alert"` +
+ * "Reintentar" cuando falla sin datos — vive UNA sola vez ahí arriba, no acá
+ * N veces por fila. Este control solo lee `data`/`isFetching` de
+ * `useCategorias()` para su propio estado (`disabled`, `aria-busy`).
  *
  * a11y (ADR-018, WCAT-05): `<label htmlFor>` visualmente oculto pero con
  * nombre accesible real ("Cambiar categoría de {descripcion}", no un genérico
@@ -40,7 +55,14 @@ function etiqueta(bucket: string): string {
  * dropdown custom); Escape dentro del diálogo cancela igual que el botón
  * "Cancelar" (sin foco-trap completo — innecesario para este widget inline
  * por fila). El control se DESHABILITA (no se oculta) mientras la mutación
- * está en curso.
+ * está en curso. `aria-busy` en el `<select>` está acotado a la CARGA
+ * INICIAL del catálogo (`data === undefined && isFetching`) — NUNCA a
+ * `isFetching` a secas: un refetch de fondo (p. ej. `refetchOnReconnect`,
+ * default `true` en `main.tsx`, sin pisar en producción) sobre datos ya
+ * cargados deja el `<select>` totalmente habilitado y usable; marcarlo
+ * `aria-busy` en ese momento sería semánticamente engañoso para un lector de
+ * pantalla — se dispararía en cualquier reconexión normal, no solo en un
+ * estado que realmente bloquea la interacción.
  */
 export function ReclasificarCategoriaControl({
   transaccionId,
@@ -67,6 +89,15 @@ export function ReclasificarCategoriaControl({
   } | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
   const mutacion = useReclasificarCategoria(periodo, bucketActual);
+  const { data, isFetching: catalogoEnVuelo } = useCategorias();
+  // Initial load only (WCAT-04 delta): `data === undefined` while
+  // `isFetching` is true — never true again once the catalog has data, even
+  // during a background refetch. See the JSDoc above for why bare
+  // `isFetching` would be wrong here.
+  const catalogoCargandoInicial = data === undefined && catalogoEnVuelo;
+  const grupos = agruparPorBucket(data?.categorias ?? []);
+  const bucketDe = (nombre: string): string | undefined =>
+    data?.categorias.find((c) => c.nombre === nombre)?.bucket;
 
   // Foco al abrir la confirmación (WCAT-05): mueve el foco a "Confirmar" en
   // vez de dejarlo huérfano en el <select> que acaba de disparar `onChange`
@@ -101,7 +132,20 @@ export function ReclasificarCategoriaControl({
     setPendiente(null);
     setValor(nombre);
     setErrorMensaje(null);
-    const bucketNuevo = CATEGORIA_BUCKET[nombre];
+    const bucketNuevo = bucketDe(nombre);
+    if (bucketNuevo === undefined) {
+      // Defensive, not reachable via the rendered `<option>`s today (they
+      // and this lookup read the same `data` snapshot) — but "unresolved"
+      // must fail loud, never fall through to "same bucket, commit
+      // directly". Silently auto-committing here would skip WCAT-04's
+      // cross-bucket confirmation for a categoría the live catalog can't
+      // even attribute a bucket to (ADR-015: risk concentrates in money).
+      setErrorMensaje(
+        'La categoría elegida ya no está disponible. Elige otra.',
+      );
+      setValor(categoriaActual ?? '');
+      return;
+    }
     if (bucketNuevo === bucketActual) {
       commit(nombre);
       return;
@@ -130,24 +174,40 @@ export function ReclasificarCategoriaControl({
         id={selectId}
         ref={selectRef}
         value={valor}
-        disabled={mutacion.isPending}
+        disabled={mutacion.isPending || data === undefined}
+        aria-busy={catalogoCargandoInicial}
         onChange={alCambiar}
         className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {categoriaActual === null && (
-          <option value="" disabled>
-            Sin categoría
-          </option>
-        )}
-        {GRUPOS_CATEGORIA.map((grupo) => (
-          <optgroup key={grupo.bucket} label={etiqueta(grupo.bucket)}>
-            {grupo.categorias.map((nombre) => (
-              <option key={nombre} value={nombre}>
-                {nombre}
+        {data === undefined ? (
+          // Mid-flight: the catalog hasn't loaded yet. Offer only the
+          // current value — never an empty <select> on a shipped dashboard
+          // surface (design.md §7).
+          categoriaActual === null ? (
+            <option value="" disabled>
+              Sin categoría
+            </option>
+          ) : (
+            <option value={categoriaActual}>{categoriaActual}</option>
+          )
+        ) : (
+          <>
+            {categoriaActual === null && (
+              <option value="" disabled>
+                Sin categoría
               </option>
+            )}
+            {grupos.map((grupo) => (
+              <optgroup key={grupo.bucket} label={etiqueta(grupo.bucket)}>
+                {grupo.categorias.map((categoria) => (
+                  <option key={categoria.nombre} value={categoria.nombre}>
+                    {categoria.nombre}
+                  </option>
+                ))}
+              </optgroup>
             ))}
-          </optgroup>
-        ))}
+          </>
+        )}
       </select>
       <span aria-live="polite" className="sr-only">
         {mutacion.isSuccess && !pendiente

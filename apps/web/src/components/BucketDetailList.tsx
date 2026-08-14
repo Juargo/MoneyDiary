@@ -4,6 +4,7 @@ import { Empty } from './states/Empty';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
 import { Badge } from './ui/badge';
 import { useDetalleBucket } from '@/api/use-detalle-bucket';
+import { useCategorias } from '@/api/use-categorias';
 import { aDetalleBucketViewModel } from '@/domain/detalle-bucket-view-model';
 import { agruparDetallePorCategoria } from '@/domain/agrupar-detalle-por-categoria';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
@@ -64,6 +65,73 @@ import { iconoDeCategoria } from '@/lib/category-icons';
  * `<h3>` regardless of context (as design.md §7.3 literally reads) would
  * skip a level on the standalone `h1` route; deriving it from `headingLevel`
  * keeps the outline valid in both places.
+ *
+ * **Catálogo — fetch-lifecycle surface owned HERE, once per panel**
+ * (WCAT-04 delta, closes the debt three judgment-day rounds converged on):
+ * this list is `ReclasificarCategoriaControl`'s ONLY render site (verified —
+ * no other parent mounts it), and every mounted instance plus this
+ * component share the exact same `['categorias']` query
+ * (`use-categorias.ts`). Calling `useCategorias()` here too adds one more
+ * *observer* on that shared query, not a second network request — TanStack
+ * Query dedupes by `queryKey`: a new observer either reads the already
+ * populated cache or joins the fetch already in flight. That per-`queryKey`
+ * dedup is a TanStack Query guarantee that predates this component's own
+ * call (it already covered the N per-row `ReclasificarCategoriaControl`
+ * observers before this component had a `useCategorias()` of its own) — it
+ * is NOT what proves this component's call does anything. What this
+ * component's own call actually adds, and what is pinned by a dedicated
+ * test in `BucketDetailList.test.tsx`, is that the catalog request now
+ * fires from the PANEL itself, independent of whether any row ever mounts
+ * (see "prefetch is unconditional, by design" below) — that test keeps the
+ * transactions query in `isPending` forever (so zero rows, zero row-level
+ * observers, ever exist) and still observes `/api/categorias` being
+ * requested, which isolates this component's own observer from the
+ * pre-existing per-row dedup. **This does rely on `staleTime: 30_000`**
+ * (`main.tsx`'s production `QueryClient`, via `QUERY_CLIENT_DEFAULTS`): this
+ * component's own `useCategorias()` mounts ahead of the per-row ones (rows
+ * only exist once the SEPARATE `useDetalleBucket` query resolves), so if the
+ * catalog fetch already *succeeded* and settled by the time rows mount, a
+ * query with no `staleTime` protection would be immediately stale again and
+ * trigger a redundant refetch-on-mount (same fix class as judgment-day PR
+ * #336/#337 fix 2 on `CategoriasPanel.test.tsx`). A catalog fetch that FAILS
+ * with no data (`dataUpdatedAt === 0`) is a different story — that state is
+ * always considered stale regardless of `staleTime`, so a genuine failure
+ * can still trigger more than one automatic retry attempt as rows mount;
+ * the error/retry surface here tolerates that (it only cares about the
+ * current `error`/`data` snapshot, not how many attempts produced it).
+ * That's why the announcement/error surface belongs HERE instead of per
+ * row: a `role="status"` while the catalog loads for the first time
+ * (`data === undefined && isFetching`), and a `role="alert"` + "Reintentar"
+ * when it fails with no usable data (`data === undefined && error`) —
+ * rendered ONCE per panel regardless of row count, instead of the N
+ * duplicates a per-row surface would produce for a single shared fetch.
+ * This is a DIFFERENT query from `useDetalleBucket` above (the
+ * `query`/`Loading`/`ErrorState`/`Empty` block governs the TRANSACTIONS
+ * fetch, not the catalog) — they are independent and not conflated: the
+ * catalog can still be loading or failed while transactions already render,
+ * in which case each row's own `<select>` just stays disabled
+ * (`ReclasificarCategoriaControl`'s own `disabled={... || data === undefined}`)
+ * until the catalog resolves. Pinned by a test that fails BOTH queries at
+ * once (`BucketDetailList.test.tsx`'s "does not conflate" test) — the
+ * transactions `ErrorState`'s early return happens before the catalog's own
+ * `role="alert"` markup, so exactly one alert renders even though the
+ * catalog query also has an error to show; a regression that moved the
+ * catalog markup above the early returns would render two.
+ *
+ * **Prefetch is unconditional, by design** (`useCategorias()` below is
+ * called above all three transactions early returns — `query.isPending`,
+ * `query.isError`, and the empty-transactions branch): every mount of this
+ * component fires `GET /api/categorias` immediately, even in the states
+ * where no row will ever exist to consume it (still loading, failed, or an
+ * empty bucket). This is a deliberate maintainer decision, not an
+ * oversight: gating the call behind `enabled: <transactions resolved
+ * non-empty>` would delay the catalog fetch until the transactions query
+ * settles, slowing the common (successful, non-empty) path just to save one
+ * GET on a shared, deduped `['categorias']` key in two infrequent states.
+ * Pinned by a dedicated test in `BucketDetailList.test.tsx` so a future
+ * change cannot silently flip this either direction (accidentally gating
+ * it, or accidentally dropping the panel-level call) without failing a
+ * test.
  */
 export function BucketDetailList({
   bucket,
@@ -75,6 +143,7 @@ export function BucketDetailList({
   readonly headingLevel?: 'h1' | 'h2';
 }) {
   const query = useDetalleBucket(bucket, periodo);
+  const categoriasQuery = useCategorias();
 
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
@@ -99,8 +168,57 @@ export function BucketDetailList({
   const Heading = headingLevel;
   const HeadingGrupo = headingLevel === 'h1' ? 'h2' : 'h3';
 
+  const categoriasCargandoInicial =
+    categoriasQuery.data === undefined && categoriasQuery.isFetching;
+  const categoriasFallidasSinDatos =
+    categoriasQuery.data === undefined && categoriasQuery.error !== null;
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-4">
+      {categoriasCargandoInicial && (
+        <p role="status" className="sr-only">
+          Cargando categorías…
+        </p>
+      )}
+      {categoriasFallidasSinDatos && categoriasQuery.error && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-red-600">
+          <p role="alert">{categoriasQuery.error.message}</p>
+          {/* No `disabled` binding (judgment-day finding, matches
+              `states/Error.tsx`'s `ErrorState` convention). Verified this
+              was actually DEAD CODE, not merely undesirable: TanStack Query
+              resets a still-dataless query's `error` to `null` (and
+              `status` to `'pending'`) at the START of every fetch attempt
+              (`query-core`'s `fetchState`) — including this button's own
+              `refetch()`. Since this whole block is gated on
+              `categoriasQuery.error !== null`, it UNMOUNTS the instant a
+              retry begins (replaced by the `role="status"` block above),
+              so `categoriasQuery.isFetching` was never observably `true`
+              while this button was mounted — `disabled={...isFetching}`
+              could never actually disable anything (same class as the
+              dead-code `disabled` already removed from
+              `ReclasificarCategoriaControl` in an earlier round; confirmed
+              empirically here too, not assumed). Removed for the same
+              reason: dead conditional code, matching `ErrorState`'s
+              convention regardless.
+              NOTE — real, still-open finding (out of scope for this fix):
+              the keyboard focus loss a user experiences on retry is NOT
+              caused by `disabled` — it's caused by this whole block
+              (button included) unmounting during the fetch and a NEW
+              button instance mounting once it settles, with nothing
+              restoring focus to it. That is a distinct, deeper issue than
+              the one this comment closes; it needs its own fix (e.g.
+              persisting the last known error across the fetch so this
+              block stays mounted, or explicit focus restoration like
+              `EditarCategoria.tsx`'s pattern) and its own review. */}
+          <button
+            type="button"
+            onClick={() => void categoriasQuery.refetch()}
+            className="underline"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <Heading className="text-lg font-semibold text-foreground">
         {ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket}
       </Heading>

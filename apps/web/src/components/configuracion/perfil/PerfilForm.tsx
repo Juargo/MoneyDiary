@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useGuardarPerfil } from '@/api/use-guardar-perfil';
 import type { MeDto } from '@/api/types';
-import { CampoTexto } from './CampoTexto';
+import { CampoTexto } from '../CampoTexto';
 import { MENSAJE_DEMO_SOLO_LECTURA, mensajeDeResultado } from './mensajes';
 import type { Mensaje } from './mensajes';
 
