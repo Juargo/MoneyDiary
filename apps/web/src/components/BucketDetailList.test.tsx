@@ -201,12 +201,12 @@ describe('BucketDetailList', () => {
     await waitFor(() =>
       expect(screen.getByText('Supermercado Líder')).toBeInTheDocument(),
     );
-    // Two groups, Supermercado (2 rows, $15.000) before Farmacia (canonical
-    // order — Supermercado precedes Farmacia in the fixed Categoria order).
+    // Two groups, Farmacia before Supermercado — alphabetical order (es-CL),
+    // not the retired fixed Categoria order (WCAT-02 delta, US-043 §7).
     const headings = screen.getAllByRole('heading', { level: 2 });
     expect(headings.map((h) => h.textContent)).toEqual([
-      'Supermercado · $15.000 · 2 movimientos',
       'Farmacia · $3.000 · 1 movimiento',
+      'Supermercado · $15.000 · 2 movimientos',
     ]);
     expect(screen.getByText('Supermercado Jumbo')).toBeInTheDocument();
     expect(screen.getByText('Farmacia Cruz Verde')).toBeInTheDocument();

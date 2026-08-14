@@ -2,19 +2,10 @@ import { formatearMontoCLP } from './formatear-monto';
 import { aFilaViewModel } from './detalle-bucket-view-model';
 import type { DetalleBucketRowViewModel } from './detalle-bucket-view-model';
 import type { DetalleBucketTransaccionDto } from '../api/types';
-import { ORDEN_CATEGORIAS } from './categoria';
 
 const BUCKET_INGRESO = 'Ingreso';
 const NOMBRE_SIN_CATEGORIA = 'Sin categoría';
 const CLAVE_SIN_CATEGORIA = 'sin-categoria';
-
-// Orden canónico de las 8 categorías (US-013 S6a, WCAT-02 "canonical
-// order") — importado de `./categoria` (S6b) en vez de duplicado local, para
-// que la agrupación de lectura y el `<select>` de reclasificación (S6b)
-// compartan una única fuente (DRY). Solo las categorías del bucket
-// seleccionado aparecen realmente en los datos (cada categoría pertenece a
-// exactamente un bucket), así que este array totaliza las 8 pero cada
-// llamada solo produce grupos para las presentes.
 
 export interface GrupoCategoriaViewModel {
   readonly categoriaId: string | null;
@@ -48,12 +39,19 @@ function montoRelevante(
   return bucket === BUCKET_INGRESO ? tx.abono : tx.cargo;
 }
 
-function ordinal(nombre: string): number {
-  const indice = ORDEN_CATEGORIAS.indexOf(nombre);
-  // "Sin categoría" (no está en ORDEN_CATEGORIAS, indexOf === -1) y
-  // cualquier nombre no reconocido ordenan al final, después de las 8
-  // categorías reales.
-  return indice === -1 ? ORDEN_CATEGORIAS.length : indice;
+/**
+ * Orden alfabético es-CL, con "Sin categoría" SIEMPRE al final. Reemplaza el
+ * orden fijo de las 8 categorías semilla (ADR-036/037: el catálogo es un set
+ * de filas por usuario, no un enum cerrado — ya no existe un orden canónico
+ * que espejar). El locale es EXPLÍCITO: los nombres creados por el usuario
+ * llevan tildes y ñ, y la colación por defecto depende del ICU disponible en
+ * el runtime, así que sin `'es-CL'` el orden cambiaría entre Node y
+ * navegador (design.md §1/Q7b).
+ */
+function compararGrupos(a: string, b: string): number {
+  if (a === NOMBRE_SIN_CATEGORIA) return b === NOMBRE_SIN_CATEGORIA ? 0 : 1;
+  if (b === NOMBRE_SIN_CATEGORIA) return -1;
+  return a.localeCompare(b, 'es-CL');
 }
 
 /**
@@ -66,10 +64,10 @@ function ordinal(nombre: string): number {
  *
  * Las filas con `categoria === null` (SinCategoria bucket, o una fila no
  * matcheada en un bucket de gasto) caen en un grupo sintético
- * "Sin categoría" (`categoriaId: null`). Los grupos se ordenan por el orden
- * fijo de `Categoria` (mismo orden que el backend), con "Sin categoría"
- * siempre al final. Solo se producen grupos para categorías realmente
- * presentes en `transacciones` (nunca grupos vacíos).
+ * "Sin categoría" (`categoriaId: null`). Los grupos se ordenan
+ * alfabéticamente (locale `es-CL`, WCAT-02 delta), con "Sin categoría"
+ * siempre al final, independiente de su conteo. Solo se producen grupos para
+ * categorías realmente presentes en `transacciones` (nunca grupos vacíos).
  */
 export function agruparDetallePorCategoria(
   transacciones: ReadonlyArray<DetalleBucketTransaccionDto>,
@@ -97,7 +95,7 @@ export function agruparDetallePorCategoria(
   }
 
   return Array.from(grupos.values())
-    .sort((a, b) => ordinal(a.nombre) - ordinal(b.nombre))
+    .sort((a, b) => compararGrupos(a.nombre, b.nombre))
     .map((grupo) => ({
       categoriaId: grupo.categoriaId,
       nombre: grupo.nombre,
