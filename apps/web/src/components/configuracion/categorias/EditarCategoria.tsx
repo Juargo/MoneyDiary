@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -87,6 +87,32 @@ export function EditarCategoria({
   const eliminacion = useEliminarCategoria();
   const { data: me } = useMe();
   const esDemo = me?.esDemo ?? false;
+
+  // Judgment-day finding (round 2): `eliminacion` lives HERE, in the
+  // component that does NOT remount on in-place navigation between two
+  // categories' edit screens (only `EditarCategoriaCargada`, keyed by
+  // `categoria.id`, does) — so a DELETE still in flight for the PREVIOUS
+  // category stays wired to the SAME mutation observer after the user
+  // navigates to a DIFFERENT one. `MutationObserver.reset()` (query-core)
+  // detaches the observer from its current mutation: the stale request
+  // keeps running, but this observer stops receiving its resolution, so
+  // the PREVIOUS category's mutate-level `onSuccess` (navigate back to the
+  // list, in `confirmarEliminar`) can no longer fire against a screen the
+  // user has already navigated away from. `eliminacion.reset` is bound
+  // once per observer (stable identity) — this effect only re-fires when
+  // `categoriaId` actually changes, never on every render.
+  useEffect(() => {
+    // `eliminacion` itself is a NEW object every render (a fresh
+    // `MutationObserver` result each time `useMutation()` re-renders) —
+    // depending on it directly would refire this effect on every
+    // unrelated re-render, not just when `categoriaId` actually changes.
+    // `eliminacion.reset` has a stable identity for the SAME observer
+    // instance (query-core's `MutationObserver` binds it once in its
+    // constructor), so narrowing the deps array to `categoriaId` alone is
+    // intentional and safe.
+    eliminacion.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriaId]);
 
   if (eliminacion.isSuccess) {
     return null;
@@ -201,6 +227,21 @@ function EditarCategoriaCargada({
   const [dialogo, setDialogo] = useState<'cambiar-bucket' | 'eliminar' | null>(
     null,
   );
+  // Judgment-day finding (round 2): `fraseDeImpacto({..., bucketNuevo:
+  // bucket, ...})` used to read LIVE `bucket` state on every render, so the
+  // dialog's copy could go self-contradictory (`«X» pasa de Necesidades a
+  // Necesidades.`) the instant the underlying draft moved while the dialog
+  // stayed open — e.g. `Cancelar` resetting `bucket` back to
+  // `categoria.bucket`, or a second `Bucket` selection. `nombre`/`bucket`
+  // are frozen HERE, at the moment `Guardar` opens the dialog, and the
+  // dialog renders from this snapshot instead of the live draft — the
+  // outer controls are ALSO disabled while `dialogo !== null` (below), but
+  // this snapshot is the defense that fixes the whole class rather than
+  // each individual control.
+  const [borradorAlAbrirDialogo, setBorradorAlAbrirDialogo] = useState<{
+    readonly nombre: string;
+    readonly bucketNuevo: string;
+  } | null>(null);
   const guardarRef = useRef<HTMLButtonElement>(null);
   const eliminarRef = useRef<HTMLButtonElement>(null);
 
@@ -209,6 +250,10 @@ function EditarCategoriaCargada({
   function cancelarIdentidad() {
     setNombre(categoria.nombre);
     setBucket(categoria.bucket);
+    // WCTG-04 (frozen spec): "Cancelar MUST discard ONLY the identity
+    // draft ... and return to the list" — discarding the draft without
+    // navigating away left the user stranded on the edit screen.
+    void navigate({ to: '/configuracion/categorias' });
   }
 
   function guardarIdentidad(event: FormEvent<HTMLFormElement>) {
@@ -225,6 +270,7 @@ function EditarCategoriaCargada({
     }
     if (bucketSucio) {
       actualizacion.reset();
+      setBorradorAlAbrirDialogo({ nombre, bucketNuevo: bucket });
       setDialogo('cambiar-bucket');
       return;
     }
@@ -235,10 +281,20 @@ function EditarCategoriaCargada({
   }
 
   function confirmarCambioBucket() {
+    // `borradorAlAbrirDialogo` is always set by the time this fires — it's
+    // only reachable via the dialog's `onConfirmar`, which only renders
+    // once `guardarIdentidad` has set it above. The guard keeps this
+    // function total without an unsafe non-null assertion.
+    if (!borradorAlAbrirDialogo) {
+      return;
+    }
     actualizacion.mutate(
       {
         id: categoria.id,
-        patch: { nombre, bucket: bucket as BucketAsignable },
+        patch: {
+          nombre: borradorAlAbrirDialogo.nombre,
+          bucket: borradorAlAbrirDialogo.bucketNuevo as BucketAsignable,
+        },
       },
       {
         onSuccess: () => {
@@ -291,12 +347,20 @@ function EditarCategoriaCargada({
         onSubmit={guardarIdentidad}
         className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_220px]"
       >
+        {/*
+          `dialogo !== null` (judgment-day round 2): while EITHER
+          confirmation dialog is open, the identity draft must not be able
+          to move — `Bucket` changing underneath the bucket-change dialog is
+          exactly the race the frozen `borradorAlAbrirDialogo` snapshot
+          (above) also defends against; disabling here is the first,
+          user-facing layer of that same fix.
+        */}
         <CampoTexto
           label="Nombre"
           value={nombre}
           onChange={setNombre}
           required
-          disabled={esDemo}
+          disabled={esDemo || dialogo !== null}
         />
         <CampoSelect
           label="Bucket (obligatorio)"
@@ -304,7 +368,7 @@ function EditarCategoriaCargada({
           onChange={setBucket}
           options={OPCIONES_BUCKET}
           required
-          disabled={esDemo}
+          disabled={esDemo || dialogo !== null}
         />
       </form>
 
@@ -346,8 +410,24 @@ function EditarCategoriaCargada({
           // the instant `cerrarDialogo` tries to restore focus to it (the
           // DOM `disabled` attribute only clears on the next commit, after
           // that synchronous `.focus()` call already ran).
+          //
+          // `eliminacion.isPending` (judgment-day round 2): a bare
+          // `dialogo === 'cambiar-bucket'` left this trigger clickable
+          // while its OWN `DELETE` was in flight, and its `onClick`
+          // unconditionally calls `eliminacion.reset()` — detaching the
+          // observer from the in-flight mutation, flipping `isPending`
+          // back to `false`, and re-enabling the dialog's confirm button
+          // underneath it, letting an impatient double-click fire a second
+          // `DELETE`. This trades the `cerrarDialogo` focus-restore edge
+          // case (an Escape mid-flight now lands focus nowhere instead of
+          // on `eliminarRef`) for closing that reentrancy hole — no test
+          // pins focus-restore during an in-flight delete, unlike the
+          // bucket-change dialog's Escape/Guardar case below.
           disabled={
-            esDemo || dialogo === 'cambiar-bucket' || actualizacion.isPending
+            esDemo ||
+            dialogo === 'cambiar-bucket' ||
+            actualizacion.isPending ||
+            eliminacion.isPending
           }
           onClick={() => {
             eliminacion.reset();
@@ -362,9 +442,18 @@ function EditarCategoriaCargada({
           <button
             type="button"
             form="form-identidad"
+            // `dialogo !== null` (judgment-day round 2): this button was
+            // NOT disabled while a dialog was open — its `onClick` resets
+            // the draft back to `categoria.nombre`/`categoria.bucket`,
+            // which could self-contradict the OPEN bucket-change dialog's
+            // copy (`«X» pasa de Necesidades a Necesidades.`) before the
+            // `borradorAlAbrirDialogo` snapshot (above) closed that hole.
+            // `esDemo` is deliberately NOT part of this condition —
+            // `Cancelar` issues zero requests and stays enabled in demo.
+            disabled={dialogo !== null}
             onClick={cancelarIdentidad}
             aria-label="Cancelar cambios de nombre y bucket"
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -392,14 +481,17 @@ function EditarCategoriaCargada({
         </div>
       </footer>
 
-      {dialogo === 'cambiar-bucket' && (
+      {dialogo === 'cambiar-bucket' && borradorAlAbrirDialogo && (
         <ConfirmarImpactoDialog
           {...fraseDeImpacto({
             tipo: 'cambiar-bucket',
-            nombre: categoria.nombre,
+            // Frozen snapshot (judgment-day round 2), not the live
+            // `nombre`/`bucket` draft — see `borradorAlAbrirDialogo`'s
+            // definition above for why.
+            nombre: borradorAlAbrirDialogo.nombre,
             transaccionesCount: categoria.transaccionesCount,
             bucketAnterior: categoria.bucket,
-            bucketNuevo: bucket,
+            bucketNuevo: borradorAlAbrirDialogo.bucketNuevo,
           })}
           pendiente={esDemo || actualizacion.isPending}
           error={

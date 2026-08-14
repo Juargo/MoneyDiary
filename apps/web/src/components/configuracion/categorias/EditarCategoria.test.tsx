@@ -287,7 +287,10 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
     });
   });
 
-  it('Cancelar (disambiguado "Cancelar cambios de nombre y bucket") descarta el draft sin emitir ninguna request', async () => {
+  it('Cancelar (disambiguado "Cancelar cambios de nombre y bucket") descarta el draft SIN emitir ninguna request y vuelve a la lista (WCTG-04, judgment-day round 2)', async () => {
+    // Frozen spec, WCTG-04: "Cancelar ... return to the list" — the OLD
+    // implementation only reset local state and never navigated, so this
+    // assertion is the one that must fail against it before the fix.
     const user = userEvent.setup();
     const fetchMock = vi.fn();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
@@ -303,7 +306,8 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Nombre')).toHaveValue('Supermercado');
+    await screen.findByText('Lista');
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument();
   });
 });
 
@@ -741,6 +745,205 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('Nombre, Bucket y Cancelar se deshabilitan mientras el diálogo de cambio de bucket está abierto (judgment-day round 2)', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+
+    expect(screen.getByLabelText('Nombre')).toBeDisabled();
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Cancelar cambios de nombre y bucket',
+      }),
+    ).toBeDisabled();
+  });
+
+  it('Eliminar categoría se deshabilita mientras el PROPIO DELETE está en vuelo, evitando un .reset() que reactive el confirmar y permita un segundo DELETE (judgment-day round 2)', async () => {
+    const user = userEvent.setup();
+    let resolverDelete!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverDelete = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    const dialogo = await screen.findByRole('alertdialog');
+    await user.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+
+    // Mid-flight: against the OLD `disabled` condition (missing
+    // `eliminacion.isPending`), this trigger stays clickable, and its
+    // `onClick` unconditionally calls `eliminacion.reset()` — detaching the
+    // observer from the in-flight DELETE and flipping `isPending` back to
+    // `false`, re-enabling the dialog's own confirm button underneath it.
+    expect(
+      screen.getByRole('button', { name: 'Eliminar categoría Supermercado' }),
+    ).toBeDisabled();
+
+    resolverDelete({ ok: true, status: 204 });
+    await screen.findByText('Lista');
+  });
+});
+
+/**
+ * Judgment-day round 2 (PR #3b re-review): the bucket-change dialog read
+ * LIVE `bucket` state on every render instead of a snapshot taken when it
+ * opened — combined with the outer controls staying enabled (fixed above),
+ * this let the dialog's copy go self-contradictory (`«X» pasa de
+ * Necesidades a Necesidades.`) the instant `Cancelar` or another `Bucket`
+ * selection moved the underlying state while the dialog stayed open on
+ * `dialogo: 'cambiar-bucket'`.
+ */
+describe('EditarCategoria — el diálogo de cambio de bucket congela su copy al abrir', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('cambiar Bucket de nuevo mientras el diálogo está abierto NO actualiza su copy — el snapshot tomado al abrir se mantiene', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+    expect(
+      screen.getByText('«Supermercado» pasa de Necesidades a Gustos.'),
+    ).toBeInTheDocument();
+
+    // `fireEvent.change` bypasses the `disabled` attribute (jsdom does not
+    // enforce interactability the way `userEvent` does) — this exercises
+    // the snapshot defense directly, independent of the control-disabling
+    // fix above, so a future regression in ONE of the two layers is still
+    // caught by the other.
+    fireEvent.change(screen.getByLabelText('Bucket (obligatorio)'), {
+      target: { value: 'Ahorro' },
+    });
+
+    expect(
+      screen.getByText('«Supermercado» pasa de Necesidades a Gustos.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('«Supermercado» pasa de Necesidades a Ahorro.'),
+    ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Judgment-day round 2: `eliminacion` (the DELETE mutation) is created in
+ * the un-keyed `EditarCategoria`, which does NOT remount on in-place
+ * navigation between two categories' edit screens (only
+ * `EditarCategoriaCargada`, keyed by `categoria.id`, does). A DELETE still
+ * in flight for the PREVIOUS category therefore stayed wired to the SAME
+ * mutation observer after the user navigated to a DIFFERENT category, so
+ * its mutate-level `onSuccess` (navigate back to the list) could fire late
+ * and force the user off a category they never asked to delete.
+ */
+describe('EditarCategoria — un DELETE en vuelo no sobrevive un cambio de categoría', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('un DELETE que resuelve tarde para la categoría A no navega fuera de la categoría B ya abierta', async () => {
+    const catalogoDosCategorias: CatalogoDto = {
+      categorias: [CATEGORIA_SUPERMERCADO, CATEGORIA_STREAMING],
+    };
+    let resolverDelete!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) => {
+      if (opciones?.method === 'DELETE') {
+        return new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverDelete = resolve;
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => catalogoDosCategorias,
+      });
+    });
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', fetchMock);
+    const { router } = renderEditar({
+      me: ME_NO_DEMO,
+      categorias: catalogoDosCategorias,
+    });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'DELETE',
+      }),
+    );
+
+    await router.navigate({
+      to: '/configuracion/categorias/$categoriaId',
+      params: { categoriaId: 'cat-2' },
+    });
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Nombre')).toHaveValue('Streaming'),
+    );
+
+    const getsAntesDeResolver = fetchMock.mock.calls.filter(
+      ([, opciones]) => opciones?.method === undefined,
+    ).length;
+    resolverDelete({ ok: true, status: 204 });
+
+    // The hook-level `onSuccess` (invalidate → this GET refetch) is
+    // `await`ed INSIDE `Mutation.execute()` strictly BEFORE it dispatches
+    // `'success'` to observers (which is what would fire the mutate-level
+    // `onSuccess`/navigate, per the design.md-cited React Query ordering
+    // this file already relies on) — waiting for that GET confirms the
+    // async chain has progressed far enough that a stale navigate would
+    // already have fired, if it was going to. A plain absence check right
+    // after `resolverDelete()` would trivially pass before ANY of this
+    // chain has had a chance to run, even against the un-fixed
+    // implementation — this is the assertion that must be reachable AFTER
+    // real progress, not before it.
+    await vi.waitFor(() => {
+      const getsDespuesDeResolver = fetchMock.mock.calls.filter(
+        ([, opciones]) => opciones?.method === undefined,
+      ).length;
+      expect(getsDespuesDeResolver).toBeGreaterThan(getsAntesDeResolver);
+    });
+    // One more macrotask for the `dispatch('success')` → observer notify →
+    // mutate-level `onSuccess` microtask chain that follows immediately
+    // after the awaited GET above, in case it still fires.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByText('Lista')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Streaming');
   });
 });
 
