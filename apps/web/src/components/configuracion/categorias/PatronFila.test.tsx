@@ -542,6 +542,31 @@ describe('PatronFila — fila existente', () => {
     });
   });
 
+  it('si la fila se desmonta ANTES de que el timer de recuperación diferida (mousedown en Eliminar seguido de arrastre fuera del target) se dispare, el commit diferido se cancela: cero request (judgment-day PR #4 WARNING: el `setTimeout` no tenía cleanup — un `commit()` diferido podía disparar un PATCH real contra una fila de la que el usuario ya navegó)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { unmount } = render(
+      <PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón');
+    const boton = screen.getByRole('button', { name: /eliminar patrón/i });
+
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.mouseDown(boton);
+    fireEvent.blur(input);
+
+    // The deferred recovery timer is now scheduled (see the sibling test
+    // above), but the row unmounts — e.g. `Cancelar` navigated away —
+    // before the macrotask that would replay `commit()` ever runs.
+    unmount();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('un Enter que dispara un PATCH llama a input.focus() una vez que el input se re-habilita (redesign, judgment-day PR #4, causa estructural #4: un navegador real pierde el foco al deshabilitar un control enfocado; jsdom no reproduce ese auto-blur de forma confiable, así que este test verifica el fix real — la llamada a `.focus()` guiada por el ref — en vez de `document.activeElement`)', async () => {
     let resolverFetch: (value: {
       ok: boolean;
@@ -572,6 +597,61 @@ describe('PatronFila — fila existente', () => {
 
     await waitFor(() => expect(input).not.toBeDisabled());
     await waitFor(() => expect(focoSpy).toHaveBeenCalledTimes(1));
+  });
+
+  it('si el propio PATCH de la fila resuelve MIENTRAS un bloqueo EXTERNO (bloqueado=true, p.ej. un diálogo de confirmación abierto en EditarCategoria) sigue activo, la intención de restaurar foco se descarta — NO se roba el foco de vuelta a Patrón cuando el bloqueo externo se libera después (judgment-day PR #4 WARNING: la intención pertenece solo al ciclo de vida de la mutación PROPIA de esta fila, nunca a un bloqueo impuesto desde afuera)', async () => {
+    let resolverFetch: (value: {
+      ok: boolean;
+      status: number;
+    }) => void = () => {};
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverFetch = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(
+      <PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    const input = screen.getByLabelText('Patrón') as HTMLInputElement;
+    const focoSpy = vi.spyOn(input, 'focus');
+    fireEvent.change(input, { target: { value: 'spotify' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(input).toBeDisabled();
+
+    // An external dialog opens elsewhere on the screen WHILE this row's own
+    // PATCH is still in flight — mirrors `EditarCategoria` passing
+    // `bloqueado={dialogo !== null}` down to every `PatronFila`.
+    rerender(
+      <PatronFila
+        categoriaId="cat-1"
+        patron={PATRON}
+        esDemo={false}
+        bloqueado
+      />,
+    );
+
+    // The row's own PATCH resolves while the external block is STILL up —
+    // the input must stay disabled (the external block, not this row's own
+    // mutation, is now the reason) and focus must NOT be restored yet.
+    resolverFetch({ ok: true, status: 200 });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText('Patrón')).toBeDisabled();
+    expect(focoSpy).not.toHaveBeenCalled();
+
+    // The external dialog closes (e.g. the user pressed Escape, and
+    // `EditarCategoria` already synchronously focused ITS OWN `Guardar`/
+    // `Eliminar` button) — this row must not steal that focus back.
+    rerender(<PatronFila categoriaId="cat-1" patron={PATRON} esDemo={false} />);
+
+    expect(screen.getByLabelText('Patrón')).not.toBeDisabled();
+    expect(focoSpy).not.toHaveBeenCalled();
   });
 });
 

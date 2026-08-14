@@ -238,19 +238,62 @@ export function PatronFila({
   // (a ref flag set at the moment of the user's OWN gesture + a `useEffect`
   // keyed on the fields being re-enabled — effects run after React commits
   // `disabled: false`, so `.focus()` is never a no-op here).
+  //
+  // Judgment-day PR #4 WARNING: this effect used to key on the COMBINED
+  // `accionesBloqueadas` (own mutation OR external `bloqueado` dialog OR
+  // demo). That let an external block (`bloqueado`, `EditarCategoria`'s
+  // `dialogo !== null`) swallow the transition entirely: the row's OWN
+  // mutation could resolve WHILE `bloqueado` was still true (so
+  // `accionesBloqueadas` never dipped to `false`), and then, once the
+  // EXTERNAL dialog closed on its own schedule, this effect would fire and
+  // steal focus back to `Patrón` — even after the dialog's own close
+  // handler (`cerrarDialogo`) had already synchronously restored focus to
+  // `Guardar`/`Eliminar` (WCTG-07). The intent belongs ONLY to this row's
+  // OWN mutation lifecycle, so the effect now keys on `filaOcupada` (never
+  // on `bloqueado`): the moment this row's OWN mutation settles, either
+  // restore focus (no external block active) or DROP the intent outright
+  // (an external block is still up — that focus belongs to whatever
+  // imposed the block, not to this row). Dropping it here, rather than
+  // deferring it, keeps the ref's lifecycle total: it always ends up
+  // `false` exactly once per commit, never replayed once the external
+  // block eventually clears.
   const restaurarFocoPatronRef = useRef(false);
   useEffect(() => {
-    if (!accionesBloqueadas && restaurarFocoPatronRef.current) {
-      inputPatronRef.current?.focus();
+    if (!filaOcupada && restaurarFocoPatronRef.current) {
+      if (!bloqueadoTotal) {
+        inputPatronRef.current?.focus();
+      }
       restaurarFocoPatronRef.current = false;
     }
-  }, [accionesBloqueadas]);
+  }, [filaOcupada, bloqueadoTotal]);
 
   // Pointer-intent flag for the delete button (redesign structural cause
   // #2, replaces round 2's `relatedTarget` check — see `alPerderFocoPatron`
   // below). Set in the button's OWN `onMouseDown`, which always precedes a
   // real click but never a Tab landing.
   const clicEliminarEnCursoRef = useRef(false);
+
+  // Deferred-replay timer id (judgment-day PR #4 WARNING): `alPerderFocoPatron`
+  // below defers its recovery `commit()` by one macrotask (`setTimeout(...,
+  // 0)`) to let a genuine `click` win the race first — but a macrotask
+  // outlives this component's own lifetime. Reachable sequence: mousedown
+  // on the delete button, drag off before release (schedules the timer via
+  // `blur`), then activate `Cancelar` — `EditarCategoria`'s
+  // `cancelarIdentidad` navigates away and unmounts this whole row before
+  // the timer fires. Without a held id + cleanup, the callback still runs
+  // against a stale closure and fires a real, unawaited
+  // `PATCH /api/patrones/:id` for a row the user already left. Holding the
+  // id in a ref and clearing it on unmount keeps this identical in shape to
+  // `restaurarFocoPatronRef`'s effect above — a ref set at the moment of
+  // the gesture, consumed exactly once.
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (timeoutIdRef.current !== null) {
+        clearTimeout(timeoutIdRef.current);
+      }
+    };
+  }, []);
 
   function commit(overrides?: {
     readonly valor?: string;
@@ -392,7 +435,8 @@ export function PatronFila({
       return;
     }
     if (clicEliminarEnCursoRef.current) {
-      setTimeout(() => {
+      timeoutIdRef.current = setTimeout(() => {
+        timeoutIdRef.current = null;
         if (clicEliminarEnCursoRef.current) {
           clicEliminarEnCursoRef.current = false;
           commit();
