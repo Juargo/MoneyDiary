@@ -145,6 +145,33 @@ describe('/configuracion ?google= return contract (real route tree, WCFG-10)', (
     expect(meCalls).toHaveLength(1);
   });
 
+  it('una navegación GENUINA a otra página autenticada SÍ dispara un nuevo /api/auth/me (invariante que el fix anterior rompía)', async () => {
+    // Companion pin to the task-6.2 test above: the guard reverted in this
+    // corrective pass (`ensureQueryData`) fixed the double-fetch by making
+    // `beforeLoad` cache-backed for EVERY navigation, not just the
+    // `?google=` self-rewrite — which meant a real navigation between two
+    // authenticated pages stopped re-checking the session for the rest of
+    // the SPA session. `markSkipNextAuthRefetch` only arms for the ONE
+    // synthetic rewrite `ConfiguracionRoute`'s cleanup effect performs, so a
+    // distinct route entry (here `/configuracion` -> `/ingestas`) must still
+    // cost its own `/api/auth/me` round trip.
+    const { router, fetchStub } = renderApp('/configuracion');
+
+    await screen.findByRole('heading', { name: 'Editar perfil' });
+
+    await router.navigate({ to: '/ingestas' });
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/ingestas'),
+    );
+
+    const meCalls = fetchStub.mock.calls.filter(([input]) =>
+      (typeof input === 'string' ? input : input.toString()).startsWith(
+        '/api/auth/me',
+      ),
+    );
+    expect(meCalls).toHaveLength(2);
+  });
+
   it('refrescar la URL ya limpia (una navegación NUEVA sin ?google=) no reaparece el aviso', async () => {
     renderApp('/configuracion');
 

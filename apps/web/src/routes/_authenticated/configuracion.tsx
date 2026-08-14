@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { ConfiguracionPage } from '@/components/configuracion/ConfiguracionPage';
 import type { Mensaje } from '@/components/configuracion/mensajes';
+import { markSkipNextAuthRefetch } from '@/lib/skip-next-auth-refetch';
 
 type ConfiguracionSearch = { readonly google?: 'vinculado' | 'error' };
 
@@ -67,12 +68,13 @@ function ConfiguracionRoute() {
     // public API that rewrites the URL without doing so: even a raw
     // `window.history.replaceState` call is intercepted the same way, since
     // the router monkey-patches it). That re-runs `_authenticated`'s
-    // `beforeLoad` a second time for THIS landing — but `beforeLoad` is
-    // cache-aware (`fetchMeCached`/`ensureQueryData`, see
-    // `routes/_authenticated.tsx`), so the re-run is a cache hit, NOT a
-    // second `/api/auth/me` network call. Back never returns to the
-    // parameterised URL — the message cannot reappear through history
-    // (design.md §1/Q6b). Pinned by task 6.2's "exactly once" test.
+    // `beforeLoad` a second time for THIS landing — `markSkipNextAuthRefetch`
+    // (`lib/skip-next-auth-refetch.ts`) arms a one-tick guard so THAT specific
+    // re-run reads the identity `beforeLoad` already primed a moment ago
+    // instead of paying for a second `/api/auth/me` (WCFG-03). Back never
+    // returns to the parameterised URL — the message cannot reappear through
+    // history (design.md §1/Q6b). Pinned by task 6.2's "exactly once" test.
+    markSkipNextAuthRefetch();
     router.history.replace('/configuracion');
   }, [google, router]);
 
