@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ApiError } from '@/api/client';
 import {
+  fraseDeImpacto,
   MENSAJE_DEMO_CATALOGO,
   mensajeDeErrorCatalogo,
 } from './mensajes-catalogo';
@@ -119,5 +120,100 @@ describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos (11 vía `i
   it('nunca renderiza `error.message` del servidor, siempre el copy fijo del cliente', () => {
     const resultado = mensajeDeErrorCatalogo(servidor(400, 'NOMBRE_INVALIDO'));
     expect(resultado).not.toBe('ignored — never rendered');
+  });
+});
+
+/**
+ * fraseDeImpacto — el traductor puro de las cuatro filas de design.md
+ * §1/Q6b, verbatim (US-043 PR #3b, WCTG-07, WCTG-08). El caso zero SUAVIZA
+ * la frase, nunca SALTA el diálogo — las cuatro filas siguen devolviendo un
+ * `titulo`/`lineas`/`textoConfirmar` completo, nunca `null`.
+ */
+describe('fraseDeImpacto', () => {
+  it('eliminar, n ≥ 1: cuenta las transacciones y advierte sobre TODOS los períodos', () => {
+    const frase = fraseDeImpacto({
+      tipo: 'eliminar',
+      nombre: 'Supermercado',
+      transaccionesCount: 3,
+    });
+
+    expect(frase).toEqual({
+      titulo: 'Eliminar categoría',
+      lineas: [
+        'Vas a eliminar «Supermercado».',
+        '3 transacciones quedan en Sin categoría, en todos los períodos.',
+        'Esta acción no se puede deshacer.',
+      ],
+      textoConfirmar: 'Eliminar',
+    });
+  });
+
+  it('eliminar, n = 1: usa la forma singular de etiquetaTransacciones — el verbo del template no se conjuga (design.md §1/Q6b, verbatim)', () => {
+    const frase = fraseDeImpacto({
+      tipo: 'eliminar',
+      nombre: 'Supermercado',
+      transaccionesCount: 1,
+    });
+
+    expect(frase.lineas[1]).toBe(
+      '1 transacción quedan en Sin categoría, en todos los períodos.',
+    );
+  });
+
+  it('eliminar, n = 0: SUAVIZA la frase, no la salta — el diálogo igual se abre', () => {
+    const frase = fraseDeImpacto({
+      tipo: 'eliminar',
+      nombre: 'Suscripciones',
+      transaccionesCount: 0,
+    });
+
+    expect(frase).toEqual({
+      titulo: 'Eliminar categoría',
+      lineas: [
+        'Vas a eliminar «Suscripciones».',
+        'No tiene transacciones asociadas.',
+        'Esta acción no se puede deshacer.',
+      ],
+      textoConfirmar: 'Eliminar',
+    });
+  });
+
+  it('cambiar-bucket, n ≥ 1: nombra ambos buckets vía A1 (Deseos se muestra "Gustos") y advierte de meses cerrados', () => {
+    const frase = fraseDeImpacto({
+      tipo: 'cambiar-bucket',
+      nombre: 'Supermercado',
+      transaccionesCount: 12,
+      bucketAnterior: 'Necesidades',
+      bucketNuevo: 'Deseos',
+    });
+
+    expect(frase).toEqual({
+      titulo: 'Cambiar el bucket',
+      lineas: [
+        '«Supermercado» pasa de Necesidades a Gustos.',
+        'Esto mueve 12 transacciones en TODOS los períodos, incluidos los meses ya cerrados.',
+        'Tu resumen 50/30/20 va a cambiar para esos meses.',
+      ],
+      textoConfirmar: 'Cambiar bucket',
+    });
+  });
+
+  it('cambiar-bucket, n = 0: SUAVIZA la frase — sin línea de "meses cerrados" ni de "resumen 50/30/20"', () => {
+    const frase = fraseDeImpacto({
+      tipo: 'cambiar-bucket',
+      nombre: 'Suscripciones',
+      transaccionesCount: 0,
+      bucketAnterior: 'Ahorro',
+      bucketNuevo: 'Necesidades',
+    });
+
+    expect(frase).toEqual({
+      titulo: 'Cambiar el bucket',
+      lineas: [
+        '«Suscripciones» pasa de Ahorro a Necesidades.',
+        'No tiene transacciones asociadas, así que no se mueve ningún monto.',
+      ],
+      textoConfirmar: 'Cambiar bucket',
+    });
   });
 });

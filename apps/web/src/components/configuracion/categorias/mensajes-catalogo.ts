@@ -1,10 +1,12 @@
 import type { ApiError } from '@/api/client';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { etiquetaTransacciones } from './plural';
 
 /**
- * mensajes-catalogo.ts, error-table portion (US-043 design.md §1/Q8,
- * WCTG-12). Extended in PR #3b with the dialog-payload translator
- * (`ImpactoCatalogo`/`fraseDeImpacto`, design.md §1/Q6b) — this file only
- * carries the error table for now.
+ * mensajes-catalogo.ts (US-043 design.md §1/Q8, §1/Q6b, WCTG-12, WCTG-07,
+ * WCTG-08). Two independent halves in one file: the error table (below) and
+ * the dialog-payload translator (`ImpactoCatalogo`/`fraseDeImpacto`, added
+ * in PR #3b).
  *
  * Every message is a CLIENT constant. `body.message`/`error.message` is
  * NEVER rendered (`perfil.ts`'s discipline, applied here for a different
@@ -141,6 +143,90 @@ export function mensajeDeErrorCatalogo(error: ApiError): string {
       return GENERICO;
     default: {
       const _exhaustive: never = error;
+      return _exhaustive;
+    }
+  }
+}
+
+/**
+ * ImpactoCatalogo/fraseDeImpacto — the dialog-payload translator (PR #3b,
+ * design.md §1/Q6b, WCTG-07/WCTG-08). `ConfirmarImpactoDialog` (task 28)
+ * takes rendered copy and knows nothing about what it's confirming (Q6a,
+ * US-042 D-02 applied verbatim) — the branch on `tipo` lives here instead,
+ * in a pure function that needs no RTL to test, closed by `const
+ * _exhaustive: never = i` so a third payload stops compiling.
+ *
+ * **The zero case SOFTENS the sentence, it never SKIPS the dialog** — both
+ * payloads keep the same `titulo`/`textoConfirmar` at
+ * `transaccionesCount === 0`, only `lineas` drops the money-move clause.
+ * Skipping would falsify the success criterion "a dirty Bucket cannot be
+ * saved without an all-periods impact confirmation" (`EliminarIngestaControl
+ * :109-114`'s precedent, applied here).
+ */
+export type ImpactoCatalogo =
+  | {
+      readonly tipo: 'eliminar';
+      readonly nombre: string;
+      readonly transaccionesCount: number;
+    }
+  | {
+      readonly tipo: 'cambiar-bucket';
+      readonly nombre: string;
+      readonly transaccionesCount: number;
+      readonly bucketAnterior: string;
+      readonly bucketNuevo: string;
+    };
+
+function etiqueta(bucket: string): string {
+  return ETIQUETA_BUCKET[bucket] ?? bucket;
+}
+
+export function fraseDeImpacto(i: ImpactoCatalogo): {
+  readonly titulo: string;
+  readonly lineas: readonly string[];
+  readonly textoConfirmar: string;
+} {
+  switch (i.tipo) {
+    case 'eliminar': {
+      const lineas =
+        i.transaccionesCount > 0
+          ? [
+              `Vas a eliminar «${i.nombre}».`,
+              `${etiquetaTransacciones(i.transaccionesCount)} quedan en Sin categoría, en todos los períodos.`,
+              'Esta acción no se puede deshacer.',
+            ]
+          : [
+              `Vas a eliminar «${i.nombre}».`,
+              'No tiene transacciones asociadas.',
+              'Esta acción no se puede deshacer.',
+            ];
+      return {
+        titulo: 'Eliminar categoría',
+        lineas,
+        textoConfirmar: 'Eliminar',
+      };
+    }
+    case 'cambiar-bucket': {
+      const cabecera = `«${i.nombre}» pasa de ${etiqueta(i.bucketAnterior)} a ${etiqueta(i.bucketNuevo)}.`;
+      const lineas =
+        i.transaccionesCount > 0
+          ? [
+              cabecera,
+              `Esto mueve ${etiquetaTransacciones(i.transaccionesCount)} en TODOS los períodos, incluidos los meses ya cerrados.`,
+              'Tu resumen 50/30/20 va a cambiar para esos meses.',
+            ]
+          : [
+              cabecera,
+              'No tiene transacciones asociadas, así que no se mueve ningún monto.',
+            ];
+      return {
+        titulo: 'Cambiar el bucket',
+        lineas,
+        textoConfirmar: 'Cambiar bucket',
+      };
+    }
+    default: {
+      const _exhaustive: never = i;
       return _exhaustive;
     }
   }
