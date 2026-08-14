@@ -33,6 +33,17 @@
    */
   --color-ingreso: #d1fae5; /* mint — income card fill */
   --color-ingreso-foreground: #065f46; /* emerald — income card text */
+
+  /*
+   * Estado de vínculo de identidad externa (US-042). MISMOS valores verificados
+   * del par `ingreso` (6.78:1, AA — DCR-06): no se introduce un color nuevo, se
+   * le da NOMBRE al segundo concepto que lo usa. Los valores están literales, NO
+   * como `var(--color-ingreso)`: un alias por referencia haría de la tarjeta de
+   * ingresos la fuente de verdad del color de un estado de seguridad. Si mañana
+   * cambia el color de ingresos, este par NO debe seguirlo.
+   */
+  --color-vinculo-activo: #d1fae5; /* mint — same verified pair, 6.78:1 AA */
+  --color-vinculo-activo-foreground: #065f46; /* emerald */
 }
 
 /*

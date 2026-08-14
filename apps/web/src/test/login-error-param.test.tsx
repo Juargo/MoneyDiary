@@ -41,6 +41,15 @@ function renderApp(initialPath: string) {
   });
   const router = createRouter({
     routeTree,
+    // `createRootRouteWithContext<{ queryClient }>` (design.md §1/Q3c/D-07)
+    // makes this required for every `createRouter({ routeTree })` call, even
+    // here where the visited route (`/login`) never reads it — this test's
+    // router still type-checks against the SAME `Register` router type. NOT
+    // named in design.md's three-file table (US-042 apply-time finding,
+    // recorded in apply-progress): the design's own rule ("every
+    // `createRouter({ routeTree })` without a `context`") applies to this
+    // fourth file too.
+    context: { queryClient },
     history: createMemoryHistory({ initialEntries: [initialPath] }),
   });
 

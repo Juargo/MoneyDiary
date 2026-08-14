@@ -1,0 +1,501 @@
+# Tasks: US-042 — Web Configuración page, Perfil section
+
+## Review Workload Forecast
+
+| Field | Value |
+|-------|-------|
+| Estimated changed lines | PR #1a ~350-450 · PR #1b ~900-1100 (incl. tests) · PR #2 ~450-550 · Total ~1700-2100 |
+| 400-line budget risk | High (all three slices) |
+| Chained PRs recommended | Yes |
+| Suggested split | PR #1a (infra/guard/entry) → PR #1b (perfil form) → PR #2 (Google/layout) |
+| Delivery strategy | ask-on-risk |
+| Chain strategy | feature-branch-chain (tracker branch, cached) |
+
+Decision needed before apply: Yes
+Chained PRs recommended: Yes
+Chain strategy: feature-branch-chain
+400-line budget risk: High
+
+**Flag for the user before apply**: even after design's one sanctioned split point (between step 5
+and step 6), PR #1b alone is forecast at ~900-1100 lines because the save orchestration and its form
+must ship together — design explicitly **prohibits** splitting `use-guardar-perfil.ts` from
+`PerfilForm.tsx` across PRs (a half-wired sequential save is worse than a large diff). No further
+split is sanctioned. Options: (a) accept PR #1b as a documented `size:exception` slice within the
+chain, or (b) request maintainer sign-off before apply. This is the one decision the guard requires.
+
+**Guard decision (2026-08-13): option (a) accepted.** PR #1b ships as a documented `size:exception`
+slice inside the chain. Rationale: design §10 prohibits splitting `use-guardar-perfil.ts` from
+`PerfilForm.tsx`, so the only alternative to a large diff is a half-wired sequential save. PR #1b's
+description must carry the `size:exception` label and cite this line. PR #1a and PR #2 stay within
+the normal 400-line budget and get no exception.
+
+**Second guard decision (2026-08-13): PR #2 also accepted as `size:exception`.** The line above
+withheld an exception from PR #2; PR #2 landed at **1581 changed lines** against a ~450-550 forecast,
+so the maintainer was asked again and accepted.
+
+Rationale, with the number that actually matters: **925 of those 1581 lines (59%) are tests**.
+Production code is **656 lines across 9 files** — `GoogleVinculoSection` 146, `ConfirmarPasswordDialog`
+132, `perfil.ts` 98, `ConfiguracionPage` 86, the route file 62, `use-google-vinculo` 60, `CampoTexto`
+50, plus 22 of tokens and copy. Splitting was evaluated and rejected on evidence, not assertion: the
+only natural seam (Google section vs `?google=` + layout) yields ~1150 / ~430, leaving the first half
+still ~3x over. The bulk *is* the Google section, and its client + hook + dialog + section are one
+unit — split, PR #2a ships a dialog nothing invokes. Trimming tests to make the number look better
+would degrade the PR to flatter a metric.
+
+**Forecast accuracy, recorded for future planning.** All three slices overran in the same direction:
+
+| Slice | Forecast | Actual | Factor |
+|---|---|---|---|
+| PR #1a | 350-450 | 670 | 1.7x |
+| PR #1b | 900-1100 | 1953 | 1.9x |
+| PR #2 | 450-550 | 1581 | 3.1x |
+
+This is a systematic bias in the `tasks` phase, not three unlucky slices. The likely cause is that
+the forecast sized production code while Strict TDD obliges a test suite that here runs ~1.4x the
+production line count. A future `sdd-tasks` run on a TDD-strict change should forecast tests
+explicitly, or state that its budget numbers exclude them.
+
+### Suggested Work Units
+
+| Unit | Goal | PR | Base branch |
+|------|------|----|-------------|
+| 1 | Query foundation, `esMeDto` hardening, route/nav/a11y wiring | PR #1a | `feat/us-042-web-configuracion-perfil` (tracker, draft/no-merge) |
+| 2 | `perfil.ts` (profile/password) + sequential save + `PerfilForm` + page composition | PR #1b | PR #1a's branch |
+| 3 | Google link/unlink + `?google=` contract + fluid T1 layout | PR #2 | PR #1b's branch |
+
+Tracker merges to `main` only after all three are reviewed and integrated (feature-branch-chain).
+
+---
+
+## PR #1a — Infrastructure, identity guard, entry points
+
+### Phase 0: Pre-flight (before any file is written)
+
+- [x] 0.1 **PASS — observed status `200`.** Run the `PATCH /api/perfil` snippet from design §Q5a with
+  a real session. Pass = `200` with updated `nombre` echoed. Fail (`405`/`501`/`502`, or `200` with
+  `text/html`) = diagnose per §Q5b before writing code; a platform-layer refusal **blocks the
+  change** — escalate, do not add `X-HTTP-Method-Override` (rejected, needs an API change).
+  [design Q5a/Q5b]
+
+  **Recorded evidence (2026-08-13, executed by the maintainer from the browser console):**
+
+  | Field | Observed |
+  |-------|----------|
+  | `location.origin` | `https://app.moneydiary.cl` (production Vercel deployment) |
+  | `status` | **`200`** |
+  | `content-type` | `application/json; charset=utf-8` |
+  | body | `{"userId":"usuario-fijo-moneydiary","nombre":"Preflight","esDemo":false,"googleVinculado":true,…}` |
+
+  Both failure modes are affirmatively excluded: the status is not `405`/`501`/`502`, and the
+  `content-type` is JSON rather than `text/html`, so the request reached the API instead of being
+  answered by the SPA shell. `nombre` echoes back the value sent. **Vercel's platform layer forwards
+  `PATCH` to the API — the change is unblocked and §Q5b's fallback ladder is not needed.**
+
+  Ran against the **production** deployment rather than a branch preview: `apps/web/api/proxy.ts` and
+  `vercel.json` are untouched by this change, so production exercises the identical platform path.
+  Note the earlier false start — `method: 'PATH'` (typo) returns `400`, and a run against
+  `localhost:5173` proves nothing, since Vite's dev proxy is not the Vercel function under test.
+
+### Phase 1: Query foundation (type-level — let `tsc` enumerate the fallout, do not grep)
+
+- [x] 1.1 Extract `src/api/query-client-defaults.ts` exporting `QUERY_CLIENT_DEFAULTS` mirroring
+  `main.tsx:63`'s `staleTime: 30_000`. [design Q3c, D-06]
+- [x] 1.2 Wire `main.tsx` to consume `QUERY_CLIENT_DEFAULTS`. Verify: `pnpm web typecheck`.
+- [x] 1.3 RED: `src/api/use-me.test.ts` for `ME_QUERY_KEY = ['auth-me']`, `meQueryOptions`, `useMe`.
+  (Written as `use-me.test.tsx` — the wrapper needs JSX, `.ts` cannot parse it; same extension as
+  every other hook test in `src/api/`.)
+- [x] 1.4 GREEN: `src/api/use-me.ts`. Verify: `pnpm web test src/api/use-me.test.ts`. [WCFG-03]
+- [x] 1.5 `src/routes/__root.tsx` → `createRootRouteWithContext<{ queryClient: QueryClient }>()`.
+  This is the type-level change that turns the 3 route-tree tests' missing `context` into a compile
+  error. [design D-07, Q3c]
+- [x] 1.6 Prime the cache in `_authenticated.tsx`'s `beforeLoad`:
+  `context.queryClient.setQueryData(ME_QUERY_KEY, me)`; keep the return `{ esDemo: me.esDemo }`
+  unchanged. [WCFG-03, design Q3b]
+- [x] 1.7 RED+GREEN: route-tree test — `/api/auth/me` fetched exactly once landing on an
+  authenticated route, using a `QueryClient` built from `QUERY_CLIENT_DEFAULTS`. [WCFG-03]
+  (`src/test/use-me-priming.test.tsx`.)
+
+### Phase 2: `esMeDto` hardening (runtime guard — NOT caught by `tsc`)
+
+- [x] 2.1 RED: extend `src/api/auth.test.ts` — reject missing/mistyped `nombre`/`googleVinculado`,
+  accept valid fixtures, keep the `esDemo ⇔ email` cases green. [WCFG-04]
+- [x] 2.2 GREEN: add both checks to `esMeDto` (`src/api/auth.ts:82-88`) per design Q4a — **reject,
+  never default**.
+- [x] 2.3 Repair `src/test/redirect-after-login.test.tsx:38-42`: add `nombre`+`googleVinculado` to
+  the stub payload **AND** add `context: { queryClient }` to `createRouter` — two edits, easy to miss
+  the second. Verify: `pnpm web test src/test/redirect-after-login.test.tsx`.
+- [x] 2.4 Repair `src/test/demo-banner-layout.test.tsx:19-23`: fix `buildFetchStub`'s param type +
+  payload **AND** build the router's `QueryClient` from `QUERY_CLIENT_DEFAULTS` + add
+  `context: { queryClient }`. Verify: `pnpm web test src/test/demo-banner-layout.test.tsx`.
+- [x] 2.5 Repair `src/test/app-shell-layout.test.tsx:20`: add both fields **AND**
+  `context: { queryClient }`. Verify: `pnpm web test src/test/app-shell-layout.test.tsx`.
+  **Apply-time finding (not in design's three-file table): `src/test/login-error-param.test.tsx`
+  also builds `createRouter({ routeTree })` with no `context` and needed the same `context: {
+  queryClient }` repair (no payload change — it never visits `/api/auth/me`). Design's own rule
+  ("every `createRouter({ routeTree })` without a `context`", D-07) covers it; the file just wasn't
+  named. Fixed as part of this task and recorded here + in apply-progress.**
+- [x] 2.6 Write the PR description with the exact rollback-ordering sentence: *an API rollback past
+  US-040/041 must revert this web hardening first or in the same window, never API-first.* Nothing in
+  the toolchain enforces this — the sentence is the mitigation. [design Q4c, D-05]
+  (Drafted in `pr-1a-body.md`.)
+
+### Phase 3: Route, nav entry points, a11y wiring
+
+- [x] 3.1 Create `src/routes/_authenticated/configuracion.tsx` with `validateSearch` narrowing
+  `google` to `'vinculado' | 'error' | undefined`. Component may be a thin placeholder — full
+  composition lands in PR #1b. [design Q6a]
+- [x] 3.2 Run `pnpm web typecheck` to regenerate `routeTree.gen.ts` so `FileRouteTypes['to']` gains
+  `/configuracion`. Do this before 3.3 — the one unit exempt from red-first (route file must exist
+  before `tsr generate` can run). [design Q9d]
+- [x] 3.3 Flip `src/components/app-shell/nav-items.ts`'s `Configuración` placeholder to
+  `{ kind: 'link', to: '/configuracion', icon: Settings }` (one line) — compiles only after 3.2.
+  Update its test. (`Sidebar.test.tsx` + `BottomTabs.test.tsx`: moved `Configuración` out of the
+  placeholder loop into its own link assertion.)
+- [x] 3.4 Add the sidebar-footer icon link in `_authenticated.tsx` via the existing `sidebarFooter`
+  prop, `aria-label="Configuración de la cuenta"`, no user name. Do **not** touch `Sidebar.tsx` or
+  `AppShell.tsx`. [WCFG-01]
+- [x] 3.5 RED+GREEN: unauthenticated visit to `/configuracion` redirects to
+  `/login?redirect=/configuracion`; both entry points navigate to `/configuracion`. [WCFG-01]
+  (`src/test/configuracion-entry-points.test.tsx`.)
+- [x] 3.6 Install `eslint-plugin-jsx-a11y`; add the two-tier override to `apps/web/eslint.config.js`
+  (app-wide `warn` derived from `jsxA11y.flatConfigs.recommended.rules` keys; scoped `error` on
+  `src/components/configuracion/**` + the route file; both before
+  `eslintPluginPrettierRecommended`). Must land before Phase 4 authors any file under that glob.
+  Verify: `pnpm web lint`. [WCFG-12, design Q7a]
+
+**PR #1a status (2026-08-13): tasks 1.1–3.6 complete. `pnpm web typecheck && pnpm web test && pnpm
+web lint` all green (582 tests, 0 lint errors — 2 pre-existing app-wide jsx-a11y warnings, unrelated
+to this change). The app-wide severity derivation (3.6) was hardened post-review to preserve `'off'`
+rules and per-rule options from `jsxA11y.flatConfigs.recommended.rules` instead of flattening every
+key to `'warn'`; that bug had spuriously turned on `label-has-for` (5 of the original 6 warnings) and
+dropped `no-noninteractive-element-interactions`'s options. Task 0.1 remains unchecked and is a gate
+the user must run and record before the PR is opened — not automatable from an apply session.**
+
+---
+
+## PR #1b — Perfil form (base: PR #1a's branch)
+
+**Prohibition: 4.6-4.9 (the save orchestration) must never be split across PRs or deferred — a
+half-wired sequential save is worse than a large diff.** [design §10]
+
+- [x] 4.1 RED: `src/api/perfil.test.ts` for `patchPerfil`/`patchPassword` — never-throw `ApiResult<T>`,
+  `credentials: 'same-origin'`, `403` mapped by body `code` (`PERFIL_RECHAZADO`, `DEMO_SOLO_LECTURA`),
+  each response guarded.
+- [x] 4.2 GREEN: `src/api/perfil.ts` — `patchPerfil`/`patchPassword`.
+- [x] 4.3 RED+GREEN: `src/components/configuracion/mensajes.ts` (+test) — `it.each` over
+  `mensajeDeResultado`/`mensajeDeApiError` as pure functions, closed with `const _exhaustive: never
+  = r`. Use the **eight-code** table (spec WCFG-09 / design Q8b), including the three the proposal's
+  table omitted: `EMAIL_INVALIDO` (400), `GOOGLE_YA_VINCULADO` (409), `GOOGLE_NO_DISPONIBLE` (503).
+  [WCFG-09]
+  **Apply-time dependency (not named in design's task order): `mensajeDeResultado`'s signature needs
+  `ResultadoGuardado`, whose type only gets defined in `use-guardar-perfil.ts` (task 4.6/4.7). Resolved
+  by declaring `ResultadoGuardado`/`DraftPerfil` as type-only exports in `use-guardar-perfil.ts`
+  BEFORE 4.3, then adding the `guardar`/`useGuardarPerfil` implementation in the same file at 4.7 —
+  same type-first sequencing design.md D-07 already prescribes elsewhere.**
+- [x] 4.4 `src/components/configuracion/CampoTexto.tsx` (+test) — `<label>`-wrapped `<input>`, pure
+  presentational, 4 usages. [WCFG-12]
+- [x] 4.5 `src/components/configuracion/ConfiguracionTabs.tsx` (+test) — `Perfil` with
+  `aria-current="page"`; `Categorías` as `<button type="button" disabled aria-disabled="true">`
+  (verbatim `NavItem` placeholder treatment).
+- [x] 4.6 RED: `src/api/use-guardar-perfil.test.ts` — write these three sequence tests BEFORE the
+  implementation: (a) **order** test asserting the call-order **array** via
+  `toEqual(['PATCH /api/perfil', 'PATCH /api/perfil/password'])` — NOT "both were called", which
+  passes under a reversed implementation; (b) **abort** test asserting exactly one call
+  (`toEqual(['PATCH /api/perfil'])`) when the profile call 403s; (c) **retry-idempotent** test — after
+  a partial failure, a second submit sends only the password call, because change detection compares
+  the draft against the **query cache**, never a mount-time snapshot. [WCFG-06, WCFG-07, design Q9a,
+  Q2a]
+  (Written as `use-guardar-perfil.test.tsx` — needs JSX for the `QueryClientProvider` wrapper, same
+  reason `use-me.test.tsx` is `.tsx` not `.ts`, PR #1a task 1.3.)
+- [x] 4.7 GREEN: implement `construirPerfilPatch` + the `guardar` orchestration in
+  `use-guardar-perfil.ts` exactly per design Q2b's shape — profile block physically first, password
+  block second, abort as the first early return. `onSuccess` owns cache invalidation (invalidate on
+  any `perfilGuardado`, never on password-only success). [WCFG-05, WCFG-06, WCFG-07, WCFG-08]
+  **`mutationFn` reads `me` directly from `queryClient.getQueryData(ME_QUERY_KEY)` at submit time
+  (not from a `mutate()` argument/component closure) — the most literal reading of Q2a's "compared
+  against the cache, never a mount-time snapshot", and it is what makes the retry-idempotent test
+  correct regardless of when React re-renders `PerfilForm` after invalidation.**
+- [x] 4.8 RED+GREEN: rows 1-11 of design Q2c as discrete/`it.each` tests (no-op sends zero requests;
+  missing-`passwordActual` gate sends zero requests; password-only sends one call and clears both
+  password fields; partial failure keeps password fields; full success clears them). [WCFG-05..08]
+  (Rows 1-6 and the invalidation matrix asserted at the hook level in `use-guardar-perfil.test.tsx`;
+  rows 7/9/11's field-clearing/keeping behavior asserted at the component level in
+  `PerfilForm.test.tsx`, task 4.9 — clearing is a `PerfilForm` concern, not the hook's.)
+- [x] 4.9 `src/components/configuracion/PerfilForm.tsx` (+test): 4 fields via `CampoTexto`,
+  `Guardar cambios` `disabled={mutation.isPending}`, **two always-mounted** message regions
+  (`aria-live="polite"` + `role="alert"`) — two regions, not one, because a page-level region would
+  have two writers with no ordering rule. `Password actual` gets native `required` when the email
+  input is dirty. [WCFG-08, WCFG-09, WCFG-12, design Q1c, Q7d]
+  **Apply-time addition beyond the task's literal wording: `PerfilForm` also intercepts
+  `error.tag === 'unauthorized'` on either call and navigates to `/login` without rendering any
+  message — the WCFG-09 table's last row ("no message — `navigate({ to: '/login' })`"), which the
+  task list didn't call out as a sub-step but the spec requires.**
+
+  **Maintainer decision (2026-08-13, after judgment-day): the password-field clearing condition is
+  `r.tipo === 'ok'`, not `r.tipo === 'ok' && r.passwordCambiada`.** Two judges flagged across two
+  rounds that `passwordActual` survived a successful save that changed no password. `design.md` Q2c
+  never resolved that sub-case — it documents clearing only for rows 7/9/11 — so it was escalated
+  instead of being settled by a fix agent. Rationale: `Password actual` exists to authorize the email
+  change (Q1c); once the save succeeds the credential's purpose is spent and keeping it in component
+  state and in the DOM is retention with no function. `passwordNueva` is already empty in that branch
+  (with both filled, the outcome would be `ok`+`passwordCambiada` or `password-fallo`), so clearing
+  both is equivalent to branching and simpler. **Non-`ok` results still clear nothing** — Q2c rows
+  8/10/11 need the typed password to survive a partial failure so the retry sends only the password
+  call; those tests were re-run and stay green. Written red-first (new test verified failing against
+  the old condition). If `design.md` Q2c is ever revised, fold this in as its missing row.
+- [x] 4.10 `src/components/configuracion/ConfiguracionPage.tsx` (+test): fluid grid skeleton (fixed
+  first column + flexible panel, no `md:` tier), tab list + `PerfilForm`, owns the Google-outcome
+  message region (empty until PR #2 wires it). [WCFG-02]
+  (Google-outcome region shipped as a single always-mounted `aria-live="polite"` `<p>`,
+  `data-testid="aviso-google"`, no content wired — PR #2 (task 6.1) decides whether it needs to become
+  a two-tone pair like `PerfilForm`'s regions once the `?google=error` case is wired in.)
+- [x] 4.11 Wire `configuracion.tsx`'s component to render `ConfiguracionPage`, replacing PR #1a's
+  placeholder. Verify: `pnpm web typecheck && pnpm web test && pnpm web lint`. [WCFG-13]
+- [x] 4.12 RED+GREEN: `PerfilForm` proactive demo gate — closes a design §Q9c verification-matrix
+  requirement the original 4.x breakdown omitted (4.9 only wired the reactive `403
+  DEMO_SOLO_LECTURA` mapping). `mensajes.ts` exports `MENSAJE_DEMO_SOLO_LECTURA` (single source for
+  both halves, `dry`); `PerfilForm` disables the four `CampoTexto` and `Guardar cambios` when
+  `me.esDemo`, and renders a `role="note"` element carrying that same string only in that case.
+  [design Q9c]
+
+**PR #1b status (2026-08-13): tasks 4.1-4.12 complete. `pnpm web typecheck && pnpm web test && pnpm
+web lint` all green (72 test files, 658 tests, 0 lint errors — same 2 pre-existing app-wide
+jsx-a11y warnings as PR #1a's baseline, unrelated to this change). Confirmed zero diffs under
+`apps/api/**` and `apps/mobile/**`. `ApiError`'s `'server'` tag widened with an optional `code?:
+string` field in `client.ts` (additive, non-breaking) so `perfil.ts`/`mensajes.ts` can carry
+`aPerfilHttpError`'s body `code` through to the closed copy table — this is the one production file
+outside `openspec/changes/us-042-web-configuracion-perfil/` and `apps/web/src/{api,components/
+configuracion,routes/_authenticated}/` touched by this batch.
+
+**judgment-day fix iteration 2 (2026-08-13): `PerfilForm`'s password fields are now grouped under a
+`<fieldset>`/`<legend>Cambiar password</legend>` (WCFG-02's third-block label, verbatim) with a
+`role=group` regression test; `use-guardar-perfil.test.tsx` gained a regression test that mounts an
+active `useMe()` observer alongside the save flow with a manually-deferred `/api/auth/me` and pins
+`mutation.isPending` staying `true` until that refetch resolves (empirically verified to fail when
+the `return` on `invalidateQueries` is removed, and pass with it restored); the row-10-labeled test
+at `use-guardar-perfil.test.tsx` was retitled to row 6 (assertions unchanged — they were already
+correct for row 6); `mensajes.test.ts` gained the missing `unauthorized` row (`''`) in the `it.each`
+table. Test count: 655 → 658 (72 files, 0 lint errors, same 2 pre-existing warnings).**
+
+---
+
+## PR #2 — Google section and layout (base: PR #1b's branch)
+
+- [x] 5.1 RED+GREEN: `src/api/perfil.ts` gains `postVincularGoogle`/`postDesvincularGoogle`
+  (+ test), mapping `403 VINCULO_REQUIERE_PASSWORD` too.
+  **Apply-time refactor: generalized the PATCH-only `enviarPatch` fetch/error-mapping helper into
+  `enviarMutacion(url, method, body)` — returns the raw `Response` on success so PATCH callers keep
+  discarding the body (`value: undefined`) while `postVincularGoogle` reads+guards it
+  (`esIniciarVinculacionGoogle`). Avoided duplicating the network/401/error-code mapping a third time
+  (`dry`).**
+- [x] 5.2 Add two literal-hex tokens to `src/index.css`: `--color-vinculo-activo` /
+  `-foreground` (`#d1fae5` / `#065f46`), **literal**, never `var(--color-ingreso)` — an alias-by-
+  reference would make the income card the source of truth for a security-state color. Record the
+  inherited 6.78:1 AA ratio in this task. [design Q11]
+  **Ratio recorded: 6.78:1 (AA) — same verified pair as `--color-ingreso`, per the design's own
+  measurement; not re-measured, inherited by construction (identical hex values).**
+- [x] 5.3 RED+GREEN: `src/components/configuracion/ConfirmarPasswordDialog.tsx` (+test) —
+  `role="alertdialog"`, `aria-modal="false"` **explicit** (no focus trap ⇒ `"true"` would lie to
+  assistive tech), focus moves to the **password input** on open (deliberate divergence from
+  `EliminarIngestaControl`'s `Confirmar`-focus, because this dialog's first required action is
+  typing), focus restores to the trigger unconditionally on Escape/Cancel/success, `aria-describedby`
+  wired to the leaving-the-app warning paragraph (`aria-labelledby`+`aria-describedby`, not
+  `aria-label`, so the warning is announced), inline `role="alert"` error, `Confirmar` disabled while
+  pending but the password input stays enabled. [WCFG-08, WCFG-12, design Q7c]
+  **Apply-time discovery: `jsx-a11y/no-noninteractive-element-interactions` DOES fire on
+  `role="alertdialog"` + `onKeyDown` — its ARIA superclass chain is `window > dialog`, not `widget`
+  (verified against aria-query 5.3.2), so the plugin never recognizes it as interactive, contrary to
+  design §1/Q7b's table entry. Scoped `eslint-disable-next-line` with the investigated reason (config
+  left untouched, per the "do not weaken the config" rule) — `EliminarIngestaControl`'s existing,
+  unscoped instance of the same shape only warns today because it sits outside the scoped directory.
+  Also gave `CampoTexto` optional `forwardRef` support (backward-compatible) so the dialog's password
+  input reuses it instead of a second labelled-input implementation (`dry`).**
+
+  **CRITICAL closed at `sdd-verify` (2026-08-13): WCFG-08's second scenario was never built.** The
+  spec requires "GIVEN either dialog is open / WHEN the user attempts to confirm with `Password
+  actual` empty / THEN the confirm action is blocked until a value is entered". The dialog's input
+  carried no `required` and `enviar()` called `onConfirmar(passwordActual)` unconditionally — an empty
+  password went straight to the server. Fixed with the same two-layer pattern `PerfilForm` already
+  uses (design Q1c): `required` on the input as the affordance, and an `if (passwordActual === '')
+  return;` guard in `enviar()` as the real gate, because `fireEvent.submit` / `user.click` on a submit
+  bypass native constraint validation in jsdom — a test trusting `required` alone would pass green
+  with no blocking in place. Strict `=== ''`, no `trim`, matching `use-guardar-perfil.ts`'s
+  `falta-password-actual` gate: a whitespace password may be legitimate and is the server's call.
+
+  **Why three judgment-day rounds missed it**: the judges' criteria were built from design Q7c's
+  a11y checklist (role, `aria-modal`, focus, `describedby`, disabled-while-pending) — all verified
+  exhaustively — and nobody walked the spec's scenarios. `sdd-verify` found it immediately by going
+  requirement by requirement. The two layers do not overlap: adversarial review checks the code that
+  exists, verification checks it against the contract that was promised. Neither substitutes for the
+  other.
+- [x] 5.4 RED+GREEN: `src/api/use-google-vinculo.test.ts` then `.ts` — link mutation calls
+  `window.location.assign(urlAutorizacion)` (a **method**, not `location.href =`, so it is spy-able
+  under jsdom); unlink mutation invalidates `['auth-me']` on success and announces
+  `Desvinculaste tu cuenta de Google.`
+  **Apply-time discovery: jsdom's `window.location.assign` is a non-configurable property —
+  `vi.spyOn(window.location, 'assign')` throws "Cannot redefine property". Worked around with the
+  standard technique: `Object.defineProperty(window, 'location', { value: {...window.location,
+  assign: vi.fn()}, writable: true, configurable: true })`.**
+- [x] 5.5 RED+GREEN: `src/components/configuracion/GoogleVinculoSection.tsx` (+test) — linked
+  (green pill `Vinculada: {me.email}` + `Desvincular`) and not-linked (neutral pill `No vinculada` +
+  `Vincular con Google`) states, structurally symmetric. When `me.email === null`, render `Vinculada`
+  with no colon/address — not a dangling `Vinculada: `. [WCFG-02]
+  **Apply-time gap closed: VINC041-07 maps a wrong `passwordActual` on link/unlink to the SAME `403
+  PERFIL_RECHAZADO` code `perfil-usuario` uses, but design §1/Q8b's copy table only rows the
+  `perfil`/`password` origins for that code — falling through to the `perfil` row would reference an
+  email field this dialog never shows. Added a third `origen === 'google'` line to
+  `mensajeDeServerError` (`mensajes.ts`): "No se pudo completar la acción. Revisa tu password
+  actual." Also added the demo proactive gate (disabled button + shared `role="note"`,
+  `MENSAJE_DEMO_SOLO_LECTURA`) per proposal §6/WCFG-07's "Vincular con Google and Desvincular are
+  rendered disabled" — not explicitly re-stated in this task's literal wording but required by the
+  spec's demo requirement family.
+  **CORRECTION (judgment-day, PR #2 fix batch): the "scoped out `tag: 'unauthorized'`" note above was
+  wrong — WCFG-09's copy table is not scoped to `PerfilForm`; `tag: 'unauthorized'` navigates to
+  `/login` with no message for EVERY consumer of that table, including this one. A session expiring
+  mid-dialog left the confirm action silently pending forever with zero feedback. Fixed: `confirmar`
+  now passes an `onError` mutation callback that navigates to `/login` on that tag, mirroring
+  `PerfilForm`'s `enviar`. Test added in `GoogleVinculoSection.test.tsx` (now router-wrapped, same
+  pattern as `PerfilForm.test.tsx`). Also, the linked pill was missing the check icon design.md Q11
+  explicitly commits to ("the linked pill also has a check icon and the word `Vinculada`... meaning
+  survives without colour, WCAG 1.4.1") — added a `lucide-react` `Check`, `aria-hidden` (decorative,
+  the adjacent text already names the state), with a test.**
+- [x] 5.6 Wire `GoogleVinculoSection` into `ConfiguracionPage.tsx`'s third block.
+  **`avisoGoogle`/`onAvisoGoogleChange` added as `ConfiguracionPage` props (not yet driven by the
+  route until 6.1) — the single aviso region became two (`aviso-google` polite/ok,
+  `aviso-google-error` alert/error), same two-region idiom as `PerfilForm`'s Q7d, because
+  `?google=error` needs alert tone.**
+- [x] 6.1 RED+GREEN: extend `configuracion.tsx`'s mount effect — capture `google` into local state on
+  first render, `navigate({ to: '/configuracion', search: {}, replace: true })`, message survives the
+  rewrite, does not reappear on refresh/back, unknown values render nothing. Opening a Google dialog
+  clears `avisoGoogle` (the one coordination rule between the two message regions). [WCFG-10, design
+  Q6b, Q1c]
+  **Implemented as `ConfiguracionRoute`, the thin wrapper `configuracion.tsx`'s `component` now
+  points to (per design §1/Q1a's tree) — owns the `avisoGoogle` state + cleanup effect, passes both
+  down to `ConfiguracionPage` as props.**
+- [x] 6.2 Pin the test: landing on `?google=vinculado` still fetches `/api/auth/me` **exactly once**
+  — no manual refetch added. [WCFG-03, WCFG-10, design Q6c]
+  **CORRECTION (judgment-day, PR #2 fix batch): the original annotation below was wrong, and so was
+  the test it justified — both blind reviewers independently reproduced 2 fetches on a real landing.
+  Original (WRONG) text: "Apply-time discovery: TanStack Router's `beforeLoad` re-runs on EVERY
+  internal navigation with no caching — the cleanup `navigate({replace:true})` naturally triggers a
+  SECOND `/api/auth/me` fetch. Confirmed via a throwaway debug test that this is pre-existing,
+  accepted baseline behavior... not a regression this task introduces." That reasoning conflated two
+  different things: navigating between two DISTINCT, user-initiated pages (one fetch each — expected
+  baseline, unchanged) vs. a SINGLE landing that this task's own cleanup effect silently turned into
+  two fetches. The pin test itself was also wrong — it called `router.load()` directly without ever
+  mounting `ConfiguracionRoute` via `RouterProvider`, so the cleanup effect it claimed to cover never
+  ran inside it; a test that cannot observe the code path it pins cannot pin anything.
+  **Root cause (verified against TanStack Router's `Transitioner`/`router-core` source, empirically
+  confirmed with a real mutation test): ANY URL rewrite — `navigate()`, `router.history.replace()`,
+  even a raw `window.history.replaceState()` call, since the router monkey-patches it — is a REPLACE
+  history event, and `Transitioner` unconditionally re-runs `router.load()` (hence `beforeLoad`) on
+  EVERY history event. There is no public API that rewrites the URL without doing so. The actual fix
+  has two parts: (1) `configuracion.tsx`'s cleanup effect now calls `router.history.replace(...)`
+  instead of `navigate(...)` — a smaller, more direct call, though this alone does NOT stop the second
+  `beforeLoad` run; (2) `routes/_authenticated.tsx`'s `beforeLoad` now calls
+  `context.queryClient.ensureQueryData(meQueryOptions())` instead of a raw, always-fetching `fetchMe()`
+  — `ensureQueryData` respects `['auth-me']`'s own `staleTime` (30s, `query-client-defaults.ts`), so
+  the second, self-triggered `beforeLoad` run is a cache hit, not a network call. Load-bearing part of
+  the fix is (2): reverting `_authenticated.tsx` back to a raw `fetchMe()` reproduces the 2-call
+  failure even with `router.history.replace(...)` in place in `configuracion.tsx`; reverting only (1)
+  back to `navigate(...)` while keeping (2) still passes at 1 call — `router.history.replace` is a
+  real, independent improvement (no `buildLocation`/search-revalidation overhead) but not what the
+  "exactly once" invariant depends on. The pin test now mounts `ConfiguracionRoute` through the real
+  `RouterProvider` (reusing the file's existing render helper), asserts exactly one `/api/auth/me`
+  call, and was verified by mutation testing against (2): reverting it makes the test fail with 2
+  calls; restoring it makes it pass with 1.**
+  **CORRECTION #2 (judgment-day corrective fix batch, still 2026-08-13): part (2) above —
+  `context.queryClient.ensureQueryData(meQueryOptions())` in `_authenticated.tsx`'s `beforeLoad` — was
+  reverted. Two independent blind reviewers found it introduced a WORSE CRITICAL: `ensureQueryData`
+  only fetches when the cache is empty, and never revalidates a stale-but-present `['auth-me']` entry
+  without `revalidateIfStale: true` (not passed by `meQueryOptions()`); combined with `beforeLoad`'s
+  unconditional `setQueryData` afterwards (which always stamps a fresh `dataUpdatedAt`), this meant
+  `beforeLoad` stopped issuing a real `/api/auth/me` for the rest of the SPA session once `['auth-me']`
+  was first populated — a revoked server session no longer bounced the user to `/login` at the route
+  boundary. A second, invisible-to-tests defect rode along: the guard inherited the production
+  `shouldRetryQuery` predicate, so network/server/parse failures retried 3× with backoff instead of
+  failing fast (every test `QueryClient` hardcodes `retry: false`, so no test caught it).
+  **DO NOT re-attempt routing `_authenticated.tsx`'s `beforeLoad` through `queryClient.ensureQueryData`
+  (or any other caching of the session check itself) to fix this bug — it was tried, reviewed, and
+  rejected specifically because it widens what is a security-relevant guard on every route, not just
+  the one self-triggered navigation that needed a fix.** `beforeLoad` now calls the raw, always-fetching
+  `fetchMe()` again (restored byte-for-byte to the guard's pre-PR#2 semantics — verified by diffing
+  `_authenticated.tsx` against `feat/us-042-pr1b-perfil-form`). The double-fetch is instead prevented by
+  a narrow, purpose-built one-tick guard (`lib/skip-next-auth-refetch.ts`,
+  `markSkipNextAuthRefetch`/`consumeSkipNextAuthRefetch`): `configuracion.tsx`'s cleanup effect arms it
+  immediately before its OWN synthetic `router.history.replace('/configuracion')` call, and
+  `_authenticated.tsx`'s `beforeLoad` consumes it (read + clear) on the very next run only, reading the
+  identity already primed in `['auth-me']` instead of re-fetching. Any other `beforeLoad` run — a
+  genuine navigation to a different authenticated page, a fresh document load, anything not immediately
+  preceded by that one call site — never sees the flag armed, so it fetches `/api/auth/me` exactly as
+  before this whole investigation started. An `unverified TanStack Router `cause` ('enter'/'stay'/
+  'preload') lead was investigated first and rejected: empirically (a throwaway mutation test against
+  the installed `@tanstack/router-core@1.171.13` source) `cause` is `'stay'` for the `_authenticated`
+  pathless layout's match on ANY navigation after the first — including a genuine navigation between two
+  distinct authenticated pages, not just the self-rewrite — because the layout's `matchId` doesn't
+  depend on which child route is active, so it never distinguishes the two cases. Mutation-verified:
+  reverting the one-tick guard reproduces the 2-call failure on the task-6.2 pin; restoring it passes at
+  1 call. A companion test pins the inverse invariant the caching approach destroyed: a genuine
+  navigation between two authenticated pages (`/configuracion` → `/ingestas`) still fetches
+  `/api/auth/me` a second time.**
+
+  **Round-3 outcome and registered debt.** Both reviewers cleared the one-tick guard — no CRITICAL, no
+  real WARNING — after tracing the installed `@tanstack/router-core@1.171.13` / `@tanstack/history@1.162.0`
+  source: `history.replace()` → `notify()` → `router.load` → `startTransition` (React invokes the callback
+  synchronously) → `loadMatches` → `beforeLoad`, whose **first statement** is `consumeSkipNextAuthRefetch()`,
+  before any `await`. Arm and consume therefore execute in one synchronous JS turn; a click is a macrotask
+  and has no window to interleave. StrictMode's dev double-invoke self-pairs (arm→consume→arm→consume).
+
+  Two follow-ups both reviewers raised independently:
+
+  1. **Done in this batch** — `resetSkipNextAuthRefetch()` added and called from the test file's
+     unconditional `afterEach`. `armed` is module-level state and vitest's `isolate: true` isolates
+     between files, not between the `it()`s of one file; a test failing *between* arm and consume would
+     have leaked `armed = true` into the next test, making it skip its real fetch. Cheap, so it was closed
+     rather than deferred.
+  2. **DEFERRED DEBT — carry the skip intent in history state instead of a module global.**
+     `router.history.replace(path, state)` takes a second argument: `router.history.replace('/configuracion',
+     { skipAuthRefetch: true })`, read back as `location.state?.skipAuthRefetch` in `beforeLoad`. The intent
+     would then travel with the specific history entry, making "the flag can only ever be consumed by the
+     navigation that armed it" **structurally true** instead of an emergent property of synchronous
+     execution. Today's correctness rests on an invariant no type or test enforces — *no code path may
+     introduce an async gap between arm and consume* — which a future TanStack Router upgrade could void
+     silently. Related: `createBrowserHistory` batches history actions through a microtask
+     (`queueHistoryAction` → `Promise.resolve().then(flush)`), coalescing same-tick mutations, while
+     `createMemoryHistory` (used by every test here) does not — so the suite never exercises production's
+     actual timing model. **Deferred deliberately**: this would be the third rewrite of the same code in
+     one session, the shipped mechanism is verified safe by two independent source-level traces, and the
+     change deserves its own slice rather than a rushed patch at the tail of a three-PR chain.
+- [x] 6.3 Implement the fluid T1 grid in `ConfiguracionPage.tsx` (`max-w-*` + fixed-first-track
+  `grid`) reproducing T1's measured proportions with **no** new `layout.ts` constant; below `lg` the
+  two columns stack (heading+tabs above panel). [WCFG-11]
+- [x] 6.4 Full-suite verify: `pnpm web typecheck && pnpm web test && pnpm web lint`. Confirm zero
+  diffs under `apps/api/**` and `apps/mobile/**`. [WCFG-13]
+
+**PR #2 status (2026-08-13): tasks 5.1-6.4 complete. `pnpm web typecheck && pnpm web test && pnpm web
+lint` all green (76 test files, 700 tests, 0 lint errors — same 2 pre-existing app-wide jsx-a11y
+warnings as PR #1a/#1b's baseline, unrelated to this change). Confirmed zero diffs under
+`apps/api/**` and `apps/mobile/**`.**
+
+**judgment-day fix batch (2026-08-13, still PR #2): 4 confirmed findings fixed — the double
+`/api/auth/me` fetch on `?google=` landings (WCFG-03, see 6.2's correction above), the missing
+`tag: 'unauthorized'` → `/login` handling in `GoogleVinculoSection` (WCFG-09, see 5.5's correction
+above), the missing check icon on the linked pill (Q11, see 5.5's correction above), and one added
+integration test for Q6b's DOM-level coordination rule. `pnpm web typecheck && pnpm web test && pnpm
+web lint` all green (76 test files, 705 tests, 0 lint errors — same 2 pre-existing warnings).**
+
+**⚠️ BUDGET FLAG — unresolved, needs a maintainer decision before this PR is opened.** This slice
+was forecast at ~450-550 changed lines with **no** `size:exception` granted (only PR #1b got one).
+Actual: **`git diff --shortstat feat/us-042-pr1b-perfil-form...HEAD -- apps/web` = 1525
+insertions(+), 56 deletions(-) across 16 files (1581 total changed lines)** — roughly **3.5x** the
+400-line budget and ~3x the forecast. Breakdown: ~605 non-test lines (implementation) vs. ~920 test
+lines (the same verbose docblock-per-decision convention already established and exception-approved
+in PR #1a/#1b). No further split is sanctioned by design (§10: PR #2's own scope — Google link/unlink
++ layout — is already the smallest coherent unit; splitting `GoogleVinculoSection` from
+`ConfirmarPasswordDialog`/`use-google-vinculo.ts` would ship a button with no working dialog). Options
+for the maintainer, mirroring the guard's PR #1b precedent: (a) accept PR #2 as a second documented
+`size:exception` slice, citing this same "half-wired feature is worse than a large diff" reasoning
+plus the doc-density convention already exception-approved once this chain; or (b) request trimming
+(e.g., moving some docblock rationale out of source comments and into this tasks.md/design.md instead)
+before opening the PR. **This was not decided unilaterally during apply — flagged here per the
+apply-time instruction to stop and report rather than silently ship a third oversized slice.**
