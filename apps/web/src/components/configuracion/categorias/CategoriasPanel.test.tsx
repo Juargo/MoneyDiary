@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMemoryHistory,
@@ -10,6 +11,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CATEGORIAS_QUERY_KEY } from '@/api/use-categorias';
 import { ME_QUERY_KEY } from '@/api/use-me';
+import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
 import type { CatalogoDto, MeDto } from '@/api/types';
 import { CategoriasPanel } from './CategoriasPanel';
 import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
@@ -27,6 +29,13 @@ import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
  * same combined idiom as `PerfilPanel.test.tsx` (router) +
  * `use-categorias.test.tsx` (query client), because this panel is the first
  * component in the feature to need both at once.
+ *
+ * The `Nueva categoría` button and its wiring to `NuevaCategoriaForm` (PR
+ * #3a task 26) ARE tested here now — deferred from PR #2 (task 20) so no
+ * dead button ever shipped. `NuevaCategoriaForm`'s own field/mutation/demo
+ * behaviour is covered exhaustively by `NuevaCategoriaForm.test.tsx`; the
+ * tests below only pin the open/close wiring — they would be redundant if
+ * they re-asserted the form's internals.
  */
 const ME_NO_DEMO: MeDto = {
   userId: 'u1',
@@ -69,8 +78,19 @@ function renderPanel(options: {
   readonly categorias?: CatalogoDto;
   readonly fetchMock?: ReturnType<typeof vi.fn>;
 }) {
+  // `QUERY_CLIENT_DEFAULTS` (mismo `staleTime` que producción, judgment-day
+  // PR #336/#337 fix 2): sin esto, el cliente de test caía al default de
+  // TanStack (`staleTime: 0`), y la caché pre-poblada de `['categorias']`
+  // disparaba un refetch instantáneo al montar — de ahí el `fetchMock` ad
+  // hoc que varios tests de interacción tenían que stubear solo para no
+  // reventar. `retry: false` se mantiene: los tests sí lo necesitan.
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: {
+      queries: {
+        ...QUERY_CLIENT_DEFAULTS.defaultOptions?.queries,
+        retry: false,
+      },
+    },
   });
   if (options.me !== undefined) {
     queryClient.setQueryData(ME_QUERY_KEY, options.me);
@@ -184,6 +204,21 @@ describe('CategoriasPanel', () => {
     expect(screen.getByText('Supermercado')).toBeInTheDocument();
   });
 
+  it('esDemo + form de creación abierto: el banner role="note" aparece UNA sola vez, no duplicado (judgment-day PR #336/#337, fix 3)', async () => {
+    const user = userEvent.setup();
+    renderPanel({ me: ME_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Nueva categoría' }),
+    );
+
+    // getByRole ya lanzaría si hubiera 0 o >1 coincidencias — getAllByRole
+    // + toHaveLength(1) deja la aserción explícita para el discrimination
+    // proof (romper el fix debe fallar exactamente aquí).
+    expect(screen.getAllByRole('note')).toHaveLength(1);
+    expect(screen.getByRole('note')).toHaveTextContent(MENSAJE_DEMO_CATALOGO);
+  });
+
   it('una sesión NO demo no muestra el banner role="note"', async () => {
     renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
 
@@ -203,5 +238,67 @@ describe('CategoriasPanel', () => {
     );
     expect(corta).toHaveClass('lg:hidden');
     expect(larga).toHaveClass('hidden', 'lg:inline');
+  });
+
+  it('el botón Nueva categoría tiene nombre accesible estable con las dos variantes responsivas (§8c)', async () => {
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const boton = await screen.findByRole('button', {
+      name: 'Nueva categoría',
+    });
+    expect(boton.querySelector('.lg\\:hidden')).toHaveTextContent('Nueva');
+    expect(boton.querySelector('.hidden.lg\\:inline')).toHaveTextContent(
+      'Nueva categoría',
+    );
+  });
+
+  it("hacer click en Nueva categoría abre NuevaCategoriaForm (task 26 closes WCTG-02's button clause)", async () => {
+    const user = userEvent.setup();
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Nueva categoría' }),
+    );
+
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
+    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeInTheDocument();
+  });
+
+  it('Cancelar en el form recién abierto lo cierra y vuelve a mostrar el botón Nueva categoría', async () => {
+    const user = userEvent.setup();
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Nueva categoría' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Nueva categoría' }),
+    ).toBeInTheDocument();
+  });
+
+  it('un refetch fallido de ["categorias"] con el form abierto NO destruye el draft en progreso (judgment-day PR #336/#337, fix 1)', async () => {
+    const user = userEvent.setup();
+    const queryClient = renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Nueva categoría' }),
+    );
+    await user.type(screen.getByLabelText('Nombre'), 'Categoría en progreso');
+
+    // Simula el refetch de fondo (p.ej. window refocus) fallando mientras el
+    // usuario sigue escribiendo — no un fallo del `fetch` inicial.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+    await queryClient.refetchQueries({ queryKey: CATEGORIAS_QUERY_KEY });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre')).toHaveValue(
+      'Categoría en progreso',
+    );
   });
 });
