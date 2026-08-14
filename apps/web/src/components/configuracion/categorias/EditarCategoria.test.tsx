@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -851,6 +851,118 @@ describe('EditarCategoria — el diálogo de cambio de bucket congela su copy al
 });
 
 /**
+ * Judgment-day round 3 (SUGGESTION, Judge B): `borradorAlAbrirDialogo` only
+ * froze `nombre`/`bucketNuevo` — `transaccionesCount` and `bucketAnterior`
+ * were still read LIVE off the `categoria` prop. Unreachable in THIS PR's
+ * shipped scope (`refetchOnWindowFocus: false`, `staleTime: 30_000`, and
+ * nothing else invalidates `['categorias']` while this screen is mounted)
+ * — but PR #4's pattern mutations invalidate `['categorias']` from this
+ * same screen, so a background refetch while a dialog is open would
+ * silently change the numbers the user is reading mid-confirmation. These
+ * tests simulate that refetch directly against the query cache (the
+ * cheapest way to exercise "the underlying `categoria` prop changed while
+ * a dialog stays open" without waiting on real timers/staleness).
+ */
+describe('EditarCategoria — el snapshot también congela transaccionesCount/bucketAnterior (round 3, SUGGESTION)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('un refetch de fondo mientras el diálogo de cambio de bucket está abierto no cambia bucketAnterior ni transaccionesCount en su copy', async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderEditar({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+    });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    await screen.findByRole('alertdialog');
+    expect(
+      screen.getByText('«Supermercado» pasa de Necesidades a Gustos.'),
+    ).toBeInTheDocument();
+
+    // `await act(async () => {...; await tick})`, not a bare `act(() => {})`:
+    // `notifyManager`'s dispatch to `useQuery` observers is scheduled on a
+    // macrotask, not synchronous — a synchronous `act()` callback commits
+    // BEFORE that dispatch runs, so the assertions below would trivially
+    // "pass" without ever exercising the live re-render this test needs.
+    await act(async () => {
+      queryClient.setQueryData(CATEGORIAS_QUERY_KEY, {
+        categorias: [
+          {
+            ...CATEGORIA_SUPERMERCADO,
+            bucket: 'Ahorro',
+            transaccionesCount: 99,
+          },
+        ],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      screen.getByText('«Supermercado» pasa de Necesidades a Gustos.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Esto mueve 3 transacciones en TODOS los períodos, incluidos los meses ya cerrados.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('«Supermercado» pasa de Ahorro a Gustos.'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Esto mueve 99 transacciones en TODOS los períodos, incluidos los meses ya cerrados.',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('un refetch de fondo mientras el diálogo de eliminar está abierto no cambia transaccionesCount en su copy', async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderEditar({
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+    });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    const dialogo = await screen.findByRole('alertdialog');
+    expect(
+      within(dialogo).getByText(
+        '3 transacciones quedan en Sin categoría, en todos los períodos.',
+      ),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      queryClient.setQueryData(CATEGORIAS_QUERY_KEY, {
+        categorias: [{ ...CATEGORIA_SUPERMERCADO, transaccionesCount: 99 }],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      within(dialogo).getByText(
+        '3 transacciones quedan en Sin categoría, en todos los períodos.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialogo).queryByText(
+        '99 transacciones quedan en Sin categoría, en todos los períodos.',
+      ),
+    ).not.toBeInTheDocument();
+  });
+});
+
+/**
  * Judgment-day round 2: `eliminacion` (the DELETE mutation) is created in
  * the un-keyed `EditarCategoria`, which does NOT remount on in-place
  * navigation between two categories' edit screens (only
@@ -944,6 +1056,175 @@ describe('EditarCategoria — un DELETE en vuelo no sobrevive un cambio de categ
 
     expect(screen.queryByText('Lista')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Nombre')).toHaveValue('Streaming');
+  });
+});
+
+/**
+ * Judgment-day round 3 (PR #3b re-review, WCTG-07): rounds 1 and 2 each
+ * fixed a symptom of the SAME underlying question — "what happens if the
+ * user acts while a mutation is in flight?" — and opened the next one.
+ * Round 1's un-conditional `.reset()`-on-open enabled a duplicate DELETE;
+ * round 2's `disabled`-on-pending broke `cerrarDialogo`'s focus restore.
+ * The fix lives in `ConfirmarImpactoDialog` itself: Escape/Cancelar now
+ * respect the SAME `pendiente` the confirm button already does, so
+ * `cerrarDialogo` is simply never invoked while either mutation is
+ * in flight — no disabled-trigger focus attempt, no dialog closing out
+ * from under an in-flight request. These two tests even out the previously
+ * asymmetric coverage (only `cambiar-bucket` had an Escape/focus test, and
+ * it fired BEFORE confirming, never reaching the pending state).
+ */
+describe('EditarCategoria — Escape mientras la propia mutación está en vuelo NO cierra el diálogo (round 3, WCTG-07)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('diálogo de eliminar: Escape en vuelo no cierra el diálogo, y el DELETE sigue navegando a Lista al resolver', async () => {
+    const user = userEvent.setup();
+    let resolverDelete!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverDelete = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    const dialogo = await screen.findByRole('alertdialog');
+    await user.click(within(dialogo).getByRole('button', { name: 'Eliminar' }));
+    // Mid-flight: el DELETE aún no resuelve.
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    // Directo sobre el contenedor (no `user.keyboard`, ver el comentario del
+    // mismo caso en `ConfirmarImpactoDialog.test.tsx`): con `pendiente=true`
+    // el botón de confirmar nace/pasa a `disabled` y no puede quedarse con
+    // el foco real de jsdom, así que un `user.keyboard` no garantiza llegar
+    // al `onKeyDown` del propio diálogo.
+    fireEvent.keyDown(dialogo, { key: 'Escape' });
+
+    // Contra el código viejo (onCancelar incondicional), esta aserción
+    // fallaría: `cerrarDialogo` habría desmontado el diálogo aquí mismo.
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    resolverDelete({ ok: true, status: 204 });
+
+    await screen.findByText('Lista');
+  });
+
+  it('diálogo de cambiar bucket: Escape en vuelo no cierra el diálogo, y el PATCH sigue resolviendo con foco en Guardar', async () => {
+    const user = userEvent.setup();
+    let resolverPatch!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn((_url: string, opciones?: RequestInit) =>
+      opciones?.method === 'PATCH'
+        ? new Promise<{ ok: boolean; status: number }>((resolve) => {
+            resolverPatch = resolve;
+          })
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => CATALOGO,
+          }),
+    );
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.selectOptions(
+      await screen.findByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    fireEvent.submit(
+      document.getElementById('form-identidad') as HTMLFormElement,
+    );
+    const dialogo = await screen.findByRole('alertdialog');
+    await user.click(
+      within(dialogo).getByRole('button', { name: 'Cambiar bucket' }),
+    );
+    // Mid-flight: el PATCH aún no resuelve.
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    fireEvent.keyDown(dialogo, { key: 'Escape' });
+
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    // `await act(async () => {...})`, not a bare call: resolving a manually
+    // deferred promise outside any React event handler leaves the
+    // subsequent state update (and the `onSuccess`-driven `.focus()` call,
+    // which fires BEFORE the observer notifies React to re-render — see
+    // `MutationObserver#notify` ordering) unflushed unless explicitly
+    // flushed here.
+    await act(async () => {
+      resolverPatch({ ok: true, status: 200 });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar' })).toHaveFocus();
+  });
+});
+
+/**
+ * Judgment-day round 3: the `eliminacion.reset()` effect only fired when
+ * `categoriaId` changed — leaving the edit screen entirely (breadcrumb,
+ * main nav, browser back), rather than navigating in-place to another
+ * category, never detached the observer. An abandoned DELETE resolving
+ * late still fired its mutate-level `onSuccess` and forced a navigation to
+ * the categories list from whatever unrelated screen the user had since
+ * moved to.
+ */
+describe('EditarCategoria — un DELETE en vuelo no sobrevive salir de la pantalla por completo (round 3)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('confirmar eliminar, navegar a Configuración (unmount) antes de resolver, y resolver después NO fuerza la navegación a la lista', async () => {
+    const user = userEvent.setup();
+    let resolverDelete!: (value: { ok: boolean; status: number }) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<{ ok: boolean; status: number }>((resolve) => {
+          resolverDelete = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Eliminar categoría Supermercado',
+      }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar',
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'DELETE',
+      }),
+    );
+
+    // Sale de la pantalla por completo — ni la breadcrumb ni el nav
+    // principal se deshabilitan nunca, este es el camino más común, no el
+    // caso "cambiar de categoría en el mismo mount" que el round 2 ya cubre.
+    await user.click(screen.getByRole('link', { name: 'Configuración' }));
+    await screen.findByText('Perfil');
+
+    resolverDelete({ ok: true, status: 204 });
+    // Deja correr el chain de microtasks del `onSuccess` (invalidate →
+    // dispatch → mutate-level onSuccess) por si el observer siguiera
+    // conectado — mismo margen que el test de round 2 análogo.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByText('Lista')).not.toBeInTheDocument();
+    expect(screen.getByText('Perfil')).toBeInTheDocument();
   });
 });
 
