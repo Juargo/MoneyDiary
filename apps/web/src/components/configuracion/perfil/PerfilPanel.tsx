@@ -1,47 +1,39 @@
 import { useMe } from '@/api/use-me';
-import { ConfiguracionTabs } from './ConfiguracionTabs';
-import { PerfilForm } from './perfil/PerfilForm';
-import { GoogleVinculoSection } from './perfil/GoogleVinculoSection';
-import type { Mensaje } from './perfil/mensajes';
+import { PerfilForm } from './PerfilForm';
+import { GoogleVinculoSection } from './GoogleVinculoSection';
+import type { Mensaje } from './mensajes';
 
 /**
- * ConfiguracionPage — la composición completa de CA-02 (US-042 design.md
- * §1/Q1a §3 module map): heading, lista de tabs, `PerfilForm`,
- * `GoogleVinculoSection` (tercer bloque, PR #2 task 5.6), y las regiones del
- * aviso de vínculo con Google.
+ * PerfilPanel — rename+edit of the pre-split `ConfiguracionPage` (US-043
+ * design.md §1/Q1d, D-09's correction: NOT a pure rename). It renders inside
+ * `ConfiguracionLayout`'s content track now, so it no longer owns the
+ * `Configuración` h1, the fluid grid, or `ConfiguracionTabs` — those moved
+ * to `ConfiguracionLayout`. What genuinely belongs to Perfil stays: the
+ * `Editar perfil` sub-heading (now an `h2` — the page has exactly one `h1`,
+ * owned by the layout, per the Q1d heading table), `PerfilForm`,
+ * `GoogleVinculoSection`, and the two Google-aviso regions.
  *
- * `avisoGoogle`/`onAvisoGoogleChange` llegan por PROPS — el estado en sí
- * (captura de `?google=`, el efecto de limpieza de la URL) vive en
- * `routes/_authenticated/configuracion.tsx` (design.md §1/Q6b, task 6.1);
- * esta página solo RENDERIZA el valor y reenvía el setter hacia
- * `GoogleVinculoSection` para las dos coordinaciones (Q1c/Q6b):
- * `onAbrirDialogo` limpia el aviso al abrir un diálogo de Google (para que
- * un "Vinculaste tu cuenta" viejo nunca quede al lado de un fallo fresco), y
- * `onDesvinculado` lo LLENA con el mensaje de éxito de desvincular — ambos
- * usan el mismo slot de estado que el retorno `?google=`, porque los dos son
- * "el aviso de vínculo con Google", el mismo concepto (Q1b).
+ * `avisoGoogle`/`onAvisoGoogleChange` still arrive by PROPS — the state
+ * itself (the `?google=` capture, the URL-cleanup effect) now lives in
+ * `routes/_authenticated/configuracion.index.tsx` (design.md §1/Q1c, moved
+ * out of the layout route in task 7); this panel only renders the value and
+ * forwards the setter to `GoogleVinculoSection` for the same two
+ * coordinations US-042 established (Q1b/Q6b): `onAbrirDialogo` clears the
+ * aviso when a Google dialog opens (so a stale "Vinculaste tu cuenta" never
+ * sits next to a fresh failure), and `onDesvinculado` fills it with the
+ * unlink success message.
  *
- * Dos regiones, no una (mismo idioma que `PerfilForm`'s Q7d): `aviso-google`
- * (`aria-live="polite"`, tono ok) y `aviso-google-error` (`role="alert"`,
- * tono error) — `?google=error` necesita tono alert, así que una sola región
- * `aria-live="polite"` no alcanza.
+ * Two regions, not one (`PerfilForm`'s Q7d idiom): `aviso-google`
+ * (`aria-live="polite"`, ok tone) and `aviso-google-error` (`role="alert"`,
+ * error tone) — `?google=error` needs alert tone, so one polite-only region
+ * is not enough.
  *
- * `useMe()` no necesita un switch loading/error aquí (a diferencia de
- * `ResumenPage`): `_authenticated.tsx`'s `beforeLoad` YA primó `['auth-me']`
- * antes de que esta ruta pudiera montar (WCFG-01/03) — `me` ausente no es
- * un estado alcanzable en producción, solo una guarda defensiva.
- *
- * Grid FLUIDO (CA-04, task 6.3, D-08): `max-w-*` + un `grid` de primera
- * columna fija — reproduce las proporciones de T1 en el ancho de T1 y en
- * todo ancho intermedio, sin un tier `md:` nuevo. El único breakpoint es
- * `lg` — el MISMO que ya usa el shell para Sidebar↔BottomTabs
- * (`layout.ts`'s `SIDEBAR_CONTENT_OFFSET_CLASS = 'lg:pl-64'`), no uno
- * inventado para esta página. Debajo de `lg` las dos columnas se APILAN en
- * una sola (heading+tabs arriba del panel) — el `Sidebar` ya cedió su lugar
- * a `BottomTabs` ahí, así que esta página se queda con el ancho completo.
- * `AppShell`/`Sidebar.tsx`/`BottomTabs.tsx` permanecen intactos.
+ * `useMe()` needs no loading/error switch here (unlike `ResumenPage`):
+ * `_authenticated.tsx`'s `beforeLoad` already primed `['auth-me']` before
+ * this route could mount (WCFG-01/03) — `me` absent is not a reachable
+ * production state, only a defensive guard.
  */
-export function ConfiguracionPage({
+export function PerfilPanel({
   avisoGoogle,
   onAvisoGoogleChange,
 }: {
@@ -55,46 +47,38 @@ export function ConfiguracionPage({
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-semibold text-slate-900">Editar perfil</h1>
+    <div className="flex flex-col gap-8">
+      <h2 className="text-xl font-semibold text-slate-900">Editar perfil</h2>
+      <PerfilForm me={me} />
+      <GoogleVinculoSection
+        me={me}
+        onAbrirDialogo={() => onAvisoGoogleChange?.(undefined)}
+        onDesvinculado={() =>
+          onAvisoGoogleChange?.({
+            tono: 'ok',
+            lineas: ['Desvinculaste tu cuenta de Google.'],
+          })
+        }
+      />
       <div
-        data-testid="configuracion-grid"
-        className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[200px_1fr]"
+        aria-live="polite"
+        data-testid="aviso-google"
+        className="text-sm text-emerald-700"
       >
-        <ConfiguracionTabs />
-        <div className="flex flex-col gap-8">
-          <PerfilForm me={me} />
-          <GoogleVinculoSection
-            me={me}
-            onAbrirDialogo={() => onAvisoGoogleChange?.(undefined)}
-            onDesvinculado={() =>
-              onAvisoGoogleChange?.({
-                tono: 'ok',
-                lineas: ['Desvinculaste tu cuenta de Google.'],
-              })
-            }
-          />
-          <div
-            aria-live="polite"
-            data-testid="aviso-google"
-            className="text-sm text-emerald-700"
-          >
-            {avisoGoogle?.tono === 'ok' &&
-              avisoGoogle.lineas.map((linea, indice) => (
-                <p key={indice}>{linea}</p>
-              ))}
-          </div>
-          <div
-            role="alert"
-            data-testid="aviso-google-error"
-            className="text-sm text-red-600"
-          >
-            {avisoGoogle?.tono === 'error' &&
-              avisoGoogle.lineas.map((linea, indice) => (
-                <p key={indice}>{linea}</p>
-              ))}
-          </div>
-        </div>
+        {avisoGoogle?.tono === 'ok' &&
+          avisoGoogle.lineas.map((linea, indice) => (
+            <p key={indice}>{linea}</p>
+          ))}
+      </div>
+      <div
+        role="alert"
+        data-testid="aviso-google-error"
+        className="text-sm text-red-600"
+      >
+        {avisoGoogle?.tono === 'error' &&
+          avisoGoogle.lineas.map((linea, indice) => (
+            <p key={indice}>{linea}</p>
+          ))}
       </div>
     </div>
   );
