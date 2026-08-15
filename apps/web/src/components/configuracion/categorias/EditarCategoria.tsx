@@ -422,7 +422,7 @@ function EditarCategoriaCargada({
       <form
         id="form-identidad"
         onSubmit={guardarIdentidad}
-        className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_220px]"
+        className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[1fr_220px]"
       >
         {/*
           `dialogo !== null` (judgment-day round 2): while EITHER
