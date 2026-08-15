@@ -17,10 +17,13 @@ import { stubApi } from './fixtures/api-stubs';
  *   maintainer extension closing the create/edit inconsistency this same
  *   PR would otherwise ship (see `NuevaCategoriaForm.tsx`'s inline
  *   comment).
- * - `E-08` (360/1280): footer — at 360 `Guardar`.y < `Cancelar`.y and
- *   `Guardar`'s width ≈ the content band; at 1280 `Guardar`/`Cancelar`
- *   share a `y` with `Cancelar`.x < `Guardar`.x — D-10's desktop
- *   `flex-row-reverse` restoring the shipped visual order byte-for-byte.
+ * - `E-08` (360/1280): footer — at 360 `Guardar`.y < `Cancelar`.y,
+ *   `Guardar`'s width ≈ the content band, and `Eliminar categoría`.y >
+ *   `Cancelar`.y (renders last, per D-10's mobile-first DOM order); at
+ *   1280 `Guardar`/`Cancelar` share a `y` with `Cancelar`.x < `Guardar`.x,
+ *   and `Eliminar categoría` shares that same row (`y`) while sitting to
+ *   the left of `Cancelar` — D-10's desktop `flex-row-reverse` restoring
+ *   the shipped visual order `Eliminar, Cancelar, Guardar`.
  * - The SC 2.5.8 product defect PR #4 owns (found by the harness on PR
  *   #1): the not-found state's `Volver a Categorías` link now clears the
  *   24×24 floor — jsdom cannot measure real geometry (D-08), so this is
@@ -133,7 +136,7 @@ test.describe('edit surface — footer order (E-08, D-10)', () => {
     await stubApi(page);
   });
 
-  test('Guardar above Cancelar and full-width at 360; Guardar/Cancelar share a row with Cancelar left of Guardar at 1280 (E-08)', async ({
+  test('Guardar above Cancelar above Eliminar and full-width at 360; Guardar/Cancelar/Eliminar share a row in visual order Eliminar, Cancelar, Guardar at 1280 (E-08)', async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -148,6 +151,12 @@ test.describe('edit surface — footer order (E-08, D-10)', () => {
     const cancelar = page.getByRole('button', {
       name: 'Cancelar cambios de nombre y bucket',
     });
+    // Fixture nombre (`api-stubs.ts`'s `CATALOGO_FIXTURE`, `cat-1` ==
+    // "Supermercado") — the same disambiguated accessible name pattern
+    // `CategoriaFila`'s own delete trigger uses.
+    const eliminar = page.getByRole('button', {
+      name: 'Eliminar categoría Supermercado',
+    });
     // The identity form is a sibling of the footer inside the same content
     // track, so its rendered width IS the content band — the same
     // structural reference other specs in this suite use (design.md §4's
@@ -156,12 +165,17 @@ test.describe('edit surface — footer order (E-08, D-10)', () => {
 
     const guardarBox = await guardar.boundingBox();
     const cancelarBox = await cancelar.boundingBox();
-    if (!guardarBox || !cancelarBox) {
-      throw new Error('Guardar/Cancelar did not render.');
+    const eliminarBox = await eliminar.boundingBox();
+    if (!guardarBox || !cancelarBox || !eliminarBox) {
+      throw new Error('Guardar/Cancelar/Eliminar did not render.');
     }
 
     if (testInfo.project.name === 'movil') {
       expect(guardarBox.y).toBeLessThan(cancelarBox.y);
+      // D-10's mobile-first DOM order (`[Guardar, Cancelar]`, then
+      // `Eliminar categoría`) has no `md:` reversal applied below `md`, so
+      // the button renders last in the stack.
+      expect(eliminarBox.y).toBeGreaterThan(cancelarBox.y);
       const formBox = await form.boundingBox();
       if (!formBox) {
         throw new Error('Identity form did not render.');
@@ -181,6 +195,16 @@ test.describe('edit surface — footer order (E-08, D-10)', () => {
         CONTENT_BAND_TOLERANCE_PX,
       );
       expect(cancelarBox.x).toBeLessThan(guardarBox.x);
+      // `Eliminar categoría` is `self-start` in the OUTER footer's own
+      // cross-axis (a deliberate visual accent, unrelated to this claim) —
+      // it still shares the footer's main-axis row with the `Guardar`/
+      // `Cancelar` group (same tolerance as the pair above) and sits to the
+      // LEFT of `Cancelar`: the outer `md:flex-row-reverse` puts the
+      // `Eliminar` DOM sibling first visually, ahead of the whole pair.
+      expect(Math.abs(eliminarBox.y - guardarBox.y)).toBeLessThanOrEqual(
+        CONTENT_BAND_TOLERANCE_PX,
+      );
+      expect(eliminarBox.x).toBeLessThan(cancelarBox.x);
     }
   });
 });
@@ -190,6 +214,11 @@ test.describe('edit surface — SC 2.5.8 product defect owned by PR #4', () => {
     await stubApi(page);
   });
 
+  // The query-error state's `Volver a Categorías` link (`EditarCategoria`,
+  // above the not-found branch) uses the IDENTICAL className string — its
+  // own jsdom className test already pins that verbatim reuse, so a second
+  // real-geometry measurement here would just re-confirm the same CSS this
+  // one already proves; only one state needs to carry the pixel pin.
   test('the not-found state Volver a Categorías link clears the 24×24 floor', async ({
     page,
   }, testInfo) => {
