@@ -1520,6 +1520,77 @@ describe('EditarCategoria — un PATCH directo (sin diálogo) en vuelo bloquea l
 });
 
 /**
+ * Task 27 (US-063 PR #4, WCTM-05, D-10) — the footer's DOM order becomes
+ * `[Guardar, Cancelar]`, then `Eliminar categoría`. CSS can reorder pixels,
+ * never tab order (D-09), so the DOM order pinned here IS the mobile visual
+ * order (`Guardar` full-width above `Cancelar`); the desktop appearance is
+ * restored byte-for-byte via `md:flex-row-reverse` (Playwright's job,
+ * `edit-surface.e2e.ts`'s `E-08` — jsdom cannot verify which order is
+ * actually RENDERED at a given width, D-08). Every existing footer
+ * behavioural test above (disabled conditions, `form=` association,
+ * disambiguated accessible names) is untouched by this reorder and must
+ * keep passing unchanged.
+ */
+describe('EditarCategoria — footer reordenado a [Guardar, Cancelar], Eliminar categoría (WCTM-05, D-10, task 27)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('el DOM del footer queda Guardar, luego Cancelar, luego Eliminar categoría', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const guardar = await screen.findByRole('button', { name: 'Guardar' });
+    const cancelar = screen.getByRole('button', {
+      name: 'Cancelar cambios de nombre y bucket',
+    });
+    const eliminar = screen.getByRole('button', {
+      name: 'Eliminar categoría Supermercado',
+    });
+
+    // DOCUMENT_POSITION_FOLLOWING (4): the argument node comes AFTER the
+    // node `compareDocumentPosition` is called on.
+    expect(
+      guardar.compareDocumentPosition(cancelar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      cancelar.compareDocumentPosition(eliminar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('el footer y el grupo Guardar/Cancelar llevan las clases de reversión desktop; Guardar es w-full md:w-auto', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const guardar = await screen.findByRole('button', { name: 'Guardar' });
+    const footer = guardar.closest('footer');
+    if (!footer) {
+      throw new Error('Guardar no está dentro de un <footer>.');
+    }
+    expect(footer).toHaveClass(
+      'flex',
+      'flex-col',
+      'md:flex-row-reverse',
+      'md:flex-wrap',
+      'md:items-center',
+      'md:justify-between',
+    );
+
+    const grupo = guardar.parentElement;
+    expect(grupo).toHaveClass(
+      'flex',
+      'flex-col',
+      'gap-2',
+      'md:flex-row-reverse',
+      'md:items-center',
+    );
+
+    expect(guardar).toHaveClass('w-full', 'md:w-auto');
+  });
+});
+
+/**
  * Task 42 — wire `PatronesSection` into `EditarCategoria`, **outside**
  * `#form-identidad` (design.md §1/Q3b's DOM boundary, mechanism 1) — the
  * pattern rows are a fully independent commit surface from `Guardar`/
