@@ -66,7 +66,17 @@ export function NuevaCategoriaForm({
       onSubmit={enviar}
       className="flex flex-col gap-4 rounded-md border border-border p-4"
     >
-      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_220px]">
+      {/*
+       * US-063 PR #4 (post-task-25 maintainer extension, NOT WCTM-05 —
+       * that requirement names only EditarCategoria): task 25 closed the
+       * 640-767px band gap on EditarCategoria's identical Nombre/Bucket
+       * grid (`sm:` -> `md:`) but left this sibling form on `sm:`, which
+       * this same PR shipped as a self-inflicted inconsistency between
+       * the two forms on the same Categorías surface. Moved here to
+       * match, on maintainer judgment (design.md:371 names this file;
+       * WCTM-05 does not).
+       */}
+      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[1fr_220px]">
         <CampoTexto
           label="Nombre"
           value={nombre}

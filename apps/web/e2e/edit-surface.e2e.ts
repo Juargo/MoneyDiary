@@ -12,6 +12,11 @@ import { stubApi } from './fixtures/api-stubs';
  *   project (D-11's three projects remain the executable definition of
  *   D-01's tier) — asserting `Nombre`/`Bucket` stay stacked at 700px, a
  *   width neither of D-11's named viewports (360, 880) falls inside.
+ *   A sibling test reuses the same override for `NuevaCategoriaForm` —
+ *   NOT WCTM-05 (that requirement names only `EditarCategoria`), but a
+ *   maintainer extension closing the create/edit inconsistency this same
+ *   PR would otherwise ship (see `NuevaCategoriaForm.tsx`'s inline
+ *   comment).
  * - `E-08` (360/1280): footer — at 360 `Guardar`.y < `Cancelar`.y and
  *   `Guardar`'s width ≈ the content band; at 1280 `Guardar`/`Cancelar`
  *   share a `y` with `Cancelar`.x < `Guardar`.x — D-10's desktop
@@ -75,6 +80,41 @@ test.describe('edit surface — Nombre/Bucket stack across the full mobile range
 
     await page.goto('/configuracion/categorias/cat-1');
     await page.getByRole('heading', { name: 'Editar categoría' }).waitFor();
+
+    const nombre = page.getByLabel('Nombre', { exact: true });
+    const bucket = page.getByLabel('Bucket (obligatorio)');
+    const nombreBox = await nombre.boundingBox();
+    const bucketBox = await bucket.boundingBox();
+    if (!nombreBox || !bucketBox) {
+      throw new Error('Nombre/Bucket fields did not render.');
+    }
+
+    expect(nombreBox.y).not.toBe(bucketBox.y);
+  });
+});
+
+test.describe('edit surface — NuevaCategoriaForm stacks across the same 640–767px band (maintainer extension, not WCTM-05)', () => {
+  // Same one-off override as the EditarCategoria case above — reused
+  // here, not a fourth named tier project.
+  test.use({ viewport: { width: 700, height: 800 } });
+
+  test.beforeEach(async ({ page }) => {
+    await stubApi(page);
+  });
+
+  test('Nombre and Bucket have different y at 700px in the create form too', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'movil',
+      'the 700px override applies regardless of project — running it once is enough',
+    );
+
+    await page.goto('/configuracion/categorias');
+    await page
+      .getByRole('heading', { name: 'Categorías y patrones' })
+      .waitFor();
+    await page.getByRole('button', { name: 'Nueva categoría' }).click();
 
     const nombre = page.getByLabel('Nombre', { exact: true });
     const bucket = page.getByLabel('Bucket (obligatorio)');
