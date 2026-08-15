@@ -172,6 +172,27 @@ test.describe('mobile floor — must already hold on main (WCTG-13, WCTG-14 scen
       page,
     }) => {
       await page.goto(screen.path);
+      // Wait for the screen's OWN heading before sweeping — same guard E-10
+      // (above) and `mobile-header.e2e.ts` already use.
+      //
+      // Judgment-day on PR #2, reproduced independently by both judges:
+      // `standaloneControlsInMain`'s generic wait was weakened to
+      // `state: 'attached'` in this PR, because `BotonVolver` is the first
+      // `a[href]` in `<main>` and is `md:hidden` (so a `visible` wait times
+      // out at tablet/desktop). But `ConfiguracionLayout`'s chrome —
+      // `BotonVolver` + the two tabs — mounts synchronously with the route,
+      // while `CategoriasPanel`'s content is gated on its own
+      // `useQuery(['categorias'])` with no route loader. So "any control
+      // attached" resolves on the chrome alone, before the panel's rows exist.
+      //
+      // Measured: adding 30–50ms to the `/api/categorias` stub (ordinary CI
+      // latency; this suite runs `fullyParallel` with 5 workers) collapses the
+      // captured set from 8 controls to 3 — the row-level Editar/Eliminar
+      // buttons this test exists to police are never measured, and
+      // `toBeGreaterThan(0)` below is satisfied *vacuously by the chrome*.
+      // Waiting on content the panel itself renders is what makes the sweep
+      // mean what its name says.
+      await page.getByRole('heading', { name: screen.heading }).waitFor();
       const controls = await standaloneControlsInMain(page);
       // A silent no-op (zero controls found) would pass vacuously — the
       // exact class of gap that shipped `WCTG-14` false (design.md §4).
