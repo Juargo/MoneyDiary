@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 
 const TAB_BASE =
-  'block flex-1 rounded-md px-3 py-2 text-center text-sm text-slate-600 transition-colors hover:bg-slate-50 md:flex-none md:text-left';
+  'block rounded-md px-3 py-2 text-center text-sm text-slate-600 transition-colors hover:bg-slate-50 md:text-left';
 const TAB_ACTIVE = 'bg-slate-100 font-semibold text-slate-900';
 
 /**
@@ -24,17 +24,24 @@ const TAB_ACTIVE = 'bg-slate-100 font-semibold text-slate-900';
  *
  * **US-063 D-01/WCTM-02:** below `md` the `<ul>` switches to `flex-row`
  * (from `flex-col`) — a single horizontal row instead of the tablet/desktop
- * vertical column. `TAB_BASE` gains `flex-1 text-center` (reverted to
- * `md:flex-none md:text-left` at `md` and up) so each tab shares the row.
- * CSS-only (D-08) — jsdom can only assert the class literal is present, not
- * that the row is actually horizontal at a real viewport; that's
- * `e2e/mobile-header.e2e.ts`'s job (`E-01`'s tabs-row half).
+ * vertical column. The `<ul>`'s direct flex items are the `<li>` elements,
+ * not the `<a>`s inside them, so the row-sharing `flex-1`/`md:flex-none`
+ * pair lives on `<li>` (`TAB_LI` below) — putting it on `TAB_BASE`'s `<a>`
+ * instead does nothing for width distribution, because that `<a>` is not a
+ * flex item of `<ul>`. `TAB_BASE` keeps `text-center`/`md:text-left` (its
+ * own concern); the `<a>` is `block`, so it fills whatever width its now
+ * flex-growing `<li>` gives it. CSS-only (D-08) — jsdom can only assert the
+ * class literal is present, not that the row is actually horizontal (let
+ * alone full-width) at a real viewport; that's `e2e/mobile-header.e2e.ts`'s
+ * job (`E-01`'s tabs-row half).
  */
+const TAB_LI = 'flex-1 md:flex-none';
+
 export function ConfiguracionTabs() {
   return (
     <nav aria-label="Secciones de configuración">
       <ul className="flex flex-row gap-1 md:flex-col">
-        <li>
+        <li className={TAB_LI}>
           <Link
             to="/configuracion"
             activeOptions={{ exact: true }}
@@ -44,7 +51,7 @@ export function ConfiguracionTabs() {
             Perfil
           </Link>
         </li>
-        <li>
+        <li className={TAB_LI}>
           <Link
             to="/configuracion/categorias"
             activeProps={{ className: TAB_ACTIVE, 'aria-current': 'page' }}

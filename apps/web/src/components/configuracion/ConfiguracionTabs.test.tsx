@@ -64,6 +64,19 @@ describe('ConfiguracionTabs', () => {
     expect(lista).toHaveClass('md:flex-col');
   });
 
+  it('el <li>, no el <a>, lleva flex-1 (mecanismo — es el <li> el flex item real del <ul>; ponerlo en el <a> no distribuye ancho, ver ConfiguracionTabs.tsx)', async () => {
+    await renderTabs('/configuracion');
+
+    const perfilLi = screen.getByRole('link', { name: 'Perfil' }).closest('li');
+    const categoriasLi = screen
+      .getByRole('link', { name: 'Categorías' })
+      .closest('li');
+    expect(perfilLi).toHaveClass('flex-1');
+    expect(perfilLi).toHaveClass('md:flex-none');
+    expect(categoriasLi).toHaveClass('flex-1');
+    expect(categoriasLi).toHaveClass('md:flex-none');
+  });
+
   it('Perfil es un <Link> real a /configuracion, con aria-current cuando esa es la ruta activa', async () => {
     await renderTabs('/configuracion');
 

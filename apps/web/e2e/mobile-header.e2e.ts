@@ -12,9 +12,18 @@ import { stubApi } from './fixtures/api-stubs';
  *   `E-11` from the SAME shared `ConfiguracionLayout`/`ConfiguracionTabs`
  *   chrome, with zero `perfil/**` diff — asserted here, not assumed.
  * - The tabs-row half of `E-01` (D-01/WCTM-02): the two tab links share a
- *   `y` and differ in `x` (one row), and the nav's width ≈ the content
- *   band. The `Nueva categoría` full-width half of `E-01` lands in PR #3
- *   (task 22), since `CategoriasPanel` isn't touched by this PR.
+ *   `y` and differ in `x` (one row), the nav's width ≈ the content band,
+ *   AND — CA-01's actual claim — the two tabs' combined span (first tab's
+ *   left edge to second tab's right edge) ≈ the nav's width, i.e. together
+ *   they fill the row rather than collapsing to content width. A prior
+ *   version of this assertion checked only the nav container's width
+ *   against the content band, which passed even when the tabs inside it
+ *   did NOT fill that width — exactly the CA-01 gap a green suite must not
+ *   hide (tasks.md Testability section). A companion assertion at `tablet`/
+ *   `escritorio` pins that the row layout does NOT leak past `md`: the tabs
+ *   stack vertically there instead. The `Nueva categoría` full-width half
+ *   of `E-01` lands in PR #3 (task 22), since `CategoriasPanel` isn't
+ *   touched by this PR.
  *
  * `sr-only` renders a 1×1 clipped box and IS visible to Playwright — the
  * h1 assertion below is a geometry check (`boundingBox().height`), never
@@ -114,6 +123,44 @@ test.describe('mobile header — back control + sr-only h1 (E-05, tabs-row half 
     expect(Math.abs(navBox.width - gridBox.width)).toBeLessThanOrEqual(
       CONTENT_BAND_TOLERANCE_PX,
     );
+    // CA-01's actual claim: the two tabs together span the row's full
+    // width, not just the nav container around them. `navBox.width`
+    // matching `gridBox.width` above says nothing about whether the tabs
+    // INSIDE the nav fill it — a `<li>` with no flex-grow collapses to
+    // content width while the nav (a plain block element) still reports
+    // the full content-band width regardless. This is the assertion that
+    // would have failed while `flex-1` sat on the `<a>` instead of the
+    // `<li>` (ConfiguracionTabs.tsx) — measured at 360px: `Perfil` ~58.5px,
+    // `Categorías` ~97.8px, span ~156px of the nav's ~328px before the fix.
+    const tabsSpan = categoriasBox.x + categoriasBox.width - perfilBox.x;
+    expect(Math.abs(tabsSpan - navBox.width)).toBeLessThanOrEqual(
+      CONTENT_BAND_TOLERANCE_PX,
+    );
+  });
+
+  test('the two tabs stack vertically (do NOT share a row) at md and up — the mobile-only row layout must not leak past the breakpoint', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name === 'movil',
+      'the vertical-column counterpart is scoped to tablet/escritorio — the row is movil-only (design.md §4)',
+    );
+
+    await page.goto('/configuracion/categorias');
+    await page
+      .getByRole('heading', { name: 'Categorías y patrones' })
+      .waitFor();
+
+    const perfil = page.getByRole('link', { name: 'Perfil' });
+    const categorias = page.getByRole('link', { name: 'Categorías' });
+
+    const perfilBox = await perfil.boundingBox();
+    const categoriasBox = await categorias.boundingBox();
+    if (!perfilBox || !categoriasBox) {
+      throw new Error('Tabs did not render.');
+    }
+
+    expect(perfilBox.y).not.toBe(categoriasBox.y);
   });
 });
 
