@@ -55,6 +55,15 @@ async function renderTabs(
 }
 
 describe('ConfiguracionTabs', () => {
+  it('el <ul> lleva flex-row (mecanismo, no geometría — US-063 D-01/WCTM-02: la fila horizontal bajo md se verifica en Playwright, e2e/mobile-header.e2e.ts)', async () => {
+    await renderTabs('/configuracion');
+
+    const lista = screen.getByRole('link', { name: 'Perfil' }).closest('ul');
+    expect(lista).toHaveClass('flex');
+    expect(lista).toHaveClass('flex-row');
+    expect(lista).toHaveClass('md:flex-col');
+  });
+
   it('Perfil es un <Link> real a /configuracion, con aria-current cuando esa es la ruta activa', async () => {
     await renderTabs('/configuracion');
 
