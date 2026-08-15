@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -15,6 +21,17 @@ import { PatronesSection } from './PatronesSection';
  * **Redesign (judgment-day, 2026-08-14)**: a not-yet-created row's first
  * commit is now an explicit confirm (Enter), never `blur` — see
  * `PatronFila.test.tsx`'s docblock for the full account.
+ *
+ * **US-063 PR #3 (judgment-day, 2026-08-14, WARNING both judges)**: task 21
+ * shipped this file's three `EtiquetaResponsiva` call sites (the `<h2>`, the
+ * `Agregar patrón` button, and the zero-patrones note — see this file's own
+ * docblock, D-03/D-04/WCTM-06) with ZERO jsdom coverage of the new mobile
+ * strings or the `aria-label`. The tests below close that gap. They are
+ * MECHANISM tests (D-08: CSS-only responsive copy) — they prove the right
+ * strings and band-classes are emitted for a given input shape, never which
+ * band is visually active at a real viewport. That acceptance-layer proof
+ * belongs to `e2e/list-surface.e2e.ts`'s `E-09` test, per the Testability
+ * rule in `tasks.md`.
  */
 function crearWrapper() {
   const queryClient = new QueryClient({
@@ -215,6 +232,51 @@ describe('PatronesSection', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Patrón guardado.');
       expect(screen.getByRole('status').firstChild).not.toBe(nodoTrasElPrimero);
     });
+  });
+
+  it('MECANISMO — el heading trae aria-label estable y emite las DOS variantes responsivas de WCTM-06, movil con md:hidden y escritorio con hidden md:inline (US-063 PR #3, D-03/D-04)', () => {
+    render(
+      <PatronesSection categoriaId="cat-1" patrones={[]} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    const heading = screen.getByRole('heading', {
+      level: 2,
+      name: 'Patrones de auto-categorización',
+    });
+    const movil = within(heading).getByText('Patrones');
+    const escritorio = within(heading).getByText(
+      'Patrones de auto-categorización',
+    );
+    expect(movil).toHaveClass('md:hidden');
+    expect(escritorio).toHaveClass('hidden', 'md:inline');
+  });
+
+  it('MECANISMO — Agregar patrón trae aria-label estable y emite las DOS variantes responsivas de WCTM-06, movil con md:hidden y escritorio con hidden md:inline (US-063 PR #3, D-03/D-04)', () => {
+    render(
+      <PatronesSection categoriaId="cat-1" patrones={[]} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    const boton = screen.getByRole('button', { name: 'Agregar patrón' });
+    const movil = within(boton).getByText('Agregar');
+    const escritorio = within(boton).getByText('Agregar patrón');
+    expect(movil).toHaveClass('md:hidden');
+    expect(escritorio).toHaveClass('hidden', 'md:inline');
+  });
+
+  it('MECANISMO — la nota "sin patrones" emite las DOS variantes responsivas de WCTM-06, movil con md:hidden y escritorio con hidden md:inline (US-063 PR #3, D-03)', () => {
+    render(
+      <PatronesSection categoriaId="cat-1" patrones={[]} esDemo={false} />,
+      { wrapper: crearWrapper() },
+    );
+
+    const movil = screen.getByText('Sin patrones: solo asignación manual.');
+    const escritorio = screen.getByText(
+      'Sin patrones, la categoría solo se puede asignar manualmente.',
+    );
+    expect(movil).toHaveClass('md:hidden');
+    expect(escritorio).toHaveClass('hidden', 'md:inline');
   });
 
   it('anuncia "Patrón eliminado." cuando el DELETE de una fila existente resuelve con éxito', async () => {

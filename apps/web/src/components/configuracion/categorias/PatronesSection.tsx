@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Info } from 'lucide-react';
 import type { PatronDto } from '@/api/types';
+import { EtiquetaResponsiva } from '../EtiquetaResponsiva';
 import { PatronFila } from './PatronFila';
 
 let contadorFilasNuevas = 0;
@@ -54,6 +55,27 @@ let contadorFilasNuevas = 0;
  * CONTENT is unchanged. This idiom is copied from `ListaIngestas`'s
  * `role="status"` region — fixing the re-announce gap here does not
  * obligate fixing it there too (out of scope for this PR).
+ *
+ * **US-063 PR #3 (D-03/D-04, WCTM-06, text swap only):** the heading,
+ * `Agregar patrón`, and the zero-patterns note (WCTG-06) all shorten below
+ * `md` via `EtiquetaResponsiva`, all 2-band (`tablet` omitted — `WCTM-06`'s
+ * table marks tablet "(unchanged)" for these three). The "always rendered,
+ * not a zero-state" semantic (decision 9, above) is untouched — only the
+ * STRING shortens (Q-05).
+ *
+ * The `<h2 id="titulo-patrones">` gains `aria-label={escritorio string}`
+ * despite not being interactive — `PatronesSection`'s `<section>` is named
+ * via `aria-labelledby="titulo-patrones"`, so an unstable heading name would
+ * silently rename the landmark (D-04's one exception to "only interactive
+ * controls get `aria-label`"). `Agregar patrón` IS interactive, so it keeps
+ * D-04's hard rule: `aria-label="Agregar patrón"`, the same idiom
+ * `CategoriasPanel`'s `Nueva categoría` button already uses — without it,
+ * jsdom's name-from-content would compute the CONCATENATION of both spans
+ * ("AgregarAgregar patrón"), breaking every `getByRole('button', {name:
+ * 'Agregar patrón'})` query in the shipped suite. The zero-patterns note
+ * stays a non-interactive `<p>` — D-04's rule does NOT apply to it; its test
+ * queries the variant string directly (`getByText(...)`), never the
+ * paragraph's `textContent` (all variants concatenated in jsdom).
  */
 export function PatronesSection({
   categoriaId,
@@ -92,8 +114,15 @@ export function PatronesSection({
 
   return (
     <section aria-labelledby="titulo-patrones" className="flex flex-col gap-3">
-      <h2 id="titulo-patrones" className="text-sm font-semibold text-slate-900">
-        Patrones de auto-categorización
+      <h2
+        id="titulo-patrones"
+        aria-label="Patrones de auto-categorización"
+        className="text-sm font-semibold text-slate-900"
+      >
+        <EtiquetaResponsiva
+          movil="Patrones"
+          escritorio="Patrones de auto-categorización"
+        />
       </h2>
       <span role="status" aria-live="polite" className="sr-only">
         <span key={anuncio.id}>{anuncio.mensaje}</span>
@@ -123,16 +152,20 @@ export function PatronesSection({
       <div>
         <button
           type="button"
+          aria-label="Agregar patrón"
           disabled={esDemo || bloqueado}
           onClick={agregarFila}
           className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Agregar patrón
+          <EtiquetaResponsiva movil="Agregar" escritorio="Agregar patrón" />
         </button>
       </div>
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        Sin patrones, la categoría solo se puede asignar manualmente.
+        <EtiquetaResponsiva
+          movil="Sin patrones: solo asignación manual."
+          escritorio="Sin patrones, la categoría solo se puede asignar manualmente."
+        />
       </p>
     </section>
   );

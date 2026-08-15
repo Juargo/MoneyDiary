@@ -9,6 +9,7 @@ import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { Loading } from '../../states/Loading';
 import { ErrorState } from '../../states/Error';
 import { Empty } from '../../states/Empty';
+import { EtiquetaResponsiva } from '../EtiquetaResponsiva';
 import { CategoriaFila } from './CategoriaFila';
 import { NuevaCategoriaForm } from './NuevaCategoriaForm';
 import {
@@ -136,6 +137,22 @@ import {
  * clickable — `NuevaCategoriaForm` doesn't depend on `query.data` so nothing
  * breaks, but offering "create" while the catalog fetch is failing is
  * confusing. The button's guard now also excludes that state.
+ *
+ * **US-063 PR #3 (D-03/D-04, WCTM-02/WCTM-03/WCTM-06):** the header goes
+ * `flex-col md:flex-row` — below `md` the title block stacks above a
+ * full-width (`w-full md:w-auto`) `Nueva categoría` button, which is already
+ * positioned below `ConfiguracionTabs` by the shared grid's DOM order
+ * (`ConfiguracionLayout.tsx`), completing `WCTM-02`. The button's own label
+ * and the subtitle's omission below `md` both go through `EtiquetaResponsiva`
+ * (D-03) — the button keeps `aria-label="Nueva categoría"` (D-04, unchanged
+ * from US-043 Q8c: a stable name across a THREE-way, non-monotonic swap now,
+ * not just two). The subtitle is `hidden md:block` — an absence, not a copy
+ * variant (D-03's note on why the subtitle does not use the helper). The
+ * footer note now carries all THREE genuinely distinct `WCTM-06` strings via
+ * `EtiquetaResponsiva`, still a non-interactive `<p>` — D-04's `aria-label`
+ * rule does not apply to it; its test queries each variant string directly,
+ * never the paragraph's `textContent` (which in jsdom is all three variants
+ * concatenated).
  */
 export function CategoriasPanel() {
   const query = useCategorias();
@@ -185,7 +202,7 @@ export function CategoriasPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:flex-wrap">
         <div>
           <h2
             ref={tituloRef}
@@ -194,7 +211,7 @@ export function CategoriasPanel() {
           >
             Categorías y patrones
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 hidden text-sm text-muted-foreground md:block">
             Tu catálogo propio: toda categoría pertenece a un bucket. Los
             patrones permiten la auto-categorización.
           </p>
@@ -204,10 +221,13 @@ export function CategoriasPanel() {
             type="button"
             aria-label="Nueva categoría"
             onClick={() => setCreando(true)}
-            className="shrink-0 rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white"
+            className="w-full shrink-0 rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white md:w-auto"
           >
-            <span className="lg:hidden">Nueva</span>
-            <span className="hidden lg:inline">Nueva categoría</span>
+            <EtiquetaResponsiva
+              movil="Nueva categoría"
+              tablet="Nueva"
+              escritorio="Nueva categoría"
+            />
           </button>
         )}
       </div>
@@ -266,13 +286,11 @@ export function CategoriasPanel() {
         ))}
 
       <p className="text-xs text-muted-foreground">
-        <span className="lg:hidden">
-          Eliminar en uso: advertencia, transacciones a Sin categoría.
-        </span>
-        <span className="hidden lg:inline">
-          Eliminar una categoría en uso muestra advertencia: sus transacciones
-          pasan a Sin categoría.
-        </span>
+        <EtiquetaResponsiva
+          movil="Toca una categoría para editarla o eliminarla."
+          tablet="Eliminar en uso: advertencia, transacciones a Sin categoría."
+          escritorio="Eliminar una categoría en uso muestra advertencia: sus transacciones pasan a Sin categoría."
+        />
       </p>
     </div>
   );

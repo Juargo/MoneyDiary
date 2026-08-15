@@ -78,6 +78,19 @@ import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
  * target either — the row unmounts via the same profile-B `['categorias']`
  * refetch this DELETE triggers — so the caller (`CategoriasPanel`) is
  * handed a stable target of its own choosing instead.
+ *
+ * **US-063 PR #3 (D-08/D-09, WCTM-03):** below `md`, the delete button gains
+ * `hidden md:inline-flex` — `display:none` removes it from BOTH the
+ * accessibility tree and the tab order, so CA-02's "exactly one action
+ * control below `md`" guarantee is satisfied by CSS alone (no conditional
+ * rendering needed). The added class **comes second** in `cn()`, right
+ * after `CLASE_BOTON_ICONO` — tailwind-merge treats `display` as one group,
+ * so `hidden` wins over `CLASE_BOTON_ICONO`'s own `inline-flex` while the
+ * `md:` variant survives as a separate group; reversing the argument order
+ * would silently produce a bare `inline-flex` with no test to catch it
+ * (D-09's mechanical note). jsdom cannot prove the control is actually
+ * hidden at a real viewport — that is `e2e/list-surface.e2e.ts`'s job
+ * (`E-03`).
  */
 export function CategoriaFila({
   categoria,
@@ -144,6 +157,7 @@ export function CategoriaFila({
         aria-label={etiquetaEliminar}
         className={cn(
           CLASE_BOTON_ICONO,
+          'hidden md:inline-flex',
           'text-destructive disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >

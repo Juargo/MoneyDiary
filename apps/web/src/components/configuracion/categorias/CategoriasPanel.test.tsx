@@ -246,30 +246,72 @@ describe('CategoriasPanel', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
-  it('la frase del footer trae las dos variantes responsivas (lg y below-lg), ambas con el copy verbatim de §8c', async () => {
+  it('la frase del footer trae las TRES variantes responsivas (US-063 D-03/WCTM-06), todas con el copy verbatim', async () => {
     renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
 
     await screen.findByText('Supermercado');
-    const corta = screen.getByText(
+    const movil = screen.getByText(
+      'Toca una categoría para editarla o eliminarla.',
+    );
+    const tablet = screen.getByText(
       'Eliminar en uso: advertencia, transacciones a Sin categoría.',
     );
-    const larga = screen.getByText(
+    const escritorio = screen.getByText(
       'Eliminar una categoría en uso muestra advertencia: sus transacciones pasan a Sin categoría.',
     );
-    expect(corta).toHaveClass('lg:hidden');
-    expect(larga).toHaveClass('hidden', 'lg:inline');
+    expect(movil).toHaveClass('md:hidden');
+    expect(tablet).toHaveClass('hidden', 'md:inline', 'lg:hidden');
+    expect(escritorio).toHaveClass('hidden', 'lg:inline');
   });
 
-  it('el botón Nueva categoría tiene nombre accesible estable con las dos variantes responsivas (§8c)', async () => {
+  it('el botón Nueva categoría tiene nombre accesible estable con las TRES variantes responsivas no-monótonas (US-063 D-04/WCTM-06)', async () => {
     renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
 
     const boton = await screen.findByRole('button', {
       name: 'Nueva categoría',
     });
-    expect(boton.querySelector('.lg\\:hidden')).toHaveTextContent('Nueva');
+    // `movil` y `escritorio` comparten literalmente el mismo texto ("Nueva
+    // categoría" — la fila no-monótona de WCTM-06) — se distinguen por su
+    // clase de banda, nunca por el texto, que es ambiguo entre ambas.
+    expect(boton.querySelector('.md\\:hidden')).toHaveTextContent(
+      'Nueva categoría',
+    );
+    expect(
+      boton.querySelector('.hidden.md\\:inline.lg\\:hidden'),
+    ).toHaveTextContent(/^Nueva$/);
     expect(boton.querySelector('.hidden.lg\\:inline')).toHaveTextContent(
       'Nueva categoría',
     );
+  });
+
+  it('el botón Nueva categoría es w-full md:w-auto (US-063 CA-01, mecanismo — la geometría real es de e2e/list-surface.e2e.ts)', async () => {
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const boton = await screen.findByRole('button', {
+      name: 'Nueva categoría',
+    });
+    expect(boton).toHaveClass('w-full', 'md:w-auto');
+  });
+
+  it('el header es flex-col md:flex-row (US-063 WCTM-02, mecanismo)', async () => {
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Categorías y patrones',
+    });
+    const header = heading.parentElement?.parentElement;
+    expect(header).toHaveClass('flex-col', 'md:flex-row');
+  });
+
+  it('el subtítulo Tu catálogo propio… se omite bajo md (US-063 CA-05, mecanismo — hidden md:block)', async () => {
+    renderPanel({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    await screen.findByText('Supermercado');
+    const subtitulo = screen.getByText(
+      'Tu catálogo propio: toda categoría pertenece a un bucket. Los patrones permiten la auto-categorización.',
+    );
+    expect(subtitulo).toHaveClass('hidden', 'md:block');
   });
 
   it("hacer click en Nueva categoría abre NuevaCategoriaForm (task 26 closes WCTG-02's button clause)", async () => {
