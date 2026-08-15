@@ -180,6 +180,39 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     ).toHaveAttribute('href', '/configuracion/categorias');
   });
 
+  /**
+   * SC 2.5.8 (WCAG 2.2 AA) product defect owned by PR #4 — found by the
+   * harness on PR #1, measured in a real browser at `{ width: 147.8, height:
+   * 20 }`. This `<Link>` is a standalone back control, a sibling of a `<p>`
+   * alone on its own line, with no surrounding non-target text — the
+   * *Inline* exception does NOT apply (that covers the breadcrumb's own
+   * links, separated by literal "/" text on the same line, `mobile-floor.
+   * e2e.ts`'s only exemption). The fix reuses the same real-padding pattern
+   * `Cancelar` already uses in this screen's footer so the control
+   * legitimately clears 24×24 — jsdom cannot measure the resulting geometry
+   * (D-08), so this is a class-name pin; the geometry itself is pinned in
+   * `edit-surface.e2e.ts`.
+   */
+  it('el link "Volver a Categorías" del estado de error lleva padding real (SC 2.5.8, no solo texto inline)', async () => {
+    renderEditar({
+      me: ME_NO_DEMO,
+      fetchMock: vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    });
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver a Categorías',
+    });
+    expect(volver).toHaveClass(
+      'rounded-full',
+      'border',
+      'border-slate-300',
+      'px-4',
+      'py-2',
+      'text-sm',
+      'font-semibold',
+    );
+  });
+
   it('si el id no existe en el catálogo cargado (stale/deleted), renderiza role="status" "Esa categoría ya no existe." + link', async () => {
     renderEditar({
       categoriaId: 'cat-borrada',
@@ -193,6 +226,27 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     expect(
       screen.getByRole('link', { name: 'Volver a Categorías' }),
     ).toHaveAttribute('href', '/configuracion/categorias');
+  });
+
+  it('el link "Volver a Categorías" del estado not-found también lleva padding real (SC 2.5.8, mismo fix)', async () => {
+    renderEditar({
+      categoriaId: 'cat-borrada',
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+    });
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver a Categorías',
+    });
+    expect(volver).toHaveClass(
+      'rounded-full',
+      'border',
+      'border-slate-300',
+      'px-4',
+      'py-2',
+      'text-sm',
+      'font-semibold',
+    );
   });
 
   it('con id presente, renderiza el h1 "Editar categoría" y la breadcrumb con aria-current en la hoja', async () => {

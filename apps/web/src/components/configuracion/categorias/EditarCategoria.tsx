@@ -145,7 +145,22 @@ export function EditarCategoria({
     return (
       <div>
         <p role="alert">{mensajeDeErrorCatalogo(query.error)}</p>
-        <Link to="/configuracion/categorias">Volver a Categorías</Link>
+        {/*
+          SC 2.5.8 fix (US-063 PR #4, product defect found by the harness on
+          PR #1): this `<Link>` used to be bare text, a standalone back
+          control alone on its own line — measured at `{ width: 147.8,
+          height: 20 }`, below the 24×24 floor. It is NOT inline text
+          constrained by a sentence (the *Inline* exception does not apply
+          here, unlike the breadcrumb's own links), so it needed real
+          padding, not an exemption. Reuses the footer's `Cancelar` pattern
+          verbatim rather than inventing a fourth control style.
+        */}
+        <Link
+          to="/configuracion/categorias"
+          className="inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+        >
+          Volver a Categorías
+        </Link>
       </div>
     );
   }
@@ -156,7 +171,12 @@ export function EditarCategoria({
     return (
       <div>
         <p role="status">Esa categoría ya no existe.</p>
-        <Link to="/configuracion/categorias">Volver a Categorías</Link>
+        <Link
+          to="/configuracion/categorias"
+          className="inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+        >
+          Volver a Categorías
+        </Link>
       </div>
     );
   }
