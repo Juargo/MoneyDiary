@@ -11,6 +11,7 @@ import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { BotonVolver } from '../BotonVolver';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
@@ -383,7 +384,25 @@ function EditarCategoriaCargada({
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Ruta de navegación">
+      {/*
+        US-063 task 24 (WCTM-04, D-05/D-06): below `md` the 3-level
+        breadcrumb is replaced, visually, by a back-icon control pointing
+        one level up — `/configuracion/categorias`, the same destination and
+        accessible name the shipped error/not-found `<Link>`s already use
+        (D-05, reused verbatim, not invented). The breadcrumb stays
+        unconditionally in the DOM (`hidden md:block`, D-08 CSS-only) rather
+        than being removed — jsdom cannot prove which of the two is actually
+        VISIBLE at a given width, so both mechanisms are pinned here and the
+        real-viewport claim is Playwright's job (`edit-surface.e2e.ts`,
+        `E-06`).
+      */}
+      <div className="md:hidden">
+        <BotonVolver
+          to="/configuracion/categorias"
+          label="Volver a Categorías"
+        />
+      </div>
+      <nav aria-label="Ruta de navegación" className="hidden md:block">
         <ol className="flex flex-wrap items-center gap-1 text-sm">
           <li>
             <Link to="/configuracion">Configuración</Link>

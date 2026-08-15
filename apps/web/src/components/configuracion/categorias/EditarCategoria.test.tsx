@@ -220,6 +220,41 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
 });
 
 /**
+ * Task 24 (US-063 PR #4, WCTM-04, D-05/D-06) — the mobile back control
+ * replaces the breadcrumb below `md`. The breadcrumb itself stays in the DOM
+ * unconditionally (jsdom cannot verify which one is actually VISIBLE at a
+ * given width, D-08 — that is Playwright's job, `edit-surface.e2e.ts`); this
+ * suite only pins the mechanism: the breadcrumb carries `hidden md:block`,
+ * and a `BotonVolver` renders pointing at `/configuracion/categorias` with
+ * the accessible name reused VERBATIM from the shipped error-state `<Link>`
+ * copy (`Volver a Categorías`, D-05 — not invented).
+ */
+describe('EditarCategoria — back control replaces the breadcrumb below md (WCTM-04, task 24)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('la breadcrumb lleva hidden md:block (oculta bajo md, visible desde md)', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const nav = await screen.findByRole('navigation', {
+      name: 'Ruta de navegación',
+    });
+    expect(nav).toHaveClass('hidden', 'md:block');
+  });
+
+  it('BotonVolver reemplaza la breadcrumb bajo md: to=/configuracion/categorias, label "Volver a Categorías" (D-05, copia reutilizada verbatim)', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver a Categorías',
+    });
+    expect(volver).toHaveAttribute('href', '/configuracion/categorias');
+  });
+});
+
+/**
  * Task 32 — the identity form: `Nombre` + `CampoSelect` inside
  * `#form-identidad`; `Cancelar`/`Guardar` associated via the HTML `form`
  * ATTRIBUTE (not nesting), per design.md §1/Q3b mechanism 1. Driven with
