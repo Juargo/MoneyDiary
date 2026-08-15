@@ -11,6 +11,7 @@ import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { BotonVolver } from '../BotonVolver';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
@@ -144,7 +145,22 @@ export function EditarCategoria({
     return (
       <div>
         <p role="alert">{mensajeDeErrorCatalogo(query.error)}</p>
-        <Link to="/configuracion/categorias">Volver a Categorías</Link>
+        {/*
+          SC 2.5.8 fix (US-063 PR #4, product defect found by the harness on
+          PR #1): this `<Link>` used to be bare text, a standalone back
+          control alone on its own line — measured at `{ width: 147.8,
+          height: 20 }`, below the 24×24 floor. It is NOT inline text
+          constrained by a sentence (the *Inline* exception does not apply
+          here, unlike the breadcrumb's own links), so it needed real
+          padding, not an exemption. Reuses the footer's `Cancelar` pattern
+          verbatim rather than inventing a fourth control style.
+        */}
+        <Link
+          to="/configuracion/categorias"
+          className="inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+        >
+          Volver a Categorías
+        </Link>
       </div>
     );
   }
@@ -155,7 +171,12 @@ export function EditarCategoria({
     return (
       <div>
         <p role="status">Esa categoría ya no existe.</p>
-        <Link to="/configuracion/categorias">Volver a Categorías</Link>
+        <Link
+          to="/configuracion/categorias"
+          className="inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
+        >
+          Volver a Categorías
+        </Link>
       </div>
     );
   }
@@ -383,7 +404,25 @@ function EditarCategoriaCargada({
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Ruta de navegación">
+      {/*
+        US-063 task 24 (WCTM-04, D-05/D-06): below `md` the 3-level
+        breadcrumb is replaced, visually, by a back-icon control pointing
+        one level up — `/configuracion/categorias`, the same destination and
+        accessible name the shipped error/not-found `<Link>`s already use
+        (D-05, reused verbatim, not invented). The breadcrumb stays
+        unconditionally in the DOM (`hidden md:block`, D-08 CSS-only) rather
+        than being removed — jsdom cannot prove which of the two is actually
+        VISIBLE at a given width, so both mechanisms are pinned here and the
+        real-viewport claim is Playwright's job (`edit-surface.e2e.ts`,
+        `E-06`).
+      */}
+      <div className="md:hidden">
+        <BotonVolver
+          to="/configuracion/categorias"
+          label="Volver a Categorías"
+        />
+      </div>
+      <nav aria-label="Ruta de navegación" className="hidden md:block">
         <ol className="flex flex-wrap items-center gap-1 text-sm">
           <li>
             <Link to="/configuracion">Configuración</Link>
@@ -403,7 +442,7 @@ function EditarCategoriaCargada({
       <form
         id="form-identidad"
         onSubmit={guardarIdentidad}
-        className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_220px]"
+        className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[1fr_220px]"
       >
         {/*
           `dialogo !== null` (judgment-day round 2): while EITHER
@@ -476,13 +515,73 @@ function EditarCategoriaCargada({
       />
 
       {/*
-        `border-t` + `justify-between` (§1/Q3b mechanism 4): the DOM states
-        what the layout alone no longer can after decision 10 put the
-        destructive action in the SAME footer row as Cancelar/Guardar — the
-        red button is never adjacent to Guardar, and the divider marks it as
-        a separate cluster.
+        US-063 task 27 (WCTM-05, D-10): DOM order is `[Guardar, Cancelar]`,
+        then `Eliminar categoría` — mobile-first, this IS the mobile visual
+        order (`Guardar` full-width above `Cancelar`). CSS can reorder
+        pixels, never tab order (D-09), so the desktop appearance (shipped:
+        `Eliminar` left, `Cancelar`/`Guardar` right with `Cancelar` left of
+        `Guardar`) is restored byte-for-byte via `md:flex-row-reverse` on
+        BOTH the outer footer and the inner Guardar/Cancelar group — two
+        reversals compose back to the original visual order, they do not
+        cancel out, because the outer one also swaps which GROUP is first
+        (the pair vs. `Eliminar`) while the inner one swaps which BUTTON
+        inside the pair is first. `border-t` (unchanged) + `md:justify-between`
+        (US-043 §1/Q3b mechanism 4, now `md:`-scoped) still state what the
+        layout alone can't below `md`, where the stack itself already keeps
+        the red button visually last, not adjacent to `Guardar`.
       */}
-      <footer className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+      <footer className="mt-2 flex flex-col gap-3 border-t border-border pt-4 md:flex-row-reverse md:flex-wrap md:items-center md:justify-between">
+        <div className="flex flex-col gap-2 md:flex-row-reverse md:items-center">
+          <button
+            ref={guardarRef}
+            type="submit"
+            form="form-identidad"
+            // `dialogo === 'eliminar'` (mirrors the Eliminar button's
+            // comment below, inverted): blocks Guardar while the DELETE
+            // confirm is open — otherwise it could race its PATCH against
+            // an in-flight DELETE — without disabling it while its OWN
+            // bucket-change dialog is open, which would break
+            // `cerrarDialogo`'s synchronous focus restore back to this
+            // same button.
+            disabled={
+              esDemo ||
+              actualizacion.isPending ||
+              eliminacion.isPending ||
+              dialogo === 'eliminar'
+            }
+            className="w-full rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 md:w-auto"
+          >
+            Guardar
+          </button>
+          <button
+            type="button"
+            form="form-identidad"
+            // `dialogo !== null` (judgment-day round 2): this button was
+            // NOT disabled while a dialog was open — its `onClick` resets
+            // the draft back to `categoria.nombre`/`categoria.bucket`,
+            // which could self-contradict the OPEN bucket-change dialog's
+            // copy (`«X» pasa de Necesidades a Necesidades.`) before the
+            // `snapshotAlAbrirDialogo` snapshot (above) closed that hole.
+            // `esDemo` is deliberately NOT part of this condition —
+            // `Cancelar` issues zero requests and stays enabled in demo.
+            //
+            // `actualizacion.isPending` (judgment-day round 4, both judges):
+            // on a bucket-clean (rename-only) save there is NO dialog, so
+            // `dialogo` stays `null` while the `PATCH` is in flight. Left
+            // enabled, `Cancelar` navigated back to the list without
+            // aborting that request — it resolves anyway and the rename
+            // COMMITS, after the user believes they cancelled it. Round 3
+            // deferred this on the grounds that the direct path has no
+            // per-call `onSuccess` to race; the defect is the user's
+            // intent, not the callback ordering.
+            disabled={dialogo !== null || actualizacion.isPending}
+            onClick={cancelarIdentidad}
+            aria-label="Cancelar cambios de nombre y bucket"
+            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        </div>
         <button
           ref={eliminarRef}
           type="button"
@@ -529,61 +628,10 @@ function EditarCategoriaCargada({
             setDialogo('eliminar');
           }}
           aria-label={`Eliminar categoría ${categoria.nombre}`}
-          className="rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+          className="self-start rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
         >
           Eliminar categoría
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            form="form-identidad"
-            // `dialogo !== null` (judgment-day round 2): this button was
-            // NOT disabled while a dialog was open — its `onClick` resets
-            // the draft back to `categoria.nombre`/`categoria.bucket`,
-            // which could self-contradict the OPEN bucket-change dialog's
-            // copy (`«X» pasa de Necesidades a Necesidades.`) before the
-            // `snapshotAlAbrirDialogo` snapshot (above) closed that hole.
-            // `esDemo` is deliberately NOT part of this condition —
-            // `Cancelar` issues zero requests and stays enabled in demo.
-            //
-            // `actualizacion.isPending` (judgment-day round 4, both judges):
-            // on a bucket-clean (rename-only) save there is NO dialog, so
-            // `dialogo` stays `null` while the `PATCH` is in flight. Left
-            // enabled, `Cancelar` navigated back to the list without
-            // aborting that request — it resolves anyway and the rename
-            // COMMITS, after the user believes they cancelled it. Round 3
-            // deferred this on the grounds that the direct path has no
-            // per-call `onSuccess` to race; the defect is the user's
-            // intent, not the callback ordering.
-            disabled={dialogo !== null || actualizacion.isPending}
-            onClick={cancelarIdentidad}
-            aria-label="Cancelar cambios de nombre y bucket"
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            ref={guardarRef}
-            type="submit"
-            form="form-identidad"
-            // `dialogo === 'eliminar'` (mirrors the Eliminar button's
-            // comment above, inverted): blocks Guardar while the DELETE
-            // confirm is open — otherwise it could race its PATCH against
-            // an in-flight DELETE — without disabling it while its OWN
-            // bucket-change dialog is open, which would break
-            // `cerrarDialogo`'s synchronous focus restore back to this
-            // same button.
-            disabled={
-              esDemo ||
-              actualizacion.isPending ||
-              eliminacion.isPending ||
-              dialogo === 'eliminar'
-            }
-            className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            Guardar
-          </button>
-        </div>
       </footer>
 
       {dialogo === 'cambiar-bucket' && snapshotAlAbrirDialogo && (
