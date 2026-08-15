@@ -421,7 +421,7 @@ a prefix of another variant the same element could legitimately render.
 *Depends on PR #3. The riskiest slice — it reorders a shipped footer whose every `disabled` condition
 is judgment-day scar tissue (US-043). Reviewed unmixed.*
 
-- [ ] 24. **RED, GREEN** — `EditarCategoria.tsx` (+ test): the 3-level breadcrumb gains
+- [x] 24. **RED, GREEN** — `EditarCategoria.tsx` (+ test): the 3-level breadcrumb gains
   `hidden md:block` (stays visible ≥`md`, unchanged look at tablet/desktop); add `BotonVolver
   md:hidden` (`to="/configuracion/categorias"`, `label="Volver a Categorías"` — reused **verbatim**
   from the shipped error-state `<Link>` copy, D-05, not invented).
@@ -429,7 +429,7 @@ is judgment-day scar tissue (US-043). Reviewed unmixed.*
   list, regardless of history).
   *Files*: `apps/web/src/components/configuracion/categorias/EditarCategoria.tsx` (+ test).
 
-- [ ] 25. **RED, GREEN** — **Correction recorded in the re-slicing note above; spec wins over
+- [x] 25. **RED, GREEN** — **Correction recorded in the re-slicing note above; spec wins over
   design §1.5.** `EditarCategoria.tsx`'s identity field grid: `grid-cols-1
   sm:grid-cols-[1fr_220px]` → `grid-cols-1 md:grid-cols-[1fr_220px]`. Arithmetic, verified against
   Tailwind's real scale (the check whose absence shipped `WCTG-14` and `WCFG-11` false — do not skip
@@ -450,7 +450,7 @@ is judgment-day scar tissue (US-043). Reviewed unmixed.*
   640–767px — not only the 360px floor `WCTG-13` already covers).
   *Files*: `apps/web/src/components/configuracion/categorias/EditarCategoria.tsx` (modify + test).
 
-- [ ] 26. **GREEN** — `e2e/edit-surface.e2e.ts` (new), the 640–767px gap check: a dedicated test
+- [x] 26. **GREEN** — `e2e/edit-surface.e2e.ts` (new), the 640–767px gap check: a dedicated test
   using `test.use({ viewport: { width: 700, height: 800 } })` — a one-off override, **not** a fourth
   named tier project (D-11's three projects remain the executable definition of D-01's tier) —
   asserting `Nombre`/`Bucket` have different `y` (stacked) at 700px. Neither of D-11's named widths
@@ -459,7 +459,7 @@ is judgment-day scar tissue (US-043). Reviewed unmixed.*
   *Requirement*: `WCTM-05` (the 640–767px scenario).
   *Files*: `apps/web/e2e/edit-surface.e2e.ts` (new).
 
-- [ ] 27. **RED, GREEN** — `EditarCategoria.tsx`'s footer (+ test): reorder the DOM to `[Guardar,
+- [x] 27. **RED, GREEN** — `EditarCategoria.tsx`'s footer (+ test): reorder the DOM to `[Guardar,
   Cancelar]`, then `Eliminar categoría` (D-10 — CSS can reorder pixels, never tab order; D-09
   forbids duplicating the buttons, so some DOM/visual divergence is unavoidable and this design
   deliberately lands it on the **desktop** row, not the mobile stack). Outer `<footer>` gains
@@ -477,7 +477,7 @@ is judgment-day scar tissue (US-043). Reviewed unmixed.*
   `Eliminar categoría` stays in the same footer).
   *Files*: `apps/web/src/components/configuracion/categorias/EditarCategoria.tsx` (modify + test).
 
-- [ ] 28. **GREEN** — `e2e/edit-surface.e2e.ts` additions: `E-06` (360/1280: edit screen —
+- [x] 28. **GREEN** — `e2e/edit-surface.e2e.ts` additions: `E-06` (360/1280: edit screen —
   `nav[aria-label="Ruta de navegación"]` `toBeHidden()` at 360, visible at 1280; `Volver a
   Categorías` inversely); `E-08` (360/1280: footer — at 360, `Guardar`.y < `Cancelar`.y and
   `Guardar`'s width ≈ the content band; at 1280, `Guardar`/`Cancelar` share a `y` with `Cancelar`.x <
@@ -485,11 +485,41 @@ is judgment-day scar tissue (US-043). Reviewed unmixed.*
   *Requirement*: `WCTM-04` (E-06), `WCTM-05` (E-08, D-10).
   *Files*: `apps/web/e2e/edit-surface.e2e.ts` (modify).
 
-- [ ] 29. **GREEN** — Verify zero files touched under `apps/api/**` and `apps/mobile/**` (task 8,
+- [x] 29. **GREEN** — Verify zero files touched under `apps/api/**` and `apps/mobile/**` (task 8,
   final).
 
 **Gates (PR #4)**: `pnpm web typecheck` · `pnpm web test` · `pnpm web lint` · `pnpm web test:e2e`
 (`E-01`…`E-12` all green, zero `test.fail()` remaining anywhere in the suite) · task 29.
+
+**PR #4 status (2026-08-14, sdd-apply): COMPLETE — tasks 24-29, all Gates green.**
+`pnpm web typecheck` clean · `pnpm web lint` 0 errors (same 2 pre-existing warnings) ·
+`pnpm web test` 100 files / 1005 tests · `pnpm web test:e2e` 45 passed / 21 skipped ·
+**zero executable `test.fail()` anywhere in the suite** — the change closed its own `WCTG-14`
+pin, which was the point of D-12's defect-commit. `git diff --name-only feat/us-063-pr3-labels..
+-- apps/api apps/mobile perfil` empty. 6 commits on `feat/us-063-pr4-editar`.
+
+**SC 2.5.8 product defect: CLOSED, not exempted.** Both `<Link>Volver a Categorías</Link>`
+instances (the `query.isError` and `!categoria` branches) took the `Cancelar` footer pattern —
+`rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold` — so the control now
+clears 24×24 on its own geometry. Pinned by a Playwright test measuring `boundingBox()` at 360px
+on the not-found state. `e2e/mobile-floor.e2e.ts`'s exemption logic was **not** touched: it still
+exempts the breadcrumb only, structurally via `closest()`, never by text.
+
+**Extension beyond the frozen spec — maintainer decision, 2026-08-14.** `NuevaCategoriaForm.tsx:69`
+carried the same `sm:grid-cols-[1fr_220px]` as `EditarCategoria` and renders on the same surface
+(inside `CategoriasPanel`). Task 25 moved only the edit screen's grid to `md:`, so between 640 and
+767px this PR would have shipped the edit screen stacking while the create form did not — **a
+divergence this PR itself introduced by fixing one of two identical grids.** `WCTM-05` names only
+`EditarCategoria` and never mentions `NuevaCategoriaForm`; `design.md:371` names both. Spec wins
+over design, so this is **not** "the spec required it" — it is a decision not to ship a
+self-inflicted inconsistency in the chain's last PR. Recorded here so a future reader who checks
+`WCTM-05` and finds no mention knows the code is deliberate, not orphaned.
+
+*Also corrected while implementing*: `design.md` §1.5's claim that moving the grid to `md:` "would
+break `WCTG-14`'s second scenario" is arithmetically false — `880 ≥ 768` holds regardless of
+whether the boundary is `sm` or `md`. The re-slicing note above had already caught this; the
+implementer re-derived the table independently rather than trusting the note, which is the
+standard this change adopted after five arithmetic errors were found in its own plan layers.
 
 ---
 
