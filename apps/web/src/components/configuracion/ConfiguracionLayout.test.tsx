@@ -81,7 +81,7 @@ describe('ConfiguracionLayout', () => {
     vi.restoreAllMocks();
   });
 
-  it('renderiza el h1 "Configuración" (A2)', async () => {
+  it('renderiza el h1 "Configuración" (A2) — sigue en el árbol de a11y en todo ancho', async () => {
     renderAt('/configuracion');
 
     expect(
@@ -89,12 +89,22 @@ describe('ConfiguracionLayout', () => {
     ).toBeInTheDocument();
   });
 
-  it('renderiza la grilla fluida T1 (WCFG-11), reproduciendo la de ConfiguracionPage', async () => {
+  it('el h1 lleva max-md:sr-only (US-063 D-07, WCTM-04) — mecanismo; la geometría real (invisible <768, visible ≥768) la prueba Playwright', async () => {
+    renderAt('/configuracion');
+
+    const h1 = await screen.findByRole('heading', {
+      level: 1,
+      name: 'Configuración',
+    });
+    expect(h1).toHaveClass('max-md:sr-only');
+  });
+
+  it('renderiza la grilla fluida T1 (WCFG-11/WCTG-14), activada en md (US-063 D-01/D-02, repara WCTG-14: 880px ya no cae a una sola columna)', async () => {
     renderAt('/configuracion');
 
     const grid = await screen.findByTestId('configuracion-grid');
     expect(grid).toHaveClass('grid-cols-1');
-    expect(grid).toHaveClass('lg:grid-cols-[200px_1fr]');
+    expect(grid).toHaveClass('md:grid-cols-[200px_1fr]');
   });
 
   it('el track de contenido lleva min-w-0 (WCTG-13 guarantee 1, mecanismo 1 de 2, Q10a)', async () => {
@@ -102,6 +112,15 @@ describe('ConfiguracionLayout', () => {
 
     const track = await screen.findByTestId('configuracion-content-track');
     expect(track).toHaveClass('min-w-0');
+  });
+
+  it('renderiza BotonVolver hacia "/" (US-063 D-05/D-06/D-07, WCTM-04, Q-02) — mecanismo; la visibilidad md:hidden real la prueba Playwright', async () => {
+    renderAt('/configuracion');
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver al inicio',
+    });
+    expect(volver).toHaveAttribute('href', '/');
   });
 
   it('renderiza ConfiguracionTabs dentro de la grilla', async () => {

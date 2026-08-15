@@ -76,9 +76,21 @@ async function standaloneControlsInMain(page: Page): Promise<Locator[]> {
   // immediately with no auto-wait, so without this the query can run
   // against an empty `<main>` and silently report zero controls (the exact
   // "class name present but nothing actually rendered" gap this whole
-  // harness exists to close). Waiting for the first match to appear is the
-  // auto-waiting step `.all()` itself doesn't do.
-  await controlsLocator.first().waitFor();
+  // harness exists to close). Waiting for the first match to APPEAR IN THE
+  // DOM is the auto-waiting step `.all()` itself doesn't do.
+  //
+  // `state: 'attached'`, not the default `'visible'` (US-063 PR #2 fix):
+  // `ConfiguracionLayout` now renders `BotonVolver` (`md:hidden`) as the
+  // FIRST `a[href]` inside `<main>` on every Configuración screen. At
+  // tablet/desktop widths that control is legitimately never visible, so
+  // waiting for the FIRST match to become visible timed out there — the
+  // loading-skeleton race this wait exists to close never involved
+  // visibility of a SPECIFIC control, only whether real content (as opposed
+  // to the `role="status"` "Cargando…" skeleton, which renders no controls
+  // at all) has mounted yet. `'attached'` still closes that race and no
+  // longer assumes the first control in DOM order is visible at every
+  // viewport.
+  await controlsLocator.first().waitFor({ state: 'attached' });
   const all = await controlsLocator.all();
   const standalone: Locator[] = [];
   for (const control of all) {
@@ -160,6 +172,27 @@ test.describe('mobile floor — must already hold on main (WCTG-13, WCTG-14 scen
       page,
     }) => {
       await page.goto(screen.path);
+      // Wait for the screen's OWN heading before sweeping — same guard E-10
+      // (above) and `mobile-header.e2e.ts` already use.
+      //
+      // Judgment-day on PR #2, reproduced independently by both judges:
+      // `standaloneControlsInMain`'s generic wait was weakened to
+      // `state: 'attached'` in this PR, because `BotonVolver` is the first
+      // `a[href]` in `<main>` and is `md:hidden` (so a `visible` wait times
+      // out at tablet/desktop). But `ConfiguracionLayout`'s chrome —
+      // `BotonVolver` + the two tabs — mounts synchronously with the route,
+      // while `CategoriasPanel`'s content is gated on its own
+      // `useQuery(['categorias'])` with no route loader. So "any control
+      // attached" resolves on the chrome alone, before the panel's rows exist.
+      //
+      // Measured: adding 30–50ms to the `/api/categorias` stub (ordinary CI
+      // latency; this suite runs `fullyParallel` with 5 workers) collapses the
+      // captured set from 8 controls to 3 — the row-level Editar/Eliminar
+      // buttons this test exists to police are never measured, and
+      // `toBeGreaterThan(0)` below is satisfied *vacuously by the chrome*.
+      // Waiting on content the panel itself renders is what makes the sweep
+      // mean what its name says.
+      await page.getByRole('heading', { name: screen.heading }).waitFor();
       const controls = await standaloneControlsInMain(page);
       // A silent no-op (zero controls found) would pass vacuously — the
       // exact class of gap that shipped `WCTG-14` false (design.md §4).

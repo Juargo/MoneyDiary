@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
 import type { CategoriaDto } from '@/api/types';
 import { CategoriaFila } from './CategoriaFila';
-import { CLASE_BOTON_ICONO } from './estilos';
+import { CLASE_BOTON_ICONO } from '../estilos';
 
 /**
  * CategoriaFila (US-043, design.md §1/Q10a mecanismo 2, §1/Q10c, §1/Q6d,
