@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import type { CategoriaDto } from '@/api/types';
 import { useEliminarCategoria } from '@/api/use-eliminar-categoria';
 import { etiquetaPatrones } from './plural';
-import { CLASE_BOTON_ICONO } from './estilos';
+import { CLASE_BOTON_ICONO } from '../estilos';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
 import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
 
