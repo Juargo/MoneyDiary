@@ -76,9 +76,21 @@ async function standaloneControlsInMain(page: Page): Promise<Locator[]> {
   // immediately with no auto-wait, so without this the query can run
   // against an empty `<main>` and silently report zero controls (the exact
   // "class name present but nothing actually rendered" gap this whole
-  // harness exists to close). Waiting for the first match to appear is the
-  // auto-waiting step `.all()` itself doesn't do.
-  await controlsLocator.first().waitFor();
+  // harness exists to close). Waiting for the first match to APPEAR IN THE
+  // DOM is the auto-waiting step `.all()` itself doesn't do.
+  //
+  // `state: 'attached'`, not the default `'visible'` (US-063 PR #2 fix):
+  // `ConfiguracionLayout` now renders `BotonVolver` (`md:hidden`) as the
+  // FIRST `a[href]` inside `<main>` on every Configuración screen. At
+  // tablet/desktop widths that control is legitimately never visible, so
+  // waiting for the FIRST match to become visible timed out there — the
+  // loading-skeleton race this wait exists to close never involved
+  // visibility of a SPECIFIC control, only whether real content (as opposed
+  // to the `role="status"` "Cargando…" skeleton, which renders no controls
+  // at all) has mounted yet. `'attached'` still closes that race and no
+  // longer assumes the first control in DOM order is visible at every
+  // viewport.
+  await controlsLocator.first().waitFor({ state: 'attached' });
   const all = await controlsLocator.all();
   const standalone: Locator[] = [];
   for (const control of all) {
