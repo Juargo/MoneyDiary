@@ -393,9 +393,26 @@ unreviewable, and `E-09` needs all six strings.*
 
 **PR #3 status (2026-08-14, sdd-apply): COMPLETE — tasks 18-23, all Gates green.**
 `pnpm web typecheck` clean · `pnpm web lint` 0 errors (same 2 pre-existing warnings) ·
-`pnpm web test` 100 files / 995 tests · `pnpm web test:e2e` 38 passed / 13 skipped (all of
+`pnpm web test` 100 files / 998 tests · `pnpm web test:e2e` 38 passed / 13 skipped (all of
 `E-01`/`E-03`/`E-04`/`E-09` green) · `git diff --stat feat/us-063-pr2-tier... -- apps/api
-apps/mobile` empty. 5 commits on `feat/us-063-pr3-labels`.
+apps/mobile` empty.
+
+*Test count history*: this line read `995` while the branch had 5 commits. Two judgment-day
+fix rounds then landed on top, and the count is now `998` — the 3 added tests are task 21's
+missing `PatronesSection` mechanism coverage (see the status history on task 21).
+
+**Judgment-day round 2 (2026-08-14) — one WARNING (real), reproduced and fixed.**
+`@testing-library/jest-dom`'s `toHaveTextContent` matches by **substring** when given a
+string literal, so an assertion reads as exact but passes on any superstring. Mutating
+`CategoriasPanel.tsx`'s `tablet="Nueva"` → `tablet="Nueva categoría"` — collapsing the very
+non-monotonic mapping `WCTM-06` singles out as the unusual, easy-to-get-wrong row — left all
+24 tests green. A repo-wide sweep found the same trap in `EtiquetaResponsiva.test.tsx` (the
+helper's OWN contract test) for both `Nueva` and `Agregar`: each band was compared against a
+**prefix of its own long variant**. All anchored; the Playwright `E-09` layer already caught
+this failure mode, so production behaviour was never wrong — the jsdom mechanism layer simply
+was not load-bearing for it.
+**Reviewer note**: prefer an anchored regex over a bare string whenever the expected text is
+a prefix of another variant the same element could legitimately render.
 
 ---
 
