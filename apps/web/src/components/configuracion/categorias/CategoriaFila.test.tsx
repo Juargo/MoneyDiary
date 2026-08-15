@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
 import type { CategoriaDto } from '@/api/types';
 import { CategoriaFila } from './CategoriaFila';
-import { CLASE_BOTON_ICONO } from './estilos';
+import { CLASE_BOTON_ICONO } from '../estilos';
 
 /**
  * CategoriaFila (US-043, design.md §1/Q10a mecanismo 2, §1/Q10c, §1/Q6d,
@@ -117,14 +117,33 @@ describe('CategoriaFila', () => {
     expect(editar).toHaveClass(...CLASE_BOTON_ICONO.split(' '));
   });
 
-  it('el botón eliminar lleva aria-label desambiguado y CLASE_BOTON_ICONO', async () => {
+  it('el botón eliminar lleva aria-label desambiguado y las clases de CLASE_BOTON_ICONO no relacionadas con display (US-063 D-09: display lo reemplaza `hidden md:inline-flex`, ver el test dedicado abajo)', async () => {
     renderFila({});
 
     const eliminar = await screen.findByRole('button', {
       name: 'Eliminar categoría Supermercado',
     });
-    expect(eliminar).toHaveClass(...CLASE_BOTON_ICONO.split(' '));
+    const clasesSinDisplay = CLASE_BOTON_ICONO.split(' ').filter(
+      (clase) => clase !== 'inline-flex',
+    );
+    expect(eliminar).toHaveClass(...clasesSinDisplay);
     expect(eliminar).not.toBeDisabled();
+  });
+
+  it('el botón eliminar es hidden md:inline-flex, nunca un inline-flex a secas (US-063 D-09 mechanical note, WCTM-03) — mecanismo, la geometría real es de e2e/list-surface.e2e.ts', async () => {
+    renderFila({});
+
+    const eliminar = await screen.findByRole('button', {
+      name: 'Eliminar categoría Supermercado',
+    });
+    expect(eliminar).toHaveClass('hidden', 'md:inline-flex');
+    // tailwind-merge trata `display` como un solo grupo: `hidden` (agregado
+    // SEGUNDO en cn(), después de CLASE_BOTON_ICONO) gana sobre el
+    // `inline-flex` sin prefijo de CLASE_BOTON_ICONO, mientras que la
+    // variante `md:` sobrevive como grupo aparte. Invertir el orden de los
+    // argumentos produciría en silencio un `inline-flex` a secas — sin este
+    // test, nada lo detectaría.
+    expect(eliminar.className.split(' ')).not.toContain('inline-flex');
   });
 
   it('el botón eliminar está proactivamente disabled en una sesión demo (WCTG-11) — el editar Link sigue activo', async () => {

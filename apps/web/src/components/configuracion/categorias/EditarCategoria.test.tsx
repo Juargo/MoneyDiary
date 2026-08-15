@@ -180,6 +180,39 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     ).toHaveAttribute('href', '/configuracion/categorias');
   });
 
+  /**
+   * SC 2.5.8 (WCAG 2.2 AA) product defect owned by PR #4 — found by the
+   * harness on PR #1, measured in a real browser at `{ width: 147.8, height:
+   * 20 }`. This `<Link>` is a standalone back control, a sibling of a `<p>`
+   * alone on its own line, with no surrounding non-target text — the
+   * *Inline* exception does NOT apply (that covers the breadcrumb's own
+   * links, separated by literal "/" text on the same line, `mobile-floor.
+   * e2e.ts`'s only exemption). The fix reuses the same real-padding pattern
+   * `Cancelar` already uses in this screen's footer so the control
+   * legitimately clears 24×24 — jsdom cannot measure the resulting geometry
+   * (D-08), so this is a class-name pin; the geometry itself is pinned in
+   * `edit-surface.e2e.ts`.
+   */
+  it('el link "Volver a Categorías" del estado de error lleva padding real (SC 2.5.8, no solo texto inline)', async () => {
+    renderEditar({
+      me: ME_NO_DEMO,
+      fetchMock: vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    });
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver a Categorías',
+    });
+    expect(volver).toHaveClass(
+      'rounded-full',
+      'border',
+      'border-slate-300',
+      'px-4',
+      'py-2',
+      'text-sm',
+      'font-semibold',
+    );
+  });
+
   it('si el id no existe en el catálogo cargado (stale/deleted), renderiza role="status" "Esa categoría ya no existe." + link', async () => {
     renderEditar({
       categoriaId: 'cat-borrada',
@@ -193,6 +226,27 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     expect(
       screen.getByRole('link', { name: 'Volver a Categorías' }),
     ).toHaveAttribute('href', '/configuracion/categorias');
+  });
+
+  it('el link "Volver a Categorías" del estado not-found también lleva padding real (SC 2.5.8, mismo fix)', async () => {
+    renderEditar({
+      categoriaId: 'cat-borrada',
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+    });
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver a Categorías',
+    });
+    expect(volver).toHaveClass(
+      'rounded-full',
+      'border',
+      'border-slate-300',
+      'px-4',
+      'py-2',
+      'text-sm',
+      'font-semibold',
+    );
   });
 
   it('con id presente, renderiza el h1 "Editar categoría" y la breadcrumb con aria-current en la hoja', async () => {
@@ -216,6 +270,41 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
       'aria-current',
       'page',
     );
+  });
+});
+
+/**
+ * Task 24 (US-063 PR #4, WCTM-04, D-05/D-06) — the mobile back control
+ * replaces the breadcrumb below `md`. The breadcrumb itself stays in the DOM
+ * unconditionally (jsdom cannot verify which one is actually VISIBLE at a
+ * given width, D-08 — that is Playwright's job, `edit-surface.e2e.ts`); this
+ * suite only pins the mechanism: the breadcrumb carries `hidden md:block`,
+ * and a `BotonVolver` renders pointing at `/configuracion/categorias` with
+ * the accessible name reused VERBATIM from the shipped error-state `<Link>`
+ * copy (`Volver a Categorías`, D-05 — not invented).
+ */
+describe('EditarCategoria — back control replaces the breadcrumb below md (WCTM-04, task 24)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('la breadcrumb lleva hidden md:block (oculta bajo md, visible desde md)', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const nav = await screen.findByRole('navigation', {
+      name: 'Ruta de navegación',
+    });
+    expect(nav).toHaveClass('hidden', 'md:block');
+  });
+
+  it('BotonVolver reemplaza la breadcrumb bajo md: to=/configuracion/categorias, label "Volver a Categorías" (D-05, copia reutilizada verbatim)', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const volver = await screen.findByRole('link', {
+      name: 'Volver a Categorías',
+    });
+    expect(volver).toHaveAttribute('href', '/configuracion/categorias');
   });
 });
 
@@ -250,19 +339,21 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
   });
 
   /**
-   * PR #5, task 45 (design.md §1/Q10b, WCTG-13, WCTG-14): stock Tailwind
-   * `sm` (640px), no new tier in `layout.ts`. At 360px `grid-cols-1` stacks
-   * Nombre/Bucket; at T3/880px `sm:grid-cols-[1fr_220px]` renders them
-   * `356+200` side by side, within the fluid band. This is a class-name
-   * pin, not a rendered-geometry assertion — jsdom performs no layout
-   * (same honest limit as `estilos.ts`'s `CLASE_BOTON_ICONO`, Q10c).
+   * US-063 task 25 (WCTM-05, D-01): the boundary moves from `sm` (640px) to
+   * `md` (768px) — `sm` alone left the 640–767px band rendering side by
+   * side while D-01 defines that band as MOBILE, a direct WCTM-05
+   * violation neither of D-11's named viewports (360, 880) would have
+   * caught (`edit-surface.e2e.ts`'s dedicated 700px test closes that gap
+   * at the Playwright layer). This is a class-name pin, not a
+   * rendered-geometry assertion — jsdom performs no layout (same honest
+   * limit as `estilos.ts`'s `CLASE_BOTON_ICONO`, Q10c).
    */
-  it('el grid de Nombre/Bucket lleva grid-cols-1 (apilado a 360px) y sm:grid-cols-[1fr_220px] (lado a lado a 880px, Q10b)', async () => {
+  it('el grid de Nombre/Bucket lleva grid-cols-1 (apilado bajo md) y md:grid-cols-[1fr_220px] (lado a lado desde md, WCTM-05)', async () => {
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await screen.findByLabelText('Nombre');
 
     const form = document.getElementById('form-identidad');
-    expect(form).toHaveClass('grid', 'grid-cols-1', 'sm:grid-cols-[1fr_220px]');
+    expect(form).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-[1fr_220px]');
   });
 
   it('un envío limpio (solo Nombre cambia, Bucket intacto) emite EXACTAMENTE una mutación — PATCH a /api/categorias/cat-1, nunca a /api/patrones', async () => {
@@ -1479,6 +1570,77 @@ describe('EditarCategoria — un PATCH directo (sin diálogo) en vuelo bloquea l
     ).toBeDisabled();
 
     resolverFetch({ ok: true, status: 200 });
+  });
+});
+
+/**
+ * Task 27 (US-063 PR #4, WCTM-05, D-10) — the footer's DOM order becomes
+ * `[Guardar, Cancelar]`, then `Eliminar categoría`. CSS can reorder pixels,
+ * never tab order (D-09), so the DOM order pinned here IS the mobile visual
+ * order (`Guardar` full-width above `Cancelar`); the desktop appearance is
+ * restored byte-for-byte via `md:flex-row-reverse` (Playwright's job,
+ * `edit-surface.e2e.ts`'s `E-08` — jsdom cannot verify which order is
+ * actually RENDERED at a given width, D-08). Every existing footer
+ * behavioural test above (disabled conditions, `form=` association,
+ * disambiguated accessible names) is untouched by this reorder and must
+ * keep passing unchanged.
+ */
+describe('EditarCategoria — footer reordenado a [Guardar, Cancelar], Eliminar categoría (WCTM-05, D-10, task 27)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('el DOM del footer queda Guardar, luego Cancelar, luego Eliminar categoría', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const guardar = await screen.findByRole('button', { name: 'Guardar' });
+    const cancelar = screen.getByRole('button', {
+      name: 'Cancelar cambios de nombre y bucket',
+    });
+    const eliminar = screen.getByRole('button', {
+      name: 'Eliminar categoría Supermercado',
+    });
+
+    // DOCUMENT_POSITION_FOLLOWING (4): the argument node comes AFTER the
+    // node `compareDocumentPosition` is called on.
+    expect(
+      guardar.compareDocumentPosition(cancelar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      cancelar.compareDocumentPosition(eliminar) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('el footer y el grupo Guardar/Cancelar llevan las clases de reversión desktop; Guardar es w-full md:w-auto', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+
+    const guardar = await screen.findByRole('button', { name: 'Guardar' });
+    const footer = guardar.closest('footer');
+    if (!footer) {
+      throw new Error('Guardar no está dentro de un <footer>.');
+    }
+    expect(footer).toHaveClass(
+      'flex',
+      'flex-col',
+      'md:flex-row-reverse',
+      'md:flex-wrap',
+      'md:items-center',
+      'md:justify-between',
+    );
+
+    const grupo = guardar.parentElement;
+    expect(grupo).toHaveClass(
+      'flex',
+      'flex-col',
+      'gap-2',
+      'md:flex-row-reverse',
+      'md:items-center',
+    );
+
+    expect(guardar).toHaveClass('w-full', 'md:w-auto');
   });
 });
 

@@ -10,7 +10,7 @@ import type { MatchType } from '@/api/catalogo-constantes';
 import type { PatronDto } from '@/api/types';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
-import { CLASE_BOTON_ICONO } from './estilos';
+import { CLASE_BOTON_ICONO } from '../estilos';
 import {
   ETIQUETA_MATCH_TYPE,
   mensajeDeErrorCatalogo,

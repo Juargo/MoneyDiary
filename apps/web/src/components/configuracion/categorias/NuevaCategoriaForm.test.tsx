@@ -32,6 +32,23 @@ describe('NuevaCategoriaForm', () => {
     vi.restoreAllMocks();
   });
 
+  /**
+   * US-063 PR #4 (maintainer extension, not WCTM-05 — that requirement
+   * names only EditarCategoria's grid): mirrors EditarCategoria.test.tsx's
+   * task-25 grid pin so both forms on the Categorías surface read
+   * consistently between 640px and 767px. Class-name pin, not a
+   * rendered-geometry assertion — jsdom performs no layout.
+   */
+  it('el grid de Nombre/Bucket lleva grid-cols-1 (apilado bajo md) y md:grid-cols-[1fr_220px] (lado a lado desde md)', () => {
+    const { container } = render(
+      <NuevaCategoriaForm esDemo={false} onCerrar={() => {}} />,
+      { wrapper: crearWrapper() },
+    );
+
+    const grid = container.querySelector('form > div');
+    expect(grid).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-[1fr_220px]');
+  });
+
   it('renderiza Nombre y Bucket (obligatorio), con las tres opciones de bucket etiquetadas por A1', () => {
     render(<NuevaCategoriaForm esDemo={false} onCerrar={() => {}} />, {
       wrapper: crearWrapper(),
