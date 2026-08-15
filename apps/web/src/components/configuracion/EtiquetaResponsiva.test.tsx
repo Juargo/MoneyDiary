@@ -27,7 +27,7 @@ describe('EtiquetaResponsiva', () => {
     expect(movil).toHaveClass('md:hidden');
     expect(movil).toHaveTextContent('Nueva categoría');
     expect(tablet).toHaveClass('hidden', 'md:inline', 'lg:hidden');
-    expect(tablet).toHaveTextContent('Nueva');
+    expect(tablet).toHaveTextContent(/^Nueva$/);
     expect(escritorio).toHaveClass('hidden', 'lg:inline');
     expect(escritorio).toHaveTextContent('Nueva categoría');
   });
@@ -40,7 +40,7 @@ describe('EtiquetaResponsiva', () => {
 
     const [movil, escritorio] = spans;
     expect(movil).toHaveClass('md:hidden');
-    expect(movil).toHaveTextContent('Agregar');
+    expect(movil).toHaveTextContent(/^Agregar$/);
     expect(escritorio).toHaveClass('hidden', 'md:inline');
     // The 2-band tablet/desktop-shared span must NOT carry lg:hidden — it
     // is meant to stay visible from `md` all the way up, not cut off at `lg`.

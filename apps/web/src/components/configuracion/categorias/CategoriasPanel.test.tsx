@@ -278,7 +278,7 @@ describe('CategoriasPanel', () => {
     );
     expect(
       boton.querySelector('.hidden.md\\:inline.lg\\:hidden'),
-    ).toHaveTextContent('Nueva');
+    ).toHaveTextContent(/^Nueva$/);
     expect(boton.querySelector('.hidden.lg\\:inline')).toHaveTextContent(
       'Nueva categoría',
     );
