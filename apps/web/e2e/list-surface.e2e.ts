@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import type { Locator } from '@playwright/test';
 import { stubApi } from './fixtures/api-stubs';
 
 /**
@@ -22,38 +21,20 @@ import { stubApi } from './fixtures/api-stubs';
  *   className-literal presence, the exact gap that shipped `WCTG-14` false.
  *
  * `Nueva categoría`'s `movil` and `escritorio` variants share the SAME
- * literal text (WCTM-06's non-monotonic row) — `getByText` alone cannot
- * distinguish them (Playwright's strict mode would find two elements and
- * throw). Those two spans are located STRUCTURALLY (DOM order:
- * `EtiquetaResponsiva` always emits `[movil, tablet, escritorio]`), never by
- * text. Every other string in this file is genuinely distinct per band, so
- * `getByText` is used directly and is unambiguous.
+ * literal text (WCTM-06's non-monotonic row) — `getByText` cannot
+ * distinguish them even with `exact: true` (both spans would still match,
+ * and Playwright's strict mode would throw). That one string is instead
+ * asserted via `locator.innerText()` (judgment-day, both judges,
+ * 2026-08-14): unlike `textContent`, `innerText()` respects `display:none`
+ * and returns ONLY what a real browser actually renders, so the assertion
+ * proves the button's rendered content directly — no dependency on DOM
+ * order staying in sync with `EtiquetaResponsiva.test.tsx`'s emission order
+ * or `CategoriasPanel.test.tsx`'s class mapping. Every other string in this
+ * file is genuinely distinct per band, so `getByText` with `exact: true` is
+ * used directly and is unambiguous.
  */
 
 const CONTENT_BAND_TOLERANCE_PX = 2;
-
-function bandIndexFor3Way(projectName: string): number {
-  if (projectName === 'movil') return 0;
-  if (projectName === 'tablet') return 1;
-  return 2;
-}
-
-function bandIndexFor2Way(projectName: string): number {
-  return projectName === 'movil' ? 0 : 1;
-}
-
-async function expectOnlyIndexVisible(
-  spans: readonly Locator[],
-  activeIndex: number,
-): Promise<void> {
-  for (let i = 0; i < spans.length; i += 1) {
-    if (i === activeIndex) {
-      await expect(spans[i]).toBeVisible();
-    } else {
-      await expect(spans[i]).toBeHidden();
-    }
-  }
-}
 
 test.describe('list surface — Nueva categoría full-width below the tabs (E-01 completed)', () => {
   test.beforeEach(async ({ page }) => {
@@ -163,7 +144,7 @@ test.describe('list + edit surface — WCTM-06 six-string band table (E-09)', ()
     await stubApi(page);
   });
 
-  test('Nueva categoría — non-monotonic, movil/escritorio share text, asserted structurally (E-09)', async ({
+  test('Nueva categoría — non-monotonic, movil/escritorio share text, asserted via rendered text (E-09)', async ({
     page,
   }, testInfo) => {
     await page.goto('/configuracion/categorias');
@@ -172,12 +153,15 @@ test.describe('list + edit surface — WCTM-06 six-string band table (E-09)', ()
       .waitFor();
 
     const boton = page.getByRole('button', { name: 'Nueva categoría' });
-    const spans = await boton.locator('span').all();
-    expect(spans).toHaveLength(3);
-    await expectOnlyIndexVisible(
-      spans,
-      bandIndexFor3Way(testInfo.project.name),
-    );
+    // Sanity check on the shape (3-way band), independent of DOM order.
+    expect(await boton.locator('span').all()).toHaveLength(3);
+
+    // `innerText()` returns only what is actually rendered — the real proof
+    // that the right band's string is on screen, not merely that a span at
+    // some position is visible.
+    const esperado =
+      testInfo.project.name === 'tablet' ? 'Nueva' : 'Nueva categoría';
+    expect(await boton.innerText()).toBe(esperado);
   });
 
   test('list footer note — three genuinely distinct strings (E-09)', async ({
@@ -237,33 +221,38 @@ test.describe('list + edit surface — WCTM-06 six-string band table (E-09)', ()
     await page.goto('/configuracion/categorias/cat-1');
     await page.getByRole('heading', { name: 'Editar categoría' }).waitFor();
 
-    const activeIndex = bandIndexFor2Way(testInfo.project.name);
-
-    // `aria-label` (D-04) keeps both accessible names stable across
-    // viewports, so these locators resolve to exactly one element
-    // regardless of which band is visually active.
-    const heading = page.getByRole('heading', {
-      name: 'Patrones de auto-categorización',
+    // `aria-label` (D-04) keeps the heading's accessible name stable across
+    // viewports. `Patrones`/`Patrones de auto-categorización` and
+    // `Agregar`/`Agregar patrón` are genuinely distinct strings (unlike
+    // `Nueva categoría`), so `getByText` with `exact: true` resolves each
+    // band's own span unambiguously — this proves the rendered STRING per
+    // band, not merely a DOM position (judgment-day, Judge A, 2026-08-14).
+    const headingMovil = page.getByText('Patrones', { exact: true });
+    const headingEscritorio = page.getByText(
+      'Patrones de auto-categorización',
+      { exact: true },
+    );
+    const agregarMovil = page.getByText('Agregar', { exact: true });
+    const agregarEscritorio = page.getByText('Agregar patrón', {
+      exact: true,
     });
-    const headingSpans = await heading.locator('span').all();
-    expect(headingSpans).toHaveLength(2);
-    await expectOnlyIndexVisible(headingSpans, activeIndex);
-
-    const agregar = page.getByRole('button', { name: 'Agregar patrón' });
-    const agregarSpans = await agregar.locator('span').all();
-    expect(agregarSpans).toHaveLength(2);
-    await expectOnlyIndexVisible(agregarSpans, activeIndex);
-
-    // Genuinely distinct texts (unlike Nueva categoría) — getByText is
-    // unambiguous here.
     const notaCorta = page.getByText('Sin patrones: solo asignación manual.');
     const notaLarga = page.getByText(
       'Sin patrones, la categoría solo se puede asignar manualmente.',
     );
+
     if (testInfo.project.name === 'movil') {
+      await expect(headingMovil).toBeVisible();
+      await expect(headingEscritorio).toBeHidden();
+      await expect(agregarMovil).toBeVisible();
+      await expect(agregarEscritorio).toBeHidden();
       await expect(notaCorta).toBeVisible();
       await expect(notaLarga).toBeHidden();
     } else {
+      await expect(headingMovil).toBeHidden();
+      await expect(headingEscritorio).toBeVisible();
+      await expect(agregarMovil).toBeHidden();
+      await expect(agregarEscritorio).toBeVisible();
       await expect(notaCorta).toBeHidden();
       await expect(notaLarga).toBeVisible();
     }
