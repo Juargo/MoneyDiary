@@ -50,6 +50,20 @@ ADR-030 C.7). It cannot be done from a PR. PR #1 delivers the job and the workfl
 maintainer must add it to the required-checks list before PR #2 merges.** Task 9 records this as an
 explicit hand-off, not an assumption.
 
+> **RESOLVED — no admin action needed, and taking one would break the repo (verified 2026-08-14).**
+> The gate is **already enforced, transitively**. `web-e2e` (display name `E2E (Playwright, web)`)
+> is in `ci-success`'s `needs` list, and `CI success` is already a required check on `main` with
+> `enforce_admins: true`. A Playwright failure makes `ci-success` exit 1, which blocks the merge.
+> `web-e2e` carries **no** `continue-on-error` — it did not fall into the advisory trap that D-B
+> was written to prevent (ADR-021's DAST job, still `continue-on-error` at `ci.yml:295`).
+>
+> **Do NOT add `E2E (Playwright, web)` as a direct required check.** The job is path-filtered
+> (`if: web == 'true' || packages || shared`), so on an api/mobile/landing-only PR it never runs.
+> GitHub leaves a directly-required check that never reports permanently *pending*, which would
+> block every non-web PR with no way out. The `ci-success` aggregator exists precisely to absorb
+> skips — its `case` treats `skipped` as success. Verified green end-to-end: `E2E (Playwright, web)`
+> reports **SUCCESS** on #344 and #347, and correctly **skips** the api/mobile/landing jobs on #347.
+
 ---
 
 ## Testability — D-08's consequence, stated once
@@ -83,7 +97,7 @@ D-12 is non-negotiable (the harness must land before the tier, with `WCTG-14`'s 
 | Q-01 | Does `Nueva categoría` really run long→short→long? | **Yes — settled.** `WCTM-06`'s table and its "Nueva categoría is non-monotonic" scenario state it explicitly. Not blocking; task 19 implements it as written |
 | Q-02 | Does the list's back control go to `/`? | **Yes — settled.** `WCTM-04`'s destination mapping states "From `/configuracion/categorias` or `/configuracion`, back navigates to the dashboard (`/`)" verbatim. Task 15 implements it |
 | **Q-03** | Does the mobile header need a layout-owned title above the tabs (route `staticData`), or is the panel's own `<h2>` enough? | **Not blocking — the spec does not require the "above the tabs" reading.** `WCTM-04`'s scenarios only require "a back-icon control plus the screen's own section title" replacing the h1/breadcrumb, reusing "the screen's own existing title text — no new copy is introduced." Nothing in `WCTM-02` or `WCTM-04` places that title above the tab list or requires a second, layout-owned source of the string. Design's D-07 reading (the panel's existing `<h2>`, no `staticData`) stands as written. No task sizing changes as a result |
-| Q-04 | Does `Categorías y patrones` shorten at mobile? | **No — settled.** It is absent from `WCTM-06`'s six-string table. No task touches it |
+| Q-04 | Does `Categorías y patrones` shorten at mobile? | **No — settled.** It is absent from `WCTM-06`'s five-string table. No task touches it |
 | Q-05 | Does the always-rendered `sin patrones` note keep its static-helper-text semantic at mobile? | **Yes — settled.** `WCTM-06` only swaps the *string*; `WCTG-06`'s "always rendered, not a zero-state" semantic is untouched. Task 21 swaps text only |
 | Q-06 | Does `WCFG-11` reword to the kind-level claim? | **Yes — done in the frozen spec.** `WCFG-11`'s MODIFIED text explicitly states "The claim is kind-level, not pixel-level" and explains the 113px (frame) vs. 200px (shipped) divergence. **No task asserts 113px** — see task 9 |
 
@@ -316,7 +330,7 @@ legitimately never visible at tablet/desktop, so that wait timed out there. Chan
 ## PR #3 — Labels + list surface (D-03/D-04, D-09, CA-01 completion, CA-02, CA-05)
 
 *Depends on PR #2. The helper and its consumers must land together — a helper with no call site is
-unreviewable, and `E-09` needs all six strings.*
+unreviewable, and `E-09` needs all five strings.*
 
 - [x] 18. **RED, GREEN** — `components/configuracion/EtiquetaResponsiva.tsx` (+ test, new, D-03):
   typed `{ movil: string; tablet?: string; escritorio: string }`. Emits `md:hidden` (mobile span) +
@@ -380,7 +394,7 @@ unreviewable, and `E-09` needs all six strings.*
   categoría`'s width ≈ content band and its `y` > the tabs' `y`); `E-03` (360/880/1280: `Editar
   categoría {n}` visible at all three; `Eliminar categoría {n}` `toBeHidden()` at 360, visible at
   880/1280); `E-04` (360: the mobile footer note visible, the other two variants hidden); `E-09`
-  (360/880/1280: for each of the six `WCTM-06` strings, the band's expected variant is visible and
+  (360/880/1280: for each of the five `WCTM-06` strings, the band's expected variant is visible and
   the others `toBeHidden()` — assert against **rendered/visible content at a real viewport, never
   className-literal presence**, the exact gap that shipped `WCTG-14` false).
   *Requirement*: `WCTM-02`, `WCTM-03`, `WCTM-06` (the acceptance layer for CA-01/CA-02/CA-05).
@@ -588,14 +602,14 @@ Chain strategy: feature-branch-chain
 |------|------|-----------|-------|
 | 1 | Playwright harness, CI job, `test.fail()`-committed defect | PR #1 | Base = tracker branch. Zero product dependency — safe to land alone |
 | 2 | `md` tier, shared chrome, back control, `estilos.ts` move | PR #2 | Base = PR #1 branch. Repairs `WCTG-14`/`WCFG-11`; everything else sits on it |
-| 3 | Responsive-label mechanism + list surface | PR #3 | Base = PR #2 branch. Helper + all six call sites land together |
+| 3 | Responsive-label mechanism + list surface | PR #3 | Base = PR #2 branch. Helper + all five call sites land together |
 | 4 | Edit surface: back control, field-grid gap fix, footer reorder | PR #4 | Base = PR #3 branch. Highest risk — footer reorder isolated with its own assertion |
 
 | PR | Production (est.) | Total (est., ×2.4) | >400 total? | `size:exception`? |
 |---|---:|---:|---|---|
 | **#1** — Playwright harness | 250–400 | 600–950 | Yes | Likely — new tooling, config, CI, fixtures |
 | **#2** — Tier + shared chrome | 180–280 | 430–670 | Yes (borderline) | Likely — grid repair + `BotonVolver` + `estilos.ts` move + `sr-only` h1 |
-| **#3** — Labels + list surface | 350–450 | 840–1080 | Yes | Likely — a new typed helper + 3 modified components + 6 call sites + `E-09`'s six-string suite |
+| **#3** — Labels + list surface | 350–450 | 840–1080 | Yes | Likely — a new typed helper + 3 modified components + 5 call sites + `E-09`'s five-string suite |
 | **#4** — Edit surface | 280–380 | 670–910 | Yes | Likely — footer DOM reorder is high-risk, reviewed unmixed regardless of size |
 | **Total** | **1030–1480** | **≈2500–3550** | | |
 

@@ -212,7 +212,14 @@ sub-order and `Guardar`'s full-width treatment change.
   not require it to move to a separate section, and this scenario exists precisely so that requirement is
   not silently over-implemented
 
-### Requirement: WCTM-06 — CA-05: six Configuración strings resolve per tier, including a non-monotonic Nueva categoría (CA-05, frames M2/T2)
+### Requirement: WCTM-06 — CA-05: five Configuración strings resolve per tier, including a non-monotonic Nueva categoría (CA-05, frames M2/T2)
+
+> **Correction (sdd-verify, 2026-08-14)**: this heading read "six" while the table below lists
+> **five** rows. The sixth responsive string on this surface — CA-02's list footer note — is
+> governed by `WCTM-03`, not by this requirement, so the table is right and the count was wrong.
+> Corrected before archive so the miscount does not propagate into the canonical spec. No
+> requirement, scenario, or string changed; implementation and tests were already correct
+> (five `EtiquetaResponsiva` call sites in production, matching the five rows).
 
 The following strings MUST resolve to the value named for each tier — mobile <768px, tablet 768–1023px,
 desktop ≥1024px (WCTM-01):
