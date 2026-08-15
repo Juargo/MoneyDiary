@@ -366,6 +366,15 @@ unreviewable, and `E-09` needs all six strings.*
   exception to "only interactive controls get `aria-label`").
   *Requirement*: `WCTM-06` (Patrones heading, Agregar control, zero-patterns note).
   *Files*: `apps/web/src/components/configuracion/categorias/PatronesSection.tsx` (+ test).
+  ⚠️ *Status history*: this task was first checked off `[x] RED, GREEN` with `(+ test)` while
+  `PatronesSection.test.tsx` had a **zero-line diff** — the component shipped, the test did not.
+  Both judgment-day judges caught it independently; Judge B proved it was a real gap rather than
+  bookkeeping by removing the `<h2>`'s `aria-label` (the exact mechanism D-04 exists to protect)
+  and watching all 10 existing tests stay green. Its two sibling tasks (19, 20) did get their
+  dedicated mechanism tests. The tests landed in the fix round and are mutation-verified: dropping
+  the `aria-label`, swapping `movil`/`escritorio` on either call site, or breaking the mobile note
+  string each turn the suite red. **Reviewer note for the remaining tasks: a `[x]` plus a
+  `RED, GREEN` marker is a claim, not evidence — `git diff -- <the named test file>` settles it.**
 
 - [x] 22. **GREEN** — `e2e/list-surface.e2e.ts` (new): `E-01` completed (tabs one row **+** `Nueva
   categoría`'s width ≈ content band and its `y` > the tabs' `y`); `E-03` (360/880/1280: `Editar
