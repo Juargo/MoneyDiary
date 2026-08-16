@@ -443,6 +443,13 @@ File: `apps/web/src/components/ResumenScreen.tsx`
   `entradasLeyenda` spread — pass `viewModel.leyendaPrincipal` /
   `viewModel.leyendaComplemento` (T5) straight to `LeyendaGasto`'s new `principales`/
   `complemento` props (T7).
+- Wire the real 4-item `distribucionGasto` into `DistribucionPie`'s `tajadas` prop
+  (replacing the PR1 shim `distribucionGastoInterina`) and enable the donut hole via
+  `DistribucionPie`'s `conInterior` prop (opt-in, judgment-day fix on PR2 — see that
+  component's docblock: the hole is a regression for any caller still feeding fewer than
+  the full ring). Then delete the shim: `distribucionGastoInterina` (the `ResumenViewModel`
+  field, T5/`resumen-view-model.ts`) AND its two call sites in this file (pie + legend
+  props) — see the "Updated shim-removal reminder" in the PR #1 addendum above.
 - Card header: replace `<SemaforoBadge estadoSemaforo={...} size={28} />` with
   `<SemaforoTag estadoGlobal={viewModel.estadoGlobal} periodo={viewModel.periodo} />`
   (T9), keeping the `semaforo-global` testid wrapper.
@@ -453,6 +460,13 @@ File: `apps/web/src/components/ResumenScreen.tsx`
   `aria-describedby` wiring per design D-08's rationale).
 - `PeriodoSelector` composition at the page level (`ResumenPage.tsx`) is untouched — WG5-02
   requires no relocation; do not edit `ResumenPage.tsx` in this task.
+- Finish the `ResumenScreen.test.tsx` accessible-name rename that PR2's interim fix
+  explicitly deferred here (see PR #2 addendum): rename the button-count/aria-pressed-loop
+  assertions to state the wedge-name-stays-concise/legend-row-name-grew distinction, and
+  make sure every test that queries a bucket control disambiguates the pie wedge (exact
+  name) from the legend row (`/^Etiqueta /` regex) — the PR2 judgment-day fix already did
+  this for the 3 aria-pressed-loop tests flagged in that addendum; confirm no new instances
+  regressed when the pie/legend props above are rewired to the real 4-item data.
 
 Verify: `pnpm web test -- ResumenScreen` green. `pnpm web typecheck` green.
 
@@ -766,6 +780,35 @@ is single-workspace `apps/web` only).
      longer exact-matches — and the wedge alone satisfies the loop's aria-pressed
      assertion), but their legend-row coverage is silently reduced until T11's full
      query rename. Not a correctness bug; flagged here so T11 doesn't miss it.
+
+     **judgment-day PR2 fix (2026-08-16):** this "silently reduced coverage" was
+     confirmed by both judges and fixed within PR2's boundary (not deferred to T11): the
+     3 flagged tests (`defaults the transactions panel...`, `clicking the legend row...`,
+     `resets the bucket selection...`) now query the wedge and the legend row as two
+     EXPLICIT separate assertions — `getByRole('button', { name: 'Etiqueta' })` (exact,
+     resolves only the wedge) and `getByRole('button', { name: /^Etiqueta / } )` (a
+     trailing-space regex only the content-derived legend name has, resolving only the
+     legend row) — instead of one ambiguous `getAllByRole` loop. The
+     `clicking a different legend/slice row...` test was also renamed and its click target
+     fixed: it previously clicked `getAllByRole(..., { name: 'Gustos' })[length - 1]`,
+     which exact-matching resolved to a single-element array (the WEDGE, not the legend
+     row the comment claimed) — it now clicks the legend row directly via the same regex.
+     T11's own task text still separately requires renaming the OTHER pre-existing
+     button-count assertion (`renders the "Distribución del gasto" pie + legend...`) to
+     state the wedge-name-stays-concise/row-name-grew distinction — that one already uses
+     a correct `/^Etiqueta\b/` prefix regex with an explicit length check and was not
+     itself broken, so it is untouched by this fix.
+     Also fixed in the same PR2 pass (both judges, independent findings):
+     `DistribucionPie`'s donut hole is now opt-in via a `conInterior` prop (default
+     `false`) instead of unconditional — `ResumenScreen` does not pass it yet (still on
+     `distribucionGastoInterina`, 3 items), so it keeps the pre-US-047 filled-pie shape
+     rather than showing a hole around an incomplete ring; `LeyendaGasto`'s Sin categoría
+     row's `cantidadLabel` ("N tx") now carries an `sr-only` expansion ("N transacciones
+     sin categorizar") replacing the abbreviation in the accessible name (WCAG 4.1.2);
+     `SemaforoTag` gained an `onKeyDown` handler so Space (not just Enter) activates
+     navigation (WG5-12) and its `NavLink` cast's `search` prop is now typed
+     `{ periodo?: string }` instead of `Record<string, unknown>`; `LeyendaGasto.test.tsx`
+     regained its dropped color-dot coverage test.
    - **`SemaforoTag`'s `Link to="/semaforo"` typing (real constraint, not a choice):**
      verified directly against `tsc` that TanStack Router's `Link` `to` prop is
      typechecked against the app's GLOBALLY REGISTERED route tree

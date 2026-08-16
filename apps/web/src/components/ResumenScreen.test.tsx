@@ -401,43 +401,63 @@ describe('ResumenScreen', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('defaults the transactions panel to the bucket with the largest total (task 30.10)', async () => {
+  // Judgment-day fix: `getAllByRole('button', { name: 'Necesidades' })` uses
+  // EXACT accessible-name matching, and only the pie wedge's `aria-label` is
+  // the bare "Necesidades" — the legend row's name grew content (D-08, T7:
+  // "Necesidades 50% -$500.000"), so the old loop silently iterated over
+  // JUST the wedge, never proving the legend row's `aria-pressed` at all.
+  // Query both controls explicitly instead: the wedge by its exact name, the
+  // legend row by a `/^Necesidades /` regex (a trailing space only the
+  // content-derived legend name has — the wedge's bare name has none, so
+  // this uniquely resolves the legend row without matching the wedge too).
+  it('defaults the transactions panel to the bucket with the largest total, on both the pie wedge and the legend row (task 30.10)', async () => {
     mockFetchPorBucket();
     renderScreen();
 
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
     );
-    for (const boton of screen.getAllByRole('button', {
-      name: 'Necesidades',
-    })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'true');
-    }
+    expect(screen.getByRole('button', { name: 'Necesidades' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(
+      screen.getByRole('button', { name: /^Necesidades / }),
+    ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('clicking a different legend/slice row switches the transactions panel to that bucket', async () => {
+  it('clicking the legend row switches the transactions panel to that bucket, updating aria-pressed on both the wedge and the legend row', async () => {
     mockFetchPorBucket();
     renderScreen();
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
     );
 
-    // Click the legend row (last of the two "Gustos" controls in DOM order —
-    // pie slice, then legend).
-    const botonesGustos = screen.getAllByRole('button', { name: 'Gustos' });
-    fireEvent.click(botonesGustos[botonesGustos.length - 1]);
+    // Click the LEGEND ROW specifically — see the regex rationale on the
+    // "defaults the transactions panel..." test above. (Previously this
+    // clicked `getAllByRole(..., { name: 'Gustos' })[length - 1]`, which
+    // exact-matching resolved to a single-element array — the SAME pie
+    // wedge, not the legend row the comment claimed.)
+    fireEvent.click(screen.getByRole('button', { name: /^Gustos / }));
 
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument(),
     );
-    for (const boton of screen.getAllByRole('button', { name: 'Gustos' })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'true');
-    }
-    for (const boton of screen.getAllByRole('button', {
-      name: 'Necesidades',
-    })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'false');
-    }
+    expect(screen.getByRole('button', { name: 'Gustos' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: /^Gustos / })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Necesidades' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(
+      screen.getByRole('button', { name: /^Necesidades / }),
+    ).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('SinCategoria is selectable via the legend even though it has no pie slice', async () => {
@@ -462,16 +482,19 @@ describe('ResumenScreen', () => {
 
   // FIX 5: an explicit selection must not leak into the next month — when
   // `periodo` changes, the panel resets to THAT month's own default bucket.
-  it("resets the bucket selection to the new month's own default when periodo changes (FIX 5)", async () => {
+  // Judgment-day fix: same exact-name-vs-content-derived-name query split
+  // as the two tests above — the old `getAllByRole(..., { name: 'Gustos' })`
+  // loops silently checked only the pie wedge.
+  it("resets the bucket selection to the new month's own default when periodo changes, on both the wedge and the legend row (FIX 5)", async () => {
     mockFetchPorBucket();
     const { rerender } = renderScreen();
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
     );
 
-    // Explicit selection away from the default.
-    const botonesGustos = screen.getAllByRole('button', { name: 'Gustos' });
-    fireEvent.click(botonesGustos[botonesGustos.length - 1]);
+    // Explicit selection away from the default — click the legend row (see
+    // the regex rationale on the "defaults the transactions panel..." test).
+    fireEvent.click(screen.getByRole('button', { name: /^Gustos / }));
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument(),
     );
@@ -489,12 +512,22 @@ describe('ResumenScreen', () => {
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Ahorro')).toBeInTheDocument(),
     );
-    for (const boton of screen.getAllByRole('button', { name: 'Ahorro' })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'true');
-    }
-    for (const boton of screen.getAllByRole('button', { name: 'Gustos' })) {
-      expect(boton).toHaveAttribute('aria-pressed', 'false');
-    }
+    expect(screen.getByRole('button', { name: 'Ahorro' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: /^Ahorro / })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Gustos' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: /^Gustos / })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 
   // US-030 Slice C (task 30.12): the annual grid renders below the 2-column
