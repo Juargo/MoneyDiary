@@ -354,7 +354,7 @@ Sequential checkpoint before touching clients — confirms the backend is
 fully green in isolation before the required-field churn propagates
 outward.
 
-- [ ] **T10.1** Full backend verification:
+- [x] **T10.1** Full backend verification:
       - `pnpm api test` (unit)
       - `pnpm api test:integration` (integration, `ALLOW_DESTRUCTIVE_DB=1`)
       - `pnpm api test:e2e` (e2e, `ALLOW_DESTRUCTIVE_DB=1`)
@@ -371,7 +371,7 @@ Requirements: D-06 (mechanical, compiler-enumerated). Depends on Phase 7
 `[P]` with Phase 12 (mobile) — disjoint workspaces, no shared files besides
 the already-regenerated `packages/api-client`.
 
-- [ ] **T11.1** Add `cantidadSinCategoria: 0` (or a meaningful non-zero test
+- [x] **T11.1** Add `cantidadSinCategoria: 0` (or a meaningful non-zero test
       value where the test's intent benefits from it) to each object-literal
       construction site enumerated in design §D-06:
       - `apps/web/src/api/client.test.ts:24`
@@ -395,7 +395,7 @@ the already-regenerated `packages/api-client`.
 
 Requirements: D-06. Depends on Phase 7. `[P]` with Phase 11.
 
-- [ ] **T12.1** Add `cantidadSinCategoria: 0` to the two object-literal
+- [x] **T12.1** Add `cantidadSinCategoria: 0` to the two object-literal
       construction sites:
       - `apps/mobile/src/domain/resumen-view-model.spec.ts:4`
       - `apps/mobile/src/api/client.spec.ts:4`

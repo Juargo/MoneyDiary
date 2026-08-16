@@ -99,6 +99,7 @@ function mesSinDatos(periodo: string): ResumenAnualDto['meses'][number] {
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
+    cantidadSinCategoria: 0,
   };
 }
 
@@ -135,6 +136,7 @@ function mesConDatos(periodo: string): ResumenAnualDto['meses'][number] {
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
+    cantidadSinCategoria: 0,
   };
 }
 
