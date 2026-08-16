@@ -406,7 +406,7 @@ Parallel-safe: Yes, with T6/T7/T8 (new files only).
 
 ## Phase 4 — Composition + route (depends on T5, T6, T7, T9/T10)
 
-### T11 — RED: `ResumenScreen.test.tsx` — ~5 edits, +3
+### [x] T11 — RED: `ResumenScreen.test.tsx` — ~5 edits, +3
 
 File: `apps/web/src/components/ResumenScreen.test.tsx`
 
@@ -435,7 +435,7 @@ doesn't render `SemaforoTag`, doesn't have the T1 grid or hint text.
 
 Traces to: WG5-02, WG5-03, WG5-05, WG5-07, WG5-09 (search param carry), design D-08, D-09.
 
-### T11 — GREEN: rewire `ResumenScreen.tsx`
+### [x] T11 — GREEN: rewire `ResumenScreen.tsx`
 
 File: `apps/web/src/components/ResumenScreen.tsx`
 
@@ -473,7 +473,7 @@ Verify: `pnpm web test -- ResumenScreen` green. `pnpm web typecheck` green.
 Parallel-safe: No — this task is the integration point; keep it solo to avoid merge
 conflicts with T6/T7/T9 landing underneath it.
 
-### T12 — RED+GREEN: `/semaforo` stub route + `src/test/semaforo-route.test.tsx` (new, +2)
+### [x] T12 — RED+GREEN: `/semaforo` stub route + `src/test/semaforo-route.test.tsx` (new, +2)
 
 Files: `apps/web/src/routes/_authenticated/semaforo.tsx` (new),
 `apps/web/src/test/semaforo-route.test.tsx` (new)
@@ -505,7 +505,7 @@ Parallel-safe: Yes, with T11 (different files) — but merge order: this must la
 T14 (eslint scope references this file's glob) and before T9's `SemaforoTag` navigation
 target is exercised in Playwright (T13/T15 stub the route content, not this file itself).
 
-### T13 — eslint.config.js: D-10 scoped a11y `error` block
+### [x] T13 — eslint.config.js: D-10 scoped a11y `error` block
 
 File: `apps/web/eslint.config.js`
 
@@ -528,7 +528,7 @@ unaffected). `pnpm web test` full suite still green (config-only change).
 
 Traces to: WG5-12, design D-10.
 
-### T14 — Manual a11y verification pass (acceptance item, not a new test file)
+### [x] T14 — Manual a11y verification pass (acceptance item, not a new test file)
 
 No new file — cross-check against already-written tests from T6/T7/T9/T11:
 
@@ -825,6 +825,60 @@ is single-workspace `apps/web` only).
    `routes/_authenticated/semaforo.tsx`, `src/test/semaforo-route.test.tsx`,
    `eslint.config.js` + test files. ~215 lines. Green in isolation: yes, once PR #2 is
    merged.
+
+   **Apply-time addendum (2026-08-16, PR #3 landed, branch
+   `feat/us-047-web-pr3-composition` off updated `main` — PR1 #373/PR2 #374 both merged,
+   no stacking needed):**
+   - **T11's shim removal wired the diluted percentage into the LEGEND too, not just the
+     ring.** `aLeyendaPrincipal` (`resumen-view-model.ts`) now sources directly from the
+     real 4-item `distribucionGasto`, filtered (not renormalized) to `BUCKETS_5030`
+     membership — the PR1 shim field `distribucionGastoInterina` and its separate
+     `calcularDistribucionGasto(dto.buckets, BUCKETS_5030)` call are both deleted
+     entirely. `ResumenScreen.tsx` now passes the real `viewModel.distribucionGasto` to
+     `DistribucionPie` with `conInterior` enabled. Net effect: WG5-13's ring-percentage
+     dilution is user-visible in the legend AND the ring simultaneously, by construction
+     — updated `resumen-view-model.test.ts`'s "44/28/28 renormalizado" test (added in the
+     PR1 judgment round) to assert the DILUTED 40/25/25 reading instead, per the
+     anti-blind-re-record rule, plus a new assertion that the legend's percentages equal
+     `distribucionGasto`'s own values for the same buckets (WG5-03's "no independent
+     percentage computation" guarantee, proven directly rather than by construction only).
+   - **Router harness gained `rerenderConRouter`** (`src/test/router-harness.tsx`): RTL's
+     own `rerender` (used by the pre-existing FIX 5 "resets bucket selection on periodo
+     change" test) replaces the ENTIRE rendered tree with just the new element when a
+     harness doesn't use RTL's `wrapper` option — which crashed `SemaforoTag`'s `<Link>`
+     ("useRouter must be used inside a `<RouterProvider>`") once `ResumenScreen` started
+     rendering it. Fixed by having the harness's index route render a stable `Host`
+     component that re-reads a mutable `ui` box on a forced internal state update;
+     `renderConRouter`'s return value now also exposes `rerenderConRouter(newUi)` for
+     same-instance prop updates. `ResumenPage.test.tsx`'s two data-state tests
+     (`renderData`) were switched from a bare `QueryClientProvider` wrapper to
+     `renderConRouter` for the same "`SemaforoTag` needs router context" reason — call-site
+     sweep, not scope creep (the judgment-lesson from PR1/PR2: sweep FUNCTION call sites
+     when changing what a shared component needs).
+   - **T11's "Sin categoría 1→2 wedge+row" ripple**: with `conInterior` enabled and the
+     real 4-item ring, three PRE-EXISTING tests needed disambiguation fixes beyond the
+     forecasted rename: the "SinCategoria is selectable via the legend" test's regex query
+     (`/^Sin categoría\b/`) started matching BOTH the new wedge and the legend row,
+     throwing on `getByRole` (multiple matches) — fixed with the same exact-name-for-wedge
+     / trailing-space-regex-for-row split already established for
+     Necesidades/Gustos/Ahorro in the PR2 judgment round; the "renders exactly 5 legend
+     rows" shim-regression test's Sin categoría button-count assertion moved 1→2 for the
+     same reason.
+   - **T13's eslint file list, T14's composed keyboard sign-off**: landed as scoped/forecast
+     (no deviations) — the D-10 file list is exactly the design's 6 entries, and T14 added
+     one new composed-screen test (`ResumenScreen.test.tsx`) proving the semáforo tag +
+     every clickable legend row are keyboard-focusable together with Ingresos never
+     focusable, plus a keyboard (Enter) activation proof from within the composed screen —
+     per-component keyboard proofs already existed in T6/T7/T9's own suites, but no
+     composed-level proof existed until this task.
+   - **Verification**: `pnpm web test` 1052/1052 green (102/102 files); `pnpm web
+     typecheck` (`tsr generate && tsc -b`) clean; `pnpm web exec eslint .` 0 errors, same
+     2 pre-existing baseline warnings (`EliminarIngestaControl.tsx`/
+     `ReclasificarCategoriaControl.tsx`); `git diff --stat` against `apps/api`,
+     `packages/api-client`, `apps/mobile` empty (zero backend diff, confirmed against
+     `origin/main`). NOT pushed, NO PR opened (apply-phase instructions: do not push).
+   - Commits (in order, on `feat/us-047-web-pr3-composition`): `5fe3e32` (T11),
+     `1a87630` (T12), `0ea446b` (T13), `c3f9605` (T14).
 4. **PR #4 — E2E fixtures + Playwright spec + final gate** (T15–T17): `e2e/fixtures/
    api-stubs.ts`, `e2e/dashboard-donut.e2e.ts`. ~160 lines + the final full-suite/zero-diff
    sign-off (T17, no new lines). Green in isolation: yes, once PR #3 is merged (asserts
