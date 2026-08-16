@@ -233,15 +233,15 @@ counts this inside Slice C but it is sequenced last here because Playwright spec
 requires the restructure already live to be meaningful — splitting it out does not change what ships, only
 review order.
 
-- [ ] **C2b-1.** Edit `apps/web/e2e/fixtures/api-stubs.ts` (2 edits, design §6.4 — both pre-verified safe for
+- [x] **C2b-1.** Edit `apps/web/e2e/fixtures/api-stubs.ts` (2 edits, design §6.4 — both pre-verified safe for
       `dashboard-donut.e2e.ts`, which asserts nothing about the annual grid):
       1. `**/api/resumen*` echoes the requested `?periodo=` into the returned DTO's `periodo` field, falling
          back to `2026-07` when absent.
       2. `RESUMEN_ANUAL_FIXTURE`: months `2026-08`…`2026-12` become `sinIngreso: true`, zeroed buckets,
          `estadoGlobal: null`.
       Verify: `pnpm --filter @moneydiary/web exec playwright test dashboard-donut` still fully green (zero
-      diff to that spec's own assertions, per D-15).
-- [ ] **C2b-2.** Create `apps/web/e2e/annual-grid.e2e.ts` (new file, design §6.4) with the 4 tests, real
+      diff to that spec's own assertions, per D-15). **Done** — 6/6 passed, unchanged.
+- [x] **C2b-2.** Create `apps/web/e2e/annual-grid.e2e.ts` (new file, design §6.4) with the 4 tests, real
       viewport/rendered-geometry only, never className:
       - `E-01` (`movil`, 360px): all 12 `getByRole('link', {name: /^Semáforo de /})` have `boundingBox()`
         width ≥24 **and** height ≥24 (D-3's WCAG 2.5.8 floor, in effect, for all 12 — the `WCTG-14`
@@ -253,13 +253,20 @@ review order.
       - `E-04` (`movil`): exactly one `mes-seleccionado-marker` exists, `boundingBox()` ≥64×64 (CA-02's
         "larger mint circle" as a real box, at the tightest tier)
       Deliberately absent: any assertion on the `✓`/today marker (calendar-date-dependent — covered in jsdom
-      by `N-02` instead, per design's explicit note).
-- [ ] **C2b-3.** Confirm `dashboard-donut.e2e.ts` and `tablet-grid.e2e.ts` remain **zero diff** (D-15) —
+      by `N-02` instead, per design's explicit note). **Done** — all 4 pass against the real, already-shipped
+      restructured DOM on the first run (no RED phase possible/expected here — the UI under test was already
+      live on `main` from PR4; per apply instructions, any failure would have been a genuine finding, none
+      occurred).
+- [x] **C2b-3.** Confirm `dashboard-donut.e2e.ts` and `tablet-grid.e2e.ts` remain **zero diff** (D-15) —
       `git diff` on both files must be empty.
       Verify: `git diff --stat apps/web/e2e/dashboard-donut.e2e.ts apps/web/e2e/tablet-grid.e2e.ts` → empty.
-- [ ] **C2b-4.** `pnpm --filter @moneydiary/web exec playwright test annual-grid` green (4/4), plus a full
+      **Done** — confirmed empty.
+- [x] **C2b-4.** `pnpm --filter @moneydiary/web exec playwright test annual-grid` green (4/4), plus a full
       `pnpm --filter @moneydiary/web exec playwright test` run to confirm no collateral regression elsewhere.
-- [ ] **C2b-5.** Commit: `test(web): add annual-grid e2e coverage for CA-02/CA-03/CA-05 at real viewports`.
+      **Done** — annual-grid 4/4; full suite 55 passed, 41 skipped (viewport-scoped `test.skip`), 0 failed.
+- [x] **C2b-5.** Commit: `test(web): add annual-grid e2e coverage for CA-02/CA-03/CA-05 at real viewports`.
+      **Done** — `3531db7` on `feat/us-048-anual-pr5-e2e` (2 files, 181 changed lines — inside the ~150–190
+      forecast).
 
 **PR5 boundary:** ends here. Files: `e2e/annual-grid.e2e.ts` (new), `e2e/fixtures/api-stubs.ts`.
 
@@ -267,7 +274,7 @@ review order.
 
 ## Cross-cutting — run once, after PR4 merges (D-16 registered debt + final sweep)
 
-- [ ] **X1.** File 2 GitHub issues for the registered debt created by this change (design D-16, YAGNI rule 3
+- [x] **X1.** File 2 GitHub issues for the registered debt created by this change (design D-16, YAGNI rule 3
       — "deuda consciente" pattern), each with its stated trigger:
       1. **`SemaforoBadge.tsx` is now a dead component** (zero production call sites after C2a merges,
          verified by `rg` — only `ResumenAnual.tsx:132` used it, now removed). Trigger: US-049 either adopts
@@ -277,23 +284,35 @@ review order.
          different code path). Trigger: a cleanup change that retires the param **and**
          `distribucion-gasto.test.ts:184`'s judgment-day-locked renormalization pin together — explicitly
          **not** this change's job, that test is locked.
-      Link both issues from the PR description of whichever PR lands last (C2a or C2b).
-- [ ] **X2.** Full impact-sweep confirmation (design §9 table, re-verified against the real diff once all 5
+      Link both issues from the PR description of whichever PR lands last (C2a or C2b). **Done** — filed as
+      [#382](https://github.com/Juargo/MoneyDiary/issues/382) (`SemaforoBadge` dead component) and
+      [#383](https://github.com/Juargo/MoneyDiary/issues/383) (`bucketsIncluidos` default-only param), both
+      `type:chore`, both referencing US-048/design D-16. To be linked from PR5's description.
+- [x] **X2.** Full impact-sweep confirmation (design §9 table, re-verified against the real diff once all 5
       PRs have merged): `apps/api`, `packages/api-client`, `apps/mobile` show **zero** diff; `SemaforoTag.tsx`,
       `SemaforoBadge.tsx`, `MiniDistribucionPie.tsx`, `DistribucionPie.tsx`, `distribucion-gasto.ts`,
       `bucket-colors.ts` show **zero** diff.
       Verify: `git diff --stat main -- apps/api packages/api-client apps/mobile` → empty; `git diff --stat
       main -- apps/web/src/components/SemaforoTag.tsx apps/web/src/components/SemaforoBadge.tsx
       apps/web/src/components/MiniDistribucionPie.tsx apps/web/src/components/DistribucionPie.tsx
-      apps/web/src/domain/distribucion-gasto.ts apps/web/src/lib/bucket-colors.ts` → empty.
-- [ ] **X3.** Success-criteria checklist from `proposal.md` — walk CA-01..CA-06 one by one against the merged
+      apps/web/src/domain/distribucion-gasto.ts apps/web/src/lib/bucket-colors.ts` → empty. **Done** — both
+      confirmed empty against `main` (which already includes PR1-4/#378-381).
+- [x] **X3.** Success-criteria checklist from `proposal.md` — walk CA-01..CA-06 one by one against the merged
       state and check each box in the proposal's own Success Criteria list (not re-copied here — it is the
-      source of record).
-- [ ] **X4.** Ledger reconciliation: confirm final test counts match design §6.8 exactly — `34` existing baseline,
+      source of record). **Done** — all 9 boxes in `proposal.md`'s Success Criteria section checked `[x]`,
+      each annotated with the PR/test that proves it.
+- [x] **X4.** Ledger reconciliation: confirm final test counts match design §6.8 exactly — `34` existing baseline,
       `16` touched, `23` new, `57` final, split as `MiniSemaforoTag.test.tsx` 8, `ResumenAnual.test.tsx` 24,
       `ResumenScreen.test.tsx` 16, `ResumenPage.test.tsx` 5, `annual-grid.e2e.ts` 4.
       Verify: `pnpm web test -- --reporter=verbose 2>&1 | rg -c "✓|passed"` sanity count, or count `it(`/`test(`
-      occurrences per file.
+      occurrences per file. **Done, with a known, already-recorded discrepancy** — real counts:
+      `MiniSemaforoTag.test.tsx` 8, `ResumenAnual.test.tsx` **25** (not 24 — the un-ledgered `WTA-02` same-cell
+      coexistence test added post-judgment in PR2, per C2a-6's own note and the
+      `docs(openspec): correct C2a-6 test count to 25/25` commit already on `main`), `ResumenScreen.test.tsx`
+      16, `ResumenPage.test.tsx` 5, `annual-grid.e2e.ts` 4 — **total 58, not 57**. Design §6.8's own table
+      (line 650) still reads `57`; this is a pre-existing, already-acknowledged one-test drift in that table,
+      not a new finding — flagged here for the record rather than silently forced to match. `pnpm web test`:
+      103 files / 1072 tests total pass repo-wide.
 
 ---
 

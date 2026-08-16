@@ -195,28 +195,35 @@ component + the DOM restructure) do not depend on each other.
 
 ## Success Criteria
 
-- [ ] **CA-01** — All 12 minis render the same 4-item ring reading as the main chart, `Sin categoría` included;
+- [x] **CA-01** — All 12 minis render the same 4-item ring reading as the main chart, `Sin categoría` included;
       the `BUCKETS_5030` override and its interim comment are gone; the pinning test asserts **4** wedges with a
-      **nonzero** `SinCategoria` fixture.
-- [ ] **CA-02** — The month driving the main chart is visually distinct (larger Mint circle), derived from
+      **nonzero** `SinCategoria` fixture. (PR1/#378, `N-00`.)
+- [x] **CA-02** — The month driving the main chart is visually distinct (larger Mint circle), derived from
       `viewModel.periodo`; today's `✓` + `aria-current="date"` still renders and is verified **distinct** from
-      the selected marker when the two differ (D-1).
-- [ ] **CA-03** *(verification-only)* — Clicking a month with data switches the main chart with no page reload
+      the selected marker when the two differ (D-1). (PR2/#379, `N-01`/`N-02`; real-geometry proof `E-04` in
+      PR5.)
+- [x] **CA-03** *(verification-only)* — Clicking a month with data switches the main chart with no page reload
       and preserves the existing drill-down and bucket-selection reset. Proven by regression tests that survive
-      the DOM restructure; **no wiring is rebuilt**.
-- [ ] **CA-04** *(verification-only)* — Empty/future months remain visually distinct and non-navigable
+      the DOM restructure; **no wiring is rebuilt**. (C2a-1/C2a-6 re-verification, PR4/#381; end-to-end proof
+      `E-02` in PR5, real navigation + window-sentinel no-reload check.)
+- [x] **CA-04** *(verification-only)* — Empty/future months remain visually distinct and non-navigable
       (`aria-disabled`, no keyboard/mouse activation). Proven by regression tests; **no behavior is rebuilt**.
-- [ ] **CA-05** — Every month's semáforo is an independently keyboard-operable control navigating to
+      (C2a-1/C2a-6 re-verification + `N-04`/`N-09`, PR4/#381.)
+- [x] **CA-05** — Every month's semáforo is an independently keyboard-operable control navigating to
       `/semaforo?periodo={mes.periodo}`, **including empty/future months** (D-2); no interactive element is
-      nested inside another, verified in the rendered AX tree.
-- [ ] **CA-06** — A caption under the grid explains the month-click interaction and names the actually selected
-      month dynamically.
-- [ ] `pnpm web test`, `pnpm web typecheck` and `pnpm web lint` (with `eslint-jsx-a11y` at `error` on every
-      touched file) are green.
-- [ ] `apps/api`, `packages/api-client` and `apps/mobile` show **zero diff**.
-- [ ] `SemaforoTag.tsx`, `SemaforoBadge.tsx`, `MiniDistribucionPie.tsx` and `DistribucionPie.tsx` show **zero
+      nested inside another, verified in the rendered AX tree. (`N-03`/`N-05`/`N-06`/`N-08`, PR4/#381; real
+      24×24 floor `E-01` and real navigation `E-03` in PR5.)
+- [x] **CA-06** — A caption under the grid explains the month-click interaction and names the actually selected
+      month dynamically. (PR2/#379, `N-07`.)
+- [x] `pnpm web test`, `pnpm web typecheck` and `pnpm web lint` (with `eslint-jsx-a11y` at `error` on every
+      touched file) are green. (Re-verified at PR5/final state: 103 files / 1072 tests, `tsc -b` clean, `eslint
+      .` 0 errors / 2 pre-existing baseline warnings, full Playwright suite 55 passed / 0 failed.)
+- [x] `apps/api`, `packages/api-client` and `apps/mobile` show **zero diff**. (Re-verified at PR5/final state:
+      `git diff --stat main -- apps/api packages/api-client apps/mobile` empty.)
+- [x] `SemaforoTag.tsx`, `SemaforoBadge.tsx`, `MiniDistribucionPie.tsx` and `DistribucionPie.tsx` show **zero
       diff**, and the code-level grid-columns test tracking the (accepted-but-unratified `WDS-04`) deviation is
-      untouched and green.
+      untouched and green. (Re-verified at PR5/final state: `git diff --stat` on all four files empty;
+      grid-columns test is part of the 25/25 `ResumenAnual.test.tsx` green run.)
 
 ## Next step
 
