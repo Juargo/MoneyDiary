@@ -234,7 +234,10 @@ describe('ResumenPage', () => {
       ).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole('heading', { level: 2, name: 'Resumen Anual 2026' }),
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Año 2026 — vista macro por mes',
+      }),
     ).toBeInTheDocument();
   });
 

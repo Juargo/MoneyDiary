@@ -178,6 +178,7 @@ export function ResumenScreen({
 
       <ResumenAnual
         anio={anioDePeriodo(viewModel.periodo, new Date().getUTCFullYear())}
+        periodoSeleccionado={viewModel.periodo}
         onSelectPeriodo={onPeriodoChange}
       />
     </div>

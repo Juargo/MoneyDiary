@@ -1,5 +1,5 @@
 import { afterEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { ResumenScreen } from './ResumenScreen';
@@ -554,7 +554,9 @@ describe('ResumenScreen', () => {
     renderScreen();
 
     await waitFor(() =>
-      expect(screen.getByText('Resumen Anual 2026')).toBeInTheDocument(),
+      expect(
+        screen.getByText('Año 2026 — vista macro por mes'),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -653,5 +655,25 @@ describe('ResumenScreen', () => {
     fireEvent.click(boton);
 
     expect(onPeriodoChange).toHaveBeenCalledWith('2026-01');
+  });
+
+  // US-048 design §2.4/D-11 (S-01): `ResumenScreen` threads
+  // `viewModel.periodo` — not today, not a locally tracked click — into
+  // `ResumenAnual`'s required `periodoSeleccionado` prop end-to-end.
+  // `mockFetchPorBucket`'s annual fixture is not modified: January already
+  // has data, which is all this test needs.
+  it('threads viewModel.periodo into the annual grid as the selected month (S-01)', async () => {
+    mockFetchPorBucket();
+    const vmEnero: ResumenViewModel = { ...viewModel, periodo: '2026-01' };
+    renderScreen(vmEnero);
+
+    const botonEnero = await screen.findByRole('button', {
+      name: 'Ver enero 2026',
+    });
+    const marcadores = screen.getAllByTestId('mes-seleccionado-marker');
+    expect(marcadores).toHaveLength(1);
+    expect(
+      within(botonEnero).getByTestId('mes-seleccionado-marker'),
+    ).toBeInTheDocument();
   });
 });
