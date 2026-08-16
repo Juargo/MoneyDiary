@@ -88,7 +88,16 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
     Array.isArray(candidato.buckets) &&
     candidato.buckets.every(esBucketResumenDto) &&
     (typeof candidato.estadoGlobal === 'string' ||
-      candidato.estadoGlobal === null)
+      candidato.estadoGlobal === null) &&
+    // US-047 WG5-05: the legend now reads `cantidadSinCategoria` directly
+    // (Sin categoría row's transaction count) — a payload missing it, or
+    // carrying it as a non-number, must be rejected the same way any other
+    // structurally invalid ResumenMesDto already is. `esResumenAnualDto`
+    // reuses this guard unmodified for each of its 12 months (verified
+    // safe, design §3/§0 blast-radius note): the annual DTO always
+    // populates this field server-side, so no real payload is newly
+    // rejected there.
+    typeof candidato.cantidadSinCategoria === 'number'
   );
 }
 

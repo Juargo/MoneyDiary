@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { esMontoStringValido, formatearMontoCLP } from './formatear-monto';
+import {
+  esMontoStringValido,
+  formatearMontoCLP,
+  formatearMontoConSigno,
+} from './formatear-monto';
 
 describe('formatearMontoCLP', () => {
   it('agrupa los miles con punto y antepone $', () => {
@@ -80,5 +84,34 @@ describe('esMontoStringValido', () => {
     expect(esMontoStringValido('0x10')).toBe(false);
     expect(esMontoStringValido('0b1')).toBe(false);
     expect(esMontoStringValido('0o7')).toBe(false);
+  });
+});
+
+// US-047 D-04: a NEW function, not a parameter on `formatearMontoCLP` (which
+// stays byte-identical — its own describe block above is untouched). The
+// sign is chosen by the CALLER (item kind), never read off the data.
+describe('formatearMontoConSigno', () => {
+  it('el signo viene del argumento del caller, nunca del propio string (D-04)', () => {
+    expect(formatearMontoConSigno('624500', '-')).toBe('-$624.500');
+    expect(formatearMontoConSigno('1485000', '+')).toBe('+$1.485.000');
+  });
+
+  it('una magnitud negativa nunca produce un prefijo "--" duplicado — opera sobre el valor absoluto (D-04)', () => {
+    expect(formatearMontoConSigno('-5000', '-')).toBe('-$5.000');
+    expect(formatearMontoConSigno('-5000', '+')).toBe('+$5.000');
+  });
+
+  it('la magnitud 0 se renderiza SIN prefijo de signo ($0, no -$0/+$0) (D-03/D-04)', () => {
+    expect(formatearMontoConSigno('0', '-')).toBe('$0');
+    expect(formatearMontoConSigno('0', '+')).toBe('$0');
+  });
+
+  it('preserva cada dígito exacto por encima de Number.MAX_SAFE_INTEGER en el camino con signo (extiende la clase de test above-2^53)', () => {
+    expect(formatearMontoConSigno('9007199254740993', '-')).toBe(
+      '-$9.007.199.254.740.993',
+    );
+    expect(formatearMontoConSigno('9007199254740993', '+')).toBe(
+      '+$9.007.199.254.740.993',
+    );
   });
 });

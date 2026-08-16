@@ -219,6 +219,61 @@ describe('fetchResumen', () => {
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('parse');
   });
+
+  // US-047 WG5-05 (design §3 "DTO guard extension"): `esResumenMesDto` did
+  // not validate `cantidadSinCategoria` — a payload missing it, or carrying
+  // it as a non-number, used to pass the guard unchanged. The legend now
+  // reads the field directly, so either malformed shape must take the same
+  // pre-existing WAC-02 rejection path — no new error-handling branch.
+  it('mapea a {tag: "parse"} sin lanzar cuando cantidadSinCategoria falta o no es number (WG5-05)', async () => {
+    const { cantidadSinCategoria: _omitido, ...bodySinCantidadSinCategoria } =
+      validDto;
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodySinCantidadSinCategoria),
+    });
+    const resultadoFaltante = await fetchResumen();
+    expect(resultadoFaltante.ok).toBe(false);
+    expect(!resultadoFaltante.ok && resultadoFaltante.error.tag).toBe('parse');
+
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, cantidadSinCategoria: '7' }),
+    });
+    const resultadoTipoIncorrecto = await fetchResumen();
+    expect(resultadoTipoIncorrecto.ok).toBe(false);
+    expect(
+      !resultadoTipoIncorrecto.ok && resultadoTipoIncorrecto.error.tag,
+    ).toBe('parse');
+
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, cantidadSinCategoria: null }),
+    });
+    const resultadoNull = await fetchResumen();
+    expect(resultadoNull.ok).toBe(false);
+    expect(!resultadoNull.ok && resultadoNull.error.tag).toBe('parse');
+  });
+
+  // A legitimate zero must not be confused with a missing/invalid field by
+  // the guard itself (WG5-05) — `validDto` already carries
+  // `cantidadSinCategoria: 0` and every prior passing test in this describe
+  // block (e.g. the "resuelve {ok: true, value}" case) is the accept-path
+  // proof; this test names that proof explicitly for `cantidadSinCategoria`.
+  it('acepta cantidadSinCategoria: 0 — un cero legítimo no se confunde con un campo faltante (WG5-05)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, cantidadSinCategoria: 0 }),
+    });
+
+    const result = await fetchResumen();
+
+    expect(result.ok).toBe(true);
+  });
 });
 
 function mesConPeriodo(periodo: string): ResumenMesDto {

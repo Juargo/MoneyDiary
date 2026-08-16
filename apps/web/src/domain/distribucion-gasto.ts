@@ -4,16 +4,26 @@ import { esMontoStringValido } from './formatear-monto';
  * DOM port of `apps/mobile/src/domain/distribucion-gasto.ts` (verbatim: pure
  * BigInt math, no platform dependency).
  *
- * The three spending buckets that make up the "Distribución del gasto" pie,
- * in the canonical display order. `SinCategoria` is deliberately excluded —
- * the mockup's pie is the split across these three, and an uncategorized
- * amount is neither a need, a want, nor savings.
+ * US-047 (design D-05): the old single `BUCKETS_GASTO` allowlist was split
+ * into two constants so the compiler forces every call site to declare which
+ * set it meant (no alias — deleting the old name makes `tsc` fail loudly
+ * instead of silently keeping a stale membership).
  *
- * FIX 7 (DRY): the canonical order — exported so presentation components
- * (`DistribucionPie`'s IDEAL inset) reuse it instead of hardcoding their own
- * copy of the same literal.
+ * `BUCKETS_5030` — the three spending buckets, canonical display order. Still
+ * the IDEAL 50/30/20 inset's set (`DistribucionPie`'s `slicesIdeales`): the
+ * inset indexes `targets`, which has no `SinCategoria` key, so it must NOT
+ * grow to the 4-item ring set.
  */
-export const BUCKETS_GASTO = ['Necesidades', 'Deseos', 'Ahorro'] as const;
+export const BUCKETS_5030 = ['Necesidades', 'Deseos', 'Ahorro'] as const;
+
+/**
+ * `BUCKETS_ANILLO` — the four ring members (WG5-01/WG5-13): the three spend
+ * buckets plus `SinCategoria`, in ring order. `calcularDistribucionGasto`
+ * apportions over these 4 items, so an uncategorized amount now dilutes the
+ * three spend-bucket ring percentages instead of being excluded from the
+ * denominator — the semantic core of US-047, not a regression.
+ */
+export const BUCKETS_ANILLO = [...BUCKETS_5030, 'SinCategoria'] as const;
 
 const PRECISION = 1_000_000n;
 
@@ -52,18 +62,29 @@ function montoSeguro(montoStr: string): bigint {
  * displayed numbers always sum to exactly 100 — never 99 or 101. When there is
  * no spending, returns `[]` so the caller can render an empty-pie placeholder
  * instead of dividing by zero.
+ *
+ * `bucketsIncluidos` (US-047 PR1 shim, judgment-day round 2 CRITICAL fix): a
+ * trailing optional param, `BUCKETS_ANILLO` by default (byte-identical to the
+ * pre-fix signature). Passing `BUCKETS_5030` apportions ONLY over the 3 spend
+ * buckets — SinCategoria drops out of BOTH the numerator set and the
+ * denominator, so the returned percentages sum to exactly 100 again. Without
+ * this, a caller that filtered the 4-item `BUCKETS_ANILLO` result down to 3
+ * items post-hoc would keep the DILUTED percentages (e.g. 40/25/25 instead of
+ * 44/28/28), which don't sum to 100 — and `calcularAngulos`'s forced-360
+ * closure would silently stretch the last wedge to absorb the missing share.
  */
 export function calcularDistribucionGasto(
   buckets: ReadonlyArray<EntradaBucket>,
+  bucketsIncluidos: ReadonlyArray<string> = BUCKETS_ANILLO,
 ): TajadaGasto[] {
   const porNombre = new Map(buckets.map((b) => [b.bucket, b.total]));
 
-  const incluidos = BUCKETS_GASTO.filter((nombre) => porNombre.has(nombre)).map(
-    (nombre) => ({
+  const incluidos = bucketsIncluidos
+    .filter((nombre) => porNombre.has(nombre))
+    .map((nombre) => ({
       bucket: nombre,
       monto: montoSeguro(porNombre.get(nombre) as string),
-    }),
-  );
+    }));
 
   const total = incluidos.reduce((suma, b) => suma + b.monto, 0n);
   if (total <= 0n) {

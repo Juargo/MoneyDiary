@@ -1,7 +1,14 @@
 import { calcularAngulos, arcoPath } from '@/domain/pie-geometry';
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { PIE_LABEL_FILL, PIE_WEDGE_STROKE } from '@/lib/pie-colors';
-import { BUCKETS_GASTO } from '@/domain/distribucion-gasto';
+// US-047 PR1 compile-fix (tasks.md "Proposed PR boundaries" #1): `BUCKETS_GASTO`
+// was split into `BUCKETS_5030`/`BUCKETS_ANILLO` (D-05). The IDEAL inset
+// indexes `targets`, which has no `SinCategoria` key, so it MUST keep using
+// the 3-item set — swapping to `BUCKETS_ANILLO` here would read
+// `targets.SinCategoria` (`undefined`) and render `NaN` paths (R-1). The
+// donut ring rewrite that actually threads `BUCKETS_ANILLO`'s 4th wedge lands
+// in PR2 (T6); this is a minimal 1-line compile-fix, not new behavior.
+import { BUCKETS_5030 } from '@/domain/distribucion-gasto';
 import type { TajadaGasto } from '@/domain/distribucion-gasto';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 
@@ -176,12 +183,12 @@ function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
   if (total <= 0) {
     return [];
   }
-  const valores: Record<(typeof BUCKETS_GASTO)[number], number> = {
+  const valores: Record<(typeof BUCKETS_5030)[number], number> = {
     Necesidades: targets.Necesidades,
     Deseos: targets.Deseos,
     Ahorro: targets.Ahorro,
   };
-  return BUCKETS_GASTO.map((bucket) => ({
+  return BUCKETS_5030.map((bucket) => ({
     bucket,
     color: COLOR_BUCKET[bucket],
     fraccion: valores[bucket] / total,

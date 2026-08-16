@@ -1,5 +1,10 @@
-import { formatearMontoCLP, esMontoStringValido } from './formatear-monto';
 import {
+  formatearMontoCLP,
+  formatearMontoConSigno,
+  esMontoStringValido,
+} from './formatear-monto';
+import {
+  BUCKETS_5030,
   calcularDistribucionGasto,
   type TajadaGasto,
 } from './distribucion-gasto';
@@ -12,6 +17,39 @@ import type { BucketResumenDto, ResumenMesDto } from '../api/types';
  * W1-02, MOB-06 en mobile).
  */
 export const SIN_PORCENTAJE_LABEL = '—';
+
+/**
+ * ItemLeyenda — US-047 (design D-03): a 3-kind discriminated union, not two
+ * kinds with an optional field. The wireframe pins Sin categoría's row shape
+ * as `name · N tx · −CLP amount` (no `%`) while the three spend buckets show
+ * `name · % · CLP amount` — a real shape difference. Making `porcentaje`/
+ * `cantidadLabel` optional on a shared kind would let a caller construct a
+ * `'gasto'` item with a `cantidadLabel`, or omit `porcentaje` from Sin
+ * categoría — states the type system should make unrepresentable. No
+ * `esClickeable` field either: interactivity is derived from `kind` in
+ * presentation (`'gasto'`/`'sinCategoria'` → button + chevron, `'ingreso'` →
+ * inert `<li>`) — a boolean with exactly one possible value per kind is a
+ * flag that is never toggled.
+ */
+export type ItemLeyenda =
+  | {
+      readonly kind: 'gasto';
+      readonly bucket: string;
+      /** Ring share from `calcularDistribucionGasto`'s 4-item apportionment. */
+      readonly porcentaje: number;
+      readonly montoLabel: string;
+    }
+  | {
+      readonly kind: 'sinCategoria';
+      readonly bucket: string;
+      readonly montoLabel: string;
+      /** Always present, never optional — e.g. '0 tx', never omitted for a real zero. */
+      readonly cantidadLabel: string;
+    }
+  | {
+      readonly kind: 'ingreso';
+      readonly montoLabel: string;
+    };
 
 export interface BucketViewModel {
   readonly bucket: string;
@@ -39,6 +77,18 @@ export interface ResumenViewModel {
   /** Share-of-spending split for the pie + legend (77/12/11-style). */
   readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
   /**
+   * TEMPORARY PR1 shim (US-047, judgment-day round 2 CRITICAL fix; removed
+   * by PR2/PR3, tasks T6/T11): the same 3 spend buckets as
+   * `distribucionGasto`, but apportioned over `BUCKETS_5030` ONLY —
+   * SinCategoria excluded from both the numerator set and the denominator,
+   * so `porcentaje` sums to exactly 100 across these 3 items (unlike
+   * filtering `distribucionGasto`'s diluted 4-item reading down to 3, which
+   * would leave the OLD diluted percentages and NOT sum to 100). This is
+   * what `ResumenScreen`'s still-3-slice pie/legend renders until the real
+   * 4-wedge donut UI lands.
+   */
+  readonly distribucionGastoInterina: ReadonlyArray<TajadaGasto>;
+  /**
    * The bucket with the largest total among all 4 buckets (including
    * SinCategoria) — the dashboard's default selection for the transactions
    * panel before the user picks one explicitly (US-030 Slice B, task 30.10).
@@ -48,6 +98,10 @@ export interface ResumenViewModel {
   readonly bucketPorDefecto: string | null;
   readonly targets: ResumenMesDto['targets'];
   readonly estadoGlobal: string | null;
+  /** Necesidades, Deseos, Ahorro — always in that order, `kind: 'gasto'` (D-03). */
+  readonly leyendaPrincipal: ReadonlyArray<ItemLeyenda>;
+  /** Ingresos, Sin categoría — always in that order (D-03). */
+  readonly leyendaComplemento: ReadonlyArray<ItemLeyenda>;
 }
 
 /**
@@ -105,6 +159,68 @@ export function bucketConMayorTotal(
 }
 
 /**
+ * Money-safety join (I-2): `TajadaGasto` carries no money — the legend's
+ * `montoLabel` is a separate projection built here by joining the ring's
+ * bucket name against `dto.buckets`'s raw totals. Same belt-and-suspenders
+ * discipline as `montoSeguro`/`bucketConMayorTotal`: a bucket absent from
+ * the DTO (should not happen per the backend's 4-canonical-buckets
+ * contract, but this stays defensive) degrades to `'0'` instead of
+ * crashing the join.
+ */
+function totalPorBucket(
+  buckets: ReadonlyArray<BucketResumenDto>,
+  bucket: string,
+): string {
+  return buckets.find((b) => b.bucket === bucket)?.total ?? '0';
+}
+
+/**
+ * `leyendaPrincipal` — the three 50/30/20 items, `kind: 'gasto'` (D-03).
+ * Sourced from `distribucionGastoInterina` (already `BUCKETS_5030`-only,
+ * renormalized so its `porcentaje` sums to 100 — judgment-day round 2
+ * CRITICAL fix) instead of filtering the diluted 4-item `distribucionGasto`
+ * post-hoc, which would keep percentages that don't sum to 100. Naturally
+ * preserves canonical order AND naturally empties when there is no spending
+ * (design §3 edge case).
+ */
+function aLeyendaPrincipal(
+  distribucionGastoInterina: ReadonlyArray<TajadaGasto>,
+  buckets: ReadonlyArray<BucketResumenDto>,
+): ItemLeyenda[] {
+  return distribucionGastoInterina.map((t) => ({
+    kind: 'gasto' as const,
+    bucket: t.bucket,
+    porcentaje: t.porcentaje,
+    montoLabel: formatearMontoConSigno(totalPorBucket(buckets, t.bucket), '-'),
+  }));
+}
+
+/**
+ * `leyendaComplemento` — always `[ingreso(+), sinCategoria(-, cantidadLabel)]`
+ * in that order (D-03), regardless of spending: Ingresos must stay visible
+ * even when `leyendaPrincipal` is empty (design §3 edge case), and a real
+ * `cantidadSinCategoria: 0` maps to a genuine, rendered `'0 tx'` row — never
+ * an omission (WG5-05).
+ */
+function aLeyendaComplemento(dto: ResumenMesDto): ItemLeyenda[] {
+  return [
+    {
+      kind: 'ingreso',
+      montoLabel: formatearMontoConSigno(dto.totalIngreso, '+'),
+    },
+    {
+      kind: 'sinCategoria',
+      bucket: 'SinCategoria',
+      montoLabel: formatearMontoConSigno(
+        totalPorBucket(dto.buckets, 'SinCategoria'),
+        '-',
+      ),
+      cantidadLabel: `${dto.cantidadSinCategoria} tx`,
+    },
+  ];
+}
+
+/**
  * Mapea el DTO HTTP (`ResumenMesDto`) al view model de la pantalla. Pura:
  * sin React, sin fetch. Resuelve todo el formateo de dinero (BigInt-string-
  * safe vía formatearMontoCLP) y la regla null-vs-0% para que el componente
@@ -113,14 +229,22 @@ export function bucketConMayorTotal(
  * W2-01).
  */
 export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
+  const distribucionGasto = calcularDistribucionGasto(dto.buckets);
+  const distribucionGastoInterina = calcularDistribucionGasto(
+    dto.buckets,
+    BUCKETS_5030,
+  );
   return {
     periodo: dto.periodo,
     totalIngreso: formatearMontoCLP(dto.totalIngreso),
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
-    distribucionGasto: calcularDistribucionGasto(dto.buckets),
+    distribucionGasto,
+    distribucionGastoInterina,
     bucketPorDefecto: bucketConMayorTotal(dto.buckets),
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
+    leyendaPrincipal: aLeyendaPrincipal(distribucionGastoInterina, dto.buckets),
+    leyendaComplemento: aLeyendaComplemento(dto),
   };
 }

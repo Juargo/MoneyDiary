@@ -417,6 +417,46 @@ describe('ResumenAnual', () => {
     expect(grid.className).toMatch(/\blg:grid-cols-4\b/);
   });
 
+  // US-047 PR1 interim: the domain default distribution now spans 4 ring
+  // items (BUCKETS_ANILLO, includes SinCategoria). The annual minis keep the
+  // 3-slice 50/30/20 reading until US-048 — this pins MesCelda's explicit
+  // BUCKETS_5030 renormalization against a month whose SinCategoria total is
+  // NONZERO (a zero-total fixture cannot distinguish diluted from
+  // renormalized, so it would pass either way).
+  it('renders exactly 3 mini-pie slices per month even when SinCategoria has spending (US-047 PR1 interim)', async () => {
+    const enero = mesConDatos('2026-01');
+    const eneroConSinCategoria: ResumenMesDto = {
+      ...enero,
+      buckets: enero.buckets.map((b) =>
+        b.bucket === 'SinCategoria'
+          ? { ...b, total: '100000', porcentajeBp: 600 }
+          : b,
+      ),
+      cantidadSinCategoria: 2,
+    };
+    const datos: ResumenAnualDto = {
+      anio: 2026,
+      meses: anioTodoSinDatos().meses.map((mes, i) =>
+        i === 0 ? eneroConSinCategoria : mes,
+      ),
+    };
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(datos),
+    });
+
+    render(
+      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      {
+        wrapper: crearWrapper(),
+      },
+    );
+
+    await screen.findByRole('button', { name: 'Ver enero 2026' });
+    expect(screen.getAllByTestId('mini-pie-slice')).toHaveLength(3);
+  });
+
   it('a sinIngreso month that is also the current month stays disabled but still carries aria-current="date" (FIX 5)', async () => {
     const onSelectPeriodo = vi.fn();
     const datos = anioConDatosHastaJulio();

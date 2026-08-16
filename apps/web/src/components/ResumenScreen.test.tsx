@@ -4,8 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { ResumenScreen } from './ResumenScreen';
+import { aResumenViewModel } from '@/domain/resumen-view-model';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
-import type { DetalleBucketDto, ResumenAnualDto } from '@/api/types';
+import type {
+  DetalleBucketDto,
+  ResumenAnualDto,
+  ResumenMesDto,
+} from '@/api/types';
 
 // US-030 Slice B (tasks 30.9/30.10): the dashboard body. The old per-bucket
 // `<Link>` breakdown list is gone — the pie + legend now represent that
@@ -48,12 +53,101 @@ const viewModel: ResumenViewModel = {
     { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
   ],
+  // US-047 PR1 shim field (judgment-day round 2): SinCategoria total is 0 in
+  // this fixture, so the renormalized reading equals the diluted one above.
+  distribucionGastoInterina: [
+    { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
+    { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
+    { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
+  ],
   // Necesidades has the largest raw total among the 4 buckets — the
   // dashboard's default transactions-panel selection (task 30.10).
   bucketPorDefecto: 'Necesidades',
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
+  // US-047 PR1 compile-fix: `leyendaPrincipal`/`leyendaComplemento` became
+  // required fields on `ResumenViewModel` in T5 (design D-03). This fixture
+  // is a hand-rolled view-model (not built via `aResumenViewModel`), so it
+  // needs the two new fields added directly. T11 (Phase 4) is the task that
+  // rewrites this whole fixture/suite to actually exercise the legend props
+  // — this is the minimal 1-line-spirit addition to keep `tsc` green without
+  // pulling that rewrite forward.
+  leyendaPrincipal: [
+    {
+      kind: 'gasto',
+      bucket: 'Necesidades',
+      porcentaje: 50,
+      montoLabel: '-$500.000',
+    },
+    {
+      kind: 'gasto',
+      bucket: 'Deseos',
+      porcentaje: 30,
+      montoLabel: '-$300.000',
+    },
+    {
+      kind: 'gasto',
+      bucket: 'Ahorro',
+      porcentaje: 20,
+      montoLabel: '-$200.000',
+    },
+  ],
+  leyendaComplemento: [
+    { kind: 'ingreso', montoLabel: '+$1.000.000' },
+    {
+      kind: 'sinCategoria',
+      bucket: 'SinCategoria',
+      montoLabel: '$0',
+      cantidadLabel: '0 tx',
+    },
+  ],
 };
+
+/**
+ * A REAL `ResumenMesDto` (all 4 canonical buckets, run through the actual
+ * `aResumenViewModel` mapper) — unlike `viewModel` above, which is a
+ * hand-rolled fixture whose `distribucionGasto` was trimmed to 3 items and
+ * so could not have caught the PR1 regression: `calcularDistribucionGasto`
+ * now apportions over all 4 `BUCKETS_ANILLO` members (SinCategoria
+ * included, US-047 D-05), so a REAL view model's `distribucionGasto` also
+ * has 4 items. Used by the shim regression test below.
+ */
+function resumenMesDtoReal(): ResumenMesDto {
+  return {
+    periodo: '2026-07',
+    totalIngreso: '1000000',
+    sinIngreso: false,
+    buckets: [
+      {
+        bucket: 'Necesidades',
+        total: '400000',
+        porcentajeBp: 4000,
+        estadoSemaforo: 'verde',
+      },
+      {
+        bucket: 'Deseos',
+        total: '250000',
+        porcentajeBp: 2500,
+        estadoSemaforo: 'verde',
+      },
+      {
+        bucket: 'Ahorro',
+        total: '250000',
+        porcentajeBp: 2500,
+        estadoSemaforo: 'verde',
+      },
+      {
+        bucket: 'SinCategoria',
+        total: '100000',
+        porcentajeBp: 1000,
+        estadoSemaforo: null,
+      },
+    ],
+    targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+    estadoGlobal: 'verde',
+    cantidadSinCategoria: 2,
+  };
+}
 
 function crearWrapper() {
   const queryClient = new QueryClient({
@@ -251,6 +345,32 @@ describe('ResumenScreen', () => {
     expect(
       screen.getAllByRole('button', { name: 'Sin categoría' }),
     ).toHaveLength(1);
+  });
+
+  // Regression test (judgment-day PR1 fix): a REAL `distribucionGasto` (built
+  // via `aResumenViewModel`, not the hand-rolled `viewModel` fixture above)
+  // now has 4 items (SinCategoria included, US-047 D-05). Before the
+  // `tajadasInterinas` shim, `entradasLeyenda` spread that 4-item array AND
+  // manually appended a SECOND SinCategoria row — a duplicate legend row
+  // sharing the same React `key`, which triggers a duplicate-key console
+  // warning. This asserts both symptoms are gone while the shim is in place.
+  it('renders exactly 3 legend rows + 1 SinCategoria row (no duplicate) from a REAL view model, without a React duplicate-key warning (PR1 shim regression)', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    mockFetchPorBucket();
+    const vmReal = aResumenViewModel(resumenMesDtoReal());
+
+    renderScreen(vmReal);
+
+    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(4);
+    expect(
+      screen.getAllByRole('button', { name: 'Sin categoría' }),
+    ).toHaveLength(1);
+    for (const mensaje of consoleErrorSpy.mock.calls.map((call) => call[0])) {
+      expect(String(mensaje)).not.toContain('same key');
+    }
+    consoleErrorSpy.mockRestore();
   });
 
   it('renders the global semáforo (spec W2-01) with a distinct testID anchor', () => {
