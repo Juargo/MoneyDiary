@@ -1,4 +1,8 @@
-import { calcularAngulos, arcoPath } from '@/domain/pie-geometry';
+import {
+  calcularAngulos,
+  arcoPath,
+  radioEtiqueta,
+} from '@/domain/pie-geometry';
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { PIE_LABEL_FILL, PIE_WEDGE_STROKE } from '@/lib/pie-colors';
 // US-047 PR1 compile-fix (tasks.md "Proposed PR boundaries" #1): `BUCKETS_GASTO`
@@ -23,13 +27,21 @@ function centroidLabel(
   cx: number,
   cy: number,
   r: number,
+  rInterior: number,
   inicio: number,
   fin: number,
 ) {
+  // US-047 (design D-01): the label sits at the RING's mid-band radius, not
+  // a hardcoded `r * 0.62` — with a hole at `RATIO_INTERIOR` that constant
+  // would land inside the hole. `radioEtiqueta` degrades to `r * 0.62`-ish
+  // territory automatically when `rInterior` is `0` (the IDEAL inset stays
+  // unaffected: `(r + 0) / 2` is `r / 2`, close enough to the old constant
+  // for a small non-interactive reference chart with no on-slice labels).
+  const radio = radioEtiqueta(r, rInterior);
   const medio = ((inicio + fin) / 2) * (Math.PI / 180);
   return {
-    x: cx + r * 0.62 * Math.sin(medio),
-    y: cy - r * 0.62 * Math.cos(medio),
+    x: cx + radio * Math.sin(medio),
+    y: cy - radio * Math.cos(medio),
   };
 }
 
@@ -55,6 +67,7 @@ function Pie({
   sliceTestId,
   bucketSeleccionado,
   onSelectSlice,
+  rInterior = 0,
 }: {
   readonly slices: ReadonlyArray<Slice>;
   readonly size: number;
@@ -62,6 +75,8 @@ function Pie({
   readonly sliceTestId: string;
   readonly bucketSeleccionado?: string | null;
   readonly onSelectSlice?: (bucket: string) => void;
+  /** Donut hole radius, absolute px (US-047 D-01) — `0` = filled wedge (IDEAL inset). */
+  readonly rInterior?: number;
 }) {
   const cx = size / 2;
   const cy = size / 2;
@@ -84,7 +99,14 @@ function Pie({
   return (
     <>
       {slices.map((slice, i) => {
-        const d = arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin);
+        const d = arcoPath(
+          cx,
+          cy,
+          r,
+          tramos[i].inicio,
+          tramos[i].fin,
+          rInterior,
+        );
 
         if (!onSelectSlice) {
           return (
@@ -135,6 +157,7 @@ function Pie({
             cx,
             cy,
             r,
+            rInterior,
             tramos[i].inicio,
             tramos[i].fin,
           );
@@ -232,6 +255,12 @@ export function DistribucionPie({
   // placeholder ring (no spending) has nothing to flatten, so it keeps
   // role="img".
   const esInteractivo = tajadas.length > 0;
+  // US-047 (design D-01): the main ring's donut-hole ratio — a VISUAL
+  // choice, so it lives here (component), not in `domain/pie-geometry.ts`
+  // (pure math over absolute px). The IDEAL inset stays `rInterior = 0`
+  // (filled, D-02) — it never receives this.
+  const RATIO_INTERIOR = 0.58;
+  const rInteriorAnillo = (size / 2) * RATIO_INTERIOR;
 
   return (
     <div
@@ -251,6 +280,7 @@ export function DistribucionPie({
           sliceTestId="pie-slice"
           bucketSeleccionado={bucketSeleccionado}
           onSelectSlice={onSelectBucket}
+          rInterior={rInteriorAnillo}
         />
       </svg>
 
