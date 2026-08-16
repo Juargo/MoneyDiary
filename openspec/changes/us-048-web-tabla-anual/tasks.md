@@ -118,7 +118,7 @@ Still no `<Link>` in `MesCelda` → no test-harness migration (design §8). Depe
 Self-contained new file, imported nowhere yet — cannot produce a half-rendered page state (nothing changes
 visually until C2a wires it in). Independently green.
 
-- [ ] **C1-1.** RED: create `apps/web/src/components/MiniSemaforoTag.test.tsx` (harness: `renderConRouter` —
+- [x] **C1-1.** RED: create `apps/web/src/components/MiniSemaforoTag.test.tsx` (harness: `renderConRouter` —
       the `/semaforo` sentinel route already exists in it) with all 8 tests from design §6.2, empty
       component stub or no component yet:
       - `M-01` accessible name `Semáforo de enero 2026: Verde`
@@ -131,7 +131,7 @@ visually until C2a wires it in). Independently green.
       - `M-08` click navigates to the sentinel
       Explicitly do **not** add any assertion on `h-7`/`w-7` or any size class (D-06 — target size is
       rendered-geometry-only, proven in `E-01`).
-- [ ] **C1-2.** GREEN: implement `apps/web/src/components/MiniSemaforoTag.tsx` per the component contract
+- [x] **C1-2.** GREEN: implement `apps/web/src/components/MiniSemaforoTag.tsx` per the component contract
       (design §3): `<Link to="/semaforo" search={{ periodo }}>`, `h-7 w-7` box, `resolverEstiloSemaforo` as the
       **only** estado source, `sr-only` accessible-name span (`Semáforo de {mesCompletoLabel(periodo)}:
       {estilo.label}`), `aria-hidden` glyph, duplicated `onKeyDown` Space handler (D-08 — do **not** extract
@@ -139,12 +139,12 @@ visually until C2a wires it in). Independently green.
       semáforo link), LOCKED `focus-visible:outline-2 focus-visible:outline-slate-800` ring, **no** layout
       props, **no** `className` prop, no state/data access.
       Verify: all 8 `M-*` tests pass.
-- [ ] **C1-3.** Sweep: confirm `SemaforoTag.tsx`, `SemaforoBadge.tsx`, `MiniDistribucionPie.tsx`,
+- [x] **C1-3.** Sweep: confirm `SemaforoTag.tsx`, `SemaforoBadge.tsx`, `MiniDistribucionPie.tsx`,
       `DistribucionPie.tsx`, `distribucion-gasto.ts`, `bucket-colors.ts`, `semaforo-estilos.ts`,
       `periodo-anual.ts` are untouched by construction (design §3 "untouched by construction" list).
       Verify: `git diff --stat` shows only the 2 new files in this slice.
-- [ ] **C1-4.** `pnpm web test -- MiniSemaforoTag && pnpm web typecheck && pnpm web exec eslint .` green.
-- [ ] **C1-5.** Commit: `feat(web): add MiniSemaforoTag, a compact navigable semáforo link`.
+- [x] **C1-4.** `pnpm web test -- MiniSemaforoTag && pnpm web typecheck && pnpm web exec eslint .` green.
+- [x] **C1-5.** Commit: `feat(web): add MiniSemaforoTag, a compact navigable semáforo link`.
 
 **PR3 boundary:** ends here. 2 new files only, zero diff to any existing file. Low risk, self-contained.
 
