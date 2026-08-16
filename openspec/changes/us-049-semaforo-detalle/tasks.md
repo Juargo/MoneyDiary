@@ -150,7 +150,7 @@ revert and export a duplicated table instead.
 Requirements: SEM-03, SEM-04, SEM-07, D-04, D-09, D-11. Depends on Phase 1
 (`BANDAS_SEMAFORO`). Highest-risk slice (R1, High severity) — 81 test cases.
 
-- [ ] **T2.1 (RED)** Create
+- [x] **T2.1 (RED)** Create
       `apps/api/src/domain/value-objects/semaforo-detalle.spec.ts` with
       **group A** (17 cases, `montoMaximoConBpHasta`): the worked example
       `base=1_000_000n, bpMax=5000n → 500_049n`; `it.each` over the 8 bases
@@ -159,16 +159,24 @@ Requirements: SEM-03, SEM-04, SEM-07, D-04, D-09, D-11. Depends on Phase 1
       `[P]` with T2.2 (independent describe blocks, same file — commit
       together).
       - Verify (expect RED — module doesn't exist): `pnpm api test semaforo-detalle.spec.ts`
-- [ ] **T2.2 (RED)** Same file, **group B** (17 cases,
+      - **Note (visibility discrepancy, recorded not silently patched):**
+        design §1.2's public surface lists only `construirSemaforoDetalle`,
+        `montoParaVerde`, `diagnosticar` as exported, and T3.7 (Phase 3)
+        targets "helpers private". Groups A/B test `montoMaximoConBpHasta`/
+        `montoMinimoConBpDesde` by direct import, which requires them
+        exported NOW. Resolved pragmatically: both are `export function` in
+        this PR; flagged for T3.7 to reconcile (keep exported, or migrate
+        A/B to test exclusively through `montoParaVerde`).
+- [x] **T2.2 (RED)** Same file, **group B** (17 cases,
       `montoMinimoConBpDesde`): worked example `base=1_000_000n, bpMin=2000n
       → 199_950n`; same 8-base `it.each` for `bp(f(base)) ≥ bpMin` (8) and
       minimality `bp(f(base)-1n) < bpMin` (8). `[P]` with T2.1.
-- [ ] **T2.3 (GREEN)** In
+- [x] **T2.3 (GREEN)** In
       `apps/api/src/domain/value-objects/semaforo-detalle.ts` (new file),
       implement `montoMaximoConBpHasta` and `montoMinimoConBpDesde` exactly
       per design §1.3's derivations (BigInt-only, no float).
       - Verify: `pnpm api test semaforo-detalle.spec.ts -t "montoMaximoConBpHasta|montoMinimoConBpDesde"` — 34 green.
-- [ ] **T2.4 (RED)** Add **group C** (47 cases, `montoParaVerde`) per
+- [x] **T2.4 (RED)** Add **group C** (47 cases, `montoParaVerde`) per
       design §3's ledger breakdown: Verde→null for Necesidades/Ahorro (2);
       exact `{direccion, monto}` for Necesidades/Deseos Amarillo/Rojo (4);
       Ahorro at bp 1500/500 → `{aumentar}` (2), bp 4500/6000 → `{reducir}`
@@ -181,13 +189,27 @@ Requirements: SEM-03, SEM-04, SEM-07, D-04, D-09, D-11. Depends on Phase 1
       advice" — one `it.each` over 4 bases × 3 scenarios (1 test block, 12
       internal assertions).
       - Verify (expect RED): `pnpm api test semaforo-detalle.spec.ts -t montoParaVerde`
-- [ ] **T2.5 (GREEN)** Implement `montoParaVerde(bucket, total, base)` per
+      - **Note (hand-verified degrade, recorded):** for the shared 8-base
+        `Ahorro` re-apply groups (low/high), bases `1n` and `2n` provably
+        degrade to `null` via the D-11 guard (band width 2000bp is smaller
+        than the per-peso bp jump at those bases — verified by hand:
+        `bp(objetivo,1n)=10000`, `bp(objetivo,2n)=5000`, both outside
+        `[2000,4000]`). Implemented as explicit per-base expectations
+        (`null` for 1n/2n, non-null + Verde re-apply for the other 6), not
+        a blanket "always non-null" assumption — this is the honest,
+        provable behavior of the D-11 fail-closed guard, consistent with
+        item 14's own pathological-base test. Also: the "always gets
+        advice" case was written as ONE `it()` with an internal `for` loop
+        over the 4 bases (not `it.each`) to match the ledger's own table
+        convention (1 block, not 4 vitest tests) — actual suite count is
+        **81/81**, matching design §3 exactly.
+- [x] **T2.5 (GREEN)** Implement `montoParaVerde(bucket, total, base)` per
       design §1.3's exact body: unilateral case (a), Ahorro-low case (b),
       Ahorro-high case (c), the D-11 runtime post-condition re-check before
       returning. Leave `mensajeConsejo(...)` as a stub returning `''` for
       now (Phase 3 implements it) so this compiles without pulling in copy.
       - Verify: `pnpm api test semaforo-detalle.spec.ts` — groups A/B/C (81) green.
-- [ ] **T2.6 (REFACTOR)** Confirm the D-11 post-condition guard is
+- [x] **T2.6 (REFACTOR)** Confirm the D-11 post-condition guard is
       unconditional (not short-circuited for case (a) alone) and that no
       float arithmetic exists anywhere in the file (`grep -n '\.5\|Math\.'`
       returns nothing relevant).
