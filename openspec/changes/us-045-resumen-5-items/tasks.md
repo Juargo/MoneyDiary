@@ -301,14 +301,14 @@ Requirements: RNF-SEC-006, ISO-02 (spec delta at
 `specs/user-data-isolation/spec.md`). Depends on Phase 7 (the field must
 exist on the wire to assert on it at HTTP level).
 
-- [ ] **T8.1 (RED)** Extend the existing `GET /api/resumen` isolation test
+- [x] **T8.1 (RED)** Extend the existing `GET /api/resumen` isolation test
       in `apps/api/test/integration/.../auth-isolation.int-spec.ts` (around
       the existing `res.body.totalIngreso` / bucket-total assertions) with
       `expect(res.body.cantidadSinCategoria).toBe(<A's count>)` — proves
       isolation at the endpoint boundary, not just the repository (Phase 3's
       SC-09 covers the repository; this covers the HTTP seam on top of it).
       - Verify (expect RED until Phase 3+7 land): `pnpm api test:integration auth-isolation.int-spec.ts`
-- [ ] **T8.2 (GREEN)** No production code change expected here — Phase 3
+- [x] **T8.2 (GREEN)** No production code change expected here — Phase 3
       (repository isolation) + Phase 5/6/7 (field on the wire) should make
       this pass without further edits. If it does not pass, that is a signal
       one of those phases has a gap — do not patch around it here.
