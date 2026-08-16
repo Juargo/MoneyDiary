@@ -53,6 +53,42 @@ const viewModel: ResumenViewModel = {
   bucketPorDefecto: 'Necesidades',
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
+  // US-047 PR1 compile-fix: `leyendaPrincipal`/`leyendaComplemento` became
+  // required fields on `ResumenViewModel` in T5 (design D-03). This fixture
+  // is a hand-rolled view-model (not built via `aResumenViewModel`), so it
+  // needs the two new fields added directly. T11 (Phase 4) is the task that
+  // rewrites this whole fixture/suite to actually exercise the legend props
+  // — this is the minimal 1-line-spirit addition to keep `tsc` green without
+  // pulling that rewrite forward.
+  leyendaPrincipal: [
+    {
+      kind: 'gasto',
+      bucket: 'Necesidades',
+      porcentaje: 50,
+      montoLabel: '-$500.000',
+    },
+    {
+      kind: 'gasto',
+      bucket: 'Deseos',
+      porcentaje: 30,
+      montoLabel: '-$300.000',
+    },
+    {
+      kind: 'gasto',
+      bucket: 'Ahorro',
+      porcentaje: 20,
+      montoLabel: '-$200.000',
+    },
+  ],
+  leyendaComplemento: [
+    { kind: 'ingreso', montoLabel: '+$1.000.000' },
+    {
+      kind: 'sinCategoria',
+      bucket: 'SinCategoria',
+      montoLabel: '$0',
+      cantidadLabel: '0 tx',
+    },
+  ],
 };
 
 function crearWrapper() {
