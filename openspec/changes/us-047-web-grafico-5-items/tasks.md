@@ -215,7 +215,7 @@ Parallel-safe: No — depends on T1 (not directly, but T6 does), T2, T3, T4 all 
 
 ## Phase 3 — Components (depends on Phase 2)
 
-### T6 — RED: `DistribucionPie.test.tsx` — 3 edits, +3
+### [x] T6 — RED: `DistribucionPie.test.tsx` — 3 edits, +3
 
 File: `apps/web/src/components/DistribucionPie.test.tsx`
 
@@ -241,7 +241,7 @@ wedge, and `COLOR_BUCKET` has no `SinCategoria` entry.
 
 Traces to: WG5-01, WG5-03 (R-6), WG5-12 (accessible name), design D-01, D-05, D-08.
 
-### T6 — GREEN: donut geometry + neutral grey in `DistribucionPie.tsx`
+### [x] T6 — GREEN: donut geometry + neutral grey in `DistribucionPie.tsx`
 
 Files: `apps/web/src/components/DistribucionPie.tsx`, `apps/web/src/lib/bucket-colors.ts`,
 `apps/web/src/index.css`
@@ -269,7 +269,7 @@ Verify: `pnpm web test -- DistribucionPie` green. `pnpm web typecheck` green.
 
 Parallel-safe: Yes, with T7 (different component file), once Phase 2 is merged.
 
-### T7 — RED: `LeyendaGasto.test.tsx` — 3 edits, +5
+### [x] T7 — RED: `LeyendaGasto.test.tsx` — 3 edits, +5
 
 File: `apps/web/src/components/LeyendaGasto.test.tsx`
 
@@ -302,7 +302,7 @@ divider, chevron, or `'ingreso'`/`'sinCategoria'` row shapes.
 Traces to: WG5-03, WG5-04, WG5-06, WG5-12, design D-03, D-08, D-09 (divider element
 structure — visibility is T13's job, not this task's).
 
-### T7 — GREEN: rewrite `LeyendaGasto.tsx` for the 3-kind union + divider
+### [x] T7 — GREEN: rewrite `LeyendaGasto.tsx` for the 3-kind union + divider
 
 File: `apps/web/src/components/LeyendaGasto.tsx`
 
@@ -329,7 +329,7 @@ Verify: `pnpm web test -- LeyendaGasto` green. `pnpm web typecheck` green.
 
 Parallel-safe: Yes, with T6.
 
-### T8 — RED: `SemaforoBadge.test.tsx` stays green with ZERO edits (verification task)
+### [x] T8 — RED: `SemaforoBadge.test.tsx` stays green with ZERO edits (verification task)
 
 File: `apps/web/src/components/SemaforoBadge.test.tsx` (no changes to this file)
 
@@ -344,7 +344,7 @@ file is empty.
 
 Traces to: design D-06.
 
-### T8 — GREEN: extract `lib/semaforo-estilos.ts`
+### [x] T8 — GREEN: extract `lib/semaforo-estilos.ts`
 
 Files: `apps/web/src/lib/semaforo-estilos.ts` (new), `apps/web/src/components/SemaforoBadge.tsx`
 
@@ -361,7 +361,7 @@ confirms this). `pnpm web typecheck` green.
 Parallel-safe: Yes, with T6/T7 (T8 touches only `SemaforoBadge.tsx` + new
 `lib/semaforo-estilos.ts`).
 
-### T9 — RED: `SemaforoTag.test.tsx` (new) — 5 cases
+### [x] T9 — RED: `SemaforoTag.test.tsx` (new) — 5 cases
 
 File: `apps/web/src/components/SemaforoTag.test.tsx` (new)
 
@@ -386,7 +386,7 @@ Verify: fails — `SemaforoTag` doesn't exist yet.
 
 Traces to: WG5-07, WG5-08, WG5-12, design D-06.
 
-### T9/T10 — GREEN: `router-harness.tsx` + `SemaforoTag.tsx`
+### [x] T9/T10 — GREEN: `router-harness.tsx` + `SemaforoTag.tsx`
 
 Files: `apps/web/src/test/router-harness.tsx` (new), `apps/web/src/components/SemaforoTag.tsx` (new)
 
@@ -730,7 +730,54 @@ is single-workspace `apps/web` only).
 2. **PR #2 — Ring + legend + semáforo tag components** (T6–T10): `DistribucionPie.tsx`,
    `LeyendaGasto.tsx`, `SemaforoBadge.tsx`, `lib/semaforo-estilos.ts`, `SemaforoTag.tsx`,
    `lib/bucket-colors.ts`, `index.css`, `src/test/router-harness.tsx` + their test files.
-   ~490 lines. Green in isolation: yes, once PR #1 is merged.
+   ~490 lines estimated; **actual ~939 changed lines** (694 insertions + 245 deletions,
+   `size:exception` pre-approved for this batch) — `LeyendaGasto.tsx`/its test file grew
+   past the estimate because the prop-shape change (`tajadas` → `principales`/
+   `complemento`) is a full rewrite, not an incremental edit. Green in isolation: yes,
+   once PR #1 is merged.
+
+   **Apply-time addendum (2026-08-16, PR #2 landed):**
+   - **`ResumenScreen.tsx` interim rewire (forced by T7, not scope creep):**
+     `LeyendaGasto`'s prop shape changed entirely (`tajadas: LeyendaTajada[]` →
+     `principales`/`complemento`: `ItemLeyenda[]`), which broke `ResumenScreen.tsx`'s
+     call site immediately — this is NOT deferrable to T11 the way the `BUCKETS_GASTO`
+     1-line compile-fixes were. Fixed by wiring `viewModel.leyendaPrincipal`/
+     `leyendaComplemento` (T5, PR1 — already the REAL non-shim fields) straight into
+     the new props, deleting the local `entradasLeyenda`/`LeyendaTajada` array-building
+     entirely. The donut PIE prop (`DistribucionPie`'s `tajadas`) still reads the PR1
+     shim `viewModel.distribucionGastoInterina` (3 items) — rewiring the pie itself to
+     the real 4-item `distribucionGasto` is still T11's job (design D-09's grid rewrite
+     lands together with it).
+   - **`ResumenScreen.test.tsx` interim query fix (3 tests):** the legend row's
+     accessible name is now content-derived (D-08: name + %/count + amount, e.g.
+     "Necesidades 50% -$500.000") instead of the removed bucket-only `aria-label`. 3
+     assertions that queried `getAllByRole('button', {name: 'Necesidades'})` (exact)
+     to count BOTH the pie wedge and the legend row were updated to a `/^Necesidades\b/`
+     prefix-regex so both controls still match; the "PR1 shim regression" test's
+     expected `leyenda-item` count moved 4→5 (Ingresos now renders as a row INSIDE
+     `LeyendaGasto` itself, T7, not just inside `IngresoCard` elsewhere). This is a
+     MINIMAL interim fix, not T11's full rename pass — T11's task text still separately
+     calls for renaming these assertions to state the wedge-name-stays-concise/
+     row-name-grew distinction explicitly, and for the OTHER 3 tests that iterate
+     `getAllByRole('button', {name: 'Ahorro'/'Gustos'})` in aria-pressed-loop assertions
+     without an explicit length check (`defaults the transactions panel...`, `clicking a
+     different legend/slice row...`, `resets the bucket selection...`): these still PASS
+     today (because they now match only the pie wedge — the legend row's grown name no
+     longer exact-matches — and the wedge alone satisfies the loop's aria-pressed
+     assertion), but their legend-row coverage is silently reduced until T11's full
+     query rename. Not a correctness bug; flagged here so T11 doesn't miss it.
+   - **`SemaforoTag`'s `Link to="/semaforo"` typing (real constraint, not a choice):**
+     verified directly against `tsc` that TanStack Router's `Link` `to` prop is
+     typechecked against the app's GLOBALLY REGISTERED route tree
+     (`declare module '@tanstack/react-router' { interface Register ... }` in
+     `main.tsx`, populated from `routeTree.gen.ts`) — NOT against whichever router
+     instance a test's `RouterProvider` supplies at runtime. Since T12 (`/semaforo`'s
+     real route) is scoped to PR3, `to="/semaforo"` fails `tsc` today regardless of the
+     test harness. Resolved with a narrow, documented local cast (`NavLink` in
+     `SemaforoTag.tsx`) rather than pulling T12 forward — keeps PR2's scope exactly
+     T6–T10 as planned. **Removal trigger for T12:** delete the `NavLink` cast and use
+     `Link` directly once the real route is registered; `tsc` will flag the cast as
+     dead/unnecessary at that point.
 3. **PR #3 — Composition, route, eslint, a11y gate** (T11–T14): `ResumenScreen.tsx`,
    `routes/_authenticated/semaforo.tsx`, `src/test/semaforo-route.test.tsx`,
    `eslint.config.js` + test files. ~215 lines. Green in isolation: yes, once PR #2 is
