@@ -548,7 +548,7 @@ typecheck` clean.
 
 ## Phase 5 — Playwright fixtures + E2E (depends on all of Phase 4)
 
-### T15 — `e2e/fixtures/api-stubs.ts` — add 3 DTO stubs (must land BEFORE T16)
+### [x] T15 — `e2e/fixtures/api-stubs.ts` — add 3 DTO stubs (must land BEFORE T16)
 
 File: `apps/web/e2e/fixtures/api-stubs.ts`
 
@@ -571,7 +571,7 @@ fail immediately with unstubbed-network errors if this task is skipped or wrong-
 Traces to: design §4.3 "Fixture work this requires", R-9 (must be its own task, ordered
 before the T1/T13-equivalent Playwright task).
 
-### T16 — `e2e/dashboard-donut.e2e.ts` (new) — 6 real-viewport assertions
+### [x] T16 — `e2e/dashboard-donut.e2e.ts` (new) — 6 real-viewport assertions
 
 File: `apps/web/e2e/dashboard-donut.e2e.ts` (new)
 
@@ -608,7 +608,7 @@ Traces to: WG5-10, design §4.3, §5 (`e2e/dashboard-donut.e2e.ts` row, +6).
 
 ## Phase 6 — Final gate (after all phases merged)
 
-### T17 — Full-suite verification + `ResumenPage.test.tsx` zero-diff confirmation
+### [x] T17 — Full-suite verification + `ResumenPage.test.tsx` zero-diff confirmation
 
 - Confirm `apps/web/src/components/ResumenPage.test.tsx` required **zero edits** across
   the whole change (design §5's explicit "0 edits" row) — `git diff` on that file must be
@@ -621,6 +621,47 @@ Traces to: WG5-10, design §4.3, §5 (`e2e/dashboard-donut.e2e.ts` row, +6).
 
 Traces to: proposal Success Criteria (all CA-01..CA-06 + the final "pnpm web test/
 typecheck green, zero backend diff" line item).
+
+**Apply-time finding (2026-08-16, PR #4/T17 gate — reported honestly, not silently
+passed):** the first bullet's "zero edits" premise is FALSE against the merged reality of
+PR #3. `git diff c3c0aa2 -- apps/web/src/components/ResumenPage.test.tsx` (baseline: the
+commit immediately before PR #1 merged) shows a genuine 76-line diff, NOT an empty one.
+This is not new work from this PR4 batch — it is PR3's own, already-documented T11
+addendum (tasks.md "Proposed PR boundaries #3"): `ResumenPage.test.tsx`'s `renderData`
+helper was switched from a bare `QueryClientProvider` wrapper to `renderConRouter`,
+because `SemaforoTag` (a real `<Link>`, T9) throws outside a router context once
+`ResumenScreen` renders it — the same "router context" ripple that forced
+`ResumenScreen.test.tsx`'s own `renderScreen` helper to switch, T11's task text
+explicitly calls this "a call-site sweep across BOTH test files that compose
+`ResumenScreen`, not just the primary one." The design's §5 table row ("0 edits ⇒ CA-01's
+month header stayed reused-unchanged, not restated") is still TRUE in substance — no
+assertion about the month header itself changed, and no CA-01 behavior regressed — but
+the row's literal "0 edits" framing did not anticipate T9's router-dependent component
+landing inside `ResumenScreen`'s subtree. Verified as harmless: this diff is exclusively
+render-harness plumbing (wrapper swap + two `findBy` awaits for the harness's async
+initial route match) — no assertion text, count, or target changed. Recorded here rather
+than silently checking this task's literal wording as satisfied.
+
+**Verification results (branch `feat/us-047-web-pr4-playwright`, off updated `origin/main`
+— PR1 #373/PR2 #374/PR3 #375 all merged):**
+- `pnpm web typecheck` (`tsr generate && tsc -b`): clean.
+- `pnpm web test`: 1052/1052 passed (102/102 files) — unchanged from PR3 (this batch adds
+  no `.test.` files).
+- `pnpm web exec eslint .`: 0 errors, same 2 pre-existing baseline warnings
+  (`EliminarIngestaControl.tsx`/`ReclasificarCategoriaControl.tsx`).
+- `pnpm web test:e2e` (full suite, all 3 Playwright projects): **51 passed, 33 skipped, 0
+  failed.** The 6 `dashboard-donut.e2e.ts` assertions each ran exactly once, at their
+  scoped viewport, and passed: 3 on `movil`+`tablet` (grid proofs 1–3) and 3 across
+  `tablet`+`movil`+`escritorio` (divider proofs 1–3). No regression to any pre-existing
+  spec (`tablet-grid.e2e.ts`, `mobile-floor.e2e.ts`, `list-surface.e2e.ts`,
+  `edit-surface.e2e.ts`, `mobile-header.e2e.ts` all still green) — confirms T15's 3 new
+  route stubs did not collide with any other spec's own `stubApi` usage.
+- `git diff --stat` against `apps/api/`, `packages/api-client/`, `apps/mobile/` (working
+  tree + `git status --short`): empty — zero backend diff, confirmed across the WHOLE
+  4-PR change, not just this batch.
+- Working-tree diff for PR4 itself: `apps/web/e2e/fixtures/api-stubs.ts` (+92, 3 new DTO
+  stubs) and `apps/web/e2e/dashboard-donut.e2e.ts` (new file, 6 assertions) — matches the
+  forecasted scope exactly, no other file touched.
 
 ---
 

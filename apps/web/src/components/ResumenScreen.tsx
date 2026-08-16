@@ -112,7 +112,10 @@ export function ResumenScreen({
       <h1 className="sr-only">Resumen mensual</h1>
       <IngresoCard totalIngreso={viewModel.totalIngreso} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div
+        className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+        data-testid="dashboard-page-grid"
+      >
         <div className={cn(DASHBOARD_CARD_CLASS, 'flex flex-col gap-4')}>
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold tracking-widest text-secondary uppercase">
