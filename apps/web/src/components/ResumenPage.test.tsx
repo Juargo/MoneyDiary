@@ -1,12 +1,12 @@
 import { afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ResumenPage } from './ResumenPage';
+import { renderConRouter } from '@/test/router-harness';
 import type { ApiError } from '@/api/client';
 import type { ResumenMesDto } from '@/api/types';
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement } from 'react';
 
 // Router-agnostic 4-way state switch (spec W1-02): the container
 // (routes/index.tsx) owns TanStack Router's search params + `useResumen`;
@@ -69,19 +69,12 @@ function mockQuery(
 
 // The data state renders `ResumenScreen`, which embeds `BucketDetailList`
 // for its transactions panel (US-030 Slice B) — that owns its own
-// `useDetalleBucket` query, which throws outside a `QueryClientProvider`.
-// Only the data-state tests below need this wrapper; loading/error/empty
-// never reach `ResumenScreen`.
-function crearQueryWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  };
-}
+// `useDetalleBucket` query, which throws outside a `QueryClientProvider` —
+// AND, as of US-047 T11, the card header's `SemaforoTag`, a real `<Link>`
+// that throws outside a router context. `renderData` below routes through
+// `renderConRouter` (T10's router harness) instead of a bare
+// `QueryClientProvider` for exactly that reason. Only the data-state tests
+// need this; loading/error/empty never reach `ResumenScreen`.
 
 // US-030 Slice C: the data state now also renders `ResumenAnual`
 // (self-fetching `/api/resumen/anual`, like `BucketDetailList` self-fetches
@@ -159,7 +152,7 @@ function mockFetchDetalleBucket() {
 
 function renderData(ui: ReactElement) {
   mockFetchDetalleBucket();
-  return render(ui, { wrapper: crearQueryWrapper() });
+  return renderConRouter(ui);
 }
 
 describe('ResumenPage', () => {
@@ -224,7 +217,9 @@ describe('ResumenPage', () => {
         onPeriodoChange={() => {}}
       />,
     );
-    expect(screen.getByText('$1.000.000')).toBeInTheDocument();
+    // Router harness resolves its initial match asynchronously — `findBy`
+    // for the first assertion, sync `getBy` is safe after that.
+    expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
     // "Necesidades"/"Deseos"(Gustos)/"Ahorro" render twice each (pie slice +
     // legend row) — see ResumenScreen.test.tsx.
     expect(screen.getAllByText('Necesidades').length).toBeGreaterThan(0);
@@ -253,7 +248,9 @@ describe('ResumenPage', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Mes anterior' }),
+    );
 
     expect(onPeriodoChange).toHaveBeenCalledWith('2026-06');
   });

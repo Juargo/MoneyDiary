@@ -1,9 +1,8 @@
 import { afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
-import type { ReactNode } from 'react';
 import { ResumenScreen } from './ResumenScreen';
+import { renderConRouter } from '@/test/router-harness';
 import { aResumenViewModel } from '@/domain/resumen-view-model';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 import type {
@@ -16,8 +15,13 @@ import type {
 // `<Link>` breakdown list is gone — the pie + legend now represent that
 // split, and the right panel shows the SELECTED bucket's transactions
 // inline (via `BucketDetailList`, which owns its own `useDetalleBucket`
-// query) instead of navigating away. A `QueryClientProvider` wrapper (not a
-// router) is what these tests need now.
+// query) instead of navigating away.
+//
+// US-047 T11/PR3 (design §4.4): `renderScreen` now routes through
+// `renderConRouter` (T10's minimal memory-router harness) instead of a bare
+// `QueryClientProvider` — the card header renders `SemaforoTag` (T9), which
+// is a real `<Link>` and throws without router context. One helper change,
+// not twelve per-test edits.
 const viewModel: ResumenViewModel = {
   periodo: '2026-07',
   totalIngreso: '$1.000.000',
@@ -48,30 +52,25 @@ const viewModel: ResumenViewModel = {
       estadoSemaforo: null,
     },
   ],
+  // US-047 T11/PR3: the real 4-item ring (`BUCKETS_ANILLO`) — SinCategoria's
+  // total is $0 in this fixture, so its share is 0% and the three spend
+  // shares are undiluted (50/30/20 — the same values the removed PR1 shim
+  // `distribucionGastoInterina` used to compute separately).
   distribucionGasto: [
     { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
     { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
-  ],
-  // US-047 PR1 shim field (judgment-day round 2): SinCategoria total is 0 in
-  // this fixture, so the renormalized reading equals the diluted one above.
-  distribucionGastoInterina: [
-    { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
-    { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
-    { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
+    { bucket: 'SinCategoria', porcentaje: 0, fraccion: 0 },
   ],
   // Necesidades has the largest raw total among the 4 buckets — the
   // dashboard's default transactions-panel selection (task 30.10).
   bucketPorDefecto: 'Necesidades',
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
-  // US-047 PR1 compile-fix: `leyendaPrincipal`/`leyendaComplemento` became
-  // required fields on `ResumenViewModel` in T5 (design D-03). This fixture
-  // is a hand-rolled view-model (not built via `aResumenViewModel`), so it
-  // needs the two new fields added directly. T11 (Phase 4) is the task that
-  // rewrites this whole fixture/suite to actually exercise the legend props
-  // — this is the minimal 1-line-spirit addition to keep `tsc` green without
-  // pulling that rewrite forward.
+  // `leyendaPrincipal`/`leyendaComplemento` (T5, D-03) — a hand-rolled
+  // view-model (not built via `aResumenViewModel`), so these are written out
+  // directly; values match `distribucionGasto`/`buckets` above exactly
+  // (SinCategoria's 0% share doesn't dilute the three spend percentages).
   leyendaPrincipal: [
     {
       kind: 'gasto',
@@ -146,17 +145,6 @@ function resumenMesDtoReal(): ResumenMesDto {
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
     cantidadSinCategoria: 2,
-  };
-}
-
-function crearWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
   };
 }
 
@@ -294,9 +282,8 @@ function renderScreen(
   vm: ResumenViewModel = viewModel,
   onPeriodoChange: (periodo: string) => void = vi.fn(),
 ) {
-  return render(
+  return renderConRouter(
     <ResumenScreen viewModel={vm} onPeriodoChange={onPeriodoChange} />,
-    { wrapper: crearWrapper() },
   );
 }
 
@@ -306,10 +293,14 @@ describe('ResumenScreen', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders totalIngreso formatted exactly as received (spec W1-01)', () => {
+  // `findByText` (not `getByText`): the router harness resolves its initial
+  // match asynchronously (T10's own docblock/`SemaforoTag.test.tsx`'s
+  // precedent) — the content isn't in the DOM on the synchronous first
+  // render even for a loader-free route.
+  it('renders totalIngreso formatted exactly as received (spec W1-01)', async () => {
     mockFetchPorBucket();
     renderScreen();
-    expect(screen.getByText('$1.000.000')).toBeInTheDocument();
+    expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
   });
 
   // A11y (ADR-018): the document must start at a page-level <h1> instead of
@@ -327,25 +318,22 @@ describe('ResumenScreen', () => {
 
   // "Necesidades"/"Gustos"/"Ahorro" are each selectable in TWO places (pie
   // slice + legend row, both wired to the same `onSelectBucket`) — hence
-  // `getAllByRole` here. "Sin categoría" has no pie slice (excluded from
-  // `distribucionGastoInterina` by design, still true at this PR2 boundary
-  // — the pie's real 4-wedge rewire is T11), only a legend row.
+  // `getAllByRole` here. As of T11/PR3, "Sin categoría" JOINS them: it is
+  // now the ring's 4th wedge (WG5-01, `conInterior`) in addition to its
+  // pre-existing legend row — 1→2, same shape as the three spend buckets.
   //
-  // US-047 PR2 interim query fix (T11 will do the full accessible-name
-  // rename per its own task text — this is only enough to keep this
-  // pre-existing suite correct at the PR2 boundary): the pie wedge's
-  // `aria-label` stayed a concise bucket name ("Necesidades"), but the
-  // legend row's accessible name now includes its content (D-08 deliberate
-  // `aria-label` removal, T7) — e.g. "Necesidades 50% -$500.000". A
-  // `^Necesidades\b` prefix match still counts BOTH controls without
-  // hardcoding the fixture's exact percentage/amount text here.
-  it('renders the "Distribución del gasto" pie + legend, with SinCategoria selectable though outside the pie (spec W1-02, task 30.9/30.10)', () => {
+  // The pie wedge's `aria-label` stays a concise bucket name ("Necesidades"),
+  // while the legend row's accessible name includes its content (D-08
+  // deliberate `aria-label` removal, T7) — e.g. "Necesidades 50%
+  // -$500.000". A `^Necesidades\b` prefix match counts BOTH controls
+  // without hardcoding the fixture's exact percentage/amount text here.
+  it('renders the "Distribución del gasto" pie + legend, with Sin categoría now selectable via both its wedge and its legend row (spec W1-02, WG5-01, task 30.9/30.10)', async () => {
     mockFetchPorBucket();
     renderScreen();
     // FIX 2 (WCAG 4.1.2): the interactive main pie is a "group", not an
     // "img" — role="img" would flatten the slice buttons below it.
     expect(
-      screen.getByRole('group', { name: 'Distribución del gasto' }),
+      await screen.findByRole('group', { name: 'Distribución del gasto' }),
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole('button', { name: /^Necesidades\b/ }),
@@ -358,22 +346,23 @@ describe('ResumenScreen', () => {
     );
     expect(
       screen.getAllByRole('button', { name: /^Sin categoría\b/ }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
   });
 
-  // Regression test (judgment-day PR1 fix, updated for PR2/T7): a REAL
-  // `distribucionGasto` (built via `aResumenViewModel`, not the hand-rolled
-  // `viewModel` fixture above) now has 4 items (SinCategoria included,
-  // US-047 D-05). Before the `tajadasInterinas` shim, the OLD
+  // Regression test (judgment-day PR1 fix, updated for PR2/T7 and PR3/T11):
+  // a REAL `distribucionGasto` (built via `aResumenViewModel`, not the
+  // hand-rolled `viewModel` fixture above) has 4 items (SinCategoria
+  // included, US-047 D-05). Before the `tajadasInterinas` shim, the OLD
   // `entradasLeyenda` spread that 4-item array AND manually appended a
   // SECOND SinCategoria row — a duplicate legend row sharing the same React
   // `key`, which triggered a duplicate-key console warning. `LeyendaGasto`
-  // now renders 5 rows total (3 `leyendaPrincipal` + Ingresos +
-  // SinCategoria from `leyendaComplemento`, T7/WG5-03) — the count changed
-  // from 4→5 because Ingresos moved INSIDE `LeyendaGasto`'s own rendered
-  // rows (it used to live only in `IngresoCard`); this asserts the
-  // duplicate-row/duplicate-key symptom stays gone under the new shape.
-  it('renders exactly 5 legend rows (3 gasto + Ingresos + Sin categoría, no duplicate) from a REAL view model, without a React duplicate-key warning (PR1/PR2 shim regression)', () => {
+  // renders 5 rows total (3 `leyendaPrincipal` + Ingresos + SinCategoria
+  // from `leyendaComplemento`, T7/WG5-03) — this asserts the
+  // duplicate-row/duplicate-key symptom stays gone. As of T11, the pie also
+  // renders the real 4-item ring, so Sin categoría resolves to 2 buttons
+  // (wedge + legend row), not 1 — see the button-count test above for the
+  // same 1→2 shape on the other three buckets.
+  it('renders exactly 5 legend rows (3 gasto + Ingresos + Sin categoría, no duplicate) from a REAL view model, without a React duplicate-key warning (PR1/PR2 shim regression, PR3/T11 4-wedge ring)', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -382,23 +371,28 @@ describe('ResumenScreen', () => {
 
     renderScreen(vmReal);
 
-    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(5);
+    expect(await screen.findAllByTestId('leyenda-item')).toHaveLength(5);
     expect(
       screen.getAllByRole('button', { name: /^Sin categoría\b/ }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     for (const mensaje of consoleErrorSpy.mock.calls.map((call) => call[0])) {
       expect(String(mensaje)).not.toContain('same key');
     }
     consoleErrorSpy.mockRestore();
   });
 
-  it('renders the global semáforo (spec W2-01) with a distinct testID anchor', () => {
+  // US-047 T11/PR3 (design D-06/WG5-07, CA-03 composition-level proof): the
+  // static `SemaforoBadge` (`role="img"`) in the card header is replaced by
+  // the clickable `SemaforoTag` (`role="link"`) — the `semaforo-global`
+  // testid anchor now resolves to a navigable link, not an inert image.
+  it('renders the global semáforo (spec W2-01, WG5-07) as a navigable link, with a distinct testID anchor', async () => {
     mockFetchPorBucket();
     renderScreen();
-    expect(screen.getByTestId('semaforo-global')).toBeInTheDocument();
+    const contenedor = await screen.findByTestId('semaforo-global');
+    expect(contenedor).toBeInTheDocument();
     expect(
-      screen.getAllByRole('img', { name: 'Verde' }).length,
-    ).toBeGreaterThan(0);
+      screen.getByRole('link', { name: /Semáforo: Verde/ }),
+    ).toBeInTheDocument();
   });
 
   // Judgment-day fix: `getAllByRole('button', { name: 'Necesidades' })` uses
@@ -460,19 +454,34 @@ describe('ResumenScreen', () => {
     ).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('SinCategoria is selectable via the legend even though it has no pie slice', async () => {
+  // US-047 T11/PR3: renamed — SinCategoria now HAS a pie wedge (the ring's
+  // 4th member, WG5-01/`conInterior`), so this proves BOTH controls
+  // independently trigger the same drill-down, disambiguated the same way
+  // the Necesidades/Gustos/Ahorro tests above are: the wedge by its exact
+  // `aria-label` ("Sin categoría"), the legend row by a trailing-space
+  // regex (its accessible name grows content, D-08) — an exact-OR-loose
+  // regex here would now match 2 elements and `getByRole` would throw.
+  it('Sin categoría is selectable via both its pie wedge and its legend row (WG5-01)', async () => {
     mockFetchPorBucket();
     renderScreen();
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
     );
 
-    // US-047 PR2 interim query fix (see the comment on the button-count
-    // test above): the legend row's accessible name now includes its
-    // `cantidadLabel`/amount (D-08), so an exact "Sin categoría" match no
-    // longer resolves.
-    fireEvent.click(screen.getByRole('button', { name: /^Sin categoría\b/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sin categoría' }));
+    await waitFor(() =>
+      expect(
+        screen.getByText('Movimiento de SinCategoria'),
+      ).toBeInTheDocument(),
+    );
 
+    // Switch away, then prove the LEGEND ROW independently drives the same
+    // drill-down.
+    fireEvent.click(screen.getByRole('button', { name: 'Necesidades' }));
+    await waitFor(() =>
+      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Sin categoría / }));
     await waitFor(() =>
       expect(
         screen.getByText('Movimiento de SinCategoria'),
@@ -487,7 +496,12 @@ describe('ResumenScreen', () => {
   // loops silently checked only the pie wedge.
   it("resets the bucket selection to the new month's own default when periodo changes, on both the wedge and the legend row (FIX 5)", async () => {
     mockFetchPorBucket();
-    const { rerender } = renderScreen();
+    // `rerenderConRouter` (not RTL's own `rerender`, see the router
+    // harness's own docblock): the harness doesn't use RTL's `wrapper`
+    // option, so RTL's `rerender` would replace the whole tree — including
+    // the `RouterProvider` — with just the new element, crashing
+    // `SemaforoTag`'s `<Link>`.
+    const { rerenderConRouter } = renderScreen();
     await waitFor(() =>
       expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
     );
@@ -505,7 +519,7 @@ describe('ResumenScreen', () => {
       periodo: '2026-08',
       bucketPorDefecto: 'Ahorro',
     };
-    rerender(
+    rerenderConRouter(
       <ResumenScreen viewModel={nuevoViewModel} onPeriodoChange={vi.fn()} />,
     );
 
@@ -547,9 +561,12 @@ describe('ResumenScreen', () => {
   // in the responsive Tailwind classes directly — an accidental removal of
   // the mobile margin or the desktop column switch fails this test loudly,
   // same pattern PR2 used for the shell (AppShell.test.tsx).
-  it('reflows single-column with 16px page margins on mobile, multi-column on lg+ (Phase 4 mobile audit, WDS-04)', () => {
+  it('reflows single-column with 16px page margins on mobile, multi-column on lg+ (Phase 4 mobile audit, WDS-04)', async () => {
     mockFetchPorBucket();
     const { container } = renderScreen();
+    // Router harness resolves its initial match asynchronously — wait for
+    // any rendered content before inspecting the DOM structure.
+    await screen.findByText('$1.000.000');
 
     const paginaRaiz = container.firstElementChild as HTMLElement;
     // p-4 = 16px side margins around the whole dashboard body.
@@ -559,6 +576,29 @@ describe('ResumenScreen', () => {
     expect(seccionDosColumnas).toBeInTheDocument();
     expect(seccionDosColumnas.className).toMatch(/\bgrid-cols-1\b/);
     expect(seccionDosColumnas.className).toMatch(/\blg:grid-cols-2\b/);
+  });
+
+  // Design D-08: hint text below the legend, owned by ResumenScreen.
+  it('renders the hint text below the chart card body (design D-08)', async () => {
+    mockFetchPorBucket();
+    renderScreen();
+    expect(
+      await screen.findByText(
+        'Toca un ítem del gráfico o la leyenda para ver su detalle del mes',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // Design D-09 (T1 tablet variant): SMOKE check only — jsdom does not
+  // evaluate CSS/layout, so this only proves the grid container/classes
+  // exist in markup. The real CA-05 proof is Playwright (T15/T16), per the
+  // binding WCTG-14 anti-pattern guard (tasks.md).
+  it('the chart card body carries the T1 grid container (smoke check, not the CA-05 proof)', async () => {
+    mockFetchPorBucket();
+    renderScreen();
+    const cuerpo = await screen.findByTestId('grafico-card-body');
+    expect(cuerpo.className).toMatch(/\bgrid-cols-1\b/);
+    expect(cuerpo.className).toMatch(/\bmd:grid-cols-2\b/);
   });
 
   it('wires ResumenAnual month clicks to the same onPeriodoChange callback', async () => {

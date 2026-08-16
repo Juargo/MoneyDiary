@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { act, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -11,13 +12,24 @@ import { render } from '@testing-library/react';
 
 /**
  * Minimal, throwaway router for component tests that render a `<Link>`
- * (`SemaforoTag`, T9 — and transitively `ResumenScreen` once T11 composes
- * it) — NOT the app's real generated `routeTree.gen.ts` (design §4.4). A
- * root route renders whatever `ui` the caller passes in; a `/semaforo`
- * route renders a sentinel so navigating there resolves instead of
- * throwing mid-test. No auth, no `_authenticated` layout, no
- * `normalizarPeriodo` reuse — those are exercised at the route-tree
- * integration layer (`src/test/semaforo-route.test.tsx`, T12), not here.
+ * (`SemaforoTag`, T9 — and transitively `ResumenScreen`, T11) — NOT the
+ * app's real generated `routeTree.gen.ts` (design §4.4). A root route
+ * renders whatever `ui` the caller passes in; a `/semaforo` route renders a
+ * sentinel so navigating there resolves instead of throwing mid-test. No
+ * auth, no `_authenticated` layout, no `normalizarPeriodo` reuse — those are
+ * exercised at the route-tree integration layer
+ * (`src/test/semaforo-route.test.tsx`, T12), not here.
+ *
+ * The returned `rerenderConRouter` (not RTL's own `rerender`, T11 addendum):
+ * the index route's rendered content is a stable `Host` component that
+ * re-reads a mutable `ui` box on a forced re-render — RTL's own `rerender`
+ * would replace the ENTIRE tree (including the `RouterProvider` itself)
+ * with just the new element, since this harness doesn't use RTL's `wrapper`
+ * option; that crashes any `<Link>` inside with "useRouter must be used
+ * inside a <RouterProvider>". `rerenderConRouter` instead updates `ui` in
+ * place and re-renders the SAME mounted `Host` instance, matching what a
+ * real parent passing a new prop down to an already-mounted child does
+ * (needed by FIX 5's periodo-change-resets-selection test).
  *
  * Excluded from coverage: matches this directory's existing `src/test/**`
  * exclusion (test infrastructure, not implementation under test — no
@@ -31,11 +43,20 @@ export function renderConRouter(
     defaultOptions: { queries: { retry: false } },
   });
 
+  let uiActual = ui;
+  let forzarActualizacion: (() => void) | null = null;
+
+  function Host() {
+    const [, forzarRerender] = useState(0);
+    forzarActualizacion = () => forzarRerender((n) => n + 1);
+    return uiActual;
+  }
+
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/',
-    component: () => ui,
+    component: Host,
   });
   const semaforoRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -56,9 +77,20 @@ export function renderConRouter(
     history: createMemoryHistory({ initialEntries: [initialPath] }),
   });
 
-  return render(
+  const resultado = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+
+  return {
+    ...resultado,
+    /** See this function's own docblock above for why this exists instead of RTL's `rerender`. */
+    rerenderConRouter(nuevoUi: ReactElement) {
+      uiActual = nuevoUi;
+      act(() => {
+        forzarActualizacion?.();
+      });
+    },
+  };
 }
