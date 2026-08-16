@@ -370,6 +370,53 @@ describe('aResumenViewModel', () => {
       expect(sinCategoria).toMatchObject({ cantidadLabel: '0 tx' });
     });
 
+    // Judgment-day round 3 (US-047 PR1): a mutation reintroducing the
+    // filter-without-renormalize bug at the wiring site survived the suite —
+    // the default fixture's SinCategoria total is 0, where diluted and
+    // renormalized are numerically identical. This pins the renormalized
+    // values through a NONZERO-SinCategoria fixture: 400000/250000/250000
+    // over the 3-bucket denominator (900000) → 44/28/28, sum 100.
+    it('leyendaPrincipal y distribucionGastoInterina renormalizan sobre los 3 buckets cuando SinCategoria tiene gasto (44/28/28, suma 100)', () => {
+      const vm = aResumenViewModel(
+        dto({
+          buckets: [
+            {
+              bucket: 'Necesidades',
+              total: '400000',
+              porcentajeBp: 4000,
+              estadoSemaforo: 'verde',
+            },
+            {
+              bucket: 'Deseos',
+              total: '250000',
+              porcentajeBp: 2500,
+              estadoSemaforo: 'verde',
+            },
+            {
+              bucket: 'Ahorro',
+              total: '250000',
+              porcentajeBp: 2500,
+              estadoSemaforo: 'amarillo',
+            },
+            {
+              bucket: 'SinCategoria',
+              total: '100000',
+              porcentajeBp: 1000,
+              estadoSemaforo: null,
+            },
+          ],
+        }),
+      );
+      expect(vm.leyendaPrincipal).toMatchObject([
+        { kind: 'gasto', porcentaje: 44 },
+        { kind: 'gasto', porcentaje: 28 },
+        { kind: 'gasto', porcentaje: 28 },
+      ]);
+      expect(
+        vm.distribucionGastoInterina.reduce((sum, t) => sum + t.porcentaje, 0),
+      ).toBe(100);
+    });
+
     it('TajadaGasto (distribucionGasto) sigue sin montoLabel — el anillo se mantiene libre de dinero (I-2)', () => {
       const vm = aResumenViewModel(dto());
       const necesidades = vm.distribucionGasto.find(

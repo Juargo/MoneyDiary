@@ -7,7 +7,10 @@ import { ErrorState } from './states/Error';
 import { Empty } from './states/Empty';
 import { MiniDistribucionPie } from './MiniDistribucionPie';
 import { SemaforoBadge } from './SemaforoBadge';
-import { calcularDistribucionGasto } from '@/domain/distribucion-gasto';
+import {
+  BUCKETS_5030,
+  calcularDistribucionGasto,
+} from '@/domain/distribucion-gasto';
 import {
   mesAbreviado,
   mesCompletoLabel,
@@ -108,7 +111,11 @@ function MesCelda({
   readonly onSelectPeriodo: (periodo: string) => void;
 }) {
   const tieneDatos = !mes.sinIngreso;
-  const tajadas = calcularDistribucionGasto(mes.buckets);
+  // US-047 PR1 interim: the default distribution now spans 4 ring items
+  // (BUCKETS_ANILLO, includes SinCategoria). The annual minis keep the
+  // 3-slice 50/30/20 reading until US-048 redesigns this table — passing
+  // BUCKETS_5030 renormalizes over the 3 spend buckets (sums to 100).
+  const tajadas = calcularDistribucionGasto(mes.buckets, BUCKETS_5030);
   const etiquetaMes = mesAbreviado(mes.periodo);
 
   const contenido = (
