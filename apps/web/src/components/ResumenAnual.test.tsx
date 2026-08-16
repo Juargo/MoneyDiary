@@ -145,7 +145,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -156,7 +161,12 @@ describe('ResumenAnual', () => {
     mockFetchAnual({ ok: false, status: 500 });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -174,7 +184,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -191,7 +206,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -224,6 +244,7 @@ describe('ResumenAnual', () => {
     render(
       <ResumenAnual
         anio={2026}
+        periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
@@ -246,6 +267,7 @@ describe('ResumenAnual', () => {
     render(
       <ResumenAnual
         anio={2026}
+        periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
@@ -280,7 +302,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -307,12 +334,19 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
     await waitFor(() =>
-      expect(screen.getByText('Resumen Anual 2026')).toBeInTheDocument(),
+      expect(
+        screen.getByText('Año 2026 — vista macro por mes'),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -326,7 +360,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -351,7 +390,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
@@ -371,15 +415,20 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       { wrapper: crearWrapper() },
     );
 
     const region = await screen.findByRole('region', {
-      name: 'Resumen Anual 2026',
+      name: 'Año 2026 — vista macro por mes',
     });
     expect(region).not.toHaveAttribute('aria-label');
-    const titulo = screen.getByText('Resumen Anual 2026');
+    const titulo = screen.getByText('Año 2026 — vista macro por mes');
     expect(region.getAttribute('aria-labelledby')).toBe(titulo.id);
     expect(titulo.id).toBeTruthy();
   });
@@ -403,7 +452,12 @@ describe('ResumenAnual', () => {
     });
 
     const { container } = render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       {
         wrapper: crearWrapper(),
       },
@@ -448,7 +502,12 @@ describe('ResumenAnual', () => {
     });
 
     render(
-      <ResumenAnual anio={2026} onSelectPeriodo={vi.fn()} ahora={AHORA} />,
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
       {
         wrapper: crearWrapper(),
       },
@@ -483,6 +542,7 @@ describe('ResumenAnual', () => {
     render(
       <ResumenAnual
         anio={2026}
+        periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
@@ -498,5 +558,154 @@ describe('ResumenAnual', () => {
 
     fireEvent.click(celdaJulio);
     expect(onSelectPeriodo).not.toHaveBeenCalled();
+  });
+
+  // US-048 design D-01/D-05/D-11 (WTA-02): the selected marker is derived
+  // from the required `periodoSeleccionado` prop, exists on exactly one
+  // cell, and is contained inside that cell's month control.
+  it('shows the selected-month marker only on the selected cell (N-01)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    render(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-03"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const botonMarzo = await screen.findByRole('button', {
+      name: 'Ver marzo 2026',
+    });
+    const marcadores = screen.getAllByTestId('mes-seleccionado-marker');
+    expect(marcadores).toHaveLength(1);
+    expect(
+      within(botonMarzo).getByTestId('mes-seleccionado-marker'),
+    ).toBeInTheDocument();
+  });
+
+  // US-048 design D-04 (WTA-02, R-3): today (`✓`/`aria-current="date"`) and
+  // selected (`mes-seleccionado-marker`) occupy DIFFERENT visual channels —
+  // when the viewed period differs from today, each channel appears on its
+  // own cell only.
+  it('splits the selected marker from the today marker into distinct channels (N-02)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    render(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-03"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const botonMarzo = await screen.findByRole('button', {
+      name: 'Ver marzo 2026',
+    });
+    expect(
+      within(botonMarzo).getByTestId('mes-seleccionado-marker'),
+    ).toBeInTheDocument();
+    expect(
+      within(botonMarzo).queryByTestId('mes-actual-marker'),
+    ).not.toBeInTheDocument();
+    expect(botonMarzo).not.toHaveAttribute('aria-current');
+
+    const botonJulio = await screen.findByRole('button', {
+      name: 'Ver julio 2026',
+    });
+    expect(
+      within(botonJulio).getByTestId('mes-actual-marker'),
+    ).toBeInTheDocument();
+    expect(botonJulio).toHaveAttribute('aria-current', 'date');
+    expect(
+      within(botonJulio).queryByTestId('mes-seleccionado-marker'),
+    ).not.toBeInTheDocument();
+  });
+
+  // US-048 design §2.2 (N-10, cross-endpoint defensive pin): the selected
+  // marker lives in the shared `contenido` fragment (same discipline as FIX
+  // 1's `esActual`), so it must survive on the disabled (`sinIngreso`)
+  // branch without crashing — even though the production wiring never
+  // selects an empty month today, the annual endpoint's per-month
+  // `sinIngreso` and the monthly endpoint's `sinIngreso` are independent and
+  // could disagree.
+  it('renders the selected marker inside a sinIngreso disabled cell without crashing (N-10)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    render(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-12"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const celdaDiciembre = (await screen.findByText('DIC')).closest(
+      '[aria-disabled="true"]',
+    ) as HTMLElement;
+    expect(celdaDiciembre).toBeInTheDocument();
+    expect(
+      within(celdaDiciembre).getByTestId('mes-seleccionado-marker'),
+    ).toBeInTheDocument();
+  });
+
+  // US-048 design D-09/D-10 (WTA-06, CA-06): the caption names the ACTUALLY
+  // selected month via `mesCompletoLabel(periodoSeleccionado)` — never a
+  // hardcoded month — and updates when the prop changes.
+  it('renders a caption naming the selected month, updating when periodoSeleccionado changes (N-07)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    const { rerender } = render(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-03"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expect(
+      await screen.findByText(
+        'Toca un mes: el gráfico principal cambia a ese mes, con el mismo drill-down de siempre. Estás viendo marzo 2026.',
+      ),
+    ).toBeInTheDocument();
+
+    rerender(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Toca un mes: el gráfico principal cambia a ese mes, con el mismo drill-down de siempre. Estás viendo julio 2026.',
+      ),
+    ).toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react';
 import { useResumenAnual } from '@/api/use-resumen-anual';
 import type { ApiError } from '@/api/client';
 import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
@@ -39,10 +40,12 @@ import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
  */
 export function ResumenAnual({
   anio,
+  periodoSeleccionado,
   onSelectPeriodo,
   ahora = new Date(),
 }: {
   readonly anio: number;
+  readonly periodoSeleccionado: string;
   readonly onSelectPeriodo: (periodo: string) => void;
   readonly ahora?: Date;
 }) {
@@ -58,18 +61,33 @@ export function ResumenAnual({
         id={tituloId}
         className="text-xs font-semibold tracking-widest text-secondary uppercase"
       >
-        Resumen Anual {anio}
+        Año {anio} — vista macro por mes
       </h2>
-      {renderEstado(query, onSelectPeriodo, periodoActualUTC(ahora))}
+      {renderEstado({
+        query,
+        onSelectPeriodo,
+        periodoActual: periodoActualUTC(ahora),
+        periodoSeleccionado,
+      })}
     </section>
   );
 }
 
-function renderEstado(
-  query: UseQueryResult<ResumenAnualDto, ApiError>,
-  onSelectPeriodo: (periodo: string) => void,
-  periodoActual: string,
-) {
+// D-12: named-argument object instead of four positional params —
+// `periodoActual`/`periodoSeleccionado` are both `string`, adjacent, and
+// semantically opposite; a positional swap would type-check and silently
+// exchange "today" and "selected".
+function renderEstado({
+  query,
+  onSelectPeriodo,
+  periodoActual,
+  periodoSeleccionado,
+}: {
+  query: UseQueryResult<ResumenAnualDto, ApiError>;
+  onSelectPeriodo: (periodo: string) => void;
+  periodoActual: string;
+  periodoSeleccionado: string;
+}) {
   if (query.isPending) {
     return <Loading message="Cargando resumen anual…" />;
   }
@@ -85,26 +103,36 @@ function renderEstado(
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {query.data.meses.map((mes) => (
-        <MesCelda
-          key={mes.periodo}
-          mes={mes}
-          esActual={mes.periodo === periodoActual}
-          onSelectPeriodo={onSelectPeriodo}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {query.data.meses.map((mes) => (
+          <MesCelda
+            key={mes.periodo}
+            mes={mes}
+            esActual={mes.periodo === periodoActual}
+            esSeleccionado={mes.periodo === periodoSeleccionado}
+            onSelectPeriodo={onSelectPeriodo}
+          />
+        ))}
+      </div>
+      {/* D-09: caption, data branch only, flex sibling of the grid. */}
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Info aria-hidden="true" size={14} className="shrink-0" />
+        {`Toca un mes: el gráfico principal cambia a ese mes, con el mismo drill-down de siempre. Estás viendo ${mesCompletoLabel(periodoSeleccionado)}.`}
+      </p>
+    </>
   );
 }
 
 function MesCelda({
   mes,
   esActual,
+  esSeleccionado,
   onSelectPeriodo,
 }: {
   readonly mes: ResumenMesDto;
   readonly esActual: boolean;
+  readonly esSeleccionado: boolean;
   readonly onSelectPeriodo: (periodo: string) => void;
 }) {
   const tieneDatos = !mes.sinIngreso;
@@ -121,7 +149,18 @@ function MesCelda({
           </span>
         )}
       </span>
-      <MiniDistribucionPie tajadas={tajadas} size={56} />
+      {/* D-05: fixed h-16 w-16 reserved space, zero layout shift — the mint
+          fill/border/testid only appear on the selected cell; the pie's own
+          size (56) never changes. */}
+      <span
+        data-testid={esSeleccionado ? 'mes-seleccionado-marker' : undefined}
+        className={cn(
+          'flex h-16 w-16 items-center justify-center rounded-full',
+          esSeleccionado && 'border-2 border-ingreso-foreground bg-ingreso',
+        )}
+      >
+        <MiniDistribucionPie tajadas={tajadas} size={56} />
+      </span>
       <SemaforoBadge estadoSemaforo={mes.estadoGlobal} size={20} />
     </>
   );
@@ -154,7 +193,11 @@ function MesCelda({
         // LOCKED (WCAG 1.4.11): focus ring stays outline-slate-800, matching
         // the pie slices/legend — do NOT re-tint.
         'flex flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
-        esActual ? 'border-2 border-primary bg-muted' : 'border-border bg-card',
+        // D-04: `esActual` no longer drives any className — cell chrome is
+        // exclusively the "selected" channel now.
+        esSeleccionado
+          ? 'border-2 border-ingreso-foreground bg-card'
+          : 'border-border bg-card',
       )}
     >
       {contenido}

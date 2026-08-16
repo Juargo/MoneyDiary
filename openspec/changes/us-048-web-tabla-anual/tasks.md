@@ -50,22 +50,22 @@ assertion, no new tests. Low review load.
 
 Still no `<Link>` in `MesCelda` → no test-harness migration (design §8). Depends on PR1 merged (same file).
 
-- [ ] **B1.** RED: add `N-01` to `ResumenAnual.test.tsx` — with `periodoSeleccionado="2026-03"`,
+- [x] **B1.** RED: add `N-01` to `ResumenAnual.test.tsx` — with `periodoSeleccionado="2026-03"`,
       `mes-seleccionado-marker` is inside MAR's control and absent from every other cell. Add the required
       `periodoSeleccionado` prop (D-11) to this one new test's render call. Confirm it fails to compile/render
       (prop doesn't exist yet).
-- [ ] **B2.** RED: add `N-02` — with `periodoSeleccionado="2026-03"` and `ahora` pinned to a July date: MAR has
+- [x] **B2.** RED: add `N-02` — with `periodoSeleccionado="2026-03"` and `ahora` pinned to a July date: MAR has
       the selected marker and **no** `✓`/`aria-current`; JUL has `✓`+`aria-current="date"` and **no** selected
       marker (D-04's channel split, R-3's closure).
-- [ ] **B3.** RED: add `N-10` — with `periodoSeleccionado` targeting the `sinIngreso` December fixture,
+- [x] **B3.** RED: add `N-10` — with `periodoSeleccionado` targeting the `sinIngreso` December fixture,
       `mes-seleccionado-marker` renders inside December's disabled cell without crashing (§2.2 — the marker
       lives in the shared `contenido` fragment already used by `esActual`/FIX 1, so it does not require the
       tag/wrapper restructure that ships in Slice C).
-- [ ] **B4.** RED: add `N-07` — the caption renders the exact sentence
+- [x] **B4.** RED: add `N-07` — the caption renders the exact sentence
       `Toca un mes: el gráfico principal cambia a ese mes, con el mismo drill-down de siempre. Estás viendo
       {mes año}.` naming the selected month, and updates when `periodoSeleccionado` changes (WTA-06, D-09/D-10
       APPROVED literal — one template literal, one text node per §6.1's `getByText` note).
-- [ ] **B5.** GREEN (production, one commit-worthy unit):
+- [x] **B5.** GREEN (production, one commit-worthy unit):
       - `ResumenAnual.tsx`: make `periodoSeleccionado: string` a **required** prop (D-11, no default);
         compute `esSeleccionado = mes.periodo === periodoSeleccionado` alongside the existing `esActual`,
         strictly separate (D-04) — `esActual` stops driving any `className`, retire `border-2 border-primary
@@ -82,12 +82,12 @@ Still no `<Link>` in `MesCelda` → no test-harness migration (design §8). Depe
       - `ResumenScreen.tsx`: pass `periodoSeleccionado={viewModel.periodo}` into `ResumenAnual` (§2.4 data
         flow — `viewModel.periodo` is the single source of truth, never a locally tracked click).
       Verify: `N-01`, `N-02`, `N-10`, `N-07` all pass.
-- [ ] **B6.** Sweep — `periodoSeleccionado` required prop (D-11, tsc-enforced, 15 sites total): add the prop to
+- [x] **B6.** Sweep — `periodoSeleccionado` required prop (D-11, tsc-enforced, 15 sites total): add the prop to
       the remaining **13** existing `ResumenAnual.test.tsx` render calls (the 14th is `N-01`, already added in
       B1) so the whole file compiles. This is mechanical — `tsc` names every miss.
       Verify: `pnpm web exec tsc --noEmit -p apps/web` (or `pnpm web typecheck`) — zero "missing property
       periodoSeleccionado" errors.
-- [ ] **B7.** Copy edits — the 5-assertion blast radius (D-10 override procedure, exact locations):
+- [x] **B7.** Copy edits — the 5-assertion blast radius (D-10 override procedure, exact locations):
       1. `ResumenAnual.test.tsx` title-with-year test (~:315): `'Resumen Anual 2026'` →
          `'Año 2026 — vista macro por mes'`.
       2. `ResumenAnual.test.tsx` region-name-via-`aria-labelledby` test (~:379 **and** :382 — **one test,
@@ -96,15 +96,15 @@ Still no `<Link>` in `MesCelda` → no test-harness migration (design §8). Depe
       4. `ResumenPage.test.tsx:237`: `screen.getByRole('heading', { level: 2, name: 'Resumen Anual 2026' })` →
          `name: 'Año 2026 — vista macro por mes'` (§6.6 — the missed-then-recovered third pin site).
       Verify: `rg "Resumen Anual 2026" apps/web/src` returns **zero** matches when done.
-- [ ] **B8.** RED→GREEN: add `S-01` to `ResumenScreen.test.tsx` — rendering with `viewModel.periodo =
+- [x] **B8.** RED→GREEN: add `S-01` to `ResumenScreen.test.tsx` — rendering with `viewModel.periodo =
       '2026-01'` puts `mes-seleccionado-marker` inside ENE's control and nowhere else, proving `ResumenScreen`
       threads `viewModel.periodo` end-to-end (not today, not a local guess). `mockFetchPorBucket`'s annual
       fixture is **not** modified (January already has data).
-- [ ] **B9.** Anti-blind-re-record check (§4.1 principle applied here): confirm the 15 pre-existing,
+- [x] **B9.** Anti-blind-re-record check (§4.1 principle applied here): confirm the 15 pre-existing,
       non-copy `ResumenAnual.test.tsx`/`ResumenScreen.test.tsx`/`ResumenPage.test.tsx` assertions are
       byte-identical except for the 5 copy-string edits in B7 — no other assertion text changed.
-- [ ] **B10.** `pnpm web test && pnpm web typecheck && pnpm web exec eslint .` all green.
-- [ ] **B11.** Commit(s) (work-unit, may split into 2 if reviewable): `feat(web): selected-month marker,
+- [x] **B10.** `pnpm web test && pnpm web typecheck && pnpm web exec eslint .` all green.
+- [x] **B11.** Commit(s) (work-unit, may split into 2 if reviewable): `feat(web): selected-month marker,
       caption and header copy in the annual grid` (+ optionally a separate `test:` commit if the RED tests
       were staged first — keep tests with the behavior they verify per skill guidance, so prefer one commit).
 
