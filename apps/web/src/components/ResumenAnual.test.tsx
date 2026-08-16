@@ -417,13 +417,14 @@ describe('ResumenAnual', () => {
     expect(grid.className).toMatch(/\blg:grid-cols-4\b/);
   });
 
-  // US-047 PR1 interim: the domain default distribution now spans 4 ring
-  // items (BUCKETS_ANILLO, includes SinCategoria). The annual minis keep the
-  // 3-slice 50/30/20 reading until US-048 — this pins MesCelda's explicit
-  // BUCKETS_5030 renormalization against a month whose SinCategoria total is
-  // NONZERO (a zero-total fixture cannot distinguish diluted from
-  // renormalized, so it would pass either way).
-  it('renders exactly 3 mini-pie slices per month even when SinCategoria has spending (US-047 PR1 interim)', async () => {
+  // US-048 (design §4.1, WTA-01): the mini ring reads the full 4-item
+  // BUCKETS_ANILLO default (Necesidades, Deseos, Ahorro, SinCategoria) — the
+  // US-047 PR1 interim BUCKETS_5030 renormalization is retired. Reuses the
+  // eneroConSinCategoria fixture verbatim (nonzero SinCategoria total is the
+  // whole point — a zero-total fixture cannot distinguish diluted from
+  // renormalized). Fills, not just count, prove the 4th wedge is genuinely
+  // SinCategoria grey in BUCKETS_ANILLO ring order.
+  it('renders 4 mini-pie slices per month, including the SinCategoria wedge (WTA-01)', async () => {
     const enero = mesConDatos('2026-01');
     const eneroConSinCategoria: ResumenMesDto = {
       ...enero,
@@ -454,7 +455,14 @@ describe('ResumenAnual', () => {
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
-    expect(screen.getAllByTestId('mini-pie-slice')).toHaveLength(3);
+    const slices = screen.getAllByTestId('mini-pie-slice');
+    expect(slices).toHaveLength(4);
+    expect(slices.map((slice) => slice.getAttribute('fill'))).toEqual([
+      '#8FA7D1',
+      '#B1A7D1',
+      '#E6D194',
+      '#AEB4C4',
+    ]);
   });
 
   it('a sinIngreso month that is also the current month stays disabled but still carries aria-current="date" (FIX 5)', async () => {
