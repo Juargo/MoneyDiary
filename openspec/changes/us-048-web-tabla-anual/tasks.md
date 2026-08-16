@@ -204,7 +204,7 @@ and PR3 (`MiniSemaforoTag`) both merged.
       pre-restructure assertion recorded in C2a-1 is still green, byte-identical, against the new DOM — this
       is R-1's actual closure, not aspirational. Any of them going red is the exact regression R-1 predicted;
       stop and fix the restructure, do not adjust the assertion.
-      Verify: `pnpm web test -- ResumenAnual` full file green, 24/24 tests (per §6.8 ledger).
+      Verify: `pnpm web test -- ResumenAnual` full file green, 25/25 tests (§6.8 ledger 24 + the WTA-02 same-cell coexistence test added post-judgment in PR2, un-ledgered).
 - [x] **C2a-7.** `eslint.config.js` — add the scoped `error` block from design §7 exactly as specified
       (`ResumenAnual.tsx`, `MiniSemaforoTag.tsx` — listed before/after authoring is irrelevant now, both
       exist), `extends: [jsxA11y.flatConfigs.recommended]`. Run lint. **Pre-decided contingency (do not
