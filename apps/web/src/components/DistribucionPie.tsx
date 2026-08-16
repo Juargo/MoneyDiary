@@ -234,6 +234,12 @@ function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
  *
  * US-030 Slice B (task 30.10): the main pie's slices double as the dashboard's
  * bucket selector — see `Pie`'s docstring for the interaction contract.
+ *
+ * US-047 (design D-01, judgment-day fix): the main ring's donut hole is
+ * OPT-IN via `conInterior` (default `false`, filled pie — byte-identical to
+ * this component's pre-US-047 shape). A caller only opts in once it feeds
+ * the full 4-item `BUCKETS_ANILLO` ring; a hole around a still-3-item ring
+ * would visibly regress the standalone chart.
  */
 export function DistribucionPie({
   tajadas,
@@ -241,12 +247,22 @@ export function DistribucionPie({
   bucketSeleccionado,
   onSelectBucket,
   size = 240,
+  conInterior = false,
 }: {
   readonly tajadas: ReadonlyArray<TajadaGasto>;
   readonly targets: ResumenViewModel['targets'];
   readonly bucketSeleccionado: string | null;
   readonly onSelectBucket: (bucket: string) => void;
   readonly size?: number;
+  /**
+   * Opt-in donut hole for the main ring (US-047 D-01). Default `false` —
+   * judgment-day fix: a caller feeding fewer than the full `BUCKETS_ANILLO`
+   * set (e.g. `ResumenScreen` at the PR2 boundary, still on the PR1 shim's
+   * 3-item reading) would otherwise get a hole around an incomplete ring,
+   * visibly worse than the pre-US-047 filled pie. `ResumenScreen` opts in
+   * only once it wires the real 4-item `distribucionGasto` (T11).
+   */
+  readonly conInterior?: boolean;
 }) {
   const idealSize = size * 0.34;
   // FIX 2 (WCAG 4.1.2): role="img" flattens the whole subtree for assistive
@@ -258,9 +274,12 @@ export function DistribucionPie({
   // US-047 (design D-01): the main ring's donut-hole ratio — a VISUAL
   // choice, so it lives here (component), not in `domain/pie-geometry.ts`
   // (pure math over absolute px). The IDEAL inset stays `rInterior = 0`
-  // (filled, D-02) — it never receives this.
+  // (filled, D-02) — it never receives this. Judgment-day fix: the hole
+  // itself is opt-in (`conInterior` prop, default `false`) — see that
+  // prop's docblock for why an unconditional hole was a regression for a
+  // caller still feeding fewer than the full ring.
   const RATIO_INTERIOR = 0.58;
-  const rInteriorAnillo = (size / 2) * RATIO_INTERIOR;
+  const rInteriorAnillo = conInterior ? (size / 2) * RATIO_INTERIOR : 0;
 
   return (
     <div

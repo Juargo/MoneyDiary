@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import type { KeyboardEvent, ReactElement, ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
@@ -21,9 +21,15 @@ import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
 // this alias becomes unused (the compiler will flag it).
 const NavLink = Link as unknown as (props: {
   readonly to: string;
-  readonly search?: Record<string, unknown>;
+  // Narrowed from `Record<string, unknown>` (judgment-day fix): `to` stays
+  // loosely typed (the whole point of this shim), but `search`'s shape is
+  // known — `{ periodo }` — so a wrong-shaped search param still fails
+  // `tsc`, same discipline the real generated route will enforce once T12
+  // lands and this cast is removed.
+  readonly search?: { periodo?: string };
   readonly className?: string;
   readonly children?: ReactNode;
+  readonly onKeyDown?: (event: KeyboardEvent<HTMLAnchorElement>) => void;
 }) => ReactElement;
 
 /**
@@ -35,8 +41,11 @@ const NavLink = Link as unknown as (props: {
  * `estadoGlobal: null` still renders a navigable "Sin datos" link
  * (WG5-08) — never omitted, never disabled — mirroring `SemaforoBadge`'s
  * existing SIN_DATOS precedent (shared via `lib/semaforo-estilos.ts`, T8).
- * `Link` renders a real `<a>`, so it is keyboard-operable (Tab/Enter) with
- * no extra `onKeyDown` wiring.
+ * `Link` renders a real `<a>`, so Tab/Enter are keyboard-operable for free
+ * (the browser's own default action). Space is NOT — no browser natively
+ * activates an `<a href>` on Space (it scrolls instead) — so WG5-12's
+ * Tab/Enter/Space requirement needs one explicit `onKeyDown` below
+ * (judgment-day fix) to prevent that default and activate navigation.
  */
 export function SemaforoTag({
   estadoGlobal,
@@ -52,6 +61,15 @@ export function SemaforoTag({
       to="/semaforo"
       search={{ periodo }}
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800 ${estilo.className}`}
+      onKeyDown={(event) => {
+        // WG5-12: Space doesn't natively activate an <a href> — prevent its
+        // default (page scroll) and trigger the same navigation a click
+        // would (Link's own click handler runs the actual routing).
+        if (event.key === ' ') {
+          event.preventDefault();
+          event.currentTarget.click();
+        }
+      }}
     >
       <span aria-hidden="true">{estilo.cara}</span>
       <span>Semáforo: {estilo.label}</span>

@@ -135,7 +135,19 @@ function FilaClickeable({
             </span>
           ) : (
             <span className="text-sm font-semibold text-foreground">
-              {item.cantidadLabel}
+              {/* CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018): "tx" is a
+                  visual abbreviation an AT user shouldn't have to guess at.
+                  The visible "N tx" stays on screen but is pulled OUT of the
+                  accessible name (`aria-hidden`); a `sr-only` sibling
+                  REPLACES it with the spelled-out count instead of
+                  duplicating the digit. */}
+              <span aria-hidden="true">{item.cantidadLabel}</span>
+              <span className="sr-only">
+                {item.cantidadLabel.replace(
+                  /\s*tx$/,
+                  ' transacciones sin categorizar',
+                )}
+              </span>
             </span>
           )}
         </span>{' '}

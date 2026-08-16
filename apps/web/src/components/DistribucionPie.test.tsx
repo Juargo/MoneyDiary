@@ -234,15 +234,39 @@ describe('DistribucionPie', () => {
     ).toBeInTheDocument();
   });
 
-  // US-047 T6/D-01: the main ring is a DONUT now — wedges never start at
-  // the SVG centre and carry TWO arc commands (outer arc + inner arc =
-  // the hole), vs. a filled wedge's single arc.
-  it('main-ring wedge paths do not start at the centre and carry an outer + inner arc — the donut hole (US-047 CA-01 donut proof)', () => {
-    renderPie({ tajadas: tajadasConSinCategoria, size: 240 });
+  // US-047 T6/D-01: the main ring is a DONUT ONLY when `conInterior` is
+  // opted in — wedges never start at the SVG centre and carry TWO arc
+  // commands (outer arc + inner arc = the hole), vs. a filled wedge's single
+  // arc. (Judgment-day fix: `conInterior` defaults to `false` — see the
+  // "renders a filled pie by default" test below for the un-opted-in case.)
+  it('main-ring wedge paths do not start at the centre and carry an outer + inner arc — the donut hole when conInterior is enabled (US-047 CA-01 donut proof)', () => {
+    renderPie({
+      tajadas: tajadasConSinCategoria,
+      size: 240,
+      conInterior: true,
+    });
     for (const path of screen.getAllByTestId('pie-slice')) {
       const d = path.getAttribute('d') ?? '';
       expect(d.startsWith('M 120 120')).toBe(false);
       expect(d.match(/A /g)).toHaveLength(2);
+    }
+  });
+
+  // Judgment-day fix: the donut hole was applied unconditionally, which
+  // meant any standalone consumer feeding fewer than the full ring (as
+  // `ResumenScreen` still does at this PR2 boundary — 3 items via the PR1
+  // shim, no `SinCategoria` wedge) got a hole with a visibly incomplete
+  // ring: worse than the pre-US-047 filled pie. The hole is now opt-in via
+  // `conInterior` (default `false`), so a caller that hasn't wired the 4th
+  // wedge yet keeps the byte-identical filled-pie shape `main` already
+  // ships — same single-arc, `M cx cy`-starting path this function always
+  // returned before this change (T1's own regression contract).
+  it('renders the filled pie (no hole) by default — the donut hole is opt-in via conInterior (US-047 PR2 judgment fix)', () => {
+    renderPie({ size: 240 });
+    for (const path of screen.getAllByTestId('pie-slice')) {
+      const d = path.getAttribute('d') ?? '';
+      expect(d.startsWith('M 120 120')).toBe(true);
+      expect(d.match(/A /g)).toHaveLength(1);
     }
   });
 

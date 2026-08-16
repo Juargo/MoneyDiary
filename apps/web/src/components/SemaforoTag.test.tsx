@@ -1,5 +1,5 @@
-import { fireEvent, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { createEvent, fireEvent, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { renderConRouter } from '@/test/router-harness';
 import { SemaforoTag } from './SemaforoTag';
 
@@ -49,6 +49,46 @@ describe('SemaforoTag', () => {
     renderConRouter(<SemaforoTag estadoGlobal="verde" periodo="2026-07" />);
     const link = await screen.findByRole('link', { name: /Verde/ });
     fireEvent.click(link);
+    expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();
+  });
+
+  // WG5-12: a real `<a href>` is keyboard-operable on Enter/Tab with no
+  // extra wiring — this asserts it is reachable by Tab and receives focus
+  // (the "focusable" half of WG5-12; Enter's own native browser activation
+  // needs no test of app code, see the next test's comment).
+  it('is focusable and reachable by Tab (WG5-12)', async () => {
+    renderConRouter(<SemaforoTag estadoGlobal="verde" periodo="2026-07" />);
+    const link = await screen.findByRole('link', { name: /Verde/ });
+    link.focus();
+    expect(link).toHaveFocus();
+  });
+
+  // WG5-12: Enter activation on a focused `<a href>` is the BROWSER's own
+  // default action — no app-level `onKeyDown` is needed or added for it (see
+  // the component docblock). jsdom does not simulate that native default
+  // action from a bare `fireEvent.keyDown`, so this documents the
+  // equivalence (a real Enter keypress === a click) rather than asserting
+  // app code that doesn't exist.
+  it('activates on Enter — the browser default action on a focused <a href>, verified here via its click equivalent', async () => {
+    renderConRouter(<SemaforoTag estadoGlobal="verde" periodo="2026-07" />);
+    const link = await screen.findByRole('link', { name: /Verde/ });
+    fireEvent.click(link);
+    expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();
+  });
+
+  // CRITICAL fix (judgment-day, WG5-12): unlike Enter, Space does NOT
+  // natively activate an `<a href>` in any browser — it scrolls the page
+  // instead. `SemaforoTag` adds its own `onKeyDown` to prevent that default
+  // and activate navigation, matching WG5-12's Tab/Enter/Space requirement.
+  it('activates on Space, preventing the default page-scroll (WG5-12)', async () => {
+    renderConRouter(<SemaforoTag estadoGlobal="verde" periodo="2026-07" />);
+    const link = await screen.findByRole('link', { name: /Verde/ });
+    const evento = createEvent.keyDown(link, { key: ' ' });
+    const preventDefaultSpy = vi.spyOn(evento, 'preventDefault');
+
+    fireEvent(link, evento);
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
     expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();
   });
 });

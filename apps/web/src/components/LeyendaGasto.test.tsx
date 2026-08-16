@@ -97,11 +97,33 @@ describe('LeyendaGasto', () => {
     const onSelectBucket = vi.fn();
     renderLeyenda({ onSelectBucket });
     const boton = screen.getByRole('button', {
-      name: 'Sin categoría 7 tx -$45.000',
+      name: 'Sin categoría 7 transacciones sin categorizar -$45.000',
     });
     expect(boton).toBeInTheDocument();
     fireEvent.click(boton);
     expect(onSelectBucket).toHaveBeenCalledWith('SinCategoria');
+  });
+
+  // CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018, tasks.md T7, design §5):
+  // "tx" is a visual abbreviation an AT user shouldn't have to guess — the
+  // accessible name must spell it out. Pattern: the visible "7 tx" stays
+  // `aria-hidden`, a `sr-only` sibling REPLACES it in the accessible name
+  // (not a duplicate of the digit) — same discipline as this repo's other
+  // `sr-only` usages (`rg "sr-only" apps/web/src`).
+  it('replaces the "tx" abbreviation with an sr-only expansion in the accessible name, while the visible text stays the concise "N tx" (WCAG 4.1.2)', () => {
+    renderLeyenda();
+    // Visible text is unchanged — still the concise abbreviation.
+    expect(screen.getByText('7 tx')).toBeInTheDocument();
+    // The digit-bearing visible text is aria-hidden — the accessible name
+    // for that segment comes ONLY from the sr-only expansion below.
+    expect(screen.getByText('7 tx')).toHaveAttribute('aria-hidden', 'true');
+    const expansion = screen.getByText('7 transacciones sin categorizar');
+    expect(expansion).toHaveClass('sr-only');
+    expect(
+      screen.getByRole('button', {
+        name: 'Sin categoría 7 transacciones sin categorizar -$45.000',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('the chevron is aria-hidden and never appears in a row accessible name (US-047 WG5-12)', () => {
@@ -156,6 +178,20 @@ describe('LeyendaGasto', () => {
     expect(
       screen.getByRole('button', { name: 'Necesidades 42% -$624.500' }),
     ).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  // Restored (judgment-day): dropped without replacement when this file was
+  // rewritten for T7 — mirrors DistribucionPie.test.tsx's own color-dot
+  // guard (`applies the resolved color to each slice...`).
+  it('applies the resolved color to each color dot, including a deliberate neutral grey for Sin categoría (not the #CCCCCC fallback)', () => {
+    renderLeyenda();
+    const colores = screen
+      .getAllByTestId('leyenda-dot')
+      .map((dot) => dot.style.backgroundColor);
+    // rgb(174, 180, 196) === #AEB4C4, the SinCategoria dedicated grey.
+    expect(colores).toContain('rgb(174, 180, 196)');
+    expect(colores).not.toContain('#CCCCCC');
+    expect(colores).not.toContain('rgb(204, 204, 204)');
   });
 
   it('clicking a spend-bucket row reports its bucket via onSelectBucket', () => {
