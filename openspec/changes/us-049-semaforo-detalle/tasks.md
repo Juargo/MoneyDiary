@@ -29,7 +29,7 @@
 ```text
 Decision needed before apply: Yes
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: stacked-to-main (decided at the apply gate — 3 size:exceptions approved for PR2a/PR4/PR6; backend PRs 1-4 ship dark)
 400-line budget risk: High
 ```
 
