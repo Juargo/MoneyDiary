@@ -1851,6 +1851,8 @@ export interface components {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly total: string;
             }[];
+            /** @description US-045: count of uncategorized cargo transactions (row count, not money). Always present. */
+            readonly cantidadSinCategoria: number;
             /** @description Worst traffic-light state across measured buckets, or null. */
             readonly estadoGlobal: ("verde" | "amarillo" | "rojo") | null;
             /** @description Resolved period, format YYYY-MM. */

@@ -280,14 +280,14 @@ Requirements: D-06, ADR-011, ADR-012. Depends on Phase 6 (schema is the
 source of truth). **Sequential and blocking** — Phase 8/9/10/11 all consume
 the regenerated artifacts.
 
-- [ ] **T7.1** Run `pnpm contract:sync` (== `pnpm api openapi:emit && pnpm
+- [x] **T7.1** Run `pnpm contract:sync` (== `pnpm api openapi:emit && pnpm
       api-client generate`) from the repo root. Commit
       `apps/api/openapi.json` and `packages/api-client/src/types.gen.ts`
       together with the schema change from Phase 6 — design §5 states these
       files "MUST be committed together; a partial commit fails CI."
       - Verify: `pnpm api openapi:check` (drift gate) exits 0.
       - Verify: `git diff --exit-code packages/api-client/src/types.gen.ts` after re-running `pnpm api-client generate` (client-type-drift gate — must be a no-op the second time).
-- [ ] **T7.2** Confirm `ResumenMesResponse` gained the property + a
+- [x] **T7.2** Confirm `ResumenMesResponse` gained the property + a
       `required` entry, and that `ResumenAnualResponse` (`meses[]`) picked
       it up via its existing `$ref` to `ResumenMesResponse` (D-07's wire
       consequence) — spot check `openapi.json` by eye, no new test needed
