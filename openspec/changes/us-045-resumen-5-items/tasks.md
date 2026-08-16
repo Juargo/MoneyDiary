@@ -406,7 +406,7 @@ Requirements: D-06. Depends on Phase 7. `[P]` with Phase 11.
 
 ## Phase 13 — Final cross-workspace gate sweep
 
-- [ ] **T13.1** Full-repo verification, mirroring CI:
+- [x] **T13.1** Full-repo verification, mirroring CI:
       - `pnpm test` (all workspaces)
       - `pnpm build` (all workspaces — catches any residual `tsc` drift)
       - `pnpm api-client typecheck` (`packages/api-client` — `tsc --noEmit`)
