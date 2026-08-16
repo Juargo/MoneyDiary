@@ -118,6 +118,7 @@ const resumenDto: ResumenMesDto = {
   periodo: '2026-07',
   totalIngreso: '1000000',
   sinIngreso: false,
+  cantidadSinCategoria: 0,
   buckets: [
     {
       bucket: 'Necesidades',
