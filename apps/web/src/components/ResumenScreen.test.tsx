@@ -1,5 +1,6 @@
 import { afterEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { ResumenScreen } from './ResumenScreen';
 import { renderConRouter } from '@/test/router-harness';
@@ -599,6 +600,48 @@ describe('ResumenScreen', () => {
     const cuerpo = await screen.findByTestId('grafico-card-body');
     expect(cuerpo.className).toMatch(/\bgrid-cols-1\b/);
     expect(cuerpo.className).toMatch(/\bmd:grid-cols-2\b/);
+  });
+
+  // T14 (design §6, WG5-12): the composition-level a11y sign-off — every
+  // per-control keyboard proof already exists in isolation
+  // (DistribucionPie.test.tsx/LeyendaGasto.test.tsx/SemaforoTag.test.tsx,
+  // T6/T7/T9); this proves the semáforo tag AND every clickable legend row
+  // are reachable/operable together on the SAME composed screen, and that
+  // Ingresos never receives focus here either (WG5-06).
+  it('the semáforo tag and every clickable legend row are keyboard-focusable together, with Ingresos never focusable (T14, WG5-12)', async () => {
+    mockFetchPorBucket();
+    renderScreen();
+    await screen.findByText('$1.000.000');
+
+    const controlesEsperados = [
+      screen.getByRole('link', { name: /Semáforo: Verde/ }),
+      screen.getByRole('button', { name: /^Necesidades / }),
+      screen.getByRole('button', { name: /^Gustos / }),
+      screen.getByRole('button', { name: /^Ahorro / }),
+      screen.getByRole('button', { name: /^Sin categoría / }),
+    ];
+    for (const control of controlesEsperados) {
+      control.focus();
+      expect(control).toHaveFocus();
+    }
+
+    // Ingresos renders as a plain <li> (WG5-06 interim) — it has no
+    // interactive role at all, so it can never be a Tab stop.
+    expect(
+      screen.queryByRole('button', { name: /Ingresos/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Ingresos/ }),
+    ).not.toBeInTheDocument();
+
+    // Composed-screen keyboard activation of the semáforo tag (mouse-click
+    // navigation is already proven by the "renders the global semáforo..."
+    // test above) — Enter is the anchor's native activation.
+    const user = userEvent.setup();
+    const semaforoTag = screen.getByRole('link', { name: /Semáforo: Verde/ });
+    semaforoTag.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();
   });
 
   it('wires ResumenAnual month clicks to the same onPeriodoChange callback', async () => {
