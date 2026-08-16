@@ -53,6 +53,13 @@ const viewModel: ResumenViewModel = {
     { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
   ],
+  // US-047 PR1 shim field (judgment-day round 2): SinCategoria total is 0 in
+  // this fixture, so the renormalized reading equals the diluted one above.
+  distribucionGastoInterina: [
+    { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
+    { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
+    { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
+  ],
   // Necesidades has the largest raw total among the 4 buckets — the
   // dashboard's default transactions-panel selection (task 30.10).
   bucketPorDefecto: 'Necesidades',

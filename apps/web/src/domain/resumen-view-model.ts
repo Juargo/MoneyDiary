@@ -77,6 +77,18 @@ export interface ResumenViewModel {
   /** Share-of-spending split for the pie + legend (77/12/11-style). */
   readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
   /**
+   * TEMPORARY PR1 shim (US-047, judgment-day round 2 CRITICAL fix; removed
+   * by PR2/PR3, tasks T6/T11): the same 3 spend buckets as
+   * `distribucionGasto`, but apportioned over `BUCKETS_5030` ONLY —
+   * SinCategoria excluded from both the numerator set and the denominator,
+   * so `porcentaje` sums to exactly 100 across these 3 items (unlike
+   * filtering `distribucionGasto`'s diluted 4-item reading down to 3, which
+   * would leave the OLD diluted percentages and NOT sum to 100). This is
+   * what `ResumenScreen`'s still-3-slice pie/legend renders until the real
+   * 4-wedge donut UI lands.
+   */
+  readonly distribucionGastoInterina: ReadonlyArray<TajadaGasto>;
+  /**
    * The bucket with the largest total among all 4 buckets (including
    * SinCategoria) — the dashboard's default selection for the transactions
    * panel before the user picks one explicitly (US-030 Slice B, task 30.10).
@@ -164,29 +176,23 @@ function totalPorBucket(
 
 /**
  * `leyendaPrincipal` — the three 50/30/20 items, `kind: 'gasto'` (D-03).
- * Built by filtering `distribucionGasto` (already in `BUCKETS_ANILLO`
- * order) down to `BUCKETS_5030` membership — this naturally preserves
- * canonical order AND naturally empties when `distribucionGasto` is `[]`
- * (no spending), matching the "ring renders muted placeholder, legend's
- * principal group is empty" edge case (design §3).
+ * Sourced from `distribucionGastoInterina` (already `BUCKETS_5030`-only,
+ * renormalized so its `porcentaje` sums to 100 — judgment-day round 2
+ * CRITICAL fix) instead of filtering the diluted 4-item `distribucionGasto`
+ * post-hoc, which would keep percentages that don't sum to 100. Naturally
+ * preserves canonical order AND naturally empties when there is no spending
+ * (design §3 edge case).
  */
 function aLeyendaPrincipal(
-  distribucionGasto: ReadonlyArray<TajadaGasto>,
+  distribucionGastoInterina: ReadonlyArray<TajadaGasto>,
   buckets: ReadonlyArray<BucketResumenDto>,
 ): ItemLeyenda[] {
-  return distribucionGasto
-    .filter((t): t is TajadaGasto & { bucket: (typeof BUCKETS_5030)[number] } =>
-      (BUCKETS_5030 as readonly string[]).includes(t.bucket),
-    )
-    .map((t) => ({
-      kind: 'gasto' as const,
-      bucket: t.bucket,
-      porcentaje: t.porcentaje,
-      montoLabel: formatearMontoConSigno(
-        totalPorBucket(buckets, t.bucket),
-        '-',
-      ),
-    }));
+  return distribucionGastoInterina.map((t) => ({
+    kind: 'gasto' as const,
+    bucket: t.bucket,
+    porcentaje: t.porcentaje,
+    montoLabel: formatearMontoConSigno(totalPorBucket(buckets, t.bucket), '-'),
+  }));
 }
 
 /**
@@ -224,16 +230,21 @@ function aLeyendaComplemento(dto: ResumenMesDto): ItemLeyenda[] {
  */
 export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
   const distribucionGasto = calcularDistribucionGasto(dto.buckets);
+  const distribucionGastoInterina = calcularDistribucionGasto(
+    dto.buckets,
+    BUCKETS_5030,
+  );
   return {
     periodo: dto.periodo,
     totalIngreso: formatearMontoCLP(dto.totalIngreso),
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
     distribucionGasto,
+    distribucionGastoInterina,
     bucketPorDefecto: bucketConMayorTotal(dto.buckets),
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
-    leyendaPrincipal: aLeyendaPrincipal(distribucionGasto, dto.buckets),
+    leyendaPrincipal: aLeyendaPrincipal(distribucionGastoInterina, dto.buckets),
     leyendaComplemento: aLeyendaComplemento(dto),
   };
 }

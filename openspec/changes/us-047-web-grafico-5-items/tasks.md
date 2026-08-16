@@ -703,6 +703,30 @@ is single-workspace `apps/web` only).
    fixture gained the two new fields with literal values matching its existing data, no
    other line in that file touched. T11 (Phase 4) is still the task that rewrites this
    fixture/suite for real to exercise the new legend props end to end.
+
+   **judgment-day round 2 CRITICAL fix (2026-08-16, PR #1 iteration):** the original PR1
+   shim (`ResumenScreen.tsx`'s `tajadasInterinas` — a component-side `.filter(...)` of the
+   4-item `viewModel.distribucionGasto` down to `BUCKETS_5030` membership) filtered but
+   never renormalized. With a diluted 4-item reading like 40/25/25/10, the filtered 3 items
+   printed 40+25+25 = 90, not 100, and `calcularAngulos`'s forced-360 closure silently
+   stretched the LAST wedge (Ahorro) to absorb SinCategoria's missing 10 points — a
+   user-visible rendering defect. Fixed by keeping the math in the domain layer (ADR-024):
+   `calcularDistribucionGasto` (`distribucion-gasto.ts`) gained a trailing optional
+   `bucketsIncluidos: ReadonlyArray<string> = BUCKETS_ANILLO` param — passing `BUCKETS_5030`
+   apportions (largest-remainder, BigInt ratios) over ONLY the 3 spend buckets, so the
+   result sums to exactly 100 again. `aResumenViewModel` now computes a second,
+   `BUCKETS_5030`-scoped reading into a new REQUIRED `distribucionGastoInterina` field
+   (same PR1-shim-removal contract as below); `aLeyendaPrincipal` was also switched to
+   consume it directly (it had the SAME filter-without-renormalize bug, latent because its
+   only test fixture happens to have a zero-total SinCategoria). `ResumenScreen.tsx` now
+   reads `viewModel.distribucionGastoInterina` for both the pie and the legend spread — the
+   component-side filter predicate is gone entirely, so the DRY duplication Judge A flagged
+   (the same `BUCKETS_5030`-membership predicate appearing in both `ResumenScreen.tsx` and
+   `resumen-view-model.ts`) resolved itself rather than needing a shared-helper extraction.
+   **Updated shim-removal reminder:** PR2/PR3 (T6/T11) must remove BOTH
+   `distribucionGastoInterina` (the view-model field) AND its two call sites
+   (`ResumenScreen.tsx`'s pie/legend props) when the real 4-wedge donut UI lands — not just
+   the original `tajadasInterinas` local variable.
 2. **PR #2 — Ring + legend + semáforo tag components** (T6–T10): `DistribucionPie.tsx`,
    `LeyendaGasto.tsx`, `SemaforoBadge.tsx`, `lib/semaforo-estilos.ts`, `SemaforoTag.tsx`,
    `lib/bucket-colors.ts`, `index.css`, `src/test/router-harness.tsx` + their test files.

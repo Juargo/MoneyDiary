@@ -174,4 +174,65 @@ describe('calcularDistribucionGasto', () => {
     expect(tajadas.map((t) => t.porcentaje)).toEqual([50, 50]);
     expect(tajadas[0].fraccion).toBeCloseTo(0.5, 6);
   });
+
+  // US-047 PR1 shim (judgment-day round 2 CRITICAL fix): a trailing optional
+  // `bucketsIncluidos` param lets a caller apportion over a SUBSET of
+  // `BUCKETS_ANILLO` instead of always all 4 — the math (largest-remainder,
+  // BigInt ratios) stays in the domain layer (ADR-024) instead of a
+  // component-side filter-without-renormalize shim.
+  describe('parámetro bucketsIncluidos (US-047 PR1 shim)', () => {
+    it('con BUCKETS_5030 excluye SinCategoria del denominador y renormaliza — reproduce el bug reportado (40/25/25/10 diluido -> 44/28/28 renormalizado)', () => {
+      const entradas = [
+        bucket('Necesidades', '400000'),
+        bucket('Deseos', '250000'),
+        bucket('Ahorro', '250000'),
+        bucket('SinCategoria', '100000'),
+      ];
+
+      // Sanity check: the default (4-item, BUCKETS_ANILLO) reading is the
+      // issue's reported 40/25/25/10 — exact diluted percentages, no
+      // remainder rounding involved.
+      const diluido = calcularDistribucionGasto(entradas);
+      expect(diluido.map((t) => t.porcentaje)).toEqual([40, 25, 25, 10]);
+
+      const renormalizado = calcularDistribucionGasto(entradas, BUCKETS_5030);
+      expect(renormalizado.map((t) => t.bucket)).toEqual([
+        'Necesidades',
+        'Deseos',
+        'Ahorro',
+      ]);
+      // 900000 total (SinCategoria excluded): 400000/900000=44.4%,
+      // 250000/900000=27.7% x2 — largest remainder hands the 2 leftover
+      // points to the two tied .7 remainders (Deseos, Ahorro).
+      expect(renormalizado.map((t) => t.porcentaje)).toEqual([44, 28, 28]);
+      expect(renormalizado.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
+    });
+
+    it('las fracciones del subconjunto suman exactamente 1.0 — legitima el cierre forzado a 360 de calcularAngulos (sin absorción de gap en la última cuña)', () => {
+      const tajadas = calcularDistribucionGasto(
+        [
+          bucket('Necesidades', '500000'),
+          bucket('Deseos', '300000'),
+          bucket('Ahorro', '200000'),
+          bucket('SinCategoria', '999999'),
+        ],
+        BUCKETS_5030,
+      );
+      const sumaFracciones = tajadas.reduce((s, t) => s + t.fraccion, 0);
+      // PRECISION-truncated BigInt ratio (1e6) — tolerance matches that scale.
+      expect(sumaFracciones).toBeCloseTo(1.0, 5);
+    });
+
+    it('sin segundo argumento, el comportamiento es idéntico al de BUCKETS_ANILLO (default byte-identical)', () => {
+      const entradas = [
+        bucket('Necesidades', '770000'),
+        bucket('Deseos', '120000'),
+        bucket('Ahorro', '110000'),
+        bucket('SinCategoria', '5000'),
+      ];
+      expect(calcularDistribucionGasto(entradas)).toEqual(
+        calcularDistribucionGasto(entradas, BUCKETS_ANILLO),
+      );
+    });
+  });
 });

@@ -62,18 +62,29 @@ function montoSeguro(montoStr: string): bigint {
  * displayed numbers always sum to exactly 100 — never 99 or 101. When there is
  * no spending, returns `[]` so the caller can render an empty-pie placeholder
  * instead of dividing by zero.
+ *
+ * `bucketsIncluidos` (US-047 PR1 shim, judgment-day round 2 CRITICAL fix): a
+ * trailing optional param, `BUCKETS_ANILLO` by default (byte-identical to the
+ * pre-fix signature). Passing `BUCKETS_5030` apportions ONLY over the 3 spend
+ * buckets — SinCategoria drops out of BOTH the numerator set and the
+ * denominator, so the returned percentages sum to exactly 100 again. Without
+ * this, a caller that filtered the 4-item `BUCKETS_ANILLO` result down to 3
+ * items post-hoc would keep the DILUTED percentages (e.g. 40/25/25 instead of
+ * 44/28/28), which don't sum to 100 — and `calcularAngulos`'s forced-360
+ * closure would silently stretch the last wedge to absorb the missing share.
  */
 export function calcularDistribucionGasto(
   buckets: ReadonlyArray<EntradaBucket>,
+  bucketsIncluidos: ReadonlyArray<string> = BUCKETS_ANILLO,
 ): TajadaGasto[] {
   const porNombre = new Map(buckets.map((b) => [b.bucket, b.total]));
 
-  const incluidos = BUCKETS_ANILLO.filter((nombre) =>
-    porNombre.has(nombre),
-  ).map((nombre) => ({
-    bucket: nombre,
-    monto: montoSeguro(porNombre.get(nombre) as string),
-  }));
+  const incluidos = bucketsIncluidos
+    .filter((nombre) => porNombre.has(nombre))
+    .map((nombre) => ({
+      bucket: nombre,
+      monto: montoSeguro(porNombre.get(nombre) as string),
+    }));
 
   const total = incluidos.reduce((suma, b) => suma + b.monto, 0n);
   if (total <= 0n) {
