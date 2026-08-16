@@ -1,87 +1,192 @@
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import type { ItemLeyenda } from '@/domain/resumen-view-model';
 
 /**
- * One legend/selector row. `porcentaje` is the share-of-spending percent from
- * the pie (`TajadaGasto`) — optional because a bucket outside the pie
- * (SinCategoria, task 30.10) is still selectable via this legend even though
- * it has no pie slice/share to show.
- */
-export interface LeyendaTajada {
-  readonly bucket: string;
-  readonly porcentaje?: number;
-}
-
-/**
- * Pie legend + bucket selector: one row per spending bucket with its color
- * dot, user-facing label ("Gustos" for the domain's "Deseos"), and
- * share-of-spending percent — the SAME numbers as the pie slices. DOM port of
- * `apps/mobile/src/components/LeyendaGasto.tsx`, extended for US-030 Slice B
- * (task 30.10): every row is a real, selectable `<button>` reporting its
- * bucket via `onSelectBucket`, with `aria-pressed` reflecting
- * `bucketSeleccionado` — this is how the dashboard's transactions panel
- * switches buckets. Purely presentational; color and label are resolved here
- * via `lib/bucket-colors` (mirrors mobile's `theme/colors.ts`).
+ * Pie legend + bucket selector — US-047 (design D-03/D-08): two ordered
+ * `ItemLeyenda[]` groups (`principales`: the three 50/30/20 rows;
+ * `complemento`: Ingresos then Sin categoría), separated by a structural
+ * divider element (always in the DOM, viewport-conditional visibility only
+ * — `hidden lg:block`, D-09; the Playwright geometry proof is T13's job,
+ * not this component's). Row shape is derived from the item's `kind`
+ * (D-03's discriminated union), never from a boolean flag:
+ * `'gasto'`/`'sinCategoria'` → clickable `<button>` + chevron (both drill
+ * down via `onSelectBucket`, `WCAT-01`); `'ingreso'` → an inert `<li>`
+ * (`WG5-06`, no drill-down endpoint exists yet).
+ *
+ * Accessible-name change (deliberate, D-08/R-8): the per-row `aria-label`
+ * is REMOVED — the row's own visible text (name, %/count, amount) now
+ * forms the accessible name, satisfying WCAG 2.5.3 Label in Name and
+ * removing a duplicated string that could drift from what's on screen. The
+ * color dot and `outline-slate-800`/`px-2 py-1` focus/target-size treatment
+ * carry over unchanged from the pre-US-047 component (LOCKED, WCAG 1.4.11 /
+ * 2.5.8).
  */
 export function LeyendaGasto({
-  tajadas,
+  principales,
+  complemento,
   bucketSeleccionado,
   onSelectBucket,
 }: {
-  readonly tajadas: ReadonlyArray<LeyendaTajada>;
+  readonly principales: ReadonlyArray<ItemLeyenda>;
+  readonly complemento: ReadonlyArray<ItemLeyenda>;
   readonly bucketSeleccionado: string | null;
   readonly onSelectBucket: (bucket: string) => void;
 }) {
-  if (tajadas.length === 0) {
-    return null;
+  return (
+    <div className="flex flex-col gap-1">
+      <ul className="flex flex-col gap-1">
+        {principales.map((item) =>
+          filaParaItem(item, bucketSeleccionado, onSelectBucket),
+        )}
+      </ul>
+
+      {/* D-09: a CSS-only visibility toggle, never conditional JSX — the
+          element is ALWAYS in the DOM (T13/Playwright proves absence at
+          tablet/mobile viewports via computed geometry, not this test
+          file). `lg` (≥1024px) is this spec's desktop threshold. */}
+      <hr
+        data-testid="leyenda-divisor"
+        className="hidden border-t border-border lg:my-1 lg:block"
+      />
+
+      <ul className="flex flex-col gap-1">
+        {complemento.map((item) =>
+          filaParaItem(item, bucketSeleccionado, onSelectBucket),
+        )}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * `principales` is contractually always `kind: 'gasto'` and `complemento`
+ * is `[ingreso, sinCategoria]` (D-03), but both are typed as the full
+ * `ItemLeyenda` union on `ResumenViewModel` — this dispatcher handles all
+ * 3 kinds so both `.map()` call sites stay a one-liner without an unsafe
+ * cast.
+ */
+function filaParaItem(
+  item: ItemLeyenda,
+  bucketSeleccionado: string | null,
+  onSelectBucket: (bucket: string) => void,
+) {
+  if (item.kind === 'ingreso') {
+    return <FilaIngreso key="ingreso" item={item} />;
   }
+  return (
+    <FilaClickeable
+      key={item.bucket}
+      item={item}
+      seleccionado={item.bucket === bucketSeleccionado}
+      onSelectBucket={onSelectBucket}
+    />
+  );
+}
+
+/**
+ * One clickable row — `'gasto'` (name · % · amount) or `'sinCategoria'`
+ * (name · N tx · amount), both rendering the same button/chevron/dot
+ * shell. Modeled as one function (not two) because the interactive shell
+ * is identical; only the middle content column differs by `kind`.
+ */
+function FilaClickeable({
+  item,
+  seleccionado,
+  onSelectBucket,
+}: {
+  readonly item: Extract<ItemLeyenda, { kind: 'gasto' | 'sinCategoria' }>;
+  readonly seleccionado: boolean;
+  readonly onSelectBucket: (bucket: string) => void;
+}) {
+  const etiqueta = ETIQUETA_BUCKET[item.bucket] ?? item.bucket;
 
   return (
-    <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-      {tajadas.map((tajada) => {
-        const seleccionado = tajada.bucket === bucketSeleccionado;
-        return (
-          <li
-            key={tajada.bucket}
-            data-testid="leyenda-item"
-            className="flex items-center gap-2"
-          >
-            <button
-              type="button"
-              aria-label={ETIQUETA_BUCKET[tajada.bucket] ?? tajada.bucket}
-              aria-pressed={seleccionado}
-              onClick={() => onSelectBucket(tajada.bucket)}
-              className={cn(
-                // LOCKED (WCAG 1.4.11): unified with the pie slices'
-                // `outline-slate-800` (>3:1 on white) — `outline-slate-400`
-                // (~2.6:1) failed non-text contrast. Do NOT re-tint.
-                // Phase 4 mobile audit (WDS-04, WCAG 2.2 AA 2.5.8 Target Size
-                // Minimum): px-2/py-1 (was px-1/py-0.5, right at the 24x24
-                // CSS px boundary) for a more comfortable tap target on the
-                // bottom-tab breakpoint.
-                'flex items-center gap-2 rounded-lg px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
-                seleccionado && 'bg-muted',
-              )}
-            >
-              <span
-                data-testid="leyenda-dot"
-                className="h-3 w-3 rounded-full"
-                style={{
-                  backgroundColor: COLOR_BUCKET[tajada.bucket] ?? '#CCCCCC',
-                }}
-              />
-              <span className="text-sm text-foreground">
-                {ETIQUETA_BUCKET[tajada.bucket] ?? tajada.bucket}
+    <li data-testid="leyenda-item">
+      <button
+        type="button"
+        aria-pressed={seleccionado}
+        onClick={() => onSelectBucket(item.bucket)}
+        className={cn(
+          // LOCKED (WCAG 1.4.11): outline-slate-800 (>3:1 on white) — do
+          // NOT re-tint. LOCKED (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable
+          // tap target.
+          'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+          seleccionado && 'bg-muted',
+        )}
+      >
+        <span className="flex items-center gap-2">
+          <span
+            data-testid="leyenda-dot"
+            className="h-3 w-3 shrink-0 rounded-full"
+            style={{ backgroundColor: COLOR_BUCKET[item.bucket] ?? '#CCCCCC' }}
+          />
+          {/* Explicit `{' '}` text-node separators (not just `gap-*`
+              utilities): the accessible-name algorithm concatenates
+              adjacent inline elements' text content with NO implied
+              whitespace, so "Necesidades"+"42%" would otherwise compute as
+              the single word "Necesidades42%" — a real accname bug, not a
+              visual one (`gap-2` only affects layout). */}
+          <span className="text-sm text-foreground">{etiqueta}</span>{' '}
+          {item.kind === 'gasto' ? (
+            <span className="text-sm font-semibold text-foreground">
+              {item.porcentaje}%
+            </span>
+          ) : (
+            <span className="text-sm font-semibold text-foreground">
+              {/* CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018): "tx" is a
+                  visual abbreviation an AT user shouldn't have to guess at.
+                  The visible "N tx" stays on screen but is pulled OUT of the
+                  accessible name (`aria-hidden`); a `sr-only` sibling
+                  REPLACES it with the spelled-out count instead of
+                  duplicating the digit. */}
+              <span aria-hidden="true">{item.cantidadLabel}</span>
+              <span className="sr-only">
+                {item.cantidadLabel.replace(
+                  /\s*tx$/,
+                  ' transacciones sin categorizar',
+                )}
               </span>
-              {tajada.porcentaje !== undefined && (
-                <span className="text-sm font-semibold text-foreground">
-                  {tajada.porcentaje}%
-                </span>
-              )}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+            </span>
+          )}
+        </span>{' '}
+        <span className="flex items-center gap-1">
+          <span className="text-sm font-semibold text-foreground">
+            {item.montoLabel}
+          </span>
+          <ChevronRight
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+          />
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * Ingresos row — inert `<li>`, NOT a disabled `<button>` (US-047 CA-04/
+ * WG5-06 interim). No drill-down endpoint exists yet for Ingresos; a
+ * disabled control would still sit in some assistive tech's browse order
+ * looking "broken" rather than "not yet available" — a plain `<li>` is
+ * genuinely inert (never reached by Tab). Trigger to make this
+ * interactive: a real Ingresos drill-down endpoint (none exists today).
+ */
+function FilaIngreso({
+  item,
+}: {
+  readonly item: Extract<ItemLeyenda, { kind: 'ingreso' }>;
+}) {
+  return (
+    <li
+      data-testid="leyenda-item"
+      className="flex items-center justify-between gap-3 px-2 py-1"
+    >
+      <span className="text-sm text-foreground">Ingresos</span>
+      <span className="text-sm font-semibold text-foreground">
+        {item.montoLabel}
+      </span>
+    </li>
   );
 }

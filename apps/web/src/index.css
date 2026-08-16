@@ -23,6 +23,7 @@
   --color-gustos: #b1a7d1; /* lavanda — Deseos/Gustos */
   --color-ahorro: #e6d194; /* pastel yellow — Ahorro */
   --color-exceso: #e88a8a; /* coral — over-budget state (currently unconsumed) */
+  --color-sin-categoria: #aeb4c4; /* neutral grey — donut ring's 4th wedge (US-047 D-08) (currently unconsumed) */
 
   /*
    * Income card fill+text PAIR (DCR-01/03). Unlike the bucket fills above

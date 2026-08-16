@@ -5,13 +5,10 @@ import { DistribucionPie } from './DistribucionPie';
 import { LeyendaGasto } from './LeyendaGasto';
 import { BucketDetailList } from './BucketDetailList';
 import { ResumenAnual } from './ResumenAnual';
-import type { LeyendaTajada } from './LeyendaGasto';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 import { anioDePeriodo } from '@/domain/periodo-anual';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { cn } from '@/lib/utils';
-
-const BUCKET_SIN_CATEGORIA = 'SinCategoria';
 
 /**
  * Dashboard body (US-030 Slice B, tasks 30.9/30.10): income header + a
@@ -54,24 +51,29 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria';
  * it owns ITS OWN `useDetalleBucket` query (established pattern, see its own
  * docstring), so this screen never touches bucket-detail data directly.
  *
- * SinCategoria is deliberately excluded from the pie's 3 rendered slices even
- * though `viewModel.distribucionGasto` now returns all 4 `BUCKETS_ANILLO`
- * members, SinCategoria included (US-047 D-05,
- * `domain/distribucion-gasto.ts`). This screen instead consumes
- * `viewModel.distribucionGastoInterina` — a TEMPORARY PR1 shim field
- * (judgment-day round 2 CRITICAL fix) computed in the domain layer
- * (`aResumenViewModel`/`calcularDistribucionGasto(dto.buckets,
- * BUCKETS_5030)`, ADR-024: money/percentage math stays out of components) —
- * for both the pie and the legend spread. Unlike filtering the diluted
- * 4-item `distribucionGasto` down to 3 items in the component (the ORIGINAL
- * PR1 shim, which left percentages that didn't sum to 100 and made
- * `calcularAngulos`'s forced-360 closure silently stretch the last wedge),
- * `distribucionGastoInterina` is RENORMALIZED over just the 3 spend buckets,
- * so its `porcentaje` always sums to exactly 100. SinCategoria is appended
- * to the legend separately with no `porcentaje` (task 30.10), so it renders
- * as a selectable row without a misleading share-of-spending percent. The
- * shim (this field + this screen's usage of it) is removed once PR2/PR3
- * land the real 4-wedge donut UI (tasks T6/T11).
+ * SinCategoria is STILL deliberately excluded from the pie's rendered
+ * slices at this PR2 boundary, even though `viewModel.distribucionGasto`
+ * now returns all 4 `BUCKETS_ANILLO` members, SinCategoria included
+ * (US-047 D-05, `domain/distribucion-gasto.ts`) and `DistribucionPie`
+ * itself is donut-ready for a 4th wedge (T6). This screen still passes the
+ * PIE the TEMPORARY PR1 shim field `viewModel.distribucionGastoInterina`
+ * (judgment-day round 2 CRITICAL fix) — renormalized over just the 3 spend
+ * buckets so `porcentaje` sums to exactly 100 — rather than the real
+ * 4-item `distribucionGasto`; rewiring the pie itself to the real 4-wedge
+ * reading is T11's job (design D-09's grid/composition rewrite lands
+ * together with it), not this batch's.
+ *
+ * The LEGEND wiring below, however, IS the real thing as of PR2: it passes
+ * `viewModel.leyendaPrincipal`/`leyendaComplemento` (T5, built from
+ * `distribucionGastoInterina` internally — see `resumen-view-model.ts`'s
+ * own docblock) straight into `LeyendaGasto`'s new `principales`/
+ * `complemento` props (T7) — no local array-building in this component
+ * anymore. This is not new shim surface: `leyendaPrincipal`/
+ * `leyendaComplemento` are ALREADY the real, non-shim fields T5 shipped in
+ * PR1; only `distribucionGastoInterina` itself remains a shim, and only
+ * the PIE still reads it. T11 removes `distribucionGastoInterina` (both
+ * the view-model field and the pie's remaining call site) once the pie
+ * also moves to the real 4-item `distribucionGasto`.
  *
  * The annual 50/30/20 summary (US-030 Slice C, task 30.12) renders BELOW the
  * 2-column section — `ResumenAnual` is self-contained (owns its own
@@ -109,16 +111,6 @@ export function ResumenScreen({
 
   const bucketSeleccionado = bucketElegido ?? viewModel.bucketPorDefecto;
 
-  // TEMPORARY PR1 shim (removed by US-047 PR2/PR3, tasks T6/T11): reuse the
-  // domain layer's already-renormalized `distribucionGastoInterina` for both
-  // the pie's `tajadas` and the legend spread — avoids a duplicate
-  // SinCategoria row (and the React duplicate-key warning it caused) until
-  // the real 4-wedge donut UI lands.
-  const entradasLeyenda: ReadonlyArray<LeyendaTajada> = [
-    ...viewModel.distribucionGastoInterina,
-    { bucket: BUCKET_SIN_CATEGORIA },
-  ];
-
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
       <h1 className="sr-only">Resumen mensual</h1>
@@ -145,7 +137,8 @@ export function ResumenScreen({
             onSelectBucket={setBucketElegido}
           />
           <LeyendaGasto
-            tajadas={entradasLeyenda}
+            principales={viewModel.leyendaPrincipal}
+            complemento={viewModel.leyendaComplemento}
             bucketSeleccionado={bucketSeleccionado}
             onSelectBucket={setBucketElegido}
           />
