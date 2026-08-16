@@ -322,16 +322,16 @@ Requirements: RES-02, RES-04, D-07, CA-01. Depends on Phase 7 (full stack
 wired end to end). `[P]` between T9.1/T9.2 (monthly) and T9.3 (annual) —
 different files.
 
-- [ ] **T9.1 (RED→GREEN)** Extend the SC-01 DTO-shape test (design §6.8,
+- [x] **T9.1 (RED→GREEN)** Extend the SC-01 DTO-shape test (design §6.8,
       `resumen.e2e-spec.ts`) with
       `expect(typeof res.body.cantidadSinCategoria).toBe('number')`. `[P]`
-- [ ] **T9.2 (RED→GREEN)** Extend the empty-month test (which already
+- [x] **T9.2 (RED→GREEN)** Extend the empty-month test (which already
       asserts `totalIngreso === '0'`) with
       `expect(res.body.cantidadSinCategoria).toBe(0)` — this doubles as the
       CA-01 "Ingresos always present, 0 when empty" evidence (D-01). `[P]`
       with T9.1.
       - Verify (both): `pnpm api test:e2e resumen.e2e-spec.ts`
-- [ ] **T9.3 (RED→GREEN)** Extend `resumen-anual.e2e-spec.ts` per design
+- [x] **T9.3 (RED→GREEN)** Extend `resumen-anual.e2e-spec.ts` per design
       §6.8b (D-07 coverage):
       - **DTO shape test**: seed at least one uncategorized cargo row in a
         known month FIRST — do not rely on the shared `loginAsSeededUser`
