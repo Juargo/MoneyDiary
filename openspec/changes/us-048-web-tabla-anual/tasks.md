@@ -157,13 +157,13 @@ WTA-03/04/05) — PR4
 tests RED, restructure, then re-verify every pin unchanged (design §6.1).** Depends on PR2 (selected marker)
 and PR3 (`MiniSemaforoTag`) both merged.
 
-- [ ] **C2a-1.** **Audit, no code change.** Run the suite and confirm the existing CA-03/CA-04 regression pins
+- [x] **C2a-1.** **Audit, no code change.** Run the suite and confirm the existing CA-03/CA-04 regression pins
       are green against the **current** (pre-restructure) DOM: the clickable-month test (CA-03 pin), the
       disabled-month test (CA-04 pin), and the FIX-5 test. Record their current query shapes for the
       structure-independence check in C2a-6 (`within(botonActual)`, `closest('[aria-disabled="true"]')`,
       `findByRole('button', { name: 'Ver enero 2026' })`, `queryByRole('button', { name: /diciembre/i })`).
       Verify: `pnpm web test -- ResumenAnual` — these specific tests pass, noted as the baseline.
-- [ ] **C2a-2.** RED: migrate every `render(<ResumenAnual …/>, { wrapper: crearWrapper() })` call in
+- [x] **C2a-2.** RED: migrate every `render(<ResumenAnual …/>, { wrapper: crearWrapper() })` call in
       `ResumenAnual.test.tsx` to `renderConRouter(<ResumenAnual …/>)` (D-14, mechanical, all 14 renders —
       Loading/Error/Empty included, per design's "uniformity over technically-still-works" rule). Delete the
       local `crearWrapper` helper. Change the Loading test's fetch mock to a never-resolving `new Promise(()
@@ -171,7 +171,7 @@ and PR3 (`MiniSemaforoTag`) both merged.
       pending state). This step alone should fail to compile/render against the **current** `MesCelda` (no
       `<Link>` yet, so this specific migration doesn't need the restructure — but leaves the file in the
       target harness shape ready for the new tests below).
-- [ ] **C2a-3.** RED: add the new restructure-era tests to `ResumenAnual.test.tsx` (design §6.3), all
+- [x] **C2a-3.** RED: add the new restructure-era tests to `ResumenAnual.test.tsx` (design §6.3), all
       expected to fail against the current single-button `MesCelda`:
       - `N-03` all 12 months render a semáforo link, each `href="/semaforo?periodo={that month}"`
       - `N-04` December (`sinIngreso`): cell `aria-disabled`, no `tabindex`, click/Enter do not call
@@ -186,7 +186,7 @@ and PR3 (`MiniSemaforoTag`) both merged.
         (`compareDocumentPosition`) (D-02's tab order as a structural fact)
       - `N-09` December's disabled cell has accessible name exactly `DIC` (D-13 — pins the name so a future
         `aria-label` cannot silently invalidate the CA-04 `/diciembre/i` pin)
-- [ ] **C2a-4.** GREEN: restructure `MesCelda` in `ResumenAnual.tsx` per design §2.1/§2.2/D-01..D-03:
+- [x] **C2a-4.** GREEN: restructure `MesCelda` in `ResumenAnual.tsx` per design §2.1/§2.2/D-01..D-03:
       - wrapper becomes `<div className="relative h-full">` — no role, no handler, no visual styling;
       - month control (button or disabled div) keeps every existing visual class byte-identical, gains
         `h-full w-full`;
@@ -196,16 +196,16 @@ and PR3 (`MiniSemaforoTag`) both merged.
         intact — do **not** add `tabIndex` to satisfy any lint finding here, see C2a-7 contingency);
       - `MesCelda` gains the module-private `esSeleccionado` prop plumbing already computed in Slice B.
       Verify: `N-03`..`N-09` all pass; `crearWrapper` migration (C2a-2) compiles and passes.
-- [ ] **C2a-5.** Sweep — module-private signature changes (design §9): confirm `renderEstado` and `MesCelda`'s
+- [x] **C2a-5.** Sweep — module-private signature changes (design §9): confirm `renderEstado` and `MesCelda`'s
       `esSeleccionado` prop each have exactly 1 caller (contained, no external impact); confirm `crearWrapper`
       has zero remaining references outside this file.
       Verify: `rg "crearWrapper" apps/web/src`
-- [ ] **C2a-6.** **Re-run, unchanged.** Re-run the full `ResumenAnual.test.tsx` suite and confirm every
+- [x] **C2a-6.** **Re-run, unchanged.** Re-run the full `ResumenAnual.test.tsx` suite and confirm every
       pre-restructure assertion recorded in C2a-1 is still green, byte-identical, against the new DOM — this
       is R-1's actual closure, not aspirational. Any of them going red is the exact regression R-1 predicted;
       stop and fix the restructure, do not adjust the assertion.
-      Verify: `pnpm web test -- ResumenAnual` full file green, 24/24 tests (per §6.8 ledger).
-- [ ] **C2a-7.** `eslint.config.js` — add the scoped `error` block from design §7 exactly as specified
+      Verify: `pnpm web test -- ResumenAnual` full file green, 25/25 tests (§6.8 ledger 24 + the WTA-02 same-cell coexistence test added post-judgment in PR2, un-ledgered).
+- [x] **C2a-7.** `eslint.config.js` — add the scoped `error` block from design §7 exactly as specified
       (`ResumenAnual.tsx`, `MiniSemaforoTag.tsx` — listed before/after authoring is irrelevant now, both
       exist), `extends: [jsxA11y.flatConfigs.recommended]`. Run lint. **Pre-decided contingency (do not
       improvise):** if `jsx-a11y/interactive-supports-focus` fires on the disabled `<div role="button"
@@ -215,8 +215,8 @@ and PR3 (`MiniSemaforoTag`) both merged.
       finding — fix it, do not disable it.
       Verify: `pnpm web exec eslint . ` — baseline warning count (2) unchanged, zero new errors (or exactly
       the one documented, justified disable).
-- [ ] **C2a-8.** `pnpm web test && pnpm web typecheck && pnpm web exec eslint .` all green.
-- [ ] **C2a-9.** Commit(s) (work-unit — may be 2: harness migration, then restructure+tests, if that reads
+- [x] **C2a-8.** `pnpm web test && pnpm web typecheck && pnpm web exec eslint .` all green.
+- [x] **C2a-9.** Commit(s) (work-unit — may be 2: harness migration, then restructure+tests, if that reads
       better as a story): `test(web): migrate ResumenAnual.test.tsx to renderConRouter` +
       `feat(web): restructure MesCelda into sibling month/semáforo controls (CA-05)`.
 

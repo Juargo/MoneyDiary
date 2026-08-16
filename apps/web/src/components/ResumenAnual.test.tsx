@@ -1,14 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { renderConRouter } from '@/test/router-harness';
 import { ResumenAnual } from './ResumenAnual';
+import { mesCompletoLabel } from '@/domain/periodo-anual';
 import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
 
 // US-030 Slice C (tasks 30.11-30.13): self-contained annual grid — owns its
@@ -110,17 +104,6 @@ function anioTodoSinDatos(): ResumenAnualDto {
   return { anio: 2026, meses };
 }
 
-function crearWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  };
-}
-
 function mockFetchAnual(response: {
   ok: boolean;
   status: number;
@@ -137,37 +120,41 @@ describe('ResumenAnual', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the loading state while the annual query is pending', () => {
-    mockFetchAnual({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(anioConDatosHastaJulio()),
-    });
+  it('renders the loading state while the annual query is pending', async () => {
+    // D-14: renderConRouter resolves its initial route match asynchronously,
+    // so a synchronous getByText cannot observe the pending state, and a
+    // resolved-but-unawaited fetch could already have settled by the time
+    // the assertion runs. A never-resolving fetch keeps "pending" permanent
+    // and deterministic — findByText then waits for the async router match.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    );
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
-    expect(screen.getByText('Cargando resumen anual…')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Cargando resumen anual…'),
+    ).toBeInTheDocument();
   });
 
   it('renders the error state with a retry affordance when the request fails', async () => {
     mockFetchAnual({ ok: false, status: 500 });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
@@ -183,14 +170,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioTodoSinDatos()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await waitFor(() =>
@@ -205,14 +191,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     for (const mes of [
@@ -241,14 +226,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -264,14 +248,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -301,14 +284,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonActual = await screen.findByRole('button', {
@@ -333,14 +315,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await waitFor(() =>
@@ -359,14 +340,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonActual = await screen.findByRole('button', {
@@ -389,14 +369,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -414,14 +393,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const region = await screen.findByRole('region', {
@@ -451,16 +429,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    const { container } = render(
+    const { container } = renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      {
-        wrapper: crearWrapper(),
-      },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -501,16 +476,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(datos),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      {
-        wrapper: crearWrapper(),
-      },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -539,14 +511,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(datosConJulioSinIngreso),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -570,14 +541,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-03"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonMarzo = await screen.findByRole('button', {
@@ -601,14 +571,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-03"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonMarzo = await screen.findByRole('button', {
@@ -643,14 +612,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonJulio = await screen.findByRole('button', {
@@ -679,14 +647,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-12"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const celdaDiciembre = (await screen.findByText('DIC')).closest(
@@ -708,14 +675,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    const { rerender } = render(
+    const { rerenderConRouter } = renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-03"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     expect(
@@ -724,7 +690,7 @@ describe('ResumenAnual', () => {
       ),
     ).toBeInTheDocument();
 
-    rerender(
+    rerenderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
@@ -738,5 +704,175 @@ describe('ResumenAnual', () => {
         'Toca un mes: el gráfico principal cambia a ese mes, con el mismo drill-down de siempre. Estás viendo julio 2026.',
       ),
     ).toBeInTheDocument();
+  });
+
+  // US-048 design D-01/§2.1 (WTA-05, CA-05): the restructure's MesCelda
+  // sibling wiring — a semáforo link for every month, tab order, and the
+  // hit-area separation it exists to prove. §6.1's structure-independence
+  // audit ran first (C2a-1); the 19 tests above stayed green unchanged.
+
+  it('renders a semáforo link for every month, each targeting that month’s own periodo (N-03)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Ver enero 2026' });
+
+    for (let mes = 1; mes <= 12; mes += 1) {
+      const periodo = `2026-${String(mes).padStart(2, '0')}`;
+      const enlace = screen.getByRole('link', {
+        name: new RegExp(`^Semáforo de ${mesCompletoLabel(periodo)}:`),
+      });
+      expect(enlace).toHaveAttribute('href', `/semaforo?periodo=${periodo}`);
+    }
+  });
+
+  it('keeps December (sinIngreso) non-navigable while its semáforo link stays live (N-04, D-2 asymmetry)', async () => {
+    const onSelectPeriodo = vi.fn();
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={onSelectPeriodo}
+        ahora={AHORA}
+      />,
+    );
+
+    const celdaDiciembre = (await screen.findByText('DIC')).closest(
+      '[aria-disabled="true"]',
+    ) as HTMLElement;
+    expect(celdaDiciembre).toBeInTheDocument();
+    expect(celdaDiciembre).not.toHaveAttribute('tabindex');
+
+    fireEvent.click(celdaDiciembre);
+    fireEvent.keyDown(celdaDiciembre, { key: 'Enter' });
+    expect(onSelectPeriodo).not.toHaveBeenCalled();
+
+    const enlaceDiciembre = screen.getByRole('link', {
+      name: /^Semáforo de diciembre 2026:/,
+    });
+    expect(enlaceDiciembre).toBeInTheDocument();
+    expect(enlaceDiciembre.tagName).toBe('A');
+  });
+
+  it('never nests the semáforo link inside a month control, for every cell (N-05, CA-05 no-nesting)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Ver enero 2026' });
+
+    const enlaces = screen.getAllByRole('link', { name: /^Semáforo de / });
+    expect(enlaces).toHaveLength(12);
+    for (const enlace of enlaces) {
+      expect(enlace.closest('button,[role="button"]')).toBeNull();
+    }
+
+    const controles = screen.getAllByRole('button');
+    expect(controles).toHaveLength(12);
+    for (const control of controles) {
+      expect(within(control).queryByRole('link')).toBeNull();
+    }
+  });
+
+  it('clicking a semáforo link does not select the month (N-06, D-03 sibling hit-testing)', async () => {
+    const onSelectPeriodo = vi.fn();
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={onSelectPeriodo}
+        ahora={AHORA}
+      />,
+    );
+
+    const enlaceEnero = await screen.findByRole('link', {
+      name: /^Semáforo de enero 2026:/,
+    });
+    fireEvent.click(enlaceEnero);
+    expect(onSelectPeriodo).not.toHaveBeenCalled();
+  });
+
+  it('places the month control before its semáforo link in document order (N-08, D-02 tab order)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+    );
+
+    const botonEnero = await screen.findByRole('button', {
+      name: 'Ver enero 2026',
+    });
+    const enlaceEnero = screen.getByRole('link', {
+      name: /^Semáforo de enero 2026:/,
+    });
+
+    expect(
+      botonEnero.compareDocumentPosition(enlaceEnero) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('gives December’s disabled cell the exact accessible name "DIC" (N-09, D-13)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Ver enero 2026' });
+    expect(screen.getByRole('button', { name: 'DIC' })).toBeInTheDocument();
   });
 });
