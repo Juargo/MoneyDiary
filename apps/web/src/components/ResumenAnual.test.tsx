@@ -1,13 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { renderConRouter } from '@/test/router-harness';
 import { ResumenAnual } from './ResumenAnual';
 import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
 
@@ -110,17 +103,6 @@ function anioTodoSinDatos(): ResumenAnualDto {
   return { anio: 2026, meses };
 }
 
-function crearWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  };
-}
-
 function mockFetchAnual(response: {
   ok: boolean;
   status: number;
@@ -137,37 +119,41 @@ describe('ResumenAnual', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the loading state while the annual query is pending', () => {
-    mockFetchAnual({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(anioConDatosHastaJulio()),
-    });
+  it('renders the loading state while the annual query is pending', async () => {
+    // D-14: renderConRouter resolves its initial route match asynchronously,
+    // so a synchronous getByText cannot observe the pending state, and a
+    // resolved-but-unawaited fetch could already have settled by the time
+    // the assertion runs. A never-resolving fetch keeps "pending" permanent
+    // and deterministic — findByText then waits for the async router match.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
+    );
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
-    expect(screen.getByText('Cargando resumen anual…')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Cargando resumen anual…'),
+    ).toBeInTheDocument();
   });
 
   it('renders the error state with a retry affordance when the request fails', async () => {
     mockFetchAnual({ ok: false, status: 500 });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
@@ -183,14 +169,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioTodoSinDatos()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await waitFor(() =>
@@ -205,14 +190,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     for (const mes of [
@@ -241,14 +225,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -264,14 +247,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -301,14 +283,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonActual = await screen.findByRole('button', {
@@ -333,14 +314,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await waitFor(() =>
@@ -359,14 +339,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonActual = await screen.findByRole('button', {
@@ -389,14 +368,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -414,14 +392,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const region = await screen.findByRole('region', {
@@ -451,16 +428,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    const { container } = render(
+    const { container } = renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      {
-        wrapper: crearWrapper(),
-      },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -501,16 +475,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(datos),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      {
-        wrapper: crearWrapper(),
-      },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -539,14 +510,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(datosConJulioSinIngreso),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={onSelectPeriodo}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -570,14 +540,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-03"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonMarzo = await screen.findByRole('button', {
@@ -601,14 +570,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-03"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonMarzo = await screen.findByRole('button', {
@@ -643,14 +611,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const botonJulio = await screen.findByRole('button', {
@@ -679,14 +646,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    render(
+    renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-12"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     const celdaDiciembre = (await screen.findByText('DIC')).closest(
@@ -708,14 +674,13 @@ describe('ResumenAnual', () => {
       json: () => Promise.resolve(anioConDatosHastaJulio()),
     });
 
-    const { rerender } = render(
+    const { rerenderConRouter } = renderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-03"
         onSelectPeriodo={vi.fn()}
         ahora={AHORA}
       />,
-      { wrapper: crearWrapper() },
     );
 
     expect(
@@ -724,7 +689,7 @@ describe('ResumenAnual', () => {
       ),
     ).toBeInTheDocument();
 
-    rerender(
+    rerenderConRouter(
       <ResumenAnual
         anio={2026}
         periodoSeleccionado="2026-07"
