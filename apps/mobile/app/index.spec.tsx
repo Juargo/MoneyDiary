@@ -103,6 +103,7 @@ const dataDto: ResumenMesDto = {
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
+  cantidadSinCategoria: 0,
 };
 
 const emptyDto: ResumenMesDto = {
@@ -127,6 +128,7 @@ const emptyDto: ResumenMesDto = {
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: null,
+  cantidadSinCategoria: 0,
 };
 
 describe('Index (4-state switch)', () => {

@@ -51,6 +51,7 @@ function mesConDatos(
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal,
+    cantidadSinCategoria: 0,
   };
 }
 
@@ -87,6 +88,7 @@ function mesSinDatos(periodo: string): ResumenMesDto {
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
+    cantidadSinCategoria: 0,
   };
 }
 

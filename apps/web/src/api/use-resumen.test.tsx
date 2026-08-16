@@ -37,6 +37,7 @@ const validDto: ResumenMesDto = {
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'amarillo',
+  cantidadSinCategoria: 0,
 };
 
 function crearWrapper() {

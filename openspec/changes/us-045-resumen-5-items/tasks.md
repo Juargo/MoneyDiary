@@ -216,7 +216,7 @@ at the task-planning level, but sequenced after here for reading clarity.
 Requirements: RES-04, D-01, D-02. Depends on Phase 1 (VO) + Phase 2
 (assembly wiring the value in).
 
-- [ ] **T5.1 (RED)** Add failing unit cases to
+- [x] **T5.1 (RED)** Add failing unit cases to
       `apps/api/test/unit/infrastructure/http/dto/resumen-mes.dto.spec.ts`
       per design §6.4:
       - `cantidadSinCategoria` is always present as a key, even when `0`
@@ -227,7 +227,7 @@ Requirements: RES-04, D-01, D-02. Depends on Phase 1 (VO) + Phase 2
       - `BucketResumenDto` entries still have exactly the 4 known keys (no
         drift into the buckets array — D-02's ISP boundary).
       - Verify (expect RED): `pnpm api test resumen-mes.dto.spec.ts`
-- [ ] **T5.2 (GREEN)** Add `ResumenMesDto.cantidadSinCategoria: number` and
+- [x] **T5.2 (GREEN)** Add `ResumenMesDto.cantidadSinCategoria: number` and
       one mapper line (`cantidadSinCategoria:
       resumen.cantidadSinCategoria`) in
       `apps/api/src/infrastructure/http/dto/resumen-mes.dto.ts`.
@@ -241,7 +241,7 @@ Requirements: RES-04, D-01, D-02. Depends on Phase 1 (VO) + Phase 2
 Requirements: RES-04, RES-06, D-06. Depends on Phase 5 (DTO shape the schema
 mirrors).
 
-- [ ] **T6.1 (RED)** Add failing cases to
+- [x] **T6.1 (RED)** Add failing cases to
       `apps/api/test/unit/infrastructure/http-express/schemas/resumen.schema.spec.ts`
       per design §6.5:
       - rejects a payload where `cantidadSinCategoria` is a string
@@ -249,7 +249,7 @@ mirrors).
         D-06)
       - accepts `0`
       - Verify (expect RED): `pnpm api test resumen.schema.spec.ts`
-- [ ] **T6.2 (GREEN)** Add `cantidadSinCategoria: z.number().int()
+- [x] **T6.2 (GREEN)** Add `cantidadSinCategoria: z.number().int()
       .nonnegative().describe(...)` to `resumenResponseSchema` in
       `apps/api/src/infrastructure/http-express/schemas/resumen.schema.ts`.
       - **Checkpoint (open assumption, design §5 schema-authoring note)**:
@@ -261,13 +261,13 @@ mirrors).
         `aResumenMesDto` output) now cover the happy path automatically once
         the mapper emits the field — no separate happy-path test needed.
       - Verify: `pnpm api test resumen.schema.spec.ts` green; existing sync-guarantee tests still green.
-- [ ] **T6.3 (RED→GREEN)** Extend the `makeResumen` test helper (or
+- [x] **T6.3 (RED→GREEN)** Extend the `makeResumen` test helper (or
       equivalent local fixture builder) used across `resumen-mes.spec.ts` /
       `resumen.schema.spec.ts` to default `cantidadSinCategoria` — fixes the
       remaining compiler-forced call sites listed in design §6.1 in one
       place rather than at each call site.
       - Verify: `pnpm api test` (full unit suite) green; `pnpm api exec tsc --noEmit` clean for `apps/api`.
-- [ ] **T6.4 (D-09 guard)** Confirm (do not edit — verification only) that
+- [x] **T6.4 (D-09 guard)** Confirm (do not edit — verification only) that
       `estado-semaforo.ts` needed zero changes: run its existing spec suite
       untouched and confirm the Phase 1 regression case (T1.1) passes.
       - Verify: `pnpm api test estado-semaforo.spec.ts`
@@ -280,14 +280,14 @@ Requirements: D-06, ADR-011, ADR-012. Depends on Phase 6 (schema is the
 source of truth). **Sequential and blocking** — Phase 8/9/10/11 all consume
 the regenerated artifacts.
 
-- [ ] **T7.1** Run `pnpm contract:sync` (== `pnpm api openapi:emit && pnpm
+- [x] **T7.1** Run `pnpm contract:sync` (== `pnpm api openapi:emit && pnpm
       api-client generate`) from the repo root. Commit
       `apps/api/openapi.json` and `packages/api-client/src/types.gen.ts`
       together with the schema change from Phase 6 — design §5 states these
       files "MUST be committed together; a partial commit fails CI."
       - Verify: `pnpm api openapi:check` (drift gate) exits 0.
       - Verify: `git diff --exit-code packages/api-client/src/types.gen.ts` after re-running `pnpm api-client generate` (client-type-drift gate — must be a no-op the second time).
-- [ ] **T7.2** Confirm `ResumenMesResponse` gained the property + a
+- [x] **T7.2** Confirm `ResumenMesResponse` gained the property + a
       `required` entry, and that `ResumenAnualResponse` (`meses[]`) picked
       it up via its existing `$ref` to `ResumenMesResponse` (D-07's wire
       consequence) — spot check `openapi.json` by eye, no new test needed
@@ -301,14 +301,14 @@ Requirements: RNF-SEC-006, ISO-02 (spec delta at
 `specs/user-data-isolation/spec.md`). Depends on Phase 7 (the field must
 exist on the wire to assert on it at HTTP level).
 
-- [ ] **T8.1 (RED)** Extend the existing `GET /api/resumen` isolation test
+- [x] **T8.1 (RED)** Extend the existing `GET /api/resumen` isolation test
       in `apps/api/test/integration/.../auth-isolation.int-spec.ts` (around
       the existing `res.body.totalIngreso` / bucket-total assertions) with
       `expect(res.body.cantidadSinCategoria).toBe(<A's count>)` — proves
       isolation at the endpoint boundary, not just the repository (Phase 3's
       SC-09 covers the repository; this covers the HTTP seam on top of it).
       - Verify (expect RED until Phase 3+7 land): `pnpm api test:integration auth-isolation.int-spec.ts`
-- [ ] **T8.2 (GREEN)** No production code change expected here — Phase 3
+- [x] **T8.2 (GREEN)** No production code change expected here — Phase 3
       (repository isolation) + Phase 5/6/7 (field on the wire) should make
       this pass without further edits. If it does not pass, that is a signal
       one of those phases has a gap — do not patch around it here.
@@ -322,16 +322,16 @@ Requirements: RES-02, RES-04, D-07, CA-01. Depends on Phase 7 (full stack
 wired end to end). `[P]` between T9.1/T9.2 (monthly) and T9.3 (annual) —
 different files.
 
-- [ ] **T9.1 (RED→GREEN)** Extend the SC-01 DTO-shape test (design §6.8,
+- [x] **T9.1 (RED→GREEN)** Extend the SC-01 DTO-shape test (design §6.8,
       `resumen.e2e-spec.ts`) with
       `expect(typeof res.body.cantidadSinCategoria).toBe('number')`. `[P]`
-- [ ] **T9.2 (RED→GREEN)** Extend the empty-month test (which already
+- [x] **T9.2 (RED→GREEN)** Extend the empty-month test (which already
       asserts `totalIngreso === '0'`) with
       `expect(res.body.cantidadSinCategoria).toBe(0)` — this doubles as the
       CA-01 "Ingresos always present, 0 when empty" evidence (D-01). `[P]`
       with T9.1.
       - Verify (both): `pnpm api test:e2e resumen.e2e-spec.ts`
-- [ ] **T9.3 (RED→GREEN)** Extend `resumen-anual.e2e-spec.ts` per design
+- [x] **T9.3 (RED→GREEN)** Extend `resumen-anual.e2e-spec.ts` per design
       §6.8b (D-07 coverage):
       - **DTO shape test**: seed at least one uncategorized cargo row in a
         known month FIRST — do not rely on the shared `loginAsSeededUser`
@@ -354,7 +354,7 @@ Sequential checkpoint before touching clients — confirms the backend is
 fully green in isolation before the required-field churn propagates
 outward.
 
-- [ ] **T10.1** Full backend verification:
+- [x] **T10.1** Full backend verification:
       - `pnpm api test` (unit)
       - `pnpm api test:integration` (integration, `ALLOW_DESTRUCTIVE_DB=1`)
       - `pnpm api test:e2e` (e2e, `ALLOW_DESTRUCTIVE_DB=1`)
@@ -371,7 +371,7 @@ Requirements: D-06 (mechanical, compiler-enumerated). Depends on Phase 7
 `[P]` with Phase 12 (mobile) — disjoint workspaces, no shared files besides
 the already-regenerated `packages/api-client`.
 
-- [ ] **T11.1** Add `cantidadSinCategoria: 0` (or a meaningful non-zero test
+- [x] **T11.1** Add `cantidadSinCategoria: 0` (or a meaningful non-zero test
       value where the test's intent benefits from it) to each object-literal
       construction site enumerated in design §D-06:
       - `apps/web/src/api/client.test.ts:24`
@@ -395,7 +395,7 @@ the already-regenerated `packages/api-client`.
 
 Requirements: D-06. Depends on Phase 7. `[P]` with Phase 11.
 
-- [ ] **T12.1** Add `cantidadSinCategoria: 0` to the two object-literal
+- [x] **T12.1** Add `cantidadSinCategoria: 0` to the two object-literal
       construction sites:
       - `apps/mobile/src/domain/resumen-view-model.spec.ts:4`
       - `apps/mobile/src/api/client.spec.ts:4`
@@ -406,7 +406,7 @@ Requirements: D-06. Depends on Phase 7. `[P]` with Phase 11.
 
 ## Phase 13 — Final cross-workspace gate sweep
 
-- [ ] **T13.1** Full-repo verification, mirroring CI:
+- [x] **T13.1** Full-repo verification, mirroring CI:
       - `pnpm test` (all workspaces)
       - `pnpm build` (all workspaces — catches any residual `tsc` drift)
       - `pnpm api-client typecheck` (`packages/api-client` — `tsc --noEmit`)
