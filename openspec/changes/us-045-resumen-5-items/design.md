@@ -530,6 +530,13 @@ and increments `cantidadCargos` inside the existing reduce when `t.cargo > 0n`
 
 ## 4. Integration points (exact touch list)
 
+> **Delivery note (PR-A boundary).** This document describes the FULL US-045
+> scope. The change ships as 2 chained PRs (stacked-to-main): **PR-A** covers
+> items 1-6 of this table plus input-side spec-fixture compile-fixes; items
+> 7-12 (DTO/schema output, contract regen, client fixtures, e2e) land in
+> **PR-B**. Rows in §8 that assume the contract regen has landed apply to the
+> change as a whole, not to PR-A alone.
+
 | # | File | Change |
 |---|---|---|
 | 1 | `apps/api/src/application/ports/resumen-mes.port.ts` | `BucketSumRow.cantidadCargos: number` (required) + doc of the cargos-only rule |
