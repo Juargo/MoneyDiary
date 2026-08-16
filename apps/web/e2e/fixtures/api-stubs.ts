@@ -68,6 +68,84 @@ const API_VERSION_FIXTURE = {
   builtAt: '2026-08-14T00:00:00.000Z',
 };
 
+/**
+ * `GET /api/resumen` (US-047 T15, design §4.3) — a literal `ResumenMesDto`
+ * instance (`src/api/types.ts`) with a NONZERO total in all 4
+ * `BUCKETS_ANILLO` items and a nonzero `totalIngreso`, so the dashboard
+ * chart's non-empty-state markup renders: the 4-wedge donut ring, all 5
+ * legend rows (3 spend + divider + Ingresos/Sin categoría), and the T1 grid
+ * body — `ResumenPage` renders `<Empty />` instead whenever
+ * `sinIngreso: true`, so this MUST stay `false` for `dashboard-donut.e2e.ts`
+ * to exercise anything.
+ */
+const RESUMEN_MES_FIXTURE = {
+  periodo: '2026-07',
+  totalIngreso: '1000000',
+  sinIngreso: false,
+  buckets: [
+    {
+      bucket: 'Necesidades',
+      total: '400000',
+      porcentajeBp: 4000,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Deseos',
+      total: '250000',
+      porcentajeBp: 2500,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'Ahorro',
+      total: '250000',
+      porcentajeBp: 2500,
+      estadoSemaforo: 'verde',
+    },
+    {
+      bucket: 'SinCategoria',
+      total: '100000',
+      porcentajeBp: 1000,
+      estadoSemaforo: null,
+    },
+  ],
+  targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+  estadoGlobal: 'verde',
+  cantidadSinCategoria: 2,
+};
+
+/**
+ * `GET /api/resumen/anual` (US-047 T15) — a minimal 12-month
+ * `ResumenAnualDto`; each month reuses `RESUMEN_MES_FIXTURE`'s own shape
+ * (design §5's "reuses the same per-month shape" note) with its own
+ * `periodo`. `ResumenAnual` self-fetches this on every dashboard render
+ * (`ResumenScreen` → `ResumenAnual`), so it must resolve for the donut
+ * spec's page to settle, even though this spec asserts nothing about the
+ * annual grid itself.
+ */
+const RESUMEN_ANUAL_FIXTURE = {
+  anio: 2026,
+  meses: Array.from({ length: 12 }, (_, i) => ({
+    ...RESUMEN_MES_FIXTURE,
+    periodo: `2026-${String(i + 1).padStart(2, '0')}`,
+  })),
+};
+
+/**
+ * `GET /api/buckets/:bucket` (US-047 T15) — a minimal `DetalleBucketDto`,
+ * empty `transacciones` (task's own stated sufficiency: "this stub only
+ * needs to keep the transactions panel from erroring, not to assert on its
+ * content"). `bucket` echoes the requested segment so a real bucket name
+ * always round-trips, even though `dashboard-donut.e2e.ts` never asserts on
+ * the transactions panel.
+ */
+function detalleBucketFixture(bucket: string) {
+  return {
+    bucket,
+    periodo: '2026-07',
+    transacciones: [],
+  };
+}
+
 export async function stubApi(page: Page): Promise<void> {
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({ json: ME_FIXTURE }),
@@ -82,4 +160,18 @@ export async function stubApi(page: Page): Promise<void> {
   await page.route('**/version', (route) =>
     route.fulfill({ json: API_VERSION_FIXTURE }),
   );
+  // Trailing `*` (not `**`) after `resumen` — matches with/without a
+  // `?periodo=` query (`*` excludes `/`, so this never swallows
+  // `/api/resumen/anual`'s own `/anual` path segment).
+  await page.route('**/api/resumen*', (route) =>
+    route.fulfill({ json: RESUMEN_MES_FIXTURE }),
+  );
+  await page.route('**/api/resumen/anual*', (route) =>
+    route.fulfill({ json: RESUMEN_ANUAL_FIXTURE }),
+  );
+  await page.route('**/api/buckets/**', (route) => {
+    const match = /\/api\/buckets\/([^/?]+)/.exec(route.request().url());
+    const bucket = match ? decodeURIComponent(match[1]) : 'desconocido';
+    route.fulfill({ json: detalleBucketFixture(bucket) });
+  });
 }
