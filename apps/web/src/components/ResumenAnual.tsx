@@ -37,6 +37,12 @@ import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
  *
  * `ahora` defaults to `new Date()` but is injectable so tests can pin
  * "today" deterministically instead of mocking global `Date`.
+ *
+ * `periodoSeleccionado` (required, no default — US-048 D-11) is the period
+ * the main chart is currently showing (`viewModel.periodo`); it drives the
+ * selected-cell marker and the caption's dynamic month, and is kept strictly
+ * separate from the `esActual`/today channel (`✓` + `aria-current`, D-04) —
+ * both markers coexist on the same cell when the viewed month IS today.
  */
 export function ResumenAnual({
   anio,

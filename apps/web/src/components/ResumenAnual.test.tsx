@@ -634,6 +634,37 @@ describe('ResumenAnual', () => {
     ).not.toBeInTheDocument();
   });
 
+  // WTA-02 scenario 2: when the viewed period IS today's month, BOTH markers
+  // land on the same cell — the channels are independent, not exclusive.
+  it('shows the selected marker AND the today marker on the same cell when viewing the current month (WTA-02)', async () => {
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(anioConDatosHastaJulio()),
+    });
+
+    render(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const botonJulio = await screen.findByRole('button', {
+      name: 'Ver julio 2026',
+    });
+    expect(
+      within(botonJulio).getByTestId('mes-seleccionado-marker'),
+    ).toBeInTheDocument();
+    expect(
+      within(botonJulio).getByTestId('mes-actual-marker'),
+    ).toBeInTheDocument();
+    expect(botonJulio).toHaveAttribute('aria-current', 'date');
+  });
+
   // US-048 design §2.2 (N-10, cross-endpoint defensive pin): the selected
   // marker lives in the shared `contenido` fragment (same discipline as FIX
   // 1's `esActual`), so it must survive on the disabled (`sinIngreso`)
