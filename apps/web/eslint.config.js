@@ -95,6 +95,33 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-047 (design D-10, WG5-12). Unlike the `configuracion`
+  // block above, this is a FILE LIST, not a directory glob: the components
+  // this change touches (`DistribucionPie`, `LeyendaGasto`, `SemaforoBadge`,
+  // `SemaforoTag`, `ResumenScreen`) are loose siblings directly under
+  // `src/components/`, not their own subdirectory — globbing
+  // `src/components/**` here would make this US absorb the app's entire
+  // pre-existing a11y debt (the exact blast radius the app-wide `warn`
+  // exists to avoid, see the block above). The route entry stays a PATTERN
+  // (`semaforo*.tsx`, same precedent as `configuracion*.tsx`), covering the
+  // stub route (`semaforo.tsx`) and any sibling `/semaforo/*` route file a
+  // future US-049 slice adds — gated before it's authored.
+  //
+  // Debt registered with its trigger: once a `src/components/dashboard/`
+  // directory is extracted for these dashboard-only components (no US
+  // schedules this yet), this file list collapses into one directory glob
+  // like the `configuracion` block's. Do not do the extraction now (YAGNI).
+  {
+    files: [
+      'src/components/DistribucionPie.tsx',
+      'src/components/LeyendaGasto.tsx',
+      'src/components/SemaforoBadge.tsx',
+      'src/components/SemaforoTag.tsx',
+      'src/components/ResumenScreen.tsx',
+      'src/routes/_authenticated/semaforo*.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so
