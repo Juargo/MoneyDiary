@@ -77,18 +77,6 @@ export interface ResumenViewModel {
   /** Share-of-spending split for the pie + legend (77/12/11-style). */
   readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
   /**
-   * TEMPORARY PR1 shim (US-047, judgment-day round 2 CRITICAL fix; removed
-   * by PR2/PR3, tasks T6/T11): the same 3 spend buckets as
-   * `distribucionGasto`, but apportioned over `BUCKETS_5030` ONLY —
-   * SinCategoria excluded from both the numerator set and the denominator,
-   * so `porcentaje` sums to exactly 100 across these 3 items (unlike
-   * filtering `distribucionGasto`'s diluted 4-item reading down to 3, which
-   * would leave the OLD diluted percentages and NOT sum to 100). This is
-   * what `ResumenScreen`'s still-3-slice pie/legend renders until the real
-   * 4-wedge donut UI lands.
-   */
-  readonly distribucionGastoInterina: ReadonlyArray<TajadaGasto>;
-  /**
    * The bucket with the largest total among all 4 buckets (including
    * SinCategoria) — the dashboard's default selection for the transactions
    * panel before the user picks one explicitly (US-030 Slice B, task 30.10).
@@ -176,23 +164,39 @@ function totalPorBucket(
 
 /**
  * `leyendaPrincipal` — the three 50/30/20 items, `kind: 'gasto'` (D-03).
- * Sourced from `distribucionGastoInterina` (already `BUCKETS_5030`-only,
- * renormalized so its `porcentaje` sums to 100 — judgment-day round 2
- * CRITICAL fix) instead of filtering the diluted 4-item `distribucionGasto`
- * post-hoc, which would keep percentages that don't sum to 100. Naturally
- * preserves canonical order AND naturally empties when there is no spending
- * (design §3 edge case).
+ * Sourced directly from the real 4-item `distribucionGasto` (`BUCKETS_ANILLO`,
+ * T2), filtered to `BUCKETS_5030` membership — the PR1 renormalization shim
+ * (`distribucionGastoInterina`) is gone as of T11/PR3. WG5-03: "the legend
+ * performs no independent percentage computation of its own; it reuses the
+ * ring's own value" — no renormalization here means the 3 spend-bucket
+ * percentages numerically shrink whenever SinCategoria carries a nonzero
+ * total, exactly like the ring's own wedges (WG5-13's dilution, now
+ * user-visible in both places at once, by construction). Filtering (not
+ * renormalizing) is safe here specifically because this function only reads
+ * `porcentaje` for display — it does not drive any angle math, so there is
+ * no forced-360-closure risk the way there would be if the PIE itself were
+ * filtered post-hoc (that failure mode is why PR1's shim existed at all;
+ * the pie now renders the unfiltered 4-item ring directly, see
+ * `ResumenScreen.tsx`). Filtering preserves `BUCKETS_ANILLO`'s own canonical
+ * order (Necesidades, Deseos, Ahorro) and naturally empties when there is no
+ * spending (design §3 edge case).
  */
 function aLeyendaPrincipal(
-  distribucionGastoInterina: ReadonlyArray<TajadaGasto>,
+  distribucionGasto: ReadonlyArray<TajadaGasto>,
   buckets: ReadonlyArray<BucketResumenDto>,
 ): ItemLeyenda[] {
-  return distribucionGastoInterina.map((t) => ({
-    kind: 'gasto' as const,
-    bucket: t.bucket,
-    porcentaje: t.porcentaje,
-    montoLabel: formatearMontoConSigno(totalPorBucket(buckets, t.bucket), '-'),
-  }));
+  const bucketsGasto: ReadonlySet<string> = new Set(BUCKETS_5030);
+  return distribucionGasto
+    .filter((t) => bucketsGasto.has(t.bucket))
+    .map((t) => ({
+      kind: 'gasto' as const,
+      bucket: t.bucket,
+      porcentaje: t.porcentaje,
+      montoLabel: formatearMontoConSigno(
+        totalPorBucket(buckets, t.bucket),
+        '-',
+      ),
+    }));
 }
 
 /**
@@ -230,21 +234,16 @@ function aLeyendaComplemento(dto: ResumenMesDto): ItemLeyenda[] {
  */
 export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
   const distribucionGasto = calcularDistribucionGasto(dto.buckets);
-  const distribucionGastoInterina = calcularDistribucionGasto(
-    dto.buckets,
-    BUCKETS_5030,
-  );
   return {
     periodo: dto.periodo,
     totalIngreso: formatearMontoCLP(dto.totalIngreso),
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
     distribucionGasto,
-    distribucionGastoInterina,
     bucketPorDefecto: bucketConMayorTotal(dto.buckets),
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
-    leyendaPrincipal: aLeyendaPrincipal(distribucionGastoInterina, dto.buckets),
+    leyendaPrincipal: aLeyendaPrincipal(distribucionGasto, dto.buckets),
     leyendaComplemento: aLeyendaComplemento(dto),
   };
 }

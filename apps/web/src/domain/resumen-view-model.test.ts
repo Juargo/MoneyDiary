@@ -370,13 +370,17 @@ describe('aResumenViewModel', () => {
       expect(sinCategoria).toMatchObject({ cantidadLabel: '0 tx' });
     });
 
-    // Judgment-day round 3 (US-047 PR1): a mutation reintroducing the
-    // filter-without-renormalize bug at the wiring site survived the suite —
-    // the default fixture's SinCategoria total is 0, where diluted and
-    // renormalized are numerically identical. This pins the renormalized
-    // values through a NONZERO-SinCategoria fixture: 400000/250000/250000
-    // over the 3-bucket denominator (900000) → 44/28/28, sum 100.
-    it('leyendaPrincipal y distribucionGastoInterina renormalizan sobre los 3 buckets cuando SinCategoria tiene gasto (44/28/28, suma 100)', () => {
+    // US-047 T11/PR3 (WG5-13, replaces the PR1/PR2 "renormaliza sobre los 3
+    // buckets" test): the renormalization shim (`distribucionGastoInterina`)
+    // is gone — `leyendaPrincipal` now sources its percentages DIRECTLY from
+    // the real 4-item `distribucionGasto`, filtered (not renormalized) to
+    // the 3 spend buckets. With the SAME nonzero-SinCategoria fixture this
+    // test used to prove renormalization (44/28/28, sum 100), the correct
+    // reading is now the DILUTED one — 40/25/25, sum 90 — because the same
+    // three amounts now share a denominator that also contains SinCategoria
+    // (400000+250000+250000+100000=1000000). This is the intended dilution
+    // becoming user-visible in the legend, not a regression.
+    it('leyendaPrincipal ya no renormaliza — refleja la dilución del anillo cuando SinCategoria tiene gasto (40/25/25, WG5-13)', () => {
       const vm = aResumenViewModel(
         dto({
           buckets: [
@@ -408,13 +412,20 @@ describe('aResumenViewModel', () => {
         }),
       );
       expect(vm.leyendaPrincipal).toMatchObject([
-        { kind: 'gasto', porcentaje: 44 },
-        { kind: 'gasto', porcentaje: 28 },
-        { kind: 'gasto', porcentaje: 28 },
+        { kind: 'gasto', porcentaje: 40 },
+        { kind: 'gasto', porcentaje: 25 },
+        { kind: 'gasto', porcentaje: 25 },
       ]);
-      expect(
-        vm.distribucionGastoInterina.reduce((sum, t) => sum + t.porcentaje, 0),
-      ).toBe(100);
+      // WG5-03: "the legend performs no independent percentage computation
+      // of its own; it reuses the ring's own value" — proven directly by
+      // comparing against the same buckets read off `distribucionGasto`.
+      const porcentajesDelAnillo = vm.distribucionGasto
+        .filter((t) => t.bucket !== 'SinCategoria')
+        .map((t) => t.porcentaje);
+      const porcentajesDeLaLeyenda = vm.leyendaPrincipal.map((item) =>
+        item.kind === 'gasto' ? item.porcentaje : null,
+      );
+      expect(porcentajesDeLaLeyenda).toEqual(porcentajesDelAnillo);
     });
 
     it('TajadaGasto (distribucionGasto) sigue sin montoLabel — el anillo se mantiene libre de dinero (I-2)', () => {

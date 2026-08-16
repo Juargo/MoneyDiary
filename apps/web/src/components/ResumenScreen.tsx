@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { IngresoCard } from './IngresoCard';
-import { SemaforoBadge } from './SemaforoBadge';
+import { SemaforoTag } from './SemaforoTag';
 import { DistribucionPie } from './DistribucionPie';
 import { LeyendaGasto } from './LeyendaGasto';
 import { BucketDetailList } from './BucketDetailList';
@@ -51,30 +51,6 @@ import { cn } from '@/lib/utils';
  * it owns ITS OWN `useDetalleBucket` query (established pattern, see its own
  * docstring), so this screen never touches bucket-detail data directly.
  *
- * SinCategoria is STILL deliberately excluded from the pie's rendered
- * slices at this PR2 boundary, even though `viewModel.distribucionGasto`
- * now returns all 4 `BUCKETS_ANILLO` members, SinCategoria included
- * (US-047 D-05, `domain/distribucion-gasto.ts`) and `DistribucionPie`
- * itself is donut-ready for a 4th wedge (T6). This screen still passes the
- * PIE the TEMPORARY PR1 shim field `viewModel.distribucionGastoInterina`
- * (judgment-day round 2 CRITICAL fix) — renormalized over just the 3 spend
- * buckets so `porcentaje` sums to exactly 100 — rather than the real
- * 4-item `distribucionGasto`; rewiring the pie itself to the real 4-wedge
- * reading is T11's job (design D-09's grid/composition rewrite lands
- * together with it), not this batch's.
- *
- * The LEGEND wiring below, however, IS the real thing as of PR2: it passes
- * `viewModel.leyendaPrincipal`/`leyendaComplemento` (T5, built from
- * `distribucionGastoInterina` internally — see `resumen-view-model.ts`'s
- * own docblock) straight into `LeyendaGasto`'s new `principales`/
- * `complemento` props (T7) — no local array-building in this component
- * anymore. This is not new shim surface: `leyendaPrincipal`/
- * `leyendaComplemento` are ALREADY the real, non-shim fields T5 shipped in
- * PR1; only `distribucionGastoInterina` itself remains a shim, and only
- * the PIE still reads it. T11 removes `distribucionGastoInterina` (both
- * the view-model field and the pie's remaining call site) once the pie
- * also moves to the real 4-item `distribucionGasto`.
- *
  * The annual 50/30/20 summary (US-030 Slice C, task 30.12) renders BELOW the
  * 2-column section — `ResumenAnual` is self-contained (owns its own
  * `useResumenAnual` query, like `BucketDetailList` owns `useDetalleBucket`),
@@ -89,6 +65,26 @@ import { cn } from '@/lib/utils';
  * visually hidden (`sr-only`); "Distribución del gasto" stays the visible
  * subheading. `BucketDetailList`'s own heading demotes to `<h2>` so this
  * stays the ONLY `<h1>` even though its transactions panel is embedded here.
+ *
+ * US-047 T11/PR3: the PR1 shim (`distribucionGastoInterina`) is gone — the
+ * pie now renders the REAL 4-item `viewModel.distribucionGasto` (all
+ * `BUCKETS_ANILLO` members, SinCategoria included) with its donut hole
+ * enabled (`conInterior`, D-01) now that the ring it wraps is complete. The
+ * legend was already reading the real, non-shim `leyendaPrincipal`/
+ * `leyendaComplemento` fields since PR2 (T5); WG5-13's ring-percentage
+ * dilution is therefore now user-visible in both places at once, by
+ * construction — not a staged rollout.
+ *
+ * The card header swaps the static `SemaforoBadge` for the clickable
+ * `SemaforoTag` (T9, design D-06/WG5-07) — a navigation entry point to the
+ * `/semaforo` stub (T12), carrying `viewModel.periodo` as a search param.
+ *
+ * The card BODY wraps the pie + legend in the T1 tablet grid (design D-09):
+ * stacked below `md`, side-by-side at `md:grid-cols-2` — independent of the
+ * PAGE-level `lg:grid-cols-2` boundary above it, which stays untouched. The
+ * hint text below the body (design D-08) is plain visible text, no
+ * `aria-describedby` wiring — the rows already announce themselves via their
+ * own accessible names (T7).
  */
 export function ResumenScreen({
   viewModel,
@@ -123,25 +119,42 @@ export function ResumenScreen({
               Distribución del gasto
             </h2>
             <span data-testid="semaforo-global">
-              <SemaforoBadge
-                estadoSemaforo={viewModel.estadoGlobal}
-                size={28}
+              <SemaforoTag
+                estadoGlobal={viewModel.estadoGlobal}
+                periodo={viewModel.periodo}
               />
             </span>
           </div>
 
-          <DistribucionPie
-            tajadas={viewModel.distribucionGastoInterina}
-            targets={viewModel.targets}
-            bucketSeleccionado={bucketSeleccionado}
-            onSelectBucket={setBucketElegido}
-          />
-          <LeyendaGasto
-            principales={viewModel.leyendaPrincipal}
-            complemento={viewModel.leyendaComplemento}
-            bucketSeleccionado={bucketSeleccionado}
-            onSelectBucket={setBucketElegido}
-          />
+          {/* T1 tablet variant (design D-09): stacked below `md`, side-by-side
+              at `md:grid-cols-2` — independent of the PAGE-level `lg:` grid
+              above. `data-testid` is a jsdom SMOKE check only; the real T1
+              proof is Playwright (T15/T16, CA-05, WCTG-14 guard). */}
+          <div
+            data-testid="grafico-card-body"
+            className="grid grid-cols-1 gap-4 md:grid-cols-2"
+          >
+            <DistribucionPie
+              tajadas={viewModel.distribucionGasto}
+              targets={viewModel.targets}
+              bucketSeleccionado={bucketSeleccionado}
+              onSelectBucket={setBucketElegido}
+              conInterior
+            />
+            <LeyendaGasto
+              principales={viewModel.leyendaPrincipal}
+              complemento={viewModel.leyendaComplemento}
+              bucketSeleccionado={bucketSeleccionado}
+              onSelectBucket={setBucketElegido}
+            />
+          </div>
+
+          {/* Hint text (design D-08): plain visible text, full width, no
+              `aria-describedby` — the rows already announce themselves via
+              their own accessible names (T7). */}
+          <p className="text-xs text-muted-foreground">
+            Toca un ítem del gráfico o la leyenda para ver su detalle del mes
+          </p>
         </div>
 
         <div className={DASHBOARD_CARD_CLASS}>
