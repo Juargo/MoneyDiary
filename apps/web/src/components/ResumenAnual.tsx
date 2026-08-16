@@ -7,7 +7,7 @@ import { Loading } from './states/Loading';
 import { ErrorState } from './states/Error';
 import { Empty } from './states/Empty';
 import { MiniDistribucionPie } from './MiniDistribucionPie';
-import { SemaforoBadge } from './SemaforoBadge';
+import { MiniSemaforoTag } from './MiniSemaforoTag';
 import { calcularDistribucionGasto } from '@/domain/distribucion-gasto';
 import {
   mesAbreviado,
@@ -167,46 +167,59 @@ function MesCelda({
       >
         <MiniDistribucionPie tajadas={tajadas} size={56} />
       </span>
-      <SemaforoBadge estadoSemaforo={mes.estadoGlobal} size={20} />
     </>
   );
 
-  if (!tieneDatos) {
-    return (
-      <div
-        role="button"
-        aria-disabled="true"
-        // FIX 1: a sinIngreso month can still BE the current month ("today"
-        // with no data yet) — the marker must survive even on the disabled
-        // branch. No tabIndex/onClick: role="button" only announces "this is
-        // an unavailable month cell" to AT, it does NOT make the cell
-        // activatable by mouse or keyboard (FIX 3).
-        aria-current={esActual ? 'date' : undefined}
-        className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted p-3 text-muted-foreground opacity-60"
-      >
-        {contenido}
-      </div>
-    );
-  }
-
+  // US-048 D-01/D-02/D-03: the month control and MiniSemaforoTag are SIBLING
+  // interactive elements — never nested (CA-05). The wrapper itself carries
+  // no role/handler/visual style; every existing visual class stays on the
+  // month control (byte-identical), which now also gains h-full w-full. The
+  // tag is absolutely positioned top-right, OUTSIDE the disabled branch's
+  // opacity-60 element (D-2 — an empty month's semáforo still reads live).
+  // DOM order is month control THEN tag (D-02 tab order); no tabIndex
+  // anywhere, the disabled branch keeps none (FIX 3, D-13).
   return (
-    <button
-      type="button"
-      aria-label={`Ver ${mesCompletoLabel(mes.periodo)}`}
-      aria-current={esActual ? 'date' : undefined}
-      onClick={() => onSelectPeriodo(mes.periodo)}
-      className={cn(
-        // LOCKED (WCAG 1.4.11): focus ring stays outline-slate-800, matching
-        // the pie slices/legend — do NOT re-tint.
-        'flex flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
-        // D-04: `esActual` no longer drives any className — cell chrome is
-        // exclusively the "selected" channel now.
-        esSeleccionado
-          ? 'border-2 border-ingreso-foreground bg-card'
-          : 'border-border bg-card',
+    <div className="relative h-full">
+      {tieneDatos ? (
+        <button
+          type="button"
+          aria-label={`Ver ${mesCompletoLabel(mes.periodo)}`}
+          aria-current={esActual ? 'date' : undefined}
+          onClick={() => onSelectPeriodo(mes.periodo)}
+          className={cn(
+            // LOCKED (WCAG 1.4.11): focus ring stays outline-slate-800,
+            // matching the pie slices/legend — do NOT re-tint.
+            'flex h-full w-full flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+            // D-04: `esActual` no longer drives any className — cell chrome
+            // is exclusively the "selected" channel now.
+            esSeleccionado
+              ? 'border-2 border-ingreso-foreground bg-card'
+              : 'border-border bg-card',
+          )}
+        >
+          {contenido}
+        </button>
+      ) : (
+        <div
+          role="button"
+          aria-disabled="true"
+          // FIX 1: a sinIngreso month can still BE the current month ("today"
+          // with no data yet) — the marker must survive even on the disabled
+          // branch. No tabIndex/onClick: role="button" only announces "this
+          // is an unavailable month cell" to AT, it does NOT make the cell
+          // activatable by mouse or keyboard (FIX 3).
+          aria-current={esActual ? 'date' : undefined}
+          className="flex h-full w-full flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted p-3 text-muted-foreground opacity-60"
+        >
+          {contenido}
+        </div>
       )}
-    >
-      {contenido}
-    </button>
+      <span className="absolute top-1 right-1">
+        <MiniSemaforoTag
+          estadoGlobal={mes.estadoGlobal}
+          periodo={mes.periodo}
+        />
+      </span>
+    </div>
   );
 }

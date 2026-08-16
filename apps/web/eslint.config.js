@@ -122,6 +122,18 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-048 (design D-10). Same FILE-LIST form as the US-047
+  // block above (loose siblings under `src/components/`, not a subdirectory —
+  // globbing `src/components/**` would absorb the app's pre-existing a11y
+  // debt). `ResumenScreen.tsx` is already gated by the US-047 block above;
+  // not repeated here.
+  {
+    files: [
+      'src/components/ResumenAnual.tsx',
+      'src/components/MiniSemaforoTag.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so
