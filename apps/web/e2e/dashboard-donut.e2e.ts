@@ -167,14 +167,7 @@ test.describe('dashboard donut — T1 grid layout (CA-05, WG5-10)', () => {
       'Scoped to the escritorio project (1280px, existing lg page-level behavior + design D-09 divider).',
     );
 
-    // The page-level 2-column grid (`ResumenScreen.tsx`'s outer
-    // `grid-cols-1 lg:grid-cols-2`) has no testid of its own (this change
-    // adds none) — it is `grafico-card-body`'s second `div` ancestor
-    // (card wrapper, then page grid), a stable structural relationship, not
-    // a class-name assertion.
-    const paginaGrid = page
-      .getByTestId('grafico-card-body')
-      .locator('xpath=ancestor::div[2]');
+    const paginaGrid = page.getByTestId('dashboard-page-grid');
     const tracks = await gridTracks(paginaGrid);
     expect(tracks).toHaveLength(2);
 
