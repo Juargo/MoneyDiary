@@ -122,12 +122,38 @@ const RESUMEN_MES_FIXTURE = {
  * spec's page to settle, even though this spec asserts nothing about the
  * annual grid itself.
  */
+/**
+ * US-048 PR5 (design §6.4, edit 2/2): months August-December render as
+ * `sinIngreso` (zeroed buckets, `estadoGlobal: null`) so `annual-grid.e2e.ts`
+ * exercises BOTH branches of a real cell — data and disabled — at a real
+ * viewport, mirroring `ResumenAnual.test.tsx`'s own `mesSinDatos` shape.
+ * Only 5 of 12 months, not all: an all-`sinIngreso` year would trip
+ * `ResumenAnual`'s Empty state, and `dashboard-donut.e2e.ts` (which reuses
+ * this same fixture) needs the grid rendered too.
+ */
+function mesDelAnio(mesNumero: number) {
+  const periodo = `2026-${String(mesNumero).padStart(2, '0')}`;
+  if (mesNumero < 8) {
+    return { ...RESUMEN_MES_FIXTURE, periodo };
+  }
+  return {
+    ...RESUMEN_MES_FIXTURE,
+    periodo,
+    sinIngreso: true,
+    totalIngreso: '0',
+    estadoGlobal: null,
+    buckets: RESUMEN_MES_FIXTURE.buckets.map((bucket) => ({
+      ...bucket,
+      total: '0',
+      porcentajeBp: null,
+      estadoSemaforo: null,
+    })),
+  };
+}
+
 const RESUMEN_ANUAL_FIXTURE = {
   anio: 2026,
-  meses: Array.from({ length: 12 }, (_, i) => ({
-    ...RESUMEN_MES_FIXTURE,
-    periodo: `2026-${String(i + 1).padStart(2, '0')}`,
-  })),
+  meses: Array.from({ length: 12 }, (_, i) => mesDelAnio(i + 1)),
 };
 
 /**
@@ -163,9 +189,19 @@ export async function stubApi(page: Page): Promise<void> {
   // Trailing `*` (not `**`) after `resumen` — matches with/without a
   // `?periodo=` query (`*` excludes `/`, so this never swallows
   // `/api/resumen/anual`'s own `/anual` path segment).
-  await page.route('**/api/resumen*', (route) =>
-    route.fulfill({ json: RESUMEN_MES_FIXTURE }),
-  );
+  //
+  // US-048 PR5 (design §6.4, edit 1/2): echoes the requested `?periodo=`
+  // into the returned DTO's `periodo` field, falling back to the fixture's
+  // own `2026-07` when absent — needed so clicking a month in the annual
+  // grid (`E-02`) actually moves `viewModel.periodo`, not just the URL.
+  // `dashboard-donut.e2e.ts` never sends a `?periodo=`, so it keeps
+  // resolving `2026-07` — its existing, unchanged behavior (D-15).
+  await page.route('**/api/resumen*', (route) => {
+    const periodo =
+      new URL(route.request().url()).searchParams.get('periodo') ??
+      RESUMEN_MES_FIXTURE.periodo;
+    route.fulfill({ json: { ...RESUMEN_MES_FIXTURE, periodo } });
+  });
   await page.route('**/api/resumen/anual*', (route) =>
     route.fulfill({ json: RESUMEN_ANUAL_FIXTURE }),
   );
