@@ -328,7 +328,17 @@ describe('ResumenScreen', () => {
   // "Necesidades"/"Gustos"/"Ahorro" are each selectable in TWO places (pie
   // slice + legend row, both wired to the same `onSelectBucket`) — hence
   // `getAllByRole` here. "Sin categoría" has no pie slice (excluded from
-  // `distribucionGasto` by design), only a legend row.
+  // `distribucionGastoInterina` by design, still true at this PR2 boundary
+  // — the pie's real 4-wedge rewire is T11), only a legend row.
+  //
+  // US-047 PR2 interim query fix (T11 will do the full accessible-name
+  // rename per its own task text — this is only enough to keep this
+  // pre-existing suite correct at the PR2 boundary): the pie wedge's
+  // `aria-label` stayed a concise bucket name ("Necesidades"), but the
+  // legend row's accessible name now includes its content (D-08 deliberate
+  // `aria-label` removal, T7) — e.g. "Necesidades 50% -$500.000". A
+  // `^Necesidades\b` prefix match still counts BOTH controls without
+  // hardcoding the fixture's exact percentage/amount text here.
   it('renders the "Distribución del gasto" pie + legend, with SinCategoria selectable though outside the pie (spec W1-02, task 30.9/30.10)', () => {
     mockFetchPorBucket();
     renderScreen();
@@ -337,24 +347,33 @@ describe('ResumenScreen', () => {
     expect(
       screen.getByRole('group', { name: 'Distribución del gasto' }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Necesidades' })).toHaveLength(
+    expect(
+      screen.getAllByRole('button', { name: /^Necesidades\b/ }),
+    ).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Gustos\b/ })).toHaveLength(
       2,
     );
-    expect(screen.getAllByRole('button', { name: 'Gustos' })).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Ahorro' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Ahorro\b/ })).toHaveLength(
+      2,
+    );
     expect(
-      screen.getAllByRole('button', { name: 'Sin categoría' }),
+      screen.getAllByRole('button', { name: /^Sin categoría\b/ }),
     ).toHaveLength(1);
   });
 
-  // Regression test (judgment-day PR1 fix): a REAL `distribucionGasto` (built
-  // via `aResumenViewModel`, not the hand-rolled `viewModel` fixture above)
-  // now has 4 items (SinCategoria included, US-047 D-05). Before the
-  // `tajadasInterinas` shim, `entradasLeyenda` spread that 4-item array AND
-  // manually appended a SECOND SinCategoria row — a duplicate legend row
-  // sharing the same React `key`, which triggers a duplicate-key console
-  // warning. This asserts both symptoms are gone while the shim is in place.
-  it('renders exactly 3 legend rows + 1 SinCategoria row (no duplicate) from a REAL view model, without a React duplicate-key warning (PR1 shim regression)', () => {
+  // Regression test (judgment-day PR1 fix, updated for PR2/T7): a REAL
+  // `distribucionGasto` (built via `aResumenViewModel`, not the hand-rolled
+  // `viewModel` fixture above) now has 4 items (SinCategoria included,
+  // US-047 D-05). Before the `tajadasInterinas` shim, the OLD
+  // `entradasLeyenda` spread that 4-item array AND manually appended a
+  // SECOND SinCategoria row — a duplicate legend row sharing the same React
+  // `key`, which triggered a duplicate-key console warning. `LeyendaGasto`
+  // now renders 5 rows total (3 `leyendaPrincipal` + Ingresos +
+  // SinCategoria from `leyendaComplemento`, T7/WG5-03) — the count changed
+  // from 4→5 because Ingresos moved INSIDE `LeyendaGasto`'s own rendered
+  // rows (it used to live only in `IngresoCard`); this asserts the
+  // duplicate-row/duplicate-key symptom stays gone under the new shape.
+  it('renders exactly 5 legend rows (3 gasto + Ingresos + Sin categoría, no duplicate) from a REAL view model, without a React duplicate-key warning (PR1/PR2 shim regression)', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -363,9 +382,9 @@ describe('ResumenScreen', () => {
 
     renderScreen(vmReal);
 
-    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(4);
+    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(5);
     expect(
-      screen.getAllByRole('button', { name: 'Sin categoría' }),
+      screen.getAllByRole('button', { name: /^Sin categoría\b/ }),
     ).toHaveLength(1);
     for (const mensaje of consoleErrorSpy.mock.calls.map((call) => call[0])) {
       expect(String(mensaje)).not.toContain('same key');
@@ -428,7 +447,11 @@ describe('ResumenScreen', () => {
       expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sin categoría' }));
+    // US-047 PR2 interim query fix (see the comment on the button-count
+    // test above): the legend row's accessible name now includes its
+    // `cantidadLabel`/amount (D-08), so an exact "Sin categoría" match no
+    // longer resolves.
+    fireEvent.click(screen.getByRole('button', { name: /^Sin categoría\b/ }));
 
     await waitFor(() =>
       expect(
