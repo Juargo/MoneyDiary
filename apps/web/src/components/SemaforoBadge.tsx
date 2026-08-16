@@ -1,30 +1,5 @@
 import { cn } from '@/lib/utils';
-
-interface EstiloSemaforo {
-  readonly label: string;
-  readonly cara: string;
-  readonly className: string;
-}
-
-const ESTILOS: Record<string, EstiloSemaforo> = {
-  verde: {
-    label: 'Verde',
-    cara: '🙂',
-    className: 'bg-emerald-100 text-emerald-700',
-  },
-  amarillo: {
-    label: 'Amarillo',
-    cara: '😐',
-    className: 'bg-amber-100 text-amber-700',
-  },
-  rojo: { label: 'Rojo', cara: '☹️', className: 'bg-rose-100 text-rose-700' },
-};
-
-const SIN_DATOS: EstiloSemaforo = {
-  label: 'Sin datos',
-  cara: '—',
-  className: 'bg-slate-100 text-slate-500',
-};
+import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
 
 /**
  * Traffic-light indicator for a single `estadoSemaforo` wire value
@@ -34,6 +9,12 @@ const SIN_DATOS: EstiloSemaforo = {
  * Spanish state word is exposed via `role="img"` + `aria-label` (never color
  * alone), and an unknown/`null` value maps to a DISTINCT "Sin datos" badge,
  * never coerced into one of the three known colors.
+ *
+ * US-047 (design D-06): the estado→(label, cara, className) table moved to
+ * `lib/semaforo-estilos.ts`, shared with `SemaforoTag`. This component's own
+ * rendering logic and public behavior are otherwise byte-for-byte unchanged
+ * — `ResumenAnual`'s 12 instances (`size={20}`) must not be collaterally
+ * converted into links.
  */
 export function SemaforoBadge({
   estadoSemaforo,
@@ -42,9 +23,7 @@ export function SemaforoBadge({
   readonly estadoSemaforo: string | null;
   readonly size?: number;
 }) {
-  const estilo = estadoSemaforo
-    ? (ESTILOS[estadoSemaforo] ?? SIN_DATOS)
-    : SIN_DATOS;
+  const estilo = resolverEstiloSemaforo(estadoSemaforo);
 
   return (
     <span
