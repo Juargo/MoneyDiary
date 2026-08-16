@@ -51,3 +51,32 @@ export function formatearMontoCLP(montoStr: string): string {
   const conMiles = absoluto.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${signo}$${conMiles}`;
 }
+
+/**
+ * formatearMontoConSigno — US-047 (design D-04): a NEW function, not a
+ * parameter on `formatearMontoCLP` (which stays byte-identical — it is
+ * consumed across the app and adding an options bag would put an unused
+ * branch in every existing call site). The sign is a CALLER decision
+ * (chosen by item kind — gasto/sinCategoria `-`, ingreso `+`), never read
+ * off the data: the backend always sends unsigned magnitudes.
+ *
+ * Reuses `esMontoStringValido` (no second regex — DRY) and operates on the
+ * absolute magnitude before prefixing `signo`, so a hypothetical negative
+ * input can never produce a doubled `--$100`. A magnitude of exactly `0`
+ * carries no sign prefix — a sign communicates the direction of an actual
+ * flow, and `formatearMontoCLP('0')` already renders `$0` unprefixed.
+ */
+export function formatearMontoConSigno(
+  montoStr: string,
+  signo: '+' | '-',
+): string {
+  if (!esMontoStringValido(montoStr)) {
+    throw new Error(
+      'El monto en CLP debe ser un string decimal entero válido (sin hex/oct/bin, sin signo "+", sin espacios).',
+    );
+  }
+  const monto = BigInt(montoStr);
+  const absoluto = (monto < 0n ? -monto : monto).toString();
+  const sinSigno = formatearMontoCLP(absoluto);
+  return monto === 0n ? sinSigno : `${signo}${sinSigno}`;
+}
