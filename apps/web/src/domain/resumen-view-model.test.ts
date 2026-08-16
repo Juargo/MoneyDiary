@@ -35,7 +35,10 @@ function dto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'amarillo',
-    cantidadSinCategoria: 0,
+    // Nonzero default (not 0) so the explicit `{ cantidadSinCategoria: 0 }`
+    // override below genuinely proves the zero-mapping path instead of being
+    // a no-op against an already-zero default.
+    cantidadSinCategoria: 3,
     ...overrides,
   };
 }
@@ -353,7 +356,7 @@ describe('aResumenViewModel', () => {
           kind: 'sinCategoria',
           bucket: 'SinCategoria',
           montoLabel: '$0',
-          cantidadLabel: '0 tx',
+          cantidadLabel: '3 tx',
         },
       ]);
     });

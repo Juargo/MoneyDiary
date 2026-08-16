@@ -247,6 +247,15 @@ describe('fetchResumen', () => {
     expect(
       !resultadoTipoIncorrecto.ok && resultadoTipoIncorrecto.error.tag,
     ).toBe('parse');
+
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, cantidadSinCategoria: null }),
+    });
+    const resultadoNull = await fetchResumen();
+    expect(resultadoNull.ok).toBe(false);
+    expect(!resultadoNull.ok && resultadoNull.error.tag).toBe('parse');
   });
 
   // A legitimate zero must not be confused with a missing/invalid field by

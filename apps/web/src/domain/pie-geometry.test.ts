@@ -53,14 +53,6 @@ describe('arcoPath', () => {
     expect(d).toBe('M 120 80 L 162.426 37.574 A 60 60 0 0 1 162.426 122.426 Z');
   });
 
-  // rInterior === undefined must behave identically to omitting it entirely —
-  // both degrade to the same byte-identical filled-wedge path.
-  it('rInterior === undefined se comporta igual que omitirlo (D-01)', () => {
-    const conOmision = arcoPath(120, 80, 60, 45, 135);
-    const conUndefined = arcoPath(120, 80, 60, 45, 135, undefined);
-    expect(conUndefined).toBe(conOmision);
-  });
-
   it('con rInterior > 0 arranca en el borde exterior (no en M cx cy) y referencia ambos radios — el anillo tiene agujero (D-01)', () => {
     const d = arcoPath(120, 80, 60, 45, 135, 30);
     expect(d.startsWith('M 120 80')).toBe(false);

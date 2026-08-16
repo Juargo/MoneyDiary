@@ -7,6 +7,7 @@ import { BucketDetailList } from './BucketDetailList';
 import { ResumenAnual } from './ResumenAnual';
 import type { LeyendaTajada } from './LeyendaGasto';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
+import { BUCKETS_5030 } from '@/domain/distribucion-gasto';
 import { anioDePeriodo } from '@/domain/periodo-anual';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { cn } from '@/lib/utils';
@@ -54,11 +55,15 @@ const BUCKET_SIN_CATEGORIA = 'SinCategoria';
  * it owns ITS OWN `useDetalleBucket` query (established pattern, see its own
  * docstring), so this screen never touches bucket-detail data directly.
  *
- * SinCategoria is deliberately NOT one of the pie's 3 slices
- * (`distribucionGasto` excludes it, `domain/distribucion-gasto.ts`) but MUST
- * stay reachable — it's appended to the legend's entries with no `porcentaje`
- * (task 30.10), so it renders as a selectable row without a misleading
- * share-of-spending percent.
+ * SinCategoria is deliberately excluded from the pie's 3 rendered slices even
+ * though `viewModel.distribucionGasto` now returns all 4 `BUCKETS_ANILLO`
+ * members, SinCategoria included (US-047 D-05,
+ * `domain/distribucion-gasto.ts`). A TEMPORARY PR1 shim below
+ * (`tajadasInterinas`) filters it back down to `BUCKETS_5030` for both the
+ * pie and the legend spread, and SinCategoria is appended to the legend
+ * separately with no `porcentaje` (task 30.10), so it renders as a
+ * selectable row without a misleading share-of-spending percent. The shim is
+ * removed once PR2/PR3 land the real 4-wedge donut UI (tasks T6/T11).
  *
  * The annual 50/30/20 summary (US-030 Slice C, task 30.12) renders BELOW the
  * 2-column section — `ResumenAnual` is self-contained (owns its own
@@ -96,8 +101,20 @@ export function ResumenScreen({
 
   const bucketSeleccionado = bucketElegido ?? viewModel.bucketPorDefecto;
 
+  // TEMPORARY PR1 shim (removed by US-047 PR2/PR3, tasks T6/T11):
+  // `viewModel.distribucionGasto` now apportions over all 4 `BUCKETS_ANILLO`
+  // members (US-047 D-05), but this screen (untouched until PR3) still
+  // renders the OLD 3-slice pie with SinCategoria appended to the legend
+  // separately. Filtering back down to `BUCKETS_5030` ONCE here — and reusing
+  // that filtered list for both the pie's `tajadas` and the legend spread —
+  // avoids a duplicate SinCategoria row (and the React duplicate-key warning
+  // it caused) until the real 4-wedge donut UI lands.
+  const tajadasInterinas = viewModel.distribucionGasto.filter((t) =>
+    (BUCKETS_5030 as readonly string[]).includes(t.bucket),
+  );
+
   const entradasLeyenda: ReadonlyArray<LeyendaTajada> = [
-    ...viewModel.distribucionGasto,
+    ...tajadasInterinas,
     { bucket: BUCKET_SIN_CATEGORIA },
   ];
 
@@ -121,7 +138,7 @@ export function ResumenScreen({
           </div>
 
           <DistribucionPie
-            tajadas={viewModel.distribucionGasto}
+            tajadas={tajadasInterinas}
             targets={viewModel.targets}
             bucketSeleccionado={bucketSeleccionado}
             onSelectBucket={setBucketElegido}

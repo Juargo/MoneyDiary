@@ -1,7 +1,7 @@
 import { calcularAngulos, arcoPath } from '@/domain/pie-geometry';
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { PIE_LABEL_FILL, PIE_WEDGE_STROKE } from '@/lib/pie-colors';
-// US-047 PR1 compile-fix (design "Proposed PR boundaries" #1): `BUCKETS_GASTO`
+// US-047 PR1 compile-fix (tasks.md "Proposed PR boundaries" #1): `BUCKETS_GASTO`
 // was split into `BUCKETS_5030`/`BUCKETS_ANILLO` (D-05). The IDEAL inset
 // indexes `targets`, which has no `SinCategoria` key, so it MUST keep using
 // the 3-item set — swapping to `BUCKETS_ANILLO` here would read
