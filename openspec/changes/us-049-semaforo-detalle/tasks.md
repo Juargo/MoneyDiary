@@ -291,12 +291,16 @@ on Phase 2 (`montoParaVerde` exists; this phase wires it into
         by direct import — making them private would require deleting those
         tests with no equivalent-precision replacement (Group C's re-apply
         tests prove correctness of the composed result, not strict minimality
-        of the raw inverse formulas); (2) `ETIQUETA_BUCKET_COPY` is required
-        exported BY THIS SAME PHASE'S OWN T3.2, which tests it by direct
-        import — the task that names "helpers private" as the target and the
-        task that requires a direct-import test of a "helper" constant are in
-        tension, and T3.2 (a concrete, numbered test requirement) is treated
-        as authoritative over §1.2's general public-surface prose. No
+        of the raw inverse formulas); (2) `ETIQUETA_BUCKET_COPY` stays
+        exported as a DELIBERATE (but avoidable) choice for direct
+        unit-testability of the label map in isolation from the diagnosis
+        sentence — judgment-day round 1 noted the original "required by
+        T3.2" framing was circular (T3.2 was authored in the same PR); the
+        "Gustos" wording is independently pinned via `diagnosticar`'s Group D
+        assertions, so the export is a testing convenience, not a hard
+        constraint. Judgment-day also hardened the internal types: a
+        3-member-union type predicate (`esBucketSemaforo`) now narrows at
+        compile time so copy helpers can never render "undefined". No
         external module imports any of these three symbols — the export is a
         testability surface, not a new consumer-facing API. `tsc --noEmit`
         clean; `pnpm api test semaforo-detalle.spec.ts` 102/102 green.
