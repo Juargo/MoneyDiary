@@ -39,13 +39,13 @@ interface EntradaBucket {
 }
 
 /**
- * Belt-and-suspenders money guard (US-050, design §1.2 — ported from
- * apps/web/src/domain/distribucion-gasto.ts). Money is validated at the
- * fetch boundary (`api/client.ts`/`esMontoStringValido`, D-14), so this
- * should never see a malformed string in practice — but there is no
- * ErrorBoundary in this app, so an unvalidated bad string reaching a bare
- * `BigInt(...)` here would throw a raw `SyntaxError` mid-render. Degrades an
- * invalid/empty total to `0n` instead of throwing.
+ * Money guard (US-050, design §1.2 — ported from
+ * apps/web/src/domain/distribucion-gasto.ts). The fetch-boundary guard
+ * (`api/client.ts`/`esMontoStringValido`, D-14) arrives with Phase 2 — until
+ * then, this is the ONLY guard between a malformed money string and a bare
+ * `BigInt(...)` call, and there is no ErrorBoundary in this app, so an
+ * unvalidated bad string would throw a raw `SyntaxError` mid-render.
+ * Degrades an invalid/empty total to `0n` instead of throwing, by design.
  */
 function montoSeguro(montoStr: string): bigint {
   return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n;
