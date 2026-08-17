@@ -76,6 +76,34 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+// D-15 gate (judgment-day fix, PR5b): the old test asserted on
+// `getByLabelText(...).props.onPress`, which is the HOST Pressable's own
+// prop — `undefined` in RNTL, since `Pressable` never forwards `onPress`
+// verbatim onto the rendered host node. That made the assertion
+// `expect(undefined).toBe(undefined)`, passing unconditionally regardless of
+// whether the shell's `onSelectPeriodo` is actually stable. This mock
+// replaces that vacuous read with a real probe: it wraps the REAL
+// `ResumenAnual` (rendered via `createElement`, so its own hooks still run
+// against its own fiber) and records the `onSelectPeriodo` identity it
+// receives on every render the shell triggers.
+const mockOnSelectPeriodoIdentidades: unknown[] = [];
+
+jest.mock('../src/components/ResumenAnual', () => {
+  const actual = jest.requireActual('../src/components/ResumenAnual');
+  const { createElement } = jest.requireActual('react');
+  return {
+    ...actual,
+    ResumenAnual: (props: {
+      readonly anio: number;
+      readonly periodoSeleccionado?: string;
+      readonly onSelectPeriodo: (periodo: string) => void;
+    }) => {
+      mockOnSelectPeriodoIdentidades.push(props.onSelectPeriodo);
+      return createElement(actual.ResumenAnual, props);
+    },
+  };
+});
+
 // Deferred promise so the loading state is observable before resolution.
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -228,6 +256,7 @@ describe('Index (4-state switch)', () => {
     mockBorrarToken.mockReset().mockResolvedValue(undefined);
     mockSignOut.mockReset();
     mockPush.mockReset();
+    mockOnSelectPeriodoIdentidades.length = 0;
   });
 
   it('shows the loading state while the request is in flight', async () => {
@@ -537,8 +566,13 @@ describe('Index (4-state switch)', () => {
           screen.getByLabelText(`Ver abril ${anioActual}`),
         ).toBeOnTheScreen(),
       );
-      const antes = screen.getByLabelText(`Ver abril ${anioActual}`).props
-        .onPress;
+      // The shell renders `ResumenAnual` at least once for the initial
+      // mount, then AGAIN when `cargar()` flips `estado` from `loading` to
+      // `data` — both renders must have already happened by the time the
+      // month cell is on screen, so there is a real baseline to compare
+      // against below (not just a single capture).
+      expect(mockOnSelectPeriodoIdentidades.length).toBeGreaterThanOrEqual(1);
+      const primero = mockOnSelectPeriodoIdentidades[0];
 
       // The real resumen-refresh pub/sub — both `app/index.tsx` and
       // `ResumenAnual` are registered listeners, so this re-fetches both
@@ -549,9 +583,53 @@ describe('Index (4-state switch)', () => {
       });
       await waitFor(() => expect(mockFetchResumen).toHaveBeenCalledTimes(2));
 
-      const despues = screen.getByLabelText(`Ver abril ${anioActual}`).props
-        .onPress;
-      expect(despues).toBe(antes);
+      // Every `onSelectPeriodo` identity the (real) `ResumenAnual` received
+      // across every shell re-render — mount through the refresh above —
+      // must be the SAME function reference. A `useCallback` with a stable
+      // dependency list guarantees this; an inline arrow or a plain
+      // (non-memoized) function does not, and would fail this loop.
+      expect(mockOnSelectPeriodoIdentidades.length).toBeGreaterThanOrEqual(2);
+      for (const identidad of mockOnSelectPeriodoIdentidades) {
+        expect(identidad).toBe(primero);
+      }
+    });
+
+    // MOB-14 (judgment-day fix): the theoretical Empty→tap→data path had no
+    // test — this pins it end-to-end. Initial mount resolves `sinIngreso:
+    // true` (SLOT shows `Empty`, annual grid still visible per D-05), then
+    // tapping a month cell WITH data must leave the SLOT's `Empty` state,
+    // re-fire `/api/resumen` for that tapped periodo, and land on the data
+    // view.
+    it('leaves the Empty state and shows data after tapping a month with data (MOB-14)', async () => {
+      mockFetchResumen
+        .mockResolvedValueOnce({ ok: true, value: emptyDto })
+        .mockResolvedValueOnce({ ok: true, value: dataDto });
+
+      await render(<Index />);
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('Sin ingresos registrados este período'),
+        ).toBeOnTheScreen(),
+      );
+      expect(screen.getByText(`Año ${anioActual}`)).toBeOnTheScreen();
+
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText(`Ver abril ${anioActual}`),
+        ).toBeOnTheScreen(),
+      );
+      fireEvent.press(screen.getByLabelText(`Ver abril ${anioActual}`));
+
+      await waitFor(() => expect(mockFetchResumen).toHaveBeenCalledTimes(2));
+      expect(mockFetchResumen).toHaveBeenLastCalledWith(`${anioActual}-04`);
+
+      await waitFor(() =>
+        expect(
+          screen.queryByText('Sin ingresos registrados este período'),
+        ).not.toBeOnTheScreen(),
+      );
+      expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
     });
   });
 });
