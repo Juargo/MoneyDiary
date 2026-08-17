@@ -24,7 +24,19 @@ describe('resumen-refresh (pub/sub)', () => {
     expect(() => solicitarRecargaResumen()).not.toThrow();
   });
 
-  it('re-registering replaces the previous listener', () => {
+  // INVERTED by US-050 D-13 (was "re-registering replaces the previous
+  // listener" — true only under the old single-slot implementation). A
+  // `Set<() => void>` has no "replace" semantics for two distinct callback
+  // identities: registering a second, different listener without
+  // unregistering the first now means BOTH accumulate and BOTH fire — this
+  // is precisely what lets `ResumenAnual` coexist with `app/index.tsx`'s
+  // `cargar()` as two independent subscribers. The old assumption (last
+  // registration always wins) is retired, not silently dropped: a real
+  // subscriber's identity-stable re-registration (unregister-then-register,
+  // e.g. React effect cleanup on a dependency change) is what
+  // "desregistrarRecargaResumen does NOT clear a newer listener registered
+  // after it" (above) and the D-13 cases (below) already cover.
+  it('registering two distinct listeners without unregistering the first accumulates both (D-13)', () => {
     const primero = jest.fn();
     const segundo = jest.fn();
 
@@ -33,7 +45,7 @@ describe('resumen-refresh (pub/sub)', () => {
     solicitarRecargaResumen();
 
     expect(segundo).toHaveBeenCalledTimes(1);
-    expect(primero).not.toHaveBeenCalled();
+    expect(primero).toHaveBeenCalledTimes(1);
   });
 
   it('desregistrarRecargaResumen clears the slot only if it still holds the given listener', () => {
@@ -68,5 +80,33 @@ describe('resumen-refresh (pub/sub)', () => {
     solicitarRecargaResumen();
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  // D-13 (US-050): the slot is promoted from a single listener to a `Set`
+  // — ResumenAnual becomes a second subscriber alongside app/index.tsx's
+  // main chart reload, so both must fire on one solicitarRecargaResumen().
+  it('fires all registered listeners on solicitarRecargaResumen() (D-13)', () => {
+    const principal = jest.fn();
+    const anual = jest.fn();
+
+    registrarRecargaResumen(principal);
+    registrarRecargaResumen(anual);
+    solicitarRecargaResumen();
+
+    expect(principal).toHaveBeenCalledTimes(1);
+    expect(anual).toHaveBeenCalledTimes(1);
+  });
+
+  it('unregistering one listener leaves the other subscribed (D-13)', () => {
+    const principal = jest.fn();
+    const anual = jest.fn();
+
+    registrarRecargaResumen(principal);
+    const unregisterAnual = registrarRecargaResumen(anual);
+    unregisterAnual();
+    solicitarRecargaResumen();
+
+    expect(principal).toHaveBeenCalledTimes(1);
+    expect(anual).not.toHaveBeenCalled();
   });
 });

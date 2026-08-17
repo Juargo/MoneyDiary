@@ -173,7 +173,7 @@ Requirements: MOB-05, MOB-08. Depends on nothing.
 Requirements: MOB-10, MOB-13. Depends on Phase 1 landing (chain order; no
 direct code coupling).
 
-- [ ] **T2.1 (RED)** Create `apps/mobile/src/domain/periodo-anual.spec.ts`
+- [x] **T2.1 (RED)** Create `apps/mobile/src/domain/periodo-anual.spec.ts`
       (11 cases): `mesAbreviado` for months 1/7/12 (3); unparseable →
       verbatim, one per exported function (2); `mesCompletoLabel('2026-07')`
       → `'julio 2026'` (1); `anioDePeriodo` (1) + its fallback (1);
@@ -181,12 +181,12 @@ direct code coupling).
       `Date` whose local month differs from its UTC month resolves by UTC
       (1); month is zero-padded (1). `[P]` with T2.3 (disjoint files).
       - Verify (expect RED — module doesn't exist): `pnpm --filter @moneydiary/mobile test periodo-anual.spec.ts`
-- [ ] **T2.2 (GREEN)** Create `apps/mobile/src/domain/periodo-anual.ts`:
+- [x] **T2.2 (GREEN)** Create `apps/mobile/src/domain/periodo-anual.ts`:
       `mesAbreviado`, `mesCompletoLabel`, `anioDePeriodo`,
       `periodoActualUTC(ahora: Date)` — `ahora` stays an injected argument,
       never `new Date()` internally (design §1.3).
       - Verify: `pnpm --filter @moneydiary/mobile test periodo-anual.spec.ts` — 11 green.
-- [ ] **T2.3 (RED)** In `apps/mobile/src/api/client.spec.ts`, add +13 cases
+- [x] **T2.3 (RED)** In `apps/mobile/src/api/client.spec.ts`, add +13 cases
       for `fetchResumenAnual`: URL is `{base}/api/resumen/anual` with no
       query when `anio` omitted (1); `?anio=2026` when given (1); sends
       `x-api-key`/`Authorization` (1); 200 ok (1); 401→`unauthorized` (1);
@@ -196,7 +196,7 @@ direct code coupling).
       `bucket.total` of `'12.5'`→`parse` on `/api/resumen` (1) and inside
       `meses[3]` on `/anual` (1). `[P]` with T2.1.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test client.spec.ts`
-- [ ] **T2.4 (GREEN)** In `apps/mobile/src/api/client.ts`, add
+- [x] **T2.4 (GREEN)** In `apps/mobile/src/api/client.ts`, add
       `fetchResumenAnual(anio?)` mirroring `fetchResumen` byte-for-byte in
       shape (D-02): same `ApiResult`/`ApiError` tags, same
       `construirHeadersSesion`, never throws. Extend `esResumenMesDto`/add
@@ -204,23 +204,64 @@ direct code coupling).
       the money-format guard via `esMontoStringValido` on `totalIngreso` and
       every `bucket.total` (D-14).
       - Verify: `pnpm --filter @moneydiary/mobile test client.spec.ts` — 15 new cases green (design §3 "API — 15 cases").
-- [ ] **T2.5 (RED)** In `apps/mobile/src/api/resumen-refresh.spec.ts`, add +2
+- [x] **T2.5 (RED)** In `apps/mobile/src/api/resumen-refresh.spec.ts`, add +2
       cases: two registered listeners both fire on
       `solicitarRecargaResumen()` (1); unregistering one leaves the other
       subscribed (1). Existing cases must stay green.
       - Verify (expect RED for the 2 new cases): `pnpm --filter @moneydiary/mobile test resumen-refresh.spec.ts`
-- [ ] **T2.6 (GREEN)** In `apps/mobile/src/api/resumen-refresh.ts`, promote
+- [x] **T2.6 (GREEN)** In `apps/mobile/src/api/resumen-refresh.ts`, promote
       the single-listener slot to a `Set<() => void>` (D-13);
       `registrarRecargaResumen` returns an unregister that deletes only its
       own callback. Caller-facing API is unchanged — no edit needed in
       `app/index.tsx` or `app/subir.tsx` (design §4 impact sweep).
       - Verify: `pnpm --filter @moneydiary/mobile test resumen-refresh.spec.ts` full green.
-- [ ] **T2.7 (REFACTOR)** Confirm `periodo-anual.ts` never calls `new
+- [x] **T2.7 (REFACTOR)** Confirm `periodo-anual.ts` never calls `new
       Date()` internally and mirrors `formatearPeriodoLabel`'s total/
       never-throw discipline.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR2 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, ~26 tests.
+
+**PR2 real (post-lint):** 536 insertions / 26 deletions across 7 files (383/26
+tracked-file diff + 153 lines for the two new `periodo-anual.*` files) vs
+~395 forecast — over, same pattern PR1 flagged: docstring-heavy comments
+(this codebase's convention) inflate `client.spec.ts` past a raw case-count
+estimate (real 227 insertions for 13 new cases + 1 money-guard case on the
+existing `fetchResumen` describe). Test count: 283 total (257 baseline + 26
+new), exactly matching the ~26 forecast. **Deviation (T2.5/T2.6):** the
+pre-existing `resumen-refresh.spec.ts` case "re-registering replaces the
+previous listener" tested single-slot "last wins" semantics that are
+structurally impossible under a genuine `Set<() => void>` (two distinct
+listener identities registered without an intervening unregister now BOTH
+fire — that is the entire point of D-13's promotion, letting `ResumenAnual`
+coexist with `app/index.tsx`'s `cargar()`). Confirmed by running it RED
+against the real Set implementation (not assumed). Inverted, not silently
+deleted, into "registering two distinct listeners without unregistering the
+first accumulates both (D-13)" — same discipline as PR1's D-09 fixture
+tie-case inversion. No coverage lost: the stale-cleanup-safety guarantee
+("desregistrarRecargaResumen does NOT clear a newer listener registered
+after it") and the two new D-13 cases already cover real caller behavior
+(React effect cleanup unregisters before re-registering).
+
+**PR2 judgment-day fixes (post-review):** 283 → 290 total (+7). CRITICAL:
+`esResumenMesDto`'s `buckets.every((b) => b.total === ...)` threw a raw
+`TypeError` on a `null`/non-object bucket element instead of resolving
+`{tag:'parse'}` — the promise REJECTED, breaking the never-throws contract.
+Fixed with a dedicated `esBucketResumenDto` null-object guard (mirrors
+`apps/web`'s), +4 tests (null/non-object element, `fetchResumen` +
+`fetchResumenAnual`). WARNING: `totalIngreso`'s `esMontoStringValido` check
+had zero reject-path coverage (mutation-proven); +2 reject tests
+(`fetchResumen` + `fetchResumenAnual` at `meses[2]`, self-mutation
+verified red on removal). WARNING: `periodoActualUTC`'s "UTC not local"
+boundary spec only discriminated a regression on a non-UTC runner (GitHub
+Actions is UTC) — naive in-file `process.env.TZ` reassignment doesn't work
+under `jest-environment-node` (each test file gets a sandboxed `process.env`
+copy via `jest-util`'s `createProcessObject`, verified empirically); fixed
+by spying `Date.prototype.getFullYear`/`getMonth` to disagree with UTC,
+deterministic on any host/CI timezone — no new test count (existing case
+rewritten). SUGGESTION: `esResumenAnualDto` gained `meses.length === 12`
+(MOB-10, web-guard parity), +1 test (11-entry reject); `validAnualDto`
+fixture widened from 3 to 12 months so the accept-path stays representative.
 
 ---
 

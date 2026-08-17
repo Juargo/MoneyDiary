@@ -8,7 +8,11 @@
  * parsed to number here. `porcentajeBp` is a safe JS number (basis points,
  * ≤ 10000, far below 2^53).
  */
-export type { BucketResumenDto, ResumenMesDto } from '@moneydiary/api-client';
+export type {
+  BucketResumenDto,
+  ResumenMesDto,
+  ResumenAnualDto,
+} from '@moneydiary/api-client';
 
 /**
  * Mirror of `GET /api/auth/me`'s success body (MOB-04). `esDemo` and a

@@ -1,11 +1,16 @@
 import { API_BASE_URL, API_KEY } from './config';
 import { conTimeout, NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 import { leerToken } from './session-store';
+import { esMontoStringValido } from '../domain/formatear-monto';
 import type {
   AuthCapabilitiesDto,
   LoginResponseDto,
 } from '@moneydiary/api-client';
-import type { MeDto, ResumenMesDto } from '../domain/resumen.types';
+import type {
+  MeDto,
+  ResumenMesDto,
+  ResumenAnualDto,
+} from '../domain/resumen.types';
 
 /**
  * `LoginResponseDto` — mirror of `POST /api/auth/login`'s success body
@@ -54,7 +59,36 @@ export function copiaPorApiError(error: ApiError): string {
   }
 }
 
-/** Light shape guard — enough to catch a malformed/unexpected 2xx body. */
+/**
+ * esBucketResumenDto — per-element bucket guard (judgment-day CRITICAL fix,
+ * mirrors `apps/web/src/api/client.ts`'s `esBucketResumenDto`). Checking
+ * `b.total` directly inside `Array.prototype.every` without first ruling out
+ * `null`/non-object elements throws a raw `TypeError` — which REJECTS the
+ * enclosing promise instead of resolving `{ok:false, error:{tag:'parse'}}`,
+ * breaking the never-throws contract (MOB-02). The `typeof value !== 'object'
+ * || value === null` guard below is the same null-object check
+ * `esResumenMesDto` already applies to its own top-level `value`.
+ */
+function esBucketResumenDto(value: unknown): value is { total: string } {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<{ total: string }>;
+  return (
+    typeof candidato.total === 'string' && esMontoStringValido(candidato.total)
+  );
+}
+
+/**
+ * Light shape guard — enough to catch a malformed/unexpected 2xx body.
+ *
+ * Money guard (D-14, US-050): `totalIngreso` and every `bucket.total` are
+ * additionally checked with `esMontoStringValido`, not just `typeof ===
+ * 'string'`. `formatearMontoConSigno` (new in the legend) throws on a
+ * malformed amount and this app has no ErrorBoundary — without this guard a
+ * malformed 2xx body would crash the render instead of landing in the
+ * already-handled `parse` state.
+ */
 function esResumenMesDto(value: unknown): value is ResumenMesDto {
   if (typeof value !== 'object' || value === null) {
     return false;
@@ -62,7 +96,29 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
   const candidato = value as Partial<ResumenMesDto>;
   return (
     typeof candidato.totalIngreso === 'string' &&
-    Array.isArray(candidato.buckets)
+    esMontoStringValido(candidato.totalIngreso) &&
+    Array.isArray(candidato.buckets) &&
+    candidato.buckets.every(esBucketResumenDto)
+  );
+}
+
+/**
+ * esResumenAnualDto — GET /api/resumen/anual's shape guard. Reuses
+ * `esResumenMesDto` over every `meses[]` entry (DRY, design §1.5) so the
+ * D-14 money guard applies identically per month. `meses.length === 12`
+ * (judgment-day SUGGESTION fix, MOB-10) pins the annual grid to exactly 12
+ * cells, mirroring web's guard parity.
+ */
+function esResumenAnualDto(value: unknown): value is ResumenAnualDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<ResumenAnualDto>;
+  return (
+    typeof candidato.anio === 'number' &&
+    Array.isArray(candidato.meses) &&
+    candidato.meses.length === 12 &&
+    candidato.meses.every(esResumenMesDto)
   );
 }
 
@@ -159,6 +215,58 @@ export async function fetchResumen(
   }
 
   if (!esResumenMesDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * fetchResumenAnual — GET {base}/api/resumen/anual[?anio=YYYY] (MOB-10).
+ * Structurally a byte-for-byte mirror of `fetchResumen` (D-02): same
+ * `ApiResult`/`ApiError` tags, same `construirHeadersSesion`, never throws.
+ * The screen itself never sends `anio` (the backend resolves the current
+ * year from the caller's session) — the optional param exists for API
+ * completeness and future-year navigation, mirroring web's signature.
+ * Mobile keeps its own 4-tag `ApiError`: the `/anual` 400 (invalid `anio`)
+ * collapses into the generic `http` bucket rather than a dedicated tag
+ * (D-03) — mobile never sends a user-typed year, so a 400 here is a genuine
+ * "should not happen".
+ */
+export async function fetchResumenAnual(
+  anio?: number,
+): Promise<ApiResult<ResumenAnualDto>> {
+  if (!API_BASE_URL) {
+    // Fail-visible, not a crash: no fetch to `undefined/...` (design.md B.3).
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  const query =
+    anio !== undefined ? `?anio=${encodeURIComponent(String(anio))}` : '';
+  const url = `${API_BASE_URL}/api/resumen/anual${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: await construirHeadersSesion() });
+  } catch {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized' } };
+  }
+  if (!res.ok) {
+    return { ok: false, error: { tag: 'http', status: res.status } };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  if (!esResumenAnualDto(body)) {
     return { ok: false, error: { tag: 'parse' } };
   }
 
