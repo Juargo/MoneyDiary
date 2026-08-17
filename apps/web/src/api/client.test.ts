@@ -6,6 +6,7 @@ import {
   fetchIngestas,
   fetchResumen,
   fetchResumenAnual,
+  fetchSemaforoDetalle,
   postIngesta,
   postReclasificarCategoria,
   previewIngesta,
@@ -19,6 +20,7 @@ import type {
   ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
+  SemaforoDetalleDto,
 } from './types';
 
 const validDto: ResumenMesDto = {
@@ -1586,5 +1588,233 @@ describe('fetchApiVersion', () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('network');
+  });
+});
+
+const validSemaforoDetalleDto: SemaforoDetalleDto = {
+  periodo: '2026-07',
+  totalIngreso: '1000000',
+  sinIngreso: false,
+  estadoGlobal: 'amarillo',
+  diagnostico: 'Tu mes está en amarillo por Ahorro.',
+  bucketsCriticos: ['Ahorro'],
+  buckets: [
+    {
+      bucket: 'Necesidades',
+      total: '400000',
+      porcentajeBp: 4000,
+      estadoSemaforo: 'verde',
+      metaBp: 5000,
+      bandas: {
+        verdeMin: null,
+        verdeMax: 5000,
+        amarilloMin: null,
+        amarilloMax: 6000,
+      },
+      consejo: null,
+    },
+    {
+      bucket: 'Deseos',
+      total: '250000',
+      porcentajeBp: 2500,
+      estadoSemaforo: 'verde',
+      metaBp: 3000,
+      bandas: {
+        verdeMin: null,
+        verdeMax: 3000,
+        amarilloMin: null,
+        amarilloMax: 4000,
+      },
+      consejo: null,
+    },
+    {
+      bucket: 'Ahorro',
+      total: '150000',
+      porcentajeBp: 1500,
+      estadoSemaforo: 'amarillo',
+      metaBp: 2000,
+      bandas: {
+        verdeMin: 2000,
+        verdeMax: 4000,
+        amarilloMin: 1000,
+        amarilloMax: 5000,
+      },
+      consejo: {
+        direccion: 'aumentar',
+        monto: '49950',
+        mensaje: 'Para volver a Verde, aumenta {monto} en Ahorro este mes.',
+      },
+    },
+  ],
+  sinCategoria: { cantidad: 2, total: '10000' },
+};
+
+// US-049 (design §1.7, T6.1): fetchSemaforoDetalle mirrors fetchResumen's
+// never-throw ApiResult<T> shape + status mapping (400/401/5xx/network/parse).
+// The extra "parse" cases pin the money-guard-at-the-boundary lesson (WG5-05):
+// a malformed consejo.monto/diagnostico/buckets/sinCategoria.total must never
+// reach formatearMontoCLP or downstream render code.
+describe('fetchSemaforoDetalle', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validSemaforoDetalleDto),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result).toEqual({ ok: true, value: validSemaforoDetalleDto });
+  });
+
+  it('mapea un 400 a {tag: "invalid"} ("período inválido")', async () => {
+    mockFetchOnce({ ok: false, status: 400 });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message: 'El período no es válido.',
+    });
+  });
+
+  it('mapea un 401 a {tag: "unauthorized"} ("sin acceso")', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'unauthorized',
+      message: 'Sin acceso.',
+    });
+  });
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    });
+  });
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('network');
+  });
+
+  it('mapea un body 2xx cuyo json() lanza a {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando el consejo.monto de un bucket es "12.5" (money guard, WG5-05)', async () => {
+    const bodyConMontoDecimal: SemaforoDetalleDto = {
+      ...validSemaforoDetalleDto,
+      buckets: [
+        validSemaforoDetalleDto.buckets[0],
+        validSemaforoDetalleDto.buckets[1],
+        {
+          ...validSemaforoDetalleDto.buckets[2],
+          consejo: {
+            ...validSemaforoDetalleDto.buckets[2].consejo!,
+            monto: '12.5',
+          },
+        },
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConMontoDecimal),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando diagnostico falta o no es string', async () => {
+    const { diagnostico: _omitido, ...bodySinDiagnostico } =
+      validSemaforoDetalleDto;
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodySinDiagnostico),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando buckets no es un array', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ ...validSemaforoDetalleDto, buckets: 'nope' }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando sinCategoria.total está malformado', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          sinCategoria: { cantidad: 2, total: 'abc' },
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('agrega el query param periodo (URL-encoded) cuando se provee', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validSemaforoDetalleDto),
+    });
+
+    await fetchSemaforoDetalle('2026-07');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/resumen/semaforo?periodo=2026-07',
+    );
   });
 });
