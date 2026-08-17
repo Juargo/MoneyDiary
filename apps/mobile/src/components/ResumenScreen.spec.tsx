@@ -2,10 +2,12 @@ import { render, screen } from '@testing-library/react-native';
 import { ResumenScreen } from './ResumenScreen';
 import type { ResumenViewModel } from '../domain/resumen-view-model';
 
-// The data-state composition (Stitch mockup). Asserts the Maestro anchors —
-// the "Distribución del gasto" heading and testID="semaforo-global" — plus the
-// header period, income, and the 3-bucket legend ("Gustos" is the UI label for
-// the domain's "Deseos"; SinCategoria is not shown in the pie/legend).
+// US-050 PR4b (design §1.7/D-06): re-scoped from "the whole screen" to "the
+// month block" — `ScrollView`/`Header` moved up into the route shell
+// (Phase 5b). Asserts the Maestro anchors — the "Distribución del gasto"
+// heading and `testID="semaforo-global"` (now on `SemaforoTag` itself) —
+// plus income, the 5-row legend, and the removal of "Ver detalles ›"
+// (MOB-15) and the IDEAL inset (already removed in PR4a, reconfirmed here).
 const viewModel: ResumenViewModel = {
   periodo: '2026-07',
   periodoLabel: 'Julio 2026',
@@ -38,34 +40,29 @@ const viewModel: ResumenViewModel = {
     },
   ],
   distribucionGasto: [
-    { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
-    { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
-    { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
+    { bucket: 'Necesidades', porcentaje: 47, fraccion: 0.47 },
+    { bucket: 'Deseos', porcentaje: 28, fraccion: 0.28 },
+    { bucket: 'Ahorro', porcentaje: 19, fraccion: 0.19 },
+    { bucket: 'SinCategoria', porcentaje: 6, fraccion: 0.06 },
   ],
   estadoGlobal: 'verde',
-  // US-050 PR3: `ResumenViewModel` gained `leyendaPrincipal`/
-  // `leyendaComplemento` (design §1.4a/b). This fixture is a minimal
-  // type-completeness patch, not a behavior change — `ResumenScreen.tsx`
-  // does not read these two fields yet (it still reads `buckets`/
-  // `distribucionGasto` directly), so no assertion here depends on them.
-  // T4b.7 rewrites this spec file wholesale for the 5-row legend.
   leyendaPrincipal: [
     {
       kind: 'gasto',
       bucket: 'Necesidades',
-      porcentaje: 50,
+      porcentaje: 47,
       montoLabel: '-$500.000',
     },
     {
       kind: 'gasto',
       bucket: 'Deseos',
-      porcentaje: 30,
+      porcentaje: 28,
       montoLabel: '-$300.000',
     },
     {
       kind: 'gasto',
       bucket: 'Ahorro',
-      porcentaje: 20,
+      porcentaje: 19,
       montoLabel: '-$200.000',
     },
   ],
@@ -74,21 +71,23 @@ const viewModel: ResumenViewModel = {
     {
       kind: 'sinCategoria',
       bucket: 'SinCategoria',
-      montoLabel: '$0',
-      cantidadLabel: '0 tx',
+      montoLabel: '-$0',
+      cantidadLabel: '3 tx',
     },
   ],
 };
 
 describe('ResumenScreen', () => {
-  it('renders the section heading anchor', async () => {
+  it('renders the "Distribución del gasto" heading anchor', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
     expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
   });
 
-  it('renders the period label in the header', async () => {
+  it('exposes the heading as an accessible header', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
-    expect(screen.getByText('Julio 2026')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: 'Distribución del gasto' }),
+    ).toBeOnTheScreen();
   });
 
   it('renders totalIngreso formatted as CLP', async () => {
@@ -96,34 +95,32 @@ describe('ResumenScreen', () => {
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
   });
 
-  it('renders the 3-bucket legend with the UI label "Gustos" for Deseos', async () => {
+  it('renders the 5 legend labels', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
-    expect(screen.queryByText('Deseos')).not.toBeOnTheScreen();
-    expect(screen.queryByText('SinCategoria')).not.toBeOnTheScreen();
+    expect(screen.getByText('Ingresos')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Sin categoría', { exact: false }),
+    ).toBeOnTheScreen();
   });
 
-  it('renders the global semáforo with testID "semaforo-global"', async () => {
+  it('renders testID="semaforo-global" and it is not a button', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
     expect(screen.getByTestId('semaforo-global')).toBeOnTheScreen();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
   });
 
-  // ADR-018 layer 2 (RNTL semantic queries): the "Distribución del gasto"
-  // section heading and the "Ver detalles" affordance must be reachable by a
-  // screen reader through their accessible role + name, not just by text.
-  it('exposes "Distribución del gasto" as an accessible header', async () => {
+  it('renders no "Ver detalles ›" affordance anywhere (MOB-15)', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
     expect(
-      screen.getByRole('header', { name: 'Distribución del gasto' }),
-    ).toBeOnTheScreen();
+      screen.queryByText('Ver detalles ›', { exact: false }),
+    ).not.toBeOnTheScreen();
   });
 
-  it('exposes the "Ver detalles" affordance as an accessible button', async () => {
+  it('renders no "IDEAL" element anywhere', async () => {
     await render(<ResumenScreen viewModel={viewModel} />);
-    expect(
-      screen.getByRole('button', { name: 'Ver detalles ›' }),
-    ).toBeOnTheScreen();
+    expect(screen.queryByText('IDEAL', { exact: false })).not.toBeOnTheScreen();
   });
 });
