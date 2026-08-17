@@ -243,6 +243,26 @@ tie-case inversion. No coverage lost: the stale-cleanup-safety guarantee
 after it") and the two new D-13 cases already cover real caller behavior
 (React effect cleanup unregisters before re-registering).
 
+**PR2 judgment-day fixes (post-review):** 283 → 290 total (+7). CRITICAL:
+`esResumenMesDto`'s `buckets.every((b) => b.total === ...)` threw a raw
+`TypeError` on a `null`/non-object bucket element instead of resolving
+`{tag:'parse'}` — the promise REJECTED, breaking the never-throws contract.
+Fixed with a dedicated `esBucketResumenDto` null-object guard (mirrors
+`apps/web`'s), +4 tests (null/non-object element, `fetchResumen` +
+`fetchResumenAnual`). WARNING: `totalIngreso`'s `esMontoStringValido` check
+had zero reject-path coverage (mutation-proven); +2 reject tests
+(`fetchResumen` + `fetchResumenAnual` at `meses[2]`, self-mutation
+verified red on removal). WARNING: `periodoActualUTC`'s "UTC not local"
+boundary spec only discriminated a regression on a non-UTC runner (GitHub
+Actions is UTC) — naive in-file `process.env.TZ` reassignment doesn't work
+under `jest-environment-node` (each test file gets a sandboxed `process.env`
+copy via `jest-util`'s `createProcessObject`, verified empirically); fixed
+by spying `Date.prototype.getFullYear`/`getMonth` to disagree with UTC,
+deterministic on any host/CI timezone — no new test count (existing case
+rewritten). SUGGESTION: `esResumenAnualDto` gained `meses.length === 12`
+(MOB-10, web-guard parity), +1 test (11-entry reject); `validAnualDto`
+fixture widened from 3 to 12 months so the accept-path stays representative.
+
 ---
 
 ## Phase 3 — Domain: view model (`resumen-view-model.ts`) [PR 3]
