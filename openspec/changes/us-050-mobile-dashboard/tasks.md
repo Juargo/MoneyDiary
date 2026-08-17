@@ -56,41 +56,35 @@ PR4/PR5 whole (not split into a/b) under `size:exception` if the reviewer
 prefers fewer, larger review rounds over more, smaller ones — the a/b cut is
 this file's default, not the only option.
 
-### Chain Strategy Fork — the user decides
+### Chain Strategy — RESOLVED
 
-**Option A — `feature-branch-chain`** (design §5's own recommendation)
-PR1 targets a tracker branch; PR2..PR5b each target the immediate previous
-PR's branch; only the tracker merges to `main`. Rationale from design: PR1
-alone changes the ring to 4 wedges while the legend is still the 3-row
-component — a coherent but half-redesigned dashboard would sit on `main` for
-the length of the chain, and PR3–PR5b are only meaningful together (the view
-model has no UI consumer until PR4a/4b, the annual fetch has no visible grid
-until PR5a). Tradeoff: 7 sequential review rounds gate one merge event; the
-new ring/legend/annual surface is invisible on `main` until the tracker
-merges.
+Design recommended Option A (`feature-branch-chain`); overridden at the apply
+gate with the release-model argument below.
 
-**Option B — `stacked-to-main`** (this session's convention default)
-Each slice merges to `main` independently, in order. Tradeoff: PR1–PR3 ship
-"dark" in the sense that the screen briefly shows an inconsistent
-intermediate state between merges (new ring math committed, old 3-row legend
-still rendering it) — a real but time-boxed and mobile-only inconsistency
-(no backend/contract change, no released build until an EAS build is cut;
-proposal's Rollback Plan already treats mobile-only reverts as harmless).
-Faster iteration, each slice individually revertible.
+**Decision:** `stacked-to-main` (Option B). Each slice merges to `main`
+independently, in order.
 
-**Recommendation: Option A (`feature-branch-chain`)**, matching design §5's
-own stated rationale — unlike the backend-first precedent in prior USs (which
-shipped inert, zero-consumer endpoints), PR1–PR3 here change **visible,
-already-shipped UI behavior** on every intermediate merge (the ring math and
-legend membership are live in production from PR1 on), so an intermediate
-`main` state is a real, if temporary, user-facing regression risk, not a dark
-no-op. `sdd-apply` must not proceed until this choice is made.
+**Rationale:** mobile ships to users only via a `mobile-v*` tag (ADR-030,
+ADR-022) — there is no continuous-deploy path from `main` for mobile the way
+there is for web/API. Intermediate merges to `main` are therefore
+merged-but-unreleased: they exist in git history and in dev/EAS-internal
+builds, but never reach a production user until a tag is cut.
+
+**Known cost (accepted):** between PR1 and PR3 landing, any dev or
+EAS-internal build made from `main` renders the raw 4-item ring through the
+still-old 3-row legend/screen — visually, a grey "SinCategoria" wedge with no
+matching legend row. This is real but user-invisible in production (no build
+is released from that window).
+
+**Mitigation (binding):** no `mobile-v*` tag may be cut until the full PR1–PR5b
+chain has merged to `main`. The closing phase (Phase 6) must confirm this
+before `sdd-archive`.
 
 ### Suggested Work Units
 
 | Unit | Goal | Likely PR | Notes |
 |---|---|---|---|
-| 1 | Ring + money parity (domain only, incl. D-09 fixture) | PR1 | Base: tracker branch (Option A) or `main` (Option B) |
+| 1 | Ring + money parity (domain only, incl. D-09 fixture) | PR1 | Base: `main` |
 | 2 | Period helpers + annual fetch + refresh fan-out | PR2 | Base: PR1 |
 | 3 | View model (legend union + annual projection) | PR3 | Base: PR2 |
 | 4a | Donut geometry + `DistribucionPie` | PR4a | Base: PR3; independently reviewable, under budget |
