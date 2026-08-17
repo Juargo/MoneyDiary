@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, within } from '@testing-library/react-native';
 import { LeyendaGasto } from './LeyendaGasto';
 import type { ItemLeyenda } from '../domain/resumen-view-model';
 
@@ -107,5 +107,30 @@ describe('LeyendaGasto', () => {
       <LeyendaGasto principales={principales} complemento={complementoCero} />,
     );
     expect(screen.getByText('0 tx', { exact: false })).toBeOnTheScreen();
+  });
+
+  it('renders the 5 rows in the fixed MOB-08 order: Necesidades, Gustos, Ahorro, Ingresos, Sin categoría', async () => {
+    await render(
+      <LeyendaGasto principales={principales} complemento={complemento} />,
+    );
+    const rows = screen.getAllByTestId('leyenda-fila');
+    expect(rows).toHaveLength(5);
+    expect(within(rows[0]).getByText('Necesidades')).toBeOnTheScreen();
+    expect(within(rows[1]).getByText('Gustos')).toBeOnTheScreen();
+    expect(within(rows[2]).getByText('Ahorro')).toBeOnTheScreen();
+    expect(within(rows[3]).getByText('Ingresos')).toBeOnTheScreen();
+    expect(
+      within(rows[4]).getByText('Sin categoría', { exact: false }),
+    ).toBeOnTheScreen();
+  });
+
+  it('renders exactly 2 rows (Ingresos, Sin categoría) when there is no spend', async () => {
+    await render(<LeyendaGasto principales={[]} complemento={complemento} />);
+    const rows = screen.getAllByTestId('leyenda-fila');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('Ingresos')).toBeOnTheScreen();
+    expect(
+      within(rows[1]).getByText('Sin categoría', { exact: false }),
+    ).toBeOnTheScreen();
   });
 });
