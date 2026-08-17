@@ -542,19 +542,19 @@ substitution point), the WG5-05 money-guard lesson. Depends on Phase 5
 
 Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
 
-- [ ] **T7.1 (RED)** Create `apps/web/src/components/ZonaBar.test.tsx` (5
+- [x] **T7.1 (RED)** Create `apps/web/src/components/ZonaBar.test.tsx` (5
       cases): the coloured track is `aria-hidden` (1); bp/band edges/estado
       present as accessible text (1); each segment has a text label — never
       colour alone (1); the marker renders at the computed position (1);
       `porcentajeBp: null`→"Sin datos", no marker (1).
       - Verify (expect RED): `pnpm web test ZonaBar.test.tsx`
-- [ ] **T7.2 (GREEN)** Create `apps/web/src/components/ZonaBar.tsx` per
+- [x] **T7.2 (GREEN)** Create `apps/web/src/components/ZonaBar.tsx` per
       design §1.7's a11y contract (ADR-018, WCAG 2.2 AA): track+marker
       `aria-hidden="true"`; accessible content is real text nodes
       (percentage, estado word via `resolverEstiloSemaforo(...).label`,
       each band's numeric range); no `role="img"` synthesized sentence.
       - Verify: `pnpm web test ZonaBar.test.tsx` — 5 green.
-- [ ] **T7.3 (RED)** Create
+- [x] **T7.3 (RED)** Create
       `apps/web/src/components/SemaforoDetallePage.test.tsx` (14 cases, per
       design §3 ledger): loading→`Loading` (1); error→`ErrorState`+retry
       (1); header shows month+badge+diagnosis literal, CA-01/02 (1);
@@ -570,7 +570,7 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
       changing the fixture changes the render, R2 (1); exactly one `h1`
       (1). `[P]` with T7.1.
       - Verify (expect RED): `pnpm web test SemaforoDetallePage.test.tsx`
-- [ ] **T7.4 (GREEN)** Create `apps/web/src/components/BucketSemaforoCard.tsx`
+- [x] **T7.4 (GREEN)** Create `apps/web/src/components/BucketSemaforoCard.tsx`
       (label from existing `ETIQUETA_BUCKET`, `porcentajeLabel`,
       `Meta: {metaBp/100}%`, estado badge, `ZonaBar`, advice line when
       `consejo !== null` with arrow icon from `direccion`, `lucide-react`
@@ -582,7 +582,7 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
       bucket: 'SinCategoria' }} search={{ periodo }}>`, and the `sinIngreso`
       branch (D1 + `<Empty>`, never renders cards with `—`).
       - Verify: `pnpm web test SemaforoDetallePage.test.tsx ZonaBar.test.tsx` — 19 green.
-- [ ] **T7.5 (RED→GREEN, CA-08 fix)** In
+- [x] **T7.5 (RED→GREEN, CA-08 fix)** In
       `apps/web/src/test/semaforo-route.test.tsx`: rewrite the existing
       "en construcción" case to assert the real page renders instead
       (replaces 1 case, does not add one); add "Volver al resumen"
@@ -590,7 +590,7 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
       reaches the hook with that period (1 new). Leave the
       unauthenticated-redirect case untouched.
       - Verify (expect RED before the fix): `pnpm web test semaforo-route.test.tsx`
-- [ ] **T7.6 (GREEN)** In
+- [x] **T7.6 (GREEN)** In
       `apps/web/src/routes/_authenticated/semaforo.tsx`, replace the stub
       with the thin container from design §1.7 (`Route.useSearch()` →
       `useSemaforoDetalle(periodo)` → `<SemaforoDetallePage query periodo
@@ -599,13 +599,13 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
       (testable without a router harness) — the route-tree test (T7.5)
       covers the real-router assertion.
       - Verify: `pnpm web test semaforo-route.test.tsx` — 3 cases (1 rewritten + 2 new) green; unauthenticated-redirect case unchanged.
-- [ ] **T7.7** Extend `apps/web/eslint.config.js`'s US-047 scoped-ERROR
+- [x] **T7.7** Extend `apps/web/eslint.config.js`'s US-047 scoped-ERROR
       FILE-LIST block (same form, same rationale) to also cover
       `src/components/SemaforoDetallePage.tsx`,
       `src/components/BucketSemaforoCard.tsx`,
       `src/components/ZonaBar.tsx`.
       - Verify: `pnpm web lint:ci`.
-- [ ] **T7.8 (Playwright, per design's own scenario labels)** Extend
+- [x] **T7.8 (Playwright, per design's own scenario labels)** Extend
       `apps/web/e2e/fixtures/api-stubs.ts` with `SEMAFORO_DETALLE_FIXTURE`
       + `page.route('**/api/resumen/semaforo*')`. Create
       `apps/web/e2e/semaforo-detalle.e2e.ts` (2 cases): deep link
@@ -615,14 +615,37 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
       existing `**/api/resumen*` stub (Playwright's `*` does not cross
       `/`, same precedent as `/api/resumen/anual`).
       - Verify: `pnpm web e2e semaforo-detalle.e2e.ts`.
-- [ ] **T7.9 (Function-call-site sweep)** `SIN_PORCENTAJE_LABEL`'s
+- [x] **T7.9 (Function-call-site sweep)** `SIN_PORCENTAJE_LABEL`'s
       re-export (T6.5) and `ETIQUETA_BUCKET`'s reuse (T7.4) are the only
       cross-file dependents of this phase's new code — confirm both
       existing consumers of `resumen-view-model.ts`'s exports still
       compile untouched.
       - Verify: `pnpm web typecheck`.
-- [ ] **T7.10** Full web verification: `pnpm web test` (unit/jsdom) ·
+- [x] **T7.10** Full web verification: `pnpm web test` (unit/jsdom) ·
       `pnpm web typecheck` · `pnpm web lint:ci` · `pnpm web build`.
+      - **Line-count note (recorded, not silently patched):** real diff for
+        this slice is **993 changed lines** (950 insertions/43 deletions
+        across 11 files) vs. the design §5 estimate of ~470 — same
+        undercount pattern as PR4 (1504 vs ~600) and PR5 (~1000 vs ~380):
+        the ledger's line estimates consistently undercount test-file
+        volume in this change. Breakdown: 2 new components + tests
+        (`ZonaBar` 71+94, `BucketSemaforoCard` 56, `SemaforoDetallePage`
+        118+334), the real route (49 lines, was a 42-line stub),
+        `router-harness.tsx` extended (+23, new `/buckets/$bucket`
+        sentinel), `semaforo-route.test.tsx` extended (+135, 1 rewritten +
+        3 net-new cases — the ledger's own "1 rewritten + 2 new" undercounts
+        by one: a 3rd new case, "deep link reaches the hook with that
+        period", was added alongside the 2 the ledger names, for symmetry
+        with the CA-08 back-link assertion), `eslint.config.js` (+13),
+        Playwright fixture (+76) + spec (+67). All 11 files stay within
+        `apps/web` — no scope creep, every new line traces to a T7.x task
+        above. Verified: `pnpm web test` 107 files/1128 tests green;
+        `pnpm web typecheck` clean; `pnpm web exec eslint .` 0 errors/2
+        pre-existing warnings; `pnpm web build` clean; full Playwright
+        suite 57 passed/45 skipped (project-scoped), 0 failed — the 2 new
+        `semaforo-detalle.e2e.ts` cases pass at the `escritorio` project
+        (design delta note: `/semaforo` has no responsive claim, so
+        `movil`/`tablet` are skipped by design, not a coverage gap).
 
 ---
 
