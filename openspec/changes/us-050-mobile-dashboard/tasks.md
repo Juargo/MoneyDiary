@@ -337,19 +337,19 @@ Requirements: MOB-08, MOB-15 (IDEAL inset removal). Depends on Phase 1
 (`TajadaGasto`/ring shape). Independently reviewable — under the 400-line
 budget.
 
-- [ ] **T4a.1 (RED)** In `apps/mobile/src/domain/pie-geometry.spec.ts`, add
+- [x] **T4a.1 (RED)** In `apps/mobile/src/domain/pie-geometry.spec.ts`, add
       +4 cases: `rInterior = 0` returns the byte-identical legacy string for
       a normal wedge (1) and for the 360° branch (1) — the regression
       contract; `rInterior > 0` emits an annular wedge (outer arc, inward
       line, reversed inner arc) (1); `rInterior >= r` degrades to the
       filled wedge instead of throwing (1).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test pie-geometry.spec.ts`
-- [ ] **T4a.2 (GREEN)** In `apps/mobile/src/domain/pie-geometry.ts`, port
+- [x] **T4a.2 (GREEN)** In `apps/mobile/src/domain/pie-geometry.ts`, port
       web's trailing-optional `rInterior` parameter to `arcoPath` (design
       §1.6), clamped to `[0, r)` — degrade, never throw. `radioEtiqueta` is
       **not** ported (D-07 — the ring is label-less).
       - Verify: `pnpm --filter @moneydiary/mobile test pie-geometry.spec.ts` — existing + 4 new green.
-- [ ] **T4a.3 (RED)** Create
+- [x] **T4a.3 (RED)** Create
       `apps/mobile/src/components/DistribucionPie.spec.tsx` (5 cases): 4
       wedge paths for a 4-item ring (1); placeholder ring when `tajadas` is
       empty (1); no IDEAL inset and no `targets` prop in the public type
@@ -357,13 +357,13 @@ budget.
       `accessibilityLabel="Distribución del gasto"` — the Maestro anchor
       (`.maestro/a11y-labels.yaml:46`) (1).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test DistribucionPie.spec.tsx`
-- [ ] **T4a.4 (GREEN)** Rewrite `apps/mobile/src/components/DistribucionPie.tsx`:
+- [x] **T4a.4 (GREEN)** Rewrite `apps/mobile/src/components/DistribucionPie.tsx`:
       4-wedge donut (`RATIO_INTERIOR = 0.58`), white 2px wedge separator
       (WCAG 1.4.11), muted placeholder ring when `tajadas` is empty.
       **Removed**: the IDEAL inset, `slicesIdeales`, the `targets` prop,
       `centroidLabel`, on-wedge `%` labels (MOB-15).
       - Verify: `pnpm --filter @moneydiary/mobile test DistribucionPie.spec.tsx` — 5 green.
-- [ ] **T4a.5 (REFACTOR + sweep)** Confirm `accessibilityLabel="Distribución
+- [x] **T4a.5 (REFACTOR + sweep)** Confirm `accessibilityLabel="Distribución
       del gasto"` is byte-identical to the Maestro anchor and every other
       reference (`.maestro/resumen-semaforo.yaml:20`,
       `test/auth-navigation.integration.spec.tsx` ×3) — do not "improve"
@@ -371,6 +371,28 @@ budget.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test pie-geometry.spec.ts DistribucionPie.spec.tsx`
 
 **PR4a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~270 lines, 9 tests. Under budget.
+
+**PR4a real (post-lint):** mobile suite 302 → 311 total (+9: 4 `pie-geometry`
++ 5 `DistribucionPie`, exactly matching the forecast). `tsc --noEmit` clean,
+`eslint` clean (2 auto-fixes applied: `ReadonlyArray<T>` → `readonly T[]`,
+one prettier line-wrap). **Knock-on fix (in-scope per T4a.4's own "targets
+prop removed"):** `ResumenScreen.tsx` passed `targets={viewModel.targets}`
+into `DistribucionPie` — removed that one prop pass-through (mechanical,
+1 line) to keep `tsc` green; `ResumenScreen.tsx` is otherwise untouched
+(full rewrite is T4b.8). With that pass-through gone, `ResumenViewModel
+.targets` had zero remaining production consumers, so — per design §1.8's
+own removal table and PR3's explicit "Action for Phase 4a/4b" note — it is
+now ALSO removed from `resumen-view-model.ts` (`ResumenMesDto['targets']`
+field + its `dto.targets` assignment) and the PR3-retained backward-compat
+test ("propaga los targets…") is replaced with a negative assertion
+(`expect(vm).not.toHaveProperty('targets')`) instead of silently deleted.
+`ResumenScreen.spec.tsx`'s hand-built fixture (also excess-property typed
+against `ResumenViewModel`) had its `targets:` line removed for the same
+reason — no assertion in that spec reads it. `periodoLabel` is UNTOUCHED
+(deferred to PR5b per design/PR3, as planned — this PR's scope is only the
+`targets`/IDEAL-inset half of that PR3 deviation). Net: the "action
+required" debt PR3 opened for `targets` is now fully closed; only
+`periodoLabel` remains open, tracked for PR5b.
 
 ---
 
