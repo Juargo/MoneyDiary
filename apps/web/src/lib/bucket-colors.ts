@@ -39,6 +39,12 @@ export const COLOR_EXCESO = '#E88A8A';
 /**
  * Domain bucket name → user-facing label. The domain models the middle bucket
  * as "Deseos"; the product/UI surface calls it "Gustos" (mockup copy).
+ *
+ * Cross-workspace copy pin (US-049): `apps/api/src/domain/value-objects/
+ * semaforo-detalle.ts`'s `ETIQUETA_BUCKET_COPY` duplicates this same
+ * Deseos → 'Gustos' mapping for backend-generated diagnosis/advice copy — no
+ * automated gate catches drift between the two maps (documented residual
+ * risk, design §6). If you change this label, change that one too.
  */
 export const ETIQUETA_BUCKET: Record<string, string> = {
   Necesidades: 'Necesidades',

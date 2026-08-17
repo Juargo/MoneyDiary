@@ -223,7 +223,7 @@ Requirements: SEM-01, SEM-05, SEM-06, SEM-10, D-05, D-07, D-08, D-10. Depends
 on Phase 2 (`montoParaVerde` exists; this phase wires it into
 `construirSemaforoDetalle` and replaces the `mensajeConsejo` stub).
 
-- [ ] **T3.1 (RED)** Add **group D** (9 cases, `diagnosticar`) to
+- [x] **T3.1 (RED)** Add **group D** (9 cases, `diagnosticar`) to
       `semaforo-detalle.spec.ts`: D1 on `estadoGlobal===null` (1); D2 all
       Verde (1); one driving bucket → `'Tu mes está en rojo por
       Necesidades.'` (1); Deseos driving → uses `'Gustos'` **(the
@@ -232,26 +232,35 @@ on Phase 2 (`montoParaVerde` exists; this phase wires it into
       Ahorro.'` (1); Rojo+Amarillo → names only the Rojo (1); order fixed
       regardless of input array order (1); never contains `{monto}` (1).
       - Verify (expect RED): `pnpm api test semaforo-detalle.spec.ts -t diagnosticar`
-- [ ] **T3.2 (RED) — "Gustos" cross-workspace copy pin** Add **group E** (1
+      - **Note (order-independence test, adapted):** `ResumenMes.crear()` always
+        assembles its `buckets` array in a fixed internal order (no public API
+        shuffles it), so "order fixed regardless of input array order" is
+        implemented as a tied-subset variant (Necesidades + Ahorro tied,
+        skipping Deseos) rather than a literal array-reorder — it proves the
+        listing order comes from the fixed product order, not from array
+        position, which is the property the task actually protects.
+- [x] **T3.2 (RED) — "Gustos" cross-workspace copy pin** Add **group E** (1
       case): `ETIQUETA_BUCKET_COPY[Bucket.Deseos] === 'Gustos'` exact-value
       assertion (design's own copy-drift residual risk: `bucket-colors.ts`
       in `apps/web` and this new domain map can diverge with no automated
       cross-workspace gate — this test is the backend half of that pin).
       `[P]` with T3.1 (same file, disjoint describe blocks).
       - Verify: same command as T3.1, `-t "ETIQUETA_BUCKET_COPY"`.
-- [ ] **T3.3 (RED)** Add **group F** (4 cases, `mensajeConsejo`): `'excede'`
+- [x] **T3.3 (RED)** Add **group F** (4 cases, `mensajeConsejo`): `'excede'`
       exact template (1); `'ahorro-bajo'` exact (1); `'ahorro-alto'` exact
       (1); every case contains `{monto}` exactly once (1) — pin the D1/D2/D3
       diagnosis literals and A1/A2 advice templates verbatim from design
       §1.4 (tuteo, D-08; the ceiling-semantics A2 wording, D-08b).
-- [ ] **T3.4 (RED)** Add **group G** (7 cases, `construirSemaforoDetalle`):
+- [x] **T3.4 (RED)** Add **group G** (7 cases, `construirSemaforoDetalle`):
       exactly 3 buckets fixed order (1); `bandas` carried per bucket (1);
       `metaBp` 5000/3000/2000 (1); `bucketsCriticos` `[]` when Verde (1);
       `bucketsCriticos` names the drivers (1); `sinCategoria`
       `{cantidad,total}` carried from `ResumenMes` (1); `sinIngreso` → all
       `consejo` null, all estados null, `diagnostico`=D1 (1).
       - Verify (expect RED, T3.1–T3.4 combined): `pnpm api test semaforo-detalle.spec.ts` — 102 total cases (Phase 2's 81 + this phase's 21) green only after T3.5.
-- [ ] **T3.5 (GREEN)** Implement `ETIQUETA_BUCKET_COPY`, `PALABRA_ESTADO`,
+      - Verified: 21 new cases RED before T3.5 (`construirSemaforoDetalle is
+        not a function`), 81 pre-existing green.
+- [x] **T3.5 (GREEN)** Implement `ETIQUETA_BUCKET_COPY`, `PALABRA_ESTADO`,
       `VERBO`, `diagnosticar(resumen)`, real `mensajeConsejo(bucket, caso,
       direccion)` (replacing T2.5's stub), and `construirSemaforoDetalle
       (resumen)` per design §1.2/§1.4 verbatim (the 15 pinned string
@@ -260,16 +269,41 @@ on Phase 2 (`montoParaVerde` exists; this phase wires it into
       `apps/web/src/lib/bucket-colors.ts` for the "Gustos" duplication
       (design's residual-risk note).
       - Verify: `pnpm api test semaforo-detalle.spec.ts` — full 102 cases green.
-- [ ] **T3.6** Add the matching cross-reference comment in
+      - Verified: 102/102 green.
+- [x] **T3.6** Add the matching cross-reference comment in
       `apps/web/src/lib/bucket-colors.ts` (the web side of the copy pin —
       no code change, comment only, pointing back at
       `semaforo-detalle.ts`'s `ETIQUETA_BUCKET_COPY`).
-- [ ] **T3.7 (REFACTOR)** Re-read `semaforo-detalle.ts` end to end: confirm
+- [x] **T3.7 (REFACTOR)** Re-read `semaforo-detalle.ts` end to end: confirm
       it imports only `bucket.ts`, `estado-semaforo.ts`, `resumen-mes.ts`
       (ADR-005 — no infrastructure import), never throws, and the module's
       full public surface matches design §1.2 exactly (`construirSemaforo
       Detalle`, `montoParaVerde`, `diagnosticar` exported; helpers private).
       - Verify: `pnpm api exec tsc --noEmit`; `pnpm api test semaforo-detalle.spec.ts` full 102 green.
+      - **Resolution (documented deviation, not silently applied):** imports
+        confirmed limited to `bucket.ts`/`estado-semaforo.ts`/`resumen-mes.ts`
+        (ADR-005 clean); the module never throws (verified by re-read, no
+        `throw` statement anywhere in the file). Public surface DOES NOT match
+        design §1.2 exactly: `montoMaximoConBpHasta`, `montoMinimoConBpDesde`,
+        and `ETIQUETA_BUCKET_COPY` stay exported instead of becoming private.
+        Rationale: (1) `montoMaximoConBpHasta`/`montoMinimoConBpDesde` are
+        pinned by 34 already-merged (PR2a, `main`) boundary/minimality tests
+        by direct import — making them private would require deleting those
+        tests with no equivalent-precision replacement (Group C's re-apply
+        tests prove correctness of the composed result, not strict minimality
+        of the raw inverse formulas); (2) `ETIQUETA_BUCKET_COPY` stays
+        exported as a DELIBERATE (but avoidable) choice for direct
+        unit-testability of the label map in isolation from the diagnosis
+        sentence — judgment-day round 1 noted the original "required by
+        T3.2" framing was circular (T3.2 was authored in the same PR); the
+        "Gustos" wording is independently pinned via `diagnosticar`'s Group D
+        assertions, so the export is a testing convenience, not a hard
+        constraint. Judgment-day also hardened the internal types: a
+        3-member-union type predicate (`esBucketSemaforo`) now narrows at
+        compile time so copy helpers can never render "undefined". No
+        external module imports any of these three symbols — the export is a
+        testability surface, not a new consumer-facing API. `tsc --noEmit`
+        clean; `pnpm api test semaforo-detalle.spec.ts` 102/102 green.
 
 ---
 
