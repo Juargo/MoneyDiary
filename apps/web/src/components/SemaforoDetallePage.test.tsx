@@ -327,6 +327,15 @@ describe('SemaforoDetallePage', () => {
     expect(screen.getByText('65–100%')).toBeInTheDocument();
   });
 
+  it('a zero-count Sin categoría (WSEM-05) shows no warning block, no link', async () => {
+    renderPage(successQuery(detalleDto()));
+    await screen.findByRole('heading', { name: 'Semáforo' });
+    expect(screen.queryByText(/sin categoría/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /sin categoría/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders exactly one h1', async () => {
     renderPage(successQuery(detalleDto()));
     expect(await screen.findAllByRole('heading', { level: 1 })).toHaveLength(1);

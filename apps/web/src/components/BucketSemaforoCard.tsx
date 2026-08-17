@@ -24,7 +24,7 @@ export function BucketSemaforoCard({
   return (
     <div className={DASHBOARD_CARD_CLASS}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">{etiqueta}</h3>
+        <h2 className="text-sm font-semibold text-foreground">{etiqueta}</h2>
         <span className="text-xs text-muted-foreground">
           {viewModel.metaLabel}
         </span>
