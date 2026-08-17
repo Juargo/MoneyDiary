@@ -172,6 +172,72 @@ function detalleBucketFixture(bucket: string) {
   };
 }
 
+/**
+ * `GET /api/resumen/semaforo` (US-049 T7.8, design §1.7) — a literal
+ * `SemaforoDetalleDto` instance (`src/api/types.ts`): a Necesidades bucket
+ * over its band (Amarillo, with `consejo`), Deseos/Ahorro in Verde (no
+ * advice), and a nonzero Sin categoría count so
+ * `semaforo-detalle.e2e.ts` exercises the header, all 3 cards, the zone
+ * bar, and the advice row at a real viewport.
+ */
+const SEMAFORO_DETALLE_FIXTURE = {
+  periodo: '2026-07',
+  totalIngreso: '1000000',
+  sinIngreso: false,
+  estadoGlobal: 'amarillo',
+  diagnostico: 'Tu mes está en amarillo por Necesidades.',
+  bucketsCriticos: ['Necesidades'],
+  buckets: [
+    {
+      bucket: 'Necesidades',
+      total: '550000',
+      porcentajeBp: 5500,
+      estadoSemaforo: 'amarillo',
+      metaBp: 5000,
+      bandas: {
+        verdeMin: null,
+        verdeMax: 5000,
+        amarilloMin: null,
+        amarilloMax: 6000,
+      },
+      consejo: {
+        direccion: 'reducir',
+        monto: '50049',
+        mensaje: 'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+      },
+    },
+    {
+      bucket: 'Deseos',
+      total: '250000',
+      porcentajeBp: 2500,
+      estadoSemaforo: 'verde',
+      metaBp: 3000,
+      bandas: {
+        verdeMin: null,
+        verdeMax: 3000,
+        amarilloMin: null,
+        amarilloMax: 4000,
+      },
+      consejo: null,
+    },
+    {
+      bucket: 'Ahorro',
+      total: '200000',
+      porcentajeBp: 2000,
+      estadoSemaforo: 'verde',
+      metaBp: 2000,
+      bandas: {
+        verdeMin: 2000,
+        verdeMax: 4000,
+        amarilloMin: 1000,
+        amarilloMax: 5000,
+      },
+      consejo: null,
+    },
+  ],
+  sinCategoria: { cantidad: 2, total: '15000' },
+};
+
 export async function stubApi(page: Page): Promise<void> {
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({ json: ME_FIXTURE }),
@@ -209,5 +275,15 @@ export async function stubApi(page: Page): Promise<void> {
     const match = /\/api\/buckets\/([^/?]+)/.exec(route.request().url());
     const bucket = match ? decodeURIComponent(match[1]) : 'desconocido';
     route.fulfill({ json: detalleBucketFixture(bucket) });
+  });
+  // US-049 T7.8: a DISTINCT route from `**/api/resumen*` above — Playwright's
+  // `*` does not cross `/`, so `**/api/resumen*` never matches
+  // `/api/resumen/semaforo` (same reasoning already documented for
+  // `/api/resumen/anual`'s own coexisting stub, no ordering hazard).
+  await page.route('**/api/resumen/semaforo*', (route) => {
+    const periodo =
+      new URL(route.request().url()).searchParams.get('periodo') ??
+      SEMAFORO_DETALLE_FIXTURE.periodo;
+    route.fulfill({ json: { ...SEMAFORO_DETALLE_FIXTURE, periodo } });
   });
 }
