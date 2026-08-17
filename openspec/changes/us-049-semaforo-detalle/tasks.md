@@ -633,6 +633,30 @@ the user selects — see forecast above).
       unchanged and 1 web case rewritten (not net-new). If any suite's
       actual count diverges, note the delta here before archiving — do not
       silently let the ledger go stale.
+      - **Correction (judgment-day round 1 finding, PR4):** two ledger
+        deltas recorded here rather than silently patched:
+        1. `semaforo-detalle.schema.spec.ts` grows from 2 to **3** cases
+           (D-11 combo: `estadoSemaforo=amarillo` AND `consejo=null` parses
+           — the nullable holds for the fail-closed degenerate case, not
+           just Verde); `semaforo-detalle.dto.spec.ts` grows from 4 to
+           **6** cases (same D-11 combo, plus an explicit SEM-10 mensaje
+           passthrough assert of the literal `{monto}` template string).
+        2. `resumen-semaforo.e2e-spec.ts`'s two ISO-01/ISO-02 isolation
+           cases (T5.12 item 5) were rewritten in place — same case count,
+           much stronger assertions. T5.12's note "per
+           `app.buckets.spec.ts`'s two-user precedent" was the WRONG
+           precedent to cite: that pattern only asserts
+           totalIngreso/bucket-total inequalities and a near-tautological
+           `not.toContain(alienUserId)`. The apply batch's implicit claim
+           that no stronger two-user e2e pattern existed in this repo was
+           **incorrect** — `resumen-anual.e2e-spec.ts`'s CA-08 test
+           (authenticate AS a fresh credentialed user, assert EXACT values
+           computed from a fully known seed) already shipped that stronger
+           idiom. Both isolation cases now follow CA-08 instead: login as a
+           fresh user with a known income/bucket-state/uncategorized-count,
+           seed a second alien user with a DIFFERENT known state, and assert
+           exact `diagnostico`/`bucketsCriticos`/`consejo`/`sinCategoria`
+           values on the authenticated user's response only.
 - [ ] **T8.3 (Spec Purpose-prose reminders for archive — do NOT skip)**
       When this change archives:
       - `openspec/specs/user-data-isolation/spec.md` Purpose section: "4
