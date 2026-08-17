@@ -1,5 +1,4 @@
 import { formatearMontoCLP, formatearMontoConSigno } from './formatear-monto';
-import { formatearPeriodoLabel } from './periodo-label';
 import {
   BUCKETS_5030,
   calcularDistribucionGasto,
