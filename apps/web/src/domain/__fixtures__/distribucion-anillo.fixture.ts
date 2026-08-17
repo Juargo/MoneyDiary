@@ -105,4 +105,29 @@ export const CASOS_PARIDAD_ANILLO = [
       ['Ahorro', 50],
     ],
   },
+  {
+    // Empate genuino en el remanente: Necesidades y Deseos quedan ambos con
+    // remanente exacto 0.5 (25.5% y 24.5% antes de redondear) compitiendo por
+    // el único punto sobrante (resto=1). `apportionarLargestRemainder` usa
+    // `Array.prototype.sort`, que es estable (spec ECMAScript, garantizado
+    // desde ES2019) — a igual remanente, gana el bucket con menor índice
+    // ORIGINAL en `bucketsIncluidos` (orden de `BUCKETS_ANILLO`), no un
+    // desempate explícito por nombre. Por eso Necesidades (índice 0) se lleva
+    // el punto y queda en 26%, mientras Deseos (índice 1, mismo remanente)
+    // se queda en 24%.
+    nombre:
+      'empate genuino de remanente (25.5% vs 24.5%) — gana el índice menor',
+    buckets: [
+      { bucket: 'Necesidades', total: '255' },
+      { bucket: 'Deseos', total: '245' },
+      { bucket: 'Ahorro', total: '300' },
+      { bucket: 'SinCategoria', total: '200' },
+    ],
+    esperado: [
+      ['Necesidades', 26],
+      ['Deseos', 24],
+      ['Ahorro', 30],
+      ['SinCategoria', 20],
+    ],
+  },
 ] as const;
