@@ -4,10 +4,12 @@ import type { TajadaGasto } from '../domain/distribucion-gasto';
 import { calcularAngulos, arcoPath } from '../domain/pie-geometry';
 import { COLOR_BUCKET, COLORS } from '../theme/colors';
 
-/** Donut hole radius as a fraction of the outer radius (design §1.7). Kept in
- * sync by hand with `MiniDistribucionPie`'s copy — extract a shared constant
- * on a third occurrence (DRY 3-strikes). */
+/** Donut hole radius as a fraction of the outer radius — same constant as
+ * `DistribucionPie` (kept in sync by hand; extract shared on a 3rd copy). */
 const RATIO_INTERIOR = 0.58;
+
+/** Fixed mini size (design §1.7) — every annual-grid cell renders the same size. */
+const SIZE = 44;
 
 interface Slice {
   readonly color: string;
@@ -22,39 +24,32 @@ function slicesDesdeTajadas(tajadas: readonly TajadaGasto[]): Slice[] {
 }
 
 /**
- * "Distribución del gasto" chart: a label-less 4-wedge donut of the full
- * `BUCKETS_ANILLO` ring (Necesidades/Deseos/Ahorro/SinCategoria), with a
- * white wedge separator (WCAG 1.4.11). Pure presentation — all math is done
- * upstream (view-model + `pie-geometry`). When there is no spending, the
- * ring renders a muted placeholder ring instead of dividing by zero.
- *
- * US-050 PR4a rewrite (design §1.7, MOB-15): the IDEAL 50/30/20 reference
- * inset, `slicesIdeales`, the `targets` prop, `centroidLabel`, and the
- * on-wedge `%` labels are REMOVED — the ring is label-less by design (D-07),
- * percentages live only in the legend (`LeyendaGasto`, Phase 4b).
+ * `MiniDistribucionPie` — the 44px donut that sits inside each annual-grid
+ * cell (US-050 PR5a, design §1.7). Port of MOBILE's own `DistribucionPie`
+ * (NOT web's mini, which is a solid pie): the ring shape is a deliberate
+ * divergence so the grid minis match the main chart's donut family.
+ * Fixed-size and label-less: no `accessibilityLabel`, no on-wedge text. Carries NO
+ * accessibility props of its own — the parent `Pressable` (`MesCelda`,
+ * `ResumenAnual.tsx`) is `accessible`, which collapses this whole subtree
+ * into a single AT node, so a second accessible child here would be dead
+ * weight at best and a duplicate AT stop at worst.
  */
-export function DistribucionPie({
+export function MiniDistribucionPie({
   tajadas,
-  size = 240,
 }: {
   readonly tajadas: readonly TajadaGasto[];
-  readonly size?: number;
 }) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size / 2;
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+  const r = SIZE / 2;
   const rInterior = r * RATIO_INTERIOR;
 
   return (
-    <View className="items-center justify-center" style={{ height: size }}>
-      <Svg
-        width={size}
-        height={size}
-        accessibilityLabel="Distribución del gasto"
-      >
+    <View style={{ width: SIZE, height: SIZE }}>
+      <Svg width={SIZE} height={SIZE}>
         {tajadas.length === 0 ? (
           <Circle
-            testID="pie-placeholder"
+            testID="mini-pie-placeholder"
             cx={cx}
             cy={cy}
             r={r}
@@ -67,7 +62,7 @@ export function DistribucionPie({
             return slices.map((slice, i) => (
               <Path
                 key={i}
-                testID="pie-slice"
+                testID="mini-pie-slice"
                 d={arcoPath(
                   cx,
                   cy,
@@ -78,7 +73,7 @@ export function DistribucionPie({
                 )}
                 fill={slice.color}
                 stroke="#FFFFFF"
-                strokeWidth={2}
+                strokeWidth={1}
               />
             ));
           })()
