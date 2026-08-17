@@ -297,6 +297,11 @@ describe('ResumenAnual', () => {
     expect(
       screen.getByTestId('mes-celda-2026-04').props.accessibilityState,
     ).toHaveProperty('disabled', false);
+    // NOTE: the RN-native `disabled` prop is NOT assertable here — Pressable
+    // consumes it internally (folds it into accessibilityState + responder
+    // gating) and does not forward it to the host element (props.disabled is
+    // undefined). The observable contract is accessibilityState above plus
+    // the "tap on a disabled cell never fires" test.
   });
 
   it('the selected cell carries accessibilityState.selected, no other cell does', async () => {

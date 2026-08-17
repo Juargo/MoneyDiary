@@ -4,7 +4,9 @@ import type { TajadaGasto } from '../domain/distribucion-gasto';
 import { calcularAngulos, arcoPath } from '../domain/pie-geometry';
 import { COLOR_BUCKET, COLORS } from '../theme/colors';
 
-/** Donut hole radius as a fraction of the outer radius (design §1.7). */
+/** Donut hole radius as a fraction of the outer radius (design §1.7). Kept in
+ * sync by hand with `MiniDistribucionPie`'s copy — extract a shared constant
+ * on a third occurrence (DRY 3-strikes). */
 const RATIO_INTERIOR = 0.58;
 
 interface Slice {

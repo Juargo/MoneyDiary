@@ -624,6 +624,15 @@ reported here for the PR description / review-workload record, not hidden.
    already exists identically in the merged `app/index.tsx` /
    `app/index.spec.tsx` (verified side-by-side, same stack shape) — not a
    regression introduced by this PR, tests still pass.
+5. **`MiniDistribucionPie` is a DONUT (`RATIO_INTERIOR = 0.58`), while
+   web's `MiniDistribucionPie` renders a SOLID pie** (no `rInterior`).
+   Design §1.7's "port of web's" wording is the imprecise part: this
+   phase's own header already declared the dependency on Phase 4a's
+   `rInterior` "reused by the mini", and mobile's main chart is
+   unconditionally a donut — the mini mirrors mobile's own component
+   family for visual consistency (main ring + mini rings in the grid).
+   Deliberate divergence from the web mini, kept; flagged by
+   judgment-day round 1 as undisclosed, disclosed here.
 
 Zero backend/schema changes; zero new dependencies. `ResumenAnual` is NOT
 mounted anywhere yet (`app/index.tsx` untouched, out of this PR's scope) —
@@ -635,6 +644,12 @@ ships dark until Phase 5b wires it into the shell.
 
 Requirements: MOB-03, MOB-12, MOB-13, MOB-14. Depends on ALL prior phases —
 this is the wiring slice that composes the shell.
+
+> **Gate item carried from PR5a judgment (D-15):** the shell MUST pass a
+> `useCallback`-stable `onSelectPeriodo` into `ResumenAnual` — `MesCelda`'s
+> `React.memo` only delivers the "a tap re-renders exactly two cells" claim
+> if the callback identity is stable across renders. Reviewer: verify the
+> `useCallback` exists and, ideally, a test pins referential stability.
 
 - [ ] **T5b.1** In `apps/mobile/src/components/states/Loading.tsx`, add an
       optional `mensaje` prop, default `'Cargando resumen…'` (existing spec

@@ -4,7 +4,8 @@ import type { TajadaGasto } from '../domain/distribucion-gasto';
 import { calcularAngulos, arcoPath } from '../domain/pie-geometry';
 import { COLOR_BUCKET, COLORS } from '../theme/colors';
 
-/** Donut hole radius as a fraction of the outer radius — same constant as `DistribucionPie`. */
+/** Donut hole radius as a fraction of the outer radius — same constant as
+ * `DistribucionPie` (kept in sync by hand; extract shared on a 3rd copy). */
 const RATIO_INTERIOR = 0.58;
 
 /** Fixed mini size (design §1.7) — every annual-grid cell renders the same size. */
@@ -24,8 +25,10 @@ function slicesDesdeTajadas(tajadas: readonly TajadaGasto[]): Slice[] {
 
 /**
  * `MiniDistribucionPie` — the 44px donut that sits inside each annual-grid
- * cell (US-050 PR5a, design §1.7). Port of `DistribucionPie`, fixed-size and
- * label-less: no `accessibilityLabel`, no on-wedge text. Carries NO
+ * cell (US-050 PR5a, design §1.7). Port of MOBILE's own `DistribucionPie`
+ * (NOT web's mini, which is a solid pie): the ring shape is a deliberate
+ * divergence so the grid minis match the main chart's donut family.
+ * Fixed-size and label-less: no `accessibilityLabel`, no on-wedge text. Carries NO
  * accessibility props of its own — the parent `Pressable` (`MesCelda`,
  * `ResumenAnual.tsx`) is `accessible`, which collapses this whole subtree
  * into a single AT node, so a second accessible child here would be dead
