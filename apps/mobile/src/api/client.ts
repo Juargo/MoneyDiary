@@ -60,6 +60,26 @@ export function copiaPorApiError(error: ApiError): string {
 }
 
 /**
+ * esBucketResumenDto — per-element bucket guard (judgment-day CRITICAL fix,
+ * mirrors `apps/web/src/api/client.ts`'s `esBucketResumenDto`). Checking
+ * `b.total` directly inside `Array.prototype.every` without first ruling out
+ * `null`/non-object elements throws a raw `TypeError` — which REJECTS the
+ * enclosing promise instead of resolving `{ok:false, error:{tag:'parse'}}`,
+ * breaking the never-throws contract (MOB-02). The `typeof value !== 'object'
+ * || value === null` guard below is the same null-object check
+ * `esResumenMesDto` already applies to its own top-level `value`.
+ */
+function esBucketResumenDto(value: unknown): value is { total: string } {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<{ total: string }>;
+  return (
+    typeof candidato.total === 'string' && esMontoStringValido(candidato.total)
+  );
+}
+
+/**
  * Light shape guard — enough to catch a malformed/unexpected 2xx body.
  *
  * Money guard (D-14, US-050): `totalIngreso` and every `bucket.total` are
@@ -78,16 +98,16 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
     typeof candidato.totalIngreso === 'string' &&
     esMontoStringValido(candidato.totalIngreso) &&
     Array.isArray(candidato.buckets) &&
-    candidato.buckets.every(
-      (b) => typeof b.total === 'string' && esMontoStringValido(b.total),
-    )
+    candidato.buckets.every(esBucketResumenDto)
   );
 }
 
 /**
  * esResumenAnualDto — GET /api/resumen/anual's shape guard. Reuses
  * `esResumenMesDto` over every `meses[]` entry (DRY, design §1.5) so the
- * D-14 money guard applies identically per month.
+ * D-14 money guard applies identically per month. `meses.length === 12`
+ * (judgment-day SUGGESTION fix, MOB-10) pins the annual grid to exactly 12
+ * cells, mirroring web's guard parity.
  */
 function esResumenAnualDto(value: unknown): value is ResumenAnualDto {
   if (typeof value !== 'object' || value === null) {
@@ -97,6 +117,7 @@ function esResumenAnualDto(value: unknown): value is ResumenAnualDto {
   return (
     typeof candidato.anio === 'number' &&
     Array.isArray(candidato.meses) &&
+    candidato.meses.length === 12 &&
     candidato.meses.every(esResumenMesDto)
   );
 }

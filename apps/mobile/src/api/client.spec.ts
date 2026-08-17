@@ -243,14 +243,65 @@ describe('fetchResumen', () => {
 
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
   });
+
+  // FIX 1 (CRITICAL, judgment-day): a `null`/non-object element inside
+  // `buckets` must reject with {tag: 'parse'}, never throw a raw TypeError
+  // out of `esResumenMesDto` (which would REJECT the returned promise
+  // instead of resolving it, breaking the never-throws contract, MOB-02).
+  it('maps a null element inside buckets to {tag: "parse"} instead of rejecting', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, buckets: [null] }),
+    });
+    const { fetchResumen } = requireClient();
+
+    await expect(fetchResumen()).resolves.toEqual({
+      ok: false,
+      error: { tag: 'parse' },
+    });
+  });
+
+  it('maps a non-object (string) element inside buckets to {tag: "parse"} instead of rejecting', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, buckets: ['x'] }),
+    });
+    const { fetchResumen } = requireClient();
+
+    await expect(fetchResumen()).resolves.toEqual({
+      ok: false,
+      error: { tag: 'parse' },
+    });
+  });
+
+  // FIX 2 (WARNING, judgment-day): reject coverage for the totalIngreso
+  // guard — mutation-proven zero coverage without this (removing the
+  // `esMontoStringValido(candidato.totalIngreso)` check kept every test
+  // green).
+  it('maps a malformed totalIngreso (e.g. "12.5") to {tag: "parse"} with otherwise well-formed buckets', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validDto, totalIngreso: '12.5' }),
+    });
+    const { fetchResumen } = requireClient();
+
+    const result = await fetchResumen();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
 });
 
 describe('fetchResumenAnual', () => {
   const ORIGINAL_ENV = process.env;
 
+  // MOB-10 mandates exactly 12 cells (FIX 4, judgment-day) — the fixture
+  // must build all 12 months for the accept-path tests to stay green.
   const validAnualDto: ResumenAnualDto = {
     anio: 2026,
-    meses: [validDto, validDto, validDto],
+    meses: Array.from({ length: 12 }, () => validDto),
   };
 
   beforeEach(() => {
@@ -425,16 +476,104 @@ describe('fetchResumenAnual', () => {
       json: () =>
         Promise.resolve({
           anio: 2026,
-          meses: [
-            validDto,
-            validDto,
-            {
-              ...validDto,
-              buckets: validDto.buckets.map((b, i) =>
-                i === 0 ? { ...b, total: '12.5' } : b,
-              ),
-            },
-          ],
+          meses: Array.from({ length: 12 }, (_, i) =>
+            i === 2
+              ? {
+                  ...validDto,
+                  buckets: validDto.buckets.map((b, j) =>
+                    j === 0 ? { ...b, total: '12.5' } : b,
+                  ),
+                }
+              : validDto,
+          ),
+        }),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  // FIX 1 (CRITICAL, judgment-day): same null-safe guard, exercised inside
+  // a meses[] entry (with an otherwise-valid 12-entry array, so the length
+  // guard from FIX 4 doesn't mask what's under test) — a null bucket
+  // anywhere in the year must reject with {tag: 'parse'} instead of
+  // rejecting the promise with a raw TypeError.
+  it('maps a null element inside meses[2].buckets to {tag: "parse"} instead of rejecting', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          anio: 2026,
+          meses: Array.from({ length: 12 }, (_, i) =>
+            i === 2 ? { ...validDto, buckets: [null] } : validDto,
+          ),
+        }),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    await expect(fetchResumenAnual()).resolves.toEqual({
+      ok: false,
+      error: { tag: 'parse' },
+    });
+  });
+
+  it('maps a non-object (string) element inside meses[2].buckets to {tag: "parse"} instead of rejecting', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          anio: 2026,
+          meses: Array.from({ length: 12 }, (_, i) =>
+            i === 2 ? { ...validDto, buckets: ['x'] } : validDto,
+          ),
+        }),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    await expect(fetchResumenAnual()).resolves.toEqual({
+      ok: false,
+      error: { tag: 'parse' },
+    });
+  });
+
+  // FIX 2 (WARNING, judgment-day): reject coverage for meses[2].totalIngreso
+  // — pins deep validation (not just index 0) the same way the D-14 bucket
+  // guard above already does. Kept at a 12-entry length so FIX 4's length
+  // guard doesn't mask the assertion under test.
+  it('maps a malformed meses[2].totalIngreso (e.g. "12.5") to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          anio: 2026,
+          meses: Array.from({ length: 12 }, (_, i) =>
+            i === 2 ? { ...validDto, totalIngreso: '12.5' } : validDto,
+          ),
+        }),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  // FIX 4 (SUGGESTION, judgment-day): MOB-10 mandates exactly 12 cells —
+  // an 11-month payload must reject as {tag: 'parse'}, mirroring web's
+  // `meses.length === 12` guard parity.
+  it('maps a meses array with 11 entries (not 12) to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          anio: 2026,
+          meses: Array.from({ length: 11 }, () => validDto),
         }),
     });
     const { fetchResumenAnual } = requireClient();
