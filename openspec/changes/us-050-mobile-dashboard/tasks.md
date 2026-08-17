@@ -412,7 +412,7 @@ marginal `size:exception` candidate (see forecast).
       extract the `estado → {label, cara, icon, bg}` table out of
       `SemaforoBadge` (D-12, mirrors web's US-047 D-06 extraction). Unknown/
       `null` estado → `SIN_DATOS`, never coerced into a known colour.
-      - Verify: `pnpm --filter @moneydiary/mobile test semaforo-estilos.spec.ts` — 3 green.
+      - Verify: `pnpm --filter @moneydiary/mobile test semaforo-estilos.spec.ts` — 5 green.
 - [x] **T4b.3 (RED)** Create `apps/mobile/src/components/SemaforoTag.spec.tsx`
       (5 cases): verde/amarillo/rojo render the Spanish word as visible text
       (1 parametrized block); `null` → `Sin datos`, never coerced into a
@@ -425,7 +425,7 @@ marginal `size:exception` candidate (see forecast).
       chevron, no `onPress`** (binding decision 1, MOB-09). `estadoGlobal`
       passes through verbatim (ADR-024, never recomputed). Preserve
       `testID="semaforo-global"` on the wrapper (Maestro anchor).
-      - Verify: `pnpm --filter @moneydiary/mobile test SemaforoTag.spec.tsx` — 5 green.
+      - Verify: `pnpm --filter @moneydiary/mobile test SemaforoTag.spec.tsx` — 7 green.
 - [x] **T4b.5 (RED)** Create `apps/mobile/src/components/LeyendaGasto.spec.tsx`
       (8 cases): exactly 5 rows (1); labels `Necesidades`/`Gustos`/`Ahorro`/
       `Ingresos`/`Sin categoría` — never raw `Deseos`/`SinCategoria` (1);
@@ -479,11 +479,14 @@ marginal `size:exception` candidate (see forecast).
 deletions across 10 files (628 raw changed lines) vs ~412 forecast — over,
 same docstring-heavy-comments pattern PR1/PR2 flagged (accepted per the
 forecast's own "marginal `size:exception` candidate" call, pre-approved at
-the apply gate). Mobile suite: 313 → 328 total (+15 net: +6
+the apply gate). Mobile suite: 313 → 328 total (+15 net: +5
 `semaforo-estilos.spec.ts`, +7 `SemaforoTag.spec.tsx` (3 parametrized +4),
 +8 `LeyendaGasto.spec.tsx`, ±0 net on `ResumenScreen.spec.tsx` (7→7, "Ver
 detalles"/period-label cases replaced by 5-legend-labels/no-IDEAL cases),
-−5 `SemaforoBadge.spec.tsx` deleted). `tsc --noEmit` clean (one fix needed:
+−5 `SemaforoBadge.spec.tsx` deleted). Post-judgment-day (judgment-day fix
+round, current): +2 more `LeyendaGasto.spec.tsx` (row-order + no-spend
+cases, mutation-proven), bringing the suite to 328 → 330 total (10 cases in
+`LeyendaGasto.spec.tsx`, up from 8). `tsc --noEmit` clean (one fix needed:
 `aria-hidden="true"` → `aria-hidden` boolean prop on `SemaforoTag`'s emoji
 `Text`). `eslint --fix` auto-fixed `ReadonlyArray<T>` → `readonly T[]` (5
 warnings) + prettier wrapping (6 errors) — no manual lint fixes needed.
