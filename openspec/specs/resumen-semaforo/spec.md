@@ -12,6 +12,8 @@ or JSON layout — those are design-phase decisions. Web rendering of this data 
 `web-app` capability's `WSEM-*` family (a separate delta in this same change, US-049). This
 endpoint does not modify `GET /api/resumen`'s own payload (out of scope, per the proposal).
 
+Established by change us-049-semaforo-detalle (2026-08-16), US-049 / issue #283.
+
 ## Requirements
 
 ### Requirement: SEM-01 — Response exposes the resolved period, global estado, and a backend-generated diagnosis naming the driving bucket (CA-01, CA-02)
