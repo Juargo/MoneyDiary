@@ -68,3 +68,9 @@ export type PreviewTransaccionDto = S['PreviewIngestaResponse']['muestra'][numbe
 
 /** POST /api/auth/login — successful authentication (mobile). */
 export type LoginResponseDto = S['AuthLoginResponse'];
+
+/** GET /api/resumen/semaforo — semáforo detail (US-049). Money as decimal strings (BigInt-safe). */
+export type SemaforoDetalleDto = S['SemaforoDetalleResponse'];
+
+/** One bucket entry inside `SemaforoDetalleDto.buckets` (Necesidades/Deseos/Ahorro, always exactly 3). */
+export type SemaforoBucketDetalleDto = S['SemaforoDetalleResponse']['buckets'][number];

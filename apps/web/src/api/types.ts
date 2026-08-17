@@ -208,3 +208,21 @@ export interface CategoriaDto {
 export interface CatalogoDto {
   readonly categorias: ReadonlyArray<CategoriaDto>;
 }
+
+/**
+ * `SemaforoBucketDetalleDto`/`SemaforoDetalleDto` — GET /api/resumen/semaforo
+ * (US-049, design.md §1.6). Sibling detail endpoint to `ResumenMesDto`:
+ * exposes zone-band edges (`bandas`), the target (`metaBp`), a
+ * backend-generated Spanish `diagnostico`, and per-bucket CLP-to-Verde
+ * `consejo` (`{ direccion, monto, mensaje }` or `null`).
+ *
+ * `buckets` is always exactly 3 entries (Necesidades, Deseos, Ahorro) —
+ * SinCategoria has no band/estado/target, its count+total travel in the
+ * separate `sinCategoria` object instead (D-03). `consejo.mensaje` ships the
+ * literal `{monto}` placeholder — the client substitutes it with
+ * `formatearMontoCLP(consejo.monto)` before rendering (D-05, SEM-10).
+ */
+export type {
+  SemaforoBucketDetalleDto,
+  SemaforoDetalleDto,
+} from '@moneydiary/api-client';

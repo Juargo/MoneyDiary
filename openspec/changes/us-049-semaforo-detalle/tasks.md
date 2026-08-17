@@ -351,7 +351,7 @@ consume the regenerated contract.
 
 ### 5.1 DTO + Zod schema + OpenAPI
 
-- [ ] **T5.1 (RED)** Create
+- [x] **T5.1 (RED)** Create
       `apps/api/src/infrastructure/http/dto/semaforo-detalle.dto.spec.ts`
       (5 cases): BigInt→string for `totalIngreso`/`consejo.monto`/
       `sinCategoria.total` (1); bp/meta/band edges → JS numbers (1);
@@ -359,13 +359,13 @@ consume the regenerated contract.
       `null` (1); `bandas.verdeMin: null` preserved for unilateral buckets
       (1). `[P]` with T5.3 (different files).
       - Verify (expect RED): `pnpm api test semaforo-detalle.dto.spec.ts`
-- [ ] **T5.2 (GREEN)** Create
+- [x] **T5.2 (GREEN)** Create
       `apps/api/src/infrastructure/http/dto/semaforo-detalle.dto.ts`
       (`SemaforoDetalleDto` + `aSemaforoDetalleDto(...)`) per design §1.6 —
       note `aWire()` is duplicated here (3 lines), NOT extracted from
       `resumen-mes.dto.ts` (design's explicit kiss.md call).
       - Verify: `pnpm api test semaforo-detalle.dto.spec.ts` green.
-- [ ] **T5.3 (RED)** Create
+- [x] **T5.3 (RED)** Create
       `apps/api/src/infrastructure/http-express/schemas/semaforo-detalle.schema.spec.ts`
       (2 cases): a real `aSemaforoDetalleDto(...)` output parses against
       `semaforoDetalleResponseSchema` (sync guarantee, per
@@ -373,18 +373,18 @@ consume the regenerated contract.
       a JSON number, not a string (1 — the money-guard-at-the-boundary
       lesson). `[P]` with T5.1.
       - Verify (expect RED): `pnpm api test semaforo-detalle.schema.spec.ts`
-- [ ] **T5.4 (GREEN)** Create
+- [x] **T5.4 (GREEN)** Create
       `apps/api/src/infrastructure/http-express/schemas/semaforo-detalle.schema.ts`:
       `semaforoDetalleQuerySchema = { periodo: z.string().optional() }` +
       `semaforoDetalleResponseSchema` with `.meta({ id:
       'SemaforoDetalleResponse' })`.
       - Verify: `pnpm api test semaforo-detalle.schema.spec.ts` green.
-- [ ] **T5.5 (RED)** Extend
+- [x] **T5.5 (RED)** Extend
       `apps/api/src/infrastructure/http-express/schemas/openapi-document.spec.ts`
       (+1 case): registers `GET /api/resumen/semaforo` with a `periodo`
       query param and a 200 response schema.
       - Verify (expect RED): `pnpm api test openapi-document.spec.ts`
-- [ ] **T5.6 (GREEN)** In `openapi-document.ts`, add
+- [x] **T5.6 (GREEN)** In `openapi-document.ts`, add
       `semaforoDetalleOperation` and **append** (never reorder, per the
       file's own instruction at line ~1043) `'/api/resumen/semaforo': {
       get: semaforoDetalleOperation }`.
@@ -392,7 +392,7 @@ consume the regenerated contract.
 
 ### 5.2 Route + container wiring
 
-- [ ] **T5.7 (RED)** Create
+- [x] **T5.7 (RED)** Create
       `apps/api/src/infrastructure/http-express/app.resumen-semaforo.spec.ts`
       (5 cases, per `app.buckets.spec.ts`): 401 sin `x-api-key` (1); 401 con
       api-key sin sesión (1); 200 con ambos + **el `userId` de la sesión
@@ -400,7 +400,7 @@ consume the regenerated contract.
       `PeriodoInvalidoError` (1); el body 200 real cumple
       `semaforoDetalleResponseSchema` (1).
       - Verify (expect RED): `pnpm api test app.resumen-semaforo.spec.ts`
-- [ ] **T5.8 (GREEN)** Add `registrarResumenSemaforo(router,
+- [x] **T5.8 (GREEN)** Add `registrarResumenSemaforo(router,
       obtenerSemaforoDetalle)` to
       `apps/api/src/infrastructure/http-express/routes/resumen.routes.ts`
       as a third `router.get`, same Result→HTTP translation (400 scrubbed,
@@ -411,20 +411,20 @@ consume the regenerated contract.
       PrismaResumenMesRepository(prisma)` instance** (D-12 — no `crear-*`
       helper, matches the file's one-`new`-per-use-case style).
       - Verify: `pnpm api test app.resumen-semaforo.spec.ts` green; confirm the 11 existing `app.*.spec.ts` fakes still compile untouched (design §4 — `as unknown as Container` casts absorb the new optional-in-practice field).
-- [ ] **T5.9 (Function-call-site sweep)** `calcularEstadoBucket`'s signature
+- [x] **T5.9 (Function-call-site sweep)** `calcularEstadoBucket`'s signature
       is unchanged (Phase 1) and `Container` gained an additive field only
       — confirm via `tsc` that zero other call sites needed edits.
       - Verify: `pnpm api exec tsc --noEmit`.
 
 ### 5.3 Contract regeneration (D-01, ADR-011/012)
 
-- [ ] **T5.10** Run `pnpm contract:sync` (`pnpm api openapi:emit && pnpm
+- [x] **T5.10** Run `pnpm contract:sync` (`pnpm api openapi:emit && pnpm
       api-client generate`) from the repo root. Commit `apps/api/openapi.json`
       and `packages/api-client/src/types.gen.ts` together with the schema
       change from 5.1–5.6 — a partial commit fails CI.
       - Verify: `pnpm api openapi:check` exits 0.
       - Verify: `git diff --exit-code packages/api-client/src/types.gen.ts` after re-running `pnpm api-client generate` (must be a no-op the second time).
-- [ ] **T5.11** Add `export type SemaforoDetalleDto = S['SemaforoDetalleResponse'];`
+- [x] **T5.11** Add `export type SemaforoDetalleDto = S['SemaforoDetalleResponse'];`
       (+ a `SemaforoBucketDetalleDto` indexed alias) to
       `packages/api-client/src/index.ts`, and re-export from
       `apps/web/src/api/types.ts` — **same PR, per the US-045 lesson**
@@ -433,7 +433,7 @@ consume the regenerated contract.
 
 ### 5.4 Isolation + e2e (ISO-01/ISO-02)
 
-- [ ] **T5.12 (RED)** Create
+- [x] **T5.12 (RED)** Create
       `apps/api/test/resumen-semaforo.e2e-spec.ts` (5 cases, per
       `resumen.e2e-spec.ts`): sin `periodo` → 200 con el periodo UTC
       actual (1); `?periodo=not-a-date` → 400 scrubbed (1); DTO shape — 3
@@ -442,11 +442,11 @@ consume the regenerated contract.
       **aislamiento de dos usuarios** — datos del otro usuario no aparecen,
       per `app.buckets.spec.ts`'s two-user precedent (1).
       - Verify (expect RED, `ALLOW_DESTRUCTIVE_DB=1`): `pnpm api test:e2e resumen-semaforo.e2e-spec.ts`
-- [ ] **T5.13 (GREEN)** No production code expected beyond 5.1–5.11 — if
+- [x] **T5.13 (GREEN)** No production code expected beyond 5.1–5.11 — if
       T5.12 fails after those land, that is a signal one of those phases
       has a gap; do not patch around it here.
       - Verify: `pnpm api test:e2e resumen-semaforo.e2e-spec.ts` green.
-- [ ] **T5.14** Update the ISO-01/ISO-02 spec's canonical merge target
+- [x] **T5.14** Update the ISO-01/ISO-02 spec's canonical merge target
       staleness note is tracked in Phase 8 (archive step), not here — this
       task only confirms the delta's own scenarios (already written in
       T5.12) exercise both cookie and Bearer transport per ISO-01/ISO-02's
@@ -457,7 +457,7 @@ consume the regenerated contract.
 
 ### 5.5 Backend gate sweep
 
-- [ ] **T5.15** Full backend verification: `pnpm api test` (unit) · `pnpm
+- [x] **T5.15** Full backend verification: `pnpm api test` (unit) · `pnpm
       api test:integration` (`ALLOW_DESTRUCTIVE_DB=1`) · `pnpm api
       test:e2e` (`ALLOW_DESTRUCTIVE_DB=1`) · `pnpm api exec tsc --noEmit` ·
       `pnpm api openapi:check` · `pnpm api lint:ci`.
@@ -633,6 +633,34 @@ the user selects — see forecast above).
       unchanged and 1 web case rewritten (not net-new). If any suite's
       actual count diverges, note the delta here before archiving — do not
       silently let the ledger go stale.
+      - **Correction (judgment-day round 1 finding, PR4):** two ledger
+        deltas recorded here rather than silently patched:
+        1. `semaforo-detalle.schema.spec.ts` grows from 3 to **4** `it`
+           blocks file-level (the `semaforoDetalleResponseSchema` describe
+           specifically: 2 → 3) — the new case is the D-11 combo:
+           `estadoSemaforo=amarillo` AND `consejo=null` parses — the
+           nullable holds for the fail-closed degenerate case, not just
+           Verde. `semaforo-detalle.dto.spec.ts` grows from **5 to 7**
+           cases (git-history-verified — judgment round 2 corrected this
+           note's own first version, which mis-stated 4→6): the same D-11
+           combo, plus an explicit SEM-10 mensaje passthrough assert of
+           the literal `{monto}` template string.
+        2. `resumen-semaforo.e2e-spec.ts`'s two ISO-01/ISO-02 isolation
+           cases (T5.12 item 5) were rewritten in place — same case count,
+           much stronger assertions. T5.12's note "per
+           `app.buckets.spec.ts`'s two-user precedent" was the WRONG
+           precedent to cite: that pattern only asserts
+           totalIngreso/bucket-total inequalities and a near-tautological
+           `not.toContain(alienUserId)`. The apply batch's implicit claim
+           that no stronger two-user e2e pattern existed in this repo was
+           **incorrect** — `resumen-anual.e2e-spec.ts`'s CA-08 test
+           (authenticate AS a fresh credentialed user, assert EXACT values
+           computed from a fully known seed) already shipped that stronger
+           idiom. Both isolation cases now follow CA-08 instead: login as a
+           fresh user with a known income/bucket-state/uncategorized-count,
+           seed a second alien user with a DIFFERENT known state, and assert
+           exact `diagnostico`/`bucketsCriticos`/`consejo`/`sinCategoria`
+           values on the authenticated user's response only.
 - [ ] **T8.3 (Spec Purpose-prose reminders for archive — do NOT skip)**
       When this change archives:
       - `openspec/specs/user-data-isolation/spec.md` Purpose section: "4
