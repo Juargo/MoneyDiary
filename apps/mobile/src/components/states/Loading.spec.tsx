@@ -10,4 +10,13 @@ describe('Loading', () => {
     expect(screen.getByText('Cargando resumen…')).toBeOnTheScreen();
     expect(screen.getByTestId('loading-spinner')).toBeOnTheScreen();
   });
+
+  // T5b.1 (US-050): optional `mensaje` prop so a caller other than the
+  // route shell (e.g. `ResumenAnual`) can request a different loading label
+  // while keeping the default unedited above.
+  it('renders a custom mensaje when provided', async () => {
+    await render(<Loading mensaje="Cargando resumen anual…" />);
+    expect(screen.getByText('Cargando resumen anual…')).toBeOnTheScreen();
+    expect(screen.queryByText('Cargando resumen…')).not.toBeOnTheScreen();
+  });
 });
