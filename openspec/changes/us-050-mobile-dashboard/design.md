@@ -431,12 +431,24 @@ already a direct dep).
 | 1.1 | `src/domain/formatear-monto.ts` | MOD — `esMontoStringValido`, `formatearMontoConSigno`, stricter guard | ~45 | — |
 | 1.2 | `src/domain/formatear-monto.spec.ts` | MOD | ~55 | +9 |
 | 1.3 | `src/domain/distribucion-gasto.ts` | MOD — `BUCKETS_5030`/`BUCKETS_ANILLO`, `montoSeguro` | ~40 | — |
-| 1.4 | `src/domain/__fixtures__/distribucion-anillo.fixture.ts` | NEW | ~75 | — |
-| 1.5 | `apps/web/src/domain/__fixtures__/distribucion-anillo.fixture.ts` | NEW (byte-identical twin) | ~75 | — |
+| 1.4 | `src/domain/__fixtures__/distribucion-anillo.fixture.ts` | NEW | **133** (real; ~75 forecast) | — |
+| 1.5 | `apps/web/src/domain/__fixtures__/distribucion-anillo.fixture.ts` | NEW (byte-identical twin) | **133** (real; ~75 forecast) | — |
 | 1.6 | `src/domain/distribucion-gasto.spec.ts` | MOD — `it.each` + byte-equality guard | ~70 | ~10 |
 | 1.7 | `apps/web/src/domain/distribucion-gasto.test.ts` | MOD — adopt the shared `it.each` | ~20 | (re-expressed) |
-| 1.8 | `src/theme/colors.ts` | MOD — `sinCategoria` token + `COLOR_BUCKET` entry | ~8 | — |
-| | | **subtotal** | **~390** | **~19** |
+| 1.8 | `src/theme/colors.ts` | MOD — `sinCategoria` token + `COLOR_BUCKET` entry | **9** (real; ~8 forecast) | — |
+| 1.9 | `src/domain/resumen-view-model.spec.ts` | MOD — blast-radius sync: ring consumer re-expressed for the 4-item output (§4 impact sweep) | **+12** | — |
+| | | **subtotal** | **~517** (real; ~390 forecast) | **~19** |
+
+> **Honest reconciliation (post-implementation):** the two fixture files came in at 133 lines
+> each — ~58 lines over the ~75 forecast per file, ~116 lines combined — because the D-09 case
+> table grew from 7 to 8 named cases (the 8th exercises a genuine largest-remainder tie, added
+> during judgment-day review; see the fixture's own case comment) plus Prettier's line-wrapping
+> of the new case's `nombre` string. `colors.ts` landed 1 line over forecast (9 vs ~8).
+> `resumen-view-model.spec.ts` (1.9) was not itemized in the original table at all — PR1's
+> ring/bucket change forces a blast-radius re-sync of its existing ring-consumer test (§4), which
+> the original per-file table missed. Net: ~390 → ~517 real, a ~127-line overage fully
+> attributable to these three causes; of the 517 lines, 266 (the byte-identical fixture twin pair)
+> are duplicated data, not net new logic.
 | **PR 2 — Period helpers, annual fetch, refresh fan-out** |||||
 | 2.1 | `src/domain/periodo-anual.ts` | NEW | ~65 | — |
 | 2.2 | `src/domain/periodo-anual.spec.ts` | NEW | ~85 | 11 |
