@@ -794,6 +794,25 @@ gated on this PR actually merging per the `stacked-to-main` binding
 mitigation (tasks.md forecast section: "no `mobile-v*` tag may be cut until
 the full PR1–PR5b chain has merged").
 
+**Judgment-day fix session (post-apply, this branch) — real totals
+recomputed.** `git diff origin/main...HEAD --numstat -- apps/mobile`:
+**423 ins / 31 del (454 changed)** across 6 files (`app/index.spec.tsx`
+294/1, `app/index.tsx` 65/13, `src/domain/resumen-view-model.spec.ts` 3/3,
+`src/domain/resumen-view-model.ts` 0/12, `test/auth-navigation.integration.spec.tsx`
+61/1, `src/components/ResumenScreen.spec.tsx` 0/1). `Loading.tsx`/
+`Loading.spec.tsx` net to **zero** diff vs `origin/main` — T5b.1's `mensaje`
+prop was added then fully reverted by judgment, cancelling out. 9 commits
+total on `feat/us-050-mobile-pr5b-shell` (the original 5-commit apply +
+`91f75bcb` periodoLabel retirement + 4 judgment-fix commits: dead-import
+removal, Loading revert, docs correction, D-15/MOB-14 test rewrite).
+454 changed vs the ~195 forecast is **+259, ~133% over** — worse than the
+apply session's own +94% because the D-15 test rewrite (Fix 1) and the
+MOB-14 addition (Fix 5) both grew `app/index.spec.tsx` further, only
+partially offset by the Loading revert's net-zero and the dead-import's
+single deletion. **454 remains OVER the 400-line `size:exception` gate**
+(by 54 lines) — same disclosed-exception posture as the original apply,
+not a new violation to hide.
+
 ---
 
 ## Phase 6 — Closing tasks
