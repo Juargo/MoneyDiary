@@ -44,6 +44,41 @@ const viewModel: ResumenViewModel = {
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
+  // US-050 PR3: `ResumenViewModel` gained `leyendaPrincipal`/
+  // `leyendaComplemento` (design §1.4a/b). This fixture is a minimal
+  // type-completeness patch, not a behavior change — `ResumenScreen.tsx`
+  // does not read these two fields yet (it still reads `buckets`/
+  // `distribucionGasto` directly), so no assertion here depends on them.
+  // T4b.7 rewrites this spec file wholesale for the 5-row legend.
+  leyendaPrincipal: [
+    {
+      kind: 'gasto',
+      bucket: 'Necesidades',
+      porcentaje: 50,
+      montoLabel: '-$500.000',
+    },
+    {
+      kind: 'gasto',
+      bucket: 'Deseos',
+      porcentaje: 30,
+      montoLabel: '-$300.000',
+    },
+    {
+      kind: 'gasto',
+      bucket: 'Ahorro',
+      porcentaje: 20,
+      montoLabel: '-$200.000',
+    },
+  ],
+  leyendaComplemento: [
+    { kind: 'ingreso', montoLabel: '+$1.000.000' },
+    {
+      kind: 'sinCategoria',
+      bucket: 'SinCategoria',
+      montoLabel: '$0',
+      cantidadLabel: '0 tx',
+    },
+  ],
 };
 
 describe('ResumenScreen', () => {
