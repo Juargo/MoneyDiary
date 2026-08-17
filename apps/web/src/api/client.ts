@@ -10,6 +10,8 @@ import type {
   ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
+  SemaforoBucketDetalleDto,
+  SemaforoDetalleDto,
   TransaccionResponseDto,
 } from './types';
 import { esMontoStringValido } from '../domain/formatear-monto';
@@ -154,6 +156,195 @@ export async function fetchResumen(
   }
 
   if (!esResumenMesDto(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * Guarda money-safety para `SemaforoDetalleDto` (US-049, design §1.7 "The DTO
+ * guard is IN SCOPE — WG5-05 lesson"): valida exactamente lo que
+ * `aSemaforoDetalleViewModel` (`domain/semaforo-detalle-view-model.ts`)
+ * consume aguas abajo — `totalIngreso`/`sinCategoria.total` vía
+ * `esMontoStringValido` (mismo razonamiento que `esResumenMesDto`:
+ * `formatearMontoCLP` lanza sobre `"12.5"`/`"abc"`/etc), `periodo`,
+ * `sinIngreso`, `diagnostico`, `estadoGlobal`/`bucketsCriticos` (ambos
+ * renderizados verbatim, WG5-05 recurrence), y cada `buckets[]` con
+ * `bucket`/`porcentajeBp`/`estadoSemaforo`/`metaBp`/`bandas`/`consejo` en la
+ * forma exacta del wire. `estadoGlobal`/`estadoSemaforo` se validan contra la
+ * unión exacta `'verde' | 'amarillo' | 'rojo' | null` vía `esEstadoSemaforo`
+ * (compartida entre ambos call sites, DRY) — nunca un `string` suelto, mismo
+ * espíritu que `esConsejoDto` con `direccion`. Un `consejo.monto` como
+ * `"12.5"` (JSON-válido pero no BigInt-safe) DEBE rechazarse aquí — si no,
+ * `formatearMontoCLP` lanzaría mid-render sin ErrorBoundary en la app (la
+ * misma clase de bug que `esBucketResumenDto` ya previene para
+ * `/api/resumen`). Deliberadamente NO valida `buckets[i].total` (KISS —
+ * ningún consumidor de este PR lo lee; se agrega el día que un consumidor
+ * real lo necesite, no antes).
+ */
+function esEstadoSemaforo(
+  value: unknown,
+): value is 'verde' | 'amarillo' | 'rojo' | null {
+  return (
+    value === null ||
+    value === 'verde' ||
+    value === 'amarillo' ||
+    value === 'rojo'
+  );
+}
+
+function esBandasBucketDto(
+  value: unknown,
+): value is SemaforoBucketDetalleDto['bandas'] {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<SemaforoBucketDetalleDto['bandas']>;
+  return (
+    typeof candidato.verdeMax === 'number' &&
+    typeof candidato.amarilloMax === 'number' &&
+    (typeof candidato.verdeMin === 'number' || candidato.verdeMin === null) &&
+    (typeof candidato.amarilloMin === 'number' ||
+      candidato.amarilloMin === null)
+  );
+}
+
+function esConsejoDto(
+  value: unknown,
+): value is SemaforoBucketDetalleDto['consejo'] {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  const candidato = value as Partial<
+    NonNullable<SemaforoBucketDetalleDto['consejo']>
+  >;
+  return (
+    (candidato.direccion === 'reducir' || candidato.direccion === 'aumentar') &&
+    typeof candidato.mensaje === 'string' &&
+    typeof candidato.monto === 'string' &&
+    esMontoStringValido(candidato.monto)
+  );
+}
+
+function esSemaforoBucketDetalleDto(
+  value: unknown,
+): value is SemaforoBucketDetalleDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<SemaforoBucketDetalleDto>;
+  return (
+    typeof candidato.bucket === 'string' &&
+    (typeof candidato.porcentajeBp === 'number' ||
+      candidato.porcentajeBp === null) &&
+    esEstadoSemaforo(candidato.estadoSemaforo) &&
+    typeof candidato.metaBp === 'number' &&
+    esBandasBucketDto(candidato.bandas) &&
+    esConsejoDto(candidato.consejo)
+  );
+}
+
+function esSinCategoriaDto(
+  value: unknown,
+): value is SemaforoDetalleDto['sinCategoria'] {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<SemaforoDetalleDto['sinCategoria']>;
+  return (
+    typeof candidato.cantidad === 'number' &&
+    typeof candidato.total === 'string' &&
+    esMontoStringValido(candidato.total)
+  );
+}
+
+function esSemaforoDetalleDto(value: unknown): value is SemaforoDetalleDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<SemaforoDetalleDto>;
+  return (
+    typeof candidato.totalIngreso === 'string' &&
+    esMontoStringValido(candidato.totalIngreso) &&
+    typeof candidato.periodo === 'string' &&
+    typeof candidato.sinIngreso === 'boolean' &&
+    esEstadoSemaforo(candidato.estadoGlobal) &&
+    Array.isArray(candidato.bucketsCriticos) &&
+    candidato.bucketsCriticos.every((item) => typeof item === 'string') &&
+    typeof candidato.diagnostico === 'string' &&
+    Array.isArray(candidato.buckets) &&
+    candidato.buckets.every(esSemaforoBucketDetalleDto) &&
+    esSinCategoriaDto(candidato.sinCategoria)
+  );
+}
+
+/**
+ * fetchSemaforoDetalle — GET /api/resumen/semaforo[?periodo=YYYY-MM] (US-049,
+ * design §1.7). Misma disciplina never-throw `ApiResult<T>` que
+ * `fetchResumen`: same-origin (el proxy inyecta `x-api-key`), sin base URL,
+ * mismo status-mapping (400 → periodo inválido, 401 → sin acceso, 5xx →
+ * server genérico, network → fetch rechazado, body inesperado → parse).
+ */
+export async function fetchSemaforoDetalle(
+  periodo?: string,
+): Promise<ApiResult<SemaforoDetalleDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `/api/resumen/semaforo${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
+  }
+
+  if (res.status === 400) {
+    return {
+      ok: false,
+      error: { tag: 'invalid', message: 'El período no es válido.' },
+    };
+  }
+  if (res.status === 401) {
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  if (!esSemaforoDetalleDto(body)) {
     return {
       ok: false,
       error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },

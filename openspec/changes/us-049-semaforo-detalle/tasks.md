@@ -470,7 +470,7 @@ Requirements: WSEM-07 (data resolution), SEM-10 (client-side `{monto}`
 substitution point), the WG5-05 money-guard lesson. Depends on Phase 5
 (regenerated `types.gen.ts`/`api-client`/`web/src/api/types.ts`).
 
-- [ ] **T6.1 (RED)** Extend `apps/web/src/api/client.test.ts` (+11 cases):
+- [x] **T6.1 (RED)** Extend `apps/web/src/api/client.test.ts` (+11 cases):
       `fetchSemaforoDetalle` 200 ok (1); 400→`invalid` (1); 401→
       `unauthorized` (1); 5xx→`server` (1); fetch rejection→`network` (1);
       non-JSON body→`parse` (1); **`consejo.monto: "12.5"` →`parse`**
@@ -479,7 +479,7 @@ substitution point), the WG5-05 money-guard lesson. Depends on Phase 5
       `sinCategoria.total`→`parse` (1); `periodo` URL-encoded into the
       query (1).
       - Verify (expect RED): `pnpm web test client.test.ts`
-- [ ] **T6.2 (GREEN)** In `apps/web/src/api/client.ts`, add
+- [x] **T6.2 (GREEN)** In `apps/web/src/api/client.ts`, add
       `fetchSemaforoDetalle(periodo?)` (same never-throw `ApiResult<T>`
       shape as `fetchResumen`) and `esSemaforoDetalleDto` — the DTO guard
       validating exactly what flows into money/render code: `totalIngreso`
@@ -490,15 +490,15 @@ substitution point), the WG5-05 money-guard lesson. Depends on Phase 5
       `number|null`), and `consejo === null` **or** `{direccion, mensaje}`
       strings + `monto` passing `esMontoStringValido`.
       - Verify: `pnpm web test client.test.ts` — 11 new + existing green.
-- [ ] **T6.3 (RED)** Create `apps/web/src/api/use-semaforo-detalle.test.ts`
+- [x] **T6.3 (RED)** Create `apps/web/src/api/use-semaforo-detalle.test.ts`
       (2 cases): `queryKey` is `['semaforo-detalle', periodo ?? 'actual']`
       (1); a typed `ApiError` surfaces as the query error (1). `[P]` with
       T6.5.
       - Verify (expect RED): `pnpm web test use-semaforo-detalle.test.ts`
-- [ ] **T6.4 (GREEN)** Create `apps/web/src/api/use-semaforo-detalle.ts`,
+- [x] **T6.4 (GREEN)** Create `apps/web/src/api/use-semaforo-detalle.ts`,
       verbatim `use-resumen.ts` shape.
       - Verify: `pnpm web test use-semaforo-detalle.test.ts` green.
-- [ ] **T6.5 (RED, extraction)** Before writing the view-model, extract
+- [x] **T6.5 (RED, extraction)** Before writing the view-model, extract
       `aPorcentajeLabel` (currently private, `resumen-view-model.ts:101-106`)
       into a new `apps/web/src/domain/porcentaje.ts` alongside
       `SIN_PORCENTAJE_LABEL` (currently exported at line 19). Add a
@@ -506,7 +506,7 @@ substitution point), the WG5-05 money-guard lesson. Depends on Phase 5
       its existing importers/tests are untouched — confirm with a
       regression run before adding any new test.
       - Verify (regression, no new test needed — pure move): `pnpm web test resumen-view-model.test.ts` still green.
-- [ ] **T6.6 (RED)** Create
+- [x] **T6.6 (RED)** Create
       `apps/web/src/domain/semaforo-detalle-view-model.test.ts` (12 cases):
       `{monto}` substituted with the formatted amount (1); no raw `{monto}`
       survives (1); a mensaje without the placeholder renders verbatim,
@@ -517,17 +517,24 @@ substitution point), the WG5-05 money-guard lesson. Depends on Phase 5
       segments (1); widths sum to exactly 100 (1); `Meta: 50%` derived
       from `metaBp` (1). `[P]` with T6.3.
       - Verify (expect RED): `pnpm web test semaforo-detalle-view-model.test.ts`
-- [ ] **T6.7 (GREEN)** Create
+- [x] **T6.7 (GREEN)** Create
       `apps/web/src/domain/semaforo-detalle-view-model.ts` per design §1.7:
       `SegmentoZona` type, the pure mapping + zone-bar geometry
       (`0..10000bp → 0..100%`, unilateral 3 segments, Ahorro 5 segments,
       contiguous, widths sum to 100) — **every edge read from `bandas` on
       the wire, no threshold literal in this file** (R2 mitigation).
       - Verify: `pnpm web test semaforo-detalle-view-model.test.ts` — 12 green.
-- [ ] **T6.8 (REFACTOR)** Confirm no threshold literal (`5000`, `6000`,
+- [x] **T6.8 (REFACTOR)** Confirm no threshold literal (`5000`, `6000`,
       `3000`, `4000`, `2000`, `1000` as classification constants) exists
       anywhere in `apps/web/src/domain/semaforo-detalle-view-model.ts`.
       - Verify: `rg "5000|6000|3000|4000|2000|1000" apps/web/src/domain/semaforo-detalle-view-model.ts` returns nothing outside comments/geometry math unrelated to bp thresholds; `pnpm web typecheck`.
+      - **Line-count note (recorded, not silently patched):** real diff for
+        this slice is ~1000 changed lines (982 insertions/18 deletions across
+        8 files, including the 3 new `.test.ts(x)` files) vs. the design §5
+        estimate of ~380 — same pattern as PR4 (1504 vs ~600): the ledger's
+        line estimates consistently undercount test-file volume in this
+        change. All 8 files stay within `apps/web` + this task file — no
+        scope creep, every new line traces to a T6.x task above.
 
 ---
 
@@ -661,6 +668,27 @@ the user selects — see forecast above).
            seed a second alien user with a DIFFERENT known state, and assert
            exact `diagnostico`/`bucketsCriticos`/`consejo`/`sinCategoria`
            values on the authenticated user's response only.
+      - **Correction (judgment-day round, PR5):** two more ledger deltas
+        recorded here, same discipline:
+        1. `client.test.ts`'s `fetchSemaforoDetalle` describe block grows
+           from T6.1's original **11** cases to **20** — the guard
+           completeness fix (WG5-05 recurrence, PR5) extends
+           `esSemaforoDetalleDto`/`esSemaforoBucketDetalleDto` to also
+           validate `periodo`, `sinIngreso`, `estadoGlobal` (enum
+           membership, not just `string|null`), `bucketsCriticos`, and each
+           bucket's `bucket`/`estadoSemaforo` (enum membership) — all of
+           which pass verbatim into `SemaforoDetalleViewModel`/
+           `BucketSemaforoViewModel` render code per
+           `semaforo-detalle-view-model.ts`. The 9 new cases are 8
+           rejections (one per newly-validated field/shape) + 1 acceptance
+           case pinning `estadoGlobal: null` as a valid payload.
+        2. `src/api/use-semaforo-detalle.test.ts` (T6.3's ledger filename,
+           design §3 table) never existed under that extension — the file
+           needs JSX (`<QueryClientProvider>`) for its wrapper, so it was
+           created (and stays) as `use-semaforo-detalle.test.tsx`, same
+           precedent already called out in that file's own top comment
+           re: `use-me.test.tsx`. Ledger prose corrected accordingly; case
+           count (2) is unchanged.
 - [ ] **T8.3 (Spec Purpose-prose reminders for archive — do NOT skip)**
       When this change archives:
       - `openspec/specs/user-data-isolation/spec.md` Purpose section: "4
