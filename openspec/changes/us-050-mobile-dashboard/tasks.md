@@ -651,11 +651,13 @@ this is the wiring slice that composes the shell.
 > if the callback identity is stable across renders. Reviewer: verify the
 > `useCallback` exists and, ideally, a test pins referential stability.
 
-- [x] **T5b.1** In `apps/mobile/src/components/states/Loading.tsx`, add an
-      optional `mensaje` prop, default `'Cargando resumen…'` (existing spec
-      stays green, unedited — `ResumenAnual`, T5a.4, already passes
-      `'Cargando resumen anual…'`).
-      - Verify: `pnpm --filter @moneydiary/mobile test Loading.spec.tsx` — existing cases green, no new cases required.
+- [x] **T5b.1 — SUPERSEDED/REVERTED by judgment-day review.** Original text
+      claimed `ResumenAnual` "already passes `'Cargando resumen anual…'`"
+      through the shared `Loading`'s new `mensaje` prop — false: `ResumenAnual`
+      renders its own inline loading view (T5a.4), never imports
+      `states/Loading.tsx`. The `mensaje` prop had zero production consumers
+      (YAGNI) and was reverted; `Loading.tsx`/`Loading.spec.tsx` are back to
+      their pre-PR5b shape.
 - [x] **T5b.2 (RED)** In `apps/mobile/app/index.spec.tsx`, add +5 cases: the
       annual section renders **alongside** `Empty` when `sinIngreso` — CQ1/
       MOB-14 (1); it also renders alongside `loading` and `error` — D-05
