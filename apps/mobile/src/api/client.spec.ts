@@ -1,4 +1,8 @@
-import type { ResumenMesDto, MeDto } from '../domain/resumen.types';
+import type {
+  ResumenMesDto,
+  ResumenAnualDto,
+  MeDto,
+} from '../domain/resumen.types';
 import { NETWORK_LEG_TIMEOUT_MS } from './con-timeout';
 
 const validDto: ResumenMesDto = {
@@ -216,6 +220,228 @@ describe('fetchResumen', () => {
 
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // D-14 money guard: a malformed bucket.total must never reach
+  // formatearMontoConSigno (which throws on a bad string) — the boundary
+  // guard rejects it as {tag: 'parse'} instead of crashing the render.
+  it('maps a bucket.total that fails esMontoStringValido (e.g. "12.5") to {tag: "parse"} (D-14)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validDto,
+          buckets: validDto.buckets.map((b, i) =>
+            i === 0 ? { ...b, total: '12.5' } : b,
+          ),
+        }),
+    });
+    const { fetchResumen } = requireClient();
+
+    const result = await fetchResumen();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+});
+
+describe('fetchResumenAnual', () => {
+  const ORIGINAL_ENV = process.env;
+
+  const validAnualDto: ResumenAnualDto = {
+    anio: 2026,
+    meses: [validDto, validDto, validDto],
+  };
+
+  beforeEach(() => {
+    jest.resetModules();
+    mockLeerToken.mockReset().mockResolvedValue(null);
+    process.env = {
+      ...ORIGINAL_ENV,
+      EXPO_PUBLIC_API_BASE_URL: 'https://api.example.com',
+      EXPO_PUBLIC_API_KEY: 'test-api-key',
+    };
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+    jest.restoreAllMocks();
+  });
+
+  it('sends GET {base}/api/resumen/anual with no query when anio is omitted (MOB-10)', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validAnualDto),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    await fetchResumenAnual();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/api/resumen/anual',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'x-api-key': 'test-api-key' }),
+      }),
+    );
+  });
+
+  it('appends ?anio=2026 when anio is given', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validAnualDto),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    await fetchResumenAnual(2026);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/api/resumen/anual?anio=2026',
+      expect.anything(),
+    );
+  });
+
+  it('sends both x-api-key and Authorization: Bearer <token> when a token is stored', async () => {
+    mockLeerToken.mockResolvedValue('stored-token');
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validAnualDto),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    await fetchResumenAnual();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-key': 'test-api-key',
+          Authorization: 'Bearer stored-token',
+        }),
+      }),
+    );
+  });
+
+  it('resolves {ok: true, value} on a valid 2xx body', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validAnualDto),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: true, value: validAnualDto });
+  });
+
+  it('maps res.status === 401 to {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'unauthorized' } });
+  });
+
+  it('maps a 500 to {tag: "http", status: 500}', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'http', status: 500 } });
+  });
+
+  // D-03: mobile never sends a user-authored `anio` (it is derived from a
+  // YYYY-MM the backend itself emitted), so an invalid-anio 400 collapses
+  // into the generic 'http' bucket rather than a dedicated tag.
+  it('maps a 400 (invalid anio) to {tag: "http", status: 400} (D-03)', async () => {
+    mockFetchOnce({ ok: false, status: 400 });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'http', status: 400 } });
+  });
+
+  it('maps a fetch rejection to {tag: "network"}', async () => {
+    (global as unknown as { fetch: typeof fetch }).fetch = jest
+      .fn()
+      .mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+  });
+
+  it('returns {tag: "network"} without fetching when API_BASE_URL is missing', async () => {
+    process.env.EXPO_PUBLIC_API_BASE_URL = '';
+    const fetchMock = mockFetchOnce({ ok: true, status: 200 });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'network' } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('maps a 2xx body whose json() throws to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  it('maps a malformed 2xx body (wrong shape) to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ nonsense: true }),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  // D-14 money guard, annual side: a malformed bucket.total inside any
+  // meses[] entry must reject the whole payload — reuses esResumenMesDto
+  // per month (DRY), so this is the same guard exercised at meses[2].
+  it('maps a malformed bucket.total inside meses[2] to {tag: "parse"} (D-14)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          anio: 2026,
+          meses: [
+            validDto,
+            validDto,
+            {
+              ...validDto,
+              buckets: validDto.buckets.map((b, i) =>
+                i === 0 ? { ...b, total: '12.5' } : b,
+              ),
+            },
+          ],
+        }),
+    });
+    const { fetchResumenAnual } = requireClient();
+
+    const result = await fetchResumenAnual();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
   });
 });
 
