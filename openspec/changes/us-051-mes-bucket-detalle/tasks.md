@@ -44,10 +44,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 2 — DTO + schema [PR 2]
 
-- [ ] 2.1 (RED) `detalle-bucket-mes.dto.spec.ts`: 5 cases — bigint→string; bp/meta number, null kept; `monto === String(cargo)`; **PII keys banco/tipoCuenta/numeroCuenta absent (MBD-08)**; fecha ISO.
-- [ ] 2.2 (GREEN) `detalle-bucket-mes.dto.ts` (D-06): DTO + mapper, PII trim.
-- [ ] 2.3 (RED) `bucket-detalle-mes.schema.spec.ts`: 2 cases — mapper output parses; rejects `monto: 12.5`.
-- [ ] 2.4 (GREEN) `bucket-detalle-mes.schema.ts` (D-07): reuses `bucketsPathParamsSchema`; `.meta({ id: 'BucketDetalleMesResponse' })`.
+- [x] 2.1 (RED) `detalle-bucket-mes.dto.spec.ts`: 5 cases — bigint→string; bp/meta number, null kept; `monto === String(cargo)`; **PII keys banco/tipoCuenta/numeroCuenta absent (MBD-08)**; fecha ISO. — spec: `apps/api/src/infrastructure/http/dto/detalle-bucket-mes.dto.spec.ts` (5/5 verdes; fixture reconstruye la proyección recortada desde filas fuente CON PII)
+- [x] 2.2 (GREEN) `detalle-bucket-mes.dto.ts` (D-06): DTO + mapper, PII trim. — impl: `apps/api/src/infrastructure/http/dto/detalle-bucket-mes.dto.ts` (monto = String(tx.monto); bp/meta → number|null; la PII no existe NI en el tipo de entrada)
+- [x] 2.3 (RED) `bucket-detalle-mes.schema.spec.ts`: 3 casos (ledger 2 + 1 amend) — mapper output parses; rejects `monto: 12.5`; **`.strict()` rechaza una transacción con key extra `banco` (MBD-08 wire guard)**. — spec: `apps/api/src/infrastructure/http-express/schemas/bucket-detalle-mes.schema.spec.ts` (3/3 verdes)
+- [x] 2.4 (GREEN) `bucket-detalle-mes.schema.ts` (D-07): reuses `bucketsPathParamsSchema`; `.meta({ id: 'BucketDetalleMesResponse' })`. — impl: `apps/api/src/infrastructure/http-express/schemas/bucket-detalle-mes.schema.ts`
+- [x] 2.5 (GATE PR1, additive-gate exception — sancionado) PII-trim projection fix en el borde de aplicación: `TransaccionDetalleBucketMes` `{id, fecha, descripcion, monto}` + `recortarTransaccion` en `agrupar-detalle-por-categoria.ts`; `ObtenerDetalleBucketMesResult.grupos` tipado sobre la proyección recortada. Specs: service +1 caso (10→11) y use-case W-2 ampliado con asserts de PII ausente (banco/tipoCuenta/numeroCuenta/BCI/Cuenta Corriente/12345678). Firmado por el gate review: NINGÚN caller del use case puede ver PII — no solo el DTO.
 
 ## Phase 3 — Route + container + openapi [PR 3]
 
