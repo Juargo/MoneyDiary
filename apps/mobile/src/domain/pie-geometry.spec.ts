@@ -84,8 +84,13 @@ describe('arcoPath', () => {
     expect((d.match(/Z/g) ?? []).length).toBe(2);
     // Outer circle keeps the pre-existing forward sweep (flag 1); the inner
     // circle is drawn with the OPPOSITE sweep flag (0) so the default
-    // non-zero fill rule punches the hole.
-    expect(d).toContain('A 80 80 0 1 1');
-    expect(d).toContain('A 40 40 0 1 0');
+    // non-zero fill rule punches the hole. Each circle is two half-arcs, so
+    // the flag must appear EXACTLY twice per radius — and the wrong inner
+    // flag must never appear at all, or a single-arc flip goes undetected
+    // (a `toContain` alone is satisfied by the untouched twin arc).
+    expect((d.match(/A 80 80 0 1 1/g) ?? []).length).toBe(2);
+    expect((d.match(/A 40 40 0 1 0/g) ?? []).length).toBe(2);
+    expect(d).not.toContain('A 40 40 0 1 1');
+    expect(d).not.toContain('A 80 80 0 1 0');
   });
 });
