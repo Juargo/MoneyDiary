@@ -122,6 +122,19 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-049 (design §1.7's own eslint.config.js note). Same
+  // FILE-LIST form as the US-047/US-048 blocks above: `SemaforoDetallePage`,
+  // `BucketSemaforoCard`, `ZonaBar` are loose siblings directly under
+  // `src/components/`, not their own subdirectory. `semaforo*.tsx` already
+  // covers this US's own route file (glob added by the US-047 block above).
+  {
+    files: [
+      'src/components/SemaforoDetallePage.tsx',
+      'src/components/BucketSemaforoCard.tsx',
+      'src/components/ZonaBar.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Scoped ERROR — US-048 (design D-10). Same FILE-LIST form as the US-047
   // block above (loose siblings under `src/components/`, not a subdirectory —
   // globbing `src/components/**` would absorb the app's pre-existing a11y
