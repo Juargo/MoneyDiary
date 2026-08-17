@@ -1555,6 +1555,55 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/resumen/semaforo": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice
+         * @description Authenticated sibling detail endpoint to GET /api/resumen (US-049): exposes the semáforo classification's WHY and WHAT-TO-DO — per-bucket zone-band edges, a backend-generated Spanish diagnosis naming the driving bucket(s), and a CLP amount+direction that would return each Amarillo/Rojo bucket to Verde. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).
+         */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: {
+                    /** @description Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema. */
+                    readonly periodo?: string;
+                };
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Semáforo detail for the resolved period. */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["SemaforoDetalleResponse"];
+                    };
+                };
+                /** @description Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO). */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/transacciones/{id}/categoria": {
         readonly parameters: {
             readonly query?: never;
@@ -1864,6 +1913,55 @@ export interface components {
                 readonly Deseos: number;
                 readonly Necesidades: number;
             };
+            /** @description BigInt-safe decimal string amount (never a JSON number). */
+            readonly totalIngreso: string;
+        };
+        /** @description GET /api/resumen/semaforo — semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice (US-049). */
+        readonly SemaforoDetalleResponse: {
+            /** @description Always exactly 3 entries: Necesidades, Deseos, Ahorro (D-03). */
+            readonly buckets: readonly {
+                /** @description Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02). */
+                readonly bandas: {
+                    readonly amarilloMax: number;
+                    readonly amarilloMin: number | null;
+                    readonly verdeMax: number;
+                    readonly verdeMin: number | null;
+                };
+                /** @description Bucket name (Bucket domain enum value). */
+                readonly bucket: string;
+                /** @description CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null. */
+                readonly consejo: {
+                    /** @enum {string} */
+                    readonly direccion: "reducir" | "aumentar";
+                    /** @description Spanish sentence containing the literal `{monto}` placeholder exactly once (SEM-10). */
+                    readonly mensaje: string;
+                    /** @description BigInt-safe decimal string amount (never a JSON number). */
+                    readonly monto: string;
+                } | null;
+                /** @description Traffic-light health state, lowercase wire enum, or null. */
+                readonly estadoSemaforo: ("verde" | "amarillo" | "rojo") | null;
+                /** @description Bucket's 50/30/20 target center, in basis points (SEM-02). */
+                readonly metaBp: number;
+                /** @description Basis-point percentage (0-10000). null when sinIngreso=true. */
+                readonly porcentajeBp: number | null;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly total: string;
+            }[];
+            /** @description Bucket names sharing estadoGlobal severity. [] when Verde or sinIngreso. */
+            readonly bucketsCriticos: readonly string[];
+            /** @description Backend-generated Spanish sentence naming the driving bucket(s) (SEM-01). Never contains {monto}. */
+            readonly diagnostico: string;
+            /** @description Worst traffic-light state across the 3 spend buckets, or null. */
+            readonly estadoGlobal: ("verde" | "amarillo" | "rojo") | null;
+            /** @description Resolved period, format YYYY-MM. */
+            readonly periodo: string;
+            /** @description Re-exposed from /api/resumen, never recomputed independently (SEM-05). */
+            readonly sinCategoria: {
+                readonly cantidad: number;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly total: string;
+            };
+            readonly sinIngreso: boolean;
             /** @description BigInt-safe decimal string amount (never a JSON number). */
             readonly totalIngreso: string;
         };
