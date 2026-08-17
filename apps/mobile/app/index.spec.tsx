@@ -6,7 +6,10 @@ import {
   fireEvent,
 } from '@testing-library/react-native';
 import type { ApiResult } from '../src/api/client';
-import type { ResumenMesDto } from '../src/domain/resumen.types';
+import type {
+  ResumenAnualDto,
+  ResumenMesDto,
+} from '../src/domain/resumen.types';
 
 // Import after jest.mock is registered. `resumen-refresh` is intentionally
 // NOT mocked here (unlike `app/subir.spec.tsx`) — the real pub/sub module is
@@ -24,6 +27,16 @@ const mockFetchResumen = jest.fn<
   Promise<ApiResult<ResumenMesDto>>,
   [string?]
 >();
+// T5b.2 (US-050, design §1.9): `app/index.tsx` now also mounts `ResumenAnual`
+// as an always-rendered sibling of the month SLOT — its own `fetchResumenAnual`
+// must be mocked here too, or every existing test in this file would trigger a
+// real (env-less) fetch and risk colliding "Reintentar"/loading text with the
+// month card's own. Reset with a default success value in `beforeEach` so the
+// 12 pre-existing cases stay unedited and green.
+const mockFetchResumenAnual = jest.fn<
+  Promise<ApiResult<ResumenAnualDto>>,
+  [number?]
+>();
 const mockPostLogout = jest.fn<Promise<ApiResult<void>>, []>();
 
 // `copiaPorApiError` is re-exported from the real module (review readability
@@ -33,6 +46,7 @@ const mockPostLogout = jest.fn<Promise<ApiResult<void>>, []>();
 jest.mock('../src/api/client', () => ({
   ...jest.requireActual('../src/api/client'),
   fetchResumen: (periodo?: string) => mockFetchResumen(periodo),
+  fetchResumenAnual: (anio?: number) => mockFetchResumenAnual(anio),
   postLogout: () => mockPostLogout(),
 }));
 
@@ -131,9 +145,85 @@ const emptyDto: ResumenMesDto = {
   cantidadSinCategoria: 0,
 };
 
+// T5b.2 (US-050, design §1.9): the shell's own year, always the current UTC
+// year since `app/index.tsx` never injects `Date` (design binding decision
+// 4 — no year navigation yet). Deriving it here, not hardcoding a literal,
+// keeps this file correct regardless of when the suite runs.
+const anioActual = new Date().getUTCFullYear();
+
+/** One month of the annual grid fixture, always WITH data (§1.9's default
+ * `periodoSeleccionado = periodoVista` marks the current month selected, and
+ * every cell here is tappable so the tests below don't have to route around
+ * a disabled cell). */
+function mesAnualConDatos(mes: string): ResumenMesDto {
+  return {
+    periodo: `${anioActual}-${mes}`,
+    totalIngreso: '1000000',
+    sinIngreso: false,
+    buckets: [
+      {
+        bucket: 'Necesidades',
+        total: '500000',
+        porcentajeBp: 5000,
+        estadoSemaforo: 'verde',
+      },
+      {
+        bucket: 'Deseos',
+        total: '300000',
+        porcentajeBp: 3000,
+        estadoSemaforo: 'amarillo',
+      },
+      {
+        bucket: 'Ahorro',
+        total: '200000',
+        porcentajeBp: 2000,
+        estadoSemaforo: 'verde',
+      },
+      {
+        bucket: 'SinCategoria',
+        total: '0',
+        porcentajeBp: null,
+        estadoSemaforo: null,
+      },
+    ],
+    targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+    estadoGlobal: 'verde',
+    cantidadSinCategoria: 0,
+  };
+}
+
+const MESES_NUM = [
+  '01',
+  '02',
+  '03',
+  '04',
+  '05',
+  '06',
+  '07',
+  '08',
+  '09',
+  '10',
+  '11',
+  '12',
+];
+
+/** Module-level (not rebuilt per test/render) so `fetchResumenAnual`
+ * resolving to this SAME object reference twice lets `ResumenAnual`'s
+ * `useMemo(() => aResumenAnualViewModel(dto), [dto])` short-circuit on a
+ * refetch — required by the D-15 referential-stability test below, which
+ * needs the *only* thing that can change identity across the re-render to be
+ * `onSelectPeriodo` from the shell, not the grid's own view model. */
+const annualDtoConDatos: ResumenAnualDto = {
+  anio: anioActual,
+  meses: MESES_NUM.map(mesAnualConDatos),
+};
+
 describe('Index (4-state switch)', () => {
   beforeEach(() => {
     mockFetchResumen.mockReset();
+    mockFetchResumenAnual
+      .mockReset()
+      .mockResolvedValue({ ok: true, value: annualDtoConDatos });
     mockPostLogout.mockReset();
     mockBorrarToken.mockReset().mockResolvedValue(undefined);
     mockSignOut.mockReset();
@@ -337,6 +427,131 @@ describe('Index (4-state switch)', () => {
       // reached the stale `cargar` from the unmounted screen.
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(mockFetchResumen).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // T5b.2 (US-050, design §1.9/§0): the shell composes `ResumenAnual` as an
+  // ALWAYS-rendered sibling of the month SLOT — asserted here against the
+  // real `ResumenAnual` (not mocked), independent of the SLOT's own phase.
+  describe('annual section composition (design §0/D-05, MOB-14)', () => {
+    it('renders the annual section alongside the Empty state (CQ1/MOB-14)', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: emptyDto });
+
+      await render(<Index />);
+
+      await waitFor(() =>
+        expect(
+          screen.getByText('Sin ingresos registrados este período'),
+        ).toBeOnTheScreen(),
+      );
+      await waitFor(() =>
+        expect(screen.getByText(`Año ${anioActual}`)).toBeOnTheScreen(),
+      );
+    });
+
+    it('renders the annual section alongside loading and error too (D-05)', async () => {
+      const d = deferred<ApiResult<ResumenMesDto>>();
+      mockFetchResumen.mockReturnValue(d.promise);
+
+      await render(<Index />);
+
+      expect(screen.getByText('Cargando resumen…')).toBeOnTheScreen();
+      await waitFor(() =>
+        expect(screen.getByText(`Año ${anioActual}`)).toBeOnTheScreen(),
+      );
+
+      d.resolve({ ok: false, error: { tag: 'network' } });
+
+      await waitFor(() =>
+        expect(screen.getByText('Reintentar')).toBeOnTheScreen(),
+      );
+      // Exactly one "Reintentar" on screen — the annual section's own fetch
+      // resolved to data (this file's default mock), not to its own error
+      // state, so there is no ambiguous duplicate.
+      expect(screen.getAllByText('Reintentar')).toHaveLength(1);
+      expect(screen.getByText(`Año ${anioActual}`)).toBeOnTheScreen();
+    });
+  });
+
+  describe('month selection (design §1.9, MOB-13)', () => {
+    it('fetches with periodo undefined on the default mount (current month)', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+
+      await waitFor(() => expect(mockFetchResumen).toHaveBeenCalledTimes(1));
+      expect(mockFetchResumen).toHaveBeenCalledWith(undefined);
+    });
+
+    it('tapping a month cell re-fetches /api/resumen with that periodo', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
+      expect(mockFetchResumen).toHaveBeenCalledTimes(1);
+      expect(mockFetchResumen).toHaveBeenCalledWith(undefined);
+
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText(`Ver abril ${anioActual}`),
+        ).toBeOnTheScreen(),
+      );
+      fireEvent.press(screen.getByLabelText(`Ver abril ${anioActual}`));
+
+      await waitFor(() => expect(mockFetchResumen).toHaveBeenCalledTimes(2));
+      expect(mockFetchResumen).toHaveBeenLastCalledWith(`${anioActual}-04`);
+    });
+
+    it('updates the header label to the selected month', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText(`Ver abril ${anioActual}`),
+        ).toBeOnTheScreen(),
+      );
+
+      fireEvent.press(screen.getByLabelText(`Ver abril ${anioActual}`));
+
+      await waitFor(() =>
+        expect(screen.getByText(`Abril ${anioActual}`)).toBeOnTheScreen(),
+      );
+    });
+
+    // Gate item carried from PR5a judgment (D-15, tasks.md Phase 5b header):
+    // `MesCelda`'s `React.memo` only delivers "a tap re-renders exactly two
+    // cells" if `onSelectPeriodo`'s identity is stable across renders — pin
+    // it directly instead of trusting the `useCallback` by inspection alone.
+    // `annualDtoConDatos` is a stable module-level reference (see its own
+    // comment) so the ONLY thing that can flip a cell's `onPress` identity
+    // across this re-render is the shell's own `onSelectPeriodo`.
+    it('passes a referentially stable onSelectPeriodo into ResumenAnual across re-renders (D-15 gate)', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() =>
+        expect(
+          screen.getByLabelText(`Ver abril ${anioActual}`),
+        ).toBeOnTheScreen(),
+      );
+      const antes = screen.getByLabelText(`Ver abril ${anioActual}`).props
+        .onPress;
+
+      // The real resumen-refresh pub/sub — both `app/index.tsx` and
+      // `ResumenAnual` are registered listeners, so this re-fetches both
+      // the month card AND the annual grid, forcing a real re-render of the
+      // shell without changing which month is selected.
+      await act(async () => {
+        solicitarRecargaResumen();
+      });
+      await waitFor(() => expect(mockFetchResumen).toHaveBeenCalledTimes(2));
+
+      const despues = screen.getByLabelText(`Ver abril ${anioActual}`).props
+        .onPress;
+      expect(despues).toBe(antes);
     });
   });
 });

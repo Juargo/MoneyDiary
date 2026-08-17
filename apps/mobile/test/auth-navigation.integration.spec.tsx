@@ -20,7 +20,11 @@ import type {
   AuthCapabilitiesDto,
   LoginResponseDto,
 } from '../src/api/client';
-import type { MeDto, ResumenMesDto } from '../src/domain/resumen.types';
+import type {
+  MeDto,
+  ResumenAnualDto,
+  ResumenMesDto,
+} from '../src/domain/resumen.types';
 
 // Import after jest.mock is registered — real screen components, wired
 // manually into `renderRouter`'s in-memory context (see docstring above).
@@ -57,6 +61,16 @@ const mockFetchResumen = jest.fn<
   Promise<ApiResult<ResumenMesDto>>,
   [string?]
 >();
+// US-050 (design §0/§1.9): `app/index.tsx` now also mounts `ResumenAnual`,
+// an always-rendered sibling with its OWN `fetchResumenAnual` fetch — this
+// full-replacement mock (no `jest.requireActual` spread, unlike
+// `app/index.spec.tsx`) must add it explicitly or the real navigation tree
+// crashes with "fetchResumenAnual is not a function" the instant `Index`
+// mounts.
+const mockFetchResumenAnual = jest.fn<
+  Promise<ApiResult<ResumenAnualDto>>,
+  [number?]
+>();
 const mockFetchAuthCapabilities = jest.fn<
   Promise<ApiResult<AuthCapabilitiesDto>>,
   []
@@ -68,6 +82,7 @@ jest.mock('../src/api/client', () => ({
   postLogout: () => mockPostLogout(),
   fetchMe: () => mockFetchMe(),
   fetchResumen: (periodo?: string) => mockFetchResumen(periodo),
+  fetchResumenAnual: (anio?: number) => mockFetchResumenAnual(anio),
   fetchAuthCapabilities: () => mockFetchAuthCapabilities(),
 }));
 
@@ -149,6 +164,48 @@ const resumenDto: ResumenMesDto = {
   estadoGlobal: 'verde',
 };
 
+/** Minimal always-empty annual grid — this suite is about the navigation
+ * gate, not the annual section's own content (covered in
+ * `ResumenAnual.spec.tsx`); `sinDatosEnElAnio` keeps the grid a single
+ * "Todavía no hay datos este año" line instead of 12 cells. */
+const resumenAnualDto: ResumenAnualDto = {
+  anio: 2026,
+  meses: Array.from({ length: 12 }, (_, i) => ({
+    periodo: `2026-${String(i + 1).padStart(2, '0')}`,
+    totalIngreso: '0',
+    sinIngreso: true,
+    buckets: [
+      {
+        bucket: 'Necesidades',
+        total: '0',
+        porcentajeBp: null,
+        estadoSemaforo: null,
+      },
+      {
+        bucket: 'Deseos',
+        total: '0',
+        porcentajeBp: null,
+        estadoSemaforo: null,
+      },
+      {
+        bucket: 'Ahorro',
+        total: '0',
+        porcentajeBp: null,
+        estadoSemaforo: null,
+      },
+      {
+        bucket: 'SinCategoria',
+        total: '0',
+        porcentajeBp: null,
+        estadoSemaforo: null,
+      },
+    ],
+    targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+    estadoGlobal: null,
+    cantidadSinCategoria: 0,
+  })),
+};
+
 function renderApp() {
   const result = renderRouter(
     { _layout: RootLayout, index: Index, login: Login },
@@ -178,6 +235,9 @@ describe('mobile auth navigation — real Stack.Protected gate (Slice 4 fix)', (
     mockFetchResumen
       .mockReset()
       .mockResolvedValue({ ok: true, value: resumenDto });
+    mockFetchResumenAnual
+      .mockReset()
+      .mockResolvedValue({ ok: true, value: resumenAnualDto });
     mockFetchAuthCapabilities.mockReset().mockResolvedValue({
       ok: true,
       value: { googleLoginEnabled: false, googleLoginMobileEnabled: false },
