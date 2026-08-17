@@ -222,6 +222,15 @@ radius.
 | `Header.tsx`, `IngresoCard.tsx` | unchanged | reused as-is |
 | `ResumenScreen.tsx` | rewritten (name kept) | re-scoped from "the whole screen" to "the month block": `IngresoCard` + the chart card. The `ScrollView` and `Header` move up into the shell (§1.9). Name kept deliberately: three docstrings, one Maestro comment and the integration spec reference it, and renaming buys nothing the docstring cannot say. **Removed:** the `Ver detalles ›` `Pressable` (binding decision 4 — no destination exists) |
 
+**Accepted tradeoff — `LeyendaGasto` row-level AT reading (judgment-day, scoped out of US-050):** only the
+`sinCategoria` row sets `accessible` on its wrapper (per the transform's own assignment above), so it
+collapses into one screen-reader stop. The `gasto`/`ingreso` rows do **not** — a screen reader steps
+through each row's name, `%`, and amount as separate stops (≈10 stops for the 3 spend rows) instead of
+one announcement per row. This is a deliberate scope cut, not an oversight: grouping every row would
+require touching each row's accessibility props beyond what MOB-08 asked for. Candidate follow-up US if
+row-level grouping (one announcement per row, matching the `sinCategoria` row's pattern) is wanted.
+
+
 **Annual grid performance (proposal risk #2).** Four cheap, non-speculative measures, in order of
 effect: (1) all BigInt ring math for the 12 months runs once per fetch in the memoized view-model,
 never on selection; (2) `MesCelda` is `React.memo`'d and its props are primitives plus a

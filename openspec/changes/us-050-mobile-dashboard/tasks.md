@@ -403,30 +403,30 @@ Depends on Phase 4a (`DistribucionPie` in the new donut shape) and Phase 3
 (`ItemLeyenda`, `leyendaPrincipal`/`leyendaComplemento`). ~412 lines —
 marginal `size:exception` candidate (see forecast).
 
-- [ ] **T4b.1 (RED)** Create `apps/mobile/src/theme/semaforo-estilos.spec.ts`
+- [x] **T4b.1 (RED)** Create `apps/mobile/src/theme/semaforo-estilos.spec.ts`
       (3 cases): the three known estados resolve to distinct labels (1);
       `null` → `SIN_DATOS` (1); an unknown string → `SIN_DATOS`, never a
       known colour (1). `[P]` with T4b.5 (disjoint files).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test semaforo-estilos.spec.ts`
-- [ ] **T4b.2 (GREEN)** Create `apps/mobile/src/theme/semaforo-estilos.ts`:
+- [x] **T4b.2 (GREEN)** Create `apps/mobile/src/theme/semaforo-estilos.ts`:
       extract the `estado → {label, cara, icon, bg}` table out of
       `SemaforoBadge` (D-12, mirrors web's US-047 D-06 extraction). Unknown/
       `null` estado → `SIN_DATOS`, never coerced into a known colour.
-      - Verify: `pnpm --filter @moneydiary/mobile test semaforo-estilos.spec.ts` — 3 green.
-- [ ] **T4b.3 (RED)** Create `apps/mobile/src/components/SemaforoTag.spec.tsx`
+      - Verify: `pnpm --filter @moneydiary/mobile test semaforo-estilos.spec.ts` — 5 green.
+- [x] **T4b.3 (RED)** Create `apps/mobile/src/components/SemaforoTag.spec.tsx`
       (5 cases): verde/amarillo/rojo render the Spanish word as visible text
       (1 parametrized block); `null` → `Sin datos`, never coerced into a
       colour (1); an unknown wire value → `Sin datos` (1); not a button, no
       press handler (1); the state word is real text, not colour-only,
       ADR-018 (1).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test SemaforoTag.spec.tsx`
-- [ ] **T4b.4 (GREEN)** Create `apps/mobile/src/components/SemaforoTag.tsx`:
+- [x] **T4b.4 (GREEN)** Create `apps/mobile/src/components/SemaforoTag.tsx`:
       static tinted pill, face + `Semáforo: {label}`. **No `Pressable`, no
       chevron, no `onPress`** (binding decision 1, MOB-09). `estadoGlobal`
       passes through verbatim (ADR-024, never recomputed). Preserve
       `testID="semaforo-global"` on the wrapper (Maestro anchor).
-      - Verify: `pnpm --filter @moneydiary/mobile test SemaforoTag.spec.tsx` — 5 green.
-- [ ] **T4b.5 (RED)** Create `apps/mobile/src/components/LeyendaGasto.spec.tsx`
+      - Verify: `pnpm --filter @moneydiary/mobile test SemaforoTag.spec.tsx` — 7 green.
+- [x] **T4b.5 (RED)** Create `apps/mobile/src/components/LeyendaGasto.spec.tsx`
       (8 cases): exactly 5 rows (1); labels `Necesidades`/`Gustos`/`Ahorro`/
       `Ingresos`/`Sin categoría` — never raw `Deseos`/`SinCategoria` (1);
       spend rows show the ring `%` (1); the sinCategoria row shows `N tx`
@@ -436,14 +436,14 @@ marginal `size:exception` candidate (see forecast).
       categorizar" (1); `cantidadLabel: '0 tx'` still renders a row (1).
       `[P]` with T4b.1.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test LeyendaGasto.spec.tsx`
-- [ ] **T4b.6 (GREEN)** Rewrite `apps/mobile/src/components/LeyendaGasto.tsx`:
+- [x] **T4b.6 (GREEN)** Rewrite `apps/mobile/src/components/LeyendaGasto.tsx`:
       props `{ principales, complemento }: ReadonlyArray<ItemLeyenda>`; a
       vertical 5-row list, every row an inert `View`; dispatch by
       `item.kind`, never a boolean flag; the sinCategoria row's
       `accessibilityLabel` expands `'N tx'` → `'N transacciones sin
       categorizar'` via the same `.replace(/\s*tx$/, …)` as web.
       - Verify: `pnpm --filter @moneydiary/mobile test LeyendaGasto.spec.tsx` — 8 green.
-- [ ] **T4b.7 (RED)** Rewrite `apps/mobile/src/components/ResumenScreen.spec.tsx`
+- [x] **T4b.7 (RED)** Rewrite `apps/mobile/src/components/ResumenScreen.spec.tsx`
       (7 cases): the `'Distribución del gasto'` heading anchor survives (1);
       it is an accessible `header` (1); `$1.000.000` income (1); the 5
       legend labels are present (1); `testID="semaforo-global"` present and
@@ -451,21 +451,21 @@ marginal `size:exception` candidate (see forecast).
       anywhere (1). Delete the pre-existing "Ver detalles" case and the
       period-label case (moved to the route, Phase 5b).
       - Verify (expect RED against the still-old `ResumenScreen.tsx`): `pnpm --filter @moneydiary/mobile test ResumenScreen.spec.tsx`
-- [ ] **T4b.8 (GREEN)** Rewrite `apps/mobile/src/components/ResumenScreen.tsx`:
+- [x] **T4b.8 (GREEN)** Rewrite `apps/mobile/src/components/ResumenScreen.tsx`:
       re-scope from "the whole screen" to "the month block" (name kept —
       D-06, three docstrings + a Maestro comment + the integration spec
       reference it); compose `IngresoCard` + chart card (heading,
       `SemaforoTag`, `DistribucionPie`, `LeyendaGasto`); **remove** the `Ver
       detalles ›` `Pressable` (MOB-15, no destination exists).
       - Verify: `pnpm --filter @moneydiary/mobile test ResumenScreen.spec.tsx` — 7 green.
-- [ ] **T4b.9 (Removal)** Delete `apps/mobile/src/components/SemaforoBadge.tsx`
+- [x] **T4b.9 (Removal)** Delete `apps/mobile/src/components/SemaforoBadge.tsx`
       and `SemaforoBadge.spec.tsx` (−103 lines, −5 test cases). Sole
       production consumer was `ResumenScreen.tsx:6,41` (ripgrep-verified,
       design §4) — now replaced by `SemaforoTag`. State-table coverage is
       re-expressed in T4b.1/T4b.3 (`semaforo-estilos.spec.ts` +
       `SemaforoTag.spec.tsx`) — confirm no coverage is lost before deleting.
       - Verify: `pnpm --filter @moneydiary/mobile test` — `SemaforoBadge.spec.tsx` no longer exists; the two new suites cover its former assertions.
-- [ ] **T4b.10 (REFACTOR + sweep)** Confirm `targets`/`ResumenViewModel
+- [x] **T4b.10 (REFACTOR + sweep)** Confirm `targets`/`ResumenViewModel
       .targets` are fully unreferenced (Phase 3 removed the type; this
       confirms no component still imports it), and that
       `DistribucionPie`/`LeyendaGasto`/`SemaforoTag` reach theme colors only
@@ -474,6 +474,35 @@ marginal `size:exception` candidate (see forecast).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR4b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~412 lines, 18 tests. Marginal over budget — `size:exception` or a further split candidate.
+
+**PR4b real (post-lint, `git diff origin/main --numstat`):** 430 insertions / 198
+deletions across 10 files (628 raw changed lines) vs ~412 forecast — over,
+same docstring-heavy-comments pattern PR1/PR2 flagged (accepted per the
+forecast's own "marginal `size:exception` candidate" call, pre-approved at
+the apply gate). Mobile suite: 313 → 328 total (+15 net: +5
+`semaforo-estilos.spec.ts`, +7 `SemaforoTag.spec.tsx` (3 parametrized +4),
++8 `LeyendaGasto.spec.tsx`, ±0 net on `ResumenScreen.spec.tsx` (7→7, "Ver
+detalles"/period-label cases replaced by 5-legend-labels/no-IDEAL cases),
+−5 `SemaforoBadge.spec.tsx` deleted). Post-judgment-day (judgment-day fix
+round, current): +2 more `LeyendaGasto.spec.tsx` (row-order + no-spend
+cases, mutation-proven), bringing the suite to 328 → 330 total (10 cases in
+`LeyendaGasto.spec.tsx`, up from 8). `tsc --noEmit` clean (one fix needed:
+`aria-hidden="true"` → `aria-hidden` boolean prop on `SemaforoTag`'s emoji
+`Text`). `eslint --fix` auto-fixed `ReadonlyArray<T>` → `readonly T[]` (5
+warnings) + prettier wrapping (6 errors) — no manual lint fixes needed.
+**Deviations:** none from design — `testID="semaforo-global"` moved onto
+`SemaforoTag`'s own root (design §1.7 explicitly calls for the wrapper to
+"survive on the tag"), so `ResumenScreen` no longer wraps it in an extra
+`View`. `ResumenScreen` dropped its `ScrollView`/`Header` this PR (design
+§1.7's own text: "The `ScrollView` and `Header` move up into the shell")
+— confirmed intentional, not deferred to 5b: `app/index.tsx` is untouched
+(out of scope per the apply-gate boundary), so between this PR merging and
+PR5b landing, a dev/EAS-internal build from `main` renders the month block
+with no header — same accepted "merged-but-unreleased" cost pattern as the
+PR1→PR3 window (mobile ships nothing until the `mobile-v*` tag). Zero
+`SemaforoBadge` references remain in `apps/mobile` (ripgrep-verified,
+doc-comment mentions only). Zero backend/schema changes; zero new
+dependencies.
 
 ---
 
