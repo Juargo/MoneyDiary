@@ -484,6 +484,58 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/buckets/{bucket}/detalle": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Bucket detail grouped by category for a month
+         * @description Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the month×bucket detail GROUPED by category — a header with totals and % vs meta, and category groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). Accepts only the four spend buckets (Necesidades, Deseos, Ahorro, SinCategoria); Ingresos is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).
+         */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: {
+                    /** @description Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema. */
+                    readonly periodo?: string;
+                };
+                readonly header?: never;
+                readonly path: {
+                    /** @description Bucket name (raw path param). Validated against the domain enum by the use case, not this schema. */
+                    readonly bucket: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Month×bucket detail grouped by category for the resolved period (MBD-01/02/03/05/08). */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["BucketDetalleMesResponse"];
+                    };
+                };
+                /** @description Invalid bucket (outside the 4-bucket allowlist, e.g. Ingresos) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError), scrubbed messages. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/categorias": {
         readonly parameters: {
             readonly query?: never;
@@ -1733,6 +1785,40 @@ export interface components {
             readonly googleVinculado: boolean;
             readonly nombre: string;
             readonly userId: string;
+        };
+        /** @description GET /api/buckets/:bucket/detalle — month×bucket detail grouped by category: header totals, % vs meta, and category groups with ALL their transactions (US-051). */
+        readonly BucketDetalleMesResponse: {
+            /** @description Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08). */
+            readonly bucket: string;
+            /** @description One entry per present category, es-CL alphabetical, "Sin categoría" last. [] for an empty bucket month (MBD-01). */
+            readonly grupos: readonly {
+                /** @description null for the synthetic group. */
+                readonly categoriaId: string | null;
+                readonly conteo: number;
+                readonly nombre: string;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly subtotal: string;
+                /** @description Complete list — never truncated or paged (MBD-02). */
+                readonly transacciones: readonly {
+                    readonly descripcion: string;
+                    /** @description ISO-8601 UTC timestamp. */
+                    readonly fecha: string;
+                    readonly id: string;
+                    /** @description BigInt-safe decimal string amount (never a JSON number). */
+                    readonly monto: string;
+                }[];
+            }[];
+            /** @description Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05). */
+            readonly metaBp: number | null;
+            /** @description Resolved period, format YYYY-MM. */
+            readonly periodo: string;
+            /** @description Basis-point percentage, round-half-up. null when the bucket has no meta rule (SinCategoria) or the month has no income (D-05). */
+            readonly porcentajeBp: number | null;
+            /** @description BigInt-safe decimal string amount (never a JSON number). */
+            readonly total: string;
+            /** @description Includes the synthetic Sin categoría group when present (D-09). */
+            readonly totalCategorias: number;
+            readonly totalTransacciones: number;
         };
         /** @description Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. */
         readonly CatalogoErrorResponse: {
