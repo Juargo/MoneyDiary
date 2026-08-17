@@ -31,7 +31,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 0 — Pre-flight
 
-- [ ] 0.1 `pnpm api db:up && pnpm api test:db:setup` (Phase 4 needs it).
+- [x] 0.1 `pnpm api db:up && pnpm api test:db:setup` (Phase 4 needs it). — reconciliado en archive: verificado cumplido por verify-report (obs #783: "0.1 fulfilled by test:db:setup during verify"; e2e corrió sobre la DB desechable provisionada); checkbox marcado en la fase de archivo con evidencia, no quedaba ninguna tarea de implementación incompleta.
 
 ## Phase 1 — Application [PR 1]
 
@@ -68,6 +68,6 @@ Chain strategy: stacked-to-main
 
 ## Phase 5 — Closing
 
-- [ ] 5.1 Archive (delta note, spec lines 9-16): canonical `user-data-isolation` → "6" in THREE places (Purpose, ISO-01, ISO-02) — never only ISO-02.
-- [ ] 5.2 Ledger: 43 new (+1 touched) vs design §4 as amended; 38 byte-unchanged suites untouched; no migration.
-- [ ] 5.3 Conventional-commit work units per PR (tests with code, no AI attribution).
+- [x] 5.1 Archive (delta note, spec lines 9-16): canonical `user-data-isolation` → "6" in THREE places (Purpose, ISO-01, ISO-02) — never only ISO-02. — mergeado: `openspec/specs/user-data-isolation/spec.md` ahora lee "6" en Purpose prose, ISO-01 y ISO-02; nueva capability `openspec/specs/bucket-detalle-mes/spec.md` promovida (patrón US-049, línea "Established by").
+- [x] 5.2 Ledger: 45 new (+1 touched) vs design §4 as amended; 38 byte-unchanged suites untouched; no migration. — real vs diff `4ccbfb50..57b4c019`: 10 archivos backend nuevos, 4 modificados + openapi.json/types.gen.ts regenerados; 45 casos de test nuevos (agrupar 11, use-case 12, dto 5, schema 3, app 6, e2e 8) +1 touch (`openapi-document.spec.ts`); 38 suites byte-unchanged; 0 migraciones. (El "43" del borrador era pre-amendment; el design §4 enmendado predice 45 y el real ES 45.)
+- [x] 5.3 Conventional-commit work units per PR (tests with code, no AI attribution). — auditado: 17 commits (PR1-4) todos conventional (feat/test/fix/chore/docs), specs junto a code (2 archivos por commit), 0 AI attribution, bodies ≤100 chars (commitlint OK). Archivado 2026-08-17 → `openspec/changes/archive/2026-08-17-us-051-mes-bucket-detalle/`.
