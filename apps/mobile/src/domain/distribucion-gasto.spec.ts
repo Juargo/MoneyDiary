@@ -1,4 +1,11 @@
-import { calcularDistribucionGasto } from './distribucion-gasto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {
+  BUCKETS_5030,
+  BUCKETS_ANILLO,
+  calcularDistribucionGasto,
+} from './distribucion-gasto';
+import { CASOS_PARIDAD_ANILLO } from './__fixtures__/distribucion-anillo.fixture';
 
 function bucket(bucket: string, total: string) {
   return { bucket, total };
@@ -39,7 +46,10 @@ describe('calcularDistribucionGasto', () => {
     expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 
-  it('excluye SinCategoria del pie y del denominador', () => {
+  // US-050 (design §1.2, WG5-13): inverted, not deleted — SinCategoria now
+  // DILUTES the three spend-bucket ring percentages instead of being
+  // excluded from the denominator. This is the semantic core of the change.
+  it('incluye SinCategoria en el anillo y en el denominador (WG5-13)', () => {
     const tajadas = calcularDistribucionGasto([
       bucket('Necesidades', '500000'),
       bucket('Deseos', '300000'),
@@ -50,8 +60,34 @@ describe('calcularDistribucionGasto', () => {
       'Necesidades',
       'Deseos',
       'Ahorro',
+      'SinCategoria',
     ]);
-    expect(tajadas.map((t) => t.porcentaje)).toEqual([50, 30, 20]);
+    // Diluted against the 4-item total (1_999_999), not the 3-item total
+    // (1_000_000) — 50/30/20 would be the OLD, excluded-denominator reading.
+    expect(tajadas.map((t) => t.porcentaje)).toEqual([25, 15, 10, 50]);
+  });
+
+  // US-050 (design §1.2/§2 D-05): ring order + membership pinned as a
+  // literal-array assertion, not an implementation detail.
+  it('BUCKETS_ANILLO termina en SinCategoria y BUCKETS_5030 la excluye', () => {
+    expect(BUCKETS_5030).toEqual(['Necesidades', 'Deseos', 'Ahorro']);
+    expect(BUCKETS_ANILLO).toEqual([
+      'Necesidades',
+      'Deseos',
+      'Ahorro',
+      'SinCategoria',
+    ]);
+  });
+
+  it('los cuatro porcentajes del anillo SIEMPRE suman 100, con SinCategoria no-cero', () => {
+    const tajadas = calcularDistribucionGasto([
+      bucket('Necesidades', '1'),
+      bucket('Deseos', '1'),
+      bucket('Ahorro', '1'),
+      bucket('SinCategoria', '1'),
+    ]);
+    expect(tajadas.map((t) => t.porcentaje)).toEqual([25, 25, 25, 25]);
+    expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 
   it('devuelve [] cuando no hay gasto (evita división por cero)', () => {
@@ -72,5 +108,41 @@ describe('calcularDistribucionGasto', () => {
     ]);
     expect(tajadas.map((t) => t.porcentaje)).toEqual([50, 50]);
     expect(tajadas[0].fraccion).toBeCloseTo(0.5, 6);
+  });
+
+  // US-050 (design §2 D-09): runs mobile's OWN calcularDistribucionGasto
+  // against the shared ring-parity fixture table. apps/web runs the same
+  // table against ITS own implementation (distribucion-gasto.test.ts).
+  it.each(CASOS_PARIDAD_ANILLO)(
+    'paridad de anillo: $nombre',
+    ({ buckets, esperado }) => {
+      const tajadas = calcularDistribucionGasto(buckets);
+      expect(tajadas.map((t) => [t.bucket, t.porcentaje])).toEqual(esperado);
+    },
+  );
+
+  // US-050 (design §2 D-09): guard de bytes — si cualquiera de los dos
+  // fixtures se edita unilateralmente, este test se pone en rojo, porque
+  // mobile es la copia que históricamente se desincronizó.
+  it('el fixture de paridad de anillo es byte-idéntico entre mobile y web (D-09)', () => {
+    const rutaMobile = path.join(
+      __dirname,
+      '__fixtures__',
+      'distribucion-anillo.fixture.ts',
+    );
+    const rutaWeb = path.join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'web',
+      'src',
+      'domain',
+      '__fixtures__',
+      'distribucion-anillo.fixture.ts',
+    );
+    const contenidoMobile = fs.readFileSync(rutaMobile, 'utf-8');
+    const contenidoWeb = fs.readFileSync(rutaWeb, 'utf-8');
+    expect(contenidoMobile).toBe(contenidoWeb);
   });
 });
