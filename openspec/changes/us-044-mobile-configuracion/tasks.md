@@ -115,10 +115,10 @@ split without fragmenting a single cohesive unit).
 
 ## Phase 0 — Pre-flight
 
-- [ ] **T0.1** Confirm Strict TDD Mode active for this session (test runner:
+- [x] **T0.1** Confirm Strict TDD Mode active for this session (test runner:
       `pnpm --filter @moneydiary/mobile test`, jest-expo + RNTL per `sdd-init/moneydiary`); every RED
       task below MUST fail before its paired GREEN task.
-- [ ] **T0.2** Baseline gate before any edit: `pnpm --filter @moneydiary/mobile test` and
+- [x] **T0.2** Baseline gate before any edit: `pnpm --filter @moneydiary/mobile test` and
       `pnpm --filter @moneydiary/mobile exec tsc --noEmit` both green — establishes the pre-change
       baseline so later diffs are attributable.
 
@@ -129,20 +129,20 @@ split without fragmenting a single cohesive unit).
 Requirements: CQ-1 (ADR-038 recording), CQ-3 (`ApiError.code`), proposal §5's blocking pre-existing
 gap (`esMeDto`). Depends on nothing.
 
-- [ ] **T1.1** Reorder `docs/adr/ADR-038-mobile-write-scope-configuracion.md`: move
+- [x] **T1.1** Reorder `docs/adr/ADR-038-mobile-write-scope-configuracion.md`: move
       `## Alternativas consideradas` to AFTER `## Decisión`, matching the sibling-ADR convention
       (verified against ADR-036/ADR-026: `Estado → Contexto → Decisión → Alternativas consideradas →
       …`). One INFO-severity finding from the design-phase judgment-day round.
       - Verify: `rg "^## " docs/adr/ADR-038-mobile-write-scope-configuracion.md` shows `Decisión`
         before `Alternativas consideradas`.
-- [ ] **T1.2** Confirm `docs/adr/README.md`'s ADR-038 index row and ADR-026's superseded-rule
+- [x] **T1.2** Confirm `docs/adr/README.md`'s ADR-038 index row and ADR-026's superseded-rule
       annotation (both already drafted in the design phase) land in this PR's commit — no further
       edit expected unless drifted since design.
       - Verify: `rg "ADR-038" docs/adr/README.md`
-- [ ] **T1.3** Add the ADR-038 row to `CLAUDE.md`'s ADR table, matching the existing one-line format
+- [x] **T1.3** Add the ADR-038 row to `CLAUDE.md`'s ADR table, matching the existing one-line format
       (🔵 Propuesto status, note it supersedes ADR-026's scope rule only).
       - Verify: `rg "ADR-038" CLAUDE.md`
-- [ ] **T1.4 (Move, no behavior change)** Create `apps/mobile/src/domain/api-error.ts`: move
+- [x] **T1.4 (Move, no behavior change)** Create `apps/mobile/src/domain/api-error.ts`: move
       `ApiError` (add `code?: string` to the `http` variant, CQ-3/D-05), `ApiResult<T>`, and
       `copiaPorApiError` verbatim out of `src/api/client.ts` (design §1.1). In `src/api/client.ts`,
       replace the removed declarations with
@@ -150,20 +150,20 @@ gap (`esMeDto`). Depends on nothing.
       from '../domain/api-error';` — zero import-path churn at every call site (design §4:
       `states/Error.tsx`, `app/index.tsx`, `app/subir.tsx`, `app/login.tsx`, 4 specs).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green (the move's only regression guard).
-- [ ] **T1.5 (RED)** In `apps/mobile/src/api/client.spec.ts`, add the per-field `esMeDto` cases
+- [x] **T1.5 (RED)** In `apps/mobile/src/api/client.spec.ts`, add the per-field `esMeDto` cases
       (design §3 point 1, +7): `email: null` → **accepted** (the regression this change exists to
       fix); `nombre` missing → rejected; `nombre` wrong-typed → rejected; `esDemo` missing →
       rejected; `esDemo` wrong-typed → rejected; `googleVinculado` missing → rejected;
       `googleVinculado` wrong-typed → rejected. One case per field — never a single "malformed body"
       case standing in for all of them (judgment-anticipated class 1).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test client.spec.ts`
-- [ ] **T1.6 (GREEN)** In `apps/mobile/src/api/client.ts`, widen `esMeDto` per design §1.2: accept
+- [x] **T1.6 (GREEN)** In `apps/mobile/src/api/client.ts`, widen `esMeDto` per design §1.2: accept
       `email: string | null`; require `nombre: string`, `esDemo: boolean`, `googleVinculado:
       boolean`. State in a code comment (not smuggled) that `esDemo` is validated as the
       discriminator making `email: null` legitimate — the one deliberate exception to
       `post-ingesta.ts`'s "validate only what flows to render" rule.
       - Verify: `pnpm --filter @moneydiary/mobile test client.spec.ts` — existing + 7 new green.
-- [ ] **T1.7 (REFACTOR + sweep)** Confirm zero import-path churn: `states/Error.tsx`,
+- [x] **T1.7 (REFACTOR + sweep)** Confirm zero import-path churn: `states/Error.tsx`,
       `app/index.tsx`, `app/subir.tsx`, `app/login.tsx` and all 4 existing specs still import
       `ApiError`/`ApiResult`/`copiaPorApiError` from `./client` unchanged (design §4 impact sweep).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.

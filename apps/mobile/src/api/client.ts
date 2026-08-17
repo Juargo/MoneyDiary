@@ -11,6 +11,7 @@ import type {
   ResumenMesDto,
   ResumenAnualDto,
 } from '../domain/resumen.types';
+import type { ApiResult } from '../domain/api-error';
 
 /**
  * `LoginResponseDto` — mirror of `POST /api/auth/login`'s success body
@@ -22,42 +23,16 @@ import type {
 export type { AuthCapabilitiesDto, LoginResponseDto };
 
 /**
- * ApiError — every way the mobile HTTP client can fail, mirroring the
- * backend's Result<T,E> philosophy (no thrown exceptions cross this
- * boundary; the screen switches on a tag, never a try/catch — design.md
- * B.3, MOB-02).
+ * `ApiError`/`ApiResult`/`copiaPorApiError` moved verbatim to
+ * `src/domain/api-error.ts` (US-044, design.md D-04) so the new copy tables
+ * in `src/domain/` (`mensajes-perfil.ts`, `mensajes-catalogo.ts`) can name
+ * `ApiError` without `domain/` importing from `src/api/`. Re-exported here
+ * so every existing importer (`states/Error.tsx`, `app/index.tsx`,
+ * `app/subir.tsx`, `app/login.tsx`, and their specs) keeps importing from
+ * `./client` unchanged — zero call-site churn.
  */
-export type ApiError =
-  | { tag: 'unauthorized' } // HTTP 401 (bad/missing key, no/expired/revoked session)
-  | { tag: 'network' } // fetch rejected (offline, DNS, TLS) or no base URL
-  | { tag: 'parse' } // 2xx but body not the expected JSON shape
-  | { tag: 'http'; status: number }; // any other non-2xx (500, 400, 404…)
-
-export type ApiResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: ApiError };
-
-/**
- * copiaPorApiError — the shared Spanish copy per `ApiError` tag (review
- * readability fix #7, DRY): both `src/components/states/Error.tsx` (the
- * resumen screen's error state) and `app/subir.tsx` (the upload screen's
- * error state, whose `PostIngestaError` is a structural superset of
- * `ApiError` — see `post-ingesta.ts`) rendered the exact same four strings
- * independently. `subir.tsx` wraps this to add its one extra case: the
- * backend's scrubbed `message` on a 400.
- */
-export function copiaPorApiError(error: ApiError): string {
-  switch (error.tag) {
-    case 'network':
-      return 'Problema de conexión. Revisa tu internet e intenta de nuevo.';
-    case 'unauthorized':
-      return 'No se pudo verificar el acceso. Intenta de nuevo más tarde.';
-    case 'parse':
-      return 'Respuesta inesperada del servidor.';
-    case 'http':
-      return `Error del servidor (código ${error.status}).`;
-  }
-}
+export type { ApiError, ApiResult } from '../domain/api-error';
+export { copiaPorApiError } from '../domain/api-error';
 
 /**
  * esBucketResumenDto — per-element bucket guard (judgment-day CRITICAL fix,
@@ -145,13 +120,30 @@ function esLoginResponseDto(value: unknown): value is LoginResponseDto {
   );
 }
 
+/**
+ * esMeDto — widened + tightened to mirror `AuthMeResponse` exactly (US-044,
+ * design §1.2): `email` accepts `string | null` (a demo account's `email` is
+ * `null` by domain invariant, `AuthMeResponse`'s own doc comment) — this
+ * relaxation is the fix for the pre-existing gap that locked demo accounts
+ * out of the cold-start session gate. `nombre`, `esDemo`, and
+ * `googleVinculado` are newly REQUIRED (tightening) to match the DTO in
+ * full. `esDemo` is validated as the discriminator that makes `email: null`
+ * legitimate here — the one deliberate exception to `post-ingesta.ts`'s
+ * "validate only what flows to render" rule: `email` itself is never
+ * rendered by the session gate, but its nullability is load-bearing for
+ * telling a demo account apart from a malformed body.
+ */
 function esMeDto(value: unknown): value is MeDto {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const candidato = value as Partial<MeDto>;
   return (
-    typeof candidato.userId === 'string' && typeof candidato.email === 'string'
+    typeof candidato.userId === 'string' &&
+    (typeof candidato.email === 'string' || candidato.email === null) &&
+    typeof candidato.nombre === 'string' &&
+    typeof candidato.esDemo === 'boolean' &&
+    typeof candidato.googleVinculado === 'boolean'
   );
 }
 

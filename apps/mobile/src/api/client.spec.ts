@@ -720,6 +720,110 @@ describe('fetchMe', () => {
 
     expect(result).toEqual({ ok: false, error: { tag: 'unauthorized' } });
   });
+
+  // US-044 (T1.5/T1.6, design §1.2): `esMeDto` widened + tightened to mirror
+  // `AuthMeResponse` exactly — one accept/reject case per field, never a
+  // single "malformed body" case standing in for all of them
+  // (judgment-anticipated test class 1).
+  describe('esMeDto per-field guard (US-044)', () => {
+    it('accepts email: null — the regression this change exists to fix (demo accounts, AuthMeResponse)', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ...validMeDto, email: null }),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({
+        ok: true,
+        value: { ...validMeDto, email: null },
+      });
+    });
+
+    it('rejects a missing nombre', async () => {
+      const { nombre: _nombre, ...sinNombre } = validMeDto;
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(sinNombre),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a wrong-typed nombre', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ...validMeDto, nombre: 123 }),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a missing esDemo', async () => {
+      const { esDemo: _esDemo, ...sinEsDemo } = validMeDto;
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(sinEsDemo),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a wrong-typed esDemo', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ...validMeDto, esDemo: 'no' }),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a missing googleVinculado', async () => {
+      const { googleVinculado: _googleVinculado, ...sinGoogleVinculado } =
+        validMeDto;
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(sinGoogleVinculado),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a wrong-typed googleVinculado', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ...validMeDto, googleVinculado: 'no' }),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+  });
 });
 
 describe('postLogout', () => {
