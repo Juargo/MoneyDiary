@@ -70,8 +70,29 @@ export function renderConRouter(
       <div data-testid="semaforo-sentinel">Semáforo (stub de prueba)</div>
     ),
   });
+  // US-049 T7.3: `SemaforoDetallePage`'s Sin categoría notice links to
+  // `/buckets/$bucket` (`WSEM-05`/CA-06) — this sentinel lets that `<Link>`
+  // resolve to a real destination instead of throwing mid-test, mirroring
+  // the `/semaforo` sentinel above. No real `BucketDetailList` rendering
+  // here — that component carries its own tests.
+  const bucketRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/buckets/$bucket',
+    validateSearch: (
+      search: Record<string, unknown>,
+    ): { periodo?: string } => ({
+      periodo: typeof search.periodo === 'string' ? search.periodo : undefined,
+    }),
+    component: () => (
+      <div data-testid="bucket-sentinel">Bucket (stub de prueba)</div>
+    ),
+  });
 
-  const routeTree = rootRoute.addChildren([indexRoute, semaforoRoute]);
+  const routeTree = rootRoute.addChildren([
+    indexRoute,
+    semaforoRoute,
+    bucketRoute,
+  ]);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [initialPath] }),
