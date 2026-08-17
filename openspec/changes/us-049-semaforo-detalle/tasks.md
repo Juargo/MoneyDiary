@@ -635,12 +635,16 @@ the user selects — see forecast above).
       silently let the ledger go stale.
       - **Correction (judgment-day round 1 finding, PR4):** two ledger
         deltas recorded here rather than silently patched:
-        1. `semaforo-detalle.schema.spec.ts` grows from 2 to **3** cases
-           (D-11 combo: `estadoSemaforo=amarillo` AND `consejo=null` parses
-           — the nullable holds for the fail-closed degenerate case, not
-           just Verde); `semaforo-detalle.dto.spec.ts` grows from 4 to
-           **6** cases (same D-11 combo, plus an explicit SEM-10 mensaje
-           passthrough assert of the literal `{monto}` template string).
+        1. `semaforo-detalle.schema.spec.ts` grows from 3 to **4** `it`
+           blocks file-level (the `semaforoDetalleResponseSchema` describe
+           specifically: 2 → 3) — the new case is the D-11 combo:
+           `estadoSemaforo=amarillo` AND `consejo=null` parses — the
+           nullable holds for the fail-closed degenerate case, not just
+           Verde. `semaforo-detalle.dto.spec.ts` grows from **5 to 7**
+           cases (git-history-verified — judgment round 2 corrected this
+           note's own first version, which mis-stated 4→6): the same D-11
+           combo, plus an explicit SEM-10 mensaje passthrough assert of
+           the literal `{monto}` template string.
         2. `resumen-semaforo.e2e-spec.ts`'s two ISO-01/ISO-02 isolation
            cases (T5.12 item 5) were rewritten in place — same case count,
            much stronger assertions. T5.12's note "per
