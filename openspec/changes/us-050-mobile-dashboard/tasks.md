@@ -651,12 +651,14 @@ this is the wiring slice that composes the shell.
 > if the callback identity is stable across renders. Reviewer: verify the
 > `useCallback` exists and, ideally, a test pins referential stability.
 
-- [ ] **T5b.1** In `apps/mobile/src/components/states/Loading.tsx`, add an
-      optional `mensaje` prop, default `'Cargando resumen…'` (existing spec
-      stays green, unedited — `ResumenAnual`, T5a.4, already passes
-      `'Cargando resumen anual…'`).
-      - Verify: `pnpm --filter @moneydiary/mobile test Loading.spec.tsx` — existing cases green, no new cases required.
-- [ ] **T5b.2 (RED)** In `apps/mobile/app/index.spec.tsx`, add +5 cases: the
+- [x] **T5b.1 — SUPERSEDED/REVERTED by judgment-day review.** Original text
+      claimed `ResumenAnual` "already passes `'Cargando resumen anual…'`"
+      through the shared `Loading`'s new `mensaje` prop — false: `ResumenAnual`
+      renders its own inline loading view (T5a.4), never imports
+      `states/Loading.tsx`. The `mensaje` prop had zero production consumers
+      (YAGNI) and was reverted; `Loading.tsx`/`Loading.spec.tsx` are back to
+      their pre-PR5b shape.
+- [x] **T5b.2 (RED)** In `apps/mobile/app/index.spec.tsx`, add +5 cases: the
       annual section renders **alongside** `Empty` when `sinIngreso` — CQ1/
       MOB-14 (1); it also renders alongside `loading` and `error` — D-05
       (1); tapping a month re-fetches `/api/resumen` with that `periodo`
@@ -665,7 +667,7 @@ this is the wiring slice that composes the shell.
       (including the `'Distribución del gasto'` anchor) MUST stay green
       unedited.
       - Verify (expect RED for the 5 new cases against the pre-shell `app/index.tsx`): `pnpm --filter @moneydiary/mobile test app/index.spec.tsx`
-- [ ] **T5b.3 (GREEN)** Rewrite `apps/mobile/app/index.tsx` into the shell
+- [x] **T5b.3 (GREEN)** Rewrite `apps/mobile/app/index.tsx` into the shell
       (D-05/D-06, design §1.9): `SafeAreaView` > `ScrollView`
       (`contentContainerStyle={{ flexGrow: 1 }}` — **required** for
       `Loading`/`ErrorState`/`Empty` centering now that the SLOT sits one
@@ -680,25 +682,136 @@ this is the wiring slice that composes the shell.
       periodoActualUTC(new Date())`; `anio = anioDePeriodo(periodoVista,
       ...)`. Tapping a cell calls `setPeriodo(p)`.
       - Verify: `pnpm --filter @moneydiary/mobile test app/index.spec.tsx` — 12 existing + 5 new green.
-- [ ] **T5b.4 (flexGrow shell requirement — manual verification, NOT a CI
+- [x] **T5b.4 (flexGrow shell requirement — manual verification, NOT a CI
       gate)** This task defines the requirement RNTL cannot assert (design
       §0: "a layout requirement no RNTL test can measure — RNTL does not lay
       out"): `Loading`/`ErrorState`/`Empty` must stay centered inside the
       `ScrollView` from T5b.3. The actual on-device check is executed and
       logged in Phase 6 (T6.3) via Maestro or the EAS internal build
       (ADR-022) — do not attempt to fake this with a unit/RNTL test.
-- [ ] **T5b.5 (REFACTOR + sweep)** Confirm
+      - Done: `contentContainerStyle={{ flexGrow: 1 }}` is in place on the
+        shell `ScrollView` (T5b.3). On-device confirmation is still
+        outstanding — deferred to T6.3, as designed.
+- [x] **T5b.5 (REFACTOR + sweep)** Confirm
       `registrarRecargaResumen`/`solicitarRecargaResumen`'s caller-facing
       API in `app/index.tsx` and `app/subir.tsx` is unchanged by the `Set`
       promotion (design §4), and that the 4 pinned anchor strings
       (`'Distribución del gasto'`, `testID="semaforo-global"`, `'Subir
       cartola'`, `'Cerrar sesión'`) are untouched.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green; `rg` confirms the 4 anchor strings unchanged.
-- [ ] **T5b.6 (OPTIONAL)** Extend `.maestro/resumen-semaforo.yaml` with
-      `assertVisible: "Sin categoría"` and `"Año 2026"`. Device-gated,
-      manual, never CI — not a gate for this PR.
+      - Confirmed: `rg` shows all 4 anchors byte-identical across
+        `ResumenScreen.tsx`, `app/index.tsx`, `.maestro/resumen-semaforo.yaml`,
+        `.maestro/a11y-labels.yaml`, and `test/auth-navigation.integration.spec.tsx`.
+        `registrarRecargaResumen`/`solicitarRecargaResumen` call sites in
+        `app/index.tsx`/`app/subir.tsx` are unchanged (only the SLOT's
+        surrounding JSX moved, D-13's `Set` promotion already landed in PR2).
+- [ ] **T5b.6 (OPTIONAL, NOT DONE)** Extend `.maestro/resumen-semaforo.yaml`
+      with `assertVisible: "Sin categoría"` and `"Año 2026"`. Device-gated,
+      manual, never CI — not a gate for this PR. Skipped this session
+      (optional, no code-path risk); anyone doing the T6.2/T6.3 on-device
+      pass can add it then.
 
 **PR5b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~195 lines, 5 tests. Under budget.
+
+**DONE this session.** Branch `feat/us-050-mobile-pr5b-shell` (base:
+`origin/main` @ `7d8a7a91`, PR5a merged), 3 commits: `test(mobile): pin
+Loading's optional mensaje prop` (T5b.1, RED+GREEN combined — trivial prop
+addition, not split into separate commits like the rest of the chain,
+disclosed deviation), `test(mobile): pin the shell's annual-section
+composition and month selection` (T5b.2 RED + the `auth-navigation`
+knock-on fix), `feat(mobile): compose app/index.tsx into the dashboard
+shell` (T5b.3 GREEN). Mobile suite: 347 → 354 (+7: +1 `Loading.spec.tsx`
+[custom-`mensaje` case] + 6 `app/index.spec.tsx` [the 5 forecast cases +
+the D-15 referential-stability bonus, see below]). `tsc --noEmit` clean.
+`eslint --fix` auto-fixed
+prettier wrapping only (multi-line object/import literals in the two spec
+files) — zero manual lint fixes needed.
+
+**Real diff (`git diff origin/main --numstat`, vs merge-base `7d8a7a91`):**
+360 ins / 18 del (378 changed) across 5 files (`Loading.tsx` 9/3,
+`Loading.spec.tsx` 9/0, `app/index.tsx` 65/13, `app/index.spec.tsx` 216/1,
+`test/auth-navigation.integration.spec.tsx` 61/1) vs the ~195 forecast —
+**+183 lines, ~94% over**, the largest overrun ratio in the chain (PR5a was
+~57%). Two causes beyond the usual docstring-heavy-comments pattern every
+prior PR flagged:
+1. **`test/auth-navigation.integration.spec.tsx` (61/1) was entirely
+   unforecasted.** The design's §5 file ledger only listed
+   `app/index.spec.tsx` for this phase; it missed that this OTHER spec file
+   also does a full-replacement `jest.mock('../src/api/client', ...)` (no
+   `jest.requireActual` spread) to drive `renderRouter`'s real navigation
+   tree — mounting the real `Index` now means mounting the real
+   `ResumenAnual`, whose `fetchResumenAnual` had no mock entry there and
+   crashed every test that reaches the resumen screen
+   (`TypeError: fetchResumenAnual is not a function`). Fixed by adding the
+   same `mockFetchResumenAnual` + a minimal always-`sinIngreso` annual
+   fixture (this suite is about the navigation gate, not the annual
+   section's content, which `ResumenAnual.spec.tsx` already covers) — a
+   real, unavoidable knock-on cost of composing `ResumenAnual` into the
+   shell, not scope creep.
+2. **The D-15 gate's bonus stability test** (`app/index.spec.tsx`, not in
+   the original 5-case count) plus its supporting fixture helpers
+   (`mesAnualConDatos`, `MESES_NUM`, `annualDtoConDatos`) account for a
+   sizeable share of that file's 216 insertions. Task header explicitly
+   invited this ("Reviewer: verify the `useCallback` exists and, ideally, a
+   test pins referential stability") — kept as a real regression guard for
+   the exact contract PR5a's own `React.memo` optimization depends on, not
+   padding.
+
+`size:exception` applies here too, same as PR4b/PR5a — disclosed, not
+hidden.
+
+**Deviations from design/tasks (documented, not silent):**
+1. **Default `fetchResumenAnual` fixtures were an easy silent-crash trap**:
+   the first RED→GREEN pass on `app/index.spec.tsx` set
+   `mockFetchResumenAnual.mockResolvedValue(annualDtoConDatos)` — the raw
+   DTO, not `{ ok: true, value: annualDtoConDatos }` — which made
+   `ResumenAnual`'s `cargar()` read `resultado.ok` as `undefined` (falsy)
+   and crash `copiaPorApiError(undefined)` inside `ErrorAnual`. Caught by
+   running the suite (all 17 cases failed identically), not by review;
+   fixed before any commit landed. Noted here as a real gotcha for anyone
+   wiring a second `ApiResult`-returning mock into an existing spec file.
+2. **T5b.1 shipped as a single commit** (test + implementation together),
+   not the RED-commit/GREEN-commit pair every other task in this chain
+   uses — the change is a one-line optional-prop addition; splitting it
+   into two commits added no review value. Flagging the inconsistency
+   rather than silently normalizing it.
+3. **`periodoSeleccionado` passed to `ResumenAnual` is `periodoVista`, not
+   raw `periodo`.** Not explicitly spelled out in T5b.3's own bullet, but
+   directly follows design §1.9's own sentence ("`periodoVista` is the
+   single source for the header label, the grid's selected-cell marker and
+   `anio`") — the default-mount current month is highlighted in the annual
+   grid from the first render, not only after an explicit tap.
+4. Pre-existing, accepted harness quirk carries over unchanged (same as
+   PR5a's deviation #4): the `act()` console warning on the
+   loading→data async state transition, now present for BOTH `app/index.tsx`
+   and `ResumenAnual`'s independent fetches — not a regression, tests still
+   pass.
+
+Zero backend/schema changes; zero new dependencies. This is the LAST
+code-bearing slice of the PR1–PR5b chain (design §0's full composition tree
+is now live in `main` once this branch merges) — Phase 6 (closing) is next,
+gated on this PR actually merging per the `stacked-to-main` binding
+mitigation (tasks.md forecast section: "no `mobile-v*` tag may be cut until
+the full PR1–PR5b chain has merged").
+
+**Judgment-day fix session (post-apply, this branch) — real totals
+recomputed.** `git diff origin/main...HEAD --numstat -- apps/mobile`:
+**423 ins / 31 del (454 changed)** across 6 files (`app/index.spec.tsx`
+294/1, `app/index.tsx` 65/13, `src/domain/resumen-view-model.spec.ts` 3/3,
+`src/domain/resumen-view-model.ts` 0/12, `test/auth-navigation.integration.spec.tsx`
+61/1, `src/components/ResumenScreen.spec.tsx` 0/1). `Loading.tsx`/
+`Loading.spec.tsx` net to **zero** diff vs `origin/main` — T5b.1's `mensaje`
+prop was added then fully reverted by judgment, cancelling out. 10 commits
+total on `feat/us-050-mobile-pr5b-shell` (the original 5-commit apply +
+`91f75bcb` periodoLabel retirement + 4 judgment-fix commits: dead-import
+removal, Loading revert, docs correction, D-15/MOB-14 test rewrite).
+454 changed vs the ~195 forecast is **+259, ~133% over** — worse than the
+apply session's own +94% because the D-15 test rewrite (Fix 1) and the
+MOB-14 addition (Fix 5) both grew `app/index.spec.tsx` further, only
+partially offset by the Loading revert's net-zero and the dead-import's
+single deletion. **454 remains OVER the 400-line `size:exception` gate**
+(by 54 lines) — same disclosed-exception posture as the original apply,
+not a new violation to hide.
 
 ---
 

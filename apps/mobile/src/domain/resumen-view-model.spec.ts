@@ -158,9 +158,9 @@ describe('aResumenViewModel', () => {
     expect(vm.estadoGlobal).toBeNull();
   });
 
-  it('deriva periodoLabel legible desde el periodo', () => {
-    const vm = aResumenViewModel(dto({ periodo: '2026-06' }));
-    expect(vm.periodoLabel).toBe('Junio 2026');
+  it('ya NO expone periodoLabel — retirado en PR5b, el shell lo deriva solo (design §1.8)', () => {
+    const vm = aResumenViewModel(dto());
+    expect(vm).not.toHaveProperty('periodoLabel');
   });
 
   // US-050 PR1 (design §4 impact sweep — "blast radius is the returned

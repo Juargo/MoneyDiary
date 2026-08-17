@@ -10,7 +10,6 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
 // (MOB-15) and the IDEAL inset (already removed in PR4a, reconfirmed here).
 const viewModel: ResumenViewModel = {
   periodo: '2026-07',
-  periodoLabel: 'Julio 2026',
   totalIngreso: '$1.000.000',
   sinIngreso: false,
   buckets: [
