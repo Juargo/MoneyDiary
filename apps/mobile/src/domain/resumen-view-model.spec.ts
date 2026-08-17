@@ -181,22 +181,14 @@ describe('aResumenViewModel', () => {
     ]);
   });
 
-  // US-050 PR3 deviation (documented in apply-progress, not silent):
-  // design §1.8/§5 call for dropping `targets`/`periodoLabel` from
-  // ResumenViewModel in THIS PR. Under the apply-gate's resolved
-  // stacked-to-main chain strategy (tasks.md "Chain Strategy — RESOLVED"),
-  // each PR merges to `main` independently — but `ResumenScreen.tsx` (a
-  // components-tier file, out of scope for PR3's scope guard) still reads
-  // `viewModel.targets`/`viewModel.periodoLabel` until PR4a/4b (targets,
-  // `DistribucionPie`'s prop removal) and PR5b (periodoLabel, the shell
-  // move) actually rewrite it. Dropping the fields now would break `tsc`
-  // on `main` the moment PR3 merges. Both fields stay for backward
-  // compatibility; removal is deferred to the PR that rewrites their last
-  // consumer, per design §1.8's own table (targets → DistribucionPie/
-  // ResumenScreen at PR4a/4b; periodoLabel → the shell move at PR5b).
-  it('propaga los targets 50/30/20 para el inset IDEAL (retenido hasta PR4a/4b, ver nota de deviation)', () => {
+  // US-050 PR4a (design §1.8, MOB-15): `targets` is fully removed from
+  // `ResumenViewModel` now that `DistribucionPie`'s IDEAL inset is gone —
+  // its last consumer (`ResumenScreen.tsx`) no longer reads it. This closes
+  // the backward-compat shim PR3 opened (see PR3's own deviation note in
+  // apply-progress / this file's git history) — do not reintroduce it.
+  it('ya no expone `targets` en el view model (IDEAL inset removido, MOB-15)', () => {
     const vm = aResumenViewModel(dto());
-    expect(vm.targets).toEqual({ Necesidades: 50, Deseos: 30, Ahorro: 20 });
+    expect(vm).not.toHaveProperty('targets');
   });
 
   describe('leyendaPrincipal', () => {

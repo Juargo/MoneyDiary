@@ -42,10 +42,7 @@ export function ResumenScreen({
             </View>
           </View>
 
-          <DistribucionPie
-            tajadas={viewModel.distribucionGasto}
-            targets={viewModel.targets}
-          />
+          <DistribucionPie tajadas={viewModel.distribucionGasto} />
 
           <LeyendaGasto tajadas={viewModel.distribucionGasto} />
 

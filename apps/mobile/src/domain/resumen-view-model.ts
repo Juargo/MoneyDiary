@@ -71,14 +71,6 @@ export interface ResumenViewModel {
   readonly buckets: readonly BucketViewModel[];
   /** Share-of-spending split for the pie + legend (77/12/11-style), 4-item ring. */
   readonly distribucionGasto: readonly TajadaGasto[];
-  /**
-   * 50/30/20 reference for the "IDEAL" inset pie.
-   *
-   * US-050 PR3 deviation (same as `periodoLabel` above): kept for backward
-   * compatibility — `ResumenScreen.tsx`/`DistribucionPie` still read this
-   * until PR4a/4b remove the IDEAL inset (MOB-15). Removal deferred there.
-   */
-  readonly targets: ResumenMesDto['targets'];
   readonly estadoGlobal: string | null;
   /** Necesidades, Deseos, Ahorro — siempre en ese orden, `kind: 'gasto'` (D-03). */
   readonly leyendaPrincipal: readonly ItemLeyenda[];
@@ -217,7 +209,6 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
     distribucionGasto,
-    targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
     leyendaPrincipal: aLeyendaPrincipal(distribucionGasto, dto.buckets),
     leyendaComplemento: aLeyendaComplemento(dto),
