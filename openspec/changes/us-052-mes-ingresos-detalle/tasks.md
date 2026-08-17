@@ -41,19 +41,20 @@ Chain strategy: stacked-to-main
 
 ## Phase 2 — DTO + schema [PR 2]
 
-- [ ] 2.1 (RED) `ingresos-mes.dto.spec.ts`: 4 cases — `total`/`monto` bigint→string exact; fecha ISO-8601 UTC; `origen` passthrough; output EXACTLY `{total, conteo, transacciones}` — no meta/porcentaje/estado/periodo (MID-03).
-- [ ] 2.2 (GREEN) `ingresos-mes.dto.ts` (D-04): serialize-only mapper.
-- [ ] 2.3 (RED) `ingresos-mes.schema.spec.ts`: 3 cases — real `aIngresosMesDto` output parses (sync guarantee); leaf `.strict()` rejects stray `tipoCuenta` key (MID-03/MID-06 wire guarantee); top-level `.strict()` rejects extra key / `monto` as JSON number.
-- [ ] 2.4 (GREEN) `ingresos-mes.schema.ts` (D-05): `ingresosMesQuerySchema` transport-shape only (NOT the domain period parser); `.strict()` response + `.strict()` leaf; `.meta({id: 'IngresosMesResponse'})`.
+- [x] 2.1 (RED) `ingresos-mes.dto.spec.ts`: 4 cases — `total`/`monto` bigint→string exact; fecha ISO-8601 UTC; `origen` passthrough; output EXACTLY `{total, conteo, transacciones}` — no meta/porcentaje/estado/periodo (MID-03).
+- [x] 2.2 (GREEN) `ingresos-mes.dto.ts` (D-04): serialize-only mapper.
+- [x] 2.3 (RED) `ingresos-mes.schema.spec.ts`: 3 cases — real `aIngresosMesDto` output parses (sync guarantee); leaf `.strict()` rejects stray `tipoCuenta` key (MID-03/MID-06 wire guarantee); top-level `.strict()` rejects extra key / `monto` as JSON number.
+- [x] 2.4 (GREEN) `ingresos-mes.schema.ts` (D-05): `ingresosMesQuerySchema` transport-shape only (NOT the domain period parser); `.strict()` response + `.strict()` leaf; `.meta({id: 'IngresosMesResponse'})`.
+- [x] 2.5 Verify: `pnpm api test` (238 files / 2067 tests — baseline 236/2060 after PR1, +2 files/+7 tests) + `pnpm api exec tsc --noEmit` exit 0; eslint clean (0 errors, 3 pre-existing warnings outside this change).
 
 ## Phase 3 — Route + container + openapi [PR 3]
 
-- [ ] 3.1 (RED) `openapi-document.spec.ts` +1: registers `GET /api/ingresos/mes` con query `periodo` + 200/400.
-- [ ] 3.2 (GREEN) `openapi-document.ts` (D-08): `ingresosMesOperation` + path entry APPENDED at END of `paths` (after `/api/buckets/{bucket}/detalle`, ~line 1149 — never reorder).
-- [ ] 3.3 (GREEN) `ingresos.routes.ts` (D-06): `registrarIngresosMes(router, useCase)` flat handler — query safeParse → use case → `PeriodoInvalidoError` → scrubbed 400 (never echoes raw input) → exhaustive `never` → 500 → `aIngresosMesDto`; `userId` from session; `next(err)`.
-- [ ] 3.4 (GREEN) `container.ts` (D-07): THIRD `new PrismaDetalleBucketRepository(prisma, crypto)` (two exist at lines 207/216 — per-use-case-instance discipline) + `new ObtenerIngresosMesUseCase(...)`; wired/exposed; no `crear-*` helper.
-- [ ] 3.5 (GREEN) `app.ts`: mount `registrarIngresosMes(protectedApi, ...)` after `registrarBucketDetalleMes` (~line 176).
-- [ ] 3.6 `pnpm api openapi:emit`; commit `openapi.json`; `openapi:check` exits 0; `pnpm contract:sync` (regenerates `packages/api-client/src/types.gen.ts`).
+- [x] 3.1 (RED) `openapi-document.spec.ts` +1: registers `GET /api/ingresos/mes` con query `periodo` + 200/400.
+- [x] 3.2 (GREEN) `openapi-document.ts` (D-08): `ingresosMesOperation` + path entry APPENDED at END of `paths` (after `/api/buckets/{bucket}/detalle`, ~line 1149 — never reorder).
+- [x] 3.3 (GREEN) `ingresos.routes.ts` (D-06): `registrarIngresosMes(router, useCase)` flat handler — query safeParse → use case → `PeriodoInvalidoError` → scrubbed 400 (never echoes raw input) → exhaustive `never` → 500 → `aIngresosMesDto`; `userId` from session; `next(err)`.
+- [x] 3.4 (GREEN) `container.ts` (D-07): THIRD `new PrismaDetalleBucketRepository(prisma, crypto)` (two exist at lines 207/216 — per-use-case-instance discipline) + `new ObtenerIngresosMesUseCase(...)`; wired/exposed; no `crear-*` helper.
+- [x] 3.5 (GREEN) `app.ts`: mount `registrarIngresosMes(protectedApi, ...)` after `registrarBucketDetalleMes` (~line 176).
+- [x] 3.6 `pnpm api openapi:emit`; commit `openapi.json`; `openapi:check` exits 0; `pnpm contract:sync` (regenerates `packages/api-client/src/types.gen.ts`).
 
 ## Phase 4 — Hermetic app + e2e [PR 4]
 
