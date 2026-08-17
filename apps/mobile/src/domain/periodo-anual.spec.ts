@@ -55,11 +55,36 @@ describe('periodoActualUTC', () => {
     );
   });
 
+  // judgment-day WARNING fix: this boundary case only discriminates a
+  // regression to local-time getters (`getFullYear`/`getMonth`) when the
+  // runner's *local* TZ differs from UTC — GitHub Actions runners are UTC,
+  // so it silently passed either way in CI. Setting `process.env.TZ` inline
+  // does NOT work here: `jest-environment-node` gives every test file its
+  // own sandboxed `process.env` (`jest-util`'s `createProcessObject`, a
+  // proxy over a *copy* of the real env — verified by mutating
+  // `periodoActualUTC` to `getFullYear`/`getMonth` under `TZ=UTC` with an
+  // in-file `process.env.TZ` reassignment: the mutant still passed, because
+  // the real V8 `Date` engine never saw the reassignment). Instead, spy on
+  // `Date.prototype.getFullYear`/`getMonth` to return values that disagree
+  // with the UTC ones for this exact instant — deterministic on any host or
+  // CI timezone, and it precisely targets "did the implementation reach for
+  // the local getters" without depending on the environment's real TZ at
+  // all.
   it('resolves by UTC, not local time, for a date near a month boundary', () => {
-    // Local time (any TZ behind UTC) would read June; UTC reads July 1st.
-    expect(periodoActualUTC(new Date('2026-07-01T00:30:00.000Z'))).toBe(
-      '2026-07',
-    );
+    const instante = new Date('2026-07-01T00:30:00.000Z'); // UTC: July 1st.
+    const getFullYearSpy = jest
+      .spyOn(Date.prototype, 'getFullYear')
+      .mockReturnValue(1999); // Deliberately wrong "local" year.
+    const getMonthSpy = jest
+      .spyOn(Date.prototype, 'getMonth')
+      .mockReturnValue(5); // Deliberately wrong "local" month (June, 0-based).
+
+    try {
+      expect(periodoActualUTC(instante)).toBe('2026-07');
+    } finally {
+      getFullYearSpy.mockRestore();
+      getMonthSpy.mockRestore();
+    }
   });
 
   it('zero-pads single-digit months', () => {
