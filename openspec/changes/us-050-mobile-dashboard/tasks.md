@@ -513,18 +513,18 @@ Requirements: MOB-10, MOB-11, MOB-12. Depends on Phase 2 (`fetchResumenAnual`,
 (`arcoPath`'s `rInterior`, reused by the mini). ~455 lines — `size:exception`
 candidate (see forecast).
 
-- [ ] **T5a.1 (RED)** Create
+- [x] **T5a.1 (RED)** Create
       `apps/mobile/src/components/MiniDistribucionPie.spec.tsx` (3 cases):
       ≤4 paths for a 4-item ring (1); placeholder circle when empty (1); no
       text/label nodes rendered (1). `[P]` with T5a.3 (disjoint files).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test MiniDistribucionPie.spec.tsx`
-- [ ] **T5a.2 (GREEN)** Create
+- [x] **T5a.2 (GREEN)** Create
       `apps/mobile/src/components/MiniDistribucionPie.tsx`: fixed
       `size = 44`, label-less, ≤4 `<Path>`, muted placeholder circle when
       `tajadas` is empty. No accessibility props — the parent `Pressable` is
       `accessible` and collapses the subtree.
       - Verify: `pnpm --filter @moneydiary/mobile test MiniDistribucionPie.spec.tsx` — 3 green.
-- [ ] **T5a.3 (RED)** Create `apps/mobile/src/components/ResumenAnual.spec.tsx`
+- [x] **T5a.3 (RED)** Create `apps/mobile/src/components/ResumenAnual.spec.tsx`
       (14 cases): loading → `'Cargando resumen anual…'` (1); error → retry
       affordance + retry re-fetches (2); all-12-`sinIngreso` →
       `'Todavía no hay datos este año'`, no grid (1); heading `Año 2026` (1);
@@ -539,7 +539,7 @@ candidate (see forecast).
       `solicitarRecargaResumen()` — D-13 (1); calls `fetchResumenAnual` with
       **no arguments** — MOB-10 (1). `[P]` with T5a.1.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test ResumenAnual.spec.tsx`
-- [ ] **T5a.4 (GREEN)** Create `apps/mobile/src/components/ResumenAnual.tsx`
+- [x] **T5a.4 (GREEN)** Create `apps/mobile/src/components/ResumenAnual.tsx`
       (+ `MesCelda` inside it): self-contained section, own `useEffect`/
       `useState` around `fetchResumenAnual()` called with no argument, own
       Loading/Error+retry/Empty/data states; `anio` prop labels the heading
@@ -552,7 +552,7 @@ candidate (see forecast).
       height 76 (WCAG 2.5.8 tap target ≥44×44). Registers/unregisters with
       `resumen-refresh` (D-13).
       - Verify: `pnpm --filter @moneydiary/mobile test ResumenAnual.spec.tsx MiniDistribucionPie.spec.tsx` — 17 green.
-- [ ] **T5a.5 (REFACTOR)** Confirm the design §1.7 perf measures are in
+- [x] **T5a.5 (REFACTOR)** Confirm the design §1.7 perf measures are in
       place by code inspection (D-15; not directly assertable by RNTL): the
       12-month ring math is computed once per fetch and memoized, `MesCelda`
       is `React.memo`'d with primitive + a referentially-stable per-month
@@ -561,6 +561,73 @@ candidate (see forecast).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test`
 
 **PR5a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~455 lines, 17 tests. Over budget — `size:exception` candidate.
+
+**DONE this session.** Branch `feat/us-050-mobile-pr5a-anual` (base:
+`origin/main` @ `3edf37dd`, PR4b merged), 5 commits: `test(mobile): pin
+MiniDistribucionPie's mini-ring contract` (RED), `feat(mobile): add
+MiniDistribucionPie` (GREEN), `test(mobile): pin ResumenAnual's annual grid
+contract` (RED), `feat(mobile): add ResumenAnual with MesCelda grid`
+(GREEN), `docs(sdd): mark PR5a tasks done`. Mobile suite: 330 → 347 (+17,
+exactly matching forecast: 3 MiniDistribucionPie + 14 ResumenAnual). `tsc
+--noEmit` clean (one fix needed mid-flight: the spec's `jest.mock` wrapper
+for `fetchResumenAnual` had to forward args via a real tuple rest type,
+`(...args: [anio?: number])`, not `...args: unknown[]` — TS2556 rejects
+spreading a non-tuple into a zero-arg mock). `eslint --fix` auto-fixed
+prettier line wrapping only (both new spec files, long JSX/array literals)
+— zero manual lint fixes needed.
+
+**Real diff: 713 ins / 0 del** across the 4 new files (33
+`MiniDistribucionPie.spec.tsx` + 81 `MiniDistribucionPie.tsx` + 372
+`ResumenAnual.spec.tsx` + 227 `ResumenAnual.tsx`) vs the ~455 forecast —
+**+258 lines, ~57% over**, larger than the design's own already-flagged
+`size:exception` estimate. Same root cause PR1/PR2/PR4b hit (the
+docstring-heavy-comments convention this codebase already runs), amplified
+here by `ResumenAnual.spec.tsx`'s 14-case fixture-heavy suite (a 12-month
+`ResumenAnualDto` fixture + deferred-promise loading test + 3
+accessibilityState assertions) and `ResumenAnual.tsx`'s own three
+`MesCelda`/`GrillaAnual`/`ErrorAnual` sub-components each carrying a
+design-decision-citing docstring. `size:exception` remains the applicable
+mitigation — this was pre-approved for PR5a specifically (task header:
+"Over budget — `size:exception` candidate"), and the real number is
+reported here for the PR description / review-workload record, not hidden.
+
+**Deviations from design (documented, not silent):**
+1. **`states/Loading.tsx`'s `mensaje` prop is explicitly OUT of this PR's
+   scope** (that's T5b.1, Phase 5b, per the apply-gate boundary) —
+   `ResumenAnual` does NOT import/reuse the shared `Loading`/`Empty`
+   components. It renders its own inline loading view (same
+   `ActivityIndicator` + `COLORS.ingreso` pattern, text "Cargando resumen
+   anual…") and its own inline empty view ("Todavía no hay datos este
+   año"). This matches design §1.7's own phrasing ("own Loading/Error+retry/
+   Empty/data states") literally. When T5b.1 lands, the loading branch here
+   *could* be swapped to `<Loading mensaje="Cargando resumen anual…" />`,
+   but that is not required for correctness — noted as a follow-up
+   opportunity, not a defect.
+2. **Error state is a NEW local `ErrorAnual` view, not a reuse of the shared
+   `states/Error.tsx` `ErrorState` component.** `ErrorState` is styled
+   `flex-1 items-center justify-center` and depends on a flexed ancestor to
+   center (design §0's own documented constraint for the shell's
+   `Loading`/`ErrorState`/`Empty`) — `ResumenAnual` is one section among
+   several inside the future shell, not the whole screen, so reusing it
+   verbatim risked a 0-height collapse. `ErrorAnual` still reuses
+   `copiaPorApiError` (the shared copy function, DRY) and the same
+   "Reintentar" button styling — only the component wrapper (not the copy
+   logic) is duplicated, and for a documented layout reason.
+3. **A defensive `!mes.tieneDatos` guard inside `MesCelda`'s `onPress`**,
+   in addition to the `disabled` prop RN's `Pressable` already respects —
+   belt-and-suspenders so the MOB-11 "disabled cell never calls
+   `onSelectPeriodo`" contract holds even if `Pressable`'s own disabled
+   handling ever changes; both layers are exercised by the same test.
+4. A pre-existing, accepted harness quirk carries over unchanged: the
+   `act()` console warning on the loading→data async state transition
+   (`fetchResumenAnual().then(setEstado)` outside an explicit `act()`)
+   already exists identically in the merged `app/index.tsx` /
+   `app/index.spec.tsx` (verified side-by-side, same stack shape) — not a
+   regression introduced by this PR, tests still pass.
+
+Zero backend/schema changes; zero new dependencies. `ResumenAnual` is NOT
+mounted anywhere yet (`app/index.tsx` untouched, out of this PR's scope) —
+ships dark until Phase 5b wires it into the shell.
 
 ---
 
