@@ -611,6 +611,9 @@ the user selects — see forecast above).
       `ErrorState`/`Empty` remain centered under the shell `ScrollView`
       (`contentContainerStyle={{ flexGrow: 1 }}`). This is **not** a CI
       gate — log the device/build used and the result here.
+      - Verify the donut's white wedge separators are not clipped at the 4
+        tangent points (0°/90°/180°/270°) on device — if clipped, inset r by
+        the stroke width.
 - [ ] **T6.4 (Ledger reconciliation)** Record REAL final test counts vs.
       design §3's forecast (112 new/changed cases: 46 domain + 15 api + 51
       component/route, plus 5 deleted with their subject and ~25 existing

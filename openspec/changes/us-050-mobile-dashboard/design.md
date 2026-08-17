@@ -244,6 +244,11 @@ device measurement stays on the EAS internal build (ADR-022), as the proposal st
 No test is deleted whose *behaviour* still exists; each deletion above removes a case whose subject
 was removed by a binding product decision.
 
+**Scope note:** the `targets` literals still present in `resumen-view-model.spec.ts` /
+`client.spec.ts` DTO fixtures belong to the WIRE `ResumenMesDto.targets` field (the
+HTTP contract), which is out of this change's scope — only the view-model's own
+`targets` field was removed above. Deferred, not a miss.
+
 ### 1.9 `app/index.tsx` — state and composition
 
 ```ts
