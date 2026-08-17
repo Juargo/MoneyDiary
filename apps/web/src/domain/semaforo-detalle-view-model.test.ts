@@ -100,6 +100,26 @@ describe('aSemaforoDetalleViewModel', () => {
     expect(vm.buckets[0].consejo?.texto).not.toContain('{monto}');
   });
 
+  it('un mensaje que viola el contrato con {monto} repetido sustituye AMBAS ocurrencias (replaceAll, degradación segura)', () => {
+    const dto = detalleDto([
+      bucketDto({
+        estadoSemaforo: 'rojo',
+        consejo: {
+          direccion: 'reducir',
+          monto: '199951',
+          mensaje: 'Reduce {monto} en Necesidades — hoy son {monto}.',
+        },
+      }),
+    ]);
+
+    const vm = aSemaforoDetalleViewModel(dto);
+
+    expect(vm.buckets[0].consejo?.texto).toBe(
+      'Reduce $199.951 en Necesidades — hoy son $199.951.',
+    );
+    expect(vm.buckets[0].consejo?.texto).not.toContain('{monto}');
+  });
+
   it('un mensaje sin el placeholder se renderiza verbatim (defensivo)', () => {
     const dto = detalleDto([
       bucketDto({

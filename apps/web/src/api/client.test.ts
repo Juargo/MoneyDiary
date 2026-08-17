@@ -1817,4 +1817,164 @@ describe('fetchSemaforoDetalle', () => {
       '/api/resumen/semaforo?periodo=2026-07',
     );
   });
+
+  // WG5-05 recurrence: el guard original NO validaba periodo/sinIngreso/
+  // estadoGlobal/bucketsCriticos ni `bucket` dentro de cada bucket, aunque
+  // los 4 primeros pasan verbatim a `SemaforoDetalleViewModel` (render) y
+  // `bucket`/`estadoSemaforo` viajan a cada `BucketSemaforoViewModel`. Estos
+  // casos cierran ese hueco (guard completeness).
+  it('mapea a {tag: "parse"} cuando periodo no es un string', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ ...validSemaforoDetalleDto, periodo: 202607 }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando sinIngreso es un string en vez de boolean', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ ...validSemaforoDetalleDto, sinIngreso: 'false' }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando estadoGlobal tiene un valor fuera del enum', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          estadoGlobal: 'naranja',
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando estadoGlobal es un number', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ ...validSemaforoDetalleDto, estadoGlobal: 1 }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando bucketsCriticos no es un array', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          bucketsCriticos: 'Ahorro',
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando bucketsCriticos trae un elemento no-string', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          bucketsCriticos: ['Ahorro', 42],
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando a un bucket le falta `bucket`', async () => {
+    const { bucket: _omitido, ...bucketSinNombre } =
+      validSemaforoDetalleDto.buckets[0];
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          buckets: [
+            bucketSinNombre,
+            validSemaforoDetalleDto.buckets[1],
+            validSemaforoDetalleDto.buckets[2],
+          ],
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('mapea a {tag: "parse"} cuando el estadoSemaforo de un bucket tiene un valor fuera del enum', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          buckets: [
+            { ...validSemaforoDetalleDto.buckets[0], estadoSemaforo: 'azul' },
+            validSemaforoDetalleDto.buckets[1],
+            validSemaforoDetalleDto.buckets[2],
+          ],
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('resuelve {ok: true, value} en un body 2xx válido con estadoGlobal null', async () => {
+    const bodyEstadoGlobalNull: SemaforoDetalleDto = {
+      ...validSemaforoDetalleDto,
+      sinIngreso: true,
+      estadoGlobal: null,
+      bucketsCriticos: [],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyEstadoGlobalNull),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result).toEqual({ ok: true, value: bodyEstadoGlobalNull });
+  });
 });

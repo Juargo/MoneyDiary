@@ -171,9 +171,14 @@ export async function fetchResumen(
  * `aSemaforoDetalleViewModel` (`domain/semaforo-detalle-view-model.ts`)
  * consume aguas abajo — `totalIngreso`/`sinCategoria.total` vía
  * `esMontoStringValido` (mismo razonamiento que `esResumenMesDto`:
- * `formatearMontoCLP` lanza sobre `"12.5"`/`"abc"`/etc), `diagnostico` como
- * string, y cada `buckets[]` con `porcentajeBp`/`estadoSemaforo`/`metaBp`/
- * `bandas`/`consejo` en la forma exacta del wire. Un `consejo.monto` como
+ * `formatearMontoCLP` lanza sobre `"12.5"`/`"abc"`/etc), `periodo`,
+ * `sinIngreso`, `diagnostico`, `estadoGlobal`/`bucketsCriticos` (ambos
+ * renderizados verbatim, WG5-05 recurrence), y cada `buckets[]` con
+ * `bucket`/`porcentajeBp`/`estadoSemaforo`/`metaBp`/`bandas`/`consejo` en la
+ * forma exacta del wire. `estadoGlobal`/`estadoSemaforo` se validan contra la
+ * unión exacta `'verde' | 'amarillo' | 'rojo' | null` vía `esEstadoSemaforo`
+ * (compartida entre ambos call sites, DRY) — nunca un `string` suelto, mismo
+ * espíritu que `esConsejoDto` con `direccion`. Un `consejo.monto` como
  * `"12.5"` (JSON-válido pero no BigInt-safe) DEBE rechazarse aquí — si no,
  * `formatearMontoCLP` lanzaría mid-render sin ErrorBoundary en la app (la
  * misma clase de bug que `esBucketResumenDto` ya previene para
@@ -181,6 +186,17 @@ export async function fetchResumen(
  * ningún consumidor de este PR lo lee; se agrega el día que un consumidor
  * real lo necesite, no antes).
  */
+function esEstadoSemaforo(
+  value: unknown,
+): value is 'verde' | 'amarillo' | 'rojo' | null {
+  return (
+    value === null ||
+    value === 'verde' ||
+    value === 'amarillo' ||
+    value === 'rojo'
+  );
+}
+
 function esBandasBucketDto(
   value: unknown,
 ): value is SemaforoBucketDetalleDto['bandas'] {
@@ -225,10 +241,10 @@ function esSemaforoBucketDetalleDto(
   }
   const candidato = value as Partial<SemaforoBucketDetalleDto>;
   return (
+    typeof candidato.bucket === 'string' &&
     (typeof candidato.porcentajeBp === 'number' ||
       candidato.porcentajeBp === null) &&
-    (typeof candidato.estadoSemaforo === 'string' ||
-      candidato.estadoSemaforo === null) &&
+    esEstadoSemaforo(candidato.estadoSemaforo) &&
     typeof candidato.metaBp === 'number' &&
     esBandasBucketDto(candidato.bandas) &&
     esConsejoDto(candidato.consejo)
@@ -257,6 +273,11 @@ function esSemaforoDetalleDto(value: unknown): value is SemaforoDetalleDto {
   return (
     typeof candidato.totalIngreso === 'string' &&
     esMontoStringValido(candidato.totalIngreso) &&
+    typeof candidato.periodo === 'string' &&
+    typeof candidato.sinIngreso === 'boolean' &&
+    esEstadoSemaforo(candidato.estadoGlobal) &&
+    Array.isArray(candidato.bucketsCriticos) &&
+    candidato.bucketsCriticos.every((item) => typeof item === 'string') &&
     typeof candidato.diagnostico === 'string' &&
     Array.isArray(candidato.buckets) &&
     candidato.buckets.every(esSemaforoBucketDetalleDto) &&

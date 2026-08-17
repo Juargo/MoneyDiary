@@ -118,7 +118,10 @@ function markerPct(porcentajeBp: number | null): number | null {
  * Sustituye el placeholder `{monto}` por el monto formateado en CLP
  * (D-05/SEM-10). Un mensaje sin el placeholder se renderiza verbatim
  * (defensivo — nunca debería ocurrir con un payload válido, per SEM-10's
- * "exactamente una vez").
+ * "exactamente una vez"). Usa `replaceAll` (no `replace`) — bajo el contrato
+ * "exactamente una vez" es equivalente, pero si el contrato se viola con MÁS
+ * de una ocurrencia, degrada de forma segura sustituyendo todas en vez de
+ * dejar un `{monto}` crudo en pantalla.
  */
 function aConsejoViewModel(
   consejo: SemaforoBucketDetalleDto['consejo'],
@@ -128,7 +131,7 @@ function aConsejoViewModel(
   }
   const montoFormateado = formatearMontoCLP(consejo.monto);
   const texto = consejo.mensaje.includes('{monto}')
-    ? consejo.mensaje.replace('{monto}', montoFormateado)
+    ? consejo.mensaje.replaceAll('{monto}', montoFormateado)
     : consejo.mensaje;
   return { direccion: consejo.direccion, texto };
 }
