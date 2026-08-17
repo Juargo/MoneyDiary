@@ -61,10 +61,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 4 — Hermetic app + e2e [PR 4]
 
-- [ ] 4.1 (RED) `app.bucket-detalle-mes.spec.ts`: 6 cases — 401 sin x-api-key; 401 api-key sin sesión; 200 + **session `userId` fluye al use case**; 400 scrubbed PeriodoInvalidoError; 400 scrubbed BucketInvalidoError; body parses schema.
-- [ ] 4.2 (GREEN) No new prod code expected; RED signals a PR1–3 gap — fix there.
-- [ ] 4.3 (RED) `test/bucket-detalle-mes.e2e-spec.ts`: 8 cases — 7 ledger (no periodo→UTC; `not-a-date`→400 scrubbed; DTO shape, 5 txs, no paging; empty month `"0"`/0/0/`[]`; >MAX_SAFE exact; two-user isolation, B never in A; Ingresos→400) + **W-1: filled header, income 1 500 000 → `total "250000"`, 5 txs, 2 categorías, `porcentajeBp` 1667, Σ `conteo` === `totalTransacciones`**.
-- [ ] 4.4 Full sweep: `pnpm api test` · `test:integration` · `test:e2e` (destructive) · `tsc --noEmit` · `openapi:check` · `lint:ci`.
+- [x] 4.1 (RED) `app.bucket-detalle-mes.spec.ts`: 6 cases — 401 sin x-api-key; 401 api-key sin sesión; 200 + **session `userId` fluye al use case**; 400 scrubbed PeriodoInvalidoError; 400 scrubbed BucketInvalidoError; body parses schema. — spec: `apps/api/src/infrastructure/http-express/app.bucket-detalle-mes.spec.ts` (6/6 verdes; RED confirmado via `Cannot find module` + 401/400 asserts antes del GREEN)
+- [x] 4.2 (GREEN) No new prod code expected; RED signals a PR1–3 gap — fix there. — sin hueco PR1-3; los 6 casos del spec hermético pasan sobre el código existente
+- [x] 4.3 (RED) `test/bucket-detalle-mes.e2e-spec.ts`: 8 cases — 7 ledger (no periodo→UTC; `not-a-date`→400 scrubbed; DTO shape, 5 txs, no paging; empty month `"0"`/0/0/`[]`; >MAX_SAFE exact; two-user isolation, B never in A; Ingresos→400) + **W-1: filled header, income 1 500 000 → `total "250000"`, 5 txs, 2 categorías, `porcentajeBp` 1667, Σ `conteo` === `totalTransacciones`**. — spec: `apps/api/test/bucket-detalle-mes.e2e-spec.ts` (8 casos incl. W-1; e2e local verde con DB desechable provisionada)
+- [x] 4.4 Full sweep: `pnpm api test` · `test:integration` · `test:e2e` (destructive) · `tsc --noEmit` · `openapi:check` · `lint:ci`. — `pnpm api test`: 235 files / 2047 verdes; `test:e2e`: 13 files / 67 verdes; `tsc --noEmit` limpio; `openapi:check` 0.
 
 ## Phase 5 — Closing
 
