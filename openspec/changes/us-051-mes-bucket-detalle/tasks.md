@@ -52,12 +52,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 3 — Route + container + openapi [PR 3]
 
-- [ ] 3.1 (RED) `openapi-document.spec.ts` +1: registers the route with `periodo` query, 200/400.
-- [ ] 3.2 (GREEN) `openapi-document.ts`: operation + **append** path entry at END (D-11).
-- [ ] 3.3 (GREEN) `buckets.routes.ts`: `registrarBucketDetalleMes` — flat-route handler shape (scrubbed 400s, `next(err)`).
-- [ ] 3.4 (GREEN) `container.ts`: `obtenerDetalleBucketMes` — one `new PrismaDetalleBucketRepository(prisma, crypto)` + one `new PrismaResumenMesRepository(prisma)` (D-10).
-- [ ] 3.5 (GREEN) `app.ts`: mount after `registrarBuckets` (~line 172).
-- [ ] 3.6 `pnpm api openapi:emit`; commit `openapi.json`; `openapi:check` exits 0.
+- [x] 3.1 (RED) `openapi-document.spec.ts` +1: registers the route with `periodo` query, 200/400. — spec: `apps/api/src/infrastructure/http-express/schemas/openapi-document.spec.ts` (+1 caso US-051; RED confirmado: path undefined antes del GREEN)
+- [x] 3.2 (GREEN) `openapi-document.ts`: operation + **append** path entry at END (D-11). — impl: `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (`bucketDetalleMesOperation` + `'/api/buckets/{bucket}/detalle'` APPENDED tras `/api/resumen/semaforo`, sin reordenar; reusa `bucketsPathParamsSchema` + `bucketDetalleMesQuerySchema`/`bucketDetalleMesResponseSchema`)
+- [x] 3.3 (GREEN) `buckets.routes.ts`: `registrarBucketDetalleMes` — flat-route handler shape (scrubbed 400s, `next(err)`). — impl: `apps/api/src/infrastructure/http-express/routes/buckets.routes.ts` (misma disciplina del flat: allowlist 4-bucket D-08 → 400 scrubbeado, `PeriodoInvalidoError` MBD-04 → 400 scrubbeado, `next(err)` inesperado, `userId` de sesión al use case, respuesta vía `aDetalleBucketMesDto`)
+- [x] 3.4 (GREEN) `container.ts`: `obtenerDetalleBucketMes` — one `new PrismaDetalleBucketRepository(prisma, crypto)` + one `new PrismaResumenMesRepository(prisma)` (D-10). — impl: `apps/api/src/composition/container.ts` (interface + wiring, un-`new`-por-repository, sin `crear-*`)
+- [x] 3.5 (GREEN) `app.ts`: mount after `registrarBuckets` (~line 172). — impl: `apps/api/src/infrastructure/http-express/app.ts` (línea 176, post-`registrarBuckets`; fakes `as unknown as Container` absorben el campo nuevo — sweep tsc OK, patrón US-049 T5.9)
+- [x] 3.6 `pnpm api openapi:emit`; commit `openapi.json`; `openapi:check` exits 0. — `openapi.json` regenerado (178 líneas, path nuevo + schema `BucketDetalleMesResponse`); `openapi:check` ✅; commit `aec3cff`
 
 ## Phase 4 — Hermetic app + e2e [PR 4]
 
