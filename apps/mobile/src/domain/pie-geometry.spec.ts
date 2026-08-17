@@ -39,4 +39,37 @@ describe('arcoPath', () => {
     expect(d).not.toContain('NaN');
     expect(d.trim().endsWith('Z')).toBe(true);
   });
+
+  it('rInterior = 0 (default) produce el string legacy byte-idéntico para un wedge normal', () => {
+    const conDefault = arcoPath(100, 100, 80, 0, 90);
+    const conCero = arcoPath(100, 100, 80, 0, 90, 0);
+    const legacy = 'M 100 100 L 100 20 A 80 80 0 0 1 180 100 Z';
+    expect(conDefault).toBe(legacy);
+    expect(conCero).toBe(legacy);
+  });
+
+  it('rInterior = 0 produce el string legacy byte-idéntico en la rama de 360°', () => {
+    const conDefault = arcoPath(100, 100, 80, 0, 360);
+    const conCero = arcoPath(100, 100, 80, 0, 360, 0);
+    expect(conDefault).toBe(conCero);
+    expect(conCero).not.toContain('NaN');
+    // Sin rInterior no hay segundo subpath (solo un M...Z, no dos)
+    expect(conCero.match(/M /g)?.length).toBe(1);
+  });
+
+  it('rInterior > 0 emite un wedge anular: arco exterior, línea hacia adentro, arco interior invertido', () => {
+    const d = arcoPath(100, 100, 80, 0, 90, 40);
+    expect(d.startsWith('M 100 20')).toBe(true); // arranca en el borde exterior, no en el centro
+    expect(d).toContain('A 80 80 0 0 1');
+    expect(d).toContain('A 40 40 0 0 0'); // arco interior con sweep invertido
+    expect(d.trim().endsWith('Z')).toBe(true);
+  });
+
+  it('rInterior >= r degrada al wedge relleno en vez de lanzar', () => {
+    const igual = arcoPath(100, 100, 80, 0, 90, 80);
+    const mayor = arcoPath(100, 100, 80, 0, 90, 999);
+    const legacy = arcoPath(100, 100, 80, 0, 90, 0);
+    expect(igual).toBe(legacy);
+    expect(mayor).toBe(legacy);
+  });
 });
