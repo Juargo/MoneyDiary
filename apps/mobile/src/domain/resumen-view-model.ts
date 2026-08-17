@@ -56,16 +56,6 @@ export interface BucketViewModel {
 
 export interface ResumenViewModel {
   readonly periodo: string;
-  /**
-   * Header label derivado de `periodo` — p. ej. "Junio 2026".
-   *
-   * US-050 PR3 deviation (documented, see the spec's own comment): design
-   * §1.8 calls for dropping this field in this PR, but `ResumenScreen.tsx`
-   * (components tier, out of PR3's scope) still reads it until PR5b moves
-   * the header into the route shell. Kept for backward compatibility under
-   * the stacked-to-main chain strategy — removal deferred to PR5b.
-   */
-  readonly periodoLabel: string;
   readonly totalIngreso: string;
   readonly sinIngreso: boolean;
   readonly buckets: readonly BucketViewModel[];
@@ -204,7 +194,6 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
   const distribucionGasto = calcularDistribucionGasto(dto.buckets);
   return {
     periodo: dto.periodo,
-    periodoLabel: formatearPeriodoLabel(dto.periodo),
     totalIngreso: formatearMontoCLP(dto.totalIngreso),
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
