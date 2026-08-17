@@ -102,11 +102,11 @@ no-op. `sdd-apply` must not proceed until this choice is made.
 
 ## Phase 0 — Pre-flight
 
-- [ ] **T0.1** Confirm Strict TDD Mode active for this session (test runner:
+- [x] **T0.1** Confirm Strict TDD Mode active for this session (test runner:
       `pnpm --filter @moneydiary/mobile test`, jest-expo + RNTL per
       `sdd-init/moneydiary`); every RED task below MUST fail before its
       paired GREEN task.
-- [ ] **T0.2** Baseline gate before any edit: `pnpm --filter @moneydiary/mobile test`
+- [x] **T0.2** Baseline gate before any edit: `pnpm --filter @moneydiary/mobile test`
       and `pnpm --filter @moneydiary/mobile exec tsc --noEmit` both green —
       establishes the pre-change baseline so later diffs are attributable.
 
@@ -116,26 +116,26 @@ no-op. `sdd-apply` must not proceed until this choice is made.
 
 Requirements: MOB-05, MOB-08. Depends on nothing.
 
-- [ ] **T1.1 (RED)** In `apps/mobile/src/domain/formatear-monto.spec.ts`, add
+- [x] **T1.1 (RED)** In `apps/mobile/src/domain/formatear-monto.spec.ts`, add
       +9 cases: `esMontoStringValido` — `'100'` ok, `''`/`'abc'`/`'12.5'`/
       `'+100'`/`' 100'`/`'0x10'` rejected (6); `formatearMontoConSigno
       ('1000','+')` → `'+$1.000'` (1); `('400000','-')` → `'-$400.000'` (1);
       magnitude `0` carries no sign prefix (1). Leave the 7 existing cases
       untouched.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test formatear-monto.spec.ts`
-- [ ] **T1.2 (GREEN)** In `apps/mobile/src/domain/formatear-monto.ts`, add
+- [x] **T1.2 (GREEN)** In `apps/mobile/src/domain/formatear-monto.ts`, add
       `esMontoStringValido`, `formatearMontoConSigno`, and tighten
       `formatearMontoCLP` with the `FORMATO_DECIMAL_VALIDO` regex (design
       §1.1) — a superset of the current behavior for well-formed strings.
       - Verify: `pnpm --filter @moneydiary/mobile test formatear-monto.spec.ts` — 7 existing + 9 new green.
-- [ ] **T1.3 (D-09 fixture, data only)** Create
+- [x] **T1.3 (D-09 fixture, data only)** Create
       `apps/mobile/src/domain/__fixtures__/distribucion-anillo.fixture.ts`
       and its byte-identical twin
       `apps/web/src/domain/__fixtures__/distribucion-anillo.fixture.ts`,
       exporting `CASOS_PARIDAD_ANILLO` (7 named cases per design §2's "D-09
       in detail"). No test yet — this is the shared data both suites below
       run against.
-- [ ] **T1.4 (RED)** In `apps/mobile/src/domain/distribucion-gasto.spec.ts`:
+- [x] **T1.4 (RED)** In `apps/mobile/src/domain/distribucion-gasto.spec.ts`:
       add `BUCKETS_ANILLO` ends in `SinCategoria` / `BUCKETS_5030` excludes
       it (1); four ring percentages always sum to 100 with a nonzero
       `SinCategoria` (1); `it.each(CASOS_PARIDAD_ANILLO)` against mobile's
@@ -145,24 +145,24 @@ Requirements: MOB-05, MOB-08. Depends on nothing.
       case — the inversion is the semantic core of this change (US-047
       WG5-13 dilution).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test distribucion-gasto.spec.ts`
-- [ ] **T1.5 (GREEN)** In `apps/mobile/src/domain/distribucion-gasto.ts`:
+- [x] **T1.5 (GREEN)** In `apps/mobile/src/domain/distribucion-gasto.ts`:
       export `BUCKETS_5030` and `BUCKETS_ANILLO` (4 items, `SinCategoria`
       last); `montoSeguro(...)` degrades malformed totals to `0n` instead of
       throwing; apportion over `BUCKETS_ANILLO` so `SinCategoria` dilutes the
       other three (design §1.2). **Delete** `BUCKETS_GASTO` (do not alias)
       so `tsc` fails at every stale call site (design §1.8).
       - Verify: `pnpm --filter @moneydiary/mobile test distribucion-gasto.spec.ts` — ~10 cases green (design §3 total).
-- [ ] **T1.6 (D-09 parity gate, web side)** In
+- [x] **T1.6 (D-09 parity gate, web side)** In
       `apps/web/src/domain/distribucion-gasto.test.ts`, adopt the shared
       `it.each(CASOS_PARIDAD_ANILLO)` against web's own
       `calcularDistribucionGasto`, re-expressed (not duplicated logic) —
       web's existing cases stay.
       - Verify: `pnpm web test distribucion-gasto.test.ts`
-- [ ] **T1.7** In `apps/mobile/src/theme/colors.ts`, add the `sinCategoria:
+- [x] **T1.7** In `apps/mobile/src/theme/colors.ts`, add the `sinCategoria:
       '#8A8F9C'` token + `COLOR_BUCKET` entry (D-10). No dedicated test file
       — covered downstream by Phase 3/4b legend and ring assertions.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [ ] **T1.8 (REFACTOR + sweep)** Confirm zero remaining references to
+- [x] **T1.8 (REFACTOR + sweep)** Confirm zero remaining references to
       `BUCKETS_GASTO` anywhere in `apps/mobile` (design §1.8's point), and
       that `formatearMontoCLP`'s existing call sites
       (`resumen-view-model.ts:53,70`, `preview-cartola.ts:48,49`) still
