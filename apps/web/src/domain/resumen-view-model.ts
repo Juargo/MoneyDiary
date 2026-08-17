@@ -8,15 +8,14 @@ import {
   calcularDistribucionGasto,
   type TajadaGasto,
 } from './distribucion-gasto';
+import { aPorcentajeLabel } from './porcentaje';
 import type { BucketResumenDto, ResumenMesDto } from '../api/types';
 
 /**
- * Etiqueta explícita para "sin porcentaje": un `porcentajeBp: null` (camino
- * sinIngreso) NUNCA debe renderizarse como "0%" — se distingue con este
- * valor centinela para que el componente lo distinga de un 0 real (spec
- * W1-02, MOB-06 en mobile).
+ * Re-exportado desde `porcentaje.ts` (US-049, design §1.7's extraction) — los
+ * importadores existentes de este módulo quedan intactos.
  */
-export const SIN_PORCENTAJE_LABEL = '—';
+export { SIN_PORCENTAJE_LABEL } from './porcentaje';
 
 /**
  * ItemLeyenda — US-047 (design D-03): a 3-kind discriminated union, not two
@@ -90,19 +89,6 @@ export interface ResumenViewModel {
   readonly leyendaPrincipal: ReadonlyArray<ItemLeyenda>;
   /** Ingresos, Sin categoría — always in that order (D-03). */
   readonly leyendaComplemento: ReadonlyArray<ItemLeyenda>;
-}
-
-/**
- * Convierte `porcentajeBp` (basis points, entero seguro como number) a una
- * etiqueta de porcentaje. `null` (camino sinIngreso) mapea a
- * SIN_PORCENTAJE_LABEL, nunca a "0%" — un `0` verdadero sí mapea a "0%".
- * bp/100 es seguro como number: bp ≤ 10000, muy por debajo de 2^53.
- */
-function aPorcentajeLabel(porcentajeBp: number | null): string {
-  if (porcentajeBp === null) {
-    return SIN_PORCENTAJE_LABEL;
-  }
-  return `${porcentajeBp / 100}%`;
 }
 
 function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
