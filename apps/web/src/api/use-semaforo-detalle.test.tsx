@@ -63,15 +63,21 @@ const validDto: SemaforoDetalleDto = {
   sinCategoria: { cantidad: 2, total: '10000' },
 };
 
+// `Wrapper.queryClient` es attached (mirrors `BucketDetailList.test.tsx`'s
+// own `crearWrapper`) para que un test pueda compartir un único QueryClient
+// entre varios `renderHook` (p.ej. inspeccionar `getQueryState` de dos
+// queryKeys distintas sin instanciar dos QueryClient independientes).
 function crearWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return function Wrapper({ children }: { children: ReactNode }) {
+  function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
-  };
+  }
+  Wrapper.queryClient = queryClient;
+  return Wrapper;
 }
 
 describe('useSemaforoDetalle', () => {
@@ -88,19 +94,10 @@ describe('useSemaforoDetalle', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    function Wrapper({ children }: { children: ReactNode }) {
-      return (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      );
-    }
+    const wrapper = crearWrapper();
 
     const conPeriodo = renderHook(() => useSemaforoDetalle('2026-07'), {
-      wrapper: Wrapper,
+      wrapper,
     });
     await waitFor(() => expect(conPeriodo.result.current.isSuccess).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith(
@@ -108,16 +105,16 @@ describe('useSemaforoDetalle', () => {
     );
     expect(conPeriodo.result.current.data).toEqual(validDto);
     expect(
-      queryClient.getQueryState(['semaforo-detalle', '2026-07']),
+      wrapper.queryClient.getQueryState(['semaforo-detalle', '2026-07']),
     ).toBeDefined();
 
     const sinPeriodo = renderHook(() => useSemaforoDetalle(), {
-      wrapper: Wrapper,
+      wrapper,
     });
     await waitFor(() => expect(sinPeriodo.result.current.isSuccess).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith('/api/resumen/semaforo');
     expect(
-      queryClient.getQueryState(['semaforo-detalle', 'actual']),
+      wrapper.queryClient.getQueryState(['semaforo-detalle', 'actual']),
     ).toBeDefined();
   });
 

@@ -668,6 +668,27 @@ the user selects — see forecast above).
            seed a second alien user with a DIFFERENT known state, and assert
            exact `diagnostico`/`bucketsCriticos`/`consejo`/`sinCategoria`
            values on the authenticated user's response only.
+      - **Correction (judgment-day round, PR5):** two more ledger deltas
+        recorded here, same discipline:
+        1. `client.test.ts`'s `fetchSemaforoDetalle` describe block grows
+           from T6.1's original **11** cases to **20** — the guard
+           completeness fix (WG5-05 recurrence, PR5) extends
+           `esSemaforoDetalleDto`/`esSemaforoBucketDetalleDto` to also
+           validate `periodo`, `sinIngreso`, `estadoGlobal` (enum
+           membership, not just `string|null`), `bucketsCriticos`, and each
+           bucket's `bucket`/`estadoSemaforo` (enum membership) — all of
+           which pass verbatim into `SemaforoDetalleViewModel`/
+           `BucketSemaforoViewModel` render code per
+           `semaforo-detalle-view-model.ts`. The 9 new cases are 8
+           rejections (one per newly-validated field/shape) + 1 acceptance
+           case pinning `estadoGlobal: null` as a valid payload.
+        2. `src/api/use-semaforo-detalle.test.ts` (T6.3's ledger filename,
+           design §3 table) never existed under that extension — the file
+           needs JSX (`<QueryClientProvider>`) for its wrapper, so it was
+           created (and stays) as `use-semaforo-detalle.test.tsx`, same
+           precedent already called out in that file's own top comment
+           re: `use-me.test.tsx`. Ledger prose corrected accordingly; case
+           count (2) is unchanged.
 - [ ] **T8.3 (Spec Purpose-prose reminders for archive — do NOT skip)**
       When this change archives:
       - `openspec/specs/user-data-isolation/spec.md` Purpose section: "4
