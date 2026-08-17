@@ -271,7 +271,7 @@ Requirements: MOB-08, MOB-10. Depends on Phase 1 (`BUCKETS_ANILLO`/
 `BUCKETS_5030`, `montoSeguro`) and Phase 2 (`ResumenAnualDto` shape already
 typed via `@moneydiary/api-client`).
 
-- [ ] **T3.1 (RED)** In `apps/mobile/src/domain/resumen-view-model.spec.ts`,
+- [x] **T3.1 (RED)** In `apps/mobile/src/domain/resumen-view-model.spec.ts`,
       add ~12 cases: `leyendaPrincipal` is exactly 3 `kind:'gasto'` items in
       canonical order (1); its percentages equal the diluted ring values,
       not renormalized (1); `leyendaComplemento` is always `[ingreso,
@@ -286,7 +286,7 @@ typed via `@moneydiary/api-client`).
       targets" and "deriva periodoLabel" (design §1.8) — confirm they are
       gone, not just unedited.
       - Verify (expect RED for new cases): `pnpm --filter @moneydiary/mobile test resumen-view-model.spec.ts`
-- [ ] **T3.2 (GREEN)** In `apps/mobile/src/domain/resumen-view-model.ts`:
+- [x] **T3.2 (GREEN)** In `apps/mobile/src/domain/resumen-view-model.ts`:
       port `ItemLeyenda` (discriminated union `'gasto'`|`'sinCategoria'`|
       `'ingreso'`) verbatim; `leyendaPrincipal` (filtered, never
       renormalized) + `leyendaComplemento` (fixed order, always both) per
@@ -294,13 +294,40 @@ typed via `@moneydiary/api-client`).
       with `MesAnualViewModel`/`ResumenAnualViewModel` (design §1.4(c));
       drop `targets` and `periodoLabel`.
       - Verify: `pnpm --filter @moneydiary/mobile test resumen-view-model.spec.ts` — ~12 new + regression on unedited cases green.
-- [ ] **T3.3 (REFACTOR)** Confirm `resumen-view-model.ts` imports only
+- [x] **T3.3 (REFACTOR)** Confirm `resumen-view-model.ts` imports only
       domain-tier modules (`distribucion-gasto`, `periodo-anual`,
       `formatear-monto`) — never `react-native-svg` or `theme/` (design §0
       dependency rule).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test resumen-view-model.spec.ts`
 
 **PR3 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~330 lines, ~12 tests.
+
+**PR3 real (post-lint):** mobile suite 290 → 302 total (+12; 12 new/split
+cases in `resumen-view-model.spec.ts`, 12 pre-existing unedited cases still
+green). `tsc --noEmit` clean, `eslint` clean (one prettier auto-fix applied).
+**Deviation (documented in the spec/view-model's own comments, not silent):**
+design §1.8/§5 call for PR3 to DROP `targets`/`periodoLabel` from
+`ResumenViewModel`. Under the apply-gate's resolved `stacked-to-main` chain
+strategy — which the design's original PR slicing did not anticipate (design
+recommended `feature-branch-chain`, overridden at the apply gate) — dropping
+those two fields in PR3 alone would break `tsc` on `main` the moment PR3
+merges, because `ResumenScreen.tsx` (components tier, out of PR3's scope
+guard) still reads both fields until PR4a/4b (`targets`, `DistribucionPie`'s
+IDEAL-inset removal) and PR5b (`periodoLabel`, the shell move) actually
+rewrite their consumers. Resolution: kept both fields on `ResumenViewModel`
+for backward compatibility, added `leyendaPrincipal`/`leyendaComplemento`/
+`aResumenAnualViewModel`/`ItemLeyenda`/`MesAnualViewModel`/
+`ResumenAnualViewModel` as designed; deferred the two removals to the PRs
+that actually rewrite their last consumer (per design §1.8's own removal
+table). One knock-on fix: `ResumenScreen.spec.tsx`'s hand-built
+`ResumenViewModel` fixture needed the two new required fields added (minimal
+type-completeness patch, no behavior/assertion change — `ResumenScreen.tsx`
+doesn't read them yet); that spec file is rewritten wholesale in T4b.7
+anyway. **Action for Phase 4a/4b/5b:** when rewriting `DistribucionPie`/
+`ResumenScreen.tsx` (targets) and `app/index.tsx` (periodoLabel), also
+remove the now-dead `targets`/`periodoLabel` fields from `ResumenViewModel`
+and delete the two "retenido hasta PR4a/4b" tests this PR kept in
+`resumen-view-model.spec.ts` — do not let them survive past PR5b.
 
 ---
 
