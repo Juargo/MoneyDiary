@@ -41,6 +41,7 @@ function filaKey(item: ItemLeyenda): string {
 function Punto({ bucket }: { readonly bucket: string }) {
   return (
     <View
+      aria-hidden
       className="h-3 w-3 rounded-full"
       style={{ backgroundColor: COLOR_BUCKET[bucket] ?? '#CCCCCC' }}
     />
