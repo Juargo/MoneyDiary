@@ -801,7 +801,7 @@ recomputed.** `git diff origin/main...HEAD --numstat -- apps/mobile`:
 `src/domain/resumen-view-model.ts` 0/12, `test/auth-navigation.integration.spec.tsx`
 61/1, `src/components/ResumenScreen.spec.tsx` 0/1). `Loading.tsx`/
 `Loading.spec.tsx` net to **zero** diff vs `origin/main` — T5b.1's `mensaje`
-prop was added then fully reverted by judgment, cancelling out. 9 commits
+prop was added then fully reverted by judgment, cancelling out. 10 commits
 total on `feat/us-050-mobile-pr5b-shell` (the original 5-commit apply +
 `91f75bcb` periodoLabel retirement + 4 judgment-fix commits: dead-import
 removal, Loading revert, docs correction, D-15/MOB-14 test rewrite).
