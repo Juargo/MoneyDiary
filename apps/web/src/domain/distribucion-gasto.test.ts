@@ -4,6 +4,7 @@ import {
   BUCKETS_ANILLO,
   calcularDistribucionGasto,
 } from './distribucion-gasto';
+import { CASOS_PARIDAD_ANILLO } from './__fixtures__/distribucion-anillo.fixture';
 
 // DOM port of apps/mobile/src/domain/distribucion-gasto.spec.ts — pure BigInt
 // math, no platform dependency, so the port is verbatim.
@@ -235,4 +236,17 @@ describe('calcularDistribucionGasto', () => {
       );
     });
   });
+
+  // US-050 (design §2 D-09): runs web's OWN calcularDistribucionGasto
+  // against the shared ring-parity fixture table — apps/mobile runs the
+  // same table against ITS own implementation
+  // (apps/mobile/src/domain/distribucion-gasto.spec.ts), and a byte-equality
+  // guard on the mobile side keeps both fixture files in sync.
+  it.each(CASOS_PARIDAD_ANILLO)(
+    'paridad de anillo: $nombre',
+    ({ buckets, esperado }) => {
+      const tajadas = calcularDistribucionGasto(buckets);
+      expect(tajadas.map((t) => [t.bucket, t.porcentaje])).toEqual(esperado);
+    },
+  );
 });

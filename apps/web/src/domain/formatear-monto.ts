@@ -18,9 +18,9 @@
 // ('0x10'), octal ('0o7'), binario ('0b1'), signo '+' explícito y espacios
 // en blanco circundantes — ninguno de esos es un monto CLP válido y
 // BigInt() los "resuelve" en silencio a un valor numérico distinto (money
-// safety hole). Esta guarda web es intencionalmente más estricta que el
-// puerto mobile (`apps/mobile/src/domain/formatear-monto.ts`), que no
-// valida el formato antes de llamar a BigInt(...).
+// safety hole). El puerto mobile (`apps/mobile/src/domain/formatear-monto.ts`)
+// aplica esta misma guarda estricta antes de llamar a BigInt(...) — ambos
+// workspaces comparten hoy el mismo comportamiento.
 const FORMATO_DECIMAL_VALIDO = /^-?\d+$/;
 
 /**

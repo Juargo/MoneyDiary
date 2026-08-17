@@ -1,10 +1,27 @@
+import { esMontoStringValido } from './formatear-monto';
+
 /**
- * The three spending buckets that make up the "Distribución del gasto" pie,
- * in the canonical display order. `SinCategoria` is deliberately excluded —
- * the mockup's pie is the split across these three, and an uncategorized
- * amount is neither a need, a want, nor savings.
+ * US-050 (design §1.2): the old single `BUCKETS_GASTO` allowlist was split
+ * into two constants so the compiler forces every call site to declare which
+ * set it meant (no alias — deleting the old name makes `tsc` fail loudly
+ * instead of silently keeping a stale membership). Convergence back to
+ * apps/web/src/domain/distribucion-gasto.ts, which was originally a port OF
+ * this file.
+ *
+ * `BUCKETS_5030` — the three spending buckets, canonical display order (the
+ * legend's `leyendaPrincipal` filters the 4-item ring down to this set for
+ * display, WITHOUT renormalizing — see design §1.4).
  */
-const BUCKETS_GASTO = ['Necesidades', 'Deseos', 'Ahorro'] as const;
+export const BUCKETS_5030 = ['Necesidades', 'Deseos', 'Ahorro'] as const;
+
+/**
+ * `BUCKETS_ANILLO` — the four ring members (US-047 WG5-13): the three spend
+ * buckets plus `SinCategoria`, in ring order. `calcularDistribucionGasto`
+ * apportions over these 4 items, so an uncategorized amount DILUTES the
+ * three spend-bucket ring percentages instead of being excluded from the
+ * denominator.
+ */
+export const BUCKETS_ANILLO = [...BUCKETS_5030, 'SinCategoria'] as const;
 
 const PRECISION = 1_000_000n;
 
@@ -22,6 +39,19 @@ interface EntradaBucket {
 }
 
 /**
+ * Money guard (US-050, design §1.2 — ported from
+ * apps/web/src/domain/distribucion-gasto.ts). The fetch-boundary guard
+ * (`api/client.ts`/`esMontoStringValido`, D-14) arrives with Phase 2 — until
+ * then, this is the ONLY guard between a malformed money string and a bare
+ * `BigInt(...)` call, and there is no ErrorBoundary in this app, so an
+ * unvalidated bad string would throw a raw `SyntaxError` mid-render.
+ * Degrades an invalid/empty total to `0n` instead of throwing, by design.
+ */
+function montoSeguro(montoStr: string): bigint {
+  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n;
+}
+
+/**
  * Computes each spending bucket's SHARE OF TOTAL SPENDING (not share of
  * income — that is `porcentajeBp`, the 50/30/20 reading). Money totals are
  * BigInt-parsed decimal strings (MOB-05: never `parseFloat`/`Number` on an
@@ -31,18 +61,23 @@ interface EntradaBucket {
  * displayed numbers always sum to exactly 100 — never 99 or 101. When there is
  * no spending, returns `[]` so the caller can render an empty-pie placeholder
  * instead of dividing by zero.
+ *
+ * Apportions over `BUCKETS_ANILLO` (4 items) — mobile does NOT port web's
+ * trailing optional `bucketsIncluidos` parameter (design §1.2 D-08): every
+ * mobile call site wants the full 4-item ring, and the legend filters
+ * (never renormalizes) for display.
  */
 export function calcularDistribucionGasto(
   buckets: readonly EntradaBucket[],
 ): TajadaGasto[] {
   const porNombre = new Map(buckets.map((b) => [b.bucket, b.total]));
 
-  const incluidos = BUCKETS_GASTO.filter((nombre) => porNombre.has(nombre)).map(
-    (nombre) => ({
-      bucket: nombre,
-      monto: BigInt(porNombre.get(nombre) as string),
-    }),
-  );
+  const incluidos = BUCKETS_ANILLO.filter((nombre) =>
+    porNombre.has(nombre),
+  ).map((nombre) => ({
+    bucket: nombre,
+    monto: montoSeguro(porNombre.get(nombre) as string),
+  }));
 
   const total = incluidos.reduce((suma, b) => suma + b.monto, 0n);
   if (total <= 0n) {
