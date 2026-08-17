@@ -42,7 +42,6 @@ const viewModel: ResumenViewModel = {
     { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
   ],
-  targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
   // US-050 PR3: `ResumenViewModel` gained `leyendaPrincipal`/
   // `leyendaComplemento` (design §1.4a/b). This fixture is a minimal

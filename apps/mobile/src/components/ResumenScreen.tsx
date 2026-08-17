@@ -9,7 +9,7 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
 /**
  * Data-state composition (MOB-03/MOB-04): the resolved `ResumenViewModel`
  * rendered as the mockup's screen — header, INGRESOS hero, and the
- * "Distribución del gasto" card (pie + IDEAL inset + global semáforo + legend
+ * "Distribución del gasto" card (pie + global semáforo + legend
  * + a "Ver detalles" affordance stubbed for US-017). Pure presentation: it
  * consumes already-formatted strings and pre-computed slices from the
  * view-model (no fetch, no env, no money math). The "Distribución del gasto"
@@ -42,10 +42,7 @@ export function ResumenScreen({
             </View>
           </View>
 
-          <DistribucionPie
-            tajadas={viewModel.distribucionGasto}
-            targets={viewModel.targets}
-          />
+          <DistribucionPie tajadas={viewModel.distribucionGasto} />
 
           <LeyendaGasto tajadas={viewModel.distribucionGasto} />
 
