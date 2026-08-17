@@ -12,6 +12,14 @@ export const COLORS = {
   necesidades: '#464B69',
   gustos: '#E7E1BF',
   ahorro: '#3E9B52',
+  // US-050 (design §2 D-10): the 4th ring wedge (SinCategoria) — a neutral
+  // grey, same SEMANTICS as web's own SinCategoria color (uncategorized is
+  // not over-budget, so it must not borrow an accent), but a DIFFERENT hex:
+  // web's lib/bucket-colors.ts explicitly says not to port its migration to
+  // apps/mobile. Reuses the neutral this palette already has for "sin
+  // datos" (see `semaforoSinDatosIcon` below) instead of inventing a second
+  // near-identical grey.
+  sinCategoria: '#8A8F9C',
 
   // Semáforo — icon color + its tinted circle background.
   semaforoVerdeIcon: '#3E9B52',
@@ -39,6 +47,7 @@ export const COLOR_BUCKET: Record<string, string> = {
   Necesidades: COLORS.necesidades,
   Deseos: COLORS.gustos,
   Ahorro: COLORS.ahorro,
+  SinCategoria: COLORS.sinCategoria,
 };
 
 /**

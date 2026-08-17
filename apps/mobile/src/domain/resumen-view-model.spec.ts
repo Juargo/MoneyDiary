@@ -134,13 +134,21 @@ describe('aResumenViewModel', () => {
     expect(vm.periodoLabel).toBe('Junio 2026');
   });
 
-  it('calcula la distribución de gasto (share-of-gasto) para el pie, excluyendo SinCategoria', () => {
+  // US-050 PR1 (design §4 impact sweep — "blast radius is the returned
+  // array's length"): calcularDistribucionGasto now apportions over the
+  // 4-item BUCKETS_ANILLO (SinCategoria dilutes, WG5-13) instead of the old
+  // 3-item BUCKETS_GASTO. `distribucionGasto` is a direct passthrough here
+  // (no filtering in this file yet — that lands in PR3's leyendaPrincipal),
+  // so this pre-existing assertion is updated to the new, intentional
+  // 4-item shape. Production code in this file is unchanged.
+  it('calcula la distribución de gasto (share-of-gasto) para el pie, incluyendo SinCategoria en el anillo', () => {
     const vm = aResumenViewModel(dto());
-    // Necesidades 400k / Deseos 250k / Ahorro 350k → 40/25/35 sobre el gasto.
+    // Necesidades 400k / Deseos 250k / Ahorro 350k / SinCategoria 0 → 40/25/35/0.
     expect(vm.distribucionGasto.map((t) => [t.bucket, t.porcentaje])).toEqual([
       ['Necesidades', 40],
       ['Deseos', 25],
       ['Ahorro', 35],
+      ['SinCategoria', 0],
     ]);
   });
 
