@@ -72,4 +72,20 @@ describe('arcoPath', () => {
     expect(igual).toBe(legacy);
     expect(mayor).toBe(legacy);
   });
+
+  // Port of apps/web/src/domain/pie-geometry.test.ts (verbatim, D-01): the
+  // 360°+donut branch had zero direct assertions on the interior arc's sweep
+  // flag — this is the case that pins it.
+  it('un barrido completo (0→360) con rInterior > 0 emite dos subpaths con sweep-flag opuesto y sin NaN — un mes 100% en un solo bucket es un ANILLO, no un disco (D-01)', () => {
+    const d = arcoPath(100, 100, 80, 0, 360, 40);
+    expect(d).not.toContain('NaN');
+    // Two independent closed subpaths — one per concentric circle.
+    expect((d.match(/M /g) ?? []).length).toBe(2);
+    expect((d.match(/Z/g) ?? []).length).toBe(2);
+    // Outer circle keeps the pre-existing forward sweep (flag 1); the inner
+    // circle is drawn with the OPPOSITE sweep flag (0) so the default
+    // non-zero fill rule punches the hole.
+    expect(d).toContain('A 80 80 0 1 1');
+    expect(d).toContain('A 40 40 0 1 0');
+  });
 });

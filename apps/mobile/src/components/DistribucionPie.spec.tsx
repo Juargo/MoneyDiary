@@ -44,4 +44,16 @@ describe('DistribucionPie', () => {
     await render(<DistribucionPie tajadas={tajadas} />);
     expect(screen.getByLabelText('Distribución del gasto')).toBeOnTheScreen();
   });
+
+  it('a single 100% bucket renders one donut path with two subpaths (360°+donut branch, D-01)', async () => {
+    const unaTajada: readonly TajadaGasto[] = [
+      { bucket: 'Necesidades', porcentaje: 100, fraccion: 1 },
+    ];
+    await render(<DistribucionPie tajadas={unaTajada} />);
+    const slices = screen.getAllByTestId('pie-slice');
+    expect(slices).toHaveLength(1);
+    const d = slices[0].props.d as string;
+    expect((d.match(/M /g) ?? []).length).toBe(2);
+    expect((d.match(/Z/g) ?? []).length).toBe(2);
+  });
 });
