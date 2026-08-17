@@ -946,6 +946,55 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/ingresos/mes": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Monthly income list by origin (bank/Manual)
+         * @description Authenticated sibling endpoint to GET /api/buckets/{bucket}/detalle (US-052): returns the monthly income detail — a header with the total Σ abono (BigInt-safe string) and count, and ALL transactions with their origin = bank NAME verbatim (CA-02, MID-02) or "Manual", never account PII (tipoCuenta/numeroCuenta, MID-06). Top-level path, NOT a buckets sub-resource: GET /api/buckets/Ingresos/detalle keeps rejecting Ingresos with its own scrubbed 400 (MBD-07, US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).
+         */
+        readonly get: {
+            readonly parameters: {
+                readonly query?: {
+                    /** @description Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema. */
+                    readonly periodo?: string;
+                };
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Monthly income list for the resolved period — exactly {total, conteo, transacciones} with origen = bank name verbatim or "Manual" (MID-01/02/03/05). */
+                readonly 200: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["IngresosMesResponse"];
+                    };
+                };
+                /** @description Invalid periodo — malformed YYYY-MM value (domain-level, PeriodoMes VO → PeriodoInvalidoError, MID-04); the scrubbed message never echoes the raw input. */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/movimientos": {
         readonly parameters: {
             readonly query?: never;
@@ -1907,6 +1956,23 @@ export interface components {
                 readonly descripcion: string;
                 /** @description ISO-8601 UTC timestamp. */
                 readonly fecha: string;
+            }[];
+        };
+        /** @description GET /api/ingresos/mes — monthly income list by origin (bank/Manual): header total, count, and ALL transactions (US-052). */
+        readonly IngresosMesResponse: {
+            readonly conteo: number;
+            /** @description BigInt-safe decimal string amount (never a JSON number). */
+            readonly total: string;
+            /** @description Complete list — never truncated or paged (MID-01). */
+            readonly transacciones: readonly {
+                readonly descripcion: string;
+                /** @description ISO-8601 UTC timestamp. */
+                readonly fecha: string;
+                readonly id: string;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly monto: string;
+                /** @description Bank name verbatim ('BCI', 'BancoEstado', ...) or 'Manual' fallback (MID-02 / CA-02). */
+                readonly origen: string;
             }[];
         };
         /** @description GET /api/movimientos — monthly transaction list (US-014). */
