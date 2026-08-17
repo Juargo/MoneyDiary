@@ -44,26 +44,27 @@ Chain strategy: stacked-to-main
 
 ## Phase 2 — DTO + schema [PR 2]
 
-- [ ] 2.1 (RED) `detalle-bucket-mes.dto.spec.ts`: 5 cases — bigint→string; bp/meta number, null kept; `monto === String(cargo)`; **PII keys banco/tipoCuenta/numeroCuenta absent (MBD-08)**; fecha ISO.
-- [ ] 2.2 (GREEN) `detalle-bucket-mes.dto.ts` (D-06): DTO + mapper, PII trim.
-- [ ] 2.3 (RED) `bucket-detalle-mes.schema.spec.ts`: 2 cases — mapper output parses; rejects `monto: 12.5`.
-- [ ] 2.4 (GREEN) `bucket-detalle-mes.schema.ts` (D-07): reuses `bucketsPathParamsSchema`; `.meta({ id: 'BucketDetalleMesResponse' })`.
+- [x] 2.1 (RED) `detalle-bucket-mes.dto.spec.ts`: 5 cases — bigint→string; bp/meta number, null kept; `monto === String(cargo)`; **PII keys banco/tipoCuenta/numeroCuenta absent (MBD-08)**; fecha ISO. — spec: `apps/api/src/infrastructure/http/dto/detalle-bucket-mes.dto.spec.ts` (5/5 verdes; fixture reconstruye la proyección recortada desde filas fuente CON PII)
+- [x] 2.2 (GREEN) `detalle-bucket-mes.dto.ts` (D-06): DTO + mapper, PII trim. — impl: `apps/api/src/infrastructure/http/dto/detalle-bucket-mes.dto.ts` (monto = String(tx.monto); bp/meta → number|null; la PII no existe NI en el tipo de entrada)
+- [x] 2.3 (RED) `bucket-detalle-mes.schema.spec.ts`: 3 casos (ledger 2 + 1 amend) — mapper output parses; rejects `monto: 12.5`; **`.strict()` rechaza una transacción con key extra `banco` (MBD-08 wire guard)**. — spec: `apps/api/src/infrastructure/http-express/schemas/bucket-detalle-mes.schema.spec.ts` (3/3 verdes)
+- [x] 2.4 (GREEN) `bucket-detalle-mes.schema.ts` (D-07): reuses `bucketsPathParamsSchema`; `.meta({ id: 'BucketDetalleMesResponse' })`. — impl: `apps/api/src/infrastructure/http-express/schemas/bucket-detalle-mes.schema.ts`
+- [x] 2.5 (GATE PR1, additive-gate exception — sancionado) PII-trim projection fix en el borde de aplicación: `TransaccionDetalleBucketMes` `{id, fecha, descripcion, monto}` + `recortarTransaccion` en `agrupar-detalle-por-categoria.ts`; `ObtenerDetalleBucketMesResult.grupos` tipado sobre la proyección recortada. Specs: service +1 caso (10→11) y use-case W-2 ampliado con asserts de PII ausente (banco/tipoCuenta/numeroCuenta/BCI/Cuenta Corriente/12345678). Firmado por el gate review: NINGÚN caller del use case puede ver PII — no solo el DTO.
 
 ## Phase 3 — Route + container + openapi [PR 3]
 
-- [ ] 3.1 (RED) `openapi-document.spec.ts` +1: registers the route with `periodo` query, 200/400.
-- [ ] 3.2 (GREEN) `openapi-document.ts`: operation + **append** path entry at END (D-11).
-- [ ] 3.3 (GREEN) `buckets.routes.ts`: `registrarBucketDetalleMes` — flat-route handler shape (scrubbed 400s, `next(err)`).
-- [ ] 3.4 (GREEN) `container.ts`: `obtenerDetalleBucketMes` — one `new PrismaDetalleBucketRepository(prisma, crypto)` + one `new PrismaResumenMesRepository(prisma)` (D-10).
-- [ ] 3.5 (GREEN) `app.ts`: mount after `registrarBuckets` (~line 172).
-- [ ] 3.6 `pnpm api openapi:emit`; commit `openapi.json`; `openapi:check` exits 0.
+- [x] 3.1 (RED) `openapi-document.spec.ts` +1: registers the route with `periodo` query, 200/400. — spec: `apps/api/src/infrastructure/http-express/schemas/openapi-document.spec.ts` (+1 caso US-051; RED confirmado: path undefined antes del GREEN)
+- [x] 3.2 (GREEN) `openapi-document.ts`: operation + **append** path entry at END (D-11). — impl: `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (`bucketDetalleMesOperation` + `'/api/buckets/{bucket}/detalle'` APPENDED tras `/api/resumen/semaforo`, sin reordenar; reusa `bucketsPathParamsSchema` + `bucketDetalleMesQuerySchema`/`bucketDetalleMesResponseSchema`)
+- [x] 3.3 (GREEN) `buckets.routes.ts`: `registrarBucketDetalleMes` — flat-route handler shape (scrubbed 400s, `next(err)`). — impl: `apps/api/src/infrastructure/http-express/routes/buckets.routes.ts` (misma disciplina del flat: allowlist 4-bucket D-08 → 400 scrubbeado, `PeriodoInvalidoError` MBD-04 → 400 scrubbeado, `next(err)` inesperado, `userId` de sesión al use case, respuesta vía `aDetalleBucketMesDto`)
+- [x] 3.4 (GREEN) `container.ts`: `obtenerDetalleBucketMes` — one `new PrismaDetalleBucketRepository(prisma, crypto)` + one `new PrismaResumenMesRepository(prisma)` (D-10). — impl: `apps/api/src/composition/container.ts` (interface + wiring, un-`new`-por-repository, sin `crear-*`)
+- [x] 3.5 (GREEN) `app.ts`: mount after `registrarBuckets` (~line 172). — impl: `apps/api/src/infrastructure/http-express/app.ts` (línea 176, post-`registrarBuckets`; fakes `as unknown as Container` absorben el campo nuevo — sweep tsc OK, patrón US-049 T5.9)
+- [x] 3.6 `pnpm api openapi:emit`; commit `openapi.json`; `openapi:check` exits 0. — `openapi.json` regenerado (178 líneas, path nuevo + schema `BucketDetalleMesResponse`); `openapi:check` ✅; commit `aec3cff`
 
 ## Phase 4 — Hermetic app + e2e [PR 4]
 
-- [ ] 4.1 (RED) `app.bucket-detalle-mes.spec.ts`: 6 cases — 401 sin x-api-key; 401 api-key sin sesión; 200 + **session `userId` fluye al use case**; 400 scrubbed PeriodoInvalidoError; 400 scrubbed BucketInvalidoError; body parses schema.
-- [ ] 4.2 (GREEN) No new prod code expected; RED signals a PR1–3 gap — fix there.
-- [ ] 4.3 (RED) `test/bucket-detalle-mes.e2e-spec.ts`: 8 cases — 7 ledger (no periodo→UTC; `not-a-date`→400 scrubbed; DTO shape, 5 txs, no paging; empty month `"0"`/0/0/`[]`; >MAX_SAFE exact; two-user isolation, B never in A; Ingresos→400) + **W-1: filled header, income 1 500 000 → `total "250000"`, 5 txs, 2 categorías, `porcentajeBp` 1667, Σ `conteo` === `totalTransacciones`**.
-- [ ] 4.4 Full sweep: `pnpm api test` · `test:integration` · `test:e2e` (destructive) · `tsc --noEmit` · `openapi:check` · `lint:ci`.
+- [x] 4.1 (RED) `app.bucket-detalle-mes.spec.ts`: 6 cases — 401 sin x-api-key; 401 api-key sin sesión; 200 + **session `userId` fluye al use case**; 400 scrubbed PeriodoInvalidoError; 400 scrubbed BucketInvalidoError; body parses schema. — spec: `apps/api/src/infrastructure/http-express/app.bucket-detalle-mes.spec.ts` (6/6 verdes; RED confirmado via `Cannot find module` + 401/400 asserts antes del GREEN)
+- [x] 4.2 (GREEN) No new prod code expected; RED signals a PR1–3 gap — fix there. — sin hueco PR1-3; los 6 casos del spec hermético pasan sobre el código existente
+- [x] 4.3 (RED) `test/bucket-detalle-mes.e2e-spec.ts`: 8 cases — 7 ledger (no periodo→UTC; `not-a-date`→400 scrubbed; DTO shape, 5 txs, no paging; empty month `"0"`/0/0/`[]`; >MAX_SAFE exact; two-user isolation, B never in A; Ingresos→400) + **W-1: filled header, income 1 500 000 → `total "250000"`, 5 txs, 2 categorías, `porcentajeBp` 1667, Σ `conteo` === `totalTransacciones`**. — spec: `apps/api/test/bucket-detalle-mes.e2e-spec.ts` (8 casos incl. W-1; e2e local verde con DB desechable provisionada)
+- [x] 4.4 Full sweep: `pnpm api test` · `test:integration` · `test:e2e` (destructive) · `tsc --noEmit` · `openapi:check` · `lint:ci`. — `pnpm api test`: 235 files / 2047 verdes; `test:e2e`: 13 files / 67 verdes; `tsc --noEmit` limpio; `openapi:check` 0.
 
 ## Phase 5 — Closing
 
