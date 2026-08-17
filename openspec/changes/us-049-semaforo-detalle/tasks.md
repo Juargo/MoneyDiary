@@ -623,29 +623,50 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
       - Verify: `pnpm web typecheck`.
 - [x] **T7.10** Full web verification: `pnpm web test` (unit/jsdom) ·
       `pnpm web typecheck` · `pnpm web lint:ci` · `pnpm web build`.
-      - **Line-count note (recorded, not silently patched):** real diff for
-        this slice is **993 changed lines** (950 insertions/43 deletions
-        across 11 files) vs. the design §5 estimate of ~470 — same
-        undercount pattern as PR4 (1504 vs ~600) and PR5 (~1000 vs ~380):
-        the ledger's line estimates consistently undercount test-file
-        volume in this change. Breakdown: 2 new components + tests
-        (`ZonaBar` 71+94, `BucketSemaforoCard` 56, `SemaforoDetallePage`
-        118+334), the real route (49 lines, was a 42-line stub),
-        `router-harness.tsx` extended (+23, new `/buckets/$bucket`
-        sentinel), `semaforo-route.test.tsx` extended (+135, 1 rewritten +
-        3 net-new cases — the ledger's own "1 rewritten + 2 new" undercounts
-        by one: a 3rd new case, "deep link reaches the hook with that
-        period", was added alongside the 2 the ledger names, for symmetry
-        with the CA-08 back-link assertion), `eslint.config.js` (+13),
-        Playwright fixture (+76) + spec (+67). All 11 files stay within
-        `apps/web` — no scope creep, every new line traces to a T7.x task
-        above. Verified: `pnpm web test` 107 files/1128 tests green;
-        `pnpm web typecheck` clean; `pnpm web exec eslint .` 0 errors/2
-        pre-existing warnings; `pnpm web build` clean; full Playwright
-        suite 57 passed/45 skipped (project-scoped), 0 failed — the 2 new
-        `semaforo-detalle.e2e.ts` cases pass at the `escritorio` project
-        (design delta note: `/semaforo` has no responsive claim, so
-        `movil`/`tablet` are skipped by design, not a coverage gap).
+      - **Line-count note (recorded, not silently patched; corrected —
+        judgment round 1 caught the note's own error):** real diff for this
+        slice is **1036 changed lines** (993 insertions/43 deletions across
+        11 files, excluding this file's own edit — ~1079 including it) vs.
+        the design §5 estimate of ~470 — same undercount pattern as PR4
+        (1504 vs ~600) and PR5 (~1000 vs ~380): the ledger's line estimates
+        consistently undercount test-file volume in this change. (The
+        previous version of this note said "993 changed (950/43)" —
+        wrong: insertions were 993, not 950; 950+43=993 was an internally
+        consistent but incorrect total, since 993+43=1036.) Breakdown: 2
+        new components + tests (`ZonaBar` 71+94, `BucketSemaforoCard` 56,
+        `SemaforoDetallePage` 118+334), the real route (49 lines, was a
+        42-line stub), `router-harness.tsx` extended (+23, new
+        `/buckets/$bucket` sentinel), `semaforo-route.test.tsx` extended
+        (+135, 1 rewritten + 2 net-new cases). **Correction:** there was
+        NO route-test deviation — the design's own ledger (§5,
+        `semaforo-route.test.tsx` row) already listed "+2 (1 rewritten)",
+        i.e. 1 rewritten + 2 new cases, which is exactly what shipped
+        ("Volver al resumen" preserves `periodo`; a deep link
+        `?periodo=2026-07` reaches the hook with that period). The
+        previous version of this note claimed the ledger's "1 rewritten +
+        2 new" undercounted by one and that a 3rd new case was added — that
+        claim was itself wrong and is retracted here. `eslint.config.js`
+        (+13), Playwright fixture (+76) + spec (+67). All 11 files stay
+        within `apps/web` — no scope creep, every new line traces to a
+        T7.x task above. Verified: `pnpm web test` 107 files/1128 tests
+        green; `pnpm web typecheck` clean; `pnpm web exec eslint .` 0
+        errors/2 pre-existing warnings; `pnpm web build` clean; full
+        Playwright suite 57 passed/45 skipped (project-scoped), 0 failed —
+        the 2 new `semaforo-detalle.e2e.ts` cases pass at the `escritorio`
+        project (design delta note: `/semaforo` has no responsive claim,
+        so `movil`/`tablet` are skipped by design, not a coverage gap).
+      - **Judgment round 1 follow-up (post-hoc, this same note-edit):**
+        three tests added — `BucketSemaforoCard`'s label heading demoted
+        `h3` → `h2` (no intermediate section heading needed between the
+        page's `h1` and the cards); a WSEM-05 zero-count case in
+        `SemaforoDetallePage.test.tsx` asserting the Sin categoría block
+        is ABSENT when `sinCategoria.cantidad === 0`; and a new
+        `zona-bar-sources.test.ts` source-scanning guard asserting none of
+        the six classification bp literals (5000/6000/3000/4000/2000/1000)
+        appear as bare numeric tokens in `ZonaBar.tsx` or
+        `BucketSemaforoCard.tsx`. Re-verified green: `pnpm web test` 108
+        files/1141 tests; `pnpm web typecheck` clean; `pnpm web exec
+        eslint .` 0 errors/2 pre-existing warnings.
 
 ---
 

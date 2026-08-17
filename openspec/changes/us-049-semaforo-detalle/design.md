@@ -516,6 +516,13 @@ card labels `'Meta'`, `'Tu mes'`, `'Rango verde'`, `'Rango amarillo'`.
 Preserved from the stub: `'Semáforo'`, `'Volver al resumen'`. Estado words are **not** new
 literals — they come from `resolverEstiloSemaforo`.
 
+**Documented deviation:** the planned static range-label literals (`'Tu mes'`, `'Rango verde'`,
+`'Rango amarillo'`, standalone `'Sin categoría'`) were superseded during implementation by
+labels **computed dynamically** from the wire bands (`` `${desdePct}–${hastaPct}%` `` in
+`semaforo-detalle-view-model.ts`, feeding `ZonaBar`'s segment list) — a stricter reading of R2
+(no threshold literal in the client) than the plan called for, catching WSEM-03 conformance the
+static-literal design would have left looser. No static card-label literals ship.
+
 **`eslint.config.js` (MODIFIED)** — the US-047 scoped-ERROR block already globs
 `src/routes/_authenticated/semaforo*.tsx` and `src/components/SemaforoBadge.tsx`. Add a US-049
 block (same FILE-LIST form, same rationale — loose siblings, no directory glob) for
