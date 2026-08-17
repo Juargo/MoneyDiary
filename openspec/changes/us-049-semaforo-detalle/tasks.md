@@ -312,7 +312,7 @@ on Phase 2 (`montoParaVerde` exists; this phase wires it into
 Requirements: SEM-01, SEM-06, SEM-08, SEM-09, ADR-013/033 (log scrubbing).
 Depends on Phase 3 (`construirSemaforoDetalle` exists).
 
-- [ ] **T4.1 (RED)** Create
+- [x] **T4.1 (RED)** Create
       `apps/api/src/application/use-cases/obtener-semaforo-detalle.use-case.spec.ts`
       with the 6 cases from design §3's ledger: periodo absent →
       `PeriodoMes.actual()` (1); periodo válido → reader receives it (1);
@@ -324,17 +324,22 @@ Depends on Phase 3 (`construirSemaforoDetalle` exists).
       `bucketsCriticos.length`) — never montos, never the diagnosis
       sentence (1).
       - Verify (expect RED): `pnpm api test obtener-semaforo-detalle.use-case.spec.ts`
-- [ ] **T4.2 (GREEN)** Create
+- [x] **T4.2 (GREEN)** Create
       `apps/api/src/application/use-cases/obtener-semaforo-detalle.use-case.ts`
       mirroring `CalcularResumenMesUseCase` step for step (design §1.5):
       reuses `IResumenMesReader` + `construirResumenMesDesdeFilas`;
       `PeriodoInvalidoError` is the ONLY error case; never throws; never
       imports infrastructure.
       - Verify: `pnpm api test obtener-semaforo-detalle.use-case.spec.ts` green.
-- [ ] **T4.3 (REFACTOR)** Confirm the use case does not duplicate any query
+- [x] **T4.3 (REFACTOR)** Confirm the use case does not duplicate any query
       — same `IResumenMesReader.sumarPorBucket` call shape as
       `CalcularResumenMesUseCase` (D-01 — no second query path).
       - Verify: `pnpm api exec tsc --noEmit`.
+      - Verified: `ObtenerSemaforoDetalleUseCase.execute` calls
+        `this.reader.sumarPorBucket(input.userId, periodoVO)` — the exact same
+        single call shape as `CalcularResumenMesUseCase`, both feeding
+        `construirResumenMesDesdeFilas`. No second query path introduced.
+        `tsc --noEmit` clean.
 
 ---
 
