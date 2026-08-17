@@ -675,10 +675,10 @@ Requirements: WSEM-01..08, CA-01..08. Depends on Phase 6.
 Depends on all prior phases landing (on `main`, per whichever chain strategy
 the user selects — see forecast above).
 
-- [ ] **T8.1** Post the issue **#382** closure comment: `SemaforoBadge`
+- [x] **T8.1** Post the issue **#382** closure comment: `SemaforoBadge`
       adopted as the static header badge in `SemaforoDetallePage.tsx`
       (T7.4) — link the PR that ships WSEM-01. Close #382.
-- [ ] **T8.2 (Ledger reconciliation)** Confirm the actual test count
+- [x] **T8.2 (Ledger reconciliation)** Confirm the actual test count
       matches design §3's ledger: 131 backend (5+102+6+5+2+1+5+5 per suite)
       + 48 web (11+2+12+5+14+2+2) = 179 new cases, plus 39 backend +
       unchanged and 1 web case rewritten (not net-new). If any suite's
@@ -733,7 +733,7 @@ the user selects — see forecast above).
            precedent already called out in that file's own top comment
            re: `use-me.test.tsx`. Ledger prose corrected accordingly; case
            count (2) is unchanged.
-- [ ] **T8.3 (Spec Purpose-prose reminders for archive — do NOT skip)**
+- [x] **T8.3 (Spec Purpose-prose reminders for archive — do NOT skip)**
       When this change archives:
       - `openspec/specs/user-data-isolation/spec.md` Purpose section: "4
         data-bearing endpoints" → "5 data-bearing endpoints", listing
@@ -748,7 +748,7 @@ the user selects — see forecast above).
         their own text and the `WG5-09` stub clause drops.
       - This is NOT satisfied by merging the requirement blocks alone —
         both prose updates are separate edits the archive step must make.
-- [ ] **T8.4** Final full-repo gate sweep: `pnpm test` (all workspaces) ·
+- [x] **T8.4** Final full-repo gate sweep: `pnpm test` (all workspaces) ·
       `pnpm build` (all workspaces) · `pnpm api-client exec tsc --noEmit` ·
       confirm `apps/mobile` has zero references to any new semáforo symbol
       (design §4 — zero mobile impact, out of scope) · confirm no Prisma
