@@ -181,7 +181,7 @@ count after the judgment-day fix (4 more `esMeDto` reject cases): 7 + 4 = 11.
 Requirements: CQ-3 dependency (the `code` field a real fetcher populates), proposal §4.2, D-06
 (extract `enviarMutacion` on occurrence two). Depends on PR1 (`ApiError.code`).
 
-- [ ] **T2a.1 (RED)** Create `apps/mobile/src/api/mutacion.spec.ts` (design §3 "HTTP — transport"
+- [x] **T2a.1 (RED)** Create `apps/mobile/src/api/mutacion.spec.ts` (design §3 "HTTP — transport"
       row, ~9 cases — the FULL branch matrix, asserted **exactly once** in this file per
       judgment-anticipated class 6): success (2xx) returns the raw `Response` unparsed; `content-
       type: application/json` set only when a body is present, absent on a bodyless call; headers
@@ -198,13 +198,13 @@ Requirements: CQ-3 dependency (the `code` field a real fetcher populates), propo
       add body-parsing logic to `enviarMutacion`'s success path just to manufacture a `parse` case —
       that would contradict §1.3's stated discipline.
       - Verify (expect RED — module doesn't exist): `pnpm --filter @moneydiary/mobile test mutacion.spec.ts`
-- [ ] **T2a.2 (GREEN)** Create `apps/mobile/src/api/mutacion.ts`: `enviarMutacion(url, method, body?):
+- [x] **T2a.2 (GREEN)** Create `apps/mobile/src/api/mutacion.ts`: `enviarMutacion(url, method, body?):
       Promise<ApiResult<Response>>` per design §1.3 — `API_BASE_URL` guard → `network`;
       `construirHeadersSesion()` reused verbatim + conditional `content-type`; `401` → `unauthorized`;
       other non-2xx → `errorConCodigo(res)` (`try/catch` around `res.json()`, `typeof code ===
       'string'` or `undefined`); success returns the raw `Response`; never throws.
       - Verify: `pnpm --filter @moneydiary/mobile test mutacion.spec.ts` — 9 green.
-- [ ] **T2a.3 (RED)** Create `apps/mobile/src/api/perfil.spec.ts` (~8 cases — call-shape + fetcher-
+- [x] **T2a.3 (RED)** Create `apps/mobile/src/api/perfil.spec.ts` (~8 cases — call-shape + fetcher-
       specific guards ONLY, judgment-anticipated class 6): `patchPerfil` call shape (URL
       `/api/perfil`, method `PATCH`, body = the given patch, via a `jest.mock('./mutacion')` spy);
       `patchPassword` call shape (URL `/api/perfil/password`, method `PATCH`, body); both delegate to
@@ -217,18 +217,28 @@ Requirements: CQ-3 dependency (the `code` field a real fetcher populates), propo
       thinning pass. This is the PR2a-specific instance of the general per-fetcher directive; PR2b's
       `categorias.spec.ts` follows the identical rule under the same reasoning.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test perfil.spec.ts`
-- [ ] **T2a.4 (GREEN)** Create `apps/mobile/src/api/perfil.ts`: `patchPerfil(patch: PerfilPatch):
+- [x] **T2a.4 (GREEN)** Create `apps/mobile/src/api/perfil.ts`: `patchPerfil(patch: PerfilPatch):
       ApiResult<void>`, `patchPassword(patch: PasswordPatch): ApiResult<void>`, both delegating to
       `enviarMutacion`, mirroring `apps/web/src/api/perfil.ts:29-38` (design §1.4). Types
       `PerfilPatch = {nombre?, email?, passwordActual?}`, `PasswordPatch = {passwordActual,
       passwordNueva}`.
       - Verify: `pnpm --filter @moneydiary/mobile test perfil.spec.ts` — 8 green.
-- [ ] **T2a.5 (REFACTOR + sweep)** Confirm `perfil.ts` imports `ApiError`/`ApiResult` from
+- [x] **T2a.5 (REFACTOR + sweep)** Confirm `perfil.ts` imports `ApiError`/`ApiResult` from
       `../domain/api-error` (not a fresh local declaration), and that `mutacion.ts` is the ONLY
       module in this PR that touches `fetch` directly for a write request.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR2a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~385 lines, 17 new tests.
+
+**PR2a real:** 463 lines (forecast ~385; overrun is test volume as usual — `mutacion.spec.ts` 200 vs.
+~150 forecast, `perfil.spec.ts` 136 vs. ~110 forecast, both driven by writing every branch/call-shape
+case as its own `it()` per judgment-anticipated class 6 rather than parameterized tables).
+17 new tests exactly as forecast (9 `mutacion.spec.ts` + 8 `perfil.spec.ts`). Full mobile suite:
+382/382 passed (365 baseline + 17 new), `tsc --noEmit` clean, `eslint` clean on all 4 touched files.
+T2a.1's design §3-vs-§1.3 judgment call resolved per §1.3's stated discipline: `enviarMutacion`'s
+success path never calls `res.json()`, so there is no `parse`-tag case in `mutacion.spec.ts` — the
+first test asserts the 2xx path returns the raw `Response` with `json()` never invoked, documented
+in both `mutacion.spec.ts`'s file docblock and `mutacion.ts`'s own docblock (not silently resolved).
 
 ---
 
