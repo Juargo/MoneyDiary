@@ -742,6 +742,60 @@ describe('fetchMe', () => {
       });
     });
 
+    it('rejects a missing userId', async () => {
+      const { userId: _userId, ...sinUserId } = validMeDto;
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(sinUserId),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a wrong-typed userId', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ...validMeDto, userId: 1 }),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a missing email', async () => {
+      const { email: _email, ...sinEmail } = validMeDto;
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(sinEmail),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
+    it('rejects a wrong-typed email (number — null is the one accepted non-string)', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ...validMeDto, email: 1 }),
+      });
+      const { fetchMe } = requireClient();
+
+      const result = await fetchMe();
+
+      expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+    });
+
     it('rejects a missing nombre', async () => {
       const { nombre: _nombre, ...sinNombre } = validMeDto;
       mockFetchOnce({
