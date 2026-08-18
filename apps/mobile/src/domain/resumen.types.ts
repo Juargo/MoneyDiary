@@ -17,9 +17,8 @@ export type {
 /**
  * Mirror of `GET /api/auth/me`'s success body (MOB-04). `esDemo` and a
  * nullable `email` are new required/widened fields gained from the package's
- * `AuthMeResponse` — `esMeDto` (client.ts) still requires `email` to be a
- * `string`, so a demo account currently resolves `{tag:'parse'}`. Pre-existing
- * runtime behavior, unchanged by this migration (tracked debt, design.md
- * "Mobile" adoption mapping).
+ * `AuthMeResponse` — `esMeDto` (client.ts) now accepts `email: string | null`
+ * per the wire contract, so a demo account resolves correctly. Previously
+ * tracked debt (design.md "Mobile" adoption mapping), closed by US-044 PR1.
  */
 export type { MeDto } from '@moneydiary/api-client';

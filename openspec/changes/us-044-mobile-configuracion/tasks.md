@@ -170,6 +170,10 @@ gap (`esMeDto`). Depends on nothing.
 
 **PR1 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~319 lines, 7 new tests.
 
+**PR1 real:** 439 ledger-scope changed lines (forecast 319; ADR-038 body 221 vs ~140 forecast = +81,
+`client.spec.ts` 104 vs ~80 forecast = +24, remainder minor drift across the rest). Final new-test
+count after the judgment-day fix (4 more `esMeDto` reject cases): 7 + 4 = 11.
+
 ---
 
 ## Phase PR2a — Mutation transport + perfil client
