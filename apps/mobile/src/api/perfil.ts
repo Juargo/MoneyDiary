@@ -33,7 +33,7 @@ export async function patchPerfil(
   return r.ok ? { ok: true, value: undefined } : r;
 }
 
-/** `PATCH /api/perfil/password` — MCFG-04. */
+/** `PATCH /api/perfil/password` — MCFG-03. */
 export async function patchPassword(
   patch: PasswordPatch,
 ): Promise<ApiResult<void>> {
