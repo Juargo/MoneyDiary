@@ -69,6 +69,35 @@ describe('guardar-perfil domain (US-044 PR4a)', () => {
     });
   });
 
+  describe('construirPerfilPatch — demo account (me.email = null)', () => {
+    const demoMe: MeDto = { ...sampleMe, email: null };
+
+    it('returns undefined when draft.email is empty string (unchanged for null email)', () => {
+      const draft: DraftPerfil = {
+        nombre: 'Juan Pérez',
+        email: '',
+        passwordActual: '',
+        passwordNueva: '',
+      };
+      expect(construirPerfilPatch(draft, demoMe)).toBeUndefined();
+    });
+
+    it('includes email and passwordActual in patch when draft.email is non-empty', () => {
+      const draft: DraftPerfil = {
+        nombre: 'Juan Pérez',
+        email: 'nuevo@x.com',
+        passwordActual: 'secret',
+        passwordNueva: '',
+      };
+      const patch = construirPerfilPatch(draft, demoMe);
+      expect(patch).toEqual({
+        email: 'nuevo@x.com',
+        passwordActual: 'secret',
+      });
+      expect(patch?.nombre).toBeUndefined();
+    });
+  });
+
   describe('guardarPerfil orchestration', () => {
     it('returns sin-cambios and makes zero IO calls when no fields changed', async () => {
       const mockPatchPerfil = jest.fn();

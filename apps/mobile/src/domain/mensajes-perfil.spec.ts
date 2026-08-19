@@ -195,19 +195,30 @@ describe('mensajes-perfil domain (US-044 PR4a)', () => {
   });
 
   describe('CodigoPerfil union boundaries (design §1.9)', () => {
-    it('verifies that Google-only codes are not in the mobile union', () => {
-      const validCode: CodigoPerfil = 'NOMBRE_INVALIDO';
-      expect(validCode).toBe('NOMBRE_INVALIDO');
+    it('Google-only codes are excluded from CodigoPerfil at compile time (T4a.3)', () => {
+      // Positive runtime case: a real CodigoPerfil code resolves to the expected copy.
+      expect(
+        mensajeDeApiError(
+          { tag: 'http', status: 400, code: 'NOMBRE_INVALIDO' },
+          'perfil',
+        ),
+      ).toBe('El nombre debe tener entre 1 y 80 caracteres.');
 
-      // Static check: The union should only contain non-Google profile error codes.
-      const codigosValidos: readonly CodigoPerfil[] = [
-        'PERFIL_RECHAZADO',
-        'NOMBRE_INVALIDO',
-        'EMAIL_INVALIDO',
-        'PASSWORD_INVALIDA',
-        'DEMO_SOLO_LECTURA',
-      ];
-      expect(codigosValidos).toHaveLength(5);
+      // Compile-time absence proofs: each line below MUST trigger a TypeScript error.
+      // If any @ts-expect-error is NOT followed by an actual error, tsc itself fails —
+      // that is the point of the test (T4a.3, design §1.9).
+
+      // @ts-expect-error — VINCULO_REQUIERE_PASSWORD is Google-only, not in CodigoPerfil
+      const _a: CodigoPerfil = 'VINCULO_REQUIERE_PASSWORD';
+      // @ts-expect-error — GOOGLE_YA_VINCULADO is Google-only, not in CodigoPerfil
+      const _b: CodigoPerfil = 'GOOGLE_YA_VINCULADO';
+      // @ts-expect-error — GOOGLE_NO_DISPONIBLE is Google-only, not in CodigoPerfil
+      const _c: CodigoPerfil = 'GOOGLE_NO_DISPONIBLE';
+
+      // Suppress unused-variable warnings without touching the type check above
+      void _a;
+      void _b;
+      void _c;
     });
   });
 });
