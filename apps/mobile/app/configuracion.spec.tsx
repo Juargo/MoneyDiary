@@ -142,7 +142,8 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
 
     pendingMe.resolve({ ok: true, value: sampleMe });
     await waitFor(() => {
-      expect(screen.getByTestId('perfil-panel-placeholder')).toBeOnTheScreen();
+      // PerfilPanel replaces the placeholder — check its Nombre field is rendered
+      expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
     });
   });
 
@@ -166,7 +167,8 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('perfil-panel-placeholder')).toBeOnTheScreen();
+      // PerfilPanel replaces the placeholder — check its Nombre field is rendered
+      expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
     });
   });
 
@@ -261,7 +263,8 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
     await render(<Configuracion />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('perfil-panel-placeholder')).toBeOnTheScreen();
+      // PerfilPanel replaces the placeholder — check its Nombre field is rendered
+      expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
     });
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Categorías' }));
@@ -276,7 +279,8 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Perfil' }));
 
-    expect(screen.getByTestId('perfil-panel-placeholder')).toBeOnTheScreen();
+    // PerfilPanel persists across tab switches — Nombre field still visible
+    expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
   });
 
   it('fires fetchCatalogo on initial screen focus via useFocusEffect (D-10)', async () => {
