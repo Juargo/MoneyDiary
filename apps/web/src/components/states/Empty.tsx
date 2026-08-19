@@ -4,7 +4,8 @@
  * "0%", which describe a zero amount, not an absent income. DOM port of
  * `apps/mobile/src/components/states/Empty.tsx`.
  *
- * Reused verbatim by the bucket detail screen (`BucketDetailList`, US-017):
+ * Reused verbatim by the bucket detail screen (`BucketDetalleMesPage`,
+ * US-053):
  * the default copy ("Carga una cartola…") is resumen-specific and
  * misleading when a bucket simply has no transactions this period. The
  * optional `title`/`description` props let other screens supply

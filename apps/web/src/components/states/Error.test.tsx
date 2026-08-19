@@ -35,7 +35,7 @@ describe('ErrorState', () => {
   // per-tag default (the catalog's `mensajeDeErrorCatalogo`) passes its own
   // rendered copy instead of forking the component. `error` stays required —
   // the retry affordance and the a11y contract are unchanged — and every
-  // other caller (ResumenPage, BucketDetailList, ListaIngestas, ResumenAnual)
+  // other caller (ResumenPage, BucketDetalleMesPage, ListaIngestas, ResumenAnual)
   // keeps the `error.message` default by omitting the prop.
   it('renders the caller-supplied message instead of error.message when given', () => {
     const error: ApiError = {

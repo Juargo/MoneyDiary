@@ -73,7 +73,7 @@ export function renderConRouter(
   // US-049 T7.3: `SemaforoDetallePage`'s Sin categoría notice links to
   // `/buckets/$bucket` (`WSEM-05`/CA-06) — this sentinel lets that `<Link>`
   // resolve to a real destination instead of throwing mid-test, mirroring
-  // the `/semaforo` sentinel above. No real `BucketDetailList` rendering
+  // the `/semaforo` sentinel above. No real `BucketDetalleMesPage` rendering
   // here — that component carries its own tests.
   const bucketRoute = createRoute({
     getParentRoute: () => rootRoute,

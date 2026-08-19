@@ -20,8 +20,8 @@ import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 /**
  * ResumenAnual — the annual 50/30/20 grid below the 2-column dashboard
  * section (US-030 Slice C). Self-contained: owns its own `useResumenAnual`
- * query and its own Loading/Error/Empty states, mirroring `BucketDetailList`
- * (its own `useDetalleBucket`) — the annual load stays independent of the
+ * query and its own Loading/Error/Empty states, mirroring `BucketDetalleMesPage`
+ * (its own `useDetalleBucketMes`) — the annual load stays independent of the
  * main `/api/resumen` query that feeds the rest of the dashboard.
  *
  * `anio` is derived by the caller (`ResumenScreen`) from the currently

@@ -747,7 +747,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('when the catalog fetch fails with no cached data, the select stays disabled and this component renders no banner/retry of its own — that surface now lives once in BucketDetailList (WCAT-04 delta)', async () => {
+  it('when the catalog fetch fails with no cached data, the select stays disabled and this component renders no banner/retry of its own — that surface now lives once in BucketDetalleMesPage (WCAT-04 delta)', async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === '/api/categorias') {
         return Promise.resolve({ ok: false, status: 500 });

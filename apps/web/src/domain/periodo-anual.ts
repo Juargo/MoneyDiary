@@ -67,8 +67,8 @@ export function anioDePeriodo(periodo: string, anioPorDefecto: number): number {
 
 /**
  * Today's period as `YYYY-MM`, read in UTC — never local time (same
- * discipline as the rest of the app's ISO-8601 UTC dates, e.g.
- * `detalle-bucket-view-model.ts`). Accepts an explicit `ahora` for
+ * discipline as the rest of the app's ISO-8601 UTC dates, e.g. `fecha.ts`).
+ * Accepts an explicit `ahora` for
  * deterministic tests instead of mocking global `Date`.
  */
 export function periodoActualUTC(ahora: Date): string {
