@@ -41,7 +41,7 @@ describe('useIngesta', () => {
     vi.restoreAllMocks();
   });
 
-  it('al tener éxito invalida exactamente las 3 queries (resumen, resumen-anual, detalle-bucket) y nunca movimientos', async () => {
+  it('al tener éxito invalida exactamente las 3 queries (resumen, resumen-anual, detalle-bucket-mes) y nunca movimientos', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -67,7 +67,7 @@ describe('useIngesta', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen-anual'] });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ['detalle-bucket'],
+      queryKey: ['detalle-bucket-mes'],
     });
     expect(invalidateSpy).not.toHaveBeenCalledWith({
       queryKey: ['movimientos'],

@@ -1,9 +1,7 @@
 import type {
   ApiVersionDto,
   BucketResumenDto,
-  DetalleBucketDto,
   DetalleBucketMesDto,
-  DetalleBucketTransaccionDto,
   GrupoDetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
@@ -18,7 +16,7 @@ import type {
   TransaccionResponseDto,
 } from './types';
 import { esMontoStringValido } from '../domain/formatear-monto';
-import { esFechaValida } from '../domain/detalle-bucket-view-model';
+import { esFechaValida } from '../domain/fecha';
 
 /**
  * fetchResumen — el único lugar que toca `fetch` para el endpoint de
@@ -448,144 +446,6 @@ export async function fetchResumenAnual(
 }
 
 /**
- * fetchDetalleBucket — GET /api/buckets/:bucket[?periodo=YYYY-MM] (US-017).
- * Misma disciplina que `fetchResumen`: same-origin, sin key, nunca lanza,
- * error tipado. Mensajes de 400/401/5xx son específicos de este recurso (no
- * se comparten con `fetchResumen` — el 400 aquí puede venir de un `:bucket`
- * inválido o de un `periodo` inválido, no solo de período; ver dry.md
- * "distinguir conocimiento de coincidencia").
- *
- * Guarda money-safety: valida todo lo que `aDetalleBucketViewModel`/
- * `agruparDetallePorCategoria` consumen aguas abajo — `cargo`/`abono`
- * (BigInt-string), `fecha`, `descripcion`, `categoria`. `cargo`/`abono` se
- * validan con `esMontoStringValido` (no basta con `typeof === 'string'`:
- * `formatearMontoCLP` lanza sobre `""`/`"abc"`/`"12.5"`/etc — ver
- * `esBucketResumenDto` arriba, mismo razonamiento) y `fecha` con
- * `esFechaValida` (un `fecha` no parseable produciría una fecha
- * garbled/vacía vía `aFechaLabel`, que solo hace un slice posicional sin
- * validar formato). `categoria` (US-013 CATAPI-05) debe ser `null` o
- * `{id, nombre}` con ambos campos `string` — la agrupación por categoría
- * (S6a) usa `categoria.id` como clave de grupo, así que una forma
- * inesperada aquí produciría grupos garbled en vez de fallar explícito. Un
- * 2xx que no cumpla la forma esperada nunca llega a
- * `formatearMontoCLP`/`aFechaLabel`/`agruparDetallePorCategoria` con un
- * valor inesperado — se mapea a `ApiError` tipado (tag "parse"), nunca
- * lanza.
- */
-function esCategoriaTx(
-  value: unknown,
-): value is { id: string; nombre: string } | null {
-  if (value === null) {
-    return true;
-  }
-  if (typeof value !== 'object') {
-    return false;
-  }
-  const candidato = value as Partial<{ id: string; nombre: string }>;
-  return (
-    typeof candidato.id === 'string' && typeof candidato.nombre === 'string'
-  );
-}
-
-function esDetalleBucketTransaccionDto(
-  value: unknown,
-): value is DetalleBucketTransaccionDto {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const candidato = value as Partial<DetalleBucketTransaccionDto>;
-  return (
-    typeof candidato.id === 'string' &&
-    typeof candidato.fecha === 'string' &&
-    esFechaValida(candidato.fecha) &&
-    typeof candidato.descripcion === 'string' &&
-    typeof candidato.cargo === 'string' &&
-    esMontoStringValido(candidato.cargo) &&
-    typeof candidato.abono === 'string' &&
-    esMontoStringValido(candidato.abono) &&
-    esCategoriaTx(candidato.categoria ?? null)
-  );
-}
-
-function esDetalleBucketDto(value: unknown): value is DetalleBucketDto {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const candidato = value as Partial<DetalleBucketDto>;
-  return (
-    typeof candidato.bucket === 'string' &&
-    Array.isArray(candidato.transacciones) &&
-    candidato.transacciones.every(esDetalleBucketTransaccionDto)
-  );
-}
-
-export async function fetchDetalleBucket(
-  bucket: string,
-  periodo?: string,
-): Promise<ApiResult<DetalleBucketDto>> {
-  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
-  const url = `/api/buckets/${encodeURIComponent(bucket)}${query}`;
-
-  let res: Response;
-  try {
-    res = await fetch(url);
-  } catch {
-    return {
-      ok: false,
-      error: {
-        tag: 'network',
-        message: 'No se pudo conectar con el servidor.',
-      },
-    };
-  }
-
-  if (res.status === 400) {
-    return {
-      ok: false,
-      error: {
-        tag: 'invalid',
-        message: 'El bucket o el período no son válidos.',
-      },
-    };
-  }
-  if (res.status === 401) {
-    return {
-      ok: false,
-      error: { tag: 'unauthorized', message: 'Sin acceso.' },
-    };
-  }
-  if (!res.ok) {
-    return {
-      ok: false,
-      error: {
-        tag: 'server',
-        status: res.status,
-        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
-      },
-    };
-  }
-
-  let body: unknown;
-  try {
-    body = await res.json();
-  } catch {
-    return {
-      ok: false,
-      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
-    };
-  }
-
-  if (!esDetalleBucketDto(body)) {
-    return {
-      ok: false,
-      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
-    };
-  }
-
-  return { ok: true, value: body };
-}
-
-/**
  * Guarda money-safety para `DetalleBucketMesDto` (US-051 `bucket-detalle-mes`,
  * consumido por US-053): valida exactamente lo que
  * `aDetalleBucketMesViewModel` (`domain/detalle-bucket-mes-view-model.ts`)
@@ -661,10 +521,10 @@ function esDetalleBucketMesDto(value: unknown): value is DetalleBucketMesDto {
 /**
  * fetchDetalleBucketMes — GET /api/buckets/:bucket/detalle[?periodo=YYYY-MM]
  * (US-051 `bucket-detalle-mes` MBD-01..08; consumido por US-053). Misma
- * disciplina que `fetchDetalleBucket`: same-origin, sin key, nunca lanza,
+ * disciplina que `fetchResumen`: same-origin, sin key, nunca lanza,
  * error tipado. El 400 aquí puede venir de un `:bucket` fuera de la allowlist
- * o de un `periodo` inválido — mismo mensaje que el flat sibling (el backend
- * no distingue entre ambos, ver dry.md "distinguir conocimiento de
+ * o de un `periodo` inválido — mismo mensaje que el flat sibling que reemplazó
+ * (el backend no distingue entre ambos, ver dry.md "distinguir conocimiento de
  * coincidencia"). `grupos` pasa verbatim al view model — el cliente nunca
  * re-ordena ni re-agrupa (WDM-03).
  */
@@ -840,7 +700,7 @@ export async function postReclasificarCategoria(
 
 /**
  * Guarda money-safety para `IngestaResponseDto` (`upload-cartola-ui`): mismo
- * razonamiento que `esDetalleBucketTransaccionDto` — `cargo`/`abono` se
+ * razonamiento que `esDetalleBucketMesDto` — `cargo`/`abono` se
  * validan con `esMontoStringValido` y `fecha` con `esFechaValida` antes de
  * que cualquier cosa aguas abajo (`formatearMontoCLP`) toque el valor. Un
  * 2xx que no cumpla la forma esperada se mapea a `ApiError` tipado (tag
@@ -903,7 +763,7 @@ function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
  * manualmente, el browser genera el boundary del multipart; fijarlo a mano
  * lo rompería.
  *
- * A diferencia de `fetchResumen`/`fetchDetalleBucket`, un 400 aquí NO se
+ * A diferencia de `fetchResumen`, un 400 aquí NO se
  * re-mapea a un mensaje fijo del cliente: el backend ya emite mensajes
  * scrubbed en español para cada variante (banco no reconocido, estructura
  * inválida, PDF sin texto, tamaño/extensión) y el cliente no puede
@@ -1152,7 +1012,7 @@ export async function previewIngesta(
  * valida con `typeof === 'number'`, NO `esMontoStringValido` (esa guarda es
  * solo para strings decimales BigInt-safe, este campo nunca lo es). `fecha`
  * se valida con `esFechaValida` (mismo razonamiento que
- * `esDetalleBucketTransaccionDto`: un `fecha` no parseable produciría una
+ * `esDetalleBucketMesDto`: un `fecha` no parseable produciría una
  * fecha garbled en pantalla en vez de fallar explícito). Un 2xx que no cumpla
  * la forma esperada se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
  *

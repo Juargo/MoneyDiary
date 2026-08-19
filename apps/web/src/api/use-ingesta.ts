@@ -12,7 +12,7 @@ import type { IngestaResponseDto } from './types';
  *
  * Al tener éxito, invalida exactamente las 3 cachés que dependen de las
  * transacciones recién ingeridas — `resumen`, `resumen-anual`,
- * `detalle-bucket`. NO existe una caché `movimientos` en `apps/web`
+ * `detalle-bucket-mes`. NO existe una caché `movimientos` en `apps/web`
  * (verificado, design.md Decision 1) — invalidarla sería un no-op peligroso
  * que da una falsa sensación de cobertura.
  */
@@ -30,7 +30,7 @@ export function useIngesta() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resumen'] });
       queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
-      queryClient.invalidateQueries({ queryKey: ['detalle-bucket'] });
+      queryClient.invalidateQueries({ queryKey: ['detalle-bucket-mes'] });
     },
   });
 }

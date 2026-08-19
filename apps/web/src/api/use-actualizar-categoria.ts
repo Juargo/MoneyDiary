@@ -17,8 +17,8 @@ import { invalidarCatalogoYDashboard } from './categorias-invalidacion';
  * call, one failure shape, no result union to model).
  *
  * Profile B (`invalidarCatalogoYDashboard`) UNCONDITIONALLY — **including a
- * rename-only patch** (design.md §1/Q5b: `['detalle-bucket']` is not
- * over-invalidation for a rename, `agrupar-detalle-por-categoria.ts` groups
+ * rename-only patch** (design.md §1/Q5b: `['detalle-bucket-mes']` is not
+ * over-invalidation for a rename, the grouped drill-down endpoint groups
  * transactions by `tx.categoria?.nombre`, so a rename changes what the
  * bucket drill-down displays). This hook does NOT branch on which fields
  * changed — the caller (`EditarCategoria`) is the one that decides whether

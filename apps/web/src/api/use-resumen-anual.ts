@@ -6,8 +6,8 @@ import type { ResumenAnualDto } from './types';
 /**
  * useResumenAnual — hook TanStack Query para GET /api/resumen/anual[?anio=YYYY]
  * (US-030 Slice C). Mirrors `useResumen` exactly: `anio` is an explicit
- * argument (the caller — `ResumenAnual`, self-fetching like
- * `BucketDetailList` — decides where the value comes from), and an absent
+ * argument (the caller — `ResumenAnual`, self-fetching — decides where the
+ * value comes from), and an absent
  * `anio` lets the backend resolve the current year (same contract as
  * `/api/resumen` without `periodo`).
  */

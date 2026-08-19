@@ -13,18 +13,16 @@ export interface ReclasificarCategoriaInput {
  * `PATCH /api/transacciones/:id/categoria` (US-013 S6b, WCAT-04).
  *
  * `periodo`/`bucket` llegan como argumentos explícitos (mismo diseño que
- * `useDetalleBucket`/`useResumen`: el caller — `ReclasificarCategoriaControl`,
- * que ya conoce ambos porque los recibe de `BucketDetailList` — decide de
- * dónde salen, este hook solo los usa para construir las query keys exactas
- * a invalidar).
+ * `useDetalleBucketMes`/`useResumen`: el caller — `BucketDetalleMesPage` /
+ * `ReclasificarCategoriaControl`, que ya conoce ambos porque los recibe de
+ * la ruta — decide de dónde salen, este hook solo los usa para construir las
+ * query keys exactas a invalidar).
  *
  * Invalidation story (design.md §4.3/§7.2): el backend solo persiste (no hay
  * resumen materializado que recalcular), así que la ÚNICA fuente de verdad
  * post-reclasificación es el próximo read — `onSuccess` invalida:
  * - `['resumen', periodo]` (exacto — coincide con `useResumen`'s queryKey):
  *   refresca el pie + semáforo del período visible.
- * - `['detalle-bucket', bucket, periodo]` (exacto — coincide con
- *   `useDetalleBucket`'s queryKey): refresca el panel agrupado.
  * - `['detalle-bucket-mes', bucket, periodo]` (exacto — coincide con
  *   `useDetalleBucketMes`'s queryKey, US-053 T-05): refresca la página
  *   Detalle MES-BUCKET cuando una reclasificación ocurre desde ella.
@@ -32,7 +30,7 @@ export interface ReclasificarCategoriaInput {
  *   design.md's `['resumen-anual', anio]`: este hook no conoce el año que la
  *   grilla anual está mostrando, así que invalida TODOS los años cacheados
  *   en vez de adivinar uno; TanStack Query matchea por prefijo de key, así
- *   que esto no afecta `['resumen', ...]` ni `['detalle-bucket', ...]` ni
+ *   que esto no afecta `['resumen', ...]` ni
  *   `['detalle-bucket-mes', ...]` — claves distintas en la posición 0).
  */
 export function useReclasificarCategoria(
@@ -56,9 +54,6 @@ export function useReclasificarCategoria(
     onSuccess: () => {
       const clave = periodo ?? 'actual';
       void queryClient.invalidateQueries({ queryKey: ['resumen', clave] });
-      void queryClient.invalidateQueries({
-        queryKey: ['detalle-bucket', bucket, clave],
-      });
       void queryClient.invalidateQueries({
         queryKey: ['detalle-bucket-mes', bucket, clave],
       });

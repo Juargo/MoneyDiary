@@ -18,7 +18,7 @@ describe('useEliminarIngesta', () => {
     vi.restoreAllMocks();
   });
 
-  it('al tener éxito invalida EXACTAMENTE las 4 queries (resumen, resumen-anual, detalle-bucket, ingestas) — ING-06', async () => {
+  it('al tener éxito invalida EXACTAMENTE las 4 queries (resumen, resumen-anual, detalle-bucket-mes, ingestas) — ING-06', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 204 }),
@@ -40,7 +40,7 @@ describe('useEliminarIngesta', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen-anual'] });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ['detalle-bucket'],
+      queryKey: ['detalle-bucket-mes'],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ingestas'] });
   });

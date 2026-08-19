@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   deleteIngesta,
   fetchApiVersion,
-  fetchDetalleBucket,
   fetchDetalleBucketMes,
   fetchIngestas,
   fetchResumen,
@@ -14,7 +13,6 @@ import {
 } from './client';
 import type {
   ApiVersionDto,
-  DetalleBucketDto,
   DetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
@@ -466,216 +464,6 @@ describe('fetchResumenAnual', () => {
   });
 });
 
-const validDetalleBucketDto: DetalleBucketDto = {
-  periodo: '2026-07',
-  bucket: 'Necesidades',
-  transacciones: [
-    {
-      id: 'tx-1',
-      fecha: '2026-07-15T00:00:00.000Z',
-      descripcion: 'Supermercado',
-      cargo: '50000',
-      abono: '0',
-      banco: 'BancoEstado',
-      tipoCuenta: 'CuentaRUT',
-      numeroCuenta: '12345678',
-      categoria: null,
-    },
-  ],
-};
-
-describe('fetchDetalleBucket', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it('llama a GET /api/buckets/:bucket same-origin, sin base URL ni key (W0-02)', async () => {
-    const fetchMock = mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(validDetalleBucketDto),
-    });
-
-    await fetchDetalleBucket('Necesidades');
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/buckets/Necesidades');
-  });
-
-  it('agrega el query param periodo cuando se provee y encodea el :bucket', async () => {
-    const fetchMock = mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(validDetalleBucketDto),
-    });
-
-    await fetchDetalleBucket('Sin Categoria', '2026-07');
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/buckets/Sin%20Categoria?periodo=2026-07',
-    );
-  });
-
-  it('resuelve {ok: true, value} en un body 2xx válido', async () => {
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(validDetalleBucketDto),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades', '2026-07');
-
-    expect(result).toEqual({ ok: true, value: validDetalleBucketDto });
-  });
-
-  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('network');
-  });
-
-  it('mapea un 400 a {tag: "invalid"} (bucket o período inválido)', async () => {
-    mockFetchOnce({ ok: false, status: 400 });
-
-    const result = await fetchDetalleBucket('invalido');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('invalid');
-  });
-
-  it('mapea un 401 a {tag: "unauthorized"}', async () => {
-    mockFetchOnce({ ok: false, status: 401 });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toEqual({
-      tag: 'unauthorized',
-      message: 'Sin acceso.',
-    });
-  });
-
-  it('mapea un 5xx a {tag: "server"} genérico', async () => {
-    mockFetchOnce({ ok: false, status: 500 });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toEqual({
-      tag: 'server',
-      status: 500,
-      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
-    });
-  });
-
-  it('mapea un body 2xx que no cumple la forma esperada a {tag: "parse"}', async () => {
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ nonsense: true }),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('parse');
-  });
-
-  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es number en vez de string (money-safety boundary)', async () => {
-    const bodyConCargoNumerico = {
-      ...validDetalleBucketDto,
-      transacciones: [
-        { ...validDetalleBucketDto.transacciones[0], cargo: 50000 },
-      ],
-    };
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(bodyConCargoNumerico),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('parse');
-  });
-
-  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es un string no decimal (p.ej. "abc") — nunca llega a formatearMontoCLP', async () => {
-    const bodyConCargoMalformado = {
-      ...validDetalleBucketDto,
-      transacciones: [
-        { ...validDetalleBucketDto.transacciones[0], cargo: 'abc' },
-      ],
-    };
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(bodyConCargoMalformado),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('parse');
-  });
-
-  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].cargo es un string vacío', async () => {
-    const bodyConCargoVacio = {
-      ...validDetalleBucketDto,
-      transacciones: [{ ...validDetalleBucketDto.transacciones[0], cargo: '' }],
-    };
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(bodyConCargoVacio),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('parse');
-  });
-
-  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha no es una fecha parseable', async () => {
-    const bodyConFechaMalformada = {
-      ...validDetalleBucketDto,
-      transacciones: [
-        { ...validDetalleBucketDto.transacciones[0], fecha: 'not-a-date' },
-      ],
-    };
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(bodyConFechaMalformada),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('parse');
-  });
-
-  it('mapea a {tag: "parse"} sin lanzar cuando transacciones[0].fecha es un string vacío', async () => {
-    const bodyConFechaVacia = {
-      ...validDetalleBucketDto,
-      transacciones: [{ ...validDetalleBucketDto.transacciones[0], fecha: '' }],
-    };
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(bodyConFechaVacia),
-    });
-
-    const result = await fetchDetalleBucket('Necesidades');
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.tag).toBe('parse');
-  });
-});
-
 const validDetalleBucketMesDto: DetalleBucketMesDto = {
   periodo: '2026-07',
   bucket: 'Necesidades',
@@ -708,7 +496,7 @@ const validDetalleBucketMesDto: DetalleBucketMesDto = {
   ],
 };
 
-// US-053 (T-03): fetchDetalleBucketMes mirrors fetchDetalleBucket's
+// US-053 (T-03): fetchDetalleBucketMes mirrors fetchResumen's
 // never-throw ApiResult<T> shape + status mapping (400/401/5xx/network/parse),
 // same-origin GET to /api/buckets/:bucket/detalle[?periodo=YYYY-MM]. The extra
 // "parse" cases pin the money-guard-at-the-boundary lesson (WG5-05) for the
