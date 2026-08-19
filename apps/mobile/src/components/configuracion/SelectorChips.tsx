@@ -6,7 +6,6 @@ export interface SelectorChipsProps<T extends string = string> {
   readonly options: readonly T[];
   readonly value: T;
   readonly onChange: (value: T) => void;
-  readonly getOptionLabel?: (option: T) => string;
   readonly testID?: string;
 }
 
@@ -19,8 +18,7 @@ export function SelectorChips<T extends string = string>({
   options,
   value,
   onChange,
-  getOptionLabel,
-  testID = 'selector-chips',
+  testID,
 }: SelectorChipsProps<T>) {
   return (
     <View className="gap-1.5">
@@ -35,14 +33,13 @@ export function SelectorChips<T extends string = string>({
       >
         {options.map((option) => {
           const seleccionada = option === value;
-          const labelTexto = getOptionLabel ? getOptionLabel(option) : option;
 
           return (
             <Pressable
               key={option}
-              testID={`${testID}-${option}`}
+              testID={testID ? `${testID}-${option}` : undefined}
               accessibilityRole="radio"
-              accessibilityLabel={labelTexto}
+              accessibilityLabel={option}
               accessibilityState={{ checked: seleccionada }}
               onPress={() => onChange(option)}
               className="rounded-full border px-3.5 py-1.5"
@@ -57,7 +54,7 @@ export function SelectorChips<T extends string = string>({
                   color: seleccionada ? '#ffffff' : COLORS.heading,
                 }}
               >
-                {labelTexto}
+                {option}
               </Text>
             </Pressable>
           );

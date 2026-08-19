@@ -21,7 +21,7 @@ describe('CampoTexto (US-044 PR3a)', () => {
     expect(onChangeText).toHaveBeenCalledWith('Pedro');
   });
 
-  it('toggles secureTextEntry for password fields', async () => {
+  it('passes secureTextEntry prop through to TextInput', async () => {
     const { rerender } = await render(
       <CampoTexto
         label="Contraseña"
@@ -47,6 +47,52 @@ describe('CampoTexto (US-044 PR3a)', () => {
     expect(
       screen.getByLabelText('Contraseña').props.secureTextEntry,
     ).toBeFalsy();
+  });
+
+  it('forwards editable={false} to TextInput making it non-editable', async () => {
+    await render(
+      <CampoTexto
+        label="Nombre"
+        value="Juan"
+        onChangeText={() => {}}
+        editable={false}
+        testID="campo-editable"
+      />,
+    );
+
+    expect(screen.getByTestId('campo-editable').props.editable).toBe(false);
+  });
+
+  it('forwards keyboardType="email-address" to TextInput', async () => {
+    await render(
+      <CampoTexto
+        label="Email"
+        value="test@example.com"
+        onChangeText={() => {}}
+        keyboardType="email-address"
+        testID="campo-email"
+      />,
+    );
+
+    expect(screen.getByTestId('campo-email').props.keyboardType).toBe(
+      'email-address',
+    );
+  });
+
+  it('forwards autoCapitalize="none" to TextInput', async () => {
+    await render(
+      <CampoTexto
+        label="Email"
+        value="test@example.com"
+        onChangeText={() => {}}
+        autoCapitalize="none"
+        testID="campo-autocap"
+      />,
+    );
+
+    expect(screen.getByTestId('campo-autocap').props.autoCapitalize).toBe(
+      'none',
+    );
   });
 
   it('renders an error message with alert accessibility role when provided', async () => {

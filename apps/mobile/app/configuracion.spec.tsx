@@ -279,7 +279,7 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
     expect(screen.getByTestId('perfil-panel-placeholder')).toBeOnTheScreen();
   });
 
-  it('re-fires fetchCatalogo on screen focus via useFocusEffect (D-10)', async () => {
+  it('fires fetchCatalogo on initial screen focus via useFocusEffect (D-10)', async () => {
     await render(<Configuracion />);
 
     expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
