@@ -37,8 +37,9 @@ describe('normalizarPeriodo', () => {
 // US-053 (T-07, D-01): `destacar` is a strict, fail-closed search param —
 // exactly the semantic literal 'sin-categoria', anything else normalizes to
 // undefined (never coerced, never defaulted). The literal travels as the
-// named constant CLAVE_SIN_CATEGORIA (re-homed to periodo.ts in T-17) so the
-// 'sin-categoria' string never appears raw in route wiring (DRY).
+// named constant CLAVE_SIN_CATEGORIA (D-08: re-homed here from the flat
+// chain, deleted in T-18) so the 'sin-categoria' string never appears raw in
+// route wiring (DRY).
 describe('normalizarDestacar', () => {
   it('keeps the exact literal sin-categoria', () => {
     expect(normalizarDestacar('sin-categoria')).toBe('sin-categoria');
