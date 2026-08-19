@@ -74,3 +74,12 @@ export type SemaforoDetalleDto = S['SemaforoDetalleResponse'];
 
 /** One bucket entry inside `SemaforoDetalleDto.buckets` (Necesidades/Deseos/Ahorro, always exactly 3). */
 export type SemaforoBucketDetalleDto = S['SemaforoDetalleResponse']['buckets'][number];
+
+/** GET /api/categorias — the authenticated caller's full classification catalog (US-038/US-044). */
+export type CatalogoDto = S['CatalogoResponse'];
+
+/** One category inside `CatalogoDto.categorias`, with nested patterns + all-history `transaccionesCount`. */
+export type CategoriaDto = S['CategoriaResponse'];
+
+/** One classification pattern (`POST`/`PATCH /api/patrones` response, also nested inside `CategoriaDto.patrones`). */
+export type PatronDto = S['PatronResponse'];

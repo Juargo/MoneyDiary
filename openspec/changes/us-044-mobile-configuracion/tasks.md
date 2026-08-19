@@ -247,22 +247,22 @@ in both `mutacion.spec.ts`'s file docblock and `mutacion.ts`'s own docblock (not
 Requirements: data-layer half of MCTG-01/02/03/04/05/06, D-07 (read `string`, write closed unions).
 Depends on PR2a (`enviarMutacion`).
 
-- [ ] **T2b.1** In `packages/api-client/src/index.ts`, add three indexed-access type aliases
+- [x] **T2b.1** In `packages/api-client/src/index.ts`, add three indexed-access type aliases
       (`CatalogoDto`, `CategoriaDto`, `PatronDto`) over the already-generated `CatalogoResponse`/
       `CategoriaResponse`/`PatronResponse` in `types.gen.ts` (design §1.5 — additive, type-only, no
       runtime, no build step, ~9 lines).
       - Verify: `pnpm --filter @moneydiary/api-client exec tsc --noEmit` (or the package's own typecheck script).
-- [ ] **T2b.2** Create `apps/mobile/src/domain/catalogo.types.ts` re-exporting the three aliases, the
+- [x] **T2b.2** Create `apps/mobile/src/domain/catalogo.types.ts` re-exporting the three aliases, the
       same way `resumen.types.ts` re-exports `MeDto` (design §1.5).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [ ] **T2b.3** Create `apps/mobile/src/domain/catalogo-constantes.ts`, porting
+- [x] **T2b.3** Create `apps/mobile/src/domain/catalogo-constantes.ts`, porting
       `apps/web/src/api/catalogo-constantes.ts:11-18` verbatim: `BUCKETS_ASIGNABLES =
       ['Necesidades','Deseos','Ahorro'] as const` (which **is** the group order — no separate
       `ORDEN_BUCKETS`) and `MATCH_TYPES = ['CONTAINS','STARTS_WITH','REGEX'] as const`. Non-test
       constants file — covered downstream by PR5a's `agrupar-categorias-por-bucket.spec.ts` ORDER
       pinning.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [ ] **T2b.4 (RED)** Create `apps/mobile/src/api/categorias.spec.ts` (~10 cases — call shape for the
+- [x] **T2b.4 (RED)** Create `apps/mobile/src/api/categorias.spec.ts` (~10 cases — call shape for the
       7 endpoints + fetcher-specific guards ONLY, judgment-anticipated class 6):
       - `fetchCatalogo()` call shape: URL `/api/categorias`, `GET`, headers — it has its OWN `fetch`
         (not `enviarMutacion`), it is the only call in this module that reads a body.
@@ -278,19 +278,49 @@ Depends on PR2a (`enviarMutacion`).
       - `prioridad` is asserted **absent** from every pattern payload (`POST`/`PATCH /api/patrones`)
         — binding decision 3.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test categorias.spec.ts`
-- [ ] **T2b.5 (GREEN)** Create `apps/mobile/src/api/categorias.ts`: `fetchCatalogo():
+- [x] **T2b.5 (GREEN)** Create `apps/mobile/src/api/categorias.ts`: `fetchCatalogo():
       ApiResult<CatalogoDto>` (own fetch + `esCatalogoDto`) + the six mutations delegating to
       `enviarMutacion` (design §1.4). Write payload types (`BucketAsignable`, `MatchType`) use the
       closed literal unions from `catalogo-constantes.ts`; read guards keep `bucket`/`matchType` as
       `string` (D-07). `prioridad` absent from `PatronInput`/`PatronPatch`.
       - Verify: `pnpm --filter @moneydiary/mobile test categorias.spec.ts` — 10 green.
-- [ ] **T2b.6 (REFACTOR + sweep)** Confirm `esCatalogoDto`'s per-element guards (`esPatronDto`,
+- [x] **T2b.6 (REFACTOR + sweep)** Confirm `esCatalogoDto`'s per-element guards (`esPatronDto`,
       `esCategoriaDto`) degrade gracefully on a `null`/non-object array element (the
       `esBucketResumenDto` judgment-day lesson design §1.4 cites) — add the missing reject case now
       if not already covered by T2b.4.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR2b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~366 lines, 10 new tests.
+
+**PR2b real:** (branch `feat/us-044-config-pr2b-catalogo-api`, base `origin/main` 174ba61f):
+`packages/api-client/src/index.ts` +9 (`git diff --numstat`), `apps/mobile/src/domain/catalogo.types.ts`
+14 (new, `wc -l`), `apps/mobile/src/domain/catalogo-constantes.ts` 24 (new), `apps/mobile/src/api/categorias.ts`
+225 (new), `apps/mobile/src/api/categorias.spec.ts` 389 (new) = **661 ledger-scope changed lines**
+(forecast ~366, +295 overrun). Overrun driver: the per-field guard matrix (judgment-anticipated class 1)
+was implemented as a 23-row `it.each` table (one row per missing/wrong-typed field across
+`esCatalogoDto`/`esCategoriaDto`/`esPatronDto`, plus 2 null-element-degrade rows for T2b.6) rather than
+collapsed into fewer cases — same test-volume pattern PR1/PR2a already showed (specs are the majority of
+every slice's real line count). `categorias.ts` itself (225 lines incl. docblocks) is also above the
+~180 design estimate, mostly documentation mirroring `mutacion.ts`'s density.
+Test counts: RED T2b.4 — module-not-found failure (categorias.ts didn't exist yet). GREEN T2b.5 —
+**31/31 passed** (1 fetchCatalogo call-shape/parse + 1 D-07 unrecognised-value-accepted + 23
+`it.each` reject rows + 3 categoria mutations + 3 patron mutations, forecast was 10). Full mobile
+suite after T2b.6 sweep: **413/413 passed** (382 baseline + 31 new), `tsc --noEmit` clean on both
+`apps/mobile` and `packages/api-client`, `eslint --fix` clean on all 4 touched/new files (0
+errors/warnings after collapsing `categorias.spec.ts`'s 6 duplicate `./categorias` import lines into
+one — an `import/no-duplicates` warning the auto-fix pass did not resolve on its own).
+
+**Deviation from design (documented, not silent):** `fetchCatalogo`'s non-2xx branch does NOT reuse
+`mutacion.ts`'s `errorConCodigo` (which would populate `ApiError.code`) — it mirrors `client.ts`'s
+existing `fetchMe`/`fetchResumen` GET skeleton instead, returning `{tag:'http',status}` with no
+`code`. Rationale: (1) tasks.md T2b.4's bullet for `fetchCatalogo` asks only for call-shape + guard
+coverage, not a `code`-bearing error branch; (2) exporting `mutacion.ts`'s private `errorConCodigo`
+just for this one GET caller would create a second cross-cutting dependency between the read and
+write transports for a field (`code`) nothing in the catálogo read path consumes; (3) it keeps
+`fetchCatalogo` a same-shape sibling of `fetchMe` (both GETs, same file family, same never-throw
+discipline) rather than a hybrid of two different transport styles. If a future task needs `code` on
+a catálogo GET failure, `errorConCodigo` can be exported from `mutacion.ts` then — no code here
+blocks that.
 
 ---
 
