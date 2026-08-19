@@ -5,10 +5,11 @@
  * module-mocked. This mirrors the same DIP pattern guardar-perfil.ts already
  * uses for its own unit tests: inject io functions, never import them inside
  * the function under test. PerfilPanel accepts `io` as an optional prop (prod
- * default: the real api/perfil functions). The 15 prop-injection tests (cases
- * 1–15) pass in jest.fn() pairs directly and need no jest.mock hoisting.
- * Case 16 (default-wiring) uses jest.mock at the bottom of the file to cover
- * the production default path that resolves to the real api/perfil module.
+ * default: the real api/perfil functions). The 16 prop-injection tests (cases
+ * 1–16) pass in jest.fn() pairs directly and need no jest.mock hoisting.
+ * A separate default-wiring test (its own describe at the bottom of the file,
+ * not part of the 16-case inventory below) uses jest.mock to cover the
+ * production default path that resolves to the real api/perfil module.
  *
  * `act(async () => { fireEvent.changeText(...) })` is required to flush React
  * 18 concurrent-mode state updates before fireEvent.press reads the committed
