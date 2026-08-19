@@ -5,7 +5,11 @@ import type { DetalleBucketTransaccionDto } from '../api/types';
 
 const BUCKET_INGRESO = 'Ingreso';
 const NOMBRE_SIN_CATEGORIA = 'Sin categoría';
-const CLAVE_SIN_CATEGORIA = 'sin-categoria';
+// US-053 (T-07/D-01, re-homed a `domain/periodo.ts` en T-17): la clave
+// semántica del grupo sin categoría — viaja como constante nombrada (DRY),
+// consumida por `normalizarDestacar` mientras esta cadena flat viva. Este
+// archivo se elimina en T-18; la constante sobrevive en periodo.ts.
+export const CLAVE_SIN_CATEGORIA = 'sin-categoria';
 
 export interface GrupoCategoriaViewModel {
   readonly categoriaId: string | null;

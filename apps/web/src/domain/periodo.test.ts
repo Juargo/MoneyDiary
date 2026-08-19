@@ -1,4 +1,4 @@
-import { normalizarPeriodo } from './periodo';
+import { normalizarDestacar, normalizarPeriodo } from './periodo';
 
 // Locks the invalid-periodo -> fallback contract (spec W1.8): a malformed or
 // absent `periodo` search param must normalize to `undefined` so the caller
@@ -30,6 +30,41 @@ describe('normalizarPeriodo', () => {
     'normalizes non-string input %s to undefined',
     (input) => {
       expect(normalizarPeriodo(input)).toBeUndefined();
+    },
+  );
+});
+
+// US-053 (T-07, D-01): `destacar` is a strict, fail-closed search param —
+// exactly the semantic literal 'sin-categoria', anything else normalizes to
+// undefined (never coerced, never defaulted). The literal travels as the
+// named constant CLAVE_SIN_CATEGORIA (re-homed to periodo.ts in T-17) so the
+// 'sin-categoria' string never appears raw in route wiring (DRY).
+describe('normalizarDestacar', () => {
+  it('keeps the exact literal sin-categoria', () => {
+    expect(normalizarDestacar('sin-categoria')).toBe('sin-categoria');
+  });
+
+  const casosDestacarInvalidos: ReadonlyArray<[string, string]> = [
+    ['1', 'numeric-looking value'],
+    ['true', 'boolean-looking value'],
+    ['SIN-CATEGORIA', 'wrong case'],
+    ['sin categoría', 'space instead of dash'],
+  ];
+  it.each(casosDestacarInvalidos)(
+    'normalizes %s (%s) to undefined (fail-closed)',
+    (input) => {
+      expect(normalizarDestacar(input)).toBeUndefined();
+    },
+  );
+
+  it.each([[123], [true]])('normalizes non-string %s to undefined', (input) => {
+    expect(normalizarDestacar(input)).toBeUndefined();
+  });
+
+  it.each([[''], [undefined], [null]])(
+    'normalizes %s to undefined',
+    (input) => {
+      expect(normalizarDestacar(input)).toBeUndefined();
     },
   );
 });
