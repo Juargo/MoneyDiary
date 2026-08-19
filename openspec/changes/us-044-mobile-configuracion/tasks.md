@@ -467,7 +467,7 @@ Requirements: MCFG-02, MCFG-03, MCFG-04. Depends on PR3b (route shell + `TabsCon
 (`guardarPerfil`/`mensajeDe*`), PR2a (`patchPerfil`/`patchPassword` — the real `io` pair), PR3a
 (`CampoTexto`).
 
-- [ ] **T4b.1 (RED)** Create `apps/mobile/src/components/configuracion/PerfilPanel.spec.tsx`
+- [x] **T4b.1 (RED)** Create `apps/mobile/src/components/configuracion/PerfilPanel.spec.tsx`
       (~15 cases): renders `Nombre`/`Email`/`Password actual`/`Password nueva` (4× `CampoTexto`); a
       `null` email renders empty/placeholder without crashing (MCFG-02's own scenario); the Google
       block renders exactly one of `Vinculada: {email}` / `Vinculada` / `No vinculada`, **no**
@@ -481,21 +481,22 @@ Requirements: MCFG-02, MCFG-03, MCFG-04. Depends on PR3b (route shell + `TabsCon
       success renders «Cambios guardados. Se cerraron tus otras sesiones.»; message regions use
       `liveRegion` (ok) / `role="alert"` (error) per design §0's composition tree.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PerfilPanel.spec.tsx`
-- [ ] **T4b.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PerfilPanel.tsx` — form
+- [x] **T4b.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PerfilPanel.tsx` — form
       (4× `CampoTexto`) + `GoogleEstado` read-only pill + 2 message regions, wired to `guardarPerfil`
       with the real `{patchPerfil, patchPassword}` io pair.
       - Verify: `pnpm --filter @moneydiary/mobile test PerfilPanel.spec.tsx` — 15 green.
-- [ ] **T4b.3** In `apps/mobile/app/configuracion.tsx`, replace PR3b's Perfil-tab placeholder with the
+- [x] **T4b.3** In `apps/mobile/app/configuracion.tsx`, replace PR3b's Perfil-tab placeholder with the
       real `<PerfilPanel me={...} />` (mechanical wiring, no new test file — covered by re-running
       `app/configuracion.spec.tsx`'s existing phase-switch cases).
       - Verify: `pnpm --filter @moneydiary/mobile test app/configuracion.spec.tsx` — still green, no regressions.
-- [ ] **T4b.4 (REFACTOR + sweep)** Confirm `PerfilPanel` never imports `fetchMe`/`esMeDto` — it only
+- [x] **T4b.4 (REFACTOR + sweep)** Confirm `PerfilPanel` never imports `fetchMe`/`esMeDto` — it only
       consumes the already-resolved `me` prop (design §0: route owns fetch, components are pure
       presentation). Confirm no server `message` string is ever rendered — grep for
       `error.message`/`body.message` usage in this file; expect zero matches.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR4b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~405 lines, 15 new tests. Marginally over 400 — `size:exception` candidate.
+<!-- REAL NUMBERS (applied 2026-08-19): 504 insertions (PerfilPanel.tsx 158L + PerfilPanel.spec.tsx ~330L + configuracion.tsx +5 + configuracion.spec.tsx +8); 15/15 PerfilPanel tests, 493/493 full suite, tsc clean. Key discovery: RNTL v14 getByRole('alert') requires accessible={true} on View. -->
 
 ---
 
