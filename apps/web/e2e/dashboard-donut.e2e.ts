@@ -159,7 +159,7 @@ test.describe('dashboard donut — T1 grid layout (CA-05, WG5-10)', () => {
     expect(box).toBeNull();
   });
 
-  test('escritorio (1280px): the page grid still resolves 2 tracks, and the divider is present between the spend rows and Ingresos/Sin categoría (divider proof 3/3, no lg regression)', async ({
+  test('escritorio (1280px): the divider is present between the spend rows and Ingresos/Sin categoría (divider proof 3/3, no lg regression)', async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -167,10 +167,11 @@ test.describe('dashboard donut — T1 grid layout (CA-05, WG5-10)', () => {
       'Scoped to the escritorio project (1280px, existing lg page-level behavior + design D-09 divider).',
     );
 
-    const paginaGrid = page.getByTestId('dashboard-page-grid');
-    const tracks = await gridTracks(paginaGrid);
-    expect(tracks).toHaveLength(2);
-
+    // US-053 T-22 (D-06): the dashboard page grid is SINGLE-column at every
+    // breakpoint since the panel retirement (the old 2-track `lg:grid-cols-2`
+    // assertion is gone with it — the single-column claim is pinned by the
+    // WDS-04 jsdom test in ResumenScreen.test.tsx, and this suite's grid
+    // proofs 1-3 cover the chart-card body, not the page grid).
     const divisor = page.getByTestId('leyenda-divisor');
     const display = await divisor.evaluate(
       (el) => getComputedStyle(el).display,
