@@ -11,6 +11,7 @@ import {
   TabsConfiguracion,
   type TabConfiguracion,
 } from '../src/components/configuracion/TabsConfiguracion';
+import { PerfilPanel } from '../src/components/configuracion/PerfilPanel';
 import { Loading } from '../src/components/states/Loading';
 import { ErrorState } from '../src/components/states/Error';
 import { COLORS } from '../src/theme/colors';
@@ -97,11 +98,7 @@ export default function Configuracion() {
             {estadoMe.fase === 'error' && (
               <ErrorState error={estadoMe.error} onRetry={cargarMe} />
             )}
-            {estadoMe.fase === 'data' && (
-              <View testID="perfil-panel-placeholder">
-                <Text>Perfil Panel Placeholder</Text>
-              </View>
-            )}
+            {estadoMe.fase === 'data' && <PerfilPanel me={estadoMe.dto} />}
           </View>
         )}
 
