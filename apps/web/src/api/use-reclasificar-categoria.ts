@@ -25,12 +25,15 @@ export interface ReclasificarCategoriaInput {
  *   refresca el pie + semáforo del período visible.
  * - `['detalle-bucket', bucket, periodo]` (exacto — coincide con
  *   `useDetalleBucket`'s queryKey): refresca el panel agrupado.
+ * - `['detalle-bucket-mes', bucket, periodo]` (exacto — coincide con
+ *   `useDetalleBucketMes`'s queryKey, US-053 T-05): refresca la página
+ *   Detalle MES-BUCKET cuando una reclasificación ocurre desde ella.
  * - `['resumen-anual']` (PARCIAL, sin `anio` — deviation deliberada del
  *   design.md's `['resumen-anual', anio]`: este hook no conoce el año que la
  *   grilla anual está mostrando, así que invalida TODOS los años cacheados
  *   en vez de adivinar uno; TanStack Query matchea por prefijo de key, así
- *   que esto no afecta `['resumen', ...]` ni `['detalle-bucket', ...]` —
- *   claves distintas en la posición 0).
+ *   que esto no afecta `['resumen', ...]` ni `['detalle-bucket', ...]` ni
+ *   `['detalle-bucket-mes', ...]` — claves distintas en la posición 0).
  */
 export function useReclasificarCategoria(
   periodo: string | undefined,
@@ -55,6 +58,9 @@ export function useReclasificarCategoria(
       void queryClient.invalidateQueries({ queryKey: ['resumen', clave] });
       void queryClient.invalidateQueries({
         queryKey: ['detalle-bucket', bucket, clave],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['detalle-bucket-mes', bucket, clave],
       });
       void queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
     },
