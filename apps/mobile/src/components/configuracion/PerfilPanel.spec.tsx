@@ -36,6 +36,7 @@ import React from 'react';
 import {
   render,
   screen,
+  within,
   fireEvent,
   waitFor,
   act,
@@ -162,8 +163,9 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
       <PerfilPanel me={{ ...baseMe, googleVinculado: true }} io={buildIo()} />,
     );
 
-    // Desvincular absent
+    // Desvincular and Vincular absent (MCFG-02: no binding controls)
     expect(screen.queryByRole('button', { name: 'Desvincular' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Vincular' })).toBeNull();
     // Vinculada present
     expect(screen.getByText('Vinculada: test@example.com')).toBeOnTheScreen();
 
@@ -171,8 +173,9 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
       <PerfilPanel me={{ ...baseMe, googleVinculado: false }} io={buildIo()} />,
     );
 
-    // Desvincular still absent
+    // Desvincular and Vincular still absent (MCFG-02)
     expect(screen.queryByRole('button', { name: 'Desvincular' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Vincular' })).toBeNull();
     // No vinculada present
     expect(screen.getByText('No vinculada')).toBeOnTheScreen();
   });
@@ -224,9 +227,10 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
     await llenarYEnviar({ email: 'bad-email', passwordActual: 'pass' });
 
     await waitFor(() => {
-      expect(screen.getByText('El email no es válido.')).toBeOnTheScreen();
+      expect(
+        within(screen.getByRole('alert')).getByText('El email no es válido.'),
+      ).toBeOnTheScreen();
     });
-    expect(screen.getByRole('alert')).toBeOnTheScreen();
     expect(io.patchPassword).not.toHaveBeenCalled();
   });
 
@@ -251,12 +255,17 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
+        within(screen.getByRole('alert')).getByText(
           'Se guardaron tus datos, pero no se pudo cambiar la password.',
         ),
       ).toBeOnTheScreen();
     });
-    expect(screen.getByRole('alert')).toBeOnTheScreen();
+    // Nombre and Email retain the saved values after partial success
+    expect(screen.getByLabelText('Nombre')).toHaveDisplayValue('Nuevo Nombre');
+    expect(screen.getByLabelText('Email')).toHaveDisplayValue(
+      baseMe.email ?? '',
+    );
+    expect(io.patchPerfil).toHaveBeenCalledTimes(1);
   });
 
   it('full success: renders «Cambios guardados. Se cerraron tus otras sesiones.»', async () => {
@@ -273,6 +282,10 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
         screen.getByText('Cambios guardados. Se cerraron tus otras sesiones.'),
       ).toBeOnTheScreen();
     });
+    expect(io.patchPassword).toHaveBeenCalledWith({
+      passwordActual: 'pass',
+      passwordNueva: 'newpass123',
+    });
   });
 
   it('ok message renders inside perfil-ok-region with accessibilityLiveRegion (design §0)', async () => {
@@ -286,6 +299,10 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
     });
 
     expect(screen.getByTestId('perfil-ok-region')).toBeOnTheScreen();
+    expect(screen.getByTestId('perfil-ok-region')).toHaveProp(
+      'accessibilityLiveRegion',
+      'polite',
+    );
   });
 
   it('error message renders inside role="alert" region (design §0)', async () => {
@@ -302,7 +319,11 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
     await llenarYEnviar({ nombre: 'Nuevo Nombre' });
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeOnTheScreen();
+      expect(
+        within(screen.getByRole('alert')).getByText(
+          'Problema de conexión. Revisa tu internet e intenta de nuevo.',
+        ),
+      ).toBeOnTheScreen();
     });
   });
 
@@ -332,5 +353,34 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
       expect(screen.getByText('Ingresa tu password actual.')).toBeOnTheScreen();
     });
     expect(io.patchPerfil).not.toHaveBeenCalled();
+  });
+});
+
+// Default io wiring: proves the production default (no `io` prop) calls the real api/perfil module.
+jest.mock('../../api/perfil', () => ({
+  patchPerfil: jest.fn().mockResolvedValue({ ok: true, value: undefined }),
+  patchPassword: jest.fn().mockResolvedValue({ ok: true, value: undefined }),
+}));
+
+describe('PerfilPanel — default io wiring (US-044 PR4b, JD fix)', () => {
+  it('omitting io prop routes to api/perfil.patchPerfil by default', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const perfilApi = require('../../api/perfil') as {
+      patchPerfil: jest.MockedFunction<
+        (p: unknown) => Promise<ApiResult<void>>
+      >;
+    };
+    (perfilApi.patchPerfil as jest.Mock).mockClear();
+
+    await render(<PerfilPanel me={baseMe} />);
+
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('Nombre'), 'Nuevo Nombre');
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => {
+      expect(perfilApi.patchPerfil).toHaveBeenCalledTimes(1);
+    });
   });
 });

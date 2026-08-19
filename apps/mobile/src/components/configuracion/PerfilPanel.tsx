@@ -56,6 +56,7 @@ export function PerfilPanel({
 
   async function enviar() {
     const draft: DraftPerfil = { nombre, email, passwordActual, passwordNueva };
+    setMensaje(null);
     setEnviando(true);
     const resultado = await guardarPerfil(draft, me, io);
     setEnviando(false);
@@ -128,11 +129,16 @@ export function PerfilPanel({
         </Text>
       </Pressable>
 
-      {/* ok message region — accessibilityLiveRegion="polite" (design §0) */}
-      <View testID="perfil-ok-region" accessibilityLiveRegion="polite">
+      {/* ok message region — accessibilityLiveRegion="polite" (design §0).
+          accessible={true} required for Android to honour accessibilityLiveRegion. */}
+      <View
+        testID="perfil-ok-region"
+        accessibilityLiveRegion="polite"
+        accessible={true}
+      >
         {mensaje?.tono === 'ok' &&
-          mensaje.lineas.map((linea, i) => (
-            <Text key={i} className="text-sm text-emerald-700">
+          mensaje.lineas.map((linea) => (
+            <Text key={linea} className="text-sm text-emerald-700">
               {linea}
             </Text>
           ))}
@@ -147,8 +153,8 @@ export function PerfilPanel({
         accessible={true}
       >
         {mensaje?.tono === 'error' &&
-          mensaje.lineas.map((linea, i) => (
-            <Text key={i} className="text-sm text-red-600">
+          mensaje.lineas.map((linea) => (
+            <Text key={linea} className="text-sm text-red-600">
               {linea}
             </Text>
           ))}

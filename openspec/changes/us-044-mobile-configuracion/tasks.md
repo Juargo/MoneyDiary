@@ -496,7 +496,7 @@ Requirements: MCFG-02, MCFG-03, MCFG-04. Depends on PR3b (route shell + `TabsCon
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR4b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~405 lines, 15 new tests. Marginally over 400 — `size:exception` candidate.
-<!-- REAL NUMBERS (applied 2026-08-19): 504 insertions (PerfilPanel.tsx 158L + PerfilPanel.spec.tsx ~330L + configuracion.tsx +5 + configuracion.spec.tsx +8); 15/15 PerfilPanel tests, 493/493 full suite, tsc clean. Key discovery: RNTL v14 getByRole('alert') requires accessible={true} on View. -->
+<!-- REAL NUMBERS (applied 2026-08-19): 504 insertions (PerfilPanel.tsx 158L + PerfilPanel.spec.tsx ~330L + configuracion.tsx +5 + configuracion.spec.tsx +8); 15/15 PerfilPanel tests, 493/493 full suite, tsc clean. Key discovery: RNTL v14 getByRole('alert') requires accessible={true} on View. JD fix round (2026-08-19): T4b.1 testing strategy deviated from jest.mock('../../api/perfil') to prop injection (io prop) for all 15 existing tests; default-wiring is covered by a dedicated jest.mock test added in this JD fix round (total: 16 PerfilPanel tests, 494/494 full suite). RED-run evidence was not captured in the apply report for this slice — noted as process debt; RED evidence must be recorded in apply-progress for future slices. -->
 
 ---
 
