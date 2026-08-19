@@ -11,8 +11,10 @@ export const Route = createFileRoute('/_authenticated/buckets/$bucket')({
     // D-01: strict, fail-closed — the highlight is opt-in by the exact
     // literal 'sin-categoria' only; everything else (incl. absent) → absent
     // (`undefined`), so a falsy default never serializes into the URL
-    // (`/buckets/Necesidades`, not `/buckets/Necesidades?destacar=false` —
-    // pinned by the real-tree redirect test in redirect-after-login.test.tsx).
+    // (`/buckets/Necesidades`, not `/buckets/Necesidades?destacar=false`).
+    // That guarantee comes from `normalizarDestacar`'s fail-closed contract
+    // (no router test pins it — the redirect test only asserts pathname);
+    // the e2e case 4 URL assertion pins the serialized `?destacar=...`.
     //
     // `destacar` stays a STRING in the search type on purpose: TanStack
     // Router serializes the VALIDATED output of `validateSearch`, so the
@@ -47,9 +49,10 @@ function BucketDetalleRoute() {
         navigate({
           to: '/buckets/$bucket',
           params: { bucket },
-          // D-04: `destacar` is a transient drill-down affordance — month
-          // changes reset it (search carries only the new periodo).
-          search: { periodo: nuevoPeriodo },
+          // D-04: functional update — `destacar` (the WDM-04 highlight) is a
+          // deep-link affordance, not transient drill state: it survives
+          // month changes (search carries the new periodo over `prev`).
+          search: (prev) => ({ ...prev, periodo: nuevoPeriodo }),
         })
       }
       destacar={destacar !== undefined}
