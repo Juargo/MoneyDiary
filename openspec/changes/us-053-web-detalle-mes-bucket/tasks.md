@@ -30,7 +30,7 @@ Chain strategy: pending
 - [x] **T-02** web re-export — `apps/web/src/api/types.ts`: re-export 3 aliases + why-note (D-07; ADR-008). Deps: T-01. RED: none. AC: compiles; tsc clean.
 - [x] **T-03** fetcher + guard — `apps/web/src/api/client.ts`: `fetchDetalleBucketMes(bucket, periodo?)` + `esDetalleBucketMesDto` (contract §6: money/fecha guards; 400 → `{tag:'invalid'}`). **RED first**: `client.test.ts` +13 (200 ok; 400 invalid; 401; 5xx; network; non-JSON; `total` malformed; `grupos[].subtotal` malformed; `monto` `"12.5"`; `fecha` malformed; `porcentajeBp` wrong type; `grupos` non-array; URL bucket+periodo) → GREEN. Deps: T-01/T-02. AC: 13/13 green, suite 116→129.
 - [x] **T-04** query hook — `apps/web/src/api/use-detalle-bucket-mes.ts`: `useDetalleBucketMes(bucket, periodo?)`, queryKey `['detalle-bucket-mes', bucket, periodo ?? 'actual']` (use-semaforo-detalle shape; D-07). **RED first**: `use-detalle-bucket-mes.test.tsx` (3: URL with/without periodo; ApiError surfaces) → GREEN. Deps: T-03. AC: 3/3 green.
-- [x] **T-05** reclassify invalidation — `apps/web/src/api/use-reclasificar-categoria.ts`: add `['detalle-bucket-mes', bucket, clave]` alongside existing keys (D-05; WDM-07). **RED first**: `use-reclasificar-categoria.test.tsx` +2 (new key; `'actual'` variant) → GREEN. Deps: T-04. AC: suite green; 3 net keys.
+- [x] **T-05** reclassify invalidation — `apps/web/src/api/use-reclasificar-categoria.ts`: add `['detalle-bucket-mes', bucket, clave]` alongside existing keys (D-05; WDM-07). **RED first**: `use-reclasificar-categoria.test.tsx` 2 renamed (coverage unchanged) → GREEN. Deps: T-04. AC: suite green; 3 net keys.
 
 ## PR 2 — The page (D-01..D-04, D-09) — serialized after PR1
 
