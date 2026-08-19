@@ -364,22 +364,22 @@ independently reviewable, under budget.
 Requirements: MCFG-01. Depends on PR2a/PR2b's clients (`fetchMe`, `fetchCatalogo`) and PR3a's field
 components (not directly imported here, but chain-ordered ahead for review simplicity).
 
-- [ ] **T3b.1** In `apps/mobile/app/_layout.tsx`, add two `<Stack.Screen>` entries
+- [x] **T3b.1** In `apps/mobile/app/_layout.tsx`, add two `<Stack.Screen>` entries
       (`name="configuracion"`, `name="categoria/[id]"`) inside the existing
       `<Stack.Protected guard={estado === 'authenticated'}>` block (design §1.14, D-01). The guard
       itself is untouched. Non-test, mechanical, ~4 lines.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [ ] **T3b.2 (RED)** Create `apps/mobile/src/components/configuracion/TabsConfiguracion.spec.tsx`
+- [x] **T3b.2 (RED)** Create `apps/mobile/src/components/configuracion/TabsConfiguracion.spec.tsx`
       (5 cases): renders `Perfil`/`Categorías` as a `tablist`/`tab` pair; the active tab has
       `accessibilityState.selected`; tapping the inactive tab calls `onChange` with its key; tab
       switch does NOT trigger any navigation call (assert the `expo-router` mock's `push`/`replace`
       spies are never called — paired with T3b.5's positive back-navigation assertion, same file
       family); local `useState`, not `expo-router` `Link`/`useSegments` (D-01).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test TabsConfiguracion.spec.tsx`
-- [ ] **T3b.3 (GREEN)** Create `apps/mobile/src/components/configuracion/TabsConfiguracion.tsx` —
+- [x] **T3b.3 (GREEN)** Create `apps/mobile/src/components/configuracion/TabsConfiguracion.tsx` —
       local-state segmented control (D-01).
       - Verify: `pnpm --filter @moneydiary/mobile test TabsConfiguracion.spec.tsx` — 5 green.
-- [ ] **T3b.4 (RED)** Create `apps/mobile/app/configuracion.spec.tsx` (~12 cases): the `me` fetch's
+- [x] **T3b.4 (RED)** Create `apps/mobile/app/configuracion.spec.tsx` (~12 cases): the `me` fetch's
       3 phases (loading/error/data) gate the Perfil tab's readiness independently of the catálogo
       tab's own 3 phases (design §0 — "Neither can blank the other": assert Perfil's error state
       does not affect what Categorías renders, and vice versa); default tab is `Perfil`; tapping
@@ -392,18 +392,20 @@ components (not directly imported here, but chain-ordered ahead for review simpl
       real `PerfilPanel`/`CategoriasPanel` land in PR4b/PR5b and replace a minimal placeholder here
       (KISS — this PR's scope is routing + tabs, not the panels).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test app/configuracion.spec.tsx`
-- [ ] **T3b.5 (GREEN)** Create `apps/mobile/app/configuracion.tsx` — route owning the `me` fetch (via
+- [x] **T3b.5 (GREEN)** Create `apps/mobile/app/configuracion.tsx` — route owning the `me` fetch (via
       `fetchMe`) + the catálogo fetch (via `fetchCatalogo`) + `TabsConfiguracion` local state;
       `useFocusEffect` on the catálogo load (D-10); on-screen «Volver al resumen» (D-03); renders a
       minimal placeholder for each tab body until PR4b/PR5b's own GREEN steps replace it with the
       real panel.
-      - Verify: `pnpm --filter @moneydiary/mobile test app/configuracion.spec.tsx` — 12 green.
-- [ ] **T3b.6 (REFACTOR + sweep)** Confirm the two independent `{loading|error|data}` phases never
+      - Verify: `pnpm --filter @moneydiary/mobile test app/configuracion.spec.tsx` — 11 green.
+- [x] **T3b.6 (REFACTOR + sweep)** Confirm the two independent `{loading|error|data}` phases never
       share state (design §0); confirm the seam-1 `expo-router` mock extension does not regress
       `app/index.spec.tsx` (which shares the same mock module).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR3b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~444 lines, 17 new tests. **Over 400-line budget** — `size:exception` candidate (Review Workload Forecast).
+
+**PR3b real:** 549 lines (`_layout.tsx` +2, `TabsConfiguracion.tsx` 57, `TabsConfiguracion.spec.tsx` 84, `configuracion.tsx` 124, `configuracion.spec.tsx` 282). 16 new tests (5 TabsConfiguracion + 11 configuracion). Full mobile suite: 40 suites / 441 tests passing, `tsc --noEmit` clean.
 
 ---
 
