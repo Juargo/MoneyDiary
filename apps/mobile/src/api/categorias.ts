@@ -183,7 +183,7 @@ export async function actualizarCategoria(
 }
 
 /**
- * `DELETE /api/categorias/:id` — MCTG-04 (design decision 5: ALWAYS `204`
+ * `DELETE /api/categorias/:id` — MCTG-05 (design decision 5: ALWAYS `204`
  * for the caller's own row, referenced or not — see the file docblock).
  */
 export async function eliminarCategoria(id: string): Promise<ApiResult<void>> {
@@ -194,7 +194,7 @@ export async function eliminarCategoria(id: string): Promise<ApiResult<void>> {
   return r.ok ? { ok: true, value: undefined } : r;
 }
 
-/** `POST /api/patrones` — MCTG-05. Success body discarded. */
+/** `POST /api/patrones` — MCTG-04. Success body discarded. */
 export async function crearPatron(
   input: PatronInput,
 ): Promise<ApiResult<void>> {
@@ -202,7 +202,7 @@ export async function crearPatron(
   return r.ok ? { ok: true, value: undefined } : r;
 }
 
-/** `PATCH /api/patrones/:id` — MCTG-06. Success body discarded. */
+/** `PATCH /api/patrones/:id` — MCTG-04. Success body discarded. */
 export async function actualizarPatron(
   id: string,
   patch: PatronPatch,
@@ -215,7 +215,7 @@ export async function actualizarPatron(
   return r.ok ? { ok: true, value: undefined } : r;
 }
 
-/** `DELETE /api/patrones/:id` — MCTG-06. */
+/** `DELETE /api/patrones/:id` — MCTG-04. */
 export async function eliminarPatron(id: string): Promise<ApiResult<void>> {
   const r = await enviarMutacion(
     `/api/patrones/${encodeURIComponent(id)}`,
