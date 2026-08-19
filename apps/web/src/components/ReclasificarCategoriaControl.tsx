@@ -40,8 +40,9 @@ function etiqueta(bucket: string): string {
  * **Este control NO renderiza banner de error ni botón "Reintentar" propios
  * para el catálogo.** `useCategorias()` comparte una única query
  * `['categorias']` entre TODAS las filas montadas (`use-categorias.ts`), y
- * `BucketDetailList` es su único punto de montaje (una instancia por panel,
- * verificado — ver su propio JSDoc). Por eso todo el fetch-lifecycle surface
+ * `BucketDetalleMesPage` es su único punto de montaje (una instancia por
+ * página, verificado — ver su propio JSDoc). Por eso todo el fetch-lifecycle
+ * surface
  * del catálogo — el `role="status"` de carga inicial y el `role="alert"` +
  * "Reintentar" cuando falla sin datos — vive UNA sola vez ahí arriba, no acá
  * N veces por fila. Este control solo lee `data`/`isFetching` de

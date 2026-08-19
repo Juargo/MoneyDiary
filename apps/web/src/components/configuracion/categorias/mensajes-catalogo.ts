@@ -135,7 +135,7 @@ const GENERICO = 'Ocurrió un error inesperado. Intenta nuevamente.';
  *   meant to see.
  * - `invalid` (400 período inválido) → `GENERICO`. This tag belongs to the
  *   dashboard endpoints (`fetchResumen`/`fetchResumenAnual`/
- *   `fetchDetalleBucket`, all keyed on `periodo`), not the catalog ones —
+ *   `fetchDetalleBucketMes`, all keyed on `periodo`), not the catalog ones —
  *   no catalog call produces it today. Falling back to `GENERICO` (rather
  *   than a dedicated string) keeps the total switch honest about that: it's
  *   defensive coverage for a tag this module doesn't own, not a real UI

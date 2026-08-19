@@ -23,7 +23,7 @@ import { CATEGORIAS_QUERY_KEY } from './use-categorias';
  * dentro de `ProcessIngestaUseCase` al importar: crear/editar/borrar un
  * patrón NO toca ninguna transacción persistida ni ningún total del
  * dashboard. La EXCLUSIÓN de `['resumen']`/`['resumen-anual']`/
- * `['detalle-bucket']` es deliberada y está cubierta por su propio test
+ * `['detalle-bucket-mes']` es deliberada y está cubierta por su propio test
  * dedicado (`categorias-invalidacion.test.ts`, no negociable #4).
  */
 export function invalidarCatalogo(qc: QueryClient): void {
@@ -36,13 +36,13 @@ export function invalidarCatalogo(qc: QueryClient): void {
  * PREFIJO (sin período ni bucket): esta pantalla no sabe qué períodos tiene
  * cacheados el dashboard, y un cambio de bucket re-estampa TODO el
  * historial (`CAT038-03`). Un rename-only también necesita las 4 —
- * `['detalle-bucket']` en particular no es sobre-invalidación en ese caso:
- * `agrupar-detalle-por-categoria.ts` agrupa por `tx.categoria?.nombre`
+ * `['detalle-bucket-mes']` en particular no es sobre-invalidación en ese caso:
+ * el endpoint agrupado de drill-down agrupa por `tx.categoria?.nombre`
  * (design.md §1/Q5b).
  */
 export function invalidarCatalogoYDashboard(qc: QueryClient): void {
   invalidarCatalogo(qc);
   void qc.invalidateQueries({ queryKey: ['resumen'] });
   void qc.invalidateQueries({ queryKey: ['resumen-anual'] });
-  void qc.invalidateQueries({ queryKey: ['detalle-bucket'] });
+  void qc.invalidateQueries({ queryKey: ['detalle-bucket-mes'] });
 }

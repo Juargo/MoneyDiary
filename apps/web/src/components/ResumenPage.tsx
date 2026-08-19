@@ -18,20 +18,27 @@ import type { ResumenMesDto } from '@/api/types';
  * with a plain mocked query result, no router harness needed. `sinIngreso`
  * is a DATA outcome (200 with no income), not a fetch failure — checked
  * only after a successful query, same discipline as mobile.
+ *
+ * US-053 PR3 (D-06): threads the router's `onSelectBucket(bucket,
+ * destacar?)` — the chart controls' drill-down destination — down to
+ * `ResumenScreen` unchanged. The route owns the actual `navigate(...)`;
+ * this component only transports the callback.
  */
 export function ResumenPage({
   query,
   periodo,
   onPeriodoChange,
+  onSelectBucket,
 }: {
   readonly query: UseQueryResult<ResumenMesDto, ApiError>;
   readonly periodo: string | undefined;
   readonly onPeriodoChange: (periodo: string) => void;
+  readonly onSelectBucket: (bucket: string, destacar?: boolean) => void;
 }) {
   return (
     <div className="flex flex-col gap-4 p-4">
       <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
-      {renderEstado(query, onPeriodoChange)}
+      {renderEstado(query, onPeriodoChange, onSelectBucket)}
     </div>
   );
 }
@@ -39,6 +46,7 @@ export function ResumenPage({
 function renderEstado(
   query: UseQueryResult<ResumenMesDto, ApiError>,
   onPeriodoChange: (periodo: string) => void,
+  onSelectBucket: (bucket: string, destacar?: boolean) => void,
 ) {
   if (query.isPending) {
     return <Loading />;
@@ -53,6 +61,7 @@ function renderEstado(
     <ResumenScreen
       viewModel={aResumenViewModel(query.data)}
       onPeriodoChange={onPeriodoChange}
+      onSelectBucket={onSelectBucket}
     />
   );
 }

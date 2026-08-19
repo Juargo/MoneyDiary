@@ -121,7 +121,7 @@ describe('useActualizarPatron', () => {
     // gives this test an independent failure mode).
     queryClient.setQueryData(['resumen'], { total: 1 });
     queryClient.setQueryData(['resumen-anual'], { total: 1 });
-    queryClient.setQueryData(['detalle-bucket'], { total: 1 });
+    queryClient.setQueryData(['detalle-bucket-mes'], { total: 1 });
 
     const { result } = renderHook(() => useActualizarPatron(), {
       wrapper: crearWrapper(queryClient),
@@ -134,8 +134,8 @@ describe('useActualizarPatron', () => {
     expect(queryClient.getQueryState(['resumen-anual'])?.isInvalidated).toBe(
       false,
     );
-    expect(queryClient.getQueryState(['detalle-bucket'])?.isInvalidated).toBe(
-      false,
-    );
+    expect(
+      queryClient.getQueryState(['detalle-bucket-mes'])?.isInvalidated,
+    ).toBe(false);
   });
 });

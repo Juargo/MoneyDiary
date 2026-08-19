@@ -7,8 +7,8 @@ import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
 
 // US-030 Slice C (tasks 30.11-30.13): self-contained annual grid — owns its
 // own `useResumenAnual(anio)` query and renders its own Loading/Error/Empty
-// states, mirroring how `BucketDetailList` owns `useDetalleBucket` (keeps the
-// annual load independent of the main resumen query).
+// states, mirroring how `BucketDetalleMesPage` owns `useDetalleBucketMes`
+// (keeps the annual load independent of the main resumen query).
 function mesConDatos(
   periodo: string,
   estadoGlobal: ResumenMesDto['estadoGlobal'] = 'verde',

@@ -7,7 +7,7 @@ import type { CatalogoDto } from './types';
  * useCategorias — TanStack Query hook for `GET /api/categorias`
  * (US-043 design.md §1/Q2c, WCTG-02/WCTG-10). `['categorias']`, namespaced
  * by the endpoint it mirrors, same convention as `['resumen']`/
- * `['ingestas']`/`['detalle-bucket']`/`['auth-me']`.
+ * `['ingestas']`/`['detalle-bucket-mes']`/`['auth-me']`.
  *
  * **One key serves three consumers**: the list panel, the edit screen
  * (which resolves its `:categoriaId` out of this same cache — there is no

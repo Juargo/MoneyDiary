@@ -37,7 +37,6 @@ function renderLeyenda(
     <LeyendaGasto
       principales={principales}
       complemento={complemento}
-      bucketSeleccionado={null}
       onSelectBucket={vi.fn()}
       {...overrides}
     />,
@@ -68,7 +67,6 @@ describe('LeyendaGasto', () => {
       <LeyendaGasto
         principales={[]}
         complemento={complemento}
-        bucketSeleccionado={null}
         onSelectBucket={vi.fn()}
       />,
     );
@@ -170,15 +168,10 @@ describe('LeyendaGasto', () => {
     expect(boton.className).toContain('py-1');
   });
 
-  it('marks the selected bucket row with aria-pressed, others not pressed', () => {
-    renderLeyenda({ bucketSeleccionado: 'Ahorro' });
-    expect(
-      screen.getByRole('button', { name: 'Ahorro 20% -$300.000' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      screen.getByRole('button', { name: 'Necesidades 42% -$624.500' }),
-    ).toHaveAttribute('aria-pressed', 'false');
-  });
+  // US-053 PR3 (D-06): `aria-pressed` is GONE — a click navigates to the
+  // month-scoped bucket page (not a toggle), and the drill-down contract is
+  // the click test below. The old "marks the selected bucket row with
+  // aria-pressed" test (LeyendaGasto.test.tsx:173) was removed with it.
 
   // Restored (judgment-day): dropped without replacement when this file was
   // rewritten for T7 — mirrors DistribucionPie.test.tsx's own color-dot

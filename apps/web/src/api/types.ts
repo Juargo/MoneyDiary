@@ -226,3 +226,26 @@ export type {
   SemaforoBucketDetalleDto,
   SemaforoDetalleDto,
 } from '@moneydiary/api-client';
+
+/**
+ * `DetalleBucketMesDto`/`GrupoDetalleBucketMesDto`/`TransaccionDetalleBucketMesDto`
+ * — GET /api/buckets/:bucket/detalle (US-051 `bucket-detalle-mes`, MBD-01..08;
+ * consumido por US-053 `us-053-web-detalle-mes-bucket`). Fuente de verdad en
+ * el backend: `apps/api/src/infrastructure/http-express/schemas/
+ * bucket-detalle-mes.schema.ts` (generado a `openapi.json` → api-client).
+ *
+ * Disciplina de dinero idéntica al resto del archivo: `total`/`subtotal`/
+ * `monto` son strings decimales (BigInt-safe) — nunca se parsean a number
+ * aquí. `porcentajeBp`/`metaBp` son `number | null` (basis points ≤ 10000,
+ * seguros en JS); `porcentajeBp: null` significa "sin ingreso" (MBD-01, el
+ * cliente esconde la barra de uso, D-02). `fecha` es ISO-8601 UTC completo.
+ *
+ * `grupos` llega ORDENADO por el backend (es-CL alfabético, "Sin categoría"
+ * al final, MBD-02) — el cliente nunca re-ordena ni re-agrupa (WDM-03); la
+ * respuesta pasa verbatim al view model.
+ */
+export type {
+  DetalleBucketMesDto,
+  GrupoDetalleBucketMesDto,
+  TransaccionDetalleBucketMesDto,
+} from '@moneydiary/api-client';

@@ -1,8 +1,4 @@
-import {
-  formatearMontoCLP,
-  formatearMontoConSigno,
-  esMontoStringValido,
-} from './formatear-monto';
+import { formatearMontoCLP, formatearMontoConSigno } from './formatear-monto';
 import {
   BUCKETS_5030,
   calcularDistribucionGasto,
@@ -75,14 +71,6 @@ export interface ResumenViewModel {
   readonly buckets: ReadonlyArray<BucketViewModel>;
   /** Share-of-spending split for the pie + legend (77/12/11-style). */
   readonly distribucionGasto: ReadonlyArray<TajadaGasto>;
-  /**
-   * The bucket with the largest total among all 4 buckets (including
-   * SinCategoria) — the dashboard's default selection for the transactions
-   * panel before the user picks one explicitly (US-030 Slice B, task 30.10).
-   * `null` only if `buckets` is empty (FIX 4) — the backend contract
-   * guarantees the 4 canonical buckets today, but this stays defensive.
-   */
-  readonly bucketPorDefecto: string | null;
   readonly targets: ResumenMesDto['targets'];
   readonly estadoGlobal: string | null;
   /** Necesidades, Deseos, Ahorro — always in that order, `kind: 'gasto'` (D-03). */
@@ -101,45 +89,12 @@ function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
 }
 
 /**
- * Belt-and-suspenders money guard (FIX 6): money is validated at the fetch
- * boundary (`client.ts`/`esMontoStringValido`), so this should never see a
- * malformed string in practice — but there is no ErrorBoundary in the app,
- * so an unvalidated bad string reaching a bare `BigInt(...)` here would
- * throw a raw `SyntaxError` mid-render (the exact past "money guard crash"
- * class). Degrades an invalid/empty total to `0n` instead of throwing.
- */
-function montoSeguro(montoStr: string): bigint {
-  return esMontoStringValido(montoStr) ? BigInt(montoStr) : 0n;
-}
-
-/**
- * The bucket with the largest raw money total, BigInt-compared (never
- * `Number`/`parseFloat` on a money string — same discipline as
- * `calcularDistribucionGasto`). The backend contract guarantees `buckets` is
- * always the 4 canonical buckets, but `Array.reduce` with no seed throws on
- * an empty array (FIX 4) — this returns `null` instead. On a tie (equal max
- * totals), the FIRST bucket in DTO order wins (strict `>` never replaces the
- * running max on equality).
- */
-export function bucketConMayorTotal(
-  buckets: ReadonlyArray<BucketResumenDto>,
-): string | null {
-  if (buckets.length === 0) {
-    return null;
-  }
-  return buckets.reduce((mayor, actual) =>
-    montoSeguro(actual.total) > montoSeguro(mayor.total) ? actual : mayor,
-  ).bucket;
-}
-
-/**
  * Money-safety join (I-2): `TajadaGasto` carries no money — the legend's
  * `montoLabel` is a separate projection built here by joining the ring's
  * bucket name against `dto.buckets`'s raw totals. Same belt-and-suspenders
- * discipline as `montoSeguro`/`bucketConMayorTotal`: a bucket absent from
- * the DTO (should not happen per the backend's 4-canonical-buckets
- * contract, but this stays defensive) degrades to `'0'` instead of
- * crashing the join.
+ * money discipline: a bucket absent from the DTO (should not happen per the
+ * backend's 4-canonical-buckets contract, but this stays defensive) degrades
+ * to `'0'` instead of crashing the join.
  */
 function totalPorBucket(
   buckets: ReadonlyArray<BucketResumenDto>,
@@ -226,7 +181,6 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
     sinIngreso: dto.sinIngreso,
     buckets: dto.buckets.map(aBucketViewModel),
     distribucionGasto,
-    bucketPorDefecto: bucketConMayorTotal(dto.buckets),
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
     leyendaPrincipal: aLeyendaPrincipal(distribucionGasto, dto.buckets),

@@ -63,7 +63,7 @@ const validDto: SemaforoDetalleDto = {
   sinCategoria: { cantidad: 2, total: '10000' },
 };
 
-// `Wrapper.queryClient` es attached (mirrors `BucketDetailList.test.tsx`'s
+// `Wrapper.queryClient` es attached (mirrors `use-detalle-bucket-mes.test.tsx`'s
 // own `crearWrapper`) para que un test pueda compartir un único QueryClient
 // entre varios `renderHook` (p.ej. inspeccionar `getQueryState` de dos
 // queryKeys distintas sin instanciar dos QueryClient independientes).

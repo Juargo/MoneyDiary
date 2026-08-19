@@ -74,7 +74,7 @@ describe('useEliminarCategoria', () => {
       ['categorias'],
       ['resumen'],
       ['resumen-anual'],
-      ['detalle-bucket'],
+      ['detalle-bucket-mes'],
     ]);
   });
 

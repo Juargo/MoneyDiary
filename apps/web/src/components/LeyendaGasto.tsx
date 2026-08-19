@@ -15,6 +15,12 @@ import type { ItemLeyenda } from '@/domain/resumen-view-model';
  * down via `onSelectBucket`, `WCAT-01`); `'ingreso'` → an inert `<li>`
  * (`WG5-06`, no drill-down endpoint exists yet).
  *
+ * US-053 PR3 (D-06): the `bucketSeleccionado`/`aria-pressed` selection
+ * state is GONE — a row click NAVIGATES to the month-scoped bucket page
+ * (the parent screen decides where; this component only reports the
+ * bucket), and navigation isn't a toggle, so `aria-pressed` would be
+ * wrong here. `onSelectBucket` keeps its single-arg signature.
+ *
  * Accessible-name change (deliberate, D-08/R-8): the per-row `aria-label`
  * is REMOVED — the row's own visible text (name, %/count, amount) now
  * forms the accessible name, satisfying WCAG 2.5.3 Label in Name and
@@ -26,20 +32,16 @@ import type { ItemLeyenda } from '@/domain/resumen-view-model';
 export function LeyendaGasto({
   principales,
   complemento,
-  bucketSeleccionado,
   onSelectBucket,
 }: {
   readonly principales: ReadonlyArray<ItemLeyenda>;
   readonly complemento: ReadonlyArray<ItemLeyenda>;
-  readonly bucketSeleccionado: string | null;
   readonly onSelectBucket: (bucket: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <ul className="flex flex-col gap-1">
-        {principales.map((item) =>
-          filaParaItem(item, bucketSeleccionado, onSelectBucket),
-        )}
+        {principales.map((item) => filaParaItem(item, onSelectBucket))}
       </ul>
 
       {/* D-09: a CSS-only visibility toggle, never conditional JSX — the
@@ -52,9 +54,7 @@ export function LeyendaGasto({
       />
 
       <ul className="flex flex-col gap-1">
-        {complemento.map((item) =>
-          filaParaItem(item, bucketSeleccionado, onSelectBucket),
-        )}
+        {complemento.map((item) => filaParaItem(item, onSelectBucket))}
       </ul>
     </div>
   );
@@ -69,7 +69,6 @@ export function LeyendaGasto({
  */
 function filaParaItem(
   item: ItemLeyenda,
-  bucketSeleccionado: string | null,
   onSelectBucket: (bucket: string) => void,
 ) {
   if (item.kind === 'ingreso') {
@@ -79,7 +78,6 @@ function filaParaItem(
     <FilaClickeable
       key={item.bucket}
       item={item}
-      seleccionado={item.bucket === bucketSeleccionado}
       onSelectBucket={onSelectBucket}
     />
   );
@@ -93,11 +91,9 @@ function filaParaItem(
  */
 function FilaClickeable({
   item,
-  seleccionado,
   onSelectBucket,
 }: {
   readonly item: Extract<ItemLeyenda, { kind: 'gasto' | 'sinCategoria' }>;
-  readonly seleccionado: boolean;
   readonly onSelectBucket: (bucket: string) => void;
 }) {
   const etiqueta = ETIQUETA_BUCKET[item.bucket] ?? item.bucket;
@@ -106,14 +102,12 @@ function FilaClickeable({
     <li data-testid="leyenda-item">
       <button
         type="button"
-        aria-pressed={seleccionado}
         onClick={() => onSelectBucket(item.bucket)}
         className={cn(
           // LOCKED (WCAG 1.4.11): outline-slate-800 (>3:1 on white) — do
           // NOT re-tint. LOCKED (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable
           // tap target.
           'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
-          seleccionado && 'bg-muted',
         )}
       >
         <span className="flex items-center gap-2">

@@ -11,8 +11,8 @@ import type { IngestaListItemDto } from '@/api/types';
  * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3; widened
  * by `us-004-historial-ingestas` Slice 3, design.md §9) — owns `useIngestas`
  * directly (single query, no interactive selector to decouple from the
- * router — same reasoning as `BucketDetailList`: one component covers fetch
- * + {loading|error|empty|data} + rendering).
+ * router — same reasoning as `BucketDetalleMesPage`: one component covers
+ * fetch + {loading|error|empty|data} + rendering).
  *
  * Reuses the shared Loading/ErrorState/Empty states (W1), passing
  * list-appropriate copy — do not reimplement the components themselves

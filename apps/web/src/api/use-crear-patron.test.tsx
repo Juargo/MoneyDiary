@@ -148,7 +148,7 @@ describe('useCrearPatron', () => {
     // dashboard, even if the assertion above it were ever weakened.
     queryClient.setQueryData(['resumen'], { total: 1 });
     queryClient.setQueryData(['resumen-anual'], { total: 1 });
-    queryClient.setQueryData(['detalle-bucket'], { total: 1 });
+    queryClient.setQueryData(['detalle-bucket-mes'], { total: 1 });
 
     const { result } = renderHook(() => useCrearPatron(), {
       wrapper: crearWrapper(queryClient),
@@ -165,8 +165,8 @@ describe('useCrearPatron', () => {
     expect(queryClient.getQueryState(['resumen-anual'])?.isInvalidated).toBe(
       false,
     );
-    expect(queryClient.getQueryState(['detalle-bucket'])?.isInvalidated).toBe(
-      false,
-    );
+    expect(
+      queryClient.getQueryState(['detalle-bucket-mes'])?.isInvalidated,
+    ).toBe(false);
   });
 });

@@ -7,7 +7,8 @@
  * mounting this component announces the message to assistive technology — a
  * `role="status"` region with no accessible content announces nothing.
  *
- * Reused verbatim by the bucket detail screen (`BucketDetailList`, US-017):
+ * Reused verbatim by the bucket detail screen (`BucketDetalleMesPage`,
+ * US-053):
  * the default `message` is resumen-specific, so a screen reader announcing
  * "Cargando resumen…" while on `/buckets/:bucket` would be misleading. The
  * optional `message` prop lets other screens supply context-appropriate

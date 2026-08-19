@@ -147,6 +147,22 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-053 (same FILE-LIST form as the US-047/048/049 blocks
+  // above: loose siblings under `src/components/`, not a subdirectory). The
+  // new real MES-BUCKET page (`BucketDetalleMesPage` + its per-group section
+  // `GrupoMovimientos`) and the re-pointed route are authored under this
+  // change — gated here before any a11y rule can go blind to them. The route
+  // entry stays a PATTERN (`buckets*.tsx`, same precedent as
+  // `configuracion*.tsx`/`semaforo*.tsx`), covering the re-pointed
+  // `buckets.$bucket.tsx` and any future sibling.
+  {
+    files: [
+      'src/components/BucketDetalleMesPage.tsx',
+      'src/components/GrupoMovimientos.tsx',
+      'src/routes/_authenticated/buckets*.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so

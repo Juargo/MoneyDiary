@@ -90,7 +90,7 @@ describe('useReclasificarCategoria', () => {
     await waitFor(() => expect(result.current.isPending).toBe(false));
   });
 
-  it('en onSuccess invalida las queries de resumen, detalle-bucket y resumen-anual (WCAT-04)', async () => {
+  it('en onSuccess invalida las queries de resumen, detalle-bucket-mes y resumen-anual (WCAT-04)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -119,12 +119,12 @@ describe('useReclasificarCategoria', () => {
       queryKey: ['resumen', '2026-07'],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ['detalle-bucket', 'Necesidades', '2026-07'],
+      queryKey: ['detalle-bucket-mes', 'Necesidades', '2026-07'],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen-anual'] });
   });
 
-  it('sin periodo, invalida ["resumen", "actual"] y ["detalle-bucket", bucket, "actual"] (mismo fallback que los hooks de lectura)', async () => {
+  it('sin periodo, invalida ["resumen", "actual"] y ["detalle-bucket-mes", bucket, "actual"] (mismo fallback que los hooks de lectura)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -153,7 +153,7 @@ describe('useReclasificarCategoria', () => {
       queryKey: ['resumen', 'actual'],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ['detalle-bucket', 'Necesidades', 'actual'],
+      queryKey: ['detalle-bucket-mes', 'Necesidades', 'actual'],
     });
   });
 

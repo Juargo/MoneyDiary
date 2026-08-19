@@ -173,6 +173,82 @@ function detalleBucketFixture(bucket: string) {
 }
 
 /**
+ * `GET /api/buckets/:bucket/detalle` (US-051 MBD-01..08, consumido por
+ * US-053 T-20) — a literal `DetalleBucketMesDto` instance
+ * (`src/api/types.ts`) for `bucket-detalle-mes.e2e.ts`: bucket `Deseos`
+ * echoing the requested segment, 2 groups — Paseos with 4 transactions
+ * (exercises the WDM-03 `ver 1 más…` slice) and "Sin categoría" with 2
+ * (`categoriaId: null`, so the WDM-04 `destacar` highlight has a target) —
+ * and non-null `porcentajeBp`/`metaBp` so the WDM-01 header renders its
+ * %/meta tag and usage bar. The route handler echoes the requested
+ * `bucket`/`periodo` and zeroes `porcentajeBp`/`metaBp` for
+ * `/buckets/SinCategoria` (MBD-03/WDM-04).
+ */
+const DETALLE_BUCKET_MES_FIXTURE = {
+  periodo: '2026-07',
+  bucket: 'Deseos',
+  total: '250000',
+  totalTransacciones: 6,
+  totalCategorias: 2,
+  porcentajeBp: 2500,
+  metaBp: 3000,
+  grupos: [
+    {
+      categoriaId: 'cat-paseos',
+      nombre: 'Paseos',
+      subtotal: '200000',
+      conteo: 4,
+      transacciones: [
+        {
+          id: 'tx-p1',
+          fecha: '2026-07-02T00:00:00.000Z',
+          descripcion: 'Uber',
+          monto: '50000',
+        },
+        {
+          id: 'tx-p2',
+          fecha: '2026-07-06T00:00:00.000Z',
+          descripcion: 'Metro',
+          monto: '50000',
+        },
+        {
+          id: 'tx-p3',
+          fecha: '2026-07-11T00:00:00.000Z',
+          descripcion: 'RedBike',
+          monto: '50000',
+        },
+        {
+          id: 'tx-p4',
+          fecha: '2026-07-15T00:00:00.000Z',
+          descripcion: 'Taxi',
+          monto: '50000',
+        },
+      ],
+    },
+    {
+      categoriaId: null,
+      nombre: 'Sin categoría',
+      subtotal: '50000',
+      conteo: 2,
+      transacciones: [
+        {
+          id: 'tx-s1',
+          fecha: '2026-07-03T00:00:00.000Z',
+          descripcion: 'Giro',
+          monto: '25000',
+        },
+        {
+          id: 'tx-s2',
+          fecha: '2026-07-14T00:00:00.000Z',
+          descripcion: 'Transferencia',
+          monto: '25000',
+        },
+      ],
+    },
+  ],
+};
+
+/**
  * `GET /api/resumen/semaforo` (US-049 T7.8, design §1.7) — a literal
  * `SemaforoDetalleDto` instance (`src/api/types.ts`): a Necesidades bucket
  * over its band (Amarillo, with `consejo`), Deseos/Ahorro in Verde (no
@@ -275,6 +351,40 @@ export async function stubApi(page: Page): Promise<void> {
     const match = /\/api\/buckets\/([^/?]+)/.exec(route.request().url());
     const bucket = match ? decodeURIComponent(match[1]) : 'desconocido';
     route.fulfill({ json: detalleBucketFixture(bucket) });
+  });
+  // US-053 T-20: the GROUPED route MUST be registered AFTER the flat
+  // `**/api/buckets/**` stub above — Playwright matches routes in REVERSE
+  // registration order (LIFO, last-registered-wins), so the later, more
+  // specific pattern is tried first for `/api/buckets/:bucket/detalle`
+  // requests; the flat stub remains the fallback for any other
+  // `/api/buckets/*` path (the flat web chain is retired in T-18, so
+  // nothing requests it — the stub stays as harmless documentation).
+  await page.route('**/api/buckets/*/detalle*', (route) => {
+    const url = new URL(route.request().url());
+    const match = /\/api\/buckets\/([^/?]+)\/detalle/.exec(url.pathname);
+    const bucket = match ? decodeURIComponent(match[1]) : 'Deseos';
+    const periodo =
+      url.searchParams.get('periodo') ?? DETALLE_BUCKET_MES_FIXTURE.periodo;
+    const sinCategoria = bucket === 'SinCategoria';
+    route.fulfill({
+      json: {
+        ...DETALLE_BUCKET_MES_FIXTURE,
+        bucket,
+        periodo,
+        // MBD-03/WDM-04: SinCategoria arrives with null `porcentajeBp`/
+        // `metaBp` and only its uncategorized group — the page then renders
+        // no %/meta tag and no usage bar (D-02), with a single group for
+        // the `destacar` highlight to land on.
+        ...(sinCategoria && {
+          porcentajeBp: null,
+          metaBp: null,
+          total: '50000',
+          totalTransacciones: 2,
+          totalCategorias: 1,
+          grupos: [DETALLE_BUCKET_MES_FIXTURE.grupos[1]],
+        }),
+      },
+    });
   });
   // US-049 T7.8: a DISTINCT route from `**/api/resumen*` above — Playwright's
   // `*` does not cross `/`, so `**/api/resumen*` never matches

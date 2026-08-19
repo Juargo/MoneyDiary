@@ -11,7 +11,7 @@ import type { ApiError } from './client';
  * en `mutation.error`, nunca un throw crudo.
  *
  * Al tener éxito invalida EXACTAMENTE 4 cachés — las 3 que `useIngesta`
- * (upload) ya invalida (`resumen`, `resumen-anual`, `detalle-bucket`) MÁS
+ * (upload) ya invalida (`resumen`, `resumen-anual`, `detalle-bucket-mes`) MÁS
  * `ingestas`, porque a diferencia de subir un archivo, borrar una ingesta
  * también muta la lista que `useIngestas` cachea. Sin `['movimientos']` — esa
  * caché no existe en `apps/web` (verificado en `useIngesta`).
@@ -21,7 +21,7 @@ import type { ApiError } from './client';
  * (borrada por otra sesión, o un doble-click que ya resolvió la primera
  * request). `onError` trata ese caso como "ya se fue": invalida SOLO
  * `['ingestas']` para que la fila stale desaparezca al refetch, sin tocar
- * `resumen`/`resumen-anual`/`detalle-bucket` — esas cachés ya reflejan
+ * `resumen`/`resumen-anual`/`detalle-bucket-mes` — esas cachés ya reflejan
  * cualquier estado previo y no cambiaron por este 404 (review finding).
  * Cualquier otro error (red, 401, 5xx) no invalida nada, igual que antes.
  */
@@ -39,7 +39,7 @@ export function useEliminarIngesta() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resumen'] });
       queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
-      queryClient.invalidateQueries({ queryKey: ['detalle-bucket'] });
+      queryClient.invalidateQueries({ queryKey: ['detalle-bucket-mes'] });
       queryClient.invalidateQueries({ queryKey: ['ingestas'] });
     },
     onError: (error) => {

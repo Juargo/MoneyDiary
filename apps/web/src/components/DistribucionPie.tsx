@@ -52,11 +52,13 @@ function centroidLabel(
  * of dividing by zero (mirrors `apps/mobile/src/components/DistribucionPie.tsx`).
  *
  * When `onSelectSlice` is provided (main pie only — task 30.10), each wedge
- * becomes an accessible, selectable control: `role="button"`, keyboard
- * support (Enter/Space), an `aria-label` (the UI bucket label), and
- * `aria-pressed` reflecting `bucketSeleccionado`. A native `<button>` can't
- * nest inside `<path>`'s SVG coordinate space, so the interactive semantics
- * are applied directly to the `<path>` — the standard accessible-SVG pattern.
+ * becomes an accessible, navigable control: `role="button"`, keyboard
+ * support (Enter/Space), and an `aria-label` (the UI bucket label). A native
+ * `<button>` can't nest inside `<path>`'s SVG coordinate space, so the
+ * interactive semantics are applied directly to the `<path>` — the standard
+ * accessible-SVG pattern. US-053 PR3 (D-06): `aria-pressed` is GONE — a
+ * click NAVIGATES to the month-scoped bucket page (not a toggle), and the
+ * parent screen decides where the reported bucket goes.
  * The IDEAL reference inset never passes `onSelectSlice` and stays a static,
  * non-interactive chart.
  */
@@ -65,7 +67,6 @@ function Pie({
   size,
   showLabels = false,
   sliceTestId,
-  bucketSeleccionado,
   onSelectSlice,
   rInterior = 0,
 }: {
@@ -73,7 +74,6 @@ function Pie({
   readonly size: number;
   readonly showLabels?: boolean;
   readonly sliceTestId: string;
-  readonly bucketSeleccionado?: string | null;
   readonly onSelectSlice?: (bucket: string) => void;
   /** Donut hole radius, absolute px (US-047 D-01) — `0` = filled wedge (IDEAL inset). */
   readonly rInterior?: number;
@@ -124,7 +124,6 @@ function Pie({
           );
         }
 
-        const seleccionado = slice.bucket === bucketSeleccionado;
         return (
           <path
             key={slice.bucket}
@@ -135,7 +134,6 @@ function Pie({
             role="button"
             tabIndex={0}
             aria-label={ETIQUETA_BUCKET[slice.bucket] ?? slice.bucket}
-            aria-pressed={seleccionado}
             stroke={PIE_WEDGE_STROKE}
             className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
             onClick={() => onSelectSlice(slice.bucket)}
@@ -232,8 +230,10 @@ function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
  * of dividing by zero; the IDEAL inset is independent of spending data and
  * always renders from `targets`.
  *
- * US-030 Slice B (task 30.10): the main pie's slices double as the dashboard's
- * bucket selector — see `Pie`'s docstring for the interaction contract.
+ * US-030 Slice B (task 30.10) — US-053 PR3 (D-06): the main pie's slices
+ * are the dashboard's bucket NAVIGATION control — see `Pie`'s docstring for
+ * the interaction contract. The `bucketSeleccionado`/`aria-pressed` selection
+ * state is gone with the retired transactions panel (ResumenScreen).
  *
  * US-047 (design D-01, judgment-day fix): the main ring's donut hole is
  * OPT-IN via `conInterior` (default `false`, filled pie — byte-identical to
@@ -244,14 +244,12 @@ function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
 export function DistribucionPie({
   tajadas,
   targets,
-  bucketSeleccionado,
   onSelectBucket,
   size = 240,
   conInterior = false,
 }: {
   readonly tajadas: ReadonlyArray<TajadaGasto>;
   readonly targets: ResumenViewModel['targets'];
-  readonly bucketSeleccionado: string | null;
   readonly onSelectBucket: (bucket: string) => void;
   readonly size?: number;
   /**
@@ -297,7 +295,6 @@ export function DistribucionPie({
           size={size}
           showLabels
           sliceTestId="pie-slice"
-          bucketSeleccionado={bucketSeleccionado}
           onSelectSlice={onSelectBucket}
           rInterior={rInteriorAnillo}
         />

@@ -7,7 +7,7 @@ import type { MeDto } from './types';
  * already returns (US-042 design.md §1/Q3a, WCFG-03/WCFG-04).
  *
  * `['auth-me']`, not `['me']`: namespaced by the endpoint it mirrors, same
- * convention as `['resumen']`/`['ingestas']`/`['detalle-bucket']`. This is
+ * convention as `['resumen']`/`['ingestas']`/`['detalle-bucket-mes']`. This is
  * the ONLY cache that holds identity, so it is also the only key any mutation
  * on this page ever invalidates.
  *

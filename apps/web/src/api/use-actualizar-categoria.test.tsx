@@ -12,9 +12,9 @@ import { useActualizarCategoria } from './use-actualizar-categoria';
  * The belt-and-braces case (Q5c/Q5b): a RENAME-ONLY patch (bucket
  * unchanged) still produces the FULL profile-B list — the assertion that
  * would fail if someone later "optimises" the rename path to skip
- * `['detalle-bucket']`, which is WRONG (design.md §1/Q5b:
- * `agrupar-detalle-por-categoria.ts` groups by `tx.categoria?.nombre`, so a
- * rename changes what the bucket drill-down displays).
+ * `['detalle-bucket-mes']`, which is WRONG (design.md §1/Q5b: the grouped
+ * mes endpoint groups by `tx.categoria?.nombre`, so a rename changes what
+ * the bucket drill-down displays).
  */
 function crearWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -77,7 +77,7 @@ describe('useActualizarCategoria', () => {
       ['categorias'],
       ['resumen'],
       ['resumen-anual'],
-      ['detalle-bucket'],
+      ['detalle-bucket-mes'],
     ]);
   });
 
@@ -99,7 +99,7 @@ describe('useActualizarCategoria', () => {
       ['categorias'],
       ['resumen'],
       ['resumen-anual'],
-      ['detalle-bucket'],
+      ['detalle-bucket-mes'],
     ]);
   });
 

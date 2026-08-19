@@ -10,11 +10,12 @@ import type { TajadaGasto } from '@/domain/distribucion-gasto';
 // resolved INSIDE this component via lib/bucket-colors (FIX 0: restores
 // clean layering, mirrors mobile).
 //
-// US-030 Slice B (task 30.10): each main-pie slice is also a selectable
-// control — clicking (or pressing Enter/Space on) a slice reports its bucket
-// via `onSelectBucket`, and the currently selected bucket's slice carries
-// `aria-pressed="true"`. The IDEAL reference inset stays non-interactive —
-// it's a static target, not one of the 4 selectable buckets.
+// US-030 Slice B (task 30.10) — US-053 PR3 (D-06): each main-pie slice is a
+// NAVIGATION control — clicking (or pressing Enter/Space on) a slice reports
+// its bucket via `onSelectBucket`, and the screen/route decides where that
+// goes. `aria-pressed` is gone: navigation isn't a toggle. The IDEAL
+// reference inset stays non-interactive — it's a static target, not one of
+// the 4 drill-down buckets.
 const tajadas: ReadonlyArray<TajadaGasto> = [
   { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
   { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
@@ -29,7 +30,6 @@ function renderPie(
     <DistribucionPie
       tajadas={tajadas}
       targets={targets}
-      bucketSeleccionado={null}
       onSelectBucket={vi.fn()}
       {...overrides}
     />,
@@ -164,7 +164,7 @@ describe('DistribucionPie', () => {
     ).toBeInTheDocument();
   });
 
-  it('exposes each main-pie slice as an accessible, selectable button (task 30.10)', () => {
+  it('exposes each main-pie slice as an accessible, navigable button (task 30.10, D-06)', () => {
     renderPie();
     expect(
       screen.getByRole('button', { name: 'Necesidades' }),
@@ -173,22 +173,10 @@ describe('DistribucionPie', () => {
     expect(screen.getByRole('button', { name: 'Ahorro' })).toBeInTheDocument();
   });
 
-  it('marks the selected bucket slice with aria-pressed, others not pressed', () => {
-    renderPie({ bucketSeleccionado: 'Deseos' });
-    expect(screen.getByRole('button', { name: 'Gustos' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Necesidades' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(screen.getByRole('button', { name: 'Ahorro' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-  });
-
+  // US-053 PR3 (D-06): `aria-pressed` is GONE — a click navigates (not a
+  // toggle), and the drill-down contract is the click/keyboard tests below.
+  // The old "marks the selected bucket slice with aria-pressed" test
+  // (DistribucionPie.test.tsx:176) was removed with it.
   it('clicking a slice reports its bucket via onSelectBucket', () => {
     const onSelectBucket = vi.fn();
     renderPie({ onSelectBucket });
