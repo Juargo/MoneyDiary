@@ -2,7 +2,9 @@ import type {
   ApiVersionDto,
   BucketResumenDto,
   DetalleBucketDto,
+  DetalleBucketMesDto,
   DetalleBucketTransaccionDto,
+  GrupoDetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
   PreviewIngestaDto,
@@ -12,6 +14,7 @@ import type {
   ResumenMesDto,
   SemaforoBucketDetalleDto,
   SemaforoDetalleDto,
+  TransaccionDetalleBucketMesDto,
   TransaccionResponseDto,
 } from './types';
 import { esMontoStringValido } from '../domain/formatear-monto';
@@ -573,6 +576,155 @@ export async function fetchDetalleBucket(
   }
 
   if (!esDetalleBucketDto(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * Guarda money-safety para `DetalleBucketMesDto` (US-051 `bucket-detalle-mes`,
+ * consumido por US-053): valida exactamente lo que
+ * `aDetalleBucketMesViewModel` (`domain/detalle-bucket-mes-view-model.ts`)
+ * consume aguas abajo — `total`/`grupos[].subtotal`/`transacciones[].monto`
+ * vía `esMontoStringValido` (mismo razonamiento que `esResumenMesDto`:
+ * `formatearMontoCLP` lanza sobre `""`/`"abc"`/`"12.5"`/etc, un `typeof`-only
+ * guard dejaría pasar un 2xx que crashearía mid-render con un `TypeError`
+ * crudo), `fecha` vía `esFechaValida` (un `fecha` no parseable produciría una
+ * fecha garbled vía el slice posicional de `aFechaLabel`), `periodo`/`bucket`
+ * (pasados verbatim al header), `porcentajeBp`/`metaBp` (`number | null` — la
+ * barra de uso se esconde cuando `porcentajeBp === null`, D-02, así que un
+ * tipo inesperado rompería esa decisión), y los conteos `totalTransacciones`/
+ * `totalCategorias`/`conteo` (`number`). Un 2xx que no cumpla la forma
+ * esperada nunca llega a `formatearMontoCLP`/`aFechaLabel`/el view model —
+ * se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
+ */
+function esTransaccionDetalleBucketMesDto(
+  value: unknown,
+): value is TransaccionDetalleBucketMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<TransaccionDetalleBucketMesDto>;
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.monto === 'string' &&
+    esMontoStringValido(candidato.monto)
+  );
+}
+
+function esGrupoDetalleBucketMesDto(
+  value: unknown,
+): value is GrupoDetalleBucketMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<GrupoDetalleBucketMesDto>;
+  return (
+    (candidato.categoriaId === null ||
+      typeof candidato.categoriaId === 'string') &&
+    typeof candidato.nombre === 'string' &&
+    typeof candidato.subtotal === 'string' &&
+    esMontoStringValido(candidato.subtotal) &&
+    typeof candidato.conteo === 'number' &&
+    Array.isArray(candidato.transacciones) &&
+    candidato.transacciones.every(esTransaccionDetalleBucketMesDto)
+  );
+}
+
+function esDetalleBucketMesDto(value: unknown): value is DetalleBucketMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<DetalleBucketMesDto>;
+  return (
+    typeof candidato.periodo === 'string' &&
+    typeof candidato.bucket === 'string' &&
+    typeof candidato.total === 'string' &&
+    esMontoStringValido(candidato.total) &&
+    typeof candidato.totalTransacciones === 'number' &&
+    typeof candidato.totalCategorias === 'number' &&
+    (typeof candidato.porcentajeBp === 'number' ||
+      candidato.porcentajeBp === null) &&
+    (typeof candidato.metaBp === 'number' || candidato.metaBp === null) &&
+    Array.isArray(candidato.grupos) &&
+    candidato.grupos.every(esGrupoDetalleBucketMesDto)
+  );
+}
+
+/**
+ * fetchDetalleBucketMes — GET /api/buckets/:bucket/detalle[?periodo=YYYY-MM]
+ * (US-051 `bucket-detalle-mes` MBD-01..08; consumido por US-053). Misma
+ * disciplina que `fetchDetalleBucket`: same-origin, sin key, nunca lanza,
+ * error tipado. El 400 aquí puede venir de un `:bucket` fuera de la allowlist
+ * o de un `periodo` inválido — mismo mensaje que el flat sibling (el backend
+ * no distingue entre ambos, ver dry.md "distinguir conocimiento de
+ * coincidencia"). `grupos` pasa verbatim al view model — el cliente nunca
+ * re-ordena ni re-agrupa (WDM-03).
+ */
+export async function fetchDetalleBucketMes(
+  bucket: string,
+  periodo?: string,
+): Promise<ApiResult<DetalleBucketMesDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `/api/buckets/${encodeURIComponent(bucket)}/detalle${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
+  }
+
+  if (res.status === 400) {
+    return {
+      ok: false,
+      error: {
+        tag: 'invalid',
+        message: 'El bucket o el período no son válidos.',
+      },
+    };
+  }
+  if (res.status === 401) {
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  if (!esDetalleBucketMesDto(body)) {
     return {
       ok: false,
       error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
