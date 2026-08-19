@@ -8,6 +8,7 @@ import { GrupoMovimientos } from './GrupoMovimientos';
 import { useCategorias } from '@/api/use-categorias';
 import { aDetalleBucketMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
 import { mesCompletoLabel } from '@/domain/periodo-anual';
+import { CLAVE_SIN_CATEGORIA } from '@/domain/periodo';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { ApiError } from '@/api/client';
 import type { DetalleBucketMesDto } from '@/api/types';
@@ -157,7 +158,11 @@ export function BucketDetalleMesPage({
         <div className="flex flex-col gap-3">
           {viewModel.grupos.map((grupo) => (
             <GrupoMovimientos
-              key={grupo.categoriaId ?? 'sin-categoria'}
+              // Keyed by periodo too: `GrupoMovimientos` owns per-group
+              // expansion state, and switching months must reset it (the
+              // same categoryId across two months would otherwise keep the
+              // stale expanded slice).
+              key={`${viewModel.periodo}-${grupo.categoriaId ?? CLAVE_SIN_CATEGORIA}`}
               grupo={grupo}
               destacar={destacar && grupo.categoriaId === null}
               bucketActual={viewModel.bucket}
