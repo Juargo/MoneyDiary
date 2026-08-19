@@ -34,14 +34,14 @@ import type { DetalleBucketMesDto } from '@/api/types';
  * the track (T-06).
  *
  * **Catálogo — fetch-lifecycle surface owned HERE, once per page** (WCAT-04
- * delta, same debt-closing rationale as BucketDetailList): this page is
+ * delta): this page is
  * `ReclasificarCategoriaControl`'s ONLY render site for the new screen, and
  * every mounted instance plus this component share the exact same
  * `['categorias']` query (`use-categorias.ts`). Calling `useCategorias()`
  * here adds one more *observer* on that shared query, not a second network
  * request — TanStack Query dedupes by `queryKey` (per-key guarantee). The
  * page's own call fires `GET /api/categorias` unconditionally (above the
- * early returns — prefetch by design, same reasoning as BucketDetailList:
+ * early returns — prefetch by design:
  * gating it behind resolved non-empty transactions would slow the common
  * path to save one GET on a deduped key in two infrequent states). The
  * `role="status"` / `role="alert"` + "Reintentar" surface renders ONCE per
@@ -89,7 +89,8 @@ export function BucketDetalleMesPage({
         <div className="flex flex-wrap items-center gap-2 text-xs text-red-600">
           <p role="alert">{categoriasQuery.error.message}</p>
           {/* No `disabled` binding on retry — same dead-code reasoning as
-              BucketDetailList (judgment-day finding): TanStack Query resets a
+              the retired flat chain's retry (judgment-day finding): TanStack
+              Query resets a
               still-dataless query's `error` to `null` at the START of every
               fetch attempt, so this block unmounts the instant a retry
               begins (replaced by the `role="status"` block above). */}
