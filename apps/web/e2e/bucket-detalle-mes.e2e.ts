@@ -131,6 +131,9 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       .click();
 
     await expect(page).toHaveURL(/\/buckets\/Deseos\?periodo=2026-07/);
+    // Case 4's `destacar` is opt-in by literal — a non-Sin-categoría
+    // drill-down must NEVER carry it (a stray param would fail here).
+    await expect(page).not.toHaveURL(/destacar/);
     await expect(
       page.getByRole('heading', { level: 1, name: 'Gustos' }),
     ).toBeVisible();
