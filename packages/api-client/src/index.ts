@@ -36,6 +36,15 @@ export type ResumenAnualDto = S['ResumenAnualResponse'];
 /** GET /api/buckets/:bucket — bucket drill-down. */
 export type DetalleBucketDto = S['DetalleBucketResponse'];
 
+/** GET /api/buckets/:bucket/detalle — month×bucket detail grouped by category (US-051/US-053). Money as decimal strings (BigInt-safe). */
+export type DetalleBucketMesDto = S['BucketDetalleMesResponse'];
+
+/** One category group inside `DetalleBucketMesDto.grupos` — es-CL alphabetical, "Sin categoría" last (server-ordered, MBD-02). */
+export type GrupoDetalleBucketMesDto = S['BucketDetalleMesResponse']['grupos'][number];
+
+/** One transaction row inside `GrupoDetalleBucketMesDto.transacciones`. Money as decimal strings. */
+export type TransaccionDetalleBucketMesDto = S['BucketDetalleMesResponse']['grupos'][number]['transacciones'][number];
+
 /** One transaction row inside `DetalleBucketDto.transacciones`. Money as decimal strings. */
 export type DetalleBucketTransaccionDto = S['DetalleBucketResponse']['transacciones'][number];
 
