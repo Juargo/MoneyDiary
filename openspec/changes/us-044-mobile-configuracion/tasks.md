@@ -330,30 +330,32 @@ Requirements: MCFG-MCTG-08 (RNTL coverage for every new component), D-17 (`Selec
 both `Bucket` and `Tipo de coincidencia`). Depends on nothing beyond React Native primitives —
 independently reviewable, under budget.
 
-- [ ] **T3a.1 (RED)** Create `apps/mobile/src/components/configuracion/CampoTexto.spec.tsx`
+- [x] **T3a.1 (RED)** Create `apps/mobile/src/components/configuracion/CampoTexto.spec.tsx`
       (5 cases): renders label + value; `onChangeText` fires on input; `secureTextEntry` toggles for
       password fields; an error message renders under the field when provided (`role="alert"`); the
       accessible name matches the visible label. `[P]` with T3a.3 (disjoint files).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test CampoTexto.spec.tsx`
-- [ ] **T3a.2 (GREEN)** Create `apps/mobile/src/components/configuracion/CampoTexto.tsx` — controlled
+- [x] **T3a.2 (GREEN)** Create `apps/mobile/src/components/configuracion/CampoTexto.tsx` — controlled
       text input wrapper (`label`, `value`, `onChangeText`, optional `secureTextEntry`, optional
       `error`).
       - Verify: `pnpm --filter @moneydiary/mobile test CampoTexto.spec.tsx` — 5 green.
-- [ ] **T3a.3 (RED)** Create `apps/mobile/src/components/configuracion/SelectorChips.spec.tsx`
+- [x] **T3a.3 (RED)** Create `apps/mobile/src/components/configuracion/SelectorChips.spec.tsx`
       (6 cases): `radiogroup`/`radio` `accessibilityRole`s (mirrors `subir.tsx:327-360`'s 10/25/50
       idiom, D-17); `accessibilityState.checked` on the selected chip only; tapping a chip calls
       `onChange` with its value; renders N chips for N options; label renders above the group; works
       for both a 3-bucket option set and a 3-matchType option set (parametrized — proving the
       one-component-two-call-sites contract D-17 names). `[P]` with T3a.1.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test SelectorChips.spec.tsx`
-- [ ] **T3a.4 (GREEN)** Create `apps/mobile/src/components/configuracion/SelectorChips.tsx` — generic
+- [x] **T3a.4 (GREEN)** Create `apps/mobile/src/components/configuracion/SelectorChips.tsx` — generic
       `radiogroup` of `options: readonly string[]`, `value`, `onChange`, `label`.
-      - Verify: `pnpm --filter @moneydiary/mobile test SelectorChips.spec.tsx` — 6 green.
-- [ ] **T3a.5 (REFACTOR)** Confirm both components import only `src/theme` tokens, never `src/api`/
+      - Verify: `pnpm --filter @moneydiary/mobile test SelectorChips.spec.tsx` — 7 green.
+- [x] **T3a.5 (REFACTOR)** Confirm both components import only `src/theme` tokens, never `src/api`/
       `src/domain` (design §0 dependency rule: `domain ← components ← app`).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test CampoTexto.spec.tsx SelectorChips.spec.tsx`
 
 **PR3a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~260 lines, 11 new tests. Under budget.
+
+**PR3a real:** 324 lines (CampoTexto.tsx 48, CampoTexto.spec.tsx 84, SelectorChips.tsx 76, SelectorChips.spec.tsx 116). 12 new tests (5 CampoTexto + 7 SelectorChips). Full mobile suite: 38 suites / 425 tests passing, `tsc --noEmit` clean. Zero api/domain imports.
 
 ---
 
