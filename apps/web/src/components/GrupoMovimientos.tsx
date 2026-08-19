@@ -35,6 +35,7 @@ export function GrupoMovimientos({
 }) {
   const [expandido, setExpandido] = useState(false);
   const idLista = useId();
+  const idTitulo = useId();
 
   const visibles = expandido
     ? grupo.transacciones
@@ -46,13 +47,15 @@ export function GrupoMovimientos({
     <section
       data-testid="grupo-movimientos"
       data-destacado={destacar ? 'true' : undefined}
+      aria-labelledby={idTitulo}
+      aria-current={destacar ? 'true' : undefined}
       className={
         destacar
           ? 'flex flex-col gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3'
           : 'flex flex-col gap-3'
       }
     >
-      <h2 className="text-sm font-semibold text-secondary">
+      <h2 id={idTitulo} className="text-sm font-semibold text-secondary">
         {grupo.nombre} · {grupo.subtotalLabel} · {grupo.conteo}{' '}
         {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
       </h2>

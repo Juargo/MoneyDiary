@@ -529,6 +529,10 @@ describe('BucketDetalleMesPage', () => {
         (g) => g.getAttribute('data-destacado') !== 'true',
       ),
     ).toBe(true);
+    // No highlight means no current-item signal either (a11y, WDM-04).
+    expect(
+      gruposSinDestacar.every((g) => g.getAttribute('aria-current') !== 'true'),
+    ).toBe(true);
 
     rerenderConRouter(
       <BucketDetalleMesPage
@@ -545,9 +549,18 @@ describe('BucketDetalleMesPage', () => {
         within(g).queryByText('Sin categoría'),
       );
       expect(sinCategoria).toHaveAttribute('data-destacado', 'true');
+      expect(sinCategoria).toHaveAttribute('aria-current', 'true');
+      // The highlighted section is labelled by its own heading (a11y, WDM-04).
+      const titulo = within(sinCategoria as HTMLElement).getByRole('heading', {
+        level: 2,
+      });
+      expect(sinCategoria).toHaveAttribute('aria-labelledby', titulo.id);
       const conCategoria = grupos.filter((g) => g !== sinCategoria);
       expect(
         conCategoria.every((g) => g.getAttribute('data-destacado') !== 'true'),
+      ).toBe(true);
+      expect(
+        conCategoria.every((g) => g.getAttribute('aria-current') !== 'true'),
       ).toBe(true);
     });
   });
