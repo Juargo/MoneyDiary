@@ -1,12 +1,14 @@
 /**
- * PerfilPanel.spec.tsx — US-044 PR4b, T4b.1 (15 cases)
+ * PerfilPanel.spec.tsx — US-044 PR4b, T4b.1 (16 cases)
  *
  * `io` (patchPerfil / patchPassword) is injected as a prop rather than
  * module-mocked. This mirrors the same DIP pattern guardar-perfil.ts already
  * uses for its own unit tests: inject io functions, never import them inside
  * the function under test. PerfilPanel accepts `io` as an optional prop (prod
- * default: the real api/perfil functions). The spec passes in jest.fn()
- * pairs directly — no jest.mock hoisting required.
+ * default: the real api/perfil functions). The 15 prop-injection tests (cases
+ * 1–15) pass in jest.fn() pairs directly and need no jest.mock hoisting.
+ * Case 16 (default-wiring) uses jest.mock at the bottom of the file to cover
+ * the production default path that resolves to the real api/perfil module.
  *
  * `act(async () => { fireEvent.changeText(...) })` is required to flush React
  * 18 concurrent-mode state updates before fireEvent.press reads the committed
@@ -14,7 +16,7 @@
  * TextInput's onChangeText triggers setNombre but the re-render may not be
  * flushed before the next fireEvent.press.
  *
- * Coverage per tasks.md T4b.1 (15 cases):
+ * Coverage per tasks.md T4b.1 (16 cases):
  *  1. Renders 4 CampoTexto fields (Nombre / Email / Password actual / Password nueva)
  *  2. null email renders empty without crashing (MCFG-02)
  *  3. Google block: Vinculada: {email} when googleVinculado + email present
@@ -30,6 +32,7 @@
  * 13. Error message renders inside role="alert" region
  * 14. sin-cambios: ok «No hay cambios para guardar.»
  * 15. falta-password-actual: error «Ingresa tu password actual.»
+ * 16. Message reset on resubmit: stale error is cleared before second result resolves
  */
 
 import React from 'react';
@@ -353,6 +356,54 @@ describe('PerfilPanel (US-044 PR4b, T4b.1)', () => {
       expect(screen.getByText('Ingresa tu password actual.')).toBeOnTheScreen();
     });
     expect(io.patchPerfil).not.toHaveBeenCalled();
+  });
+
+  it('message reset on resubmit: stale error is cleared before second result resolves (covers setMensaje(null))', async () => {
+    // First submit: patchPerfil rejects → error message appears.
+    const patchPerfilFail = jest
+      .fn<Promise<ApiResult<void>>, [PerfilPatch]>()
+      .mockResolvedValue({
+        ok: false,
+        error: { tag: 'http', status: 400, code: 'EMAIL_INVALIDO' },
+      });
+    const io = buildIo({ patchPerfil: patchPerfilFail });
+
+    await render(<PerfilPanel me={baseMe} io={io} />);
+
+    await llenarYEnviar({ email: 'bad-email', passwordActual: 'pass' });
+
+    await waitFor(() => {
+      expect(screen.getByText('El email no es válido.')).toBeOnTheScreen();
+    });
+
+    // Second submit: use a deferred promise so we can inspect mid-flight state.
+    // While patchPerfil is in-flight, setMensaje(null) has already fired (line 59
+    // of PerfilPanel.tsx) — without that reset the stale error would still be visible.
+    let resolveSecond!: (v: ApiResult<void>) => void;
+    const deferredSecond = new Promise<ApiResult<void>>((res) => {
+      resolveSecond = res;
+    });
+    patchPerfilFail.mockReturnValueOnce(deferredSecond);
+
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('Email'), 'good@example.com');
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    // While in-flight: the stale error copy must be absent (setMensaje(null) fired).
+    await waitFor(() => {
+      expect(screen.queryByText('El email no es válido.')).toBeNull();
+    });
+
+    // Resolve with success and assert the ok message appears.
+    await act(async () => {
+      resolveSecond({ ok: true, value: undefined });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambios guardados.')).toBeOnTheScreen();
+    });
+    expect(screen.queryByText('El email no es válido.')).toBeNull();
   });
 });
 
