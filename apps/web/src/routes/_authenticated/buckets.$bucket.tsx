@@ -6,14 +6,20 @@ import { normalizarDestacar, normalizarPeriodo } from '@/domain/periodo';
 export const Route = createFileRoute('/_authenticated/buckets/$bucket')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { periodo?: string; destacar?: boolean } => ({
+  ): { periodo?: string; destacar?: string } => ({
     periodo: normalizarPeriodo(search.periodo),
     // D-01: strict, fail-closed — the highlight is opt-in by the exact
     // literal 'sin-categoria' only; everything else (incl. absent) → absent
     // (`undefined`), so a falsy default never serializes into the URL
     // (`/buckets/Necesidades`, not `/buckets/Necesidades?destacar=false` —
     // pinned by the real-tree redirect test in redirect-after-login.test.tsx).
-    destacar: normalizarDestacar(search.destacar) !== undefined || undefined,
+    //
+    // `destacar` stays a STRING in the search type on purpose: TanStack
+    // Router serializes the VALIDATED output of `validateSearch`, so the
+    // raw literal must round-trip through this return type for the URL to
+    // carry `?destacar=sin-categoria` (the component below derives the
+    // boolean for the page prop; the e2e case 4 pins the serialized URL).
+    destacar: normalizarDestacar(search.destacar),
   }),
   component: BucketDetalleRoute,
 });
@@ -46,7 +52,7 @@ function BucketDetalleRoute() {
           search: { periodo: nuevoPeriodo },
         })
       }
-      destacar={destacar ?? false}
+      destacar={destacar !== undefined}
     />
   );
 }
