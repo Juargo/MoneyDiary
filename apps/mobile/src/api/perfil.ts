@@ -1,5 +1,8 @@
 import { enviarMutacion } from './mutacion';
 import type { ApiResult } from '../domain/api-error';
+import type { PasswordPatch, PerfilPatch } from '../domain/guardar-perfil';
+
+export type { PasswordPatch, PerfilPatch } from '../domain/guardar-perfil';
 
 /**
  * api/perfil.ts — cliente de `/api/perfil*` (US-044, design.md §1.4).
@@ -13,17 +16,6 @@ import type { ApiResult } from '../domain/api-error';
  * caller (`guardar-perfil.ts`, PR4a) ever reads `r.value`, only
  * `r.ok`/`r.error`.
  */
-
-export type PerfilPatch = {
-  readonly nombre?: string;
-  readonly email?: string;
-  readonly passwordActual?: string;
-};
-
-export type PasswordPatch = {
-  readonly passwordActual: string;
-  readonly passwordNueva: string;
-};
 
 /** `PATCH /api/perfil` — MCFG-03. */
 export async function patchPerfil(

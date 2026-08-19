@@ -414,7 +414,7 @@ components (not directly imported here, but chain-ordered ahead for review simpl
 Requirements: MCFG-03, MCFG-04. Depends on PR2a's `PerfilPatch`/`PasswordPatch` types (type-only) and
 PR1's `ApiError`/`copiaPorApiError` (from `src/domain/api-error`).
 
-- [ ] **T4a.1 (RED)** Create `apps/mobile/src/domain/guardar-perfil.spec.ts` (~12 cases): nombre-only
+- [x] **T4a.1 (RED)** Create `apps/mobile/src/domain/guardar-perfil.spec.ts` (~12 cases): nombre-only
       ⇒ **one** call, `passwordActual` absent from the payload; email change ⇒ `passwordActual`
       present; empty `passwordActual` + email dirty ⇒ `falta-password-actual`, **zero** calls; a
       profile failure ⇒ `patchPassword` **never called** — the abort-order guarantee (MCFG-03's own
@@ -423,15 +423,15 @@ PR1's `ApiError`/`copiaPorApiError` (from `src/domain/api-error`).
       `sin-cambios`, zero calls; "what counts as a change" is computed against the freshly-read `me`,
       not a stale draft (retry-after-partial-failure idempotency case).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test guardar-perfil.spec.ts`
-- [ ] **T4a.2 (GREEN)** Create `apps/mobile/src/domain/guardar-perfil.ts` — `construirPerfilPatch` +
+- [x] **T4a.2 (GREEN)** Create `apps/mobile/src/domain/guardar-perfil.ts` — `construirPerfilPatch` +
       `guardarPerfil(draft, me, io)` per design §1.8, the body ported from
       `use-guardar-perfil.ts:90-127` verbatim; `io` (`patchPerfil`, `patchPassword`) is **injected**
       so `domain/` never imports `src/api` at runtime. A type-only import of `PerfilPatch`/
       `PasswordPatch` from `src/api/perfil` is the accepted exception, symmetric with D-04's
       `ApiError` carve-out — if it reads as a violation at review time, move the two type aliases
       into this file and have `api/perfil.ts` re-export them instead.
-      - Verify: `pnpm --filter @moneydiary/mobile test guardar-perfil.spec.ts` — 12 green.
-- [ ] **T4a.3 (RED)** Create `apps/mobile/src/domain/mensajes-perfil.spec.ts` (~11 cases): one case
+      - Verify: `pnpm --filter @moneydiary/mobile test guardar-perfil.spec.ts` — 13 green.
+- [x] **T4a.3 (RED)** Create `apps/mobile/src/domain/mensajes-perfil.spec.ts` (~11 cases): one case
       per `status+code` row in the ported table (`PERFIL_RECHAZADO`, `NOMBRE_INVALIDO`,
       `EMAIL_INVALIDO`, `PASSWORD_INVALIDA`, `DEMO_SOLO_LECTURA`, …) plus the unknown-code fallback
       (`GENERICO`) plus the three transport tags (`network`/`unauthorized`/`parse` →
@@ -443,19 +443,21 @@ PR1's `ApiError`/`copiaPorApiError` (from `src/domain/api-error`).
       **absent** from the mobile `CodigoPerfil` union — non-tautological, paired with a positive case
       proving a real code IS present (judgment-anticipated class 3; design §1.9).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test mensajes-perfil.spec.ts`
-- [ ] **T4a.4 (GREEN)** Create `apps/mobile/src/domain/mensajes-perfil.ts` —
+- [x] **T4a.4 (GREEN)** Create `apps/mobile/src/domain/mensajes-perfil.ts` —
       `mensajeDeApiError(e, origen)` + `mensajeDeResultado(r)` per design §1.7/§1.9, ported from
       `apps/web/.../perfil/mensajes.ts:25-149` minus the three Google rows; `origen` narrows to
       `'perfil' | 'password'`; `mensajeDeResultado` keeps web's `const _exhaustive: never = r`
       totality guard (tsc-enforced).
-      - Verify: `pnpm --filter @moneydiary/mobile test mensajes-perfil.spec.ts` — 11 green.
-- [ ] **T4a.5 (REFACTOR + sweep)** Confirm `mensajes-perfil.ts` names `ApiError`/`copiaPorApiError`
+      - Verify: `pnpm --filter @moneydiary/mobile test mensajes-perfil.spec.ts` — 19 green.
+- [x] **T4a.5 (REFACTOR + sweep)** Confirm `mensajes-perfil.ts` names `ApiError`/`copiaPorApiError`
       from `src/domain/api-error` (not `src/api/client`) — this is what D-04's dependency-direction
       fix makes possible without a `domain → api` runtime edge. Confirm `MENSAJE_DEMO_SOLO_LECTURA`
       is a named constant with one home (design §1.9).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR4a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~505 lines, 23 new tests. **Over 400-line budget** — `size:exception` candidate.
+
+**PR4a real:** 682 lines (`api/perfil.ts` +2, `guardar-perfil.ts` 99, `guardar-perfil.spec.ts` 260, `mensajes-perfil.ts` 106, `mensajes-perfil.spec.ts` 215). 32 new tests (13 guardar-perfil + 19 mensajes-perfil). Full mobile suite: 42 suites / 473 tests passing, `tsc --noEmit` clean. Zero api imports in domain.
 
 ---
 
