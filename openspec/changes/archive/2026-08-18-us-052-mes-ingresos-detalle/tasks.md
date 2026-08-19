@@ -31,7 +31,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 0 — Pre-flight
 
-- [ ] 0.1 `pnpm api db:up && pnpm api test:db:setup` (Phase 4 needs it). — satisfecho por el estado del repo: scripts existen (US-051 precedent, verify-report #783); Phase 4 reutiliza la DB desechable provisionada.
+- [x] 0.1 `pnpm api db:up && pnpm api test:db:setup` (Phase 4 needs it). — satisfecho por el estado del repo: scripts existen (US-051 precedent, verify-report #783); Phase 4 reutiliza la DB desechable provisionada. (Reconciled at archive 2026-08-18, US-051 precedent.)
 
 ## Phase 1 — Application [PR 1]
 
@@ -64,6 +64,6 @@ Chain strategy: stacked-to-main
 
 ## Phase 5 — Closing
 
-- [ ] 5.1 Archive: canonical `user-data-isolation` → "7" in THREE places (Purpose prose, ISO-01, ISO-02 — never only ISO-02); promote new capability `ingresos-detalle-mes` (US-049 pattern, "Established by" line).
-- [ ] 5.2 Ledger recount vs design §4/§5: 33 new backend cases (+1 touched); existing suites byte-unchanged — CORRECTED counts (gate review): `bucket-detalle-mes.e2e-spec.ts` **8** `it(` (not 7 — extra W-1 reconciliation case), `obtener-detalle-bucket-mes.use-case.spec.ts` **11** invocations (it.each counts as one; not 12), `bucket-detalle-mes.schema.spec.ts` **3** (not 2 — MBD-08 leaf-rejection exists).
-- [ ] 5.3 Conventional-commit work units per PR (tests with code, no AI attribution).
+- [x] 5.1 Archive: canonical `user-data-isolation` → "7" in THREE places (Purpose prose, ISO-01, ISO-02 — never only ISO-02); promote new capability `ingresos-detalle-mes` (US-049 pattern, "Established by" line). — done 2026-08-18 (archive PR).
+- [x] 5.2 Ledger recount vs design §4/§5: 33 new backend cases (+1 touched); existing suites byte-unchanged — VERIFIED counts (archive, 2026-08-18): `bucket-detalle-mes.e2e-spec.ts` **8** `it(` (not 7 — extra W-1 reconciliation case), `obtener-detalle-bucket-mes.use-case.spec.ts` **12** test blocks (11 `it(` + 1 `it.each`); the gate review's "11" was a pattern-count slip — design.md's "12" was already correct), `bucket-detalle-mes.schema.spec.ts` **3** (not 2 — MBD-08 leaf-rejection exists).
+- [x] 5.3 Conventional-commit work units per PR (tests with code, no AI attribution). — done: PR chain #409/#411/#412/#415 + #416 merged to main @ 9b3c16ed; checkbox reconciled at archive 2026-08-18 (was left unchecked in file despite being complete).

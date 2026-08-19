@@ -86,9 +86,13 @@ domain files change — no new VO, no new error class, no schema/migration.
 ## 5. Test strategy / ledger (RED first)
 
 **Existing suites that MUST pass byte-unchanged (additive gate):** `app.bucket-detalle-mes.spec.ts` (6),
-`bucket-detalle-mes.e2e-spec.ts` (7 — incl. MBD-07 `GET /api/buckets/Ingresos/detalle` → 400),
-`obtener-detalle-bucket-mes.use-case.spec.ts` (12), `detalle-bucket-mes.dto.spec.ts` (5),
-`bucket-detalle-mes.schema.spec.ts` (2), all buckets/movimientos/resumen/openapi suites.
+`bucket-detalle-mes.e2e-spec.ts` (8 — incl. MBD-07 `GET /api/buckets/Ingresos/detalle` → 400),
+`obtener-detalle-bucket-mes.use-case.spec.ts` (12 test blocks: 11 `it(` + 1 `it.each`),
+`detalle-bucket-mes.dto.spec.ts` (5), `bucket-detalle-mes.schema.spec.ts` (3 — incl. MBD-08
+leaf-rejection), all buckets/movimientos/resumen/openapi suites. Counts verified against source at
+archive (2026-08-18): e2e 8 (not 7 — extra W-1 reconciliation case), use-case 12 (not 11 — the
+gate review's "11" was a pattern-count slip; design's original "12" was correct), schema 3 (not 2 —
+MBD-08 leaf-rejection exists).
 
 | suite | status | cases | contents |
 |-------|--------|-------|----------|
@@ -99,7 +103,10 @@ domain files change — no new VO, no new error class, no schema/migration.
 | `ingresos-mes.e2e-spec.ts` | NEW | **7** | sin `periodo` → 200 con las filas del mes UTC actual (seed en mes actual + mes anterior, solo aparecen las del actual — MID-04) (1); `?periodo=not-a-date` → 400 scrubbed (1); DTO shape — exactamente `{total, conteo, transacciones}` y cada tx `{id, fecha, descripcion, origen, monto}` con `origen` = banco del account seed, sin paginación (MID-01/02) (1); mes vacío → `"0"`/0/`[]` (1); montos > `MAX_SAFE_INTEGER` exactos en el wire (1); aislamiento dos usuarios — datos de B nunca en A, cookie y Bearer (MID-06/ISO-02, delta 6→7) (1); reconciliación: `total` === resumen-mensual Ingreso `totalAbono`, SPEND row (`abono>0 && cargo>0`) excluido (1) |
 | `openapi-document.spec.ts` | MOD | **+1** | registra `GET /api/ingresos/mes` con query `periodo` + 200/400 |
 
-**Totals: 33 new backend cases (+1 touched).** No web/mobile/landing impact (consumer is US-054).
+**Totals: 33 new backend cases (+1 touched).** Ledger confirmed at archive (2026-08-18) against
+source: 13 use-case + 4 dto + 3 schema + 6 app spec + 7 e2e = 33 new; +1 touched =
+`openapi-document.spec.ts` (isolation delta is a docs change, not a test). No web/mobile/landing
+impact (consumer is US-054).
 
 ## 6. HTTP contract appendix
 
