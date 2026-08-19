@@ -64,10 +64,7 @@ const viewModel: ResumenViewModel = {
     { bucket: 'SinCategoria', porcentaje: 0, fraccion: 0 },
   ],
   // Necesidades has the largest raw total among the 4 buckets — the panel-era
-  // default selection (task 30.10), retired with the panel (US-053 PR3). The
-  // field stays in `ResumenViewModel` (the view-model still computes it); this
-  // screen simply no longer reads it.
-  bucketPorDefecto: 'Necesidades',
+  // default selection (task 30.10), retired with the panel (US-053 PR3).
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
   // `leyendaPrincipal`/`leyendaComplemento` (T5, D-03) — a hand-rolled
