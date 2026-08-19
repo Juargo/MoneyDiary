@@ -308,7 +308,7 @@ describe('ResumenScreen', () => {
   // deliberate `aria-label` removal, T7) — e.g. "Necesidades 50%
   // -$500.000". A `^Necesidades\b` prefix match counts BOTH controls
   // without hardcoding the fixture's exact percentage/amount text here.
-  it('renders the "Distribución del gasto" pie + legend, with Sin categoría now selectable via both its wedge and its legend row (spec W1-02, WG5-01, task 30.9/30.10)', async () => {
+  it('renders the "Distribución del gasto" pie + legend, with Sin categoría now navigable via both its wedge and its legend row (spec W1-02, WG5-01, task 30.9/30.10)', async () => {
     mockFetchAnual();
     renderScreen();
     // FIX 2 (WCAG 4.1.2): the interactive main pie is a "group", not an

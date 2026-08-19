@@ -5,6 +5,7 @@ import { LeyendaGasto } from './LeyendaGasto';
 import { ResumenAnual } from './ResumenAnual';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 import { anioDePeriodo } from '@/domain/periodo-anual';
+import { BUCKETS_ANILLO } from '@/domain/distribucion-gasto';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { cn } from '@/lib/utils';
 
@@ -73,9 +74,14 @@ export function ResumenScreen({
   // D-06: both chart controls keep their single-arg `onSelectBucket`; THIS
   // screen owns the `destacar` flag — the Sin categoría drill-down carries
   // it so the route can pin `?destacar=sin-categoria` (WDM-04, e2e case 4).
-  // Every other bucket drills down without it.
+  // Every other bucket drills down without it. Sin categoría is the ring's
+  // LAST member by construction (`BUCKETS_ANILLO` = [...BUCKETS_5030,
+  // 'SinCategoria']) — no raw literal here (DRY).
   const onSeleccionarBucket = (bucket: string) =>
-    onSelectBucket(bucket, bucket === 'SinCategoria');
+    onSelectBucket(
+      bucket,
+      bucket === BUCKETS_ANILLO[BUCKETS_ANILLO.length - 1],
+    );
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
