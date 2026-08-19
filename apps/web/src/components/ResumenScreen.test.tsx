@@ -1,22 +1,22 @@
 import { afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { ResumenScreen } from './ResumenScreen';
 import { renderConRouter } from '@/test/router-harness';
 import { aResumenViewModel } from '@/domain/resumen-view-model';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
-import type {
-  DetalleBucketDto,
-  ResumenAnualDto,
-  ResumenMesDto,
-} from '@/api/types';
+import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
 
-// US-030 Slice B (tasks 30.9/30.10): the dashboard body. The old per-bucket
-// `<Link>` breakdown list is gone — the pie + legend now represent that
-// split, and the right panel shows the SELECTED bucket's transactions
-// inline (via `BucketDetailList`, which owns its own `useDetalleBucket`
-// query) instead of navigating away.
+// US-030 Slice B (tasks 30.9/30.10) — US-053 PR3 (D-06): the interim
+// transactions panel is RETIRED. The pie + legend represent the spend split,
+// and picking a bucket NAVIGATES to the month-scoped `/buckets/:bucket` page
+// instead of swapping an inline panel — the selection state
+// (`bucketElegido`, FIX 5 reset) is gone with it. `ResumenScreen` threads
+// the router's `onSelectBucket(bucket, destacar?)` down to
+// `DistribucionPie`/`LeyendaGasto` unchanged (their `onSelectBucket`
+// signature stays single-arg; this screen adds the `destacar` flag for the
+// Sin categoría drill-down, WDM-04).
 //
 // US-047 T11/PR3 (design §4.4): `renderScreen` now routes through
 // `renderConRouter` (T10's minimal memory-router harness) instead of a bare
@@ -63,8 +63,10 @@ const viewModel: ResumenViewModel = {
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
     { bucket: 'SinCategoria', porcentaje: 0, fraccion: 0 },
   ],
-  // Necesidades has the largest raw total among the 4 buckets — the
-  // dashboard's default transactions-panel selection (task 30.10).
+  // Necesidades has the largest raw total among the 4 buckets — the panel-era
+  // default selection (task 30.10), retired with the panel (US-053 PR3). The
+  // field stays in `ResumenViewModel` (the view-model still computes it); this
+  // screen simply no longer reads it.
   bucketPorDefecto: 'Necesidades',
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
@@ -224,21 +226,21 @@ function mesConDatos(periodo: string): ResumenAnualDto['meses'][number] {
 }
 
 /**
- * Mocks `fetch` for both `/api/buckets/:bucket` (returning a bucket-specific
- * transaction so tests can tell WHICH bucket the transactions panel actually
- * fetched, purely by asserting on rendered text) AND `/api/resumen/anual`
- * (US-030 Slice C — `ResumenScreen` now also renders `ResumenAnual`, which
- * self-fetches). The annual DTO here is all-`sinIngreso` (renders the Empty
- * state) — this file's tests are about the 2-column section, not the annual
- * grid (see `ResumenAnual.test.tsx` for that).
+ * Mocks `fetch` for `/api/resumen/anual` only (US-030 Slice C — `ResumenScreen`
+ * renders `ResumenAnual`, which self-fetches). The panel-era bucket stub is
+ * GONE with the panel itself (US-053 PR3, D-06/D-08): this screen no longer
+ * issues any `/api/buckets/:bucket` request. The annual DTO here is
+ * all-`sinIngreso` except January (renders the Empty state) — this file's
+ * tests are about the chart card, not the annual grid (see
+ * `ResumenAnual.test.tsx` for that).
  */
-function mockFetchPorBucket() {
+function mockFetchAnual() {
   const fetchMock = vi.fn((url: string) => {
     if (url.startsWith('/api/resumen/anual')) {
       const dto: ResumenAnualDto = {
         anio: 2026,
         // Only January has data — enough to exercise the clickable-month
-        // path without adding noise to this file's 2-column-section tests.
+        // path without adding noise to this file's chart-card tests.
         meses: Array.from({ length: 12 }, (_, i) => {
           const periodo = `2026-${String(i + 1).padStart(2, '0')}`;
           return i === 0 ? mesConDatos(periodo) : mesSinDatos(periodo);
@@ -250,30 +252,7 @@ function mockFetchPorBucket() {
         json: () => Promise.resolve(dto),
       });
     }
-    const match = /\/api\/buckets\/([^/?]+)/.exec(url);
-    const bucket = match ? decodeURIComponent(match[1]) : 'desconocido';
-    const dto: DetalleBucketDto = {
-      periodo: '2026-07',
-      bucket,
-      transacciones: [
-        {
-          id: `tx-${bucket}`,
-          fecha: '2026-07-15T00:00:00.000Z',
-          descripcion: `Movimiento de ${bucket}`,
-          cargo: '1000',
-          abono: '0',
-          banco: 'BancoEstado',
-          tipoCuenta: 'CuentaRUT',
-          numeroCuenta: '12345678',
-          categoria: null,
-        },
-      ],
-    };
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(dto),
-    });
+    return Promise.reject(new Error(`fetch inesperado: ${url}`));
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
@@ -282,9 +261,14 @@ function mockFetchPorBucket() {
 function renderScreen(
   vm: ResumenViewModel = viewModel,
   onPeriodoChange: (periodo: string) => void = vi.fn(),
+  onSelectBucket: (bucket: string, destacar?: boolean) => void = vi.fn(),
 ) {
   return renderConRouter(
-    <ResumenScreen viewModel={vm} onPeriodoChange={onPeriodoChange} />,
+    <ResumenScreen
+      viewModel={vm}
+      onPeriodoChange={onPeriodoChange}
+      onSelectBucket={onSelectBucket}
+    />,
   );
 }
 
@@ -299,21 +283,20 @@ describe('ResumenScreen', () => {
   // precedent) — the content isn't in the DOM on the synchronous first
   // render even for a loader-free route.
   it('renders totalIngreso formatted exactly as received (spec W1-01)', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
     expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
   });
 
   // A11y (ADR-018): the document must start at a page-level <h1> instead of
   // jumping straight to <h2> — a broken heading outline confuses assistive
-  // technology users navigating by heading. Reusing `BucketDetailList` for
-  // the right panel must not introduce a SECOND <h1> (it demotes to <h2>).
+  // technology users navigating by heading. US-053 PR3: the transactions panel
+  // (and its demoted `<h2>`) is gone, so the chart card's own subheading is
+  // the only content heading left — still exactly one page-level `<h1>`.
   it('renders exactly one page-level <h1> heading', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
-    );
+    await screen.findByText('$1.000.000');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
@@ -329,7 +312,7 @@ describe('ResumenScreen', () => {
   // -$500.000". A `^Necesidades\b` prefix match counts BOTH controls
   // without hardcoding the fixture's exact percentage/amount text here.
   it('renders the "Distribución del gasto" pie + legend, with Sin categoría now selectable via both its wedge and its legend row (spec W1-02, WG5-01, task 30.9/30.10)', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
     // FIX 2 (WCAG 4.1.2): the interactive main pie is a "group", not an
     // "img" — role="img" would flatten the slice buttons below it.
@@ -367,7 +350,7 @@ describe('ResumenScreen', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
-    mockFetchPorBucket();
+    mockFetchAnual();
     const vmReal = aResumenViewModel(resumenMesDtoReal());
 
     renderScreen(vmReal);
@@ -387,7 +370,7 @@ describe('ResumenScreen', () => {
   // the clickable `SemaforoTag` (`role="link"`) — the `semaforo-global`
   // testid anchor now resolves to a navigable link, not an inert image.
   it('renders the global semáforo (spec W2-01, WG5-07) as a navigable link, with a distinct testID anchor', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
     const contenedor = await screen.findByTestId('semaforo-global');
     expect(contenedor).toBeInTheDocument();
@@ -396,176 +379,62 @@ describe('ResumenScreen', () => {
     ).toBeInTheDocument();
   });
 
-  // Judgment-day fix: `getAllByRole('button', { name: 'Necesidades' })` uses
-  // EXACT accessible-name matching, and only the pie wedge's `aria-label` is
-  // the bare "Necesidades" — the legend row's name grew content (D-08, T7:
-  // "Necesidades 50% -$500.000"), so the old loop silently iterated over
-  // JUST the wedge, never proving the legend row's `aria-pressed` at all.
-  // Query both controls explicitly instead: the wedge by its exact name, the
-  // legend row by a `/^Necesidades /` regex (a trailing space only the
-  // content-derived legend name has — the wedge's bare name has none, so
-  // this uniquely resolves the legend row without matching the wedge too).
-  it('defaults the transactions panel to the bucket with the largest total, on both the pie wedge and the legend row (task 30.10)', async () => {
-    mockFetchPorBucket();
-    renderScreen();
+  // US-053 PR3 (D-06): the panel-era selection state is gone — the chart
+  // controls now NAVIGATE. `ResumenScreen` threads the router's
+  // `onSelectBucket` down to both controls; this proves the legend row
+  // actually reaches it (the composed-screen half of the T6/T7 click
+  // contracts, which survive unchanged — see LeyendaGasto.test.tsx /
+  // DistribucionPie.test.tsx for the per-control halves).
+  it('clicking a legend row calls onSelectBucket with that bucket (D-06)', async () => {
+    mockFetchAnual();
+    const onSelectBucket = vi.fn();
+    renderScreen(viewModel, vi.fn(), onSelectBucket);
+    await screen.findByText('$1.000.000');
 
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
-    );
-    expect(screen.getByRole('button', { name: 'Necesidades' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(
-      screen.getByRole('button', { name: /^Necesidades / }),
-    ).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('clicking the legend row switches the transactions panel to that bucket, updating aria-pressed on both the wedge and the legend row', async () => {
-    mockFetchPorBucket();
-    renderScreen();
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
-    );
-
-    // Click the LEGEND ROW specifically — see the regex rationale on the
-    // "defaults the transactions panel..." test above. (Previously this
-    // clicked `getAllByRole(..., { name: 'Gustos' })[length - 1]`, which
-    // exact-matching resolved to a single-element array — the SAME pie
-    // wedge, not the legend row the comment claimed.)
+    // The legend row, disambiguated from the wedge by its content-derived
+    // accessible name (D-08, T7 — a trailing space only the legend has; the
+    // wedge's bare name has none, so this uniquely resolves the row).
+    // "Gustos" is the display label of the 'Deseos' bucket.
     fireEvent.click(screen.getByRole('button', { name: /^Gustos / }));
 
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument(),
-    );
-    expect(screen.getByRole('button', { name: 'Gustos' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: /^Gustos / })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Necesidades' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(
-      screen.getByRole('button', { name: /^Necesidades / }),
-    ).toHaveAttribute('aria-pressed', 'false');
+    expect(onSelectBucket).toHaveBeenCalledWith('Deseos', false);
   });
 
-  // US-047 T11/PR3: renamed — SinCategoria now HAS a pie wedge (the ring's
-  // 4th member, WG5-01/`conInterior`), so this proves BOTH controls
-  // independently trigger the same drill-down, disambiguated the same way
-  // the Necesidades/Gustos/Ahorro tests above are: the wedge by its exact
-  // `aria-label` ("Sin categoría"), the legend row by a trailing-space
-  // regex (its accessible name grows content, D-08) — an exact-OR-loose
-  // regex here would now match 2 elements and `getByRole` would throw.
-  it('Sin categoría is selectable via both its pie wedge and its legend row (WG5-01)', async () => {
-    mockFetchPorBucket();
-    renderScreen();
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
-    );
+  // US-053 PR3 (WDM-04): the Sin categoría wedge carries the `destacar`
+  // flag — the route turns it into `?destacar=sin-categoria`, so the
+  // month-scoped page arrives with the unassigned group highlighted (e2e
+  // case 4). Every other bucket drills down without it (see above).
+  it('clicking the Sin categoría wedge calls onSelectBucket with destacar (WDM-04)', async () => {
+    mockFetchAnual();
+    const onSelectBucket = vi.fn();
+    renderScreen(viewModel, vi.fn(), onSelectBucket);
+    await screen.findByText('$1.000.000');
 
+    // The wedge, by its exact bare `aria-label` ("Sin categoría").
     fireEvent.click(screen.getByRole('button', { name: 'Sin categoría' }));
-    await waitFor(() =>
-      expect(
-        screen.getByText('Movimiento de SinCategoria'),
-      ).toBeInTheDocument(),
-    );
 
-    // Switch away, then prove the LEGEND ROW independently drives the same
-    // drill-down.
-    fireEvent.click(screen.getByRole('button', { name: 'Necesidades' }));
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole('button', { name: /^Sin categoría / }));
-    await waitFor(() =>
-      expect(
-        screen.getByText('Movimiento de SinCategoria'),
-      ).toBeInTheDocument(),
-    );
+    expect(onSelectBucket).toHaveBeenCalledWith('SinCategoria', true);
   });
 
-  // FIX 5: an explicit selection must not leak into the next month — when
-  // `periodo` changes, the panel resets to THAT month's own default bucket.
-  // Judgment-day fix: same exact-name-vs-content-derived-name query split
-  // as the two tests above — the old `getAllByRole(..., { name: 'Gustos' })`
-  // loops silently checked only the pie wedge.
-  it("resets the bucket selection to the new month's own default when periodo changes, on both the wedge and the legend row (FIX 5)", async () => {
-    mockFetchPorBucket();
-    // `rerenderConRouter` (not RTL's own `rerender`, see the router
-    // harness's own docblock): the harness doesn't use RTL's `wrapper`
-    // option, so RTL's `rerender` would replace the whole tree — including
-    // the `RouterProvider` — with just the new element, crashing
-    // `SemaforoTag`'s `<Link>`.
-    const { rerenderConRouter } = renderScreen();
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Necesidades')).toBeInTheDocument(),
-    );
-
-    // Explicit selection away from the default — click the legend row (see
-    // the regex rationale on the "defaults the transactions panel..." test).
-    fireEvent.click(screen.getByRole('button', { name: /^Gustos / }));
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Deseos')).toBeInTheDocument(),
-    );
-
-    // periodo changes — the new month's default bucket is Ahorro this time.
-    const nuevoViewModel: ResumenViewModel = {
-      ...viewModel,
-      periodo: '2026-08',
-      bucketPorDefecto: 'Ahorro',
-    };
-    rerenderConRouter(
-      <ResumenScreen viewModel={nuevoViewModel} onPeriodoChange={vi.fn()} />,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByText('Movimiento de Ahorro')).toBeInTheDocument(),
-    );
-    expect(screen.getByRole('button', { name: 'Ahorro' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: /^Ahorro / })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Gustos' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(screen.getByRole('button', { name: /^Gustos / })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-  });
-
-  // US-030 Slice C (task 30.12): the annual grid renders below the 2-column
-  // section, deriving its year from the currently selected periodo and
+  // US-030 Slice C (task 30.12): the annual grid renders below the chart
+  // card, deriving its year from the currently selected periodo and
   // reusing the SAME period-setting path (`onPeriodoChange`) the dashboard
   // already threads from the route — no new navigation mechanism.
   it('renders the annual summary below, deriving the year from the selected periodo', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
 
-    await waitFor(() =>
-      expect(
-        screen.getByText('Año 2026 — vista macro por mes'),
-      ).toBeInTheDocument(),
-    );
+    await screen.findByText('Año 2026 — vista macro por mes');
   });
 
-  // Phase 4 mobile audit (WDS-04): jsdom doesn't evaluate CSS, so this locks
+  // Phase 4 mobile audit (WDS-04), US-053 PR3 (D-06): the panel is retired, so
+  // the page-level grid is SINGLE-column at every breakpoint (no
+  // `lg:grid-cols-2` to switch to). jsdom doesn't evaluate CSS, so this locks
   // in the responsive Tailwind classes directly — an accidental removal of
-  // the mobile margin or the desktop column switch fails this test loudly,
-  // same pattern PR2 used for the shell (AppShell.test.tsx).
-  it('reflows single-column with 16px page margins on mobile, multi-column on lg+ (Phase 4 mobile audit, WDS-04)', async () => {
-    mockFetchPorBucket();
+  // the mobile margin or a resurrected 2-column switch fails this test
+  // loudly, same pattern PR2 used for the shell (AppShell.test.tsx).
+  it('reflows single-column with 16px page margins at every breakpoint (Phase 4 mobile audit, WDS-04)', async () => {
+    mockFetchAnual();
     const { container } = renderScreen();
     // Router harness resolves its initial match asynchronously — wait for
     // any rendered content before inspecting the DOM structure.
@@ -575,15 +444,15 @@ describe('ResumenScreen', () => {
     // p-4 = 16px side margins around the whole dashboard body.
     expect(paginaRaiz.className).toMatch(/\bp-4\b/);
 
-    const seccionDosColumnas = container.querySelector('.grid') as HTMLElement;
-    expect(seccionDosColumnas).toBeInTheDocument();
-    expect(seccionDosColumnas.className).toMatch(/\bgrid-cols-1\b/);
-    expect(seccionDosColumnas.className).toMatch(/\blg:grid-cols-2\b/);
+    const seccionUnica = container.querySelector('.grid') as HTMLElement;
+    expect(seccionUnica).toBeInTheDocument();
+    expect(seccionUnica.className).toMatch(/\bgrid-cols-1\b/);
+    expect(seccionUnica.className).not.toMatch(/\blg:grid-cols-2\b/);
   });
 
   // Design D-08: hint text below the legend, owned by ResumenScreen.
   it('renders the hint text below the chart card body (design D-08)', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
     expect(
       await screen.findByText(
@@ -597,7 +466,7 @@ describe('ResumenScreen', () => {
   // exist in markup. The real CA-05 proof is Playwright (T15/T16), per the
   // binding WCTG-14 anti-pattern guard (tasks.md).
   it('the chart card body carries the T1 grid container (smoke check, not the CA-05 proof)', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
     const cuerpo = await screen.findByTestId('grafico-card-body');
     expect(cuerpo.className).toMatch(/\bgrid-cols-1\b/);
@@ -611,7 +480,7 @@ describe('ResumenScreen', () => {
   // are reachable/operable together on the SAME composed screen, and that
   // Ingresos never receives focus here either (WG5-06).
   it('the semáforo tag and every clickable legend row are keyboard-focusable together, with Ingresos never focusable (T14, WG5-12)', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen();
     await screen.findByText('$1.000.000');
 
@@ -648,7 +517,7 @@ describe('ResumenScreen', () => {
 
   it('wires ResumenAnual month clicks to the same onPeriodoChange callback', async () => {
     const onPeriodoChange = vi.fn();
-    mockFetchPorBucket();
+    mockFetchAnual();
     renderScreen(viewModel, onPeriodoChange);
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' });
@@ -663,7 +532,7 @@ describe('ResumenScreen', () => {
   // `mockFetchPorBucket`'s annual fixture is not modified: January already
   // has data, which is all this test needs.
   it('threads viewModel.periodo into the annual grid as the selected month (S-01)', async () => {
-    mockFetchPorBucket();
+    mockFetchAnual();
     const vmEnero: ResumenViewModel = { ...viewModel, periodo: '2026-01' };
     renderScreen(vmEnero);
 

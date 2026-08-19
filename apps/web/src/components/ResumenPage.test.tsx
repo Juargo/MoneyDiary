@@ -1,5 +1,5 @@
 import { afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import { ResumenPage } from './ResumenPage';
 import { renderConRouter } from '@/test/router-harness';
@@ -67,19 +67,18 @@ function mockQuery(
   } as UseQueryResult<ResumenMesDto, ApiError>;
 }
 
-// The data state renders `ResumenScreen`, which embeds `BucketDetailList`
-// for its transactions panel (US-030 Slice B) — that owns its own
-// `useDetalleBucket` query, which throws outside a `QueryClientProvider` —
-// AND, as of US-047 T11, the card header's `SemaforoTag`, a real `<Link>`
-// that throws outside a router context. `renderData` below routes through
-// `renderConRouter` (T10's router harness) instead of a bare
-// `QueryClientProvider` for exactly that reason. Only the data-state tests
-// need this; loading/error/empty never reach `ResumenScreen`.
+// The data state renders `ResumenScreen` — as of US-047 T11, the card
+// header's `SemaforoTag` is a real `<Link>` that throws outside a router
+// context. `renderData` below routes through `renderConRouter` (T10's
+// router harness) instead of a bare `QueryClientProvider` for exactly that
+// reason. Only the data-state tests need this; loading/error/empty never
+// reach `ResumenScreen`.
 
-// US-030 Slice C: the data state now also renders `ResumenAnual`
-// (self-fetching `/api/resumen/anual`, like `BucketDetailList` self-fetches
-// `/api/buckets/:bucket`) — branch the mock by URL so both queries resolve.
-function mockFetchDetalleBucket() {
+// US-030 Slice C: the data state also renders `ResumenAnual` (self-fetching
+// `/api/resumen/anual`) — branch the mock by URL so both queries resolve.
+// US-053 PR3 (D-06/D-08): the transactions panel is RETIRED, so there is no
+// `/api/buckets/:bucket` fetch to stub anymore.
+function mockFetchAnual() {
   const fetchMock = vi.fn((url: string) => {
     if (url.startsWith('/api/resumen/anual')) {
       return Promise.resolve({
@@ -124,34 +123,14 @@ function mockFetchDetalleBucket() {
           }),
       });
     }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: () =>
-        Promise.resolve({
-          periodo: '2026-07',
-          bucket: 'Necesidades',
-          transacciones: [
-            {
-              id: 'tx-1',
-              fecha: '2026-07-15T00:00:00.000Z',
-              descripcion: 'Supermercado',
-              cargo: '1000',
-              abono: '0',
-              banco: 'BancoEstado',
-              tipoCuenta: 'CuentaRUT',
-              numeroCuenta: '12345678',
-            },
-          ],
-        }),
-    });
+    return Promise.reject(new Error(`fetch inesperado: ${url}`));
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
 
 function renderData(ui: ReactElement) {
-  mockFetchDetalleBucket();
+  mockFetchAnual();
   return renderConRouter(ui);
 }
 
@@ -167,6 +146,7 @@ describe('ResumenPage', () => {
         query={mockQuery({ isPending: true })}
         periodo={undefined}
         onPeriodoChange={() => {}}
+        onSelectBucket={() => {}}
       />,
     );
     expect(screen.getByText('Cargando resumen…')).toBeInTheDocument();
@@ -186,6 +166,7 @@ describe('ResumenPage', () => {
         query={mockQuery({ isError: true, error, refetch })}
         periodo={undefined}
         onPeriodoChange={() => {}}
+        onSelectBucket={() => {}}
       />,
     );
 
@@ -201,6 +182,7 @@ describe('ResumenPage', () => {
         query={mockQuery({ data: emptyDto })}
         periodo="2026-07"
         onPeriodoChange={() => {}}
+        onSelectBucket={() => {}}
       />,
     );
     expect(screen.getByText(/cartola/i)).toBeInTheDocument();
@@ -215,6 +197,7 @@ describe('ResumenPage', () => {
         query={mockQuery({ data: dataDto })}
         periodo="2026-07"
         onPeriodoChange={() => {}}
+        onSelectBucket={() => {}}
       />,
     );
     // Router harness resolves its initial match asynchronously — `findBy`
@@ -226,13 +209,12 @@ describe('ResumenPage', () => {
     expect(screen.getByText('Gustos')).toBeInTheDocument();
     expect(screen.getAllByText('Ahorro').length).toBeGreaterThan(0);
     expect(screen.getByTestId('semaforo-global')).toBeInTheDocument();
-    // Two <h2>s now coexist (BucketDetailList's own + ResumenAnual's title,
-    // US-030 Slice C) — disambiguate by name instead of `getByRole` alone.
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { level: 2, name: 'Necesidades' }),
-      ).toBeInTheDocument(),
-    );
+    // US-053 PR3 (D-06): the panel is retired, so "Distribución del gasto"
+    // is the ONLY content heading below the (sr-only) <h1> — the old
+    // `<h2>Necesidades</h2>` (BucketDetailList's demoted heading) is gone.
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Distribución del gasto' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
         level: 2,
@@ -248,6 +230,7 @@ describe('ResumenPage', () => {
         query={mockQuery({ data: dataDto })}
         periodo="2026-07"
         onPeriodoChange={onPeriodoChange}
+        onSelectBucket={() => {}}
       />,
     );
 
