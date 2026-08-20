@@ -8,6 +8,7 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
 // heading and `testID="semaforo-global"` (now on `SemaforoTag` itself) —
 // plus income, the 5-row legend, and the removal of "Ver detalles ›"
 // (MOB-15) and the IDEAL inset (already removed in PR4a, reconfirmed here).
+// US-056 PR1 (D-10/T-02): `periodo` and `onNavegar` are now required props.
 const viewModel: ResumenViewModel = {
   periodo: '2026-07',
   totalIngreso: '$1.000.000',
@@ -76,26 +77,52 @@ const viewModel: ResumenViewModel = {
   ],
 };
 
+const noop = () => undefined;
+
 describe('ResumenScreen', () => {
   it('renders the "Distribución del gasto" heading anchor', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
   });
 
   it('exposes the heading as an accessible header', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(
       screen.getByRole('header', { name: 'Distribución del gasto' }),
     ).toBeOnTheScreen();
   });
 
   it('renders totalIngreso formatted as CLP', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
   });
 
   it('renders the 5 legend labels', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
@@ -105,21 +132,40 @@ describe('ResumenScreen', () => {
     ).toBeOnTheScreen();
   });
 
-  it('renders testID="semaforo-global" and it is not a button', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+  it('renders testID="semaforo-global"', async () => {
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(screen.getByTestId('semaforo-global')).toBeOnTheScreen();
-    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    // NOTE: "queryByRole('button') returns null" was removed — legend rows are
+    // now Pressable (US-056 MOB-08 delta, binding decision 2 reversed).
   });
 
   it('renders no "Ver detalles ›" affordance anywhere (MOB-15)', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(
       screen.queryByText('Ver detalles ›', { exact: false }),
     ).not.toBeOnTheScreen();
   });
 
   it('renders no "IDEAL" element anywhere', async () => {
-    await render(<ResumenScreen viewModel={viewModel} />);
+    await render(
+      <ResumenScreen
+        viewModel={viewModel}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
     expect(screen.queryByText('IDEAL', { exact: false })).not.toBeOnTheScreen();
   });
 });
