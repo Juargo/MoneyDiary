@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useCategorias } from '@/api/use-categorias';
 import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
+import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 
@@ -72,6 +73,7 @@ export function ReclasificarCategoriaControl({
   bucketActual,
   categoriaActual,
   periodo,
+  onMovida,
 }: {
   readonly transaccionId: string;
   readonly descripcion: string;
@@ -79,8 +81,10 @@ export function ReclasificarCategoriaControl({
   readonly bucketActual: string;
   readonly categoriaActual: string | null;
   readonly periodo: string | undefined;
+  readonly onMovida: (bucketLabel: string) => void;
 }) {
   const selectId = useId();
+  const mensajeId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
   const confirmarRef = useRef<HTMLButtonElement>(null);
   const [valor, setValor] = useState(categoriaActual ?? '');
@@ -96,7 +100,13 @@ export function ReclasificarCategoriaControl({
   // during a background refetch. See the JSDoc above for why bare
   // `isFetching` would be wrong here.
   const catalogoCargandoInicial = data === undefined && catalogoEnVuelo;
-  const grupos = agruparPorBucket(data?.categorias ?? []);
+  // Local filter to BUCKETS_ASIGNABLES (D-06): agruparPorBucket may also
+  // emit an "Otros" catch-all for buckets outside the three spend buckets
+  // (e.g. Ingresos). Filter that out here — agruparPorBucket itself stays
+  // intact for Configuración, which legitimately shows every group.
+  const grupos = agruparPorBucket(data?.categorias ?? []).filter((g) =>
+    (BUCKETS_ASIGNABLES as ReadonlyArray<string>).includes(g.bucket),
+  );
   const bucketDe = (nombre: string): string | undefined =>
     data?.categorias.find((c) => c.nombre === nombre)?.bucket;
 
@@ -157,6 +167,10 @@ export function ReclasificarCategoriaControl({
   function confirmar() {
     if (!pendiente) return;
     commit(pendiente.nombre);
+    // Fire the page-owned announcement only on a cross-bucket commit (the
+    // same-bucket path never opens the confirmation dialog, so this branch
+    // is only reachable for cross-bucket moves — D-07).
+    onMovida(etiqueta(pendiente.bucketNuevo));
     setPendiente(null);
   }
 
@@ -210,11 +224,6 @@ export function ReclasificarCategoriaControl({
           </>
         )}
       </select>
-      <span aria-live="polite" className="sr-only">
-        {mutacion.isSuccess && !pendiente
-          ? `Categoría actualizada a ${mutacion.data?.categoria.nombre}.`
-          : ''}
-      </span>
       {errorMensaje && (
         <p role="alert" className="text-xs text-red-600">
           {errorMensaje}
@@ -224,6 +233,7 @@ export function ReclasificarCategoriaControl({
         <div
           role="alertdialog"
           aria-label="Confirmar cambio de categoría"
+          aria-describedby={mensajeId}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               cancelar();
@@ -231,7 +241,7 @@ export function ReclasificarCategoriaControl({
           }}
           className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-sm"
         >
-          <p>
+          <p id={mensajeId}>
             Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}
             {etiqueta(pendiente.bucketNuevo)}.
           </p>
