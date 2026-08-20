@@ -32,7 +32,7 @@
  *   onCancelar   — called on Cancelar (route navigates back)
  *   onEliminado  — called after a successful delete (route navigates back)
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { actualizarCategoria, eliminarCategoria } from '../../api/categorias';
 import { solicitarRecargaResumen } from '../../api/resumen-refresh';
@@ -78,6 +78,11 @@ export function EditarCategoria({
   );
   const [error, setError] = useState<string | null>(null);
 
+  // Guard against rapid double-tap opening stacked native Alerts.
+  // Set to true before Alert.alert is called, cleared in every button
+  // path (confirm, cancel) so subsequent presses open a new Alert.
+  const mostrandoAlerta = useRef(false);
+
   const enviando = operacion !== null;
 
   const bucketOriginal =
@@ -115,19 +120,32 @@ export function EditarCategoria({
 
     if (bucketCambiado) {
       // bucket-dirty: show impact confirmation before patching (MCTG-03)
+      if (mostrandoAlerta.current) return;
+      mostrandoAlerta.current = true;
+      // Use nombre.trim() (draft) so the Alert names what will actually be
+      // saved — web parity (design §1.11). categoria.nombre is the original DTO.
       const { titulo, lineas, textoConfirmar } = fraseDeImpacto({
         tipo: 'cambiar-bucket',
-        nombre: categoria.nombre,
+        nombre: nombre.trim(),
         transaccionesCount: categoria.transaccionesCount,
         bucketAnterior: bucketOriginal,
         bucketNuevo: bucket,
       });
       Alert.alert(titulo, lineas.join('\n'), [
-        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => {
+            mostrandoAlerta.current = false;
+          },
+        },
         {
           text: textoConfirmar,
           style: 'destructive',
-          onPress: () => void confirmarCambiarBucket(),
+          onPress: () => {
+            mostrandoAlerta.current = false;
+            void confirmarCambiarBucket();
+          },
         },
       ]);
       return;
@@ -174,6 +192,8 @@ export function EditarCategoria({
 
   async function handleEliminar() {
     if (enviando) return;
+    if (mostrandoAlerta.current) return;
+    mostrandoAlerta.current = true;
 
     // Show delete impact confirmation (MCTG-05).
     // transaccionesCount comes from the already-loaded DTO — never re-fetched
@@ -184,11 +204,20 @@ export function EditarCategoria({
       transaccionesCount: categoria.transaccionesCount,
     });
     Alert.alert(titulo, lineas.join('\n'), [
-      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+        onPress: () => {
+          mostrandoAlerta.current = false;
+        },
+      },
       {
         text: textoConfirmar,
         style: 'destructive',
-        onPress: () => void confirmarEliminar(),
+        onPress: () => {
+          mostrandoAlerta.current = false;
+          void confirmarEliminar();
+        },
       },
     ]);
   }

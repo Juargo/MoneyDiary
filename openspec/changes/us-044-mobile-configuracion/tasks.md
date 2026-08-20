@@ -731,7 +731,7 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
 - [x] **T6b.2 (GREEN)** Create `apps/mobile/src/domain/impacto-catalogo.ts` — `ImpactoCatalogo` union
       + `fraseDeImpacto`, ported verbatim from `apps/web/.../categorias/mensajes-catalogo.ts:180-247`
       (design §1.6).
-      - Verify: `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts` — 10 green.
+      - Verify: `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts` — 18 green (JD fix round added exact-literal zero asserts, singular count===1 row, unknown-bucket fallback test: 12 → 18).
 - [x] **T6b.3 (RED)** In `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`, add +11
       cases (both `Alert.alert` flows, `jest.spyOn(Alert, 'alert')` per design §3): a dirty `Bucket`
       + `Guardar` opens the impact `Alert.alert` with the exact `{titulo, lineas.join('\n')}` and a
@@ -751,23 +751,24 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
       from the bucket-change confirm's success path (D-11); post-confirm failures render in an
       `accessibilityRole="alert"` + `accessibilityLiveRegion="polite"` region (the
       `subir.tsx:230-238` idiom).
-      - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 20 green (9 from PR6a + 11 new).
+      - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 25 green (13 from PR6a + 12 new: 11 PR6b Alert flow + 1 both-dirty fix-1-pin from JD fix round).
 - [x] **T6b.5 (REFACTOR + sweep)** Confirm neither the `snapshotAlAbrirDialogo` freeze nor a
       `disabled`/focus-restore matrix was ported (D-15 — `Alert.alert`'s own modality IS the
       freeze). Confirm `transaccionesCount` is read from the already-loaded DTO in both call sites,
       never re-fetched.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
-**PR6b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, 21 new tests. Under budget.
-<!-- REAL NUMBERS (applied 2026-08-20):
-  apps/mobile/src/domain/impacto-catalogo.ts         ~95L  (new — fraseDeImpacto + ImpactoCatalogo)
-  apps/mobile/src/domain/impacto-catalogo.spec.ts    ~155L (new — 12 tests: 4 eliminar × count>0/0 + 4 cambiar-bucket × count>0/0 + singular edge + exhaustiveness)
-  apps/mobile/src/components/configuracion/EditarCategoria.tsx  ~245L (MOD — both Alert.alert flows + solicitarRecargaResumen import)
-  apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx  ~490L (MOD — +11 PR6b Alert tests + 2 PR6a tests updated for Alert interposition)
-  openspec/changes/us-044-mobile-configuracion/tasks.md  (MOD — T6b.1-T6b.5 checked [x] + REAL NUMBERS)
-  Total: ~21 new tests (12 impacto-catalogo + 10 net new in EditarCategoria — the PR6a stub test
-  removed, 11 PR6b tests added, 2 PR6a tests adapted to flow through Alert confirmation).
-  Full suite: 52 suites / 616 tests (595 baseline + 21 new). tsc --noEmit clean.
+**PR6b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, 21 new tests (original apply). Under budget.
+<!-- REAL NUMBERS (applied 2026-08-20, updated post-JD-fix-round 2026-08-20):
+  apps/mobile/src/domain/impacto-catalogo.ts         ~105L (new — fraseDeImpacto + ImpactoCatalogo + ?? comment)
+  apps/mobile/src/domain/impacto-catalogo.spec.ts    ~210L (new — 18 tests post-JD-fix: 4 eliminar × count>0 + 4 eliminar × count=0 + 4 cambiar-bucket × count>0 + 4 cambiar-bucket × count=0 + singular eliminar + singular cambiar-bucket(fix10) + unknown-bucket(fix11) + exhaustiveness)
+  apps/mobile/src/components/configuracion/EditarCategoria.tsx  ~305L (MOD — both Alert.alert flows + solicitarRecargaResumen import + useRef double-Alert guard)
+  apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx  ~600L (MOD — 25 tests: 13 PR6a + 12 PR6b/JD: 11 Alert flow + 1 both-dirty-fix1-pin + 2 double-tap-guard-fix5-pin + cancel-clears-guard-fix4 assertions embedded in existing cancel tests)
+  openspec/changes/us-044-mobile-configuracion/tasks.md  (MOD — T6b.2/T6b.4 counts + REAL NUMBERS + JD deviations)
+  Net new tests from original apply: 21 (12 impacto-catalogo + 9 EditarCategoria net).
+  Net new tests from JD fix round: +8 (impacto-catalogo: +6 zero-exact + singular-cb + unknown-bucket; EditarCategoria: +2 double-tap-guard tests + both-dirty embedded in existing bucket-change confirm test).
+  Total new tests for PR6b overall: 29 (18 impacto-catalogo + 25 EditarCategoria − 13 PR6a baseline = 12 EditarCategoria PR6b new + 18 impacto-catalogo = 30 counting impacto-catalogo; using 52 suites / 625 total vs. 595 baseline = 30 net new).
+  Full suite post-JD-fix: 52 suites / 625 tests (595 baseline + 30 new). tsc --noEmit clean.
 
   ImpactoCatalogo type: 'eliminar-categoria' (not 'eliminar' as in web) — self-documenting rename;
   web's 'eliminar' is ambiguous on mobile where the concept could be categoria OR patron.
@@ -777,24 +778,51 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
   - T6b.3: 10 failures — Alert.alert not called (early-return stub still in handleGuardar;
     eliminarCategoria called directly in handleEliminar)
 
-  Falsifiability confirmed:
+  Falsifiability confirmed (original apply):
   1. MCTG-07 positive (bucket-change): removing solicitarRecargaResumen() from confirmarCambiarBucket
      causes "confirm button sends PATCH + solicitarRecargaResumen (MCTG-07 positive)" to FAIL.
   2. MCTG-07 negative-3 (delete): adding solicitarRecargaResumen() to confirmarEliminar's success
      path causes "successful delete does NOT call solicitarRecargaResumen (MCTG-07 negative-3, D-11)"
      to FAIL.
 
+  Falsifiability confirmed (JD fix round 2026-08-20):
+  3. Fix 1 (draft-name): reverting nombre.trim() → categoria.nombre in fraseDeImpacto call causes
+     "both-dirty … Alert body references draft nombre" to FAIL (observed at line "expect(received).toBe(expected)").
+  4. Fix 2 (double-Alert guard): removing mostrandoAlerta.current guard causes both
+     "double-tap guard: rapid double press on Guardar" and "…Eliminar" to FAIL
+     (spyAlert called twice instead of once).
+
   PR6a tests updated (not regressed): "Eliminar failure renders the error alert" and "Eliminar is
   disabled and shows 'Eliminando…' while in-flight" both adapted to flow through Alert confirmation
   (which is correct: PR6b changes how Eliminar works — the PR6a stub is gone).
 
-  Binding obligations from instructions all satisfied:
-  1. WRAP eliminarCategoria call in Alert.alert — done (handleEliminar now calls Alert.alert;
-     confirmarEliminar calls eliminarCategoria). No second eliminarCategoria call added.
-  2. FLIP bucket-dirty absence test to positive — done (PR6a stub test removed; 3 positive bucket
-     Alert tests added covering: Alert fires, cancel = zero requests, confirm = PATCH + refresh).
-  3. CONSUME ETIQUETA_BUCKET + etiquetaTransacciones in impacto-catalogo.ts — done (both imported:
-     ETIQUETA_BUCKET from theme/colors.ts, etiquetaTransacciones from domain/plural.ts).
+  Binding obligations from original instructions all satisfied:
+  1. WRAP eliminarCategoria call in Alert.alert — done.
+  2. FLIP bucket-dirty absence test to positive — done.
+  3. CONSUME ETIQUETA_BUCKET + etiquetaTransacciones in impacto-catalogo.ts — done.
+
+  JD fix round deviations (2026-08-20):
+  - Fix 1: fraseDeImpacto in handleGuardar used categoria.nombre (original DTO) instead of
+    nombre.trim() (draft). Alert would name the old name when both nombre AND bucket were edited.
+    Fixed: now passes nombre.trim() matching what confirmarCambiarBucket sends.
+  - Fix 2: no double-Alert guard existed. Rapid double-tap on Guardar (bucket-dirty) or Eliminar
+    could open stacked native Alerts. Fixed: useRef mostrandoAlerta guards both handlers; cancel
+    onPress now exists (clears the guard) instead of being handler-less.
+  - Fix 3: "both-dirty" test added to pin fix 1 (falsifiability: Alert body must show draft name).
+  - Fix 4: cancel tests now invoke cancelBtn.onPress() and assert guard clears (subsequent press
+    opens a new Alert). Previously cancel had no onPress and the test was vacuous on guard clearing.
+  - Fix 5: two double-tap guard tests added (Guardar + Eliminar), each asserting spyAlert called
+    exactly once on rapid double-press (falsifiability: guard removal causes FAIL).
+  - Fix 6: Alert body toContain replaced by toBe (verbatim frozen string) in bucket-change and
+    delete Alert body tests.
+  - Fix 7: spySolicitarRecarga assertion moved inside waitFor in MCTG-07 positive test.
+  - Fix 8: button order assertions added (buttons[0].style === 'cancel', buttons[1].style ===
+    'destructive') in bucket-change and delete Alert tests.
+  - Fix 9: zero-count impacto-catalogo tests replaced toBeDefined() with exact literal asserts on
+    titulo and textoConfirmar (same values as count>0 — that IS the invariant).
+  - Fix 10: singular cambiar-bucket row (count===1) added to impacto-catalogo.spec.ts.
+  - Fix 11: unknown-bucket test added to impacto-catalogo.spec.ts (runtime ?? fallback; ETIQUETA_BUCKET
+    is Record<string,string> making ?? unreachable per tsc, documented in comment at the call site).
 -->
 
 ---

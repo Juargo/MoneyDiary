@@ -45,7 +45,13 @@ export type ImpactoCatalogo =
       readonly bucketNuevo: string;
     };
 
-/** Resolve bucket wire name → user-facing label via the already-shipped map. */
+/**
+ * Resolve bucket wire name → user-facing label via the already-shipped map.
+ * ETIQUETA_BUCKET is typed as Record<string,string>, so tsc considers the
+ * indexed access always a string — the `?? bucket` fallback is unreachable
+ * at the type level. At runtime a missing key returns undefined (JS), so the
+ * fallback shows the raw value to the user. Tested in impacto-catalogo.spec.ts.
+ */
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
 }

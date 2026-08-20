@@ -11,9 +11,10 @@
  *     cancel → zero requests; confirm → eliminarCategoria (no solicitarRecargaResumen)
  *   - post-confirm failures render in the screen's own role="alert" region (R5)
  *
- * The PR6a stub test "bucket-dirty Guardar does NOT call actualizarCategoria
- * (PR6a early-return stub)" is replaced by the PR6b positive-case suite below —
- * the early-return is gone; the Alert flow takes its place.
+ * JD fix round (2026-08-20): draft-name bug fix (fix 1), double-Alert guard (fix 2),
+ * both-dirty test (fix 3), cancel-clears-guard tests (fix 4), double-tap guard tests
+ * (fix 5), verbatim body pins (fix 6), MCTG-07 positive waitFor (fix 7), button
+ * order assertions (fix 8).
  *
  * Alert.alert assertions: jest.spyOn(Alert, 'alert') captures the arguments;
  * button callbacks are invoked directly from the captured buttons[] array to
@@ -492,7 +493,19 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       ...unknown[],
     ];
     expect(title).toBe('Cambiar el bucket');
-    expect(message).toContain('«Supermercado» pasa de Necesidades a Gustos.');
+    // Fix 6: exact verbatim body (frozen copy — do NOT compute from fraseDeImpacto)
+    expect(message).toBe(
+      '«Supermercado» pasa de Necesidades a Gustos.\nEsto mueve 5 transacciones en TODOS los períodos, incluidos los meses ya cerrados.\nTu resumen 50/30/20 va a cambiar para esos meses.',
+    );
+
+    // Fix 8: cancel is first (index 0), destructive confirm is second (index 1)
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    expect(buttons[0].style).toBe('cancel');
+    expect(buttons[1].style).toBe('destructive');
   });
 
   it('bucket-dirty + Guardar Alert: cancel button does NOT send the PATCH', async () => {
@@ -523,11 +536,21 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     }[];
     const cancelBtn = buttons.find((b) => b.style === 'cancel');
     expect(cancelBtn).toBeDefined();
-    // Invoking cancel (or not invoking onPress at all for cancel) — zero requests
+
+    // Fix 4: cancel now has onPress to clear the guard — invoke it and assert
+    // (a) zero API calls and (b) guard cleared (a subsequent Guardar press
+    // opens a NEW Alert).
     cancelBtn?.onPress?.();
 
     expect(mockActualizarCategoria).not.toHaveBeenCalled();
     expect(spySolicitarRecarga).not.toHaveBeenCalled();
+
+    // Guard is cleared — a subsequent Guardar press opens a new Alert
+    spyAlert.mockClear();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+    expect(spyAlert).toHaveBeenCalledTimes(1);
   });
 
   it('bucket-dirty + Guardar Alert: confirm button sends PATCH + solicitarRecargaResumen (MCTG-07 positive)', async () => {
@@ -572,10 +595,12 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       });
     });
 
-    // MCTG-07 positive: successful bucket change DOES call solicitarRecargaResumen
+    // Fix 7: MCTG-07 positive assert moved inside waitFor
     // Falsifiability: removing solicitarRecargaResumen() from the confirm success
     // path causes this assertion to FAIL.
-    expect(spySolicitarRecarga).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(spySolicitarRecarga).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ── PR6b: delete Alert.alert flow ────────────────────────────────────────
@@ -606,11 +631,19 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       ...unknown[],
     ];
     expect(title).toBe('Eliminar categoría');
-    // Exact body for count=5 (fraseDeImpacto 'eliminar-categoria', count>0)
-    expect(message).toContain('Vas a eliminar «Supermercado».');
-    expect(message).toContain(
-      '5 transacciones quedan en Sin categoría, en todos los períodos.',
+    // Fix 6: exact verbatim body for count=5 (frozen copy — do NOT compute from fraseDeImpacto)
+    expect(message).toBe(
+      'Vas a eliminar «Supermercado».\n5 transacciones quedan en Sin categoría, en todos los períodos.\nEsta acción no se puede deshacer.',
     );
+
+    // Fix 8: cancel is first (index 0), destructive confirm is second (index 1)
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    expect(buttons[0].style).toBe('cancel');
+    expect(buttons[1].style).toBe('destructive');
   });
 
   it('zero-transaction Eliminar still opens confirm (softened wording, never skips)', async () => {
@@ -641,8 +674,10 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       string,
       ...unknown[],
     ];
-    // Softened wording for zero
-    expect(message).toContain('No tiene transacciones asociadas.');
+    // Fix 6: exact verbatim body for count=0 (frozen copy)
+    expect(message).toBe(
+      'Vas a eliminar «Supermercado».\nNo tiene transacciones asociadas.\nEsta acción no se puede deshacer.',
+    );
   });
 
   it('Eliminar Alert: cancel button issues zero requests', async () => {
@@ -668,9 +703,22 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     }[];
     const cancelBtn = buttons.find((b) => b.style === 'cancel');
     expect(cancelBtn).toBeDefined();
+
+    // Fix 4: cancel now has onPress to clear the guard — invoke it and assert
+    // (a) zero API calls and (b) guard cleared (a subsequent Eliminar press
+    // opens a NEW Alert).
     cancelBtn?.onPress?.();
 
     expect(mockEliminarCategoria).not.toHaveBeenCalled();
+
+    // Guard is cleared — a subsequent Eliminar press opens a new Alert
+    spyAlert.mockClear();
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+    expect(spyAlert).toHaveBeenCalledTimes(1);
   });
 
   it('Eliminar Alert: confirm button calls eliminarCategoria (MCTG-05)', async () => {
@@ -823,5 +871,125 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     });
 
     expect(mockOnEliminado).not.toHaveBeenCalled();
+  });
+
+  // ── Fix 3: both-dirty — edit nombre AND bucket, Alert names draft nombre ─
+
+  it('both-dirty (rename + bucket change): Alert body references draft nombre, confirm PATCHes draft values (fix 1 pin)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    // Edit nombre to a new draft value
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByDisplayValue('Supermercado'),
+        'Mercado Central',
+      );
+    });
+
+    // Change bucket (Necesidades → Deseos) — now both are dirty
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+
+    const [title, message] = spyAlert.mock.calls[0] as [
+      string,
+      string,
+      ...unknown[],
+    ];
+    // Alert title is fixed
+    expect(title).toBe('Cambiar el bucket');
+    // The Alert body MUST reference the draft name 'Mercado Central', not the
+    // original DTO name 'Supermercado'. This pins fix 1: reverting to
+    // categoria.nombre causes this assertion to FAIL.
+    expect(message).toBe(
+      '«Mercado Central» pasa de Necesidades a Gustos.\nEsto mueve 5 transacciones en TODOS los períodos, incluidos los meses ya cerrados.\nTu resumen 50/30/20 va a cambiar para esos meses.',
+    );
+
+    // Confirm and assert PATCH uses {nombre: 'Mercado Central', bucket: 'Deseos'}
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+      expect(mockActualizarCategoria).toHaveBeenCalledWith('cat-1', {
+        nombre: 'Mercado Central',
+        bucket: 'Deseos',
+      });
+    });
+  });
+
+  // ── Fix 5: double-tap guard — rapid double press opens Alert exactly once ─
+
+  it('double-tap guard: rapid double press on Guardar (bucket-dirty) opens Alert exactly once (fix 2 pin)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    // Press Guardar twice rapidly (no await between the two presses)
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    // Alert must have been called exactly once.
+    // Falsifiability: removing the mostrandoAlerta guard causes spyAlert to be
+    // called twice, failing this assertion.
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it('double-tap guard: rapid double press on Eliminar opens Alert exactly once (fix 2 pin)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    // Press Eliminar twice rapidly (no await between the two presses)
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    // Alert must have been called exactly once.
+    // Falsifiability: removing the mostrandoAlerta guard causes spyAlert to be
+    // called twice, failing this assertion.
+    expect(spyAlert).toHaveBeenCalledTimes(1);
   });
 });

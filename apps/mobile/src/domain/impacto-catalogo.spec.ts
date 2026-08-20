@@ -7,10 +7,17 @@
  *
  * Coverage:
  *   - `eliminar-categoria` × count>0 and count===0 (both distinct frozen bodies)
- *   - `cambiar-bucket`    × count>0 and count===0 (both distinct frozen bodies)
+ *   - `cambiar-bucket`    × count>0, count===0, and count===1 (singular edge)
  *   - Zero-case invariant: softened sentence, confirmation is NEVER skipped
+ *   - Unknown bucket: ?? fallback returns raw value (fix 11 — runtime guard,
+ *     even though ETIQUETA_BUCKET is typed as Record<string,string> making the
+ *     ?? unreachable per tsc at the call site in impacto-catalogo.ts)
  *   - Totality guard: `const _exhaustive: never` catches a missing switch branch
  *     (compile-time, verified via ts-expect-error)
+ *
+ * JD fix round (2026-08-20): fix 9 (zero-count exact-literal asserts on titulo
+ * and textoConfirmar), fix 10 (singular count===1 row for cambiar-bucket), fix 11
+ * (unknown bucket ?? fallback test).
  *
  * Design §1.6 bindings:
  *   - Uses `etiquetaTransacciones` from `domain/plural.ts` (same file as web)
@@ -59,11 +66,22 @@ describe('fraseDeImpacto (US-044 PR6b, T6b.1)', () => {
       transaccionesCount: 0,
     };
 
-    it('still returns a full {titulo, lineas, textoConfirmar} — zero never skips confirmation', () => {
-      const result = fraseDeImpacto(impacto);
-      expect(result.titulo).toBeDefined();
-      expect(result.lineas).toBeDefined();
-      expect(result.textoConfirmar).toBeDefined();
+    // Fix 9: replace toBeDefined() with exact frozen-literal asserts —
+    // "zero never skips confirmation" invariant means the same titulo and
+    // textoConfirmar as the count>0 case (only lineas differs).
+    it('still returns the exact frozen titulo — zero never skips confirmation', () => {
+      const { titulo } = fraseDeImpacto(impacto);
+      expect(titulo).toBe('Eliminar categoría');
+    });
+
+    it('still returns the exact frozen textoConfirmar — zero never skips confirmation', () => {
+      const { textoConfirmar } = fraseDeImpacto(impacto);
+      expect(textoConfirmar).toBe('Eliminar');
+    });
+
+    it('still returns a defined lineas array — zero never skips confirmation', () => {
+      const { lineas } = fraseDeImpacto(impacto);
+      expect(lineas).toBeDefined();
     });
 
     it('returns the exact frozen lineas (no-transactions softened body)', () => {
@@ -116,11 +134,22 @@ describe('fraseDeImpacto (US-044 PR6b, T6b.1)', () => {
       bucketNuevo: 'Deseos',
     };
 
-    it('still returns a full {titulo, lineas, textoConfirmar} — zero never skips confirmation', () => {
-      const result = fraseDeImpacto(impacto);
-      expect(result.titulo).toBeDefined();
-      expect(result.lineas).toBeDefined();
-      expect(result.textoConfirmar).toBeDefined();
+    // Fix 9: replace toBeDefined() with exact frozen-literal asserts —
+    // "zero never skips confirmation" invariant means the same titulo and
+    // textoConfirmar as the count>0 case (only lineas differs).
+    it('still returns the exact frozen titulo — zero never skips confirmation', () => {
+      const { titulo } = fraseDeImpacto(impacto);
+      expect(titulo).toBe('Cambiar el bucket');
+    });
+
+    it('still returns the exact frozen textoConfirmar — zero never skips confirmation', () => {
+      const { textoConfirmar } = fraseDeImpacto(impacto);
+      expect(textoConfirmar).toBe('Cambiar bucket');
+    });
+
+    it('still returns a defined lineas array — zero never skips confirmation', () => {
+      const { lineas } = fraseDeImpacto(impacto);
+      expect(lineas).toBeDefined();
     });
 
     it('returns the exact frozen lineas (no-transactions softened body)', () => {
@@ -144,6 +173,42 @@ describe('fraseDeImpacto (US-044 PR6b, T6b.1)', () => {
     expect(lineas[1]).toBe(
       '1 transacción queda en Sin categoría, en todos los períodos.',
     );
+  });
+
+  // Fix 10: NEW row — cambiar-bucket × count === 1: pin the singular line
+  it('cambiar-bucket × count === 1 uses singular "1 transacción" (fix 10 pin)', () => {
+    const impacto: ImpactoCatalogo = {
+      tipo: 'cambiar-bucket',
+      nombre: 'Supermercado',
+      transaccionesCount: 1,
+      bucketAnterior: 'Necesidades',
+      bucketNuevo: 'Deseos',
+    };
+    const { lineas } = fraseDeImpacto(impacto);
+    // etiquetaTransacciones(1) = '1 transacción' (singular)
+    expect(lineas[1]).toBe(
+      'Esto mueve 1 transacción en TODOS los períodos, incluidos los meses ya cerrados.',
+    );
+  });
+
+  // Fix 11: unknown bucket — ?? fallback returns raw value.
+  // Note: ETIQUETA_BUCKET is typed as Record<string,string>, which means tsc
+  // considers the indexed access result always a string (never undefined), making
+  // the `?? bucket` in etiqueta() unreachable at the type level. This test
+  // documents the RUNTIME behavior: an unrecognised key produces undefined at
+  // runtime (JS ignores missing keys), so the fallback returns the raw value.
+  it('unknown bucket value falls back to the raw string (fix 11 — runtime ?? fallback)', () => {
+    const impacto: ImpactoCatalogo = {
+      tipo: 'cambiar-bucket',
+      nombre: 'Test',
+      transaccionesCount: 2,
+      bucketAnterior: 'UnknownBucketA',
+      bucketNuevo: 'UnknownBucketB',
+    };
+    const { lineas } = fraseDeImpacto(impacto);
+    // etiqueta('UnknownBucketA') → ETIQUETA_BUCKET['UnknownBucketA'] is
+    // undefined at runtime → ?? 'UnknownBucketA' → 'UnknownBucketA'
+    expect(lineas[0]).toBe('«Test» pasa de UnknownBucketA a UnknownBucketB.');
   });
 
   // ── Totality: compile-time exhaustiveness guard ───────────────────────────
