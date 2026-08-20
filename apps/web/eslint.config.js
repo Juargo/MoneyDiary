@@ -163,6 +163,25 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-054 (D-08, WDI-07/WG5-12). Same FILE-LIST form as the
+  // US-047/048/049/053 blocks above: `IngresosMesPage` and `IngresosMesTable`
+  // are loose siblings directly under `src/components/`, not their own
+  // subdirectory — globbing `src/components/**` here would absorb the app's
+  // pre-existing a11y debt (the exact blast radius the app-wide `warn` exists
+  // to avoid). The route entry stays a PATTERN (`ingresos*.tsx`, same
+  // precedent as `configuracion*.tsx`/`semaforo*.tsx`/`buckets*.tsx`), covering
+  // `ingresos.tsx` and any future sibling route file for `/ingresos/*`.
+  // `LeyendaGasto`/`ResumenScreen` already gated by the US-047 block —
+  // not re-listed (US-053 precedent: transport-only `ResumenPage` wasn't
+  // re-listed either).
+  {
+    files: [
+      'src/components/IngresosMesPage.tsx',
+      'src/components/IngresosMesTable.tsx',
+      'src/routes/_authenticated/ingresos*.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so
