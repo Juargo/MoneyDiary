@@ -720,7 +720,7 @@ Requirements: MCTG-03 (bucket-change confirmation half), MCTG-05, MCTG-07 (posit
 delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm hooks), PR5a
 (`mensajes-catalogo.ts` for a failed-confirm error).
 
-- [ ] **T6b.1 (RED)** Create `apps/mobile/src/domain/impacto-catalogo.spec.ts` (~10 cases): both
+- [x] **T6b.1 (RED)** Create `apps/mobile/src/domain/impacto-catalogo.spec.ts` (~10 cases): both
       `tipo`s (`eliminar-categoria`, `cambiar-bucket`) × `count>0`/`count===0` — three distinct frozen
       bodies (delete-with-transactions, delete-zero, bucket-change), asserting the **exact frozen
       lines** from proposal §3 verbatim; the zero case **softens the sentence, never skips the
@@ -728,11 +728,11 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
       early-exit); closed by a `const _exhaustive: never` guard (tsc-enforced totality, same
       discipline as `mensajeDeResultado`).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts`
-- [ ] **T6b.2 (GREEN)** Create `apps/mobile/src/domain/impacto-catalogo.ts` — `ImpactoCatalogo` union
+- [x] **T6b.2 (GREEN)** Create `apps/mobile/src/domain/impacto-catalogo.ts` — `ImpactoCatalogo` union
       + `fraseDeImpacto`, ported verbatim from `apps/web/.../categorias/mensajes-catalogo.ts:180-247`
       (design §1.6).
       - Verify: `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts` — 10 green.
-- [ ] **T6b.3 (RED)** In `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`, add +11
+- [x] **T6b.3 (RED)** In `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`, add +11
       cases (both `Alert.alert` flows, `jest.spyOn(Alert, 'alert')` per design §3): a dirty `Bucket`
       + `Guardar` opens the impact `Alert.alert` with the exact `{titulo, lineas.join('\n')}` and a
       `style:'destructive'` confirm + `style:'cancel'` cancel (design §1.11) BEFORE any `PATCH` fires
@@ -746,19 +746,56 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
       negative-3 scenario (D-11); a post-confirm failure (either flow) renders in the screen's own
       `role="alert"` region, not inside the dismissed `Alert` (R5, design §1.11's residual).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx`
-- [ ] **T6b.4 (GREEN)** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, wire both
+- [x] **T6b.4 (GREEN)** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, wire both
       `Alert.alert` flows per design §1.11's exact shape; `solicitarRecargaResumen()` called only
       from the bucket-change confirm's success path (D-11); post-confirm failures render in an
       `accessibilityRole="alert"` + `accessibilityLiveRegion="polite"` region (the
       `subir.tsx:230-238` idiom).
       - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 20 green (9 from PR6a + 11 new).
-- [ ] **T6b.5 (REFACTOR + sweep)** Confirm neither the `snapshotAlAbrirDialogo` freeze nor a
+- [x] **T6b.5 (REFACTOR + sweep)** Confirm neither the `snapshotAlAbrirDialogo` freeze nor a
       `disabled`/focus-restore matrix was ported (D-15 — `Alert.alert`'s own modality IS the
       freeze). Confirm `transaccionesCount` is read from the already-loaded DTO in both call sites,
       never re-fetched.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR6b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, 21 new tests. Under budget.
+<!-- REAL NUMBERS (applied 2026-08-20):
+  apps/mobile/src/domain/impacto-catalogo.ts         ~95L  (new — fraseDeImpacto + ImpactoCatalogo)
+  apps/mobile/src/domain/impacto-catalogo.spec.ts    ~155L (new — 12 tests: 4 eliminar × count>0/0 + 4 cambiar-bucket × count>0/0 + singular edge + exhaustiveness)
+  apps/mobile/src/components/configuracion/EditarCategoria.tsx  ~245L (MOD — both Alert.alert flows + solicitarRecargaResumen import)
+  apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx  ~490L (MOD — +11 PR6b Alert tests + 2 PR6a tests updated for Alert interposition)
+  openspec/changes/us-044-mobile-configuracion/tasks.md  (MOD — T6b.1-T6b.5 checked [x] + REAL NUMBERS)
+  Total: ~21 new tests (12 impacto-catalogo + 10 net new in EditarCategoria — the PR6a stub test
+  removed, 11 PR6b tests added, 2 PR6a tests adapted to flow through Alert confirmation).
+  Full suite: 52 suites / 616 tests (595 baseline + 21 new). tsc --noEmit clean.
+
+  ImpactoCatalogo type: 'eliminar-categoria' (not 'eliminar' as in web) — self-documenting rename;
+  web's 'eliminar' is ambiguous on mobile where the concept could be categoria OR patron.
+
+  RED evidence:
+  - T6b.1: Cannot find module './impacto-catalogo' from 'src/domain/impacto-catalogo.spec.ts'
+  - T6b.3: 10 failures — Alert.alert not called (early-return stub still in handleGuardar;
+    eliminarCategoria called directly in handleEliminar)
+
+  Falsifiability confirmed:
+  1. MCTG-07 positive (bucket-change): removing solicitarRecargaResumen() from confirmarCambiarBucket
+     causes "confirm button sends PATCH + solicitarRecargaResumen (MCTG-07 positive)" to FAIL.
+  2. MCTG-07 negative-3 (delete): adding solicitarRecargaResumen() to confirmarEliminar's success
+     path causes "successful delete does NOT call solicitarRecargaResumen (MCTG-07 negative-3, D-11)"
+     to FAIL.
+
+  PR6a tests updated (not regressed): "Eliminar failure renders the error alert" and "Eliminar is
+  disabled and shows 'Eliminando…' while in-flight" both adapted to flow through Alert confirmation
+  (which is correct: PR6b changes how Eliminar works — the PR6a stub is gone).
+
+  Binding obligations from instructions all satisfied:
+  1. WRAP eliminarCategoria call in Alert.alert — done (handleEliminar now calls Alert.alert;
+     confirmarEliminar calls eliminarCategoria). No second eliminarCategoria call added.
+  2. FLIP bucket-dirty absence test to positive — done (PR6a stub test removed; 3 positive bucket
+     Alert tests added covering: Alert fires, cancel = zero requests, confirm = PATCH + refresh).
+  3. CONSUME ETIQUETA_BUCKET + etiquetaTransacciones in impacto-catalogo.ts — done (both imported:
+     ETIQUETA_BUCKET from theme/colors.ts, etiquetaTransacciones from domain/plural.ts).
+-->
 
 ---
 

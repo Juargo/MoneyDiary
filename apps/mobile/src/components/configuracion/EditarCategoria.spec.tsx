@@ -1,23 +1,23 @@
 /**
- * EditarCategoria.spec.tsx — US-044 PR6a, T6a.3
+ * EditarCategoria.spec.tsx — US-044 PR6b, T6b.3 (extended from PR6a T6a.3)
  *
- * Tests for the identity form + footer (bucket-change confirmation stubbed
- * to PR6b; Eliminar calls eliminarCategoria directly — PR6b adds Alert.alert).
- * Scope:
- *   - identity draft (nombre, bucket) seeds from the resolved row
- *   - Nombre field edits stay local until Guardar
- *   - «Eliminar categoría» IS present — non-tautological cross-ref with
- *     PR5b's "absent on the list" assertion (D-12, judgment-anticipated class 3)
- *   - bucket clean + Guardar → actualizarCategoria({nombre, bucket}) sent directly,
- *     no confirmation (the bucket-dirty branch is PR6b's Alert flow)
- *   - Cancelar discards the identity draft and navigates back (WCTG-04)
- *   - rename-only save does NOT call solicitarRecargaResumen() —
- *     MCTG-07's negative-2 (judgment-anticipated class 5), against REAL module
+ * PR6a scope (tests 1–12): identity form + footer. Bucket-dirty Guardar was
+ * a stub (early-return); Eliminar called eliminarCategoria directly.
  *
- * Two SelectorChips are rendered (Bucket, and PatronesSection's matchType in PR7).
- * ONLY the Bucket chip is rendered by EditarCategoria itself in PR6a — so a single
- * distinct testID ('bucket-selector') is passed per the binding constraint that
- * every SelectorChips instance gets an explicit testID.
+ * PR6b scope (tests 13–23): both Alert.alert confirmation flows wired.
+ *   - bucket-dirty + Guardar → Alert.alert with impact fraseDeImpacto payload;
+ *     cancel → zero requests; confirm → actualizarCategoria + solicitarRecargaResumen
+ *   - Eliminar → Alert.alert with delete fraseDeImpacto payload;
+ *     cancel → zero requests; confirm → eliminarCategoria (no solicitarRecargaResumen)
+ *   - post-confirm failures render in the screen's own role="alert" region (R5)
+ *
+ * The PR6a stub test "bucket-dirty Guardar does NOT call actualizarCategoria
+ * (PR6a early-return stub)" is replaced by the PR6b positive-case suite below —
+ * the early-return is gone; the Alert flow takes its place.
+ *
+ * Alert.alert assertions: jest.spyOn(Alert, 'alert') captures the arguments;
+ * button callbacks are invoked directly from the captured buttons[] array to
+ * drive both the confirm and cancel branches.
  */
 import React from 'react';
 import {
@@ -27,6 +27,7 @@ import {
   waitFor,
   act,
 } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import type { CategoriaDto } from '../../domain/catalogo.types';
 import * as resumenRefresh from '../../api/resumen-refresh';
 
@@ -67,6 +68,7 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
   const mockOnEliminado = jest.fn();
 
   let spySolicitarRecarga: jest.SpyInstance;
+  let spyAlert: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -76,10 +78,15 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     // Spy on the REAL resumen-refresh module (not mocked away) so assertions
     // are non-tautological (judgment-anticipated class 5).
     spySolicitarRecarga = jest.spyOn(resumenRefresh, 'solicitarRecargaResumen');
+
+    // Spy on Alert.alert — captures title, message, buttons[] for assertion.
+    // Does NOT mock it away; calls through to the captured spy.
+    spyAlert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     spySolicitarRecarga.mockRestore();
+    spyAlert.mockRestore();
   });
 
   it('seeds identity draft from the resolved categoria row', async () => {
@@ -302,7 +309,9 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     expect(mockOnGuardado).not.toHaveBeenCalled();
   });
 
-  // Fix 8: Eliminar failure renders the alert region with the exact mensajes-catalogo literal
+  // Fix 8: Eliminar failure renders the alert region with the exact mensajes-catalogo literal.
+  // PR6b update: Eliminar now goes through Alert.alert confirmation — this test
+  // flows through the confirm button to reach the delete call.
   it('Eliminar failure renders the error alert with the exact error message', async () => {
     mockEliminarCategoria.mockResolvedValueOnce({
       ok: false,
@@ -318,10 +327,22 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       />,
     );
 
+    // PR6b: Eliminar opens Alert — must confirm before the delete fires
     await act(async () => {
       fireEvent.press(
         screen.getByRole('button', { name: 'Eliminar categoría' }),
       );
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
     });
 
     // accessibilityRole="alert" + the exact GENERICO string from mensajes-catalogo.ts
@@ -381,6 +402,8 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
   });
 
   // Fix 10b: Eliminar label shows "Eliminando…" while its own call is in-flight.
+  // PR6b update: Eliminar now goes through Alert.alert — must confirm before
+  // the deferred call starts.
   it('Eliminar is disabled and shows "Eliminando…" while in-flight', async () => {
     let resolveFirst!: (v: { ok: boolean; value: undefined }) => void;
     const deferred = new Promise<{ ok: true; value: undefined }>((res) => {
@@ -397,10 +420,22 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       />,
     );
 
+    // PR6b: press Eliminar → Alert opens, then confirm
     await act(async () => {
       fireEvent.press(
         screen.getByRole('button', { name: 'Eliminar categoría' }),
       );
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
     });
 
     // While in-flight: label shows "Eliminando…" and accessibilityState.disabled is true
@@ -425,10 +460,9 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     });
   });
 
-  // Fix 11: bucket-dirty Guardar is an early-return (PR6a stub) — actualizarCategoria NOT called
-  // Falsifiability: removing the `if (bucketCambiado) return;` guard causes this assertion to FAIL.
-  // The PR6b positive case will flip this expectation when the Alert.alert flow is wired.
-  it('bucket-dirty Guardar does NOT call actualizarCategoria (PR6a early-return stub)', async () => {
+  // ── PR6b: bucket-change Alert.alert flow ────────────────────────────────
+
+  it('bucket-dirty + Guardar opens Alert.alert with exact impact title/body BEFORE any PATCH (MCTG-03)', async () => {
     await render(
       <EditarCategoria
         categoria={sampleCategoria}
@@ -438,7 +472,7 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       />,
     );
 
-    // Change the bucket (makes it dirty)
+    // Change bucket (Necesidades → Deseos)
     await act(async () => {
       fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
     });
@@ -447,6 +481,347 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
     });
 
+    // Alert.alert was called — NO patch before confirmation
+    expect(spyAlert).toHaveBeenCalledTimes(1);
     expect(mockActualizarCategoria).not.toHaveBeenCalled();
+
+    // Verify the title and joined-body lines (fraseDeImpacto 'cambiar-bucket')
+    const [title, message] = spyAlert.mock.calls[0] as [
+      string,
+      string,
+      ...unknown[],
+    ];
+    expect(title).toBe('Cambiar el bucket');
+    expect(message).toContain('«Supermercado» pasa de Necesidades a Gustos.');
+  });
+
+  it('bucket-dirty + Guardar Alert: cancel button does NOT send the PATCH', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+
+    // Invoke the cancel button callback from the captured buttons array
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const cancelBtn = buttons.find((b) => b.style === 'cancel');
+    expect(cancelBtn).toBeDefined();
+    // Invoking cancel (or not invoking onPress at all for cancel) — zero requests
+    cancelBtn?.onPress?.();
+
+    expect(mockActualizarCategoria).not.toHaveBeenCalled();
+    expect(spySolicitarRecarga).not.toHaveBeenCalled();
+  });
+
+  it('bucket-dirty + Guardar Alert: confirm button sends PATCH + solicitarRecargaResumen (MCTG-07 positive)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+
+    // Invoke the destructive confirm button
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+    expect(confirmBtn).toBeDefined();
+    expect(confirmBtn?.text).toBe('Cambiar bucket');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+      expect(mockActualizarCategoria).toHaveBeenCalledWith('cat-1', {
+        nombre: 'Supermercado',
+        bucket: 'Deseos',
+      });
+    });
+
+    // MCTG-07 positive: successful bucket change DOES call solicitarRecargaResumen
+    // Falsifiability: removing solicitarRecargaResumen() from the confirm success
+    // path causes this assertion to FAIL.
+    expect(spySolicitarRecarga).toHaveBeenCalledTimes(1);
+  });
+
+  // ── PR6b: delete Alert.alert flow ────────────────────────────────────────
+
+  it('Eliminar opens Alert.alert with exact delete title/body sourced from loaded transaccionesCount (MCTG-05)', async () => {
+    // sampleCategoria has transaccionesCount: 5
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+    expect(mockEliminarCategoria).not.toHaveBeenCalled();
+
+    const [title, message] = spyAlert.mock.calls[0] as [
+      string,
+      string,
+      ...unknown[],
+    ];
+    expect(title).toBe('Eliminar categoría');
+    // Exact body for count=5 (fraseDeImpacto 'eliminar-categoria', count>0)
+    expect(message).toContain('Vas a eliminar «Supermercado».');
+    expect(message).toContain(
+      '5 transacciones quedan en Sin categoría, en todos los períodos.',
+    );
+  });
+
+  it('zero-transaction Eliminar still opens confirm (softened wording, never skips)', async () => {
+    const categoriaZero: CategoriaDto = {
+      ...sampleCategoria,
+      transaccionesCount: 0,
+    };
+
+    await render(
+      <EditarCategoria
+        categoria={categoriaZero}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    // Confirmation is NEVER skipped — Alert.alert fires even for zero transactions
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+    const [, message] = spyAlert.mock.calls[0] as [
+      string,
+      string,
+      ...unknown[],
+    ];
+    // Softened wording for zero
+    expect(message).toContain('No tiene transacciones asociadas.');
+  });
+
+  it('Eliminar Alert: cancel button issues zero requests', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const cancelBtn = buttons.find((b) => b.style === 'cancel');
+    expect(cancelBtn).toBeDefined();
+    cancelBtn?.onPress?.();
+
+    expect(mockEliminarCategoria).not.toHaveBeenCalled();
+  });
+
+  it('Eliminar Alert: confirm button calls eliminarCategoria (MCTG-05)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+    expect(confirmBtn).toBeDefined();
+    expect(confirmBtn?.text).toBe('Eliminar');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockEliminarCategoria).toHaveBeenCalledTimes(1);
+      expect(mockEliminarCategoria).toHaveBeenCalledWith('cat-1');
+    });
+  });
+
+  it('successful delete does NOT call solicitarRecargaResumen (MCTG-07 negative-3, D-11)', async () => {
+    // Falsifiability: adding solicitarRecargaResumen() to the delete-confirm
+    // success path causes this assertion to FAIL.
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockEliminarCategoria).toHaveBeenCalledTimes(1);
+    });
+
+    expect(spySolicitarRecarga).not.toHaveBeenCalled();
+  });
+
+  it('post-confirm bucket-change failure renders in the screen role="alert" region (R5, design §1.11)', async () => {
+    mockActualizarCategoria.mockResolvedValueOnce({
+      ok: false,
+      error: { tag: 'http', status: 422, code: 'NOMBRE_INVALIDO' },
+    });
+
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    // Error renders in the screen's own alert region (not inside the dismissed Alert)
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeOnTheScreen();
+    });
+
+    expect(mockOnGuardado).not.toHaveBeenCalled();
+  });
+
+  it('post-confirm delete failure renders in the screen role="alert" region (R5, design §1.11)', async () => {
+    mockEliminarCategoria.mockResolvedValueOnce({
+      ok: false,
+      error: { tag: 'http', status: 409 },
+    });
+
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeOnTheScreen();
+    });
+
+    expect(mockOnEliminado).not.toHaveBeenCalled();
   });
 });
