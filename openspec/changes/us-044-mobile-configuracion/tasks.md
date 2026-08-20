@@ -893,29 +893,28 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR7 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~535 lines, 22 new tests. **Over 400-line budget** — `size:exception` candidate, OR split further (section+placeholder rows / the row state machine) per design §5.
-<!-- REAL NUMBERS (applied 2026-08-20):
-  SelectorChips.tsx          +16 (getOptionLabel prop — binding obligation 1, backward-compatible)
-  SelectorChips.spec.tsx     +28 (getOptionLabel behavior test: custom label renders, onChange emits raw value)
-  PatronesSection.tsx        ~80L (new — existing rows before placeholders, «Sin patrones…» always, Agregar button)
-  PatronesSection.spec.tsx   ~185L (new — 8 tests: always-note (0 patterns), always-note (N patterns) non-tautological,
-                                    existing rows render, ORDER pinning, Agregar accessible name, zero-requests Agregar,
-                                    ETIQUETA_MATCH_TYPE labels, MCTG-07 negative-4 add-placeholder)
-  PatronFila.tsx             ~175L (new — 4-state row machine: limpio/sucio/enviando/error; crearPatron/actualizarPatron/
-                                    eliminarPatron; prioridad absent; no Alert.alert on delete; no blur machinery;
-                                    REGEX hint advisory; MCTG-07 negative-4 enforced structurally)
-  PatronFila.spec.tsx        ~390L (new — 14 tests: limpio hides confirm, sucio reveals confirm,
-                                    new-row→crearPatron exact payload+no-prioridad, delete-new=discard-zero-requests,
-                                    existing→actualizarPatron exact payload+no-prioridad, baseline-advances-on-success-only,
-                                    delete-existing→no-Alert (class 3), enviando-disables-both-controls,
-                                    error-inline-alert, REGEX-hint-advisory-never-gate, MCTG-07-add-no-refresh,
-                                    MCTG-07-delete-no-refresh, matchType-chip-updates-payload, getOptionLabel-labels-render-onChange-emits-raw)
-  EditarCategoria.tsx        +12/-3 (import PatronesSection + replace placeholder + onCatalogoChange prop)
-  EditarCategoria.spec.tsx   +30/-5 (replace placeholder test with T7.5 integration case: PatronesSection renders,
-                                     Cancelar discards identity draft only)
-  tasks.md                   (checkboxes + REAL NUMBERS)
+<!-- REAL NUMBERS (final post-JD-fix, from `git diff origin/main...HEAD --numstat`):
+  PatronFila.tsx             +251 (new — 4-state row machine: limpio/sucio/enviando/error; crearPatron/actualizarPatron/
+                                   eliminarPatron; prioridad absent; no Alert.alert on delete; no blur machinery;
+                                   REGEX hint advisory; required rowId prop drives all row-scoped testIDs)
+  PatronFila.spec.tsx        +605 (new — 14 tests: state machine, exact payloads + no-prioridad, no-Alert class 3,
+                                   in-flight disables + «Guardando…» pin, error alert, REGEX advisory,
+                                   MCTG-07 add/delete negatives vs REAL resumen-refresh, getOptionLabel behavior)
+  PatronesSection.tsx        +119 (new — existing rows before placeholders, «Sin patrones…» always, Agregar button,
+                                   monotonic tempId counter nuevo-1/nuevo-2)
+  PatronesSection.spec.tsx   +314 (new — 10 tests incl. two-new-rows distinct testIDs and commit-path
+                                   crearPatron-success-no-refresh from the JD fix round)
+  SelectorChips.tsx          +16/−2 (getOptionLabel prop — binding obligation 1, backward-compatible)
+  SelectorChips.spec.tsx     +34 (getOptionLabel behavior test: custom label renders, onChange emits raw value)
+  EditarCategoria.tsx        +25/−6 (import PatronesSection + replace placeholder + onCatalogoChange prop)
+  EditarCategoria.spec.tsx   +56/−5 (T7.5 integration strengthened in JD fix round: committed pattern mutation
+                                    survives Cancelar; actualizarCategoria never called)
+  app/categoria/[id].tsx     +1 (JD fix round CRITICAL: onCatalogoChange wired to cargarCatalogo)
+  app/categoria/[id].spec.tsx +58 (case 15: pattern mutation triggers second fetchCatalogo — falsifiability confirmed)
+  tasks.md                   +108/−6 (checkboxes + REAL NUMBERS + JD deviations)
 
-  Net new tests: 648 − 625 = 23 new (1 SelectorChips + 8 PatronesSection + 14 PatronFila + 1 EditarCategoria T7.5
-  integration − 1 placeholder test replaced = 23 net new). Full suite: 54 suites / 648 tests. tsc --noEmit clean.
+  Net new tests: 651 − 625 = 26 (per-file: [id].spec 15, PatronFila 14, PatronesSection 10, EditarCategoria 25,
+  SelectorChips +1). Full suite: 54 suites / 651 tests. tsc --noEmit clean.
 
   RED evidence:
   - T7.1 PatronesSection.spec.tsx: Cannot find module './PatronesSection' (module did not exist yet)
@@ -927,8 +926,10 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
   Binding obligations satisfied:
   1. getOptionLabel returns to SelectorChips WITH a behavior test: SelectorChips.spec.tsx case "getOptionLabel:
      custom label renders while onChange emits the raw option value". PatronFila uses it for ETIQUETA_MATCH_TYPE.
-  2. Every SelectorChips instance has a DISTINCT explicit testID: PatronFila uses
-     `matchtype-selector-${patron.id}` for existing rows and `matchtype-selector-nuevo` for new rows.
+  2. Every SelectorChips instance has a DISTINCT explicit testID: PatronFila derives all row-scoped
+     testIDs from its required `rowId` prop (`matchtype-selector-${rowId}`). Existing rows: rowId =
+     patron.id; new placeholder rows: rowId = "nuevo-1", "nuevo-2", … (monotonic counter in
+     PatronesSection — JD fix round; distinctness pinned by the two-new-rows test).
   3. prioridad is NEVER sent: both crearPatron (PatronInput) and actualizarPatron (PatronPatch) types exclude it
      (tsc-enforced). PatronFila.spec.tsx cases 3 and 5 assert `not.toHaveProperty('prioridad')`.
   4. Pattern delete commits without Alert (MCTG-04 immediate commits): confirmed per design §1.12. Case 7 asserts
