@@ -665,9 +665,10 @@ components).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test app/categoria/[id].spec.tsx`
 - [x] **T6a.2 (GREEN)** Create `apps/mobile/app/categoria/[id].tsx` — own fetch, resolve-by-id, the 4
       states, on-screen back.
-      - Verify: `pnpm --filter @moneydiary/mobile test app/categoria/[id].spec.tsx` — 13 green.
+      - Verify: `pnpm --filter @moneydiary/mobile test app/categoria/[id].spec.tsx` — 14 green (13 apply + 1 id-undefined case from the JD fix round).
 - [x] **T6a.3 (RED)** Create `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`
-      (~9 cases — identity form + footer ONLY; both `Alert.alert` flows are stubbed to PR6b): identity
+      (~9 cases — identity form + footer ONLY; bucket-change confirmation stubbed to PR6b, Eliminar
+      calls `eliminarCategoria` directly and PR6b adds the `Alert.alert` wrapper): identity
       draft (`nombre`, `bucket`) seeds from the resolved row; `Nombre` field edits stay local until
       `Guardar`; **`Eliminar categoría` control is present** on this screen — non-tautological,
       paired with PR5b's "absent on the list" case via the identical query (D-12,
@@ -692,7 +693,7 @@ components).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR6a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~585 lines, 27 new tests. **Over 400-line budget** — `size:exception` candidate, OR split further per design §5's own cut (route+states / identity form) if the reviewer prefers.
-<!-- REAL NUMBERS (applied 2026-08-19): app/categoria/[id].tsx ~120L (new) + [id].spec.tsx ~260L (new, 13 tests) + EditarCategoria.tsx ~140L (new) + EditarCategoria.spec.tsx ~270L (new, 8 tests) = ~790 ledger-scope lines, 21 new tests (13 route + 8 EditarCategoria). Full suite: 51 suites / 589 tests (568 baseline + 21 new). tsc --noEmit clean.
+<!-- REAL NUMBERS (final post-JD-fix, from `git diff origin/main...HEAD --numstat`): app/categoria/[id].tsx +140 (new) + [id].spec.tsx +290 (new, 14 tests) + EditarCategoria.tsx +205 (new) + EditarCategoria.spec.tsx +451 (new, 13 tests) = 1086 ledger-scope code lines, 27 new tests (14 route + 13 EditarCategoria). Full suite: 51 suites / 595 tests (568 baseline + 27 new). tsc --noEmit clean.
 
 JD fix round (2026-08-19): false no-op comment on handleEliminar corrected (Eliminar calls eliminarCategoria directly in PR6a; PR6b wraps it in Alert.alert); `enviando` boolean split into `operacion: 'guardar' | 'eliminar' | null` so "Guardando…" and "Eliminando…" labels are semantically independent; `accessibilityState={{ disabled }}` added to Cancelar and Eliminar Pressables; bucket cast changed from `||` to `??` (nullish, not falsy) with corrected D-07 comment; dead first `jest.mock('../../src/api/categorias')` block removed from `[id].spec.tsx`; 6 new tests added to `EditarCategoria.spec.tsx` (Guardar failure, Eliminar failure, success path onGuardado assertion, double-submit Guardar label, double-submit Eliminar label, bucket-dirty early-return); 1 new test added to `[id].spec.tsx` (id: undefined param). Post-fix: [id].spec.tsx 14 tests, EditarCategoria.spec.tsx 13 tests, full suite 51 suites / 595 tests.
 

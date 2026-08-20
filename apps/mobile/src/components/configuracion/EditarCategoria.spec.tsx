@@ -1,7 +1,8 @@
 /**
  * EditarCategoria.spec.tsx — US-044 PR6a, T6a.3
  *
- * Tests for the identity form + footer (confirms stubbed to PR6b).
+ * Tests for the identity form + footer (bucket-change confirmation stubbed
+ * to PR6b; Eliminar calls eliminarCategoria directly — PR6b adds Alert.alert).
  * Scope:
  *   - identity draft (nombre, bucket) seeds from the resolved row
  *   - Nombre field edits stay local until Guardar

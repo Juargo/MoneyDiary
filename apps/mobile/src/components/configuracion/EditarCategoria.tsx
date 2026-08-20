@@ -2,9 +2,10 @@
  * EditarCategoria.tsx — US-044 PR6a, T6a.4
  *
  * Identity form (Nombre + Bucket) + footer (Guardar / Cancelar / Eliminar).
- * Both Alert.alert confirmation flows (bucket-change + delete) are stubbed in
- * PR6a and wired in PR6b; in this slice, Guardar sends the patch directly
- * when the bucket is clean (design §1.11's "bucket clean" branch).
+ * The bucket-change Alert.alert flow is stubbed in PR6a (early-return);
+ * Eliminar calls eliminarCategoria directly — PR6b adds the Alert.alert
+ * wrapper (MCTG-05). In this slice, Guardar sends the patch directly when
+ * the bucket is clean (design §1.11's "bucket clean" branch).
  *
  * PatronesSection renders a placeholder until PR7 wires the real component.
  *
