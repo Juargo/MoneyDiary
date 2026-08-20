@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Loading } from './states/Loading';
@@ -62,6 +63,12 @@ export function BucketDetalleMesPage({
   readonly destacar: boolean;
 }) {
   const categoriasQuery = useCategorias();
+  // Page-owned cross-bucket announcement (D-07): persists until replaced by a
+  // subsequent cross-bucket move or page unmount. No timer, no auto-clear
+  // (KISS). The `role="status"` region re-announces on every content change.
+  const [anuncio, setAnuncio] = useState('');
+  const alMovida = (bucketLabel: string) =>
+    setAnuncio(`Movida a ${bucketLabel}.`);
 
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
@@ -81,6 +88,11 @@ export function BucketDetalleMesPage({
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
+      {/* Page-owned announcement region for cross-bucket reclassify (D-07).
+          Rendered OUTSIDE the groups map — stable page-level sibling that
+          survives a moved row's unmount. Visible text, not sr-only, so
+          sighted users and screen readers read from the same node. */}
+      <p role="status">{anuncio}</p>
       {categoriasCargandoInicial && (
         <p role="status" className="sr-only">
           Cargando categorías…
@@ -167,6 +179,7 @@ export function BucketDetalleMesPage({
               destacar={destacar && grupo.categoriaId === null}
               bucketActual={viewModel.bucket}
               periodo={periodo}
+              onMovida={alMovida}
             />
           ))}
         </div>

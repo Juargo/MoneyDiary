@@ -652,7 +652,7 @@ describe('BucketDetalleMesPage', () => {
     expect(h1s[0]).toHaveTextContent('Necesidades');
   });
 
-  it('announces the catalog load exactly once while it is in flight', async () => {
+  it('announces the catalog load exactly once while it is in flight (D-07: 2 status regions total — anuncio empty + catalog loading)', async () => {
     stubFetch({ ok: true, status: 200 }, { pending: true });
 
     renderData(
@@ -665,8 +665,66 @@ describe('BucketDetalleMesPage', () => {
     );
 
     await verPrimerGrupo();
-    expect(screen.getAllByRole('status')).toHaveLength(1);
+    // 2 role="status" nodes: the page-owned anuncio region (initially empty)
+    // + the catalog loading "Cargando categorías…" region.
+    expect(screen.getAllByRole('status')).toHaveLength(2);
     expect(screen.getByText('Cargando categorías…')).toBeInTheDocument();
+  });
+
+  it('anuncio role=status region is a page-level sibling of grupo-movimientos (D-07)', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await verPrimerGrupo();
+    // Wait for the catalog to settle so only the anuncio region remains —
+    // the catalog-loading "Cargando categorías…" region unmounts once the
+    // fetch resolves (catalogoCargandoInicial becomes false).
+    // `findByRole` retries until exactly one match (or timeout).
+    const statusRegion = await screen.findByRole('status');
+
+    // Initially empty — no cross-bucket move has happened yet.
+    expect(statusRegion).toHaveTextContent('');
+
+    // The anuncio region must NOT be inside a grupo-movimientos section:
+    // it is a page-level sibling, surviving any moved row's unmount (D-07).
+    expect(
+      statusRegion.closest('[data-testid="grupo-movimientos"]'),
+    ).toBeNull();
+  });
+
+  it('anuncio region is empty before any cross-bucket move (same-bucket path never sets it, D-07)', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    // Wait for catalog to settle → only 1 status region (the anuncio one).
+    const anuncioRegion = await screen.findByRole('status');
+    // No user interaction: the region must stay empty (D-07 invariant: only
+    // a cross-bucket confirm sets it; same-bucket commits skip onMovida).
+    expect(anuncioRegion).toHaveTextContent('');
   });
 
   it('shows the catalog failure surface once and retries on demand', async () => {
