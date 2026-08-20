@@ -314,6 +314,39 @@ const SEMAFORO_DETALLE_FIXTURE = {
   sinCategoria: { cantidad: 2, total: '15000' },
 };
 
+// GET /api/ingresos/mes (US-054 T-13) — a literal IngresosMesDto instance
+// (src/api/types.ts) with 3 transactions: BCI, Manual, and BancoEstado — so
+// ingresos-mes.e2e.ts exercises 3 distinct Origen badge variants at a real
+// viewport. For the pinned empty month 2026-05 the handler returns zeros —
+// exercises WDI-04 Empty state.
+const INGRESOS_MES_FIXTURE = {
+  conteo: 3,
+  total: '1500000',
+  transacciones: [
+    {
+      id: 'ing-1',
+      fecha: '2026-07-05T00:00:00.000Z',
+      descripcion: 'Pago nómina',
+      origen: 'BCI',
+      monto: '1000000',
+    },
+    {
+      id: 'ing-2',
+      fecha: '2026-07-12T00:00:00.000Z',
+      descripcion: 'Honorarios',
+      origen: 'Manual',
+      monto: '300000',
+    },
+    {
+      id: 'ing-3',
+      fecha: '2026-07-20T00:00:00.000Z',
+      descripcion: 'Dividendo',
+      origen: 'BancoEstado',
+      monto: '200000',
+    },
+  ],
+};
+
 export async function stubApi(page: Page): Promise<void> {
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({ json: ME_FIXTURE }),
@@ -384,6 +417,25 @@ export async function stubApi(page: Page): Promise<void> {
           grupos: [DETALLE_BUCKET_MES_FIXTURE.grupos[1]],
         }),
       },
+    });
+  });
+  // US-054 T-13: `**/api/ingresos/mes*` — no collision with any existing stub.
+  // Playwright's `*` does not cross `/`, so `**/api/resumen*` and
+  // `**/api/buckets/**` can never match `/api/ingresos/mes`; registration
+  // order is therefore irrelevant for this route. Position recorded here for
+  // reader orientation only (WDI-08). The handler returns zeroes for the
+  // pinned empty month `2026-05` (exercises WDI-04).
+  await page.route('**/api/ingresos/mes*', (route) => {
+    const url = new URL(route.request().url());
+    const periodo = url.searchParams.get('periodo') ?? '2026-07';
+    if (periodo === '2026-05') {
+      route.fulfill({
+        json: { conteo: 0, total: '0', transacciones: [] },
+      });
+      return;
+    }
+    route.fulfill({
+      json: { ...INGRESOS_MES_FIXTURE },
     });
   });
   // US-049 T7.8: a DISTINCT route from `**/api/resumen*` above — Playwright's

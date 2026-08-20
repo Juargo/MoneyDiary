@@ -49,6 +49,13 @@ function HomePage() {
           },
         })
       }
+      // US-054 T-17 (D-05): Ingresos legend row drill-down — navigate to
+      // the month-scoped /ingresos page carrying the current `periodo`.
+      // `periodo` comes from `Route.useSearch()` (same source as the bucket
+      // drill-down above — no second period lookup needed).
+      onSelectIngresos={() =>
+        navigate({ to: '/ingresos', search: { periodo } })
+      }
     />
   );
 }

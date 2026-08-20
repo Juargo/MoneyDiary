@@ -259,12 +259,14 @@ function renderScreen(
   vm: ResumenViewModel = viewModel,
   onPeriodoChange: (periodo: string) => void = vi.fn(),
   onSelectBucket: (bucket: string, destacar?: boolean) => void = vi.fn(),
+  onSelectIngresos: () => void = vi.fn(),
 ) {
   return renderConRouter(
     <ResumenScreen
       viewModel={vm}
       onPeriodoChange={onPeriodoChange}
       onSelectBucket={onSelectBucket}
+      onSelectIngresos={onSelectIngresos}
     />,
   );
 }
@@ -470,13 +472,11 @@ describe('ResumenScreen', () => {
     expect(cuerpo.className).toMatch(/\bmd:grid-cols-2\b/);
   });
 
-  // T14 (design §6, WG5-12): the composition-level a11y sign-off — every
-  // per-control keyboard proof already exists in isolation
-  // (DistribucionPie.test.tsx/LeyendaGasto.test.tsx/SemaforoTag.test.tsx,
-  // T6/T7/T9); this proves the semáforo tag AND every clickable legend row
-  // are reachable/operable together on the SAME composed screen, and that
-  // Ingresos never receives focus here either (WG5-06).
-  it('the semáforo tag and every clickable legend row are keyboard-focusable together, with Ingresos never focusable (T14, WG5-12)', async () => {
+  // T14 (design §6, WG5-12 — US-054 D-05): the composition-level a11y
+  // sign-off. The Ingresos row is NOW a button (US-054 T-14 flip: the US-047
+  // interim is retired, the endpoint exists). Every clickable legend row
+  // including Ingresos is reachable and operable on the SAME composed screen.
+  it('the semáforo tag and every clickable legend row including Ingresos are keyboard-focusable together (T14, WG5-12, US-054 D-05)', async () => {
     mockFetchAnual();
     renderScreen();
     await screen.findByText('$1.000.000');
@@ -487,20 +487,13 @@ describe('ResumenScreen', () => {
       screen.getByRole('button', { name: /^Gustos / }),
       screen.getByRole('button', { name: /^Ahorro / }),
       screen.getByRole('button', { name: /^Sin categoría / }),
+      // US-054 D-05: Ingresos is now a button — added to the focusable set.
+      screen.getByRole('button', { name: /Ingresos/ }),
     ];
     for (const control of controlesEsperados) {
       control.focus();
       expect(control).toHaveFocus();
     }
-
-    // Ingresos renders as a plain <li> (WG5-06 interim) — it has no
-    // interactive role at all, so it can never be a Tab stop.
-    expect(
-      screen.queryByRole('button', { name: /Ingresos/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: /Ingresos/ }),
-    ).not.toBeInTheDocument();
 
     // Composed-screen keyboard activation of the semáforo tag (mouse-click
     // navigation is already proven by the "renders the global semáforo..."
