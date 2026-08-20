@@ -7,10 +7,10 @@ Issue #288: the Ingresos drill-down is still the US-047 interim — an inert leg
 ## Scope
 
 ### In Scope
-- Client plumbing: `IngresosMesDto` + nested tx alias (`packages/api-client/src/index.ts`, D-07 type-only, no regen), web types re-export (ADR-008), `esIngresosMesDto` guard (`esMontoStringValido` + `esFechaValida`), `fetchIngresosMes`, `useIngresosMes` (queryKey `['ingresos-mes', periodo ?? 'actual']`).
-- Page: router-agnostic `IngresosMesPage` (CA-01 header, CA-02 table, CA-03 month nav, empty month, Loading/Error/retry) + thin route `ingresos.tsx` (validateSearch via `normalizarPeriodo`, D-04 functional search updater).
+- Client plumbing: `IngresosMesDto` + nested tx alias (`packages/api-client/src/index.ts`, D-06 type-only, no regen), web types re-export (ADR-008), `esIngresosMesDto` guard (`esMontoStringValido` + `esFechaValida`), `fetchIngresosMes`, `useIngresosMes` (queryKey `['ingresos-mes', periodo ?? 'actual']`).
+- Page: router-agnostic `IngresosMesPage` (CA-01 header, CA-02 table, CA-03 month nav, empty month, Loading/Error/retry) + thin route `ingresos.tsx` (validateSearch via `normalizarPeriodo`, WDI-03 functional search updater — US-053 D-04).
 - Domain: `ingresos-mes-view-model.ts` — pure passthrough, labels only, no re-sort (MID-01 order authoritative).
-- Dashboard wiring: `FilaIngreso` → navigable (new callback thread, mirror of `onSelectBucket` D-06).
+- Dashboard wiring: `FilaIngreso` → navigable (new callback thread, mirror of `onSelectBucket` — D-05, US-053 D-06).
 - a11y: `eslint.config.js` a11y ERROR scope for new files; semantic `<table>` (first in web app).
 - e2e: `**/api/ingresos/mes*` stub (distinct prefix — no LIFO collision with `**/api/resumen*`) + `ingresos-mes.e2e.ts`.
 
@@ -31,13 +31,13 @@ Issue #288: the Ingresos drill-down is still the US-047 interim — an inert leg
 
 ## Approach
 
-US-053 twin (the exact template — D-01..09, PR slicing). `/ingresos` thin route; `IngresosMesPage` router-agnostic: breadcrumb + hand-rolled `Link to="/" search={{ periodo }}`, reused `PeriodoSelector` (undefined → current month), "N ingresos" tag from `conteo`, positive total, note "Sin meta ni semáforo: los ingresos no participan del 50/30/20 como gasto" (MID-03 structural), semantic table (Origen tag: bank verbatim or 'Manual'), Empty with custom copy. `FilaIngreso` becomes a clickable row reporting a bucket-less navigation intent; the route threads the callback (D-06). Reuse: `Empty` custom title/description, states, `mesCompletoLabel`, `formatearMontoCLP`/`formatearMontoConSigno`. No backend changes.
+US-053 twin (the exact template — D-01..10, PR slicing). `/ingresos` thin route; `IngresosMesPage` router-agnostic: breadcrumb + hand-rolled `Link to="/" search={{ periodo }}`, reused `PeriodoSelector` (undefined → current month), "N ingresos" tag from `conteo`, positive total, note "Sin meta ni semáforo: los ingresos no participan del 50/30/20 como gasto" (MID-03 structural), semantic table (Origen tag: bank verbatim or 'Manual'), Empty with custom copy. `FilaIngreso` becomes a clickable row reporting a bucket-less navigation intent; the route threads the callback (D-05). Reuse: `Empty` custom title/description, states, `mesCompletoLabel`, `formatearMontoCLP`/`formatearMontoConSigno`. No backend changes.
 
 ## Affected Areas
 
 | Area | Impact | Description |
 |------|--------|-------------|
-| `packages/api-client/src/index.ts` | Modified | `IngresosMesDto` + nested tx alias (D-07) |
+| `packages/api-client/src/index.ts` | Modified | `IngresosMesDto` + nested tx alias (D-06) |
 | `apps/web/src/api/{types,client}.ts` | Modified | Re-export; `esIngresosMesDto` + `fetchIngresosMes` |
 | `apps/web/src/api/use-ingresos-mes.ts` | New | Query hook |
 | `apps/web/src/domain/ingresos-mes-view-model.ts` | New | Pure view-model (labels, passthrough) |
@@ -48,14 +48,14 @@ US-053 twin (the exact template — D-01..09, PR slicing). `/ingresos` thin rout
 | `{LeyendaGasto,ResumenScreen,ResumenPage}.tsx` + `routes/_authenticated/index.tsx` | Modified | FilaIngreso → navigation callback thread |
 | `eslint.config.js` | Modified | a11y `error` scope list |
 | `apps/web/e2e/fixtures/api-stubs.ts` + `e2e/ingresos-mes.e2e.ts` | Modified/New | Stub + flows |
-| `{LeyendaGasto,ResumenScreen}.test.tsx` | Modified | :77-88, :478-502 flip inert→navigable |
+| `{LeyendaGasto,ResumenScreen}.test.tsx` | Modified | :77-86, :479-513 flip inert→navigable |
 
 ## Risks
 
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
-| No `periodo` echo on wire → month label must derive from search param | Med | `mesCompletoLabel(periodo ?? periodoActual())`; recommend pure `periodoActual()` in `domain/periodo.ts` |
-| `aFechaLabel` deleted in US-053 (D-08) → date-label for Fecha column | Low | Recommend `aFechaCorta` in `domain/fecha.ts` (4th `.slice(0,10)` occurrence — DRY rule of 3); guard via `esFechaValida`; legacy 3 sites migrate later (out of scope) |
+| No `periodo` echo on wire → month label must derive from search param | Med | `mesCompletoLabel(periodo ?? periodoActual())`; pinned D-01: `periodoActual()` in `domain/periodo.ts` (docblock re-scoped to normalizers; `PeriodoSelector` local-shadowing footgun noted in design §9) |
+| `aFechaLabel` deleted in US-053 (US-053 D-08) → date-label for Fecha column | Low | Pinned D-02: `aFechaCorta` in `domain/fecha.ts` (4th `.slice(0,10)` occurrence — DRY rule of 3); guard via `esFechaValida`; legacy 3 sites migrate on next touch (out of scope) |
 | Empty month = 200 zeros (no `sinIngreso` flag) | Low | View-model maps conteo 0/`[]` → header + Empty, never the dashboard branch |
 | WG5-06 flip churns 2 component suites + spec scenarios | Med | US-053 precedent: deliberate per-file updates, spec delta reconciles |
 | First semantic table: a11y regression surface | Med | a11y lint ERROR gate (US-042/053) + role/accname suite assertions + Playwright T2 (D-09 resolved: `vitest-axe` is not a dependency — WDI-07 updated to the repo precedent) |
@@ -66,7 +66,7 @@ Web-only: revert the PR(s). Inert legend row, comment trigger, and dashboard beh
 
 ## Dependencies
 
-- `GET /api/ingresos/mes` (US-052, shipped) · `IngresosMesResponse` in `types.gen.ts` (shipped) · US-053 patterns (PeriodoSelector, Empty custom copy, D-09 back-link, D-04 updater).
+- `GET /api/ingresos/mes` (US-052, shipped) · `IngresosMesResponse` in `types.gen.ts` (shipped) · US-053 patterns (PeriodoSelector, Empty custom copy, US-053 D-09 back-link, US-053 D-04 updater).
 
 ## Success Criteria
 
