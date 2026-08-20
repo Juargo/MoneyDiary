@@ -1,14 +1,32 @@
+import { periodoActualUTC } from './periodo-anual';
+
 /**
- * `YYYY-MM` only (backend contract). Pure validation — no default/fallback
- * logic here (that's the caller's job: `useResumen(undefined)` calls
+ * `YYYY-MM` normalizers for route search params, plus the thin current-month
+ * helper `periodoActual()` (D-01, US-054): the file is no longer "pure
+ * validation only" — the normalizers keep the invalid-input → `undefined`
+ * contract (fallback is the caller's job: `useResumen(undefined)` calls
  * `/api/resumen` without a query param and the backend resolves the current
- * month, spec W1.8). Extracted from `routes/index.tsx` so the invalid-input
- * contract is independently testable without a router harness.
+ * month, spec W1.8), and `periodoActual()` is the production convenience for
+ * "current calendar month" that the `/ingresos` page needs (WDI-01: the
+ * wire carries no `periodo` echo, MID-01, so the month label derives from
+ * `mesCompletoLabel(periodo ?? periodoActual())`). Extracted from
+ * `routes/index.tsx` so the invalid-input contract is independently testable
+ * without a router harness.
  */
 const PERIODO_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export function normalizarPeriodo(raw: unknown): string | undefined {
   return typeof raw === 'string' && PERIODO_REGEX.test(raw) ? raw : undefined;
+}
+
+/**
+ * Current calendar month as `YYYY-MM` — thin zero-arg convenience over
+ * `periodoActualUTC(new Date())` (D-01): the deterministic, injected-`ahora`
+ * core stays in `periodo-anual.ts`; this is the production default. Absent
+ * `periodo` on `/ingresos` → the current month (WDI-03/MID-04).
+ */
+export function periodoActual(): string {
+  return periodoActualUTC(new Date());
 }
 
 /**

@@ -1,4 +1,10 @@
-import { normalizarDestacar, normalizarPeriodo } from './periodo';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  normalizarDestacar,
+  normalizarPeriodo,
+  periodoActual,
+} from './periodo';
+import { periodoActualUTC } from './periodo-anual';
 
 // Locks the invalid-periodo -> fallback contract (spec W1.8): a malformed or
 // absent `periodo` search param must normalize to `undefined` so the caller
@@ -68,4 +74,31 @@ describe('normalizarDestacar', () => {
       expect(normalizarDestacar(input)).toBeUndefined();
     },
   );
+});
+
+// US-054 (T-05, D-01): `periodoActual()` is the thin zero-arg convenience
+// over `periodoActualUTC(new Date())` — the deterministic core stays in
+// `periodo-anual.ts` with its injected `ahora`; this is the production
+// default for "current calendar month" (WDI-01: the wire has no `periodo`
+// echo, so the `/ingresos` month label derives from
+// `mesCompletoLabel(periodo ?? periodoActual())`).
+describe('periodoActual', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns the current UTC calendar month as YYYY-MM for a fixed instant', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-15T12:00:00.000Z'));
+
+    expect(periodoActual()).toBe('2026-08');
+  });
+
+  it('delegates to periodoActualUTC(new Date()) — same value for the same instant', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-15T12:00:00.000Z'));
+
+    const ahora = new Date();
+    expect(periodoActual()).toBe(periodoActualUTC(ahora));
+  });
 });
