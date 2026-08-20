@@ -177,24 +177,34 @@ describe('IngresosMesPage', () => {
   });
 
   // Case 9: absent periodo → current month (WDI-03/MID-04)
-  // Fake timers with shouldAdvanceTime so findByRole's waitFor polling is not
-  // blocked (renderConRouter is async; sync getByRole would be unreliable here).
-  // Pattern mirrors PeriodoSelector.test.tsx: useFakeTimers paired with
-  // setSystemTime, useRealTimers in afterEach so a failing assertion cannot
-  // leak the mocked clock into subsequent tests.
+  // shouldAdvanceTime is required here because renderConRouter's async
+  // RouterProvider needs waitFor's retry timers to fire before the route
+  // component mounts. PeriodoSelector.test.tsx uses sync render + getByRole
+  // and does not need it. renderConRouter is called directly (not renderPagina)
+  // because renderPagina's default `periodo = '2026-07'` swallows undefined
+  // before it reaches the component — mirroring the Case 10b pattern.
+  // The mocked clock is set to September 2026 (not July) so the assertion is
+  // genuinely falsifiable: if undefined were swallowed into '2026-07' the
+  // render would show 'julio 2026' and the findByRole would fail.
   describe('when periodo is absent', () => {
     beforeEach(() => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
-      vi.setSystemTime(new Date('2026-07-10T12:00:00Z'));
+      vi.setSystemTime(new Date('2026-09-15T12:00:00Z'));
     });
     afterEach(() => {
       vi.useRealTimers();
     });
 
     it('falls back to the current month when periodo is undefined (WDI-03/MID-04)', async () => {
-      renderPagina({ periodo: undefined });
+      renderConRouter(
+        <IngresosMesPage
+          query={mockQuery({ data: DTO_COMPLETO })}
+          periodo={undefined}
+          onPeriodoChange={vi.fn()}
+        />,
+      );
       expect(
-        await screen.findByRole('button', { name: /julio 2026/ }),
+        await screen.findByRole('button', { name: /septiembre 2026/ }),
       ).toBeInTheDocument();
     });
   });
