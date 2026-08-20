@@ -12,6 +12,7 @@ import {
   type TabConfiguracion,
 } from '../src/components/configuracion/TabsConfiguracion';
 import { PerfilPanel } from '../src/components/configuracion/PerfilPanel';
+import { CategoriasPanel } from '../src/components/configuracion/CategoriasPanel';
 import { Loading } from '../src/components/states/Loading';
 import { ErrorState } from '../src/components/states/Error';
 import { COLORS } from '../src/theme/colors';
@@ -116,9 +117,7 @@ export default function Configuracion() {
               />
             )}
             {estadoCatalogo.fase === 'data' && (
-              <View testID="categorias-panel-placeholder">
-                <Text>Categorias Panel Placeholder</Text>
-              </View>
+              <CategoriasPanel catalogo={estadoCatalogo.dto} />
             )}
           </View>
         )}
