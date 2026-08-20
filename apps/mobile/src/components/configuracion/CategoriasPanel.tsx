@@ -18,13 +18,20 @@ import { Pressable, Text, View } from 'react-native';
 import type { CatalogoDto } from '../../domain/catalogo.types';
 import { agruparPorBucket } from '../../domain/agrupar-categorias-por-bucket';
 import { CategoriaFila } from './CategoriaFila';
+import { NuevaCategoriaForm } from './NuevaCategoriaForm';
 import { ETIQUETA_BUCKET } from '../../theme/colors';
 
 export interface CategoriasPanelProps {
   readonly catalogo: CatalogoDto;
+  /** Called after a new category is successfully created — the route uses this
+   *  to trigger its useFocusEffect-backed catálogo refetch (D-10). */
+  readonly onCatalogoChange?: () => void;
 }
 
-export function CategoriasPanel({ catalogo }: CategoriasPanelProps) {
+export function CategoriasPanel({
+  catalogo,
+  onCatalogoChange,
+}: CategoriasPanelProps) {
   const [mostrarFormNueva, setMostrarFormNueva] = useState(false);
   const grupos = agruparPorBucket(catalogo.categorias);
 
@@ -88,13 +95,15 @@ export function CategoriasPanel({ catalogo }: CategoriasPanelProps) {
         </Text>
       </Pressable>
 
-      {/* PR5c placeholder — NuevaCategoriaForm replaces this in PR5c */}
+      {/* NuevaCategoriaForm — inline create (PR5c, T5c.3) */}
       {mostrarFormNueva && (
-        <View testID="nueva-categoria-form-placeholder">
-          <Text className="text-sm text-muted">
-            Formulario nueva categoría (próximamente)
-          </Text>
-        </View>
+        <NuevaCategoriaForm
+          onCreada={() => {
+            setMostrarFormNueva(false);
+            onCatalogoChange?.();
+          }}
+          onCancelar={() => setMostrarFormNueva(false)}
+        />
       )}
     </View>
   );

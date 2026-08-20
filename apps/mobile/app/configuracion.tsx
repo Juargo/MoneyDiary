@@ -117,7 +117,10 @@ export default function Configuracion() {
               />
             )}
             {estadoCatalogo.fase === 'data' && (
-              <CategoriasPanel catalogo={estadoCatalogo.dto} />
+              <CategoriasPanel
+                catalogo={estadoCatalogo.dto}
+                onCatalogoChange={cargarCatalogo}
+              />
             )}
           </View>
         )}
