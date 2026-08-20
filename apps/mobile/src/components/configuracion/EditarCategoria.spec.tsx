@@ -265,18 +265,45 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     expect(screen.getByRole('radio', { name: 'Ahorro' })).toBeOnTheScreen();
   });
 
-  it('renders PatronesSection placeholder (PatronesSection real component ships PR7)', async () => {
+  // T7.5 integration case: pattern commits are independent of categoría's Guardar,
+  // and Cancelar discards only the identity draft — MCTG-03's own scenario.
+  it('T7.5: PatronesSection renders and pattern rows commit independently of categoría Guardar', async () => {
+    const categoriaConPatrones: CategoriaDto = {
+      ...sampleCategoria,
+      patrones: [
+        {
+          id: 'pat-1',
+          categoriaId: 'cat-1',
+          patron: 'LIDER',
+          matchType: 'CONTAINS',
+          prioridad: 100,
+        },
+      ],
+    };
+
     await render(
       <EditarCategoria
-        categoria={sampleCategoria}
+        categoria={categoriaConPatrones}
         onGuardado={mockOnGuardado}
         onCancelar={mockOnCancelar}
         onEliminado={mockOnEliminado}
       />,
     );
 
-    // PatronesSection is stubbed in PR6a — assert the placeholder testID
-    expect(screen.getByTestId('patrones-placeholder')).toBeOnTheScreen();
+    // PatronesSection renders the existing pattern row — PR7 real component
+    expect(screen.getByDisplayValue('LIDER')).toBeOnTheScreen();
+
+    // «Sin patrones: solo asignación manual.» always renders (MCTG-04)
+    expect(
+      screen.getByText('Sin patrones: solo asignación manual.'),
+    ).toBeOnTheScreen();
+
+    // Pressing Cancelar does NOT call actualizarCategoria — discards only the identity draft
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
+    });
+    expect(mockActualizarCategoria).not.toHaveBeenCalled();
+    expect(mockOnCancelar).toHaveBeenCalledTimes(1);
   });
 
   // Fix 7: Guardar failure renders the alert region with the exact mensajes-catalogo literal

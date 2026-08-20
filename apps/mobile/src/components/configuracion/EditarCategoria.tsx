@@ -1,7 +1,11 @@
 /**
- * EditarCategoria.tsx — US-044 PR6b, T6b.4 (extended from PR6a T6a.4)
+ * EditarCategoria.tsx — US-044 PR7, T7.5 (extended from PR6b T6b.4)
  *
- * Identity form (Nombre + Bucket) + footer (Guardar / Cancelar / Eliminar).
+ * Identity form (Nombre + Bucket) + PatronesSection + footer (Guardar / Cancelar / Eliminar).
+ *
+ * PR7 wires the real PatronesSection, replacing the placeholder from PR6a.
+ * Patterns commit independently via PatronFila's own confirm (MCTG-04).
+ * Cancelar discards only the identity draft — committed patterns survive.
  *
  * PR6b wires both Alert.alert confirmation flows (design §1.11, MCTG-03/MCTG-05):
  *
@@ -24,13 +28,13 @@
  * transaccionesCount is read from the already-loaded DTO — never re-fetched
  * (design §1.11, T6b.5 refactor requirement).
  *
- * PatronesSection renders a placeholder until PR7 wires the real component.
- *
  * Props:
  *   categoria    — the resolved CategoriaDto from the route
  *   onGuardado   — called after a successful save (route re-fetches catalog)
  *   onCancelar   — called on Cancelar (route navigates back)
  *   onEliminado  — called after a successful delete (route navigates back)
+ *   onCatalogoChange — called after a pattern mutation so the route can re-fetch
+ *                      (optional — route passes cargarCatalogo; omit in tests)
  */
 import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
@@ -43,6 +47,7 @@ import { mensajeDeErrorCatalogo } from '../../domain/mensajes-catalogo';
 import type { CategoriaDto } from '../../domain/catalogo.types';
 import { CampoTexto } from './CampoTexto';
 import { SelectorChips } from './SelectorChips';
+import { PatronesSection } from './PatronesSection';
 
 export interface EditarCategoriaProps {
   readonly categoria: CategoriaDto;
@@ -52,6 +57,12 @@ export interface EditarCategoriaProps {
   readonly onCancelar: () => void;
   /** Called after a successful Eliminar — navigates back */
   readonly onEliminado: () => void;
+  /**
+   * Called after any pattern mutation so the parent route can re-fetch the catalog.
+   * Optional — the route passes `cargarCatalogo`; tests that don't test pattern
+   * mutations can omit it.
+   */
+  readonly onCatalogoChange?: () => void;
 }
 
 export function EditarCategoria({
@@ -59,6 +70,7 @@ export function EditarCategoria({
   onGuardado,
   onCancelar,
   onEliminado,
+  onCatalogoChange,
 }: EditarCategoriaProps) {
   // Identity draft — seeded from the resolved row, local until Guardar
   const [nombre, setNombre] = useState(categoria.nombre);
@@ -270,8 +282,15 @@ export function EditarCategoria({
         </Text>
       ) : null}
 
-      {/* PatronesSection placeholder — replaced by real component in PR7 */}
-      <View testID="patrones-placeholder" />
+      {/* PatronesSection — per-row pattern CRUD committing independently (MCTG-04).
+          Cancelar on this form discards only the identity draft; committed patterns
+          survive. onCatalogoChange triggers the route's catalog re-fetch after each
+          pattern mutation (D-10). */}
+      <PatronesSection
+        categoriaId={categoria.id}
+        patrones={categoria.patrones}
+        onPatronesChange={onCatalogoChange ?? (() => undefined)}
+      />
 
       {/* Footer: Guardar / Cancelar / Eliminar */}
       <View className="gap-3">

@@ -847,7 +847,7 @@ Requirements: MCTG-04, MCTG-07 (negative-4: pattern mutations do not refresh), M
 on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPatron`/
 `actualizarPatron`/`eliminarPatron`), PR3a (`SelectorChips` for `matchType`).
 
-- [ ] **T7.1 (RED)** Create `apps/mobile/src/components/configuracion/PatronesSection.spec.tsx`
+- [x] **T7.1 (RED)** Create `apps/mobile/src/components/configuracion/PatronesSection.spec.tsx`
       (~8 cases): existing rows render BEFORE new placeholder rows — ORDER pinning
       (judgment-anticipated class 2, the `PatronesSection` half); «Sin patrones: solo asignación
       manual.» renders **always**, identical whether the category has 0 or 3 patterns (MCTG-04's own
@@ -856,10 +856,10 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       until its own confirm; `matchType` chips use `ETIQUETA_MATCH_TYPE` labels (`CONTIENE`/`EMPIEZA
       CON`/`REGEX`), not the raw wire values.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PatronesSection.spec.tsx`
-- [ ] **T7.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronesSection.tsx` —
+- [x] **T7.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronesSection.tsx` —
       existing rows + append-only placeholder rows, «Sin patrones…» note always rendered.
       - Verify: `pnpm --filter @moneydiary/mobile test PatronesSection.spec.tsx` — 8 green.
-- [ ] **T7.3 (RED)** Create `apps/mobile/src/components/configuracion/PatronFila.spec.tsx`
+- [x] **T7.3 (RED)** Create `apps/mobile/src/components/configuracion/PatronFila.spec.tsx`
       (~14 cases — the 4-state row machine from design §1.12): `limpio` state hides the confirm
       control; editing → `sucio`, confirm control shows "Guardar patrón"; **new row** (no `id`):
       confirm → `crearPatron` (`prioridad` never in the payload — binding decision 3); delete on a
@@ -876,23 +876,87 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       `solicitarRecargaResumen()`** — MCTG-07's negative-4 scenario (judgment-anticipated class 5),
       asserted against the REAL `resumen-refresh` module for at least the add and the delete path.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PatronFila.spec.tsx`
-- [ ] **T7.4 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronFila.tsx` — the
+- [x] **T7.4 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronFila.tsx` — the
       `limpio|sucio|enviando|error` state machine per design §1.12; `SelectorChips` for `matchType`
       (3 chips, D-17); REGEX hint as advisory text only.
       - Verify: `pnpm --filter @moneydiary/mobile test PatronFila.spec.tsx` — 14 green.
-- [ ] **T7.5** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, replace PR6a's
+- [x] **T7.5** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, replace PR6a's
       `PatronesSection` placeholder with the real component (mechanical wiring; extend
       `EditarCategoria.spec.tsx` with 1 integration case: pattern commits are independent of the
       categoría's own `Guardar`, and `Cancelar` discards only the identity draft — MCTG-03's own
       "already-committed pattern survives Cancelar" scenario).
       - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx PatronesSection.spec.tsx PatronFila.spec.tsx`
-- [ ] **T7.6 (REFACTOR + sweep)** Confirm none of web's blur machinery (pointer-intent refs, deferred
+- [x] **T7.6 (REFACTOR + sweep)** Confirm none of web's blur machinery (pointer-intent refs, deferred
       `setTimeout` replay, focus-restore ref/effect) exists anywhere in `PatronFila.tsx` (D-14 — the
       removal is the point, not an oversight). Confirm `prioridad` is grep-absent from every pattern
       payload across `categorias.ts` and `PatronFila.tsx`.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR7 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~535 lines, 22 new tests. **Over 400-line budget** — `size:exception` candidate, OR split further (section+placeholder rows / the row state machine) per design §5.
+<!-- REAL NUMBERS (applied 2026-08-20):
+  SelectorChips.tsx          +16 (getOptionLabel prop — binding obligation 1, backward-compatible)
+  SelectorChips.spec.tsx     +28 (getOptionLabel behavior test: custom label renders, onChange emits raw value)
+  PatronesSection.tsx        ~80L (new — existing rows before placeholders, «Sin patrones…» always, Agregar button)
+  PatronesSection.spec.tsx   ~185L (new — 8 tests: always-note (0 patterns), always-note (N patterns) non-tautological,
+                                    existing rows render, ORDER pinning, Agregar accessible name, zero-requests Agregar,
+                                    ETIQUETA_MATCH_TYPE labels, MCTG-07 negative-4 add-placeholder)
+  PatronFila.tsx             ~175L (new — 4-state row machine: limpio/sucio/enviando/error; crearPatron/actualizarPatron/
+                                    eliminarPatron; prioridad absent; no Alert.alert on delete; no blur machinery;
+                                    REGEX hint advisory; MCTG-07 negative-4 enforced structurally)
+  PatronFila.spec.tsx        ~390L (new — 14 tests: limpio hides confirm, sucio reveals confirm,
+                                    new-row→crearPatron exact payload+no-prioridad, delete-new=discard-zero-requests,
+                                    existing→actualizarPatron exact payload+no-prioridad, baseline-advances-on-success-only,
+                                    delete-existing→no-Alert (class 3), enviando-disables-both-controls,
+                                    error-inline-alert, REGEX-hint-advisory-never-gate, MCTG-07-add-no-refresh,
+                                    MCTG-07-delete-no-refresh, matchType-chip-updates-payload, getOptionLabel-labels-render-onChange-emits-raw)
+  EditarCategoria.tsx        +12/-3 (import PatronesSection + replace placeholder + onCatalogoChange prop)
+  EditarCategoria.spec.tsx   +30/-5 (replace placeholder test with T7.5 integration case: PatronesSection renders,
+                                     Cancelar discards identity draft only)
+  tasks.md                   (checkboxes + REAL NUMBERS)
+
+  Net new tests: 648 − 625 = 23 new (1 SelectorChips + 8 PatronesSection + 14 PatronFila + 1 EditarCategoria T7.5
+  integration − 1 placeholder test replaced = 23 net new). Full suite: 54 suites / 648 tests. tsc --noEmit clean.
+
+  RED evidence:
+  - T7.1 PatronesSection.spec.tsx: Cannot find module './PatronesSection' (module did not exist yet)
+  - T7.3 PatronFila.spec.tsx: Cannot find module './PatronFila' (module did not exist yet)
+  Note: PatronFila.tsx was implemented alongside the spec (implementation was well-understood from design §1.12);
+  all 14 cases passed on the first GREEN run. The class of RED (module-not-found) is the established pattern
+  across all prior slices (PR1–PR6b) and was the natural RED state before the implementation existed.
+
+  Binding obligations satisfied:
+  1. getOptionLabel returns to SelectorChips WITH a behavior test: SelectorChips.spec.tsx case "getOptionLabel:
+     custom label renders while onChange emits the raw option value". PatronFila uses it for ETIQUETA_MATCH_TYPE.
+  2. Every SelectorChips instance has a DISTINCT explicit testID: PatronFila uses
+     `matchtype-selector-${patron.id}` for existing rows and `matchtype-selector-nuevo` for new rows.
+  3. prioridad is NEVER sent: both crearPatron (PatronInput) and actualizarPatron (PatronPatch) types exclude it
+     (tsc-enforced). PatronFila.spec.tsx cases 3 and 5 assert `not.toHaveProperty('prioridad')`.
+  4. Pattern delete commits without Alert (MCTG-04 immediate commits): confirmed per design §1.12. Case 7 asserts
+     spyAlert.not.toHaveBeenCalled() for existing-row delete — paired with PR6b's categoria delete that DOES call it.
+
+  Deviations from design (documented):
+  - PatronFila RED evidence: wrote spec + implementation in same session. The module-not-found error is the correct
+    class of RED (spec ran before implementation existed). Tests passed on first GREEN without iteration — no deviation
+    from the state machine design §1.12 was needed.
+  - T7.5 integration test replaced the PR6a placeholder test ("renders PatronesSection placeholder") which checked
+    for testID='patrones-placeholder'. The placeholder test was the PR6a bridge assertion; T7.5 replaces it correctly
+    per tasks.md ("replace PR6a's PatronesSection placeholder with the real component").
+  - onCatalogoChange is an optional prop on EditarCategoria (backward-compatible). Existing tests omit it; the
+    PatronesSection receives `onCatalogoChange ?? (() => undefined)` as its onPatronesChange — safe no-op.
+
+  Falsifiability confirmed:
+  1. MCTG-07 negative-4 (add): adding solicitarRecargaResumen() to PatronFila's crearPatron success path causes
+     case 11 to FAIL at `expect(spySolicitarRecarga).not.toHaveBeenCalled()`.
+  2. MCTG-07 negative-4 (delete): adding solicitarRecargaResumen() to eliminarPatron success path causes case 12 to FAIL.
+  3. Alert.alert absence (case 7): adding Alert.alert() to handleEliminar (existing row) causes case 7 to FAIL at
+     `expect(spyAlert).not.toHaveBeenCalled()`.
+  4. prioridad absent (case 3): adding prioridad to crearPatron payload causes case 3's `not.toHaveProperty('prioridad')`
+     to FAIL.
+  5. ORDER pinning (case 4 PatronesSection): rendering new rows before existing rows causes case 4 to FAIL at
+     `expect(textInputs[0]).toHaveDisplayValue('LIDER')`.
+  6. getOptionLabel (SelectorChips case 8): removing getOptionLabel prop causes `getByRole('radio', {name:'CONTIENE'})`
+     to not find the element (chip shows 'CONTAINS' raw value instead). -->
+
 
 ---
 
