@@ -518,6 +518,8 @@ describe('ReclasificarCategoriaControl', () => {
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
     );
+    // WCAT-04 focus contract: cancelar() returns focus to the select.
+    expect(document.activeElement).toBe(select);
   });
 
   it('disables the select while the mutation is pending', async () => {
@@ -717,6 +719,8 @@ describe('ReclasificarCategoriaControl', () => {
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
     );
+    // WCAT-04 focus contract: cancelar() returns focus to the select.
+    expect(document.activeElement).toBe(select);
   });
 
   it('on a failed reclassify, reverts the select and shows an error message (WCAT-04 failed scenario)', async () => {

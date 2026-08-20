@@ -40,6 +40,10 @@ describe('invalidarCatalogo — perfil A (mutaciones de patrón)', () => {
     // Exact array equality: una TERCERA clave (p.ej. ['resumen']) rompe esta
     // aserción — no se infiere por ausencia en el test de arriba.
     expect(claves()).toEqual([['categorias']]);
+    // WDM-09: explicit negation (spec: assert explicitly, not infer from absence).
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['ingresos-mes'],
+    });
   });
 });
 
