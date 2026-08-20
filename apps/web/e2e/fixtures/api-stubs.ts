@@ -316,10 +316,9 @@ const SEMAFORO_DETALLE_FIXTURE = {
 
 // GET /api/ingresos/mes (US-054 T-13) — a literal IngresosMesDto instance
 // (src/api/types.ts) with 3 transactions: BCI, Manual, and BancoEstado — so
-// ingresos-mes.e2e.ts exercises 2 distinct Origen badge variants at a real
-// viewport. The handler echoes ?periodo= into the returned DTO's periodo
-// field (same discipline as the resumen* stub above); for the pinned empty
-// month 2026-05 it returns zeros — exercises WDI-04 Empty state.
+// ingresos-mes.e2e.ts exercises 3 distinct Origen badge variants at a real
+// viewport. For the pinned empty month 2026-05 the handler returns zeros —
+// exercises WDI-04 Empty state.
 const INGRESOS_MES_FIXTURE = {
   conteo: 3,
   total: '1500000',
@@ -420,24 +419,23 @@ export async function stubApi(page: Page): Promise<void> {
       },
     });
   });
-  // US-054 T-13: `**/api/ingresos/mes*` — DISTINCT prefix from
-  // `**/api/resumen*` (Playwright's `*` doesn't cross `/`, so `resumen*`
-  // never matches `ingresos/mes*`). Registered AFTER the resumen block per
-  // LIFO discipline: this stub has no overlap with any existing route (distinct
-  // prefix), so ordering is safe; the comment is truthful documentation of
-  // WDI-08 (not a workaround). The handler echoes `?periodo=` and returns
-  // zeroes for the pinned empty month `2026-05` (exercises WDI-04).
+  // US-054 T-13: `**/api/ingresos/mes*` — no collision with any existing stub.
+  // Playwright's `*` does not cross `/`, so `**/api/resumen*` and
+  // `**/api/buckets/**` can never match `/api/ingresos/mes`; registration
+  // order is therefore irrelevant for this route. Position recorded here for
+  // reader orientation only (WDI-08). The handler returns zeroes for the
+  // pinned empty month `2026-05` (exercises WDI-04).
   await page.route('**/api/ingresos/mes*', (route) => {
     const url = new URL(route.request().url());
     const periodo = url.searchParams.get('periodo') ?? '2026-07';
     if (periodo === '2026-05') {
       route.fulfill({
-        json: { conteo: 0, total: '0', transacciones: [], periodo },
+        json: { conteo: 0, total: '0', transacciones: [] },
       });
       return;
     }
     route.fulfill({
-      json: { ...INGRESOS_MES_FIXTURE, periodo },
+      json: { ...INGRESOS_MES_FIXTURE },
     });
   });
   // US-049 T7.8: a DISTINCT route from `**/api/resumen*` above — Playwright's

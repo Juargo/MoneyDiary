@@ -83,7 +83,7 @@ describe('LeyendaGasto', () => {
   it('the Ingresos row IS a button with no %, and activation calls onSelectIngresos (US-054 D-05, WG5-03/06)', () => {
     const onSelectIngresos = vi.fn();
     renderLeyenda({ onSelectIngresos });
-    const boton = screen.getByRole('button', { name: /Ingresos/ });
+    const boton = screen.getByRole('button', { name: /^Ingresos/ });
     expect(boton).toBeInTheDocument();
     expect(boton.textContent).not.toContain('%');
     fireEvent.click(boton);

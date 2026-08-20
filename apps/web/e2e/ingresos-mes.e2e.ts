@@ -53,9 +53,10 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
 
     // Table — semantic role, headers, and Origen badge variants present.
     await expect(page.getByRole('table')).toBeVisible();
-    // At least one BCI and one Manual badge from the fixture rows.
-    const badges = page.getByRole('cell', { name: /^BCI$|^Manual$/ });
-    await expect(badges).toHaveCount(2);
+    // All 3 Origen badges from the fixture (BCI, Manual, BancoEstado) — one per row.
+    await expect(page.getByRole('cell', { name: 'BCI' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Manual' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'BancoEstado' })).toBeVisible();
   });
 
   test('prev arrow navigates to /ingresos?periodo=2026-06 and stays on the /ingresos route (WDI-03)', async ({
@@ -69,7 +70,16 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
     await page.goto('/ingresos?periodo=2026-07');
     await page.getByRole('heading', { level: 1, name: 'Ingresos' }).waitFor();
 
+    // Network-level proof (WDI-03): arm the waiter BEFORE clicking so the
+    // response race is impossible. Fails if the queryKey stops triggering a
+    // refetch on period change.
+    const responsePromise = page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/ingresos/mes') &&
+        r.url().includes('periodo=2026-06'),
+    );
     await page.getByRole('button', { name: 'Mes anterior' }).click();
+    await responsePromise;
 
     // URL updates, same route, and the period label changes.
     await expect(page).toHaveURL(/\/ingresos\?periodo=2026-06/);
