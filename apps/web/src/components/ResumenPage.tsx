@@ -23,22 +23,27 @@ import type { ResumenMesDto } from '@/api/types';
  * destacar?)` — the chart controls' drill-down destination — down to
  * `ResumenScreen` unchanged. The route owns the actual `navigate(...)`;
  * this component only transports the callback.
+ *
+ * US-054 T-16 (D-05): threads `onSelectIngresos` — the Ingresos legend
+ * row's drill-down destination — down to `ResumenScreen` unchanged.
  */
 export function ResumenPage({
   query,
   periodo,
   onPeriodoChange,
   onSelectBucket,
+  onSelectIngresos,
 }: {
   readonly query: UseQueryResult<ResumenMesDto, ApiError>;
   readonly periodo: string | undefined;
   readonly onPeriodoChange: (periodo: string) => void;
   readonly onSelectBucket: (bucket: string, destacar?: boolean) => void;
+  readonly onSelectIngresos: () => void;
 }) {
   return (
     <div className="flex flex-col gap-4 p-4">
       <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
-      {renderEstado(query, onPeriodoChange, onSelectBucket)}
+      {renderEstado(query, onPeriodoChange, onSelectBucket, onSelectIngresos)}
     </div>
   );
 }
@@ -47,6 +52,7 @@ function renderEstado(
   query: UseQueryResult<ResumenMesDto, ApiError>,
   onPeriodoChange: (periodo: string) => void,
   onSelectBucket: (bucket: string, destacar?: boolean) => void,
+  onSelectIngresos: () => void,
 ) {
   if (query.isPending) {
     return <Loading />;
@@ -62,6 +68,7 @@ function renderEstado(
       viewModel={aResumenViewModel(query.data)}
       onPeriodoChange={onPeriodoChange}
       onSelectBucket={onSelectBucket}
+      onSelectIngresos={onSelectIngresos}
     />
   );
 }
