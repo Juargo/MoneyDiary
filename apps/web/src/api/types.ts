@@ -249,3 +249,23 @@ export type {
   GrupoDetalleBucketMesDto,
   TransaccionDetalleBucketMesDto,
 } from '@moneydiary/api-client';
+
+/**
+ * `IngresosMesDto`/`TransaccionIngresosMesDto` — GET /api/ingresos/mes
+ * (US-052 `ingresos-detalle-mes`, MID-01..06; consumido por US-054
+ * `us-054-web-detalle-mes-ingresos`). Fuente de verdad en el backend:
+ * `apps/api/src/infrastructure/http-express/schemas/ingresos-mes.schema.ts`
+ * (generado a `openapi.json` → api-client, US-052 — D-06: aliases type-only,
+ * sin regen del paquete).
+ *
+ * Disciplina de dinero idéntica al resto del archivo: `total`/`monto` son
+ * strings decimales (BigInt-safe) — nunca se parsean a number aquí. `fecha`
+ * es ISO-8601 UTC completo. `origen` es el nombre del banco verbatim o
+ * `'Manual'` (MID-02). `transacciones` llega en el orden exacto del servidor
+ * (MID-01) — el cliente nunca re-ordena ni re-computa totales (WDI-06,
+ * ADR-024).
+ */
+export type {
+  IngresosMesDto,
+  TransaccionIngresosMesDto,
+} from '@moneydiary/api-client';

@@ -48,6 +48,12 @@ export type TransaccionDetalleBucketMesDto = S['BucketDetalleMesResponse']['grup
 /** One transaction row inside `DetalleBucketDto.transacciones`. Money as decimal strings. */
 export type DetalleBucketTransaccionDto = S['DetalleBucketResponse']['transacciones'][number];
 
+/** GET /api/ingresos/mes — monthly income list by origin (US-052/US-054): header total, count, and ALL transactions (MID-01). Money as decimal strings (BigInt-safe). */
+export type IngresosMesDto = S['IngresosMesResponse'];
+
+/** One transaction row inside `IngresosMesDto.transacciones`. Money as decimal strings. */
+export type TransaccionIngresosMesDto = S['IngresosMesResponse']['transacciones'][number];
+
 /** GET /api/auth/me — the authenticated user identity. `esDemo` accounts have `email: null`. */
 export type MeDto = S['AuthMeResponse'];
 
