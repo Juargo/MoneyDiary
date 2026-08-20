@@ -657,16 +657,16 @@ Requirements: MCTG-03 (identity-commit half), MCTG-07 (negative: rename-only doe
 Depends on PR3b's route registration, PR2b (`fetchCatalogo`, `actualizarCategoria`), PR3a (field
 components).
 
-- [ ] **T6a.1 (RED)** Create `apps/mobile/app/categoria/[id].spec.tsx` (~13 cases): the route's own
+- [x] **T6a.1 (RED)** Create `apps/mobile/app/categoria/[id].spec.tsx` (~13 cases): the route's own
       `GET /api/categorias` fetch (D-09, no shared cache) + resolve-by-id; the 4 states from design
       §1.11 — loading · error(+back link) · **id absent** → «Esa categoría ya no existe.» rendered
       as a `status`, **not** `role="alert"` (a stale deep link is not a failure of the action just
       taken) · loaded; «Volver a Categorías» renders and navigates back (D-03).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test app/categoria/[id].spec.tsx`
-- [ ] **T6a.2 (GREEN)** Create `apps/mobile/app/categoria/[id].tsx` — own fetch, resolve-by-id, the 4
+- [x] **T6a.2 (GREEN)** Create `apps/mobile/app/categoria/[id].tsx` — own fetch, resolve-by-id, the 4
       states, on-screen back.
       - Verify: `pnpm --filter @moneydiary/mobile test app/categoria/[id].spec.tsx` — 13 green.
-- [ ] **T6a.3 (RED)** Create `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`
+- [x] **T6a.3 (RED)** Create `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`
       (~9 cases — identity form + footer ONLY; both `Alert.alert` flows are stubbed to PR6b): identity
       draft (`nombre`, `bucket`) seeds from the resolved row; `Nombre` field edits stay local until
       `Guardar`; **`Eliminar categoría` control is present** on this screen — non-tautological,
@@ -679,17 +679,33 @@ components).
       asserted against the REAL `resumen-refresh` module — this is the first point in the chain
       where a real bucket-clean `PATCH` ships, so this is where the negative belongs.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx`
-- [ ] **T6a.4 (GREEN)** Create `apps/mobile/src/components/configuracion/EditarCategoria.tsx` —
+- [x] **T6a.4 (GREEN)** Create `apps/mobile/src/components/configuracion/EditarCategoria.tsx` —
       identity form (`CampoTexto` "Nombre", `SelectorChips` "Bucket (obligatorio)") + footer
       (`Guardar`/`Cancelar`/`Eliminar categoría`, both confirms stubbed to PR6b);
       `PatronesSection` renders a placeholder until PR7.
       - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 9 green.
-- [ ] **T6a.5 (REFACTOR + sweep)** Confirm the route's own fetch (D-09) never imports a shared
+- [x] **T6a.5 (REFACTOR + sweep)** Confirm the route's own fetch (D-09) never imports a shared
       catalog cache/query library (explicitly out of scope, proposal §2). Confirm the "id absent"
       state renders a `status`, not `role="alert"` (design §1.11's own distinction).
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR6a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~585 lines, 22 new tests. **Over 400-line budget** — `size:exception` candidate, OR split further per design §5's own cut (route+states / identity form) if the reviewer prefers.
+<!-- REAL NUMBERS (applied 2026-08-19): app/categoria/[id].tsx ~120L (new) + [id].spec.tsx ~260L (new, 13 tests) + EditarCategoria.tsx ~140L (new) + EditarCategoria.spec.tsx ~270L (new, 8 tests) = ~790 ledger-scope lines, 21 new tests (13 route + 8 EditarCategoria). Full suite: 51 suites / 589 tests (568 baseline + 21 new). tsc --noEmit clean.
+
+RED evidence:
+- T6a.1: Cannot find module './[id]' from 'app/categoria/[id].spec.tsx'
+- T6a.3: Cannot find module './EditarCategoria' from 'src/components/configuracion/EditarCategoria.spec.tsx'
+
+Key discoveries:
+1. RNTL getByRole('radiogroup', {name: ...}) requires accessible={true} on the View — SelectorChips does NOT set it. Assert via getByTestId (established pattern from SelectorChips.spec.tsx). Binding constraint for all future specs that need to query the radiogroup container.
+2. Category name ('Supermercado') lives in a TextInput's displayValue, not as a text node. Use getByDisplayValue(), not getByText(), to detect loaded state in route specs.
+3. MCTG-07 negative-2 (rename-only PATCH does not call solicitarRecargaResumen) is pinned via jest.spyOn(resumenRefresh, 'solicitarRecargaResumen') against the REAL module. Falsifiability confirmed: adding solicitarRecargaResumen() to handleGuardar's clean path causes the test to FAIL.
+4. 'id absent' state is rendered as plain Text (no accessibilityRole="alert" / accessible) — design §1.11's own distinction (stale deep link ≠ action failure). Confirmed non-tautological: queryByRole('alert') returns null.
+5. EditarCategoria.tsx PR6a stub: bucket-dirty Guardar is a no-op; Eliminar calls eliminarCategoria directly (no Alert.alert yet — PR6b wires both confirmation flows). This deviation is intentional per design §5's slice boundary.
+
+Deviations from design:
+- EditarCategoria's Eliminar stub in PR6a calls eliminarCategoria directly (no Alert.alert) rather than being a true no-op — kept because (1) the route test already uses the Eliminar button via mockEliminarCategoria, (2) PR6b modifies EditarCategoria.tsx to add the Alert.alert wrapper, not replace a no-op with a real call. The button is "present" (class 3 satisfied) and it routes to eliminarCategoria, which PR6b wraps in Alert.alert. No spec behavior changes between PR6a and PR6b for the positive case.
+- ActualizarCategoria bucket-dirty case: in PR6a Guardar is a no-op when bucket is dirty. The test does not assert on the dirty case (PR6b's scope). This is the correct slice boundary per design §5. -->
 
 ---
 
