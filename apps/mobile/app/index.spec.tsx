@@ -502,6 +502,34 @@ describe('Index (4-state switch)', () => {
     });
   });
 
+  // Fix 5 (D-10): route-level wiring pin — pressing a legend row in the data
+  // state must reach router.push with the exact path the shell computes.
+  // FALSIFIABILITY: removing the router.push(path) wiring in index.tsx's
+  // renderEstado would make onNavegar a no-op, so mockPush would not be
+  // called and this test would fail on the toHaveBeenCalledWith assertion.
+  describe('legend row navigation wiring (D-10, US-056 PR1)', () => {
+    it('pressing leyenda-fila-Necesidades calls router.push with the correct bucket path and periodo', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+      await waitFor(() =>
+        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+      );
+
+      // periodoVista in index.tsx = periodo state ?? periodoActualUTC(new Date()).
+      // periodo state is undefined on initial mount (no month was tapped), so
+      // the shell passes periodoActualUTC(new Date()) to ResumenScreen → LeyendaGasto.
+      const mesActual = String(new Date().getUTCMonth() + 1).padStart(2, '0');
+      const periodoVista = `${anioActual}-${mesActual}`;
+
+      fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
+
+      expect(mockPush).toHaveBeenCalledWith(
+        `/bucket/Necesidades?periodo=${periodoVista}`,
+      );
+    });
+  });
+
   describe('month selection (design §1.9, MOB-13)', () => {
     it('fetches with periodo undefined on the default mount (current month)', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });

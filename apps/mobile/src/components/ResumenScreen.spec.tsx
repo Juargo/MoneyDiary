@@ -140,9 +140,12 @@ describe('ResumenScreen', () => {
         onNavegar={noop}
       />,
     );
-    expect(screen.getByTestId('semaforo-global')).toBeOnTheScreen();
-    // NOTE: "queryByRole('button') returns null" was removed — legend rows are
-    // now Pressable (US-056 MOB-08 delta, binding decision 2 reversed).
+    const semaforo = screen.getByTestId('semaforo-global');
+    expect(semaforo).toBeOnTheScreen();
+    // Fix 4 (MOB-08 binding decision 1): SemaforoTag is a static display
+    // element, never a button — asserting on the element itself survives the
+    // legend rows being Pressable (US-056 delta reversed binding decision 2).
+    expect(semaforo.props.accessibilityRole).not.toBe('button');
   });
 
   it('renders no "Ver detalles ›" affordance anywhere (MOB-15)', async () => {

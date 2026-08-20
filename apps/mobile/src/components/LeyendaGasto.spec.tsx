@@ -294,4 +294,39 @@ describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 G
     expect(screen.getByTestId('leyenda-fila-ingreso')).toBeTruthy();
     expect(screen.getByTestId('leyenda-fila-SinCategoria')).toBeTruthy();
   });
+
+  // Fix 1 (MOB-08): pressing the Deseos row must use the wire key 'Deseos',
+  // NOT the display label «Gustos» — the path is /bucket/Deseos, never /bucket/Gustos.
+  it('pressing Deseos row calls onNavegar with /bucket/Deseos?periodo=2026-06 (wire key, not display label)', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-06"
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-Deseos'));
+    expect(onNavegar).toHaveBeenCalledWith('/bucket/Deseos?periodo=2026-06');
+  });
+
+  // Fix 2: when periodo is undefined, paths must omit the ?periodo= suffix entirely
+  // — never produce ?periodo=undefined.
+  it('omits ?periodo= entirely when periodo is undefined', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo={undefined}
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
+    expect(onNavegar).toHaveBeenLastCalledWith('/bucket/Necesidades');
+
+    onNavegar.mockClear();
+
+    fireEvent.press(screen.getByTestId('leyenda-fila-ingreso'));
+    expect(onNavegar).toHaveBeenLastCalledWith('/ingresos');
+  });
 });
