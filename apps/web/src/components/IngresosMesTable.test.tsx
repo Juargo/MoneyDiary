@@ -100,7 +100,7 @@ describe('IngresosMesTable', () => {
     expect(within(rows[2]).getByText('+$50.000')).toBeInTheDocument();
   });
 
-  it('renders the correct number of rows (header + 1 per fila)', async () => {
+  it('exposes one row per fila under the semantic table structure (D-09)', async () => {
     renderTabla();
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row');

@@ -6,7 +6,6 @@ import { Empty } from './states/Empty';
 import { PeriodoSelector } from './PeriodoSelector';
 import { IngresosMesTable } from './IngresosMesTable';
 import { aIngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
-import { mesCompletoLabel } from '@/domain/periodo-anual';
 import type { ApiError } from '@/api/client';
 import type { IngresosMesDto } from '@/api/types';
 
@@ -41,7 +40,6 @@ export function IngresosMesPage({
   }
 
   const viewModel = aIngresosMesViewModel(query.data, periodo);
-  const mesLabel = mesCompletoLabel(periodo ?? viewModel.mesLabel);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
@@ -75,11 +73,11 @@ export function IngresosMesPage({
 
       {viewModel.filas.length === 0 ? (
         <Empty
-          title={`Sin ingresos en ${mesLabel}`}
+          title={`Sin ingresos en ${viewModel.mesLabel}`}
           description="No hay ingresos registrados para este período."
         />
       ) : (
-        <IngresosMesTable mes={mesLabel} filas={viewModel.filas} />
+        <IngresosMesTable mes={viewModel.mesLabel} filas={viewModel.filas} />
       )}
     </div>
   );

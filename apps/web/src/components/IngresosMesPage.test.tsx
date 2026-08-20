@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { IngresosMesPage } from './IngresosMesPage';
 import { renderConRouter } from '@/test/router-harness';
@@ -177,13 +177,26 @@ describe('IngresosMesPage', () => {
   });
 
   // Case 9: absent periodo → current month (WDI-03/MID-04)
-  it('falls back to the current month when periodo is undefined (WDI-03/MID-04)', async () => {
-    vi.setSystemTime(new Date('2026-07-10T12:00:00Z'));
-    renderPagina({ periodo: undefined });
-    expect(
-      await screen.findByRole('button', { name: /julio 2026/ }),
-    ).toBeInTheDocument();
-    vi.useRealTimers();
+  // Fake timers with shouldAdvanceTime so findByRole's waitFor polling is not
+  // blocked (renderConRouter is async; sync getByRole would be unreliable here).
+  // Pattern mirrors PeriodoSelector.test.tsx: useFakeTimers paired with
+  // setSystemTime, useRealTimers in afterEach so a failing assertion cannot
+  // leak the mocked clock into subsequent tests.
+  describe('when periodo is absent', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-07-10T12:00:00Z'));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('falls back to the current month when periodo is undefined (WDI-03/MID-04)', async () => {
+      renderPagina({ periodo: undefined });
+      expect(
+        await screen.findByRole('button', { name: /julio 2026/ }),
+      ).toBeInTheDocument();
+    });
   });
 
   // Case 10: back link preserves periodo (WDI-01, D-10)
@@ -193,6 +206,24 @@ describe('IngresosMesPage', () => {
       name: 'Volver al resumen',
     });
     expect(backLink).toHaveAttribute('href', '/?periodo=2026-07');
+  });
+
+  // Case 10b: back link when periodo is undefined → href is "/" (TanStack Router
+  // strips undefined search params, so no "?periodo=undefined" in the URL).
+  // renderPagina defaults periodo to '2026-07', so renderConRouter is called
+  // directly here to pass the explicit undefined.
+  it('back link href is "/" when periodo is undefined (WDI-01, D-10)', async () => {
+    renderConRouter(
+      <IngresosMesPage
+        query={mockQuery({ data: DTO_COMPLETO })}
+        periodo={undefined}
+        onPeriodoChange={vi.fn()}
+      />,
+    );
+    const backLink = await screen.findByRole('link', {
+      name: 'Volver al resumen',
+    });
+    expect(backLink).toHaveAttribute('href', '/');
   });
 
   // Case 11: back control ≥24×24 CSS px + non-empty accname (WDI-01, D-10)
@@ -253,5 +284,12 @@ describe('IngresosMesPage', () => {
     // Only interactive controls: period buttons (prev/next/Hoy/cambiar) + back link
     // No comboboxes (reclassify), no extra buttons (WDI-06)
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+
+    // PeriodoSelector (closed): prev (1) + month-picker trigger (2) + next (3) + Hoy (4)
+    // Page success state: no retry button (renders only in error state)
+    // Total buttons = 4; total links = 1 (back link "Volver al resumen")
+    expect(screen.getAllByRole('button')).toHaveLength(4);
+    expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 });
