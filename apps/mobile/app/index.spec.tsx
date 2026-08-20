@@ -509,24 +509,51 @@ describe('Index (4-state switch)', () => {
   // called and this test would fail on the toHaveBeenCalledWith assertion.
   describe('legend row navigation wiring (D-10, US-056 PR1)', () => {
     it('pressing leyenda-fila-Necesidades calls router.push with the correct bucket path and periodo', async () => {
-      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+      // Pin ONLY the Date constructor (every timer API stays real so RNTL's
+      // waitFor is unaffected). index.tsx derives periodoVista at render time
+      // via periodoActualUTC(new Date()); without this pin the test's own
+      // new Date() and the component's could straddle a UTC month boundary.
+      // Mid-June of the suite's current year keeps the annual-grid fixture
+      // (built from module-level anioActual) consistent with the pinned clock.
+      jest.useFakeTimers({
+        doNotFake: [
+          'hrtime',
+          'nextTick',
+          'performance',
+          'queueMicrotask',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+          'setImmediate',
+          'clearImmediate',
+          'setInterval',
+          'clearInterval',
+          'setTimeout',
+          'clearTimeout',
+        ],
+        now: new Date(Date.UTC(anioActual, 5, 15)),
+      });
 
-      await render(<Index />);
-      await waitFor(() =>
-        expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
-      );
+      try {
+        mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
 
-      // periodoVista in index.tsx = periodo state ?? periodoActualUTC(new Date()).
-      // periodo state is undefined on initial mount (no month was tapped), so
-      // the shell passes periodoActualUTC(new Date()) to ResumenScreen → LeyendaGasto.
-      const mesActual = String(new Date().getUTCMonth() + 1).padStart(2, '0');
-      const periodoVista = `${anioActual}-${mesActual}`;
+        await render(<Index />);
+        await waitFor(() =>
+          expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+        );
 
-      fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
+        fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
 
-      expect(mockPush).toHaveBeenCalledWith(
-        `/bucket/Necesidades?periodo=${periodoVista}`,
-      );
+        // periodoVista in index.tsx = periodo state ?? periodoActualUTC(new Date()).
+        // periodo state is undefined on initial mount (no month was tapped), so
+        // the pinned clock makes the expected path an exact literal month.
+        expect(mockPush).toHaveBeenCalledWith(
+          `/bucket/Necesidades?periodo=${anioActual}-06`,
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
