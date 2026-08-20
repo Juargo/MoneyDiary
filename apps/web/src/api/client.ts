@@ -597,18 +597,19 @@ export async function fetchDetalleBucketMes(
 }
 
 /**
- * Money-safety guard for `IngresosMesDto` (US-052 `ingresos-detalle-mes`,
- * consumed by US-054): validates exactly what the view-model
- * (`domain/ingresos-mes-view-model.ts`) consumes downstream — `total` and
- * `transacciones[].monto` via `esMontoStringValido` (same reasoning as
- * `esDetalleBucketMesDto`: `formatearMontoConSigno` throws on `""`/`"abc"`/
- * `"12.5"`/etc, so a typeof-only guard would let a 2xx crash mid-render with
- * a raw TypeError), `fecha` via `esFechaValida` (a non-parseable `fecha`
- * would render a garbled date via `aFechaCorta`'s positional slice instead
- * of failing explicitly), and the shape leaves `conteo` (`number`) and
- * `id`/`descripcion`/`origen` (`string` — any bank name verbatim or
- * `'Manual'`, MID-02). Fail-closed: any shape mismatch maps to
- * `{tag:'parse'}`, never throws.
+ * Guardia money-safe para `IngresosMesDto` (US-052 `ingresos-detalle-mes`,
+ * consumido por US-054): valida exactamente lo que consume el view-model
+ * (`domain/ingresos-mes-view-model.ts`) aguas abajo — `total` y
+ * `transacciones[].monto` vía `esMontoStringValido` (mismo razonamiento que
+ * `esDetalleBucketMesDto`: `formatearMontoConSigno` lanza ante `""`/`"abc"`/
+ * `"12.5"`/etc, así que un guard de solo typeof dejaría que un 2xx crashee a
+ * mitad de render con un TypeError), `fecha` vía `esFechaValida` (una `fecha`
+ * no parseable renderizaría una fecha corrupta por el slice posicional de
+ * `aFechaCorta` en vez de fallar explícitamente), y la forma deja `conteo`
+ * (`number`) e `id`/`descripcion` (`string`) más `origen` como string no vacío
+ * (nombre de banco verbatim o `'Manual'`, MID-02 — vacío es shape mismatch).
+ * Fail-closed: cualquier mismatch de forma mapea a `{tag:'parse'}`, nunca
+ * lanza.
  */
 function esTransaccionIngresosMesDto(
   value: unknown,
@@ -623,6 +624,7 @@ function esTransaccionIngresosMesDto(
     esFechaValida(candidato.fecha) &&
     typeof candidato.descripcion === 'string' &&
     typeof candidato.origen === 'string' &&
+    candidato.origen !== '' &&
     typeof candidato.monto === 'string' &&
     esMontoStringValido(candidato.monto)
   );
@@ -644,19 +646,20 @@ function esIngresosMesDto(value: unknown): value is IngresosMesDto {
 
 /**
  * fetchIngresosMes — GET /api/ingresos/mes[?periodo=YYYY-MM] (US-052
- * `ingresos-detalle-mes`, MID-01..06; consumed by US-054). Same
- * never-throw `ApiResult<T>` discipline as `fetchResumen`/
- * `fetchDetalleBucketMes`: same-origin (the proxy injects `x-api-key`), no
- * base URL, same status mapping (400 → invalid period — the only invalid
- * input, `fetchResumen` precedent; 401 → unauthorized; other non-2xx →
- * generic server; fetch rejection → network; unexpected body → parse).
- * `transacciones` passes verbatim to the view-model — the client never
- * re-sorts nor re-computes totals (MID-01, WDI-06).
+ * `ingresos-detalle-mes`, MID-01..06; consumido por US-054). Misma disciplina
+ * never-throw `ApiResult<T>` que `fetchResumen`/`fetchDetalleBucketMes`:
+ * mismo-origen (el proxy inyecta `x-api-key`), sin base URL, mismo mapeo de
+ * estados (400 → período inválido — el único input inválido, precedente de
+ * `fetchResumen`; 401 → no autorizado; otro non-2xx → server genérico;
+ * rechazo de fetch → network; cuerpo inesperado → parse). `transacciones`
+ * pasa verbatim al view-model — el client nunca re-ordena ni recalcula
+ * totales (MID-01, WDI-06).
  */
 export async function fetchIngresosMes(
   periodo?: string,
 ): Promise<ApiResult<IngresosMesDto>> {
-  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const query =
+    periodo != null ? `?periodo=${encodeURIComponent(periodo)}` : '';
   const url = `/api/ingresos/mes${query}`;
 
   let res: Response;

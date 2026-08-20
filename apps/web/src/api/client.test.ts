@@ -784,6 +784,19 @@ describe('fetchIngresosMes', () => {
     expect(result).toEqual({ ok: true, value: validIngresosMesDto });
   });
 
+  it('accepts the WDI-04 empty-month body (200 zeros)', async () => {
+    const bodyMesVacio = { conteo: 0, total: '0', transacciones: [] };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyMesVacio),
+    });
+
+    const result = await fetchIngresosMes('2026-02');
+
+    expect(result).toEqual({ ok: true, value: bodyMesVacio });
+  });
+
   it('maps a fetch rejection to {tag: "network"}', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 
@@ -917,6 +930,52 @@ describe('fetchIngresosMes', () => {
       ok: true,
       status: 200,
       json: () => Promise.resolve(bodyConOrigenInvalido),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when transacciones[0].origen is empty (contract §6: non-empty string)', async () => {
+    const bodyConOrigenVacio = {
+      ...validIngresosMesDto,
+      transacciones: [
+        {
+          ...validIngresosMesDto.transacciones[0],
+          origen: '',
+        },
+        ...validIngresosMesDto.transacciones.slice(1),
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConOrigenVacio),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when transacciones[0].monto is a JSON number, not a decimal string', async () => {
+    const bodyConMontoNumerico = {
+      ...validIngresosMesDto,
+      transacciones: [
+        {
+          ...validIngresosMesDto.transacciones[0],
+          monto: 1000000,
+        },
+        ...validIngresosMesDto.transacciones.slice(1),
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConMontoNumerico),
     });
 
     const result = await fetchIngresosMes();
