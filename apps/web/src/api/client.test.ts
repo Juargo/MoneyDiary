@@ -4,6 +4,7 @@ import {
   fetchApiVersion,
   fetchDetalleBucketMes,
   fetchIngestas,
+  fetchIngresosMes,
   fetchResumen,
   fetchResumenAnual,
   fetchSemaforoDetalle,
@@ -16,6 +17,7 @@ import type {
   DetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
+  IngresosMesDto,
   PreviewIngestaDto,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
@@ -712,6 +714,239 @@ describe('fetchDetalleBucketMes', () => {
     });
 
     const result = await fetchDetalleBucketMes('Necesidades');
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+});
+
+const validIngresosMesDto: IngresosMesDto = {
+  conteo: 3,
+  total: '1500000',
+  transacciones: [
+    {
+      id: 'tx-1',
+      fecha: '2026-07-03T00:00:00.000Z',
+      descripcion: 'Sueldo',
+      monto: '1000000',
+      origen: 'BCI',
+    },
+    {
+      id: 'tx-2',
+      fecha: '2026-07-10T00:00:00.000Z',
+      descripcion: 'Freelance',
+      monto: '300000',
+      origen: 'BancoEstado',
+    },
+    {
+      id: 'tx-3',
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Venta garage',
+      monto: '200000',
+      origen: 'Manual',
+    },
+  ],
+};
+
+// US-054 PR1 (T-03, D-06): fetchIngresosMes + esIngresosMesDto — same
+// never-throw ApiResult discipline as the sibling drill-down fetchers, with
+// the money-safety guard pinning `total`/`monto` via esMontoStringValido and
+// `fecha` via esFechaValida (fail-closed → {tag:'parse'}).
+describe('fetchIngresosMes', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('calls GET /api/ingresos/mes same-origin, without periodo, and appends ?periodo= when provided', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validIngresosMesDto),
+    });
+
+    await fetchIngresosMes();
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingresos/mes');
+
+    await fetchIngresosMes('2026-07');
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingresos/mes?periodo=2026-07');
+  });
+
+  it('resolves {ok: true, value} on a valid 2xx body', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validIngresosMesDto),
+    });
+
+    const result = await fetchIngresosMes('2026-07');
+
+    expect(result).toEqual({ ok: true, value: validIngresosMesDto });
+  });
+
+  it('maps a fetch rejection to {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('network');
+  });
+
+  it('maps a 400 to {tag: "invalid"} (invalid period)', async () => {
+    mockFetchOnce({ ok: false, status: 400 });
+
+    const result = await fetchIngresosMes('2026-13');
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message: 'El período no es válido.',
+    });
+  });
+
+  it('maps a 401 to {tag: "unauthorized"}', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'unauthorized',
+      message: 'Sin acceso.',
+    });
+  });
+
+  it('maps a 5xx to a generic {tag: "server"}', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    });
+  });
+
+  it('maps a 2xx body whose json() rejects to {tag: "parse"}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when total is not a decimal string (e.g. "abc")', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validIngresosMesDto, total: 'abc' }),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when transacciones[0].monto is a non-BigInt-safe decimal (e.g. "12.5")', async () => {
+    const bodyConMontoMalformado = {
+      ...validIngresosMesDto,
+      transacciones: [
+        {
+          ...validIngresosMesDto.transacciones[0],
+          monto: '12.5',
+        },
+        ...validIngresosMesDto.transacciones.slice(1),
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConMontoMalformado),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when transacciones[0].fecha is not a parseable date', async () => {
+    const bodyConFechaMalformada = {
+      ...validIngresosMesDto,
+      transacciones: [
+        {
+          ...validIngresosMesDto.transacciones[0],
+          fecha: 'not-a-date',
+        },
+        ...validIngresosMesDto.transacciones.slice(1),
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConFechaMalformada),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when transacciones[0].origen is not a string (shape-reject, MID-02)', async () => {
+    const bodyConOrigenInvalido = {
+      ...validIngresosMesDto,
+      transacciones: [
+        {
+          ...validIngresosMesDto.transacciones[0],
+          origen: 42,
+        },
+        ...validIngresosMesDto.transacciones.slice(1),
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConOrigenInvalido),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when conteo is not a number', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ ...validIngresosMesDto, conteo: '3' }),
+    });
+
+    const result = await fetchIngresosMes();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  it('maps to {tag: "parse"} without throwing when transacciones is not an array', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ ...validIngresosMesDto, transacciones: 'nope' }),
+    });
+
+    const result = await fetchIngresosMes();
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('parse');

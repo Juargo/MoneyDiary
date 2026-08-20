@@ -5,6 +5,7 @@ import type {
   GrupoDetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
+  IngresosMesDto,
   PreviewIngestaDto,
   PreviewTransaccionDto,
   ReclasificarCategoriaDto,
@@ -13,6 +14,7 @@ import type {
   SemaforoBucketDetalleDto,
   SemaforoDetalleDto,
   TransaccionDetalleBucketMesDto,
+  TransaccionIngresosMesDto,
   TransaccionResponseDto,
 } from './types';
 import { esMontoStringValido } from '../domain/formatear-monto';
@@ -585,6 +587,125 @@ export async function fetchDetalleBucketMes(
   }
 
   if (!esDetalleBucketMesDto(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * Money-safety guard for `IngresosMesDto` (US-052 `ingresos-detalle-mes`,
+ * consumed by US-054): validates exactly what the view-model
+ * (`domain/ingresos-mes-view-model.ts`) consumes downstream — `total` and
+ * `transacciones[].monto` via `esMontoStringValido` (same reasoning as
+ * `esDetalleBucketMesDto`: `formatearMontoConSigno` throws on `""`/`"abc"`/
+ * `"12.5"`/etc, so a typeof-only guard would let a 2xx crash mid-render with
+ * a raw TypeError), `fecha` via `esFechaValida` (a non-parseable `fecha`
+ * would render a garbled date via `aFechaCorta`'s positional slice instead
+ * of failing explicitly), and the shape leaves `conteo` (`number`) and
+ * `id`/`descripcion`/`origen` (`string` — any bank name verbatim or
+ * `'Manual'`, MID-02). Fail-closed: any shape mismatch maps to
+ * `{tag:'parse'}`, never throws.
+ */
+function esTransaccionIngresosMesDto(
+  value: unknown,
+): value is TransaccionIngresosMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<TransaccionIngresosMesDto>;
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.origen === 'string' &&
+    typeof candidato.monto === 'string' &&
+    esMontoStringValido(candidato.monto)
+  );
+}
+
+function esIngresosMesDto(value: unknown): value is IngresosMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<IngresosMesDto>;
+  return (
+    typeof candidato.conteo === 'number' &&
+    typeof candidato.total === 'string' &&
+    esMontoStringValido(candidato.total) &&
+    Array.isArray(candidato.transacciones) &&
+    candidato.transacciones.every(esTransaccionIngresosMesDto)
+  );
+}
+
+/**
+ * fetchIngresosMes — GET /api/ingresos/mes[?periodo=YYYY-MM] (US-052
+ * `ingresos-detalle-mes`, MID-01..06; consumed by US-054). Same
+ * never-throw `ApiResult<T>` discipline as `fetchResumen`/
+ * `fetchDetalleBucketMes`: same-origin (the proxy injects `x-api-key`), no
+ * base URL, same status mapping (400 → invalid period — the only invalid
+ * input, `fetchResumen` precedent; 401 → unauthorized; other non-2xx →
+ * generic server; fetch rejection → network; unexpected body → parse).
+ * `transacciones` passes verbatim to the view-model — the client never
+ * re-sorts nor re-computes totals (MID-01, WDI-06).
+ */
+export async function fetchIngresosMes(
+  periodo?: string,
+): Promise<ApiResult<IngresosMesDto>> {
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `/api/ingresos/mes${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
+  }
+
+  if (res.status === 400) {
+    return {
+      ok: false,
+      error: { tag: 'invalid', message: 'El período no es válido.' },
+    };
+  }
+  if (res.status === 401) {
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  if (!esIngresosMesDto(body)) {
     return {
       ok: false,
       error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
