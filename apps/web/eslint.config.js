@@ -182,6 +182,16 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-055 (D-06/D-08, WCAT-04/WCAT-05). `ReclasificarCategoriaControl`
+  // is the per-row reclassify widget (same loose-sibling form as the US-053/054
+  // blocks: file-list not a subdirectory, to avoid absorbing app-wide a11y
+  // debt). The WCAG obligations added in this change: `aria-describedby` on
+  // the `alertdialog`, and removal of the stale per-row `aria-live` span
+  // replaced by the page-owned `role="status"` region (D-07).
+  {
+    files: ['src/components/ReclasificarCategoriaControl.tsx'],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so

@@ -230,6 +230,13 @@ export function ReclasificarCategoriaControl({
         </p>
       )}
       {pendiente && (
+        // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`,
+        // not `widget` (verified against aria-query 5.3.2 — same finding as
+        // ConfirmarPasswordDialog.tsx / ConfirmarImpactoDialog.tsx). The rule
+        // cannot distinguish a dialog's Escape-to-close from an arbitrary
+        // `<div onKeyDown>`. The WAI-ARIA dialog pattern binds Escape at the
+        // container so it works regardless of which button has focus.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
         <div
           role="alertdialog"
           aria-label="Confirmar cambio de categoría"
