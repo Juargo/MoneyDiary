@@ -1,10 +1,20 @@
 import { Pressable, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Settings } from 'lucide-react-native';
+import { COLORS } from '../theme/colors';
 
 /**
- * Top app bar (mockup): menu affordance, current-period title, and a user
- * avatar. The menu + avatar are presentational stubs for this read-only MVP —
- * there is no drawer navigation or account screen yet (no US for them). The
- * hamburger is kept as an accessible button so wiring it later is a one-liner.
+ * Top app bar: a lucide Settings gear navigating to /configuracion, the
+ * current-period title, and a user avatar (inert image).
+ *
+ * The gear (US-044 PR8, T8.4) replaces the inert ☰ stub (design §1.14, D-02).
+ * D-02: the avatar is decorative and stays untouched — turning it into a
+ * control would create a competing "profile" concept on the same bar.
+ *
+ * D-18 (US-044): both new routes (/configuracion, /categoria/[id]) were
+ * registered in _layout.tsx (PR3b T3b.1) but UI-unreachable until this gear
+ * landed. Every PR1–PR7 slice was inert dead code on main; this PR lifts the
+ * constraint and makes the Configuración feature reachable for the first time.
  */
 export function Header({
   periodoLabel,
@@ -13,14 +23,18 @@ export function Header({
   periodoLabel: string;
   iniciales?: string;
 }) {
+  const router = useRouter();
+
   return (
     <View className="flex-row items-center justify-between px-5 py-3">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Abrir menú"
-        hitSlop={8}
+        accessibilityLabel="Configuración"
+        hitSlop={12}
+        onPress={() => router.push('/configuracion')}
       >
-        <Text className="text-2xl text-heading">☰</Text>
+        {/* Settings icon imported per-icon (not via barrel), tree-shaken by Metro. */}
+        <Settings size={24} color={COLORS.heading} />
       </Pressable>
 
       <Text className="text-lg font-bold text-heading">{periodoLabel}</Text>
