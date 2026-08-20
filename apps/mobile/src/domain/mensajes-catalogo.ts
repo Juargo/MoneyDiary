@@ -20,18 +20,15 @@
  * - `mensajeDeErrorCatalogo` is closed with `const _exhaustive: never` so a
  *   new `ApiError` tag fails `tsc` (design §1.7's totality discipline).
  *
- * `ETIQUETA_BUCKET` is NOT ported — `src/theme/colors.ts:57-62` already ships
- * it (design §1.6's note: "not ported — already in theme"). The `etiqueta()`
- * helper below reads from that existing source instead.
+ * `ETIQUETA_BUCKET` and `etiquetaTransacciones` are NOT imported here — they
+ * belong to PR6b's `impacto-catalogo.ts`, not this module.
  *
  * Pure: no React, no fetch, no env.
  */
 
-import { ETIQUETA_BUCKET } from '../theme/colors';
 import type { ApiError } from './api-error';
 import { copiaPorApiError } from './api-error';
 import type { MatchType } from './catalogo-constantes';
-import { etiquetaTransacciones } from './plural';
 
 /**
  * CodigoCatalogo — the closed literal union of the 12 codes the deployed
@@ -80,7 +77,7 @@ const GENERICO = 'Ocurrió un error inesperado. Intenta nuevamente.';
  *   proactively surfaced on mobile, but if a 403 DEMO_SOLO_LECTURA arrives,
  *   it maps to this honest string rather than the generic fallback.
  */
-export const COPY: Record<CodigoCatalogo, string> = {
+const COPY: Record<CodigoCatalogo, string> = {
   NOMBRE_INVALIDO: 'El nombre debe tener entre 1 y 40 caracteres.',
   BUCKET_NO_ASIGNABLE: 'Elige un bucket: Necesidades, Gustos o Ahorro.',
   PATRON_INVALIDO: 'El patrón debe tener entre 1 y 200 caracteres.',
@@ -93,7 +90,7 @@ export const COPY: Record<CodigoCatalogo, string> = {
     'Estás en una cuenta de demostración. Crea una cuenta real para editar tus categorías.',
   CATEGORIA_NO_ENCONTRADA:
     'Esa categoría ya no existe. Vuelve a la lista y recarga.',
-  PATRON_NO_ENCONTRADO: 'Ese patrón ya no existe. Recarga la página.',
+  PATRON_NO_ENCONTRADO: 'Ese patrón ya no existe. Vuelve y recarga.',
   NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre.',
   PATRON_DUPLICADO: 'Ya tienes un patrón con ese texto.',
 };

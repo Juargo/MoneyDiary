@@ -95,6 +95,25 @@ describe('agruparPorBucket', () => {
     expect(grupos[0]?.bucket).toBe('Otros');
   });
 
+  it('entradas intercaladas: conocidos y desconocidos mezclados → grupos conocidos en orden BUCKETS_ASIGNABLES, Otros al FINAL', () => {
+    const categorias: CategoriaDto[] = [
+      categoria({ id: '1', nombre: 'Supermercado', bucket: 'Necesidades' }),
+      categoria({ id: '2', nombre: 'Rara', bucket: 'BucketDesconocido' }),
+      categoria({ id: '3', nombre: 'Streaming', bucket: 'Ahorro' }),
+    ];
+
+    const grupos = agruparPorBucket(categorias);
+
+    expect(grupos.map((g) => g.bucket)).toEqual([
+      'Necesidades',
+      'Ahorro',
+      'Otros',
+    ]);
+    expect(grupos[2]?.categorias).toEqual([
+      categoria({ id: '2', nombre: 'Rara', bucket: 'BucketDesconocido' }),
+    ]);
+  });
+
   it('orden dentro de un grupo respeta el orden original del array — ORDER pinning (judgment-anticipated class 2)', () => {
     const categorias: CategoriaDto[] = [
       categoria({ id: '1', nombre: 'Z-primera', bucket: 'Necesidades' }),

@@ -25,6 +25,7 @@ describe('etiquetaPatrones', () => {
 
 describe('etiquetaTransacciones', () => {
   it.each([
+    [0, '0 transacciones'],
     [1, '1 transacción'],
     [2, '2 transacciones'],
     [11, '11 transacciones'],

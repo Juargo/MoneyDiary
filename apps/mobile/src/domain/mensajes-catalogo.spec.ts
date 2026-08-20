@@ -2,11 +2,13 @@
  * mensajes-catalogo.spec.ts (US-044 PR5a, T5a.5)
  *
  * Two independent halves:
- * 1. Runtime error-table cases — one per `CodigoCatalogo` member + transport
- *    tags + unknown code fallback.
- * 2. Compile-time totality assertion — a `// @ts-expect-error` line that
- *    confirms an unmapped `CodigoCatalogo` member fails `tsc`; see comment
- *    below for how this is structured.
+ * 1. Runtime error-table cases — literal-pinned rows for all 12 CodigoCatalogo
+ *    members + transport tags + unknown code fallback + GENERICO fallback.
+ * 2. Type-level absence proofs — three `// @ts-expect-error` assignments that
+ *    confirm the three Google-only codes are NOT members of CodigoCatalogo.
+ *    Each @ts-expect-error MUST trigger a tsc error; if it does not, tsc itself
+ *    fails — that is the proof working (do not conflate the two halves: the
+ *    runtime rows pin copy strings; the type-level proofs pin union membership).
  *
  * Mobile adaptation from web's `mensajeDeErrorCatalogo`:
  * - Web uses `{ tag: 'server'; code?: string }` and `{ tag: 'invalid' }`.
@@ -18,11 +20,11 @@
  *
  * Judgment-anticipated class 1: per-code case, one per CodigoCatalogo member.
  * Judgment-anticipated class 3: the three Google-only codes from web's perfil
- *   table are ABSENT from mobile's CodigoCatalogo union — that absence is
- *   tested here (MCTG-06's own scenario per T5a.5 task requirement).
+ *   table are ABSENT from mobile's CodigoCatalogo union — proved at the
+ *   type level (T5a.5, design §1.9).
  *
  * MCTG-06 scenarios:
- * - Every CodigoCatalogo member has a real, distinguishable copy row.
+ * - Every CodigoCatalogo member has a literal-pinned copy row.
  * - `403 DEMO_SOLO_LECTURA` maps to its own copy row DEFENSIVELY (CQ-4),
  *   not the generic fallback.
  * - An unmapped/unknown code → generic fallback string.
@@ -32,7 +34,6 @@ import type { ApiError } from './api-error';
 import { copiaPorApiError } from './api-error';
 import type { CodigoCatalogo } from './mensajes-catalogo';
 import {
-  COPY,
   ETIQUETA_MATCH_TYPE,
   mensajeDeErrorCatalogo,
 } from './mensajes-catalogo';
@@ -62,12 +63,15 @@ describe('mensajeDeErrorCatalogo — 12-member CodigoCatalogo table', () => {
     ],
     // MCTG-06 scenario: 403 DEMO_SOLO_LECTURA is a REAL defensive row, not a fallback.
     // CQ-4: no proactive demo layer — but this exact code gets its own copy string.
-    ['DEMO_SOLO_LECTURA', COPY['DEMO_SOLO_LECTURA']],
+    [
+      'DEMO_SOLO_LECTURA',
+      'Estás en una cuenta de demostración. Crea una cuenta real para editar tus categorías.',
+    ],
     [
       'CATEGORIA_NO_ENCONTRADA',
       'Esa categoría ya no existe. Vuelve a la lista y recarga.',
     ],
-    ['PATRON_NO_ENCONTRADO', 'Ese patrón ya no existe. Recarga la página.'],
+    ['PATRON_NO_ENCONTRADO', 'Ese patrón ya no existe. Vuelve y recarga.'],
     ['NOMBRE_DUPLICADO', 'Ya tienes una categoría con ese nombre.'],
     ['PATRON_DUPLICADO', 'Ya tienes un patrón con ese texto.'],
   ])('%s → correcto copy string', (code, esperado) => {
@@ -121,58 +125,30 @@ describe('mensajeDeErrorCatalogo — 12-member CodigoCatalogo table', () => {
     expect(resultado).not.toBe('NOMBRE_INVALIDO');
   });
 
-  // Compile-time totality assertion (MCTG-06's "unmapped member fails tsc"):
-  // The `COPY: Record<CodigoCatalogo, string>` declaration means any new member
-  // without a row fails `tsc` directly (the Record type enforces this at the
-  // definition site). We verify the structural intent here by asserting all 12
-  // members are defined. A @ts-expect-error pattern is not needed because the
-  // Record<K, V> already encodes the totality check — tsc enforces it when a
-  // new member is added to the CodigoCatalogo union without a corresponding row.
-  it('todos los 12 miembros de CodigoCatalogo tienen una fila en COPY (totality — compile-time Record enforcement)', () => {
-    const miembros: readonly CodigoCatalogo[] = [
-      'NOMBRE_INVALIDO',
-      'BUCKET_NO_ASIGNABLE',
-      'PATRON_INVALIDO',
-      'MATCH_TYPE_INVALIDO',
-      'REGEX_INVALIDA',
-      'PRIORIDAD_INVALIDA',
-      'BODY_INVALIDO',
-      'DEMO_SOLO_LECTURA',
-      'CATEGORIA_NO_ENCONTRADA',
-      'PATRON_NO_ENCONTRADO',
-      'NOMBRE_DUPLICADO',
-      'PATRON_DUPLICADO',
-    ];
-    for (const codigo of miembros) {
-      expect(COPY[codigo]).toBeDefined();
-      expect(typeof COPY[codigo]).toBe('string');
-    }
-    expect(miembros).toHaveLength(12);
-  });
+  // MCTG-06 — type-level absence proofs (judgment-anticipated class 3, T5a.5):
+  // The three Google-only codes are ABSENT from CodigoCatalogo — not a runtime
+  // check but a compile-time guarantee. Each @ts-expect-error MUST trigger a tsc
+  // error; if it does not, tsc itself fails (that is the proof working).
+  it('MCTG-06: los tres códigos Google-only son ausentes de CodigoCatalogo — type-level proof', () => {
+    // Paired positive: a real member IS in CodigoCatalogo (anchor the test).
+    const _real: CodigoCatalogo = 'NOMBRE_INVALIDO';
+    void _real;
 
-  // MCTG-06 — non-tautological absence check (judgment-anticipated class 3):
-  // The three Google-only codes (VINCULO_REQUIERE_PASSWORD, GOOGLE_YA_VINCULADO,
-  // GOOGLE_NO_DISPONIBLE) that live in web's mensajes-perfil.ts are ABSENT from
-  // mobile's CodigoCatalogo union. This assertion proves a real code IS in the
-  // union (paired positive), then confirms the absent codes would only produce
-  // the generic fallback (they are not in CodigoCatalogo, so they can only reach
-  // mensajeDeErrorCatalogo via the 'unknown code → GENERICO' branch).
-  it('MCTG-06: los tres códigos Google-only (perfil-only) producen el fallback genérico — no están en CodigoCatalogo', () => {
-    const googleOnlyCodes = [
-      'VINCULO_REQUIERE_PASSWORD',
-      'GOOGLE_YA_VINCULADO',
-      'GOOGLE_NO_DISPONIBLE',
-    ];
-    const pairedPositive = mensajeDeErrorCatalogo(http(400, 'NOMBRE_INVALIDO'));
-    expect(pairedPositive).not.toBe(
-      'Ocurrió un error inesperado. Intenta nuevamente.',
-    );
+    // Compile-time absence proofs: each line below MUST trigger a TypeScript error.
+    // If any @ts-expect-error is NOT followed by an actual error, tsc itself fails —
+    // that is the point of the test (T5a.5, design §1.9).
 
-    for (const code of googleOnlyCodes) {
-      expect(mensajeDeErrorCatalogo({ tag: 'http', status: 403, code })).toBe(
-        'Ocurrió un error inesperado. Intenta nuevamente.',
-      );
-    }
+    // @ts-expect-error — VINCULO_REQUIERE_PASSWORD is Google-only, not in CodigoCatalogo
+    const _a: CodigoCatalogo = 'VINCULO_REQUIERE_PASSWORD';
+    // @ts-expect-error — GOOGLE_YA_VINCULADO is Google-only, not in CodigoCatalogo
+    const _b: CodigoCatalogo = 'GOOGLE_YA_VINCULADO';
+    // @ts-expect-error — GOOGLE_NO_DISPONIBLE is Google-only, not in CodigoCatalogo
+    const _c: CodigoCatalogo = 'GOOGLE_NO_DISPONIBLE';
+
+    // Suppress unused-variable warnings without touching the type check above
+    void _a;
+    void _b;
+    void _c;
   });
 });
 
