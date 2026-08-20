@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test';
 import { stubApi } from './fixtures/api-stubs';
 
 /**
- * e2e/bucket-detalle-mes.e2e.ts — US-053 T-20/T-21 (design §5, tasks.md
- * ledger). The `/buckets/:bucket` Detalle MES-BUCKET page at a real
- * viewport, against the grouped endpoint stub (`DETALLE_BUCKET_MES_FIXTURE`
+ * e2e/bucket-detalle-mes.e2e.ts — US-053 T-20/T-21 + US-055 T-08 (design
+ * §5, tasks.md ledger). The `/buckets/:bucket` Detalle MES-BUCKET page at a
+ * real viewport, against the grouped endpoint stub (`DETALLE_BUCKET_MES_FIXTURE`
  * in `fixtures/api-stubs.ts`).
  *
- * Four cases, each scoped to the project that owns its claim:
+ * Five cases, each scoped to the project that owns its claim:
  * 1. deep link `?periodo=2026-07` — the WDM-01 header (breadcrumb, back
  *    link, %/meta tag, usage bar, totals line) + the WDM-03 groups verbatim
  *    (Paseos 4 rows → the `ver 1 más…` slice; "Sin categoría" 2 rows → no
@@ -23,6 +23,9 @@ import { stubApi } from './fixtures/api-stubs';
  *    (WDM-04/06): the Sin categoría group carries the highlight, and the
  *    SinCategoria bucket renders no %/meta tag and no usage bar (MBD-03,
  *    D-02). Escritorio.
+ * 5. US-055 T-08 — cross-bucket reclassify surfaces the announcement in the
+ *    page-owned `role="status"` region AND the URL retains `?periodo=` (D-07,
+ *    WCAT-04). Escritorio.
  */
 
 test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', () => {
@@ -168,5 +171,44 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // WDM-04/MBD-03: SinCategoria arrives with null `porcentajeBp`/`metaBp`,
     // so the page renders no %/meta tag and no usage bar (D-02).
     await expect(page.getByTestId('usage-bar')).toHaveCount(0);
+  });
+
+  test('cross-bucket reclassify surfaces "Movida a Necesidades." in the page-owned role=status region and URL retains ?periodo= (US-055, D-07/WCAT-04)', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'escritorio',
+      'Reclassify interaction case, scoped to the escritorio project (1280px).',
+    );
+
+    // Load Deseos page — Paseos group (4 transactions) is visible. Supermercado
+    // (Necesidades) is in the catalog stub, so picking it for a Paseos row is a
+    // cross-bucket move (Deseos → Necesidades).
+    await page.goto('/buckets/Deseos?periodo=2026-07');
+    // Wait for first group heading to confirm the page has settled.
+    await expect(page.getByRole('heading', { name: /Paseos/ })).toBeVisible();
+
+    // The catalog must load before the select enables — wait for it.
+    const select = page.getByLabel('Cambiar categoría de Uber');
+    await expect(select).toBeEnabled({ timeout: 5000 });
+
+    // Pick Supermercado (Necesidades) — cross-bucket from Deseos.
+    await select.selectOption({ label: 'Supermercado' });
+
+    // Confirm the alertdialog that appears for a cross-bucket move.
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmar' }).click();
+
+    // (i) The page-owned role="status" region must show the announcement.
+    // ETIQUETA_BUCKET['Necesidades'] = 'Necesidades', so the literal is
+    // "Movida a Necesidades." (with period, per D-07).
+    await expect(page.getByRole('status')).toContainText(
+      'Movida a Necesidades.',
+    );
+
+    // (ii) The URL must still carry ?periodo=2026-07 (no navigation on
+    // reclassify — in-place update only, per WCAT-04/D-07).
+    await expect(page).toHaveURL(/\/buckets\/Deseos\?periodo=2026-07/);
   });
 });

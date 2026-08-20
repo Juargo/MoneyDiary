@@ -438,6 +438,21 @@ export async function stubApi(page: Page): Promise<void> {
       json: { ...INGRESOS_MES_FIXTURE },
     });
   });
+  // US-055 T-08: PATCH /api/transacciones/:id/categoria — the reclassify
+  // mutation fired by `ReclasificarCategoriaControl` after the user confirms
+  // a cross-bucket move. The stub echoes the submitted `categoria` name and
+  // derives the `bucket` from CATALOGO_FIXTURE (Supermercado → Necesidades,
+  // Streaming → Deseos). Invalidation then refetches the detalle endpoint —
+  // the detalle stub above still serves the original fixture (the moved row
+  // disappears from the group on a real server, but e2e assertions below only
+  // check the announcement — not the post-refetch DOM — for simplicity).
+  await page.route('**/api/transacciones/*/categoria', (route) => {
+    if (route.request().method() !== 'PATCH') {
+      void route.continue();
+      return;
+    }
+    route.fulfill({ status: 200, json: { ok: true } });
+  });
   // US-049 T7.8: a DISTINCT route from `**/api/resumen*` above — Playwright's
   // `*` does not cross `/`, so `**/api/resumen*` never matches
   // `/api/resumen/semaforo` (same reasoning already documented for
