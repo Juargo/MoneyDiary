@@ -30,7 +30,7 @@ export function Header({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Configuración"
-        hitSlop={8}
+        hitSlop={12}
         onPress={() => router.push('/configuracion')}
       >
         {/* Settings icon imported per-icon (not via barrel), tree-shaken by Metro. */}

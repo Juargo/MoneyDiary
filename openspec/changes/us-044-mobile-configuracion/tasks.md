@@ -1008,11 +1008,12 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
       ADR-027) so Expo resolves the SDK-57-compatible line; `react-native-svg` is already a direct
       dep. Non-test, 1 line.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [x] **T8.2** `apps/mobile/jest.config.js` — extend `transformIgnorePatterns` for
-      `lucide-react-native` (ESM), in the **same slice as the gear** (design §3 seam 2, §5 cross-slice
-      ordering constraint) — otherwise every spec rendering `Header` breaks, including
-      `app/index.spec.tsx` and `test/auth-navigation.integration.spec.tsx`. Land T8.1/T8.2 together,
-      before T8.3/T8.4.
+- [x] **T8.2** `apps/mobile/jest.config.js` — add a `moduleNameMapper` entry redirecting
+      `lucide-react-native` to its CJS build (supersedes the originally planned
+      `transformIgnorePatterns` extension — see PR8 REAL NUMBERS deviation note), in the **same slice
+      as the gear** (design §3 seam 2, §5 cross-slice ordering constraint) — otherwise every spec
+      rendering `Header` breaks, including `app/index.spec.tsx` and
+      `test/auth-navigation.integration.spec.tsx`. Land T8.1/T8.2 together, before T8.3/T8.4.
       - Verify: (re-checked by T8.5 once the real import lands)
 - [x] **T8.3 (RED)** Create `apps/mobile/src/components/Header.spec.tsx` (~6 cases — **first spec for
       this file**, ripgrep-verified none exists today): the gear renders with
@@ -1027,8 +1028,9 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
       - Verify: `pnpm --filter @moneydiary/mobile test Header.spec.tsx` — 6 green.
 - [x] **T8.5 (REFACTOR + sweep)** Full-suite regression: confirm `app/index.spec.tsx` and
       `test/auth-navigation.integration.spec.tsx` (both render `Header` in their tree) still pass
-      with the real `lucide-react-native` import + the widened `transformIgnorePatterns` (design §3
-      seam 2's stated risk). Confirm the two new routes (`configuracion`, `categoria/[id]`) are now
+      with the real `lucide-react-native` import + the `moduleNameMapper` CJS redirect (supersedes
+      the originally planned `transformIgnorePatterns` extension — design §3 seam 2's stated risk).
+      Confirm the two new routes (`configuracion`, `categoria/[id]`) are now
       reachable from the UI for the first time in the chain — the D-18 milestone: every PR1–PR7 slice
       was inert dead code on `main` until this task.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
@@ -1079,9 +1081,10 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
     resolution step, before any transform decision. Both approaches are documented in the
     jest.config.js comment. Production (Metro) is unaffected — Metro resolves differently and
     the tree-shaking still applies.
+  - Design §4 listed `Trash2` as a second lucide icon (pattern-row delete). Only `Settings` was
+    imported; the pattern-row delete shipped as a text Pressable (`'Eliminar'`), not an icon.
+    No functional regression — the action is present and accessible; only the icon was substituted.
 -->
-
----
 
 ---
 
@@ -1107,8 +1110,8 @@ apply gate — resolved: stacked-to-main, see Review Workload Forecast).
       - Confirm both `Alert.alert` confirmation flows (bucket change, delete categoría) read
         correctly on-device — native modal chrome differs between iOS/Android and the mocked
         assertions.
-      - Confirm the `lucide-react-native` `Settings`/`Trash2` icons render correctly on both
-        platforms.
+      - Confirm the `lucide-react-native` `Settings` icon renders correctly on both platforms
+        (the pattern-row delete shipped as a text Pressable, not a `Trash2` icon).
       - Log the device/build used and the result here.
       <!-- PENDING: requires device/EAS build -->
 - [x] **T9.4 (Ledger reconciliation)** Record REAL final line/test counts per slice vs. design §5's

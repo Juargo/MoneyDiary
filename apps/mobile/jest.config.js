@@ -10,12 +10,15 @@
  * extender `transformIgnorePatterns` para que Jest transpile los paquetes ESM
  * de RN/Expo. Se ajusta al scaffoldear la app real y correr la primera suite.
  *
- * `lucide-react-native` (US-044 PR8, T8.2): the package's `exports` map
- * resolves the `.` entry to the `.mjs` ESM file under Jest's module
- * resolution, which Babel cannot parse. The CJS build is compatible — this
- * `moduleNameMapper` entry redirects the import to the CJS path so Jest never
- * touches the ESM file. Ships in the same slice as the Header gear import
- * (design §3 seam 2 + §5 cross-slice ordering constraint).
+ * `lucide-react-native` (US-044 PR8, T8.2): jest-expo sets
+ * `customExportConditions = ['require', 'react-native']`. The package's
+ * `exports` map lists the `react-native` condition (pointing at the .mjs ESM
+ * build) before `require`, so the resolver picks ESM regardless of
+ * `transformIgnorePatterns` — Babel fails on the .mjs file. The
+ * `moduleNameMapper` entry below redirects the bare import to the CJS build
+ * at resolution time, before any transform decision, so Babel never sees the
+ * ESM file. Ships in the same slice as the Header gear import (design §3
+ * seam 2 + §5 cross-slice ordering constraint).
  */
 module.exports = {
   preset: 'jest-expo',
@@ -27,10 +30,11 @@ module.exports = {
     // Stub it out for Jest so specs that render the real `_layout.tsx` (e.g.
     // the auth-navigation integration test) can import it directly.
     '\\.css$': '<rootDir>/jest.css-stub.js',
-    // Redirect lucide-react-native to its CJS build — the package's `exports`
-    // map points Jest to the ESM (.mjs) entry which Babel cannot parse.
-    // The CJS build at dist/cjs/ is feature-identical; tree-shaking happens
-    // at Metro/bundler time in production, not in the test runner.
+    // Redirect lucide-react-native to its CJS build. jest-expo's
+    // customExportConditions=['require','react-native'] causes the exports map
+    // to resolve the react-native condition (ESM .mjs) before require, so
+    // transformIgnorePatterns alone cannot prevent the Babel parse error.
+    // This mapper redirects at resolution time; production (Metro) is unaffected.
     '^lucide-react-native$':
       '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
   },
