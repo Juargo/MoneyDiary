@@ -10,7 +10,8 @@
  * extender `transformIgnorePatterns` para que Jest transpile los paquetes ESM
  * de RN/Expo. Se ajusta al scaffoldear la app real y correr la primera suite.
  *
- * `lucide-react-native` (US-044 PR8, T8.2): jest-expo sets
+ * `lucide-react-native` (US-044 PR8, T8.2): jest-expo (via
+ * @react-native/jest-preset's ReactNativeEnv) sets
  * `customExportConditions = ['require', 'react-native']`. The package's
  * `exports` map lists the `react-native` condition (pointing at the .mjs ESM
  * build) before `require`, so the resolver picks ESM regardless of

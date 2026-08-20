@@ -1037,8 +1037,11 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
 
 **PR8 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~116 lines, 6 new tests. Under budget.
 <!-- REAL NUMBERS (applied 2026-08-20):
-  apps/mobile/package.json          +1 (lucide-react-native ^1.33.0)
-  pnpm-lock.yaml                    modified (new package)
+  apps/mobile/package.json          +1 (lucide-react-native pinned EXACT 1.31.0 — JD fix round:
+                                    1.33.0 was a day-0 publish violating .npmrc minimum-release-age=10080;
+                                    1.31.0 published 2026-08-09 clears the 7-day quarantine; exact pin
+                                    because a caret would re-resolve to the quarantined version)
+  pnpm-lock.yaml                    +16/−2 (1.33.0 fully replaced by 1.31.0)
   apps/mobile/jest.config.js        +28/−13 (moduleNameMapper approach: redirects to CJS build at
                                     dist/cjs/lucide-react-native.js via rootDir path — the package's
                                     `exports` map resolves to ESM .mjs which Babel cannot parse;
