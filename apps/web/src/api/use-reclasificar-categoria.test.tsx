@@ -90,7 +90,7 @@ describe('useReclasificarCategoria', () => {
     await waitFor(() => expect(result.current.isPending).toBe(false));
   });
 
-  it('en onSuccess invalida las queries de resumen, detalle-bucket-mes y resumen-anual (WCAT-04)', async () => {
+  it('invalida 4 keys on success: resumen, detalle-bucket-mes, resumen-anual, ingresos-mes (WCAT-04/WDM-07)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -122,9 +122,11 @@ describe('useReclasificarCategoria', () => {
       queryKey: ['detalle-bucket-mes', 'Necesidades', '2026-07'],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen-anual'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ingresos-mes'] });
+    expect(invalidateSpy).toHaveBeenCalledTimes(4);
   });
 
-  it('sin periodo, invalida ["resumen", "actual"] y ["detalle-bucket-mes", bucket, "actual"] (mismo fallback que los hooks de lectura)', async () => {
+  it('sin periodo, invalida ["resumen", "actual"], ["detalle-bucket-mes", bucket, "actual"] e ["ingresos-mes"] (no appends period segment to resumen-anual or ingresos-mes invalidation)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -155,6 +157,8 @@ describe('useReclasificarCategoria', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['detalle-bucket-mes', 'Necesidades', 'actual'],
     });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ingresos-mes'] });
+    expect(invalidateSpy).toHaveBeenCalledTimes(4);
   });
 
   it('no invalida nada si la mutación falla', async () => {
