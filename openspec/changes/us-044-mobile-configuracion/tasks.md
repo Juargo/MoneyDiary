@@ -505,25 +505,25 @@ Requirements: MCFG-02, MCFG-03, MCFG-04. Depends on PR3b (route shell + `TabsCon
 Requirements: MCTG-01, MCTG-06, MCFG-MCTG-08. Depends on PR2b (`catalogo-constantes.ts`,
 `CatalogoDto`/`CategoriaDto` types).
 
-- [ ] **T5a.1 (RED)** Create `apps/mobile/src/domain/agrupar-categorias-por-bucket.spec.ts`
+- [x] **T5a.1 (RED)** Create `apps/mobile/src/domain/agrupar-categorias-por-bucket.spec.ts`
       (~7 cases): the exact group sequence `['Necesidades','Deseos','Ahorro']` (+`'Otros'` last for
       unrecognised buckets) via **array equality**, never `toContain` — judgment-anticipated class 2;
       empty groups dropped; unrecognised bucket values collected into a trailing `'Otros'` group
       rather than rejected (MCFG-MCTG-08's "server-unknown bucket still lists" scenario). `[P]` with
       T5a.3 (disjoint files).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test agrupar-categorias-por-bucket.spec.ts`
-- [ ] **T5a.2 (GREEN)** Create `apps/mobile/src/domain/agrupar-categorias-por-bucket.ts`, ported
+- [x] **T5a.2 (GREEN)** Create `apps/mobile/src/domain/agrupar-categorias-por-bucket.ts`, ported
       verbatim from `apps/web/src/domain/agrupar-categorias-por-bucket.ts:32-47` (design §1.6): fixed
       `BUCKETS_ASIGNABLES` order, empty groups dropped, trailing `'Otros'`.
       - Verify: `pnpm --filter @moneydiary/mobile test agrupar-categorias-por-bucket.spec.ts` — 7 green.
-- [ ] **T5a.3 (RED)** Create `apps/mobile/src/domain/plural.spec.ts` (~6 cases): `etiquetaPatrones` —
+- [x] **T5a.3 (RED)** Create `apps/mobile/src/domain/plural.spec.ts` (~6 cases): `etiquetaPatrones` —
       3 forms (`sin patrones`/`1 patrón`/`N patrones`); `etiquetaTransacciones` — 2 forms. `[P]` with
       T5a.1.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test plural.spec.ts`
-- [ ] **T5a.4 (GREEN)** Create `apps/mobile/src/domain/plural.ts`, ported verbatim from
+- [x] **T5a.4 (GREEN)** Create `apps/mobile/src/domain/plural.ts`, ported verbatim from
       `apps/web/.../categorias/plural.ts:12-26`.
       - Verify: `pnpm --filter @moneydiary/mobile test plural.spec.ts` — 6 green.
-- [ ] **T5a.5 (RED)** Create `apps/mobile/src/domain/mensajes-catalogo.spec.ts` (~9 cases): one
+- [x] **T5a.5 (RED)** Create `apps/mobile/src/domain/mensajes-catalogo.spec.ts` (~9 cases): one
       runtime case per `CodigoCatalogo` member in `COPY` where meaningfully distinguishable, plus a
       **compile-time** totality assertion that an unmapped `CodigoCatalogo` member fails `tsc`
       (MCTG-06's own scenario — state explicitly in the test file which cases are runtime vs. a
@@ -531,12 +531,12 @@ Requirements: MCTG-01, MCTG-06, MCFG-MCTG-08. Depends on PR2b (`catalogo-constan
       DEMO_SOLO_LECTURA` maps to the same copy row **defensively** (CQ-4, MCTG-06's second scenario)
       — not a generic fallback; an unmapped/unknown code → the generic fallback string.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test mensajes-catalogo.spec.ts`
-- [ ] **T5a.6 (GREEN)** Create `apps/mobile/src/domain/mensajes-catalogo.ts` — `CodigoCatalogo`
+- [x] **T5a.6 (GREEN)** Create `apps/mobile/src/domain/mensajes-catalogo.ts` — `CodigoCatalogo`
       (12 members) + `COPY: Record<CodigoCatalogo, string>` (verbatim web strings) +
       `ETIQUETA_MATCH_TYPE`, ported from `apps/web/.../categorias/mensajes-catalogo.ts:33-163`;
       `mensajeDeErrorCatalogo(e)` resolves by axis (D-08 — same rule as PR4a's `mensajeDeApiError`).
       - Verify: `pnpm --filter @moneydiary/mobile test mensajes-catalogo.spec.ts` — 9 green.
-- [ ] **T5a.7 (REFACTOR + sweep)** Confirm `mensajes-catalogo.ts` reuses `copiaPorApiError` for the
+- [x] **T5a.7 (REFACTOR + sweep)** Confirm `mensajes-catalogo.ts` reuses `copiaPorApiError` for the
       three transport tags (D-08, DRY with PR4a's `mensajes-perfil.ts` — same resolution rule,
       different code table). Confirm `MATCH_TYPES`/`BUCKETS_ASIGNABLES` from PR2b's
       `catalogo-constantes.ts` are the single source for both this file and `categorias.ts`'s
@@ -544,6 +544,8 @@ Requirements: MCTG-01, MCTG-06, MCFG-MCTG-08. Depends on PR2b (`catalogo-constan
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR5a gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~390 lines, 22 new tests. Under budget.
+<!-- REAL NUMBERS (applied 2026-08-19): 39 new tests (7 agrupar-categorias-por-bucket.spec.ts + 7 plural.spec.ts + 25 mensajes-catalogo.spec.ts). Full suite: 46 suites / 534 tests passing (495 baseline + 39 new). tsc --noEmit clean. New files: agrupar-categorias-por-bucket.ts 46L + spec 90L, plural.ts 33L + spec 33L, mensajes-catalogo.ts 141L + spec 133L (~476 total). Key deviations: (1) mensajes-catalogo.ts adapts web's `'server'`/`'invalid'` tags → mobile's `'http'` tag (D-05; mobile ApiError has no 'server'/'invalid' variants). (2) `unauthorized` maps to copiaPorApiError (D-08/D-16) instead of '' — mobile has no in-screen 401 intercept. (3) plural.spec.ts shipped 7 tests (3 etiquetaPatrones forms + 4-row it.each = 7) vs. ~6 estimated; mensajes-catalogo.spec.ts shipped 25 tests vs. ~9 estimated (full per-code matrix + MCTG-06 Google-absent assertion). RED evidence: module-not-found failures captured for all 3 spec files before implementations. -->
+
 
 ---
 
