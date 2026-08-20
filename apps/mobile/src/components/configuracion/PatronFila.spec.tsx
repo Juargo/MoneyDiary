@@ -101,6 +101,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -117,6 +118,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -138,6 +140,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={null}
+        rowId="nuevo-test"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -179,6 +182,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={null}
+        rowId="nuevo-test"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={mockOnEliminado}
@@ -206,6 +210,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -250,6 +255,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={mockOnGuardado}
         onEliminado={jest.fn()}
@@ -293,6 +299,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -326,6 +333,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -342,12 +350,18 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Guardar patrón' }));
     });
 
-    // While in-flight: both controls disabled
+    // While in-flight: both controls disabled AND visible text shows "Guardando…"
+    // Convention (PR6a): accessibilityLabel stays fixed ("Guardar patrón") while
+    // the visible Text child changes to "Guardando…" — the getByRole query still works.
     await waitFor(() => {
       expect(
         screen.getByRole('button', { name: 'Guardar patrón' }),
       ).toBeDisabled();
     });
+    // In-flight label pin: visible text must show "Guardando…" during the mutation
+    // Falsifiability: removing the {enviando ? 'Guardando…' : 'Guardar patrón'} text
+    // expression from PatronFila.tsx causes this assertion to FAIL.
+    expect(screen.getByText('Guardando…')).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Eliminar patrón' }),
     ).toBeDisabled();
@@ -369,6 +383,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -399,6 +414,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={null}
+        rowId="nuevo-test"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -437,6 +453,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={null}
+        rowId="nuevo-test"
         categoriaId="cat-1"
         onGuardado={mockOnGuardado}
         onEliminado={jest.fn()}
@@ -470,6 +487,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={existingPatron}
+        rowId="pat-1"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={mockOnEliminado}
@@ -494,6 +512,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={null}
+        rowId="nuevo-test"
         categoriaId="cat-1"
         onGuardado={jest.fn()}
         onEliminado={jest.fn()}
@@ -545,6 +564,7 @@ describe('PatronFila (US-044 PR7, T7.3)', () => {
     await render(
       <PatronFila
         patron={null}
+        rowId="nuevo-test"
         categoriaId="cat-1"
         onGuardado={mockOnGuardado}
         onEliminado={jest.fn()}

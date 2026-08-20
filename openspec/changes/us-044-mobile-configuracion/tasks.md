@@ -938,6 +938,10 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
   - PatronFila RED evidence: wrote spec + implementation in same session. The module-not-found error is the correct
     class of RED (spec ran before implementation existed). Tests passed on first GREEN without iteration — no deviation
     from the state machine design §1.12 was needed.
+    NOTE (T7.3 RED process debt): spec + implementation were written in the same session; no behavioral RED line was
+    captured (no assertion failed on a partly-wired implementation). Only a module-not-found error was observed.
+    This is the same debt class as PR4b, flagged per the PR4b precedent. The module-not-found error IS the natural
+    RED state before the implementation file exists; it is not a fabricated RED.
   - T7.5 integration test replaced the PR6a placeholder test ("renders PatronesSection placeholder") which checked
     for testID='patrones-placeholder'. The placeholder test was the PR6a bridge assertion; T7.5 replaces it correctly
     per tasks.md ("replace PR6a's PatronesSection placeholder with the real component").
@@ -955,7 +959,41 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
   5. ORDER pinning (case 4 PatronesSection): rendering new rows before existing rows causes case 4 to FAIL at
      `expect(textInputs[0]).toHaveDisplayValue('LIDER')`.
   6. getOptionLabel (SelectorChips case 8): removing getOptionLabel prop causes `getByRole('radio', {name:'CONTIENE'})`
-     to not find the element (chip shows 'CONTAINS' raw value instead). -->
+     to not find the element (chip shows 'CONTAINS' raw value instead).
+
+  JD fix round (2026-08-20):
+  - Fix 1 (route wiring CRITICAL): `app/categoria/[id].tsx` rendered `<EditarCategoria>` WITHOUT
+    `onCatalogoChange`, so every pattern mutation hit the silent no-op fallback — deleted patterns persisted
+    on screen, created patterns never appeared. Fixed: added `onCatalogoChange={() => void cargarCatalogo()}`
+    to the EditarCategoria JSX in the route.
+  - Fix 2 (route re-fetch test): `app/categoria/[id].spec.tsx` gained a new test (case 15) asserting that
+    a successful eliminarPatron triggers a SECOND fetchCatalogo call. Falsifiability confirmed: reverting fix 1
+    (removing onCatalogoChange) causes the test to FAIL at `expect(mockFetchCatalogo).toHaveBeenCalledTimes(2)`.
+  - Fix 3 (rowId testIDs): PatronFila gained a required `rowId` prop (replaces the stable-testID useState workaround).
+    All testIDs in a PatronFila row are now derived from `rowId` (`patron-input-${rowId}`,
+    `matchtype-selector-${rowId}`). PatronesSection replaced `Date.now()` with a monotonic useRef counter
+    (`nuevo-1`, `nuevo-2`, …) and passes `rowId` to every PatronFila. All existing PatronFila.spec.tsx renders
+    updated to supply `rowId`. PatronesSection.spec.tsx gained a new test asserting two Agregar presses produce
+    DISTINCT testIDs (patron-input-nuevo-1 / patron-input-nuevo-2).
+  - Fix 4 (MCTG-07 relabel + commit assert): PatronesSection.spec.tsx case 8 relabeled to clarify it tests a
+    UI-only action (zero API calls AND no solicitarRecargaResumen). A new case added: typing into a placeholder row
+    and pressing Guardar patrón (mocked crearPatron success) does NOT call solicitarRecargaResumen — defense-in-depth
+    at section scope, separate from PatronFila.spec.tsx cases 11-12.
+  - Fix 5 (in-flight label pin): PatronFila.spec.tsx case 8 now asserts `getByText('Guardando…')` inside the
+    in-flight window. The accessibilityLabel stays fixed ("Guardar patrón"); only the visible Text changes.
+    Convention from PR6a (fixed labels, dynamic visible text) preserved and documented in comment.
+  - Fix 6 (T7.5 strengthened): EditarCategoria.spec.tsx T7.5 extended — commits an actualizarPatron mutation
+    via the rendered PatronFila, THEN presses Cancelar; asserts (a) actualizarPatron called, (b) onCancelar fired,
+    (c) actualizarCategoria never called. Pins "committed patterns survive Cancelar" (MCTG-03).
+  - Fix 7 (Agregar visible text): design §1.10 D-13 mandates visible text «Agregar» with accessibilityLabel
+    «Agregar patrón». PatronesSection.tsx was already correct; comment updated to explicitly document the split.
+
+  T7.x green counts (post-JD-fix):
+  - PatronesSection.spec.tsx: 10 tests (8 original + 2 JD: distinct-testID + MCTG-07-commit-assert)
+  - PatronFila.spec.tsx: 14 tests (unchanged — fix 5 is an assertion within case 8, not a new test)
+  - EditarCategoria.spec.tsx: 25 tests (T7.5 was replaced in-place — no net new test count from T7.5 fix)
+  - app/categoria/[id].spec.tsx: 15 tests (14 original + 1 JD: route re-fetch via onCatalogoChange)
+  Full suite post-JD-fix: 54 suites / 651 tests. tsc --noEmit clean. -->
 
 
 ---

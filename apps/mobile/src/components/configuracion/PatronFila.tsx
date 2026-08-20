@@ -58,6 +58,13 @@ export interface PatronFilaProps {
    */
   readonly patron: PatronDto | null;
   readonly categoriaId: string;
+  /**
+   * Stable row identifier used as the base for all testIDs in this row.
+   * For existing rows: patron.id (e.g. "pat-1").
+   * For new placeholder rows: a tempId from PatronesSection (e.g. "nuevo-1").
+   * Ensures testID uniqueness when multiple PatronFila rows coexist.
+   */
+  readonly rowId: string;
   /** Called after a successful crearPatron or actualizarPatron. */
   readonly onGuardado: () => void;
   /** Called after a successful eliminarPatron OR after discarding a new row. */
@@ -67,6 +74,7 @@ export interface PatronFilaProps {
 export function PatronFila({
   patron,
   categoriaId,
+  rowId,
   onGuardado,
   onEliminado,
 }: PatronFilaProps) {
@@ -82,12 +90,6 @@ export function PatronFila({
 
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Stable testID for ORDER pinning in PatronesSection tests.
-  // useState with no setter — value is computed once from props at mount and never changes.
-  const [rowTestID] = useState(
-    patron ? `patron-input-${patron.id}` : `patron-input-nuevo`,
-  );
 
   // sucio: the trimmed value differs from the committed baseline
   const patronTrimmed = patronDraft.trim();
@@ -170,9 +172,9 @@ export function PatronFila({
 
   return (
     <View className="gap-2 rounded-xl border border-hairline bg-white p-3">
-      {/* Pattern text input */}
+      {/* Pattern text input — testID derived from rowId (unique per row, stable across renders) */}
       <TextInput
-        testID={rowTestID}
+        testID={`patron-input-${rowId}`}
         accessibilityLabel="Texto del patrón"
         placeholder="Texto del patrón"
         value={patronDraft}
@@ -182,14 +184,11 @@ export function PatronFila({
       />
 
       {/* matchType chip selector — DISTINCT testID per row (binding obligation 2).
+          testID derived from rowId for uniqueness guarantees.
           getOptionLabel maps raw MatchType → ETIQUETA_MATCH_TYPE label (binding obligation 1).
           onChange emits the raw MatchType value, not the label. */}
       <SelectorChips
-        testID={
-          patron
-            ? `matchtype-selector-${patron.id}`
-            : `matchtype-selector-nuevo`
-        }
+        testID={`matchtype-selector-${rowId}`}
         options={MATCH_TYPES}
         value={matchType}
         onChange={setMatchType}

@@ -34,9 +34,10 @@ import * as resumenRefresh from '../../api/resumen-refresh';
 
 import { EditarCategoria } from './EditarCategoria';
 
-// Mock actualizarCategoria and eliminarCategoria — test call shapes via spies
+// Mock actualizarCategoria, eliminarCategoria, and actualizarPatron — test call shapes via spies
 const mockActualizarCategoria = jest.fn();
 const mockEliminarCategoria = jest.fn();
+const mockActualizarPatron = jest.fn();
 
 jest.mock('../../api/categorias', () => {
   const actual = jest.requireActual('../../api/categorias');
@@ -45,6 +46,7 @@ jest.mock('../../api/categorias', () => {
     actualizarCategoria: (...args: unknown[]) =>
       mockActualizarCategoria(...args),
     eliminarCategoria: (...args: unknown[]) => mockEliminarCategoria(...args),
+    actualizarPatron: (...args: unknown[]) => mockActualizarPatron(...args),
   };
 });
 
@@ -75,6 +77,7 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     jest.clearAllMocks();
     mockActualizarCategoria.mockResolvedValue({ ok: true, value: undefined });
     mockEliminarCategoria.mockResolvedValue({ ok: true, value: undefined });
+    mockActualizarPatron.mockResolvedValue({ ok: true, value: undefined });
 
     // Spy on the REAL resumen-refresh module (not mocked away) so assertions
     // are non-tautological (judgment-anticipated class 5).
@@ -265,9 +268,14 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     expect(screen.getByRole('radio', { name: 'Ahorro' })).toBeOnTheScreen();
   });
 
-  // T7.5 integration case: pattern commits are independent of categoría's Guardar,
-  // and Cancelar discards only the identity draft — MCTG-03's own scenario.
-  it('T7.5: PatronesSection renders and pattern rows commit independently of categoría Guardar', async () => {
+  // T7.5 integration case (strengthened JD fix): pattern commits are independent
+  // of categoría's Guardar, and Cancelar discards only the identity draft —
+  // MCTG-03's own scenario. Extended: assert that a committed pattern mutation
+  // (actualizarPatron) survives Cancelar — i.e. (a) the mutation call happened,
+  // (b) onCancelar fired, (c) actualizarCategoria was NEVER called.
+  // Falsifiability: if pattern commits were tied to categoría's Guardar button,
+  // actualizarPatron would not have been called before Cancelar.
+  it('T7.5: committed patterns survive Cancelar — pattern mutation fires, identity Guardar does not', async () => {
     const categoriaConPatrones: CategoriaDto = {
       ...sampleCategoria,
       patrones: [
@@ -298,12 +306,28 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       screen.getByText('Sin patrones: solo asignación manual.'),
     ).toBeOnTheScreen();
 
-    // Pressing Cancelar does NOT call actualizarCategoria — discards only the identity draft
+    // Commit a pattern mutation via the rendered PatronFila (independent of categoría Guardar)
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
+      fireEvent.changeText(screen.getByDisplayValue('LIDER'), 'LIDER SUPER');
     });
-    expect(mockActualizarCategoria).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar patrón' }));
+    });
+
+    // (a) The pattern mutation call happened — patterns commit independently
+    await waitFor(() => {
+      expect(mockActualizarPatron).toHaveBeenCalledTimes(1);
+    });
+
+    // Now press Cancelar on the identity form
+    fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
+
+    // (b) onCancelar fired (navigates back)
     expect(mockOnCancelar).toHaveBeenCalledTimes(1);
+
+    // (c) actualizarCategoria was NEVER called — Cancelar discards only the identity draft,
+    // not the committed pattern. This pins MCTG-03: "Cancelar discards only the identity draft".
+    expect(mockActualizarCategoria).not.toHaveBeenCalled();
   });
 
   // Fix 7: Guardar failure renders the alert region with the exact mensajes-catalogo literal

@@ -22,7 +22,7 @@
  *   onPatronesChange — called after any successful mutation so the parent can
  *                      trigger a catalog re-fetch (D-10)
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { PatronDto } from '../../domain/catalogo.types';
 import { PatronFila } from './PatronFila';
@@ -45,12 +45,18 @@ export function PatronesSection({
   onPatronesChange,
 }: PatronesSectionProps) {
   // Placeholder rows appended by "Agregar patrón". Each has a local tempId for
-  // React key. On successful crearPatron the parent re-fetches and the row
+  // React key and rowId. On successful crearPatron the parent re-fetches and the row
   // moves from placeholder to real via the updated patrones prop.
   const [nuevos, setNuevos] = useState<NuevoPatron[]>([]);
 
+  // Monotonic counter for placeholder tempIds — avoids Date.now() collisions
+  // when Agregar is pressed multiple times within a millisecond.
+  const nextTempId = useRef(0);
+
   function agregarPlaceholder() {
-    setNuevos((prev) => [...prev, { tempId: `nuevo-${Date.now()}` }]);
+    nextTempId.current += 1;
+    const tempId = `nuevo-${nextTempId.current.toString()}`;
+    setNuevos((prev) => [...prev, { tempId }]);
   }
 
   function descartarNuevo(tempId: string) {
@@ -72,6 +78,7 @@ export function PatronesSection({
       {patrones.map((patron) => (
         <PatronFila
           key={patron.id}
+          rowId={patron.id}
           patron={patron}
           categoriaId={categoriaId}
           onGuardado={onPatronesChange}
@@ -83,6 +90,7 @@ export function PatronesSection({
       {nuevos.map((nuevo) => (
         <PatronFila
           key={nuevo.tempId}
+          rowId={nuevo.tempId}
           patron={null}
           categoriaId={categoriaId}
           onGuardado={() => {
@@ -93,7 +101,9 @@ export function PatronesSection({
         />
       ))}
 
-      {/* Agregar patrón — zero requests; only appends a placeholder row */}
+      {/* Visible text: «Agregar» (design §1.10 mobile variant — D-13).
+          Accessible name: «Agregar patrón» (accessibilityLabel — unambiguous for screen readers).
+          Zero requests — only appends a placeholder row. */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Agregar patrón"
