@@ -91,6 +91,7 @@ export function NuevaCategoriaForm({
       />
 
       <SelectorChips
+        testID="bucket-selector"
         label="Bucket (obligatorio)"
         options={BUCKETS_ASIGNABLES}
         value={bucket as BucketAsignable}
@@ -100,6 +101,7 @@ export function NuevaCategoriaForm({
       {error ? (
         <Text
           accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
           accessible={true}
           className="text-xs text-red-600"
         >

@@ -25,8 +25,10 @@ import {
   screen,
   within,
   fireEvent,
+  waitFor,
   act,
 } from '@testing-library/react-native';
+import * as categoriasApi from '../../api/categorias';
 import type { CatalogoDto } from '../../domain/catalogo.types';
 import { CategoriasPanel } from './CategoriasPanel';
 
@@ -46,6 +48,10 @@ jest.mock('../../api/categorias', () => ({
   ...jest.requireActual('../../api/categorias'),
   crearCategoria: jest.fn().mockResolvedValue({ ok: true, value: undefined }),
 }));
+
+const mockCrearCategoria = categoriasApi.crearCategoria as jest.MockedFunction<
+  typeof categoriasApi.crearCategoria
+>;
 
 // Sample catalog: categories across all 3 known buckets (Necesidades, Deseos/Gustos, Ahorro).
 // No unknown-bucket category here — adding one would change getAllByRole('header') count
@@ -266,5 +272,40 @@ describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
     // The Nombre field and bucket chips confirm the real form rendered
     expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
     expect(screen.getAllByRole('radio')).toHaveLength(3);
+  });
+
+  it('[PR5c T5c.3 close-on-success] form closes and onCatalogoChange fires after successful creation', async () => {
+    const mockOnCatalogoChange = jest.fn();
+    mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+
+    await render(
+      <CategoriasPanel
+        catalogo={catalogoVacio}
+        onCatalogoChange={mockOnCatalogoChange}
+      />,
+    );
+
+    // Open the form
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Nueva categoría' }));
+    });
+
+    // Confirm the form is open
+    expect(screen.getByTestId('nueva-categoria-form')).toBeOnTheScreen();
+
+    // Fill nombre and select a bucket, then submit
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('Nombre'), 'Supermercado');
+      fireEvent.press(screen.getByRole('radio', { name: 'Necesidades' }));
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    // After success: form must close (setMostrarFormNueva(false)) and callback fires.
+    // Falsifiability: removing setMostrarFormNueva(false) from CategoriasPanel's
+    // onCreada handler causes queryByTestId to return non-null and the assertion fails.
+    await waitFor(() => {
+      expect(screen.queryByTestId('nueva-categoria-form')).toBeNull();
+    });
+    expect(mockOnCatalogoChange).toHaveBeenCalledTimes(1);
   });
 });

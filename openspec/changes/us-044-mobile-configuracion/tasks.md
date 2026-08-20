@@ -627,7 +627,18 @@ Requirements: MCTG-02, MCTG-07 (negative: creation does not refresh the dashboar
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR5c gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~210 lines, 9 new tests. Under budget.
-<!-- REAL NUMBERS (applied 2026-08-19): NuevaCategoriaForm.tsx ~110L + NuevaCategoriaForm.spec.tsx ~200L + CategoriasPanel.tsx +12 (import + onCatalogoChange prop + NuevaCategoriaForm wiring) + CategoriasPanel.spec.tsx +35 (jest.mock crearCategoria + 1 integration test case + updated header comment) + configuracion.tsx +3 (onCatalogoChange wiring) = ~360 total ledger lines (forecast ~210; overrun is spec density — the 9 NuevaCategoriaForm cases required act() wrappers and waitFor patterns per PerfilPanel's established convention, adding ~30L vs. forecast). 10 new tests (9 NuevaCategoriaForm + 1 CategoriasPanel integration). Full suite: 49 suites / 564 tests (554 baseline + 10 new). tsc --noEmit clean.
+<!-- REAL NUMBERS (updated post-JD-fix 2026-08-19 — from `git diff origin/main...HEAD --numstat`):
+  NuevaCategoriaForm.tsx        +138 −0   (production component)
+  NuevaCategoriaForm.spec.tsx   +245 −0   (13 tests: 9 original + 4 JD additions)
+  CategoriasPanel.spec.tsx      +35  −2   (close-on-success integration test + imports + mock ref)
+  CategoriasPanel.tsx           +16  −7   (NuevaCategoriaForm wiring, replacing placeholder)
+  configuracion.tsx             +4   −1   (onCatalogoChange wiring)
+  tasks.md                      +14  −4   (REAL NUMBERS update)
+  Total ledger-scope insertions: 452 lines (forecast ~210; overrun is spec density — JD fix round
+  added 4 tests: Cancelar, whitespace-only nombre, double-submit-disabled, close-on-success integration,
+  accounting for +~80L above the original apply's ~370L).
+  13 new tests (9 NuevaCategoriaForm original + 4 JD additions) + 1 CategoriasPanel integration = 14 total.
+  Full suite: 49 suites / 568 tests (554 baseline + 14 new). tsc --noEmit clean.
 
 RED evidence — T5c.1: Cannot find module './NuevaCategoriaForm' from 'src/components/configuracion/NuevaCategoriaForm.spec.tsx'
 

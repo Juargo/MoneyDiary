@@ -197,10 +197,12 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     await llenarYEnviar({ nombre: 'Netflix', bucket: 'Deseos' });
 
     await waitFor(() => {
-      // mensajes-catalogo.ts COPY.NOMBRE_DUPLICADO
-      expect(
-        screen.getByText('Ya tienes una categoría con ese nombre.'),
-      ).toBeOnTheScreen();
+      // mensajes-catalogo.ts COPY.NOMBRE_DUPLICADO — asserted via the alert role element
+      // so the accessibilityRole="alert" + accessibilityLiveRegion="polite" are implicitly pinned:
+      // if the Text node loses those props, getByRole('alert') fails before toHaveTextContent.
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Ya tienes una categoría con ese nombre.',
+      );
     });
 
     // Form stays open — nombre field still present
@@ -216,8 +218,13 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
         ok: false,
         error: { tag: 'http', status: 409, code: 'NOMBRE_DUPLICADO' },
       })
-      // Second attempt succeeds
-      .mockResolvedValueOnce({ ok: true, value: undefined });
+      // Second attempt: use a deferred promise to hold the in-flight window open
+      // so we can assert setError(null) fired BEFORE the second result resolves.
+      .mockReturnValueOnce(
+        new Promise<Awaited<ReturnType<typeof mockCrearCategoria>>>(() => {
+          /* intentionally never resolves in this test */
+        }),
+      );
 
     await render(
       <NuevaCategoriaForm
@@ -227,19 +234,98 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     );
     await llenarYEnviar({ nombre: 'Luz', bucket: 'Necesidades' });
 
-    // Wait for first error to appear
+    // Wait for first error to appear — via the alert role element
     await waitFor(() => {
-      expect(
-        screen.getByText('Ya tienes una categoría con ese nombre.'),
-      ).toBeOnTheScreen();
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Ya tienes una categoría con ese nombre.',
+      );
     });
 
-    // Second submit — form is still open
+    // Second submit — form is still open; deferred promise keeps it in-flight
     fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
 
+    // While the second call is in-flight, setError(null) must have already fired.
+    // Falsifiability: removing `setError(null)` from handleGuardar causes this to
+    // fail because the stale error text remains visible while the second call is pending.
     await waitFor(() => {
-      expect(mockCrearCategoria).toHaveBeenCalledTimes(2);
+      expect(
+        screen.queryByText('Ya tienes una categoría con ese nombre.'),
+      ).toBeNull();
+    });
+
+    expect(mockCrearCategoria).toHaveBeenCalledTimes(2);
+  });
+
+  it('Cancelar calls onCancelar exactly once and does not submit', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(mockOnCancelar).toHaveBeenCalledTimes(1);
+    expect(mockCrearCategoria).not.toHaveBeenCalled();
+  });
+
+  it('whitespace-only nombre is treated as empty — submit does not call crearCategoria', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('Nombre'), '   ');
+      fireEvent.press(screen.getByRole('radio', { name: 'Necesidades' }));
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(mockCrearCategoria).not.toHaveBeenCalled();
+  });
+
+  it('double-submit protection: Guardar button is disabled while in-flight', async () => {
+    // Deferred promise: keeps the first call in-flight so we can inspect mid-flight state.
+    let resolveFirst!: (
+      v: Awaited<ReturnType<typeof mockCrearCategoria>>,
+    ) => void;
+    const deferredFirst = new Promise<
+      Awaited<ReturnType<typeof mockCrearCategoria>>
+    >((res) => {
+      resolveFirst = res;
+    });
+    mockCrearCategoria.mockReturnValueOnce(deferredFirst);
+
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+    await llenarYEnviar({ nombre: 'Transporte', bucket: 'Necesidades' });
+
+    // While in-flight: the Guardar button must report disabled=true via accessibilityState.
+    // Falsifiability: removing `!enviando` from `puedeGuardar` causes
+    // accessibilityState.disabled to remain false while the call is in-flight and this assertion fails.
+    await waitFor(() => {
+      const guardarBtn = screen.getByRole('button', { name: 'Guardar' });
+      expect(guardarBtn.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+    });
+
+    // Resolve the first call and confirm crearCategoria was only called once.
+    await act(async () => {
+      resolveFirst({ ok: true, value: undefined });
+    });
+
+    await waitFor(() => {
       expect(mockOnCreada).toHaveBeenCalledTimes(1);
     });
+    expect(mockCrearCategoria).toHaveBeenCalledTimes(1);
   });
 });
