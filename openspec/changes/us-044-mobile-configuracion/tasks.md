@@ -760,15 +760,14 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
 
 **PR6b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, 21 new tests (original apply). Under budget.
 <!-- REAL NUMBERS (applied 2026-08-20, updated post-JD-fix-round 2026-08-20):
-  apps/mobile/src/domain/impacto-catalogo.ts         ~105L (new — fraseDeImpacto + ImpactoCatalogo + ?? comment)
-  apps/mobile/src/domain/impacto-catalogo.spec.ts    ~210L (new — 18 tests post-JD-fix: 4 eliminar × count>0 + 4 eliminar × count=0 + 4 cambiar-bucket × count>0 + 4 cambiar-bucket × count=0 + singular eliminar + singular cambiar-bucket(fix10) + unknown-bucket(fix11) + exhaustiveness)
-  apps/mobile/src/components/configuracion/EditarCategoria.tsx  ~305L (MOD — both Alert.alert flows + solicitarRecargaResumen import + useRef double-Alert guard)
-  apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx  ~600L (MOD — 25 tests: 13 PR6a + 12 PR6b/JD: 11 Alert flow + 1 both-dirty-fix1-pin + 2 double-tap-guard-fix5-pin + cancel-clears-guard-fix4 assertions embedded in existing cancel tests)
-  openspec/changes/us-044-mobile-configuracion/tasks.md  (MOD — T6b.2/T6b.4 counts + REAL NUMBERS + JD deviations)
-  Net new tests from original apply: 21 (12 impacto-catalogo + 9 EditarCategoria net).
-  Net new tests from JD fix round: +8 (impacto-catalogo: +6 zero-exact + singular-cb + unknown-bucket; EditarCategoria: +2 double-tap-guard tests + both-dirty embedded in existing bucket-change confirm test).
-  Total new tests for PR6b overall: 29 (18 impacto-catalogo + 25 EditarCategoria − 13 PR6a baseline = 12 EditarCategoria PR6b new + 18 impacto-catalogo = 30 counting impacto-catalogo; using 52 suites / 625 total vs. 595 baseline = 30 net new).
-  Full suite post-JD-fix: 52 suites / 625 tests (595 baseline + 30 new). tsc --noEmit clean.
+  From `git diff origin/main...HEAD --numstat` (final, post both JD fix rounds):
+  apps/mobile/src/domain/impacto-catalogo.ts         +115 (new — fraseDeImpacto + ImpactoCatalogo + ?? comment)
+  apps/mobile/src/domain/impacto-catalogo.spec.ts    +235 (new — 18 tests: per-type count>0/count=0 exact-literal suites + singular eliminar + singular cambiar-bucket + unknown-bucket fallback + exhaustiveness marker)
+  apps/mobile/src/components/configuracion/EditarCategoria.tsx  +139/−29 (MOD — both Alert.alert flows with cancelable:false + solicitarRecargaResumen on bucket-change success + useRef double-Alert guard)
+  apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx  +585/−23 (MOD — 25 tests total: 13 PR6a-era + 12 PR6b/JD new: Alert flows both branches, both-dirty draft-name pin, 2 double-tap-guard pins, cancelable:false 4th-arg pins, retry-after-failure guard pin)
+  openspec/changes/us-044-mobile-configuracion/tasks.md  +88/−8 (T6b counts + REAL NUMBERS + JD deviations)
+  Net new tests: 30 (625 total − 595 baseline) = 18 impacto-catalogo + 12 EditarCategoria.
+  Full suite post-JD-fix: 52 suites / 625 tests. tsc --noEmit clean.
 
   ImpactoCatalogo type: 'eliminar-categoria' (not 'eliminar' as in web) — self-documenting rename;
   web's 'eliminar' is ambiguous on mobile where the concept could be categoria OR patron.

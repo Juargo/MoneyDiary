@@ -231,6 +231,9 @@ export function EditarCategoria({
           },
         },
       ],
+      // cancelable: false — same rationale as the bucket-change Alert above:
+      // an Android backdrop/back dismiss fires no button callback and would
+      // leave mostrandoAlerta.current stuck true (dead buttons).
       { cancelable: false },
     );
   }
