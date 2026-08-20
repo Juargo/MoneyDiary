@@ -1,9 +1,10 @@
 /**
  * CategoriasPanel.spec.tsx — US-044 PR5b, T5b.3 (RED → GREEN)
  *
- * Tests (12 cases):
+ * Tests (13 cases):
  *  1. Groups render in fixed order Necesidades → Gustos → Ahorro
  *     (ETIQUETA_BUCKET: wire 'Deseos' → display 'Gustos') — MCTG-01
+ *     Single getAllByRole('header') query — genuinely ordered, not assembled manually.
  *  2. ORDER pinning within a group — row order matches the catalogoDto order
  *     (array/DOM-order equality, never toContain — judgment-anticipated class 2)
  *  3. etiquetaPatrones 0 form: 'sin patrones'
@@ -16,6 +17,7 @@
  * 10. 'Nueva categoría' toggle is present in non-empty catalog too
  * 11. 'Eliminar categoría' absent from the list — cross-ref: PR6a positive case (D-12, class 3)
  * 12. CategoriasPanel does NOT call fetchCatalogo itself — catalog state stays owned by the route
+ * 13. Unknown-bucket category renders under the trailing 'Otros' group heading (MCFG-MCTG-08)
  */
 import {
   render,
@@ -35,7 +37,9 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-// Sample catalog: categories across all 3 known buckets + one 'Otros' bucket
+// Sample catalog: categories across all 3 known buckets (Necesidades, Deseos/Gustos, Ahorro).
+// No unknown-bucket category here — adding one would change getAllByRole('header') count
+// and break the order test. Unknown-bucket coverage uses a dedicated fixture below.
 const sampleCatalogo: CatalogoDto = {
   categorias: [
     {
@@ -94,6 +98,24 @@ const sampleCatalogo: CatalogoDto = {
 
 const catalogoVacio: CatalogoDto = { categorias: [] };
 
+// Dedicated fixture for the unknown-bucket scenario (MCFG-MCTG-08).
+// agruparPorBucket funnels any bucket not in BUCKETS_ASIGNABLES into the
+// trailing 'Otros' group. ETIQUETA_BUCKET has no entry for 'Otros', so
+// the component renders ETIQUETA_BUCKET['Otros'] ?? 'Otros' = 'Otros'.
+// Using a separate fixture keeps sampleCatalogo's heading count stable
+// (getAllByRole('header') would return 4 headings if this were merged in).
+const catalogoConBucketDesconocido: CatalogoDto = {
+  categorias: [
+    {
+      id: 'cat-x',
+      nombre: 'Inversión Rara',
+      bucket: 'BucketRaro',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+  ],
+};
+
 describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -102,20 +124,11 @@ describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
   it('groups render in fixed order Necesidades → Gustos → Ahorro (MCTG-01 — ETIQUETA_BUCKET)', async () => {
     await render(<CategoriasPanel catalogo={sampleCatalogo} />);
 
-    // Order-pinning via testID'd group headings — array equality, never toContain
-    // ETIQUETA_BUCKET maps wire 'Deseos' → display 'Gustos'
-    const necesidadesHeading = screen.getByTestId('heading-Necesidades');
-    const gustosHeading = screen.getByTestId('heading-Deseos');
-    const ahorroHeading = screen.getByTestId('heading-Ahorro');
-
-    expect(necesidadesHeading).toHaveTextContent('Necesidades');
-    expect(gustosHeading).toHaveTextContent('Gustos');
-    expect(ahorroHeading).toHaveTextContent('Ahorro');
-
-    // DOM order: Necesidades before Gustos before Ahorro
-    // (toEqual on text content array proves order without toContain)
-    const allGroupHeadings = [necesidadesHeading, gustosHeading, ahorroHeading];
-    expect(allGroupHeadings.map((h) => h.props.children)).toEqual([
+    // Single ordered query — getAllByRole returns nodes in DOM order.
+    // accessibilityRole="header" + accessible={true} on each group heading Text node.
+    // ETIQUETA_BUCKET maps wire 'Deseos' → display 'Gustos'.
+    const headings = screen.getAllByRole('header');
+    expect(headings.map((h) => h.props.children)).toEqual([
       'Necesidades',
       'Gustos',
       'Ahorro',
@@ -196,6 +209,20 @@ describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
     // Non-tautological: absence asserted, cross-referenced with PR6a's positive case
     expect(screen.queryByText('Eliminar categoría')).toBeNull();
     expect(screen.queryByText('Eliminar')).toBeNull();
+    // Also catch an accessibilityLabel-based delete control (e.g. icon-only button)
+    expect(screen.queryByRole('button', { name: /elimin/i })).toBeNull();
+  });
+
+  it('unknown-bucket category renders under the trailing "Otros" group heading (MCFG-MCTG-08)', async () => {
+    await render(<CategoriasPanel catalogo={catalogoConBucketDesconocido} />);
+    // agruparPorBucket places 'BucketRaro' into the 'Otros' fallback group.
+    // The heading testID uses the wire bucket value ('Otros'), and
+    // ETIQUETA_BUCKET['Otros'] ?? 'Otros' = 'Otros', so the label is 'Otros'.
+    const otrosGroup = screen.getByTestId('grupo-Otros');
+    expect(within(otrosGroup).getByRole('header')).toHaveTextContent('Otros');
+    expect(
+      within(otrosGroup).getByRole('button', { name: 'Inversión Rara' }),
+    ).toBeOnTheScreen();
   });
 
   it('does NOT own a fetch — receives catálogo as a prop from the route (design §0)', async () => {
