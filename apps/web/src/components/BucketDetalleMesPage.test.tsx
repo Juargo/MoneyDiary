@@ -901,7 +901,7 @@ describe('BucketDetalleMesPage', () => {
   });
 
   // Fix 5: periodo change clears the announcement.
-  it('Fix-5: announcement clears when periodo prop changes (useEffect on periodo)', async () => {
+  it('Fix-5: announcement clears when periodo prop changes (periodoAnterior setState-during-render, D-07)', async () => {
     stubFetchInteraccion();
     const user = userEvent.setup();
 

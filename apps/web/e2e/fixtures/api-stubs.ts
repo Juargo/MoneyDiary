@@ -487,10 +487,10 @@ export async function stubApi(page: Page): Promise<void> {
   // Override the detalle GET handler registered above: re-register it AFTER
   // the PATCH stub so Playwright (LIFO) tries this handler first. When
   // `detallePatchFired` is true and the bucket matches Necesidades, serves
-  // the fixture with the reclassified row removed; otherwise delegates to
-  // the earlier registration via continue() — but since page.route() with
-  // the same pattern replaces the prior handler in practice, we reproduce
-  // the full handler logic here for the Necesidades path.
+  // the fixture with the reclassified row removed. This handler never calls
+  // route.continue(): it fully shadows the earlier same-pattern registration
+  // (Playwright LIFO), so it reproduces the complete handler logic for every
+  // path it owns.
   await page.route('**/api/buckets/*/detalle*', (route) => {
     const url = new URL(route.request().url());
     const match = /\/api\/buckets\/([^/?]+)\/detalle/.exec(url.pathname);

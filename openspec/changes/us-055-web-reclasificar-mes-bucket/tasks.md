@@ -149,7 +149,7 @@ Rewritten/new behavior cases (these fail RED before the source changes):
 
 ---
 
-### T-06 — [x] GREEN: page-owned `role="status"` region + `anuncio` state + `BucketDetalleMesPage` tests ✅ (6fcf9795; JD fixes: periodo-clear + T-06a/c page-level interaction tests in f35a4382)
+### T-06 — [x] GREEN: page-owned `role="status"` region + `anuncio` state + `BucketDetalleMesPage` tests ✅ (6fcf9795; JD fixes: periodo-clear + T-06a/c page-level interaction tests in f2f0c474)
 
 **Design refs**: D-07  
 **Spec refs**: WCAT-04 (announcement semantics, region visibility, persistence)  
@@ -209,7 +209,7 @@ NOT a `src/components/**` glob (would absorb the app's a11y debt). Add ONLY `Rec
 
 ---
 
-### T-08 — [x] test(e2e): extend bucket e2e — cross-bucket reclassify announces + row leaves + periodo persists ✅ (1ac8bc7e initial e2e stub; JD fixes: stateful stub + row-disappearance assert + correct direction in f35a4382)
+### T-08 — [x] test(e2e): extend bucket e2e — cross-bucket reclassify announces + row leaves + periodo persists ✅ (1ac8bc7e initial e2e stub; JD fixes: stateful stub + row-disappearance assert + correct direction in f2f0c474)
 
 **Design refs**: D-07, D-09  
 **Spec refs**: WCAT-04, WDM-07 (e2e scenario: announce + row gone + periodo)  
