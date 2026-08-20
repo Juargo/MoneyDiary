@@ -847,7 +847,7 @@ Requirements: MCTG-04, MCTG-07 (negative-4: pattern mutations do not refresh), M
 on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPatron`/
 `actualizarPatron`/`eliminarPatron`), PR3a (`SelectorChips` for `matchType`).
 
-- [ ] **T7.1 (RED)** Create `apps/mobile/src/components/configuracion/PatronesSection.spec.tsx`
+- [x] **T7.1 (RED)** Create `apps/mobile/src/components/configuracion/PatronesSection.spec.tsx`
       (~8 cases): existing rows render BEFORE new placeholder rows — ORDER pinning
       (judgment-anticipated class 2, the `PatronesSection` half); «Sin patrones: solo asignación
       manual.» renders **always**, identical whether the category has 0 or 3 patterns (MCTG-04's own
@@ -856,10 +856,10 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       until its own confirm; `matchType` chips use `ETIQUETA_MATCH_TYPE` labels (`CONTIENE`/`EMPIEZA
       CON`/`REGEX`), not the raw wire values.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PatronesSection.spec.tsx`
-- [ ] **T7.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronesSection.tsx` —
+- [x] **T7.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronesSection.tsx` —
       existing rows + append-only placeholder rows, «Sin patrones…» note always rendered.
       - Verify: `pnpm --filter @moneydiary/mobile test PatronesSection.spec.tsx` — 8 green.
-- [ ] **T7.3 (RED)** Create `apps/mobile/src/components/configuracion/PatronFila.spec.tsx`
+- [x] **T7.3 (RED)** Create `apps/mobile/src/components/configuracion/PatronFila.spec.tsx`
       (~14 cases — the 4-state row machine from design §1.12): `limpio` state hides the confirm
       control; editing → `sucio`, confirm control shows "Guardar patrón"; **new row** (no `id`):
       confirm → `crearPatron` (`prioridad` never in the payload — binding decision 3); delete on a
@@ -876,23 +876,126 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       `solicitarRecargaResumen()`** — MCTG-07's negative-4 scenario (judgment-anticipated class 5),
       asserted against the REAL `resumen-refresh` module for at least the add and the delete path.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PatronFila.spec.tsx`
-- [ ] **T7.4 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronFila.tsx` — the
+- [x] **T7.4 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronFila.tsx` — the
       `limpio|sucio|enviando|error` state machine per design §1.12; `SelectorChips` for `matchType`
       (3 chips, D-17); REGEX hint as advisory text only.
       - Verify: `pnpm --filter @moneydiary/mobile test PatronFila.spec.tsx` — 14 green.
-- [ ] **T7.5** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, replace PR6a's
+- [x] **T7.5** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, replace PR6a's
       `PatronesSection` placeholder with the real component (mechanical wiring; extend
       `EditarCategoria.spec.tsx` with 1 integration case: pattern commits are independent of the
       categoría's own `Guardar`, and `Cancelar` discards only the identity draft — MCTG-03's own
       "already-committed pattern survives Cancelar" scenario).
       - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx PatronesSection.spec.tsx PatronFila.spec.tsx`
-- [ ] **T7.6 (REFACTOR + sweep)** Confirm none of web's blur machinery (pointer-intent refs, deferred
+- [x] **T7.6 (REFACTOR + sweep)** Confirm none of web's blur machinery (pointer-intent refs, deferred
       `setTimeout` replay, focus-restore ref/effect) exists anywhere in `PatronFila.tsx` (D-14 — the
       removal is the point, not an oversight). Confirm `prioridad` is grep-absent from every pattern
       payload across `categorias.ts` and `PatronFila.tsx`.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR7 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~535 lines, 22 new tests. **Over 400-line budget** — `size:exception` candidate, OR split further (section+placeholder rows / the row state machine) per design §5.
+<!-- REAL NUMBERS (final post-JD-fix, from `git diff origin/main...HEAD --numstat`):
+  PatronFila.tsx             +251 (new — 4-state row machine: limpio/sucio/enviando/error; crearPatron/actualizarPatron/
+                                   eliminarPatron; prioridad absent; no Alert.alert on delete; no blur machinery;
+                                   REGEX hint advisory; required rowId prop drives all row-scoped testIDs)
+  PatronFila.spec.tsx        +605 (new — 14 tests: state machine, exact payloads + no-prioridad, no-Alert class 3,
+                                   in-flight disables + «Guardando…» pin, error alert, REGEX advisory,
+                                   MCTG-07 add/delete negatives vs REAL resumen-refresh, getOptionLabel behavior)
+  PatronesSection.tsx        +119 (new — existing rows before placeholders, «Sin patrones…» always, Agregar button,
+                                   monotonic tempId counter nuevo-1/nuevo-2)
+  PatronesSection.spec.tsx   +314 (new — 10 tests incl. two-new-rows distinct testIDs and commit-path
+                                   crearPatron-success-no-refresh from the JD fix round)
+  SelectorChips.tsx          +16/−2 (getOptionLabel prop — binding obligation 1, backward-compatible)
+  SelectorChips.spec.tsx     +34 (getOptionLabel behavior test: custom label renders, onChange emits raw value)
+  EditarCategoria.tsx        +25/−6 (import PatronesSection + replace placeholder + onCatalogoChange prop)
+  EditarCategoria.spec.tsx   +56/−5 (T7.5 integration strengthened in JD fix round: committed pattern mutation
+                                    survives Cancelar; actualizarCategoria never called)
+  app/categoria/[id].tsx     +1 (JD fix round CRITICAL: onCatalogoChange wired to cargarCatalogo)
+  app/categoria/[id].spec.tsx +58 (case 15: pattern mutation triggers second fetchCatalogo — falsifiability confirmed)
+  tasks.md                   +108/−6 (checkboxes + REAL NUMBERS + JD deviations)
+
+  Net new tests: 651 − 625 = 26 (per-file: [id].spec 15, PatronFila 14, PatronesSection 10, EditarCategoria 25,
+  SelectorChips +1). Full suite: 54 suites / 651 tests. tsc --noEmit clean.
+
+  RED evidence:
+  - T7.1 PatronesSection.spec.tsx: Cannot find module './PatronesSection' (module did not exist yet)
+  - T7.3 PatronFila.spec.tsx: Cannot find module './PatronFila' (module did not exist yet)
+  Note: PatronFila.tsx was implemented alongside the spec (implementation was well-understood from design §1.12);
+  all 14 cases passed on the first GREEN run. The class of RED (module-not-found) is the established pattern
+  across all prior slices (PR1–PR6b) and was the natural RED state before the implementation existed.
+
+  Binding obligations satisfied:
+  1. getOptionLabel returns to SelectorChips WITH a behavior test: SelectorChips.spec.tsx case "getOptionLabel:
+     custom label renders while onChange emits the raw option value". PatronFila uses it for ETIQUETA_MATCH_TYPE.
+  2. Every SelectorChips instance has a DISTINCT explicit testID: PatronFila derives all row-scoped
+     testIDs from its required `rowId` prop (`matchtype-selector-${rowId}`). Existing rows: rowId =
+     patron.id; new placeholder rows: rowId = "nuevo-1", "nuevo-2", … (monotonic counter in
+     PatronesSection — JD fix round; distinctness pinned by the two-new-rows test).
+  3. prioridad is NEVER sent: both crearPatron (PatronInput) and actualizarPatron (PatronPatch) types exclude it
+     (tsc-enforced). PatronFila.spec.tsx cases 3 and 5 assert `not.toHaveProperty('prioridad')`.
+  4. Pattern delete commits without Alert (MCTG-04 immediate commits): confirmed per design §1.12. Case 7 asserts
+     spyAlert.not.toHaveBeenCalled() for existing-row delete — paired with PR6b's categoria delete that DOES call it.
+
+  Deviations from design (documented):
+  - PatronFila RED evidence: wrote spec + implementation in same session. The module-not-found error is the correct
+    class of RED (spec ran before implementation existed). Tests passed on first GREEN without iteration — no deviation
+    from the state machine design §1.12 was needed.
+    NOTE (T7.3 RED process debt): spec + implementation were written in the same session; no behavioral RED line was
+    captured (no assertion failed on a partly-wired implementation). Only a module-not-found error was observed.
+    This is the same debt class as PR4b, flagged per the PR4b precedent. The module-not-found error IS the natural
+    RED state before the implementation file exists; it is not a fabricated RED.
+  - T7.5 integration test replaced the PR6a placeholder test ("renders PatronesSection placeholder") which checked
+    for testID='patrones-placeholder'. The placeholder test was the PR6a bridge assertion; T7.5 replaces it correctly
+    per tasks.md ("replace PR6a's PatronesSection placeholder with the real component").
+  - onCatalogoChange is an optional prop on EditarCategoria (backward-compatible). Existing tests omit it; the
+    PatronesSection receives `onCatalogoChange ?? (() => undefined)` as its onPatronesChange — safe no-op.
+
+  Falsifiability confirmed:
+  1. MCTG-07 negative-4 (add): adding solicitarRecargaResumen() to PatronFila's crearPatron success path causes
+     case 11 to FAIL at `expect(spySolicitarRecarga).not.toHaveBeenCalled()`.
+  2. MCTG-07 negative-4 (delete): adding solicitarRecargaResumen() to eliminarPatron success path causes case 12 to FAIL.
+  3. Alert.alert absence (case 7): adding Alert.alert() to handleEliminar (existing row) causes case 7 to FAIL at
+     `expect(spyAlert).not.toHaveBeenCalled()`.
+  4. prioridad absent (case 3): adding prioridad to crearPatron payload causes case 3's `not.toHaveProperty('prioridad')`
+     to FAIL.
+  5. ORDER pinning (case 4 PatronesSection): rendering new rows before existing rows causes case 4 to FAIL at
+     `expect(textInputs[0]).toHaveDisplayValue('LIDER')`.
+  6. getOptionLabel (SelectorChips case 8): removing getOptionLabel prop causes `getByRole('radio', {name:'CONTIENE'})`
+     to not find the element (chip shows 'CONTAINS' raw value instead).
+
+  JD fix round (2026-08-20):
+  - Fix 1 (route wiring CRITICAL): `app/categoria/[id].tsx` rendered `<EditarCategoria>` WITHOUT
+    `onCatalogoChange`, so every pattern mutation hit the silent no-op fallback — deleted patterns persisted
+    on screen, created patterns never appeared. Fixed: added `onCatalogoChange={() => void cargarCatalogo()}`
+    to the EditarCategoria JSX in the route.
+  - Fix 2 (route re-fetch test): `app/categoria/[id].spec.tsx` gained a new test (case 15) asserting that
+    a successful eliminarPatron triggers a SECOND fetchCatalogo call. Falsifiability confirmed: reverting fix 1
+    (removing onCatalogoChange) causes the test to FAIL at `expect(mockFetchCatalogo).toHaveBeenCalledTimes(2)`.
+  - Fix 3 (rowId testIDs): PatronFila gained a required `rowId` prop (replaces the stable-testID useState workaround).
+    All testIDs in a PatronFila row are now derived from `rowId` (`patron-input-${rowId}`,
+    `matchtype-selector-${rowId}`). PatronesSection replaced `Date.now()` with a monotonic useRef counter
+    (`nuevo-1`, `nuevo-2`, …) and passes `rowId` to every PatronFila. All existing PatronFila.spec.tsx renders
+    updated to supply `rowId`. PatronesSection.spec.tsx gained a new test asserting two Agregar presses produce
+    DISTINCT testIDs (patron-input-nuevo-1 / patron-input-nuevo-2).
+  - Fix 4 (MCTG-07 relabel + commit assert): PatronesSection.spec.tsx case 8 relabeled to clarify it tests a
+    UI-only action (zero API calls AND no solicitarRecargaResumen). A new case added: typing into a placeholder row
+    and pressing Guardar patrón (mocked crearPatron success) does NOT call solicitarRecargaResumen — defense-in-depth
+    at section scope, separate from PatronFila.spec.tsx cases 11-12.
+  - Fix 5 (in-flight label pin): PatronFila.spec.tsx case 8 now asserts `getByText('Guardando…')` inside the
+    in-flight window. The accessibilityLabel stays fixed ("Guardar patrón"); only the visible Text changes.
+    Convention from PR6a (fixed labels, dynamic visible text) preserved and documented in comment.
+  - Fix 6 (T7.5 strengthened): EditarCategoria.spec.tsx T7.5 extended — commits an actualizarPatron mutation
+    via the rendered PatronFila, THEN presses Cancelar; asserts (a) actualizarPatron called, (b) onCancelar fired,
+    (c) actualizarCategoria never called. Pins "committed patterns survive Cancelar" (MCTG-03).
+  - Fix 7 (Agregar visible text): design §1.10 D-13 mandates visible text «Agregar» with accessibilityLabel
+    «Agregar patrón». PatronesSection.tsx was already correct; comment updated to explicitly document the split.
+
+  T7.x green counts (post-JD-fix):
+  - PatronesSection.spec.tsx: 10 tests (8 original + 2 JD: distinct-testID + MCTG-07-commit-assert)
+  - PatronFila.spec.tsx: 14 tests (unchanged — fix 5 is an assertion within case 8, not a new test)
+  - EditarCategoria.spec.tsx: 25 tests (T7.5 was replaced in-place — no net new test count from T7.5 fix)
+  - app/categoria/[id].spec.tsx: 15 tests (14 original + 1 JD: route re-fetch via onCatalogoChange)
+  Full suite post-JD-fix: 54 suites / 651 tests. tsc --noEmit clean. -->
+
 
 ---
 

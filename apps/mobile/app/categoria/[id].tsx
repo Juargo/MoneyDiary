@@ -132,6 +132,7 @@ export default function EditarCategoriaRoute() {
             onGuardado={() => void cargarCatalogo()}
             onCancelar={volverAtras}
             onEliminado={volverAtras}
+            onCatalogoChange={() => void cargarCatalogo()}
           />
         )}
       </ScrollView>
