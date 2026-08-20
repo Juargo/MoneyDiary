@@ -347,6 +347,25 @@ const INGRESOS_MES_FIXTURE = {
   ],
 };
 
+// DETALLE_BUCKET_MES_FIXTURE_SIN_TX_P1: the detalle fixture with the first
+// Paseos row (tx-p1, 'Uber') removed. The detalle GET handler serves this
+// after the PATCH fires, simulating the server removing the reclassified row
+// from its original group on the next refetch (T-08 row-disappearance assert).
+const DETALLE_BUCKET_MES_FIXTURE_SIN_TX_P1 = {
+  ...DETALLE_BUCKET_MES_FIXTURE,
+  totalTransacciones: 5,
+  grupos: [
+    {
+      ...DETALLE_BUCKET_MES_FIXTURE.grupos[0],
+      conteo: 3,
+      subtotal: '150000',
+      transacciones:
+        DETALLE_BUCKET_MES_FIXTURE.grupos[0].transacciones.slice(1),
+    },
+    DETALLE_BUCKET_MES_FIXTURE.grupos[1],
+  ],
+};
+
 export async function stubApi(page: Page): Promise<void> {
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({ json: ME_FIXTURE }),
@@ -436,6 +455,77 @@ export async function stubApi(page: Page): Promise<void> {
     }
     route.fulfill({
       json: { ...INGRESOS_MES_FIXTURE },
+    });
+  });
+  // US-055 T-08: stateful stub for the reclassify flow.
+  // `detallePatchFired` gates the detalle GET handler so the refetch after
+  // the PATCH serves the fixture WITHOUT the reclassified row — proving the
+  // row-disappearance assertion (T-08 step 5) against a realistic stub.
+  let detallePatchFired = false;
+
+  // PATCH /api/transacciones/:id/categoria — the reclassify mutation.
+  // Returns a valid ReclasificarCategoriaDto so the client-side validator
+  // (esReclasificarCategoriaDto in client.ts) passes and the mutation's
+  // onSuccess fires. Sets `detallePatchFired = true` so the next detalle
+  // GET serves the modified fixture (row removed).
+  await page.route('**/api/transacciones/*/categoria', (route) => {
+    if (route.request().method() !== 'PATCH') {
+      void route.continue();
+      return;
+    }
+    detallePatchFired = true;
+    route.fulfill({
+      status: 200,
+      json: {
+        id: 'tx-p1',
+        categoria: { id: 'cat-2', nombre: 'Streaming' },
+        bucket: 'Deseos',
+      },
+    });
+  });
+
+  // Override the detalle GET handler registered above: re-register it AFTER
+  // the PATCH stub so Playwright (LIFO) tries this handler first. When
+  // `detallePatchFired` is true and the bucket matches Necesidades, serves
+  // the fixture with the reclassified row removed. This handler never calls
+  // route.continue(): it fully shadows the earlier same-pattern registration
+  // (Playwright LIFO), so it reproduces the complete handler logic for every
+  // path it owns.
+  await page.route('**/api/buckets/*/detalle*', (route) => {
+    const url = new URL(route.request().url());
+    const match = /\/api\/buckets\/([^/?]+)\/detalle/.exec(url.pathname);
+    const bucket = match ? decodeURIComponent(match[1]) : 'Deseos';
+    const periodo =
+      url.searchParams.get('periodo') ?? DETALLE_BUCKET_MES_FIXTURE.periodo;
+    const sinCategoria = bucket === 'SinCategoria';
+
+    if (detallePatchFired && bucket === 'Necesidades') {
+      // After the PATCH: serve the Necesidades fixture without 'Uber' (tx-p1),
+      // the row the e2e test reclassifies to a Deseos categoría.
+      route.fulfill({
+        json: {
+          ...DETALLE_BUCKET_MES_FIXTURE_SIN_TX_P1,
+          bucket,
+          periodo,
+        },
+      });
+      return;
+    }
+
+    route.fulfill({
+      json: {
+        ...DETALLE_BUCKET_MES_FIXTURE,
+        bucket,
+        periodo,
+        ...(sinCategoria && {
+          porcentajeBp: null,
+          metaBp: null,
+          total: '50000',
+          totalTransacciones: 2,
+          totalCategorias: 1,
+          grupos: [DETALLE_BUCKET_MES_FIXTURE.grupos[1]],
+        }),
+      },
     });
   });
   // US-049 T7.8: a DISTINCT route from `**/api/resumen*` above — Playwright's

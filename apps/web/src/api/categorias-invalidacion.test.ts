@@ -44,7 +44,7 @@ describe('invalidarCatalogo — perfil A (mutaciones de patrón)', () => {
 });
 
 describe('invalidarCatalogoYDashboard — perfil B (mutaciones de categoría)', () => {
-  it('invalida EXACTAMENTE las 4 claves, en orden: categorias, resumen, resumen-anual, detalle-bucket-mes', () => {
+  it('invalida EXACTAMENTE las 5 claves, en orden: categorias, resumen, resumen-anual, detalle-bucket-mes, ingresos-mes (WDM-09)', () => {
     const { queryClient, claves } = crearQueryClientEspiado();
 
     invalidarCatalogoYDashboard(queryClient);
@@ -54,6 +54,7 @@ describe('invalidarCatalogoYDashboard — perfil B (mutaciones de categoría)', 
       ['resumen'],
       ['resumen-anual'],
       ['detalle-bucket-mes'],
+      ['ingresos-mes'],
     ]);
   });
 });

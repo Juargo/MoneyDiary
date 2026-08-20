@@ -27,11 +27,13 @@ export function GrupoMovimientos({
   destacar,
   bucketActual,
   periodo,
+  onMovida,
 }: {
   readonly grupo: GrupoDetalleMesViewModel;
   readonly destacar: boolean;
   readonly bucketActual: string;
   readonly periodo: string | undefined;
+  readonly onMovida: (bucketLabel: string) => void;
 }) {
   const [expandido, setExpandido] = useState(false);
   const idLista = useId();
@@ -84,6 +86,7 @@ export function GrupoMovimientos({
                   grupo.categoriaId === null ? null : grupo.nombre
                 }
                 periodo={periodo}
+                onMovida={onMovida}
               />
             </div>
           </li>
