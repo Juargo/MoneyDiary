@@ -1,7 +1,7 @@
 /**
  * `esFechaValida` — pure predicate (never throws) reused by the money-safety
  * guards in `api/client.ts` to reject a malformed `fecha` BEFORE it reaches a
- * positional slice (the mes view model's `aFechaLabel` only slices, it never
+ * positional slice (`aFechaCorta` only slices, it never
  * validates format — an unparseable `fecha` would render a garbled/empty
  * date on screen instead of failing explicitly). KISS: "non-empty + parseable
  * by `Date.parse`" is sufficient, no fancier date parsing.
@@ -12,4 +12,25 @@
  */
 export function esFechaValida(fecha: string): boolean {
   return fecha !== '' && !Number.isNaN(Date.parse(fecha));
+}
+
+/**
+ * `aFechaCorta` — US-054 (D-02): parte `YYYY-MM-DD` de un timestamp ISO-8601
+ * UTC vía cirugía de string pura (`fechaIso.slice(0, 10)`) — sin round-trip de
+ * `Date`, así que cero drift de zona horaria (Chile UTC-4 mueve días a la
+ * medianoche UTC; cortar la parte de fecha UTC es TZ-safe). Guardada aguas
+ * arriba por el `esFechaValida` del guard del DTO — misma división de trabajo
+ * que el docblock de ese predicado: este helper solo corta, nunca valida
+ * formato (una `fecha` no parseable se rechaza antes de llegar a este slice).
+ *
+ * 4ta ocurrencia de `.slice(0, 10)` (regla de 3, DRY). Triggers de migración
+ * en vez de un vago "después": los 3 sitios legacy — `PreviewMuestra.tsx:87`,
+ * `SubirCartola.tsx:333`, `ListaIngestas.tsx:114` — refactorizan a este helper
+ * en su próximo touch (trigger por archivo, salida byte-idéntica, fuera de
+ * alcance acá); el raw-ISO de la página gemela US-053
+ * (`GrupoMovimientos.tsx:69`) es un follow-up de consistencia de display
+ * (renderiza `aFechaCorta`, NO byte-idéntico).
+ */
+export function aFechaCorta(fechaIso: string): string {
+  return fechaIso.slice(0, 10);
 }

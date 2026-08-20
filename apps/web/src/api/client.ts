@@ -5,6 +5,7 @@ import type {
   GrupoDetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
+  IngresosMesDto,
   PreviewIngestaDto,
   PreviewTransaccionDto,
   ReclasificarCategoriaDto,
@@ -13,6 +14,7 @@ import type {
   SemaforoBucketDetalleDto,
   SemaforoDetalleDto,
   TransaccionDetalleBucketMesDto,
+  TransaccionIngresosMesDto,
   TransaccionResponseDto,
 } from './types';
 import { esMontoStringValido } from '../domain/formatear-monto';
@@ -454,12 +456,12 @@ export async function fetchResumenAnual(
  * `formatearMontoCLP` lanza sobre `""`/`"abc"`/`"12.5"`/etc, un `typeof`-only
  * guard dejaría pasar un 2xx que crashearía mid-render con un `TypeError`
  * crudo), `fecha` vía `esFechaValida` (un `fecha` no parseable produciría una
- * fecha garbled vía el slice posicional de `aFechaLabel`), `periodo`/`bucket`
+ * fecha garbled vía el slice posicional de `aFechaCorta`), `periodo`/`bucket`
  * (pasados verbatim al header), `porcentajeBp`/`metaBp` (`number | null` — la
  * barra de uso se esconde cuando `porcentajeBp === null`, D-02, así que un
  * tipo inesperado rompería esa decisión), y los conteos `totalTransacciones`/
  * `totalCategorias`/`conteo` (`number`). Un 2xx que no cumpla la forma
- * esperada nunca llega a `formatearMontoCLP`/`aFechaLabel`/el view model —
+ * esperada nunca llega a `formatearMontoCLP`/`aFechaCorta`/el view model —
  * se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
  */
 function esTransaccionDetalleBucketMesDto(
@@ -585,6 +587,128 @@ export async function fetchDetalleBucketMes(
   }
 
   if (!esDetalleBucketMesDto(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * Guardia money-safe para `IngresosMesDto` (US-052 `ingresos-detalle-mes`,
+ * consumido por US-054): valida exactamente lo que consume el view-model
+ * (`domain/ingresos-mes-view-model.ts`) aguas abajo — `total` y
+ * `transacciones[].monto` vía `esMontoStringValido` (mismo razonamiento que
+ * `esDetalleBucketMesDto`: `formatearMontoConSigno` lanza ante `""`/`"abc"`/
+ * `"12.5"`/etc, así que un guard de solo typeof dejaría que un 2xx crashee a
+ * mitad de render con un TypeError), `fecha` vía `esFechaValida` (una `fecha`
+ * no parseable renderizaría una fecha corrupta por el slice posicional de
+ * `aFechaCorta` en vez de fallar explícitamente), y la forma deja `conteo`
+ * (`number`) e `id`/`descripcion` (`string`) más `origen` como string no vacío
+ * (nombre de banco verbatim o `'Manual'`, MID-02 — vacío es shape mismatch).
+ * Fail-closed: cualquier mismatch de forma mapea a `{tag:'parse'}`, nunca
+ * lanza.
+ */
+function esTransaccionIngresosMesDto(
+  value: unknown,
+): value is TransaccionIngresosMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<TransaccionIngresosMesDto>;
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.fecha === 'string' &&
+    esFechaValida(candidato.fecha) &&
+    typeof candidato.descripcion === 'string' &&
+    typeof candidato.origen === 'string' &&
+    candidato.origen !== '' &&
+    typeof candidato.monto === 'string' &&
+    esMontoStringValido(candidato.monto)
+  );
+}
+
+function esIngresosMesDto(value: unknown): value is IngresosMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<IngresosMesDto>;
+  return (
+    typeof candidato.conteo === 'number' &&
+    typeof candidato.total === 'string' &&
+    esMontoStringValido(candidato.total) &&
+    Array.isArray(candidato.transacciones) &&
+    candidato.transacciones.every(esTransaccionIngresosMesDto)
+  );
+}
+
+/**
+ * fetchIngresosMes — GET /api/ingresos/mes[?periodo=YYYY-MM] (US-052
+ * `ingresos-detalle-mes`, MID-01..06; consumido por US-054). Misma disciplina
+ * never-throw `ApiResult<T>` que `fetchResumen`/`fetchDetalleBucketMes`:
+ * mismo-origen (el proxy inyecta `x-api-key`), sin base URL, mismo mapeo de
+ * estados (400 → período inválido — el único input inválido, precedente de
+ * `fetchResumen`; 401 → no autorizado; otro non-2xx → server genérico;
+ * rechazo de fetch → network; cuerpo inesperado → parse). `transacciones`
+ * pasa verbatim al view-model — el client nunca re-ordena ni recalcula
+ * totales (MID-01, WDI-06).
+ */
+export async function fetchIngresosMes(
+  periodo?: string,
+): Promise<ApiResult<IngresosMesDto>> {
+  const query =
+    periodo != null ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `/api/ingresos/mes${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
+  }
+
+  if (res.status === 400) {
+    return {
+      ok: false,
+      error: { tag: 'invalid', message: 'El período no es válido.' },
+    };
+  }
+  if (res.status === 401) {
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  if (!esIngresosMesDto(body)) {
     return {
       ok: false,
       error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
