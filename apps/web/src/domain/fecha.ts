@@ -1,7 +1,7 @@
 /**
  * `esFechaValida` — pure predicate (never throws) reused by the money-safety
  * guards in `api/client.ts` to reject a malformed `fecha` BEFORE it reaches a
- * positional slice (the mes view model's `aFechaLabel` only slices, it never
+ * positional slice (`aFechaCorta` only slices, it never
  * validates format — an unparseable `fecha` would render a garbled/empty
  * date on screen instead of failing explicitly). KISS: "non-empty + parseable
  * by `Date.parse`" is sufficient, no fancier date parsing.

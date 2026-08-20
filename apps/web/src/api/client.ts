@@ -456,12 +456,12 @@ export async function fetchResumenAnual(
  * `formatearMontoCLP` lanza sobre `""`/`"abc"`/`"12.5"`/etc, un `typeof`-only
  * guard dejaría pasar un 2xx que crashearía mid-render con un `TypeError`
  * crudo), `fecha` vía `esFechaValida` (un `fecha` no parseable produciría una
- * fecha garbled vía el slice posicional de `aFechaLabel`), `periodo`/`bucket`
+ * fecha garbled vía el slice posicional de `aFechaCorta`), `periodo`/`bucket`
  * (pasados verbatim al header), `porcentajeBp`/`metaBp` (`number | null` — la
  * barra de uso se esconde cuando `porcentajeBp === null`, D-02, así que un
  * tipo inesperado rompería esa decisión), y los conteos `totalTransacciones`/
  * `totalCategorias`/`conteo` (`number`). Un 2xx que no cumpla la forma
- * esperada nunca llega a `formatearMontoCLP`/`aFechaLabel`/el view model —
+ * esperada nunca llega a `formatearMontoCLP`/`aFechaCorta`/el view model —
  * se mapea a `ApiError` tipado (tag "parse"), nunca lanza.
  */
 function esTransaccionDetalleBucketMesDto(
