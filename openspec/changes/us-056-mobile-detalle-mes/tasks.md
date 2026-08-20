@@ -46,7 +46,7 @@ Chain strategy: stacked-to-main
 
 Branch off `main` after T-00 merges. Goal: legend rows become pressable; stub routes resolve pushes. Independently revertible — reverts PR1, routes become unreachable, screen files inert.
 
-### T-01 — RED: LeyendaGasto pressability + nav args + periodo threading
+### T-01 — RED: LeyendaGasto pressability + nav args + periodo threading ✅ (4090b23)
 
 **Design refs**: D-10, D-11, D-19  
 **Spec refs**: MOB-08 (pressable rows, exact path strings incl. `periodo`)  
@@ -68,7 +68,7 @@ Wiring pin: `"LeyendaGasto requires onNavegar prop (no optional default)"` — r
 
 ---
 
-### T-02 — GREEN: LeyendaGasto rows View→Pressable + ResumenScreen + index.tsx wiring
+### T-02 — GREEN: LeyendaGasto rows View→Pressable + ResumenScreen + index.tsx wiring ✅ (1813549)
 
 **Design refs**: D-10, D-11, D-19  
 **Spec refs**: MOB-08  
@@ -83,7 +83,7 @@ Wiring pin: `"LeyendaGasto requires onNavegar prop (no optional default)"` — r
 
 ---
 
-### T-03 — Register stub routes in _layout.tsx + stub screens
+### T-03 — Register stub routes in _layout.tsx + stub screens ✅ (7a6f0bc)
 
 **Design refs**: D-12  
 **Spec refs**: MDET-01, MDET-06 (routes must resolve)  
