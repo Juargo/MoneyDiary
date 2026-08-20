@@ -44,6 +44,10 @@ function RootNavigator() {
         <Stack.Screen name="subir" />
         <Stack.Screen name="configuracion" />
         <Stack.Screen name="categoria/[id]" />
+        {/* US-056 PR1 (D-12/T-03): stub routes so legend row pushes resolve.
+            Replaced by real screens in PR3 (bucket/[bucket]) and PR5 (ingresos). */}
+        <Stack.Screen name="bucket/[bucket]" />
+        <Stack.Screen name="ingresos" />
       </Stack.Protected>
       <Stack.Protected guard={estado === 'unauthenticated'}>
         <Stack.Screen name="login" />
