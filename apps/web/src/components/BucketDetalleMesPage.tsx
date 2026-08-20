@@ -64,9 +64,23 @@ export function BucketDetalleMesPage({
 }) {
   const categoriasQuery = useCategorias();
   // Page-owned cross-bucket announcement (D-07): persists until replaced by a
-  // subsequent cross-bucket move or page unmount. No timer, no auto-clear
-  // (KISS). The `role="status"` region re-announces on every content change.
+  // subsequent cross-bucket move, a period change, or page unmount. No timer,
+  // no auto-clear on inactivity, no `setTimeout` state machine (KISS). The
+  // `role="status"` region re-announces on every content change.
+  //
+  // Period-change clearing: `periodoAnterior` shadows the previous render's
+  // `periodo`. When they differ, `setAnuncio('')` is called during this render
+  // (React's "setState during render" path — safe because it immediately
+  // triggers a synchronous re-render before the browser paints, documented in
+  // the React team's "Adjusting some state when a prop changes" pattern). The
+  // `periodoAnterior` state is updated in the same conditional to stay in sync.
+  const [periodoAnterior, setPeriodoAnterior] = useState(periodo);
   const [anuncio, setAnuncio] = useState('');
+  if (periodoAnterior !== periodo) {
+    setPeriodoAnterior(periodo);
+    setAnuncio('');
+  }
+
   const alMovida = (bucketLabel: string) =>
     setAnuncio(`Movida a ${bucketLabel}.`);
 
@@ -91,8 +105,12 @@ export function BucketDetalleMesPage({
       {/* Page-owned announcement region for cross-bucket reclassify (D-07).
           Rendered OUTSIDE the groups map — stable page-level sibling that
           survives a moved row's unmount. Visible text, not sr-only, so
-          sighted users and screen readers read from the same node. */}
-      <p role="status">{anuncio}</p>
+          sighted users and screen readers read from the same node.
+          data-testid allows e2e to scope to this region when a second
+          role=status node (catalog loading) may transiently coexist. */}
+      <p role="status" data-testid="anuncio-reclasificar">
+        {anuncio}
+      </p>
       {categoriasCargandoInicial && (
         <p role="status" className="sr-only">
           Cargando categorías…

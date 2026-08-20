@@ -120,11 +120,18 @@ export function ReclasificarCategoriaControl({
     }
   }, [pendiente]);
 
-  function commit(nombre: string) {
+  // Cross-bucket commits need to fire onMovida only after the mutation
+  // settles successfully. We capture the pending bucket label at confirm
+  // time and thread it into the mutation's onSuccess callback so a
+  // failed PATCH never triggers the announcement.
+  function commit(nombre: string, onSuccess?: () => void) {
     setErrorMensaje(null);
     mutacion.mutate(
       { transaccionId, categoria: nombre },
       {
+        onSuccess: () => {
+          onSuccess?.();
+        },
         onError: (error) => {
           setErrorMensaje(error.message);
           setValor(categoriaActual ?? '');
@@ -166,11 +173,15 @@ export function ReclasificarCategoriaControl({
 
   function confirmar() {
     if (!pendiente) return;
-    commit(pendiente.nombre);
-    // Fire the page-owned announcement only on a cross-bucket commit (the
-    // same-bucket path never opens the confirmation dialog, so this branch
-    // is only reachable for cross-bucket moves — D-07).
-    onMovida(etiqueta(pendiente.bucketNuevo));
+    // Capture the destination label at confirm time before clearing
+    // `pendiente`. The label is derived here, not inside the callback,
+    // so the closure captures the value from this render, not a stale ref.
+    // onMovida fires only when the PATCH succeeds — a failed mutation
+    // must not announce a move that never happened (D-07).
+    const bucketLabel = etiqueta(pendiente.bucketNuevo);
+    commit(pendiente.nombre, () => {
+      onMovida(bucketLabel);
+    });
     setPendiente(null);
   }
 
@@ -231,11 +242,15 @@ export function ReclasificarCategoriaControl({
       )}
       {pendiente && (
         // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`,
-        // not `widget` (verified against aria-query 5.3.2 — same finding as
+        // not `widget` (verified against aria-query 5.3.2, installed via
+        // eslint-plugin-jsx-a11y@6.10.2 — same finding as
         // ConfirmarPasswordDialog.tsx / ConfirmarImpactoDialog.tsx). The rule
         // cannot distinguish a dialog's Escape-to-close from an arbitrary
         // `<div onKeyDown>`. The WAI-ARIA dialog pattern binds Escape at the
         // container so it works regardless of which button has focus.
+        // Remove this disable when aria-query classifies `alertdialog` under
+        // the `widget` superclass or when the rule gains a dialog-role
+        // exemption.
         // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
         <div
           role="alertdialog"

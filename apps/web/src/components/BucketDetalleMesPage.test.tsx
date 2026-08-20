@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { BucketDetalleMesPage } from './BucketDetalleMesPage';
@@ -26,6 +27,24 @@ const CATALOGO_FIXTURE: CatalogoDto = {
       id: 'categoria-supermercado',
       nombre: 'Supermercado',
       bucket: 'Necesidades',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+    // Deseos categoría — required for cross-bucket confirmation tests (T-06
+    // cases a/c): a row in the Necesidades page picking this triggers the
+    // alertdialog (Necesidades → Deseos cross-bucket, announces "Movida a Gustos.").
+    {
+      id: 'categoria-paseos',
+      nombre: 'Paseos',
+      bucket: 'Deseos',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+    // Ahorro categoría — for T-06 case (c): replacement announcement test.
+    {
+      id: 'categoria-ahorro',
+      nombre: 'Ahorro',
+      bucket: 'Ahorro',
       patrones: [],
       transaccionesCount: 0,
     },
@@ -198,6 +217,34 @@ function stubFetch(
           json: response.json ?? (() => Promise.reject(new Error('no body'))),
         } as Response),
   );
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+// Stub for interaction tests that drive a real reclassify mutation:
+// routes GET /api/categorias to the catalog fixture and PATCH
+// /api/transacciones/*/categoria to a 200 success. All other requests
+// (e.g. TanStack Query background refetches) are served with the catalog.
+function stubFetchInteraccion(catalogo: CatalogoDto = CATALOGO_FIXTURE) {
+  const reclasificarDto = {
+    id: 'tx-1',
+    categoria: { id: 'cat-1', nombre: 'Paseos' },
+    bucket: 'Deseos',
+  };
+  const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+    if (init?.method === 'PATCH' && url.includes('/categoria')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(reclasificarDto),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(catalogo),
+    } as Response);
+  });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
@@ -749,5 +796,152 @@ describe('BucketDetalleMesPage', () => {
     await waitFor(() =>
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2),
     );
+  });
+
+  // T-06 case (a): Falsifiability: if ReclasificarCategoriaControl fires
+  // onMovida synchronously (before the PATCH settles), the text would appear
+  // regardless of mutation result. With the fix, onMovida fires only on
+  // mutation success. The exact label 'Movida a Gustos.' (not raw 'Deseos')
+  // pins the ETIQUETA_BUCKET mapping.
+  it('T-06(a): cross-bucket reclassify from a Necesidades row to a Deseos categoría surfaces "Movida a Gustos." in the page-owned role=status region; region is not inside any grupo (D-07)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    // Wait for catalog to settle — the select must be enabled before we
+    // can interact with it (all selects share the ['categorias'] query).
+    const selects = await screen.findAllByRole('combobox');
+    // The first visible row belongs to the Ñoquis group (Necesidades bucket
+    // in dtoCompleto). Wait for the first select to be enabled.
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // Cross-bucket: Necesidades row → Paseos (Deseos) triggers the dialog.
+    await user.selectOptions(primerSelect, 'Paseos');
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    // The page-owned status region must update to the exact literal.
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Gustos.'),
+    );
+
+    // The region must NOT be inside a grupo-movimientos section (page-level
+    // sibling, survives the moved row's unmount — D-07, ListaIngestas class).
+    expect(
+      statusRegion.closest('[data-testid="grupo-movimientos"]'),
+    ).toBeNull();
+  });
+
+  // T-06 case (c): a second cross-bucket move replaces the prior announcement
+  // (last-move-wins, not appended).
+  it('T-06(c): a subsequent cross-bucket move to an Ahorro categoría replaces the prior announcement with "Movida a Ahorro." (D-07, replacement not append)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    const selects = await screen.findAllByRole('combobox');
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // First cross-bucket move: Necesidades → Deseos → "Movida a Gustos."
+    await user.selectOptions(primerSelect, 'Paseos');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Gustos.'),
+    );
+
+    // Second cross-bucket move: pick a second select (different row) and
+    // move to Ahorro — the announcement must be replaced, not appended.
+    // Re-query selects after the first move settles.
+    const selectsDopo = screen.getAllByRole('combobox');
+    const segundoSelect = selectsDopo[1] as HTMLSelectElement;
+    await waitFor(() => expect(segundoSelect).not.toBeDisabled());
+
+    await user.selectOptions(segundoSelect, 'Ahorro');
+    const dialog2 = await screen.findByRole('alertdialog');
+    expect(dialog2).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Ahorro.'),
+    );
+    // The text is replaced, not appended — must not contain the first announcement.
+    expect(statusRegion).not.toHaveTextContent('Gustos');
+  });
+
+  // Fix 5: periodo change clears the announcement.
+  it('Fix-5: announcement clears when periodo prop changes (useEffect on periodo)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    const { rerenderConRouter } = renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    const selects = await screen.findAllByRole('combobox');
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // Set the announcement via a cross-bucket move.
+    await user.selectOptions(primerSelect, 'Paseos');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Gustos.'),
+    );
+
+    // Change the periodo prop — the announcement must clear.
+    rerenderConRouter(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-06"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await waitFor(() => expect(statusRegion).toHaveTextContent(''));
   });
 });

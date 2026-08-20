@@ -905,6 +905,46 @@ describe('ReclasificarCategoriaControl', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('a cross-bucket FAILED PATCH does NOT call onMovida and the error copy renders (Fix 1 falsifiability)', async () => {
+    // Falsifiability: with the old synchronous onMovida() call inside confirmar()
+    // (before mutation settles), this test fails — onMovida fires even on a
+    // 404 response. With onMovida moved into mutation onSuccess, it must NOT
+    // fire when the PATCH rejects.
+    mockFetch({ ok: false, status: 404 });
+    const onMovida = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual="Delivery"
+        periodo="2026-07"
+        onMovida={onMovida}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Uber Eats',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // Cross-bucket: Deseos → Necesidades opens the confirmation dialog.
+    await user.selectOptions(select, 'Transporte');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    // The mutation rejects with a 404: the error copy must appear and
+    // onMovida must NOT have been called.
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(onMovida).not.toHaveBeenCalled();
+    // The select reverts to the original categoría (existing error path behavior).
+    expect(select.value).toBe('Delivery');
+  });
+
   it('an unresolved categoría (not found in the live catalog) is rejected as an error, never auto-committed as if same-bucket (ADR-015 fail-safe direction)', async () => {
     const fetchMock = mockFetch({
       ok: true,

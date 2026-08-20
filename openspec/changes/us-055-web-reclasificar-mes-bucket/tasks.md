@@ -16,7 +16,7 @@ Chained PRs recommended: No
 
 ---
 
-## T-00 — Docs PR: commit planning artifacts (separate docs-only PR, before the code PR)
+## T-00 — [x] Docs PR: commit planning artifacts (separate docs-only PR, before the code PR) ✅ (be7b9796)
 
 **Pattern**: US-054 precedent — planning docs went into a separate `docs(openspec):` PR (#427) before the code PR. The `us-055-web-reclasificar-mes-bucket/` change directory (proposal, specs, design, tasks) is uncommitted on the worktree and must be committed and merged to `main` first, so the code PR's merge base is clean.
 
@@ -34,7 +34,7 @@ Branch off `main` after T-00 merges. Work-unit commit order follows design §7.
 
 ---
 
-### T-01 — RED: invalidation count tests (both sites) — `['ingresos-mes']` key missing
+### T-01 — [x] RED: invalidation count tests (both sites) — `['ingresos-mes']` key missing ✅ (42e59155)
 
 **Design refs**: D-03, D-09  
 **Spec refs**: WDM-07 (4-key count), WDM-09 (5-clave count)  
@@ -57,7 +57,7 @@ Branch off `main` after T-00 merges. Work-unit commit order follows design §7.
 
 ---
 
-### T-02 — GREEN: add `['ingresos-mes']` to both invalidation sites
+### T-02 — [x] GREEN: add `['ingresos-mes']` to both invalidation sites ✅ (fb9e735b)
 
 **Design refs**: D-09  
 **Spec refs**: WDM-07, WDM-09  
@@ -78,7 +78,7 @@ Branch off `main` after T-00 merges. Work-unit commit order follows design §7.
 
 ---
 
-### T-03 — RED: control tests — 3-group restriction + `onMovida` callback + `aria-describedby`
+### T-03 — [x] RED: control tests — 3-group restriction + `onMovida` callback + `aria-describedby` ✅ (3d7ed7a5)
 
 **Design refs**: D-06, D-07, D-08  
 **Spec refs**: WCAT-04 (optgroup restriction, cross-bucket announcement, alertdialog aria-describedby, focus)  
@@ -103,7 +103,7 @@ Rewritten/new behavior cases (these fail RED before the source changes):
 
 ---
 
-### T-04 — GREEN: control — local `BUCKETS_ASIGNABLES` filter + required `onMovida` + `aria-describedby` + remove stale span
+### T-04 — [x] GREEN: control — local `BUCKETS_ASIGNABLES` filter + required `onMovida` + `aria-describedby` + remove stale span ✅ (61d1501a)
 
 **Design refs**: D-06, D-07, D-08  
 **Spec refs**: WCAT-04  
@@ -125,7 +125,7 @@ Rewritten/new behavior cases (these fail RED before the source changes):
 
 ---
 
-### T-05 — GREEN: thread `onMovida` through `GrupoMovimientos` + create `GrupoMovimientos.test.tsx`
+### T-05 — [x] GREEN: thread `onMovida` through `GrupoMovimientos` + create `GrupoMovimientos.test.tsx` ✅ (603a33d1)
 
 **Design refs**: D-07  
 **Spec refs**: WCAT-04 (callback thread, WDM-07)  
@@ -149,7 +149,7 @@ Rewritten/new behavior cases (these fail RED before the source changes):
 
 ---
 
-### T-06 — GREEN: page-owned `role="status"` region + `anuncio` state + `BucketDetalleMesPage` tests
+### T-06 — [x] GREEN: page-owned `role="status"` region + `anuncio` state + `BucketDetalleMesPage` tests ✅ (6fcf9795; JD fixes: periodo-clear + T-06a/c page-level interaction tests in f35a4382)
 
 **Design refs**: D-07  
 **Spec refs**: WCAT-04 (announcement semantics, region visibility, persistence)  
@@ -181,7 +181,8 @@ Persistence semantics (tested via case (a) baseline + a subsequent move):
 
 ---
 
-### T-07 — chore: eslint a11y promotion — `ReclasificarCategoriaControl.tsx` to `error` block
+### T-07 — [x] chore: eslint a11y promotion — `ReclasificarCategoriaControl.tsx` to `error` block ✅ (2891c561)
+<!-- Deviation: committed as `chore(web):` not `chore(web/eslint):` as the task specified. Recorded as a known deviation — history not rewritten. -->
 
 **Design refs**: D-08  
 **Spec refs**: WCAT-04 (a11y promotion; FILE-LIST, not a glob)  
@@ -208,7 +209,7 @@ NOT a `src/components/**` glob (would absorb the app's a11y debt). Add ONLY `Rec
 
 ---
 
-### T-08 — test(e2e): extend bucket e2e — cross-bucket reclassify announces + row leaves + periodo persists
+### T-08 — [x] test(e2e): extend bucket e2e — cross-bucket reclassify announces + row leaves + periodo persists ✅ (1ac8bc7e initial e2e stub; JD fixes: stateful stub + row-disappearance assert + correct direction in f35a4382)
 
 **Design refs**: D-07, D-09  
 **Spec refs**: WCAT-04, WDM-07 (e2e scenario: announce + row gone + periodo)  

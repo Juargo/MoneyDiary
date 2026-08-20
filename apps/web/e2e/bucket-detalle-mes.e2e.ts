@@ -173,7 +173,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await expect(page.getByTestId('usage-bar')).toHaveCount(0);
   });
 
-  test('cross-bucket reclassify surfaces "Movida a Necesidades." in the page-owned role=status region and URL retains ?periodo= (US-055, D-07/WCAT-04)', async ({
+  test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -181,34 +181,42 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       'Reclassify interaction case, scoped to the escritorio project (1280px).',
     );
 
-    // Load Deseos page — Paseos group (4 transactions) is visible. Supermercado
-    // (Necesidades) is in the catalog stub, so picking it for a Paseos row is a
-    // cross-bucket move (Deseos → Necesidades).
-    await page.goto('/buckets/Deseos?periodo=2026-07');
+    // Load Necesidades page — Paseos group (4 transactions) is visible.
+    // CATALOGO_FIXTURE has Streaming (Deseos), so picking it for a Paseos
+    // row is a cross-bucket move (Necesidades → Deseos), which announces
+    // ETIQUETA_BUCKET['Deseos'] = 'Gustos'.
+    await page.goto('/buckets/Necesidades?periodo=2026-07');
     // Wait for first group heading to confirm the page has settled.
     await expect(page.getByRole('heading', { name: /Paseos/ })).toBeVisible();
 
     // The catalog must load before the select enables — wait for it.
+    // The first visible row in the Paseos group is 'Uber' (tx-p1).
     const select = page.getByLabel('Cambiar categoría de Uber');
     await expect(select).toBeEnabled({ timeout: 5000 });
 
-    // Pick Supermercado (Necesidades) — cross-bucket from Deseos.
-    await select.selectOption({ label: 'Supermercado' });
+    // Pick Streaming (Deseos) — cross-bucket from Necesidades.
+    await select.selectOption({ label: 'Streaming' });
 
     // Confirm the alertdialog that appears for a cross-bucket move.
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toBeVisible();
     await page.getByRole('button', { name: 'Confirmar' }).click();
 
-    // (i) The page-owned role="status" region must show the announcement.
-    // ETIQUETA_BUCKET['Necesidades'] = 'Necesidades', so the literal is
-    // "Movida a Necesidades." (with period, per D-07).
-    await expect(page.getByRole('status')).toContainText(
-      'Movida a Necesidades.',
-    );
+    // (i) The page-owned announcement region must show the exact literal.
+    // ETIQUETA_BUCKET['Deseos'] = 'Gustos', so the literal is "Movida a
+    // Gustos." (with period, per D-07). Scope to the announcement region
+    // (data-testid="anuncio-reclasificar") if two role=status nodes coexist
+    // with the catalog-loading status; use toHaveText for exact match.
+    const anuncio = page.getByTestId('anuncio-reclasificar');
+    await expect(anuncio).toHaveText('Movida a Gustos.');
 
-    // (ii) The URL must still carry ?periodo=2026-07 (no navigation on
+    // (ii) After the PATCH fires, invalidation triggers a refetch. The stub
+    // serves the fixture WITHOUT 'Uber' (tx-p1) once detallePatchFired is
+    // true. Assert the row is gone from the Paseos group.
+    await expect(page.getByText('Uber')).toHaveCount(0);
+
+    // (iii) The URL must still carry ?periodo=2026-07 (no navigation on
     // reclassify — in-place update only, per WCAT-04/D-07).
-    await expect(page).toHaveURL(/\/buckets\/Deseos\?periodo=2026-07/);
+    await expect(page).toHaveURL(/\/buckets\/Necesidades\?periodo=2026-07/);
   });
 });

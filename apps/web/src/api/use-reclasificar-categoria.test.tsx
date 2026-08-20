@@ -157,6 +157,10 @@ describe('useReclasificarCategoria', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['detalle-bucket-mes', 'Necesidades', 'actual'],
     });
+    // ['resumen-anual'] is a prefix invalidation — no period segment appended
+    // (the hook does not know which annual period the client cached, same
+    // reasoning as ['ingresos-mes'] prefix). The title claims it; pin it here.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['resumen-anual'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ingresos-mes'] });
     expect(invalidateSpy).toHaveBeenCalledTimes(4);
   });
