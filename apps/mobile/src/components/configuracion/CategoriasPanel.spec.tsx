@@ -1,7 +1,7 @@
 /**
- * CategoriasPanel.spec.tsx — US-044 PR5b, T5b.3 (RED → GREEN)
+ * CategoriasPanel.spec.tsx — US-044 PR5b/PR5c, T5b.3/T5c.3
  *
- * Tests (13 cases):
+ * Tests (14 cases):
  *  1. Groups render in fixed order Necesidades → Gustos → Ahorro
  *     (ETIQUETA_BUCKET: wire 'Deseos' → display 'Gustos') — MCTG-01
  *     Single getAllByRole('header') query — genuinely ordered, not assembled manually.
@@ -18,12 +18,14 @@
  * 11. 'Eliminar categoría' absent from the list — cross-ref: PR6a positive case (D-12, class 3)
  * 12. CategoriasPanel does NOT call fetchCatalogo itself — catalog state stays owned by the route
  * 13. Unknown-bucket category renders under the trailing 'Otros' group heading (MCFG-MCTG-08)
+ * 14. [PR5c T5c.3] Toggle reveals the REAL NuevaCategoriaForm (not the placeholder)
  */
 import {
   render,
   screen,
   within,
   fireEvent,
+  act,
 } from '@testing-library/react-native';
 import type { CatalogoDto } from '../../domain/catalogo.types';
 import { CategoriasPanel } from './CategoriasPanel';
@@ -35,6 +37,14 @@ jest.mock('expo-router', () => ({
     push: mockPush,
     back: jest.fn(),
   }),
+}));
+
+// Mock crearCategoria so NuevaCategoriaForm (rendered after toggle) does not
+// fire real HTTP calls in this suite. The spec's focus is the toggle itself,
+// not the form's mutation behaviour (that is NuevaCategoriaForm.spec.tsx's job).
+jest.mock('../../api/categorias', () => ({
+  ...jest.requireActual('../../api/categorias'),
+  crearCategoria: jest.fn().mockResolvedValue({ ok: true, value: undefined }),
 }));
 
 // Sample catalog: categories across all 3 known buckets (Necesidades, Deseos/Gustos, Ahorro).
@@ -233,5 +243,28 @@ describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
     await render(<CategoriasPanel catalogo={sampleCatalogo} />);
     // The fact that Agua appears proves the prop was consumed, not internally fetched
     expect(screen.getByRole('button', { name: 'Agua' })).toBeOnTheScreen();
+  });
+
+  it('[PR5c T5c.3] toggle reveals the REAL NuevaCategoriaForm, not the placeholder', async () => {
+    await render(<CategoriasPanel catalogo={catalogoVacio} />);
+
+    // Before toggle: the placeholder testID must be absent (PR5b shipped the
+    // placeholder; PR5c replaces it with the real form)
+    expect(screen.queryByTestId('nueva-categoria-form-placeholder')).toBeNull();
+    // The form itself should not be visible yet
+    expect(screen.queryByTestId('nueva-categoria-form')).toBeNull();
+
+    // Toggle the form open
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Nueva categoría' }));
+    });
+
+    // The REAL form must now be visible (NuevaCategoriaForm's root testID)
+    expect(screen.getByTestId('nueva-categoria-form')).toBeOnTheScreen();
+    // The placeholder must remain absent — it was replaced, not hidden
+    expect(screen.queryByTestId('nueva-categoria-form-placeholder')).toBeNull();
+    // The Nombre field and bucket chips confirm the real form rendered
+    expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
   });
 });

@@ -603,7 +603,7 @@ Requirements: MCTG-02, MCTG-07 (negative: creation does not refresh the dashboar
 (`CategoriasPanel`'s toggle placeholder), PR2b (`crearCategoria`), PR3a (`CampoTexto`/
 `SelectorChips`).
 
-- [ ] **T5c.1 (RED)** Create `apps/mobile/src/components/configuracion/NuevaCategoriaForm.spec.tsx`
+- [x] **T5c.1 (RED)** Create `apps/mobile/src/components/configuracion/NuevaCategoriaForm.spec.tsx`
       (~9 cases): renders `nombre` (`CampoTexto`) + `bucket` (`SelectorChips`), both required — submit
       is disabled/no-op with either empty; a valid submit calls `crearCategoria({nombre, bucket})`
       (spy via `jest.mock`, never a prop-identity probe); success closes the form and triggers the
@@ -612,21 +612,31 @@ Requirements: MCTG-02, MCTG-07 (negative: creation does not refresh the dashboar
       is NOT called on a successful creation** — MCTG-07's negative-1 scenario (judgment-anticipated
       class 5), asserted against the REAL `resumen-refresh` module, never mocked away.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test NuevaCategoriaForm.spec.tsx`
-- [ ] **T5c.2 (GREEN)** Create `apps/mobile/src/components/configuracion/NuevaCategoriaForm.tsx` —
+- [x] **T5c.2 (GREEN)** Create `apps/mobile/src/components/configuracion/NuevaCategoriaForm.tsx` —
       inline form at the top of the list (design §1.10, not a route — a not-yet-created categoría
       has no id and cannot own patterns).
       - Verify: `pnpm --filter @moneydiary/mobile test NuevaCategoriaForm.spec.tsx` — 9 green.
-- [ ] **T5c.3** In `apps/mobile/src/components/configuracion/CategoriasPanel.tsx`, replace PR5b's
+- [x] **T5c.3** In `apps/mobile/src/components/configuracion/CategoriasPanel.tsx`, replace PR5b's
       toggle placeholder with the real `NuevaCategoriaForm` (mechanical wiring; extend
       `CategoriasPanel.spec.tsx` with 1 integration case: the toggle reveals the real form, not the
       placeholder).
       - Verify: `pnpm --filter @moneydiary/mobile test CategoriasPanel.spec.tsx NuevaCategoriaForm.spec.tsx`
-- [ ] **T5c.4 (REFACTOR + sweep)** Confirm the creation path never imports `solicitarRecargaResumen`
+- [x] **T5c.4 (REFACTOR + sweep)** Confirm the creation path never imports `solicitarRecargaResumen`
       at all — D-11's rule is "consumer-only, called after a bucket change", and zero-import is a
       stronger, more mechanically-checkable guarantee than "calls it and it happens to be a no-op".
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR5c gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~210 lines, 9 new tests. Under budget.
+<!-- REAL NUMBERS (applied 2026-08-19): NuevaCategoriaForm.tsx ~110L + NuevaCategoriaForm.spec.tsx ~200L + CategoriasPanel.tsx +12 (import + onCatalogoChange prop + NuevaCategoriaForm wiring) + CategoriasPanel.spec.tsx +35 (jest.mock crearCategoria + 1 integration test case + updated header comment) + configuracion.tsx +3 (onCatalogoChange wiring) = ~360 total ledger lines (forecast ~210; overrun is spec density — the 9 NuevaCategoriaForm cases required act() wrappers and waitFor patterns per PerfilPanel's established convention, adding ~30L vs. forecast). 10 new tests (9 NuevaCategoriaForm + 1 CategoriasPanel integration). Full suite: 49 suites / 564 tests (554 baseline + 10 new). tsc --noEmit clean.
+
+RED evidence — T5c.1: Cannot find module './NuevaCategoriaForm' from 'src/components/configuracion/NuevaCategoriaForm.spec.tsx'
+
+Key discoveries:
+1. act(async () => { fireEvent.changeText/press }) is REQUIRED for multi-step form interactions (same as PerfilPanel.spec.tsx — comment in PerfilPanel.spec.tsx:13-15 explains why: React 19 concurrent-mode state updates must be flushed before the next fireEvent reads the committed state).
+2. tsc control-flow narrowing: useState<BucketAsignable | ''>('') — the narrowing `const bucketSeleccionado: BucketAsignable | '' = bucket; if (!bucketSeleccionado) return;` correctly narrows for the crearCategoria call. Using `bucket === ''` inside handleGuardar failed because tsc had already narrowed bucket to BucketAsignable via an intermediate const.
+3. Falsifiability of MCTG-07 test: confirmed — adding `solicitarRecargaResumen()` to handleGuardar causes test 7 to FAIL at line 161 (`expect(spySolicitarRecarga).not.toHaveBeenCalled()`). Failure line recorded.
+4. CategoriasPanel gains optional `onCatalogoChange?: () => void` prop — backward-compatible, the configuracion.tsx route passes cargarCatalogo as the callback for immediate post-creation refresh.
+5. Spec imports the REAL resumen-refresh module (not mocked) and uses jest.spyOn — so the spy still tracks calls to the real function. This is what makes the negative assertion non-tautological. -->
 
 ---
 
