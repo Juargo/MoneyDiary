@@ -47,7 +47,9 @@ describe('aDetalleBucketMesViewModel', () => {
     const vm = aDetalleBucketMesViewModel(dto);
     expect(vm.bucket).toBe('Deseos');
     // The VM must NOT produce an etiquetaBucket field — label is component layer
-    expect((vm as Record<string, unknown>).etiquetaBucket).toBeUndefined();
+    expect(
+      (vm as unknown as Record<string, unknown>).etiquetaBucket,
+    ).toBeUndefined();
   });
 
   it('totalLabel preserves digits beyond Number.MAX_SAFE_INTEGER', () => {
