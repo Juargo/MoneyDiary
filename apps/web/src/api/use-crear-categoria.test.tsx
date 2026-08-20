@@ -57,7 +57,7 @@ describe('useCrearCategoria', () => {
     });
   });
 
-  it('al tener éxito invalida EXACTAMENTE las 4 claves del perfil B, en orden: categorias, resumen, resumen-anual, detalle-bucket-mes (WCTG-09 inclusión)', async () => {
+  it('al tener éxito invalida EXACTAMENTE las 5 claves del perfil B, en orden: categorias, resumen, resumen-anual, detalle-bucket-mes, ingresos-mes (WCTG-09/WDM-09 inclusión)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 201 }),
@@ -76,6 +76,7 @@ describe('useCrearCategoria', () => {
       ['resumen'],
       ['resumen-anual'],
       ['detalle-bucket-mes'],
+      ['ingresos-mes'],
     ]);
   });
 
