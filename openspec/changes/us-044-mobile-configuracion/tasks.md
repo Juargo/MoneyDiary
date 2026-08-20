@@ -1004,17 +1004,17 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
 Requirements: MCFG-01 (gear), CQ-2. Depends on ALL prior phases — **D-18: the gear lands LAST**, so
 every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until this PR merges.
 
-- [ ] **T8.1** `apps/mobile/package.json` — run `npx expo install lucide-react-native` (CQ-2,
+- [x] **T8.1** `apps/mobile/package.json` — run `npx expo install lucide-react-native` (CQ-2,
       ADR-027) so Expo resolves the SDK-57-compatible line; `react-native-svg` is already a direct
       dep. Non-test, 1 line.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [ ] **T8.2** `apps/mobile/jest.config.js` — extend `transformIgnorePatterns` for
+- [x] **T8.2** `apps/mobile/jest.config.js` — extend `transformIgnorePatterns` for
       `lucide-react-native` (ESM), in the **same slice as the gear** (design §3 seam 2, §5 cross-slice
       ordering constraint) — otherwise every spec rendering `Header` breaks, including
       `app/index.spec.tsx` and `test/auth-navigation.integration.spec.tsx`. Land T8.1/T8.2 together,
       before T8.3/T8.4.
       - Verify: (re-checked by T8.5 once the real import lands)
-- [ ] **T8.3 (RED)** Create `apps/mobile/src/components/Header.spec.tsx` (~6 cases — **first spec for
+- [x] **T8.3 (RED)** Create `apps/mobile/src/components/Header.spec.tsx` (~6 cases — **first spec for
       this file**, ripgrep-verified none exists today): the gear renders with
       `accessibilityRole="button"`, `accessibilityLabel="Configuración"`; tapping it calls
       `router.push('/configuracion')`; the `☰`/`'Abrir menú'` stub is gone (grep-verify in this task
@@ -1022,10 +1022,10 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
       avatar stays an inert `image`, untouched (D-02); the `Settings` icon is imported per-icon, not
       via a barrel import.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test Header.spec.tsx`
-- [ ] **T8.4 (GREEN)** `src/components/Header.tsx` — replace the inert `☰` with a lucide `Settings`
+- [x] **T8.4 (GREEN)** `src/components/Header.tsx` — replace the inert `☰` with a lucide `Settings`
       gear doing `router.push('/configuracion')` (design §1.14/D-02); avatar untouched.
       - Verify: `pnpm --filter @moneydiary/mobile test Header.spec.tsx` — 6 green.
-- [ ] **T8.5 (REFACTOR + sweep)** Full-suite regression: confirm `app/index.spec.tsx` and
+- [x] **T8.5 (REFACTOR + sweep)** Full-suite regression: confirm `app/index.spec.tsx` and
       `test/auth-navigation.integration.spec.tsx` (both render `Header` in their tree) still pass
       with the real `lucide-react-native` import + the widened `transformIgnorePatterns` (design §3
       seam 2's stated risk). Confirm the two new routes (`configuracion`, `categoria/[id]`) are now
@@ -1034,6 +1034,54 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR8 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~116 lines, 6 new tests. Under budget.
+<!-- REAL NUMBERS (applied 2026-08-20):
+  apps/mobile/package.json          +1 (lucide-react-native ^1.33.0)
+  pnpm-lock.yaml                    modified (new package)
+  apps/mobile/jest.config.js        +28/−13 (moduleNameMapper approach: redirects to CJS build at
+                                    dist/cjs/lucide-react-native.js via rootDir path — the package's
+                                    `exports` map resolves to ESM .mjs which Babel cannot parse;
+                                    transformIgnorePatterns approach was tried first but failed because
+                                    Jest picks the import condition from exports map before transform)
+  apps/mobile/src/components/Header.tsx  +36/−30 (gear replaces ☰; useRouter added; COLORS.heading
+                                    for icon color; docstring updated with D-18 milestone context)
+  apps/mobile/src/components/Header.spec.tsx  +89 (new — 6 tests; first spec for this file)
+  docs/adr/README.md               +1/−1 (ADR-038 status: 🔵 Propuesto → ✅ Decidido, T9.6)
+
+  6 new tests (all 6 in Header.spec.tsx). Full suite: 55 suites / 657 tests (651 baseline + 6 new).
+  tsc --noEmit clean. ESLint clean (0 errors, 0 warnings).
+
+  RED evidence (T8.3):
+  - Test 1: "Unable to find an element with accessibility label: Configuración"
+    (current Header had accessibilityLabel="Abrir menú", not "Configuración")
+  - Test 3: getByLabelText('Configuración') fails → router.push never called
+  - Test 4: queryByLabelText('Abrir menú') returns non-null (IS found) → toBeNull fails
+  - Line number: Header.spec.tsx:49 (`const gear = screen.getByLabelText('Configuración')`)
+
+  Falsifiability confirmed:
+  1. Removing accessibilityLabel="Configuración" from Header.tsx causes tests 1-3 to FAIL.
+  2. Keeping the ☰ in the render causes test 4 (queryByText('☰')).toBeNull() to FAIL.
+  3. Adding onPress to the avatar causes test 5 (queryByRole('button',{name:'Perfil'})).toBeNull() to FAIL.
+
+  D-18 comment sweep:
+  - apps/mobile/src/components/Header.tsx: docstring updated — the old "hamburger kept for later,
+    one-liner wiring" claim is replaced with accurate D-18 milestone language (past-tense: "were
+    UI-unreachable until this gear landed").
+  - No other production file had stale "until PR8" or "unreachable until gear" comments
+    (rg sweep confirmed: zero matches across apps/mobile/**/*.{ts,tsx}).
+  - The D-18 in apps/mobile/app/index.tsx:89 is US-050's own D-18 (a different design decision
+    about fresh fetches), not US-044's — confirmed not stale, not updated.
+
+  Deviation from design:
+  - T8.2 used `moduleNameMapper` (CJS redirect) instead of extending `transformIgnorePatterns`.
+    Rationale: `lucide-react-native`'s `exports` map resolves the `.` entry to the `.mjs` ESM file
+    under Jest's module resolution BEFORE the transform step runs, so `transformIgnorePatterns`
+    alone cannot prevent the ESM parse error. The `moduleNameMapper` approach redirects at the
+    resolution step, before any transform decision. Both approaches are documented in the
+    jest.config.js comment. Production (Metro) is unaffected — Metro resolves differently and
+    the tree-shaking still applies.
+-->
+
+---
 
 ---
 
@@ -1042,14 +1090,16 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
 Depends on all 14 prior slices landing (on `main`, per whichever chain strategy is resolved at the
 apply gate — resolved: stacked-to-main, see Review Workload Forecast).
 
-- [ ] **T9.1** Full mobile battery: `pnpm --filter @moneydiary/mobile test` (full suite) ·
+- [x] **T9.1** Full mobile battery: `pnpm --filter @moneydiary/mobile test` (full suite) ·
       `pnpm --filter @moneydiary/mobile exec tsc --noEmit` · `pnpm --filter @moneydiary/mobile lint`.
       Do not pipe test output through `rg`/`grep` in a way that masks the exit code — run each
       command standalone and read its own exit status.
+      <!-- RESULT: 55 suites / 657 tests passed; tsc --noEmit clean; ESLint 0 errors 0 warnings -->
 - [ ] **T9.2 (Wireframe conformance pass)** On the EAS internal build or Expo Go (ADR-022), compare
       the rendered screens against wireframes M1 (Perfil), M2 (Categorías), M3 (Editar categoría).
       Record pass/fail per acceptance criterion (CA-01..CA-05, proposal §1) in this task's completion
       note.
+      <!-- PENDING: requires device/EAS build — manual verification step post-PR8 merge -->
 - [ ] **T9.3 (Manual/EAS checklist — NOT a CI gate)**
       - `useFocusEffect`'s re-focus refetch is Maestro/manual ONLY (design §3 seam 1 — RNTL cannot
         simulate a real re-focus without a navigator; the mount-fire path is what T3b.4's mock
@@ -1060,17 +1110,24 @@ apply gate — resolved: stacked-to-main, see Review Workload Forecast).
       - Confirm the `lucide-react-native` `Settings`/`Trash2` icons render correctly on both
         platforms.
       - Log the device/build used and the result here.
-- [ ] **T9.4 (Ledger reconciliation)** Record REAL final line/test counts per slice vs. design §5's
+      <!-- PENDING: requires device/EAS build -->
+- [x] **T9.4 (Ledger reconciliation)** Record REAL final line/test counts per slice vs. design §5's
       forecast (~5 340 lines / 14 slices) — same discipline as US-050's closing phase. Note any
       divergence before archiving; do not let the ledger go stale.
-- [ ] **T9.5** Confirm no backend/schema/contract change shipped: zero edits under `apps/api`, zero
+      <!-- RESULT: see PR8 REAL NUMBERS comment above and prior slices' REAL NUMBERS comments.
+      Final suite: 657 tests / 55 suites. All prior slice REAL NUMBERS are inline above each gate. -->
+- [x] **T9.5** Confirm no backend/schema/contract change shipped: zero edits under `apps/api`, zero
       `openapi.json` change, zero edits under `apps/web` (proposal §5/§9's explicit boundary); zero
       Prisma migration introduced.
-- [ ] **T9.6** Confirm ADR-038's status flips from `🔵 Propuesto` to `✅ Decidido` once PR1 merges
+      <!-- RESULT: git diff --name-only confirms only apps/mobile/*, docs/adr/README.md, pnpm-lock.yaml -->
+- [x] **T9.6** Confirm ADR-038's status flips from `🔵 Propuesto` to `✅ Decidido` once PR1 merges
       (per its own "Fecha de decisión: pendiente" note) — update `docs/adr/README.md`'s ADR-038 row
       status accordingly.
+      <!-- RESULT: docs/adr/README.md ADR-038 row updated to ✅ Decidido in this PR8 commit -->
 - [ ] **T9.7** Engram/OpenSpec artifact sync: after the last PR in the chain merges, update
       `sdd/us-044-mobile-configuracion/apply-progress` in Engram and confirm this file's checkboxes
       reflect the final state before `sdd-archive`.
+      <!-- PENDING: Engram update happens at end of this apply session (mem_save) -->
 - [ ] **T9.8** Close issue **#278**, linking the merged PR chain (or the tracker-branch merge commit,
       per the chosen chain strategy).
+      <!-- PENDING: requires PR8 to merge to main first -->
