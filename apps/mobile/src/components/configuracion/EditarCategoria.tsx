@@ -131,23 +131,31 @@ export function EditarCategoria({
         bucketAnterior: bucketOriginal,
         bucketNuevo: bucket,
       });
-      Alert.alert(titulo, lineas.join('\n'), [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-          onPress: () => {
-            mostrandoAlerta.current = false;
+      // cancelable: false — Android's default is true; backdrop/back-button dismiss
+      // fires no button callback and would leave mostrandoAlerta.current stuck true,
+      // permanently disabling Guardar and Eliminar (dead buttons).
+      Alert.alert(
+        titulo,
+        lineas.join('\n'),
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+            onPress: () => {
+              mostrandoAlerta.current = false;
+            },
           },
-        },
-        {
-          text: textoConfirmar,
-          style: 'destructive',
-          onPress: () => {
-            mostrandoAlerta.current = false;
-            void confirmarCambiarBucket();
+          {
+            text: textoConfirmar,
+            style: 'destructive',
+            onPress: () => {
+              mostrandoAlerta.current = false;
+              void confirmarCambiarBucket();
+            },
           },
-        },
-      ]);
+        ],
+        { cancelable: false },
+      );
       return;
     }
 
@@ -203,23 +211,28 @@ export function EditarCategoria({
       nombre: categoria.nombre,
       transaccionesCount: categoria.transaccionesCount,
     });
-    Alert.alert(titulo, lineas.join('\n'), [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-        onPress: () => {
-          mostrandoAlerta.current = false;
+    Alert.alert(
+      titulo,
+      lineas.join('\n'),
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => {
+            mostrandoAlerta.current = false;
+          },
         },
-      },
-      {
-        text: textoConfirmar,
-        style: 'destructive',
-        onPress: () => {
-          mostrandoAlerta.current = false;
-          void confirmarEliminar();
+        {
+          text: textoConfirmar,
+          style: 'destructive',
+          onPress: () => {
+            mostrandoAlerta.current = false;
+            void confirmarEliminar();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: false },
+    );
   }
 
   return (

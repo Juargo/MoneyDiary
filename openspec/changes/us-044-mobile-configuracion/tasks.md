@@ -751,7 +751,7 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
       from the bucket-change confirm's success path (D-11); post-confirm failures render in an
       `accessibilityRole="alert"` + `accessibilityLiveRegion="polite"` region (the
       `subir.tsx:230-238` idiom).
-      - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 25 green (13 from PR6a + 12 new: 11 PR6b Alert flow + 1 both-dirty fix-1-pin from JD fix round).
+      - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 25 green (13 from PR6a + 12 new: 11 PR6b Alert flow + 1 both-dirty fix-1-pin from JD fix round; cancelable:false 4th-arg pins and retry-after-failure guard-cleared pin added as assertions within existing tests, not new it() blocks — second JD fix round).
 - [x] **T6b.5 (REFACTOR + sweep)** Confirm neither the `snapshotAlAbrirDialogo` freeze nor a
       `disabled`/focus-restore matrix was ported (D-15 — `Alert.alert`'s own modality IS the
       freeze). Confirm `transaccionesCount` is read from the already-loaded DTO in both call sites,
@@ -823,6 +823,21 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
   - Fix 10: singular cambiar-bucket row (count===1) added to impacto-catalogo.spec.ts.
   - Fix 11: unknown-bucket test added to impacto-catalogo.spec.ts (runtime ?? fallback; ETIQUETA_BUCKET
     is Record<string,string> making ?? unreachable per tsc, documented in comment at the call site).
+
+  JD fix round deviations (2026-08-20, judgment-day surgical pass):
+  - Fix 12 (cancelable:false): both Alert.alert calls lacked the 4th options argument. Android
+    default is cancelable:true — backdrop or back-button dismiss fires no button callback and leaves
+    mostrandoAlerta.current stuck true, permanently disabling Guardar and Eliminar (dead buttons).
+    Fixed: { cancelable: false } added as the 4th argument to both Alert.alert calls (bucket-change
+    in handleGuardar, delete in handleEliminar). Comment placed on the bucket-change call site.
+  - Fix 13 (4th-arg pin): the primary bucket-change Alert test and the primary delete Alert test now
+    assert spyAlert.mock.calls[0][3] toEqual { cancelable: false }, pinning fix 12.
+  - Fix 14 (retry-after-failure guard pin): the post-confirm bucket-change failure test now presses
+    Guardar again after the error renders (mockClear first) and asserts spyAlert fires a NEW Alert.
+    This pins that mostrandoAlerta.current is cleared synchronously in the confirm onPress callback
+    (before the async mutation), not inside the async callback after the await — a failed mutation
+    must never leave dead buttons. Falsifiability: moving the guard-clear into the async callback
+    after the await causes this test to FAIL (spyAlert stays at 0 calls after mockClear).
 -->
 
 ---

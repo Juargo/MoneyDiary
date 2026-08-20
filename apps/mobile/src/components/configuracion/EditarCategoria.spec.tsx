@@ -506,6 +506,10 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     }[];
     expect(buttons[0].style).toBe('cancel');
     expect(buttons[1].style).toBe('destructive');
+
+    // cancelable:false — Android backdrop/back dismiss fires no callback and
+    // would leave mostrandoAlerta.current stuck true (dead buttons).
+    expect(spyAlert.mock.calls[0][3]).toEqual({ cancelable: false });
   });
 
   it('bucket-dirty + Guardar Alert: cancel button does NOT send the PATCH', async () => {
@@ -644,6 +648,10 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     }[];
     expect(buttons[0].style).toBe('cancel');
     expect(buttons[1].style).toBe('destructive');
+
+    // cancelable:false — Android backdrop/back dismiss fires no callback and
+    // would leave mostrandoAlerta.current stuck true (dead buttons).
+    expect(spyAlert.mock.calls[0][3]).toEqual({ cancelable: false });
   });
 
   it('zero-transaction Eliminar still opens confirm (softened wording, never skips)', async () => {
@@ -832,6 +840,17 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     });
 
     expect(mockOnGuardado).not.toHaveBeenCalled();
+
+    // Guard cleared synchronously before the async mutation — a failed mutation
+    // must never leave dead buttons. Pressing Guardar again fires a NEW Alert.
+    // Falsifiability: moving the mostrandoAlerta.current = false into the async
+    // callback (after the await) would leave the guard stuck true on failure,
+    // and this assertion would fail (spyAlert still at 1 call, not 2).
+    spyAlert.mockClear();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+    expect(spyAlert).toHaveBeenCalledTimes(1);
   });
 
   it('post-confirm delete failure renders in the screen role="alert" region (R5, design §1.11)', async () => {
