@@ -720,7 +720,7 @@ Requirements: MCTG-03 (bucket-change confirmation half), MCTG-05, MCTG-07 (posit
 delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm hooks), PR5a
 (`mensajes-catalogo.ts` for a failed-confirm error).
 
-- [x] **T6b.1 (RED)** Create `apps/mobile/src/domain/impacto-catalogo.spec.ts` (~10 cases): both
+- [ ] **T6b.1 (RED)** Create `apps/mobile/src/domain/impacto-catalogo.spec.ts` (~10 cases): both
       `tipo`s (`eliminar-categoria`, `cambiar-bucket`) × `count>0`/`count===0` — three distinct frozen
       bodies (delete-with-transactions, delete-zero, bucket-change), asserting the **exact frozen
       lines** from proposal §3 verbatim; the zero case **softens the sentence, never skips the
@@ -728,11 +728,11 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
       early-exit); closed by a `const _exhaustive: never` guard (tsc-enforced totality, same
       discipline as `mensajeDeResultado`).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts`
-- [x] **T6b.2 (GREEN)** Create `apps/mobile/src/domain/impacto-catalogo.ts` — `ImpactoCatalogo` union
+- [ ] **T6b.2 (GREEN)** Create `apps/mobile/src/domain/impacto-catalogo.ts` — `ImpactoCatalogo` union
       + `fraseDeImpacto`, ported verbatim from `apps/web/.../categorias/mensajes-catalogo.ts:180-247`
       (design §1.6).
-      - Verify: `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts` — 18 green (JD fix round added exact-literal zero asserts, singular count===1 row, unknown-bucket fallback test: 12 → 18).
-- [x] **T6b.3 (RED)** In `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`, add +11
+      - Verify: `pnpm --filter @moneydiary/mobile test impacto-catalogo.spec.ts` — 10 green.
+- [ ] **T6b.3 (RED)** In `apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx`, add +11
       cases (both `Alert.alert` flows, `jest.spyOn(Alert, 'alert')` per design §3): a dirty `Bucket`
       + `Guardar` opens the impact `Alert.alert` with the exact `{titulo, lineas.join('\n')}` and a
       `style:'destructive'` confirm + `style:'cancel'` cancel (design §1.11) BEFORE any `PATCH` fires
@@ -746,98 +746,19 @@ delete does not refresh). Depends on PR6a (`EditarCategoria`'s stubbed confirm h
       negative-3 scenario (D-11); a post-confirm failure (either flow) renders in the screen's own
       `role="alert"` region, not inside the dismissed `Alert` (R5, design §1.11's residual).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx`
-- [x] **T6b.4 (GREEN)** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, wire both
+- [ ] **T6b.4 (GREEN)** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, wire both
       `Alert.alert` flows per design §1.11's exact shape; `solicitarRecargaResumen()` called only
       from the bucket-change confirm's success path (D-11); post-confirm failures render in an
       `accessibilityRole="alert"` + `accessibilityLiveRegion="polite"` region (the
       `subir.tsx:230-238` idiom).
-      - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 25 green (13 from PR6a + 12 new: 11 PR6b Alert flow + 1 both-dirty fix-1-pin from JD fix round; cancelable:false 4th-arg pins and retry-after-failure guard-cleared pin added as assertions within existing tests, not new it() blocks — second JD fix round).
-- [x] **T6b.5 (REFACTOR + sweep)** Confirm neither the `snapshotAlAbrirDialogo` freeze nor a
+      - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx` — 20 green (9 from PR6a + 11 new).
+- [ ] **T6b.5 (REFACTOR + sweep)** Confirm neither the `snapshotAlAbrirDialogo` freeze nor a
       `disabled`/focus-restore matrix was ported (D-15 — `Alert.alert`'s own modality IS the
       freeze). Confirm `transaccionesCount` is read from the already-loaded DTO in both call sites,
       never re-fetched.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
-**PR6b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, 21 new tests (original apply). Under budget.
-<!-- REAL NUMBERS (applied 2026-08-20, updated post-JD-fix-round 2026-08-20):
-  From `git diff origin/main...HEAD --numstat` (final, post both JD fix rounds):
-  apps/mobile/src/domain/impacto-catalogo.ts         +115 (new — fraseDeImpacto + ImpactoCatalogo + ?? comment)
-  apps/mobile/src/domain/impacto-catalogo.spec.ts    +235 (new — 18 tests: per-type count>0/count=0 exact-literal suites + singular eliminar + singular cambiar-bucket + unknown-bucket fallback + exhaustiveness marker)
-  apps/mobile/src/components/configuracion/EditarCategoria.tsx  +139/−29 (MOD — both Alert.alert flows with cancelable:false + solicitarRecargaResumen on bucket-change success + useRef double-Alert guard)
-  apps/mobile/src/components/configuracion/EditarCategoria.spec.tsx  +585/−23 (MOD — 25 tests total: 13 PR6a-era + 12 PR6b/JD new: Alert flows both branches, both-dirty draft-name pin, 2 double-tap-guard pins, cancelable:false 4th-arg pins, retry-after-failure guard pin)
-  openspec/changes/us-044-mobile-configuracion/tasks.md  +88/−8 (T6b counts + REAL NUMBERS + JD deviations)
-  Net new tests: 30 (625 total − 595 baseline) = 18 impacto-catalogo + 12 EditarCategoria.
-  Full suite post-JD-fix: 52 suites / 625 tests. tsc --noEmit clean.
-
-  ImpactoCatalogo type: 'eliminar-categoria' (not 'eliminar' as in web) — self-documenting rename;
-  web's 'eliminar' is ambiguous on mobile where the concept could be categoria OR patron.
-
-  RED evidence:
-  - T6b.1: Cannot find module './impacto-catalogo' from 'src/domain/impacto-catalogo.spec.ts'
-  - T6b.3: 10 failures — Alert.alert not called (early-return stub still in handleGuardar;
-    eliminarCategoria called directly in handleEliminar)
-
-  Falsifiability confirmed (original apply):
-  1. MCTG-07 positive (bucket-change): removing solicitarRecargaResumen() from confirmarCambiarBucket
-     causes "confirm button sends PATCH + solicitarRecargaResumen (MCTG-07 positive)" to FAIL.
-  2. MCTG-07 negative-3 (delete): adding solicitarRecargaResumen() to confirmarEliminar's success
-     path causes "successful delete does NOT call solicitarRecargaResumen (MCTG-07 negative-3, D-11)"
-     to FAIL.
-
-  Falsifiability confirmed (JD fix round 2026-08-20):
-  3. Fix 1 (draft-name): reverting nombre.trim() → categoria.nombre in fraseDeImpacto call causes
-     "both-dirty … Alert body references draft nombre" to FAIL (observed at line "expect(received).toBe(expected)").
-  4. Fix 2 (double-Alert guard): removing mostrandoAlerta.current guard causes both
-     "double-tap guard: rapid double press on Guardar" and "…Eliminar" to FAIL
-     (spyAlert called twice instead of once).
-
-  PR6a tests updated (not regressed): "Eliminar failure renders the error alert" and "Eliminar is
-  disabled and shows 'Eliminando…' while in-flight" both adapted to flow through Alert confirmation
-  (which is correct: PR6b changes how Eliminar works — the PR6a stub is gone).
-
-  Binding obligations from original instructions all satisfied:
-  1. WRAP eliminarCategoria call in Alert.alert — done.
-  2. FLIP bucket-dirty absence test to positive — done.
-  3. CONSUME ETIQUETA_BUCKET + etiquetaTransacciones in impacto-catalogo.ts — done.
-
-  JD fix round deviations (2026-08-20):
-  - Fix 1: fraseDeImpacto in handleGuardar used categoria.nombre (original DTO) instead of
-    nombre.trim() (draft). Alert would name the old name when both nombre AND bucket were edited.
-    Fixed: now passes nombre.trim() matching what confirmarCambiarBucket sends.
-  - Fix 2: no double-Alert guard existed. Rapid double-tap on Guardar (bucket-dirty) or Eliminar
-    could open stacked native Alerts. Fixed: useRef mostrandoAlerta guards both handlers; cancel
-    onPress now exists (clears the guard) instead of being handler-less.
-  - Fix 3: "both-dirty" test added to pin fix 1 (falsifiability: Alert body must show draft name).
-  - Fix 4: cancel tests now invoke cancelBtn.onPress() and assert guard clears (subsequent press
-    opens a new Alert). Previously cancel had no onPress and the test was vacuous on guard clearing.
-  - Fix 5: two double-tap guard tests added (Guardar + Eliminar), each asserting spyAlert called
-    exactly once on rapid double-press (falsifiability: guard removal causes FAIL).
-  - Fix 6: Alert body toContain replaced by toBe (verbatim frozen string) in bucket-change and
-    delete Alert body tests.
-  - Fix 7: spySolicitarRecarga assertion moved inside waitFor in MCTG-07 positive test.
-  - Fix 8: button order assertions added (buttons[0].style === 'cancel', buttons[1].style ===
-    'destructive') in bucket-change and delete Alert tests.
-  - Fix 9: zero-count impacto-catalogo tests replaced toBeDefined() with exact literal asserts on
-    titulo and textoConfirmar (same values as count>0 — that IS the invariant).
-  - Fix 10: singular cambiar-bucket row (count===1) added to impacto-catalogo.spec.ts.
-  - Fix 11: unknown-bucket test added to impacto-catalogo.spec.ts (runtime ?? fallback; ETIQUETA_BUCKET
-    is Record<string,string> making ?? unreachable per tsc, documented in comment at the call site).
-
-  JD fix round deviations (2026-08-20, judgment-day surgical pass):
-  - Fix 12 (cancelable:false): both Alert.alert calls lacked the 4th options argument. Android
-    default is cancelable:true — backdrop or back-button dismiss fires no button callback and leaves
-    mostrandoAlerta.current stuck true, permanently disabling Guardar and Eliminar (dead buttons).
-    Fixed: { cancelable: false } added as the 4th argument to both Alert.alert calls (bucket-change
-    in handleGuardar, delete in handleEliminar). Comment placed on the bucket-change call site.
-  - Fix 13 (4th-arg pin): the primary bucket-change Alert test and the primary delete Alert test now
-    assert spyAlert.mock.calls[0][3] toEqual { cancelable: false }, pinning fix 12.
-  - Fix 14 (retry-after-failure guard pin): the post-confirm bucket-change failure test now presses
-    Guardar again after the error renders (mockClear first) and asserts spyAlert fires a NEW Alert.
-    This pins that mostrandoAlerta.current is cleared synchronously in the confirm onPress callback
-    (before the async mutation), not inside the async callback after the await — a failed mutation
-    must never leave dead buttons. Falsifiability: moving the guard-clear into the async callback
-    after the await causes this test to FAIL (spyAlert stays at 0 calls after mockClear).
--->
+**PR6b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~395 lines, 21 new tests. Under budget.
 
 ---
 
@@ -847,7 +768,7 @@ Requirements: MCTG-04, MCTG-07 (negative-4: pattern mutations do not refresh), M
 on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPatron`/
 `actualizarPatron`/`eliminarPatron`), PR3a (`SelectorChips` for `matchType`).
 
-- [x] **T7.1 (RED)** Create `apps/mobile/src/components/configuracion/PatronesSection.spec.tsx`
+- [ ] **T7.1 (RED)** Create `apps/mobile/src/components/configuracion/PatronesSection.spec.tsx`
       (~8 cases): existing rows render BEFORE new placeholder rows — ORDER pinning
       (judgment-anticipated class 2, the `PatronesSection` half); «Sin patrones: solo asignación
       manual.» renders **always**, identical whether the category has 0 or 3 patterns (MCTG-04's own
@@ -856,10 +777,10 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       until its own confirm; `matchType` chips use `ETIQUETA_MATCH_TYPE` labels (`CONTIENE`/`EMPIEZA
       CON`/`REGEX`), not the raw wire values.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PatronesSection.spec.tsx`
-- [x] **T7.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronesSection.tsx` —
+- [ ] **T7.2 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronesSection.tsx` —
       existing rows + append-only placeholder rows, «Sin patrones…» note always rendered.
       - Verify: `pnpm --filter @moneydiary/mobile test PatronesSection.spec.tsx` — 8 green.
-- [x] **T7.3 (RED)** Create `apps/mobile/src/components/configuracion/PatronFila.spec.tsx`
+- [ ] **T7.3 (RED)** Create `apps/mobile/src/components/configuracion/PatronFila.spec.tsx`
       (~14 cases — the 4-state row machine from design §1.12): `limpio` state hides the confirm
       control; editing → `sucio`, confirm control shows "Guardar patrón"; **new row** (no `id`):
       confirm → `crearPatron` (`prioridad` never in the payload — binding decision 3); delete on a
@@ -876,126 +797,23 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
       `solicitarRecargaResumen()`** — MCTG-07's negative-4 scenario (judgment-anticipated class 5),
       asserted against the REAL `resumen-refresh` module for at least the add and the delete path.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test PatronFila.spec.tsx`
-- [x] **T7.4 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronFila.tsx` — the
+- [ ] **T7.4 (GREEN)** Create `apps/mobile/src/components/configuracion/PatronFila.tsx` — the
       `limpio|sucio|enviando|error` state machine per design §1.12; `SelectorChips` for `matchType`
       (3 chips, D-17); REGEX hint as advisory text only.
       - Verify: `pnpm --filter @moneydiary/mobile test PatronFila.spec.tsx` — 14 green.
-- [x] **T7.5** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, replace PR6a's
+- [ ] **T7.5** In `apps/mobile/src/components/configuracion/EditarCategoria.tsx`, replace PR6a's
       `PatronesSection` placeholder with the real component (mechanical wiring; extend
       `EditarCategoria.spec.tsx` with 1 integration case: pattern commits are independent of the
       categoría's own `Guardar`, and `Cancelar` discards only the identity draft — MCTG-03's own
       "already-committed pattern survives Cancelar" scenario).
       - Verify: `pnpm --filter @moneydiary/mobile test EditarCategoria.spec.tsx PatronesSection.spec.tsx PatronFila.spec.tsx`
-- [x] **T7.6 (REFACTOR + sweep)** Confirm none of web's blur machinery (pointer-intent refs, deferred
+- [ ] **T7.6 (REFACTOR + sweep)** Confirm none of web's blur machinery (pointer-intent refs, deferred
       `setTimeout` replay, focus-restore ref/effect) exists anywhere in `PatronFila.tsx` (D-14 — the
       removal is the point, not an oversight). Confirm `prioridad` is grep-absent from every pattern
       payload across `categorias.ts` and `PatronFila.tsx`.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR7 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~535 lines, 22 new tests. **Over 400-line budget** — `size:exception` candidate, OR split further (section+placeholder rows / the row state machine) per design §5.
-<!-- REAL NUMBERS (final post-JD-fix, from `git diff origin/main...HEAD --numstat`):
-  PatronFila.tsx             +251 (new — 4-state row machine: limpio/sucio/enviando/error; crearPatron/actualizarPatron/
-                                   eliminarPatron; prioridad absent; no Alert.alert on delete; no blur machinery;
-                                   REGEX hint advisory; required rowId prop drives all row-scoped testIDs)
-  PatronFila.spec.tsx        +605 (new — 14 tests: state machine, exact payloads + no-prioridad, no-Alert class 3,
-                                   in-flight disables + «Guardando…» pin, error alert, REGEX advisory,
-                                   MCTG-07 add/delete negatives vs REAL resumen-refresh, getOptionLabel behavior)
-  PatronesSection.tsx        +119 (new — existing rows before placeholders, «Sin patrones…» always, Agregar button,
-                                   monotonic tempId counter nuevo-1/nuevo-2)
-  PatronesSection.spec.tsx   +314 (new — 10 tests incl. two-new-rows distinct testIDs and commit-path
-                                   crearPatron-success-no-refresh from the JD fix round)
-  SelectorChips.tsx          +16/−2 (getOptionLabel prop — binding obligation 1, backward-compatible)
-  SelectorChips.spec.tsx     +34 (getOptionLabel behavior test: custom label renders, onChange emits raw value)
-  EditarCategoria.tsx        +25/−6 (import PatronesSection + replace placeholder + onCatalogoChange prop)
-  EditarCategoria.spec.tsx   +56/−5 (T7.5 integration strengthened in JD fix round: committed pattern mutation
-                                    survives Cancelar; actualizarCategoria never called)
-  app/categoria/[id].tsx     +1 (JD fix round CRITICAL: onCatalogoChange wired to cargarCatalogo)
-  app/categoria/[id].spec.tsx +58 (case 15: pattern mutation triggers second fetchCatalogo — falsifiability confirmed)
-  tasks.md                   +108/−6 (checkboxes + REAL NUMBERS + JD deviations)
-
-  Net new tests: 651 − 625 = 26 (per-file: [id].spec 15, PatronFila 14, PatronesSection 10, EditarCategoria 25,
-  SelectorChips +1). Full suite: 54 suites / 651 tests. tsc --noEmit clean.
-
-  RED evidence:
-  - T7.1 PatronesSection.spec.tsx: Cannot find module './PatronesSection' (module did not exist yet)
-  - T7.3 PatronFila.spec.tsx: Cannot find module './PatronFila' (module did not exist yet)
-  Note: PatronFila.tsx was implemented alongside the spec (implementation was well-understood from design §1.12);
-  all 14 cases passed on the first GREEN run. The class of RED (module-not-found) is the established pattern
-  across all prior slices (PR1–PR6b) and was the natural RED state before the implementation existed.
-
-  Binding obligations satisfied:
-  1. getOptionLabel returns to SelectorChips WITH a behavior test: SelectorChips.spec.tsx case "getOptionLabel:
-     custom label renders while onChange emits the raw option value". PatronFila uses it for ETIQUETA_MATCH_TYPE.
-  2. Every SelectorChips instance has a DISTINCT explicit testID: PatronFila derives all row-scoped
-     testIDs from its required `rowId` prop (`matchtype-selector-${rowId}`). Existing rows: rowId =
-     patron.id; new placeholder rows: rowId = "nuevo-1", "nuevo-2", … (monotonic counter in
-     PatronesSection — JD fix round; distinctness pinned by the two-new-rows test).
-  3. prioridad is NEVER sent: both crearPatron (PatronInput) and actualizarPatron (PatronPatch) types exclude it
-     (tsc-enforced). PatronFila.spec.tsx cases 3 and 5 assert `not.toHaveProperty('prioridad')`.
-  4. Pattern delete commits without Alert (MCTG-04 immediate commits): confirmed per design §1.12. Case 7 asserts
-     spyAlert.not.toHaveBeenCalled() for existing-row delete — paired with PR6b's categoria delete that DOES call it.
-
-  Deviations from design (documented):
-  - PatronFila RED evidence: wrote spec + implementation in same session. The module-not-found error is the correct
-    class of RED (spec ran before implementation existed). Tests passed on first GREEN without iteration — no deviation
-    from the state machine design §1.12 was needed.
-    NOTE (T7.3 RED process debt): spec + implementation were written in the same session; no behavioral RED line was
-    captured (no assertion failed on a partly-wired implementation). Only a module-not-found error was observed.
-    This is the same debt class as PR4b, flagged per the PR4b precedent. The module-not-found error IS the natural
-    RED state before the implementation file exists; it is not a fabricated RED.
-  - T7.5 integration test replaced the PR6a placeholder test ("renders PatronesSection placeholder") which checked
-    for testID='patrones-placeholder'. The placeholder test was the PR6a bridge assertion; T7.5 replaces it correctly
-    per tasks.md ("replace PR6a's PatronesSection placeholder with the real component").
-  - onCatalogoChange is an optional prop on EditarCategoria (backward-compatible). Existing tests omit it; the
-    PatronesSection receives `onCatalogoChange ?? (() => undefined)` as its onPatronesChange — safe no-op.
-
-  Falsifiability confirmed:
-  1. MCTG-07 negative-4 (add): adding solicitarRecargaResumen() to PatronFila's crearPatron success path causes
-     case 11 to FAIL at `expect(spySolicitarRecarga).not.toHaveBeenCalled()`.
-  2. MCTG-07 negative-4 (delete): adding solicitarRecargaResumen() to eliminarPatron success path causes case 12 to FAIL.
-  3. Alert.alert absence (case 7): adding Alert.alert() to handleEliminar (existing row) causes case 7 to FAIL at
-     `expect(spyAlert).not.toHaveBeenCalled()`.
-  4. prioridad absent (case 3): adding prioridad to crearPatron payload causes case 3's `not.toHaveProperty('prioridad')`
-     to FAIL.
-  5. ORDER pinning (case 4 PatronesSection): rendering new rows before existing rows causes case 4 to FAIL at
-     `expect(textInputs[0]).toHaveDisplayValue('LIDER')`.
-  6. getOptionLabel (SelectorChips case 8): removing getOptionLabel prop causes `getByRole('radio', {name:'CONTIENE'})`
-     to not find the element (chip shows 'CONTAINS' raw value instead).
-
-  JD fix round (2026-08-20):
-  - Fix 1 (route wiring CRITICAL): `app/categoria/[id].tsx` rendered `<EditarCategoria>` WITHOUT
-    `onCatalogoChange`, so every pattern mutation hit the silent no-op fallback — deleted patterns persisted
-    on screen, created patterns never appeared. Fixed: added `onCatalogoChange={() => void cargarCatalogo()}`
-    to the EditarCategoria JSX in the route.
-  - Fix 2 (route re-fetch test): `app/categoria/[id].spec.tsx` gained a new test (case 15) asserting that
-    a successful eliminarPatron triggers a SECOND fetchCatalogo call. Falsifiability confirmed: reverting fix 1
-    (removing onCatalogoChange) causes the test to FAIL at `expect(mockFetchCatalogo).toHaveBeenCalledTimes(2)`.
-  - Fix 3 (rowId testIDs): PatronFila gained a required `rowId` prop (replaces the stable-testID useState workaround).
-    All testIDs in a PatronFila row are now derived from `rowId` (`patron-input-${rowId}`,
-    `matchtype-selector-${rowId}`). PatronesSection replaced `Date.now()` with a monotonic useRef counter
-    (`nuevo-1`, `nuevo-2`, …) and passes `rowId` to every PatronFila. All existing PatronFila.spec.tsx renders
-    updated to supply `rowId`. PatronesSection.spec.tsx gained a new test asserting two Agregar presses produce
-    DISTINCT testIDs (patron-input-nuevo-1 / patron-input-nuevo-2).
-  - Fix 4 (MCTG-07 relabel + commit assert): PatronesSection.spec.tsx case 8 relabeled to clarify it tests a
-    UI-only action (zero API calls AND no solicitarRecargaResumen). A new case added: typing into a placeholder row
-    and pressing Guardar patrón (mocked crearPatron success) does NOT call solicitarRecargaResumen — defense-in-depth
-    at section scope, separate from PatronFila.spec.tsx cases 11-12.
-  - Fix 5 (in-flight label pin): PatronFila.spec.tsx case 8 now asserts `getByText('Guardando…')` inside the
-    in-flight window. The accessibilityLabel stays fixed ("Guardar patrón"); only the visible Text changes.
-    Convention from PR6a (fixed labels, dynamic visible text) preserved and documented in comment.
-  - Fix 6 (T7.5 strengthened): EditarCategoria.spec.tsx T7.5 extended — commits an actualizarPatron mutation
-    via the rendered PatronFila, THEN presses Cancelar; asserts (a) actualizarPatron called, (b) onCancelar fired,
-    (c) actualizarCategoria never called. Pins "committed patterns survive Cancelar" (MCTG-03).
-  - Fix 7 (Agregar visible text): design §1.10 D-13 mandates visible text «Agregar» with accessibilityLabel
-    «Agregar patrón». PatronesSection.tsx was already correct; comment updated to explicitly document the split.
-
-  T7.x green counts (post-JD-fix):
-  - PatronesSection.spec.tsx: 10 tests (8 original + 2 JD: distinct-testID + MCTG-07-commit-assert)
-  - PatronFila.spec.tsx: 14 tests (unchanged — fix 5 is an assertion within case 8, not a new test)
-  - EditarCategoria.spec.tsx: 25 tests (T7.5 was replaced in-place — no net new test count from T7.5 fix)
-  - app/categoria/[id].spec.tsx: 15 tests (14 original + 1 JD: route re-fetch via onCatalogoChange)
-  Full suite post-JD-fix: 54 suites / 651 tests. tsc --noEmit clean. -->
-
 
 ---
 
@@ -1004,18 +822,17 @@ on PR6a/PR6b (`EditarCategoria`'s `PatronesSection` placeholder), PR2b (`crearPa
 Requirements: MCFG-01 (gear), CQ-2. Depends on ALL prior phases — **D-18: the gear lands LAST**, so
 every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until this PR merges.
 
-- [x] **T8.1** `apps/mobile/package.json` — run `npx expo install lucide-react-native` (CQ-2,
+- [ ] **T8.1** `apps/mobile/package.json` — run `npx expo install lucide-react-native` (CQ-2,
       ADR-027) so Expo resolves the SDK-57-compatible line; `react-native-svg` is already a direct
       dep. Non-test, 1 line.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`
-- [x] **T8.2** `apps/mobile/jest.config.js` — add a `moduleNameMapper` entry redirecting
-      `lucide-react-native` to its CJS build (supersedes the originally planned
-      `transformIgnorePatterns` extension — see PR8 REAL NUMBERS deviation note), in the **same slice
-      as the gear** (design §3 seam 2, §5 cross-slice ordering constraint) — otherwise every spec
-      rendering `Header` breaks, including `app/index.spec.tsx` and
-      `test/auth-navigation.integration.spec.tsx`. Land T8.1/T8.2 together, before T8.3/T8.4.
+- [ ] **T8.2** `apps/mobile/jest.config.js` — extend `transformIgnorePatterns` for
+      `lucide-react-native` (ESM), in the **same slice as the gear** (design §3 seam 2, §5 cross-slice
+      ordering constraint) — otherwise every spec rendering `Header` breaks, including
+      `app/index.spec.tsx` and `test/auth-navigation.integration.spec.tsx`. Land T8.1/T8.2 together,
+      before T8.3/T8.4.
       - Verify: (re-checked by T8.5 once the real import lands)
-- [x] **T8.3 (RED)** Create `apps/mobile/src/components/Header.spec.tsx` (~6 cases — **first spec for
+- [ ] **T8.3 (RED)** Create `apps/mobile/src/components/Header.spec.tsx` (~6 cases — **first spec for
       this file**, ripgrep-verified none exists today): the gear renders with
       `accessibilityRole="button"`, `accessibilityLabel="Configuración"`; tapping it calls
       `router.push('/configuracion')`; the `☰`/`'Abrir menú'` stub is gone (grep-verify in this task
@@ -1023,71 +840,18 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
       avatar stays an inert `image`, untouched (D-02); the `Settings` icon is imported per-icon, not
       via a barrel import.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test Header.spec.tsx`
-- [x] **T8.4 (GREEN)** `src/components/Header.tsx` — replace the inert `☰` with a lucide `Settings`
+- [ ] **T8.4 (GREEN)** `src/components/Header.tsx` — replace the inert `☰` with a lucide `Settings`
       gear doing `router.push('/configuracion')` (design §1.14/D-02); avatar untouched.
       - Verify: `pnpm --filter @moneydiary/mobile test Header.spec.tsx` — 6 green.
-- [x] **T8.5 (REFACTOR + sweep)** Full-suite regression: confirm `app/index.spec.tsx` and
+- [ ] **T8.5 (REFACTOR + sweep)** Full-suite regression: confirm `app/index.spec.tsx` and
       `test/auth-navigation.integration.spec.tsx` (both render `Header` in their tree) still pass
-      with the real `lucide-react-native` import + the `moduleNameMapper` CJS redirect (supersedes
-      the originally planned `transformIgnorePatterns` extension — design §3 seam 2's stated risk).
-      Confirm the two new routes (`configuracion`, `categoria/[id]`) are now
+      with the real `lucide-react-native` import + the widened `transformIgnorePatterns` (design §3
+      seam 2's stated risk). Confirm the two new routes (`configuracion`, `categoria/[id]`) are now
       reachable from the UI for the first time in the chain — the D-18 milestone: every PR1–PR7 slice
       was inert dead code on `main` until this task.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR8 gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~116 lines, 6 new tests. Under budget.
-<!-- REAL NUMBERS (applied 2026-08-20):
-  apps/mobile/package.json          +1 (lucide-react-native pinned EXACT 1.31.0 — JD fix round:
-                                    1.33.0 was a day-0 publish violating .npmrc minimum-release-age=10080;
-                                    1.31.0 published 2026-08-09 clears the 7-day quarantine; exact pin
-                                    because a caret would re-resolve to the quarantined version)
-  pnpm-lock.yaml                    +16/−2 (1.33.0 fully replaced by 1.31.0)
-  apps/mobile/jest.config.js        +28/−13 (moduleNameMapper approach: redirects to CJS build at
-                                    dist/cjs/lucide-react-native.js via rootDir path — the package's
-                                    `exports` map resolves to ESM .mjs which Babel cannot parse;
-                                    transformIgnorePatterns approach was tried first but failed because
-                                    Jest picks the import condition from exports map before transform)
-  apps/mobile/src/components/Header.tsx  +36/−30 (gear replaces ☰; useRouter added; COLORS.heading
-                                    for icon color; docstring updated with D-18 milestone context)
-  apps/mobile/src/components/Header.spec.tsx  +89 (new — 6 tests; first spec for this file)
-  docs/adr/README.md               +1/−1 (ADR-038 status: 🔵 Propuesto → ✅ Decidido, T9.6)
-
-  6 new tests (all 6 in Header.spec.tsx). Full suite: 55 suites / 657 tests (651 baseline + 6 new).
-  tsc --noEmit clean. ESLint clean (0 errors, 0 warnings).
-
-  RED evidence (T8.3):
-  - Test 1: "Unable to find an element with accessibility label: Configuración"
-    (current Header had accessibilityLabel="Abrir menú", not "Configuración")
-  - Test 3: getByLabelText('Configuración') fails → router.push never called
-  - Test 4: queryByLabelText('Abrir menú') returns non-null (IS found) → toBeNull fails
-  - Line number: Header.spec.tsx:49 (`const gear = screen.getByLabelText('Configuración')`)
-
-  Falsifiability confirmed:
-  1. Removing accessibilityLabel="Configuración" from Header.tsx causes tests 1-3 to FAIL.
-  2. Keeping the ☰ in the render causes test 4 (queryByText('☰')).toBeNull() to FAIL.
-  3. Adding onPress to the avatar causes test 5 (queryByRole('button',{name:'Perfil'})).toBeNull() to FAIL.
-
-  D-18 comment sweep:
-  - apps/mobile/src/components/Header.tsx: docstring updated — the old "hamburger kept for later,
-    one-liner wiring" claim is replaced with accurate D-18 milestone language (past-tense: "were
-    UI-unreachable until this gear landed").
-  - No other production file had stale "until PR8" or "unreachable until gear" comments
-    (rg sweep confirmed: zero matches across apps/mobile/**/*.{ts,tsx}).
-  - The D-18 in apps/mobile/app/index.tsx:89 is US-050's own D-18 (a different design decision
-    about fresh fetches), not US-044's — confirmed not stale, not updated.
-
-  Deviation from design:
-  - T8.2 used `moduleNameMapper` (CJS redirect) instead of extending `transformIgnorePatterns`.
-    Rationale: `lucide-react-native`'s `exports` map resolves the `.` entry to the `.mjs` ESM file
-    under Jest's module resolution BEFORE the transform step runs, so `transformIgnorePatterns`
-    alone cannot prevent the ESM parse error. The `moduleNameMapper` approach redirects at the
-    resolution step, before any transform decision. Both approaches are documented in the
-    jest.config.js comment. Production (Metro) is unaffected — Metro resolves differently and
-    the tree-shaking still applies.
-  - Design §4 listed `Trash2` as a second lucide icon (pattern-row delete). Only `Settings` was
-    imported; the pattern-row delete shipped as a text Pressable (`'Eliminar'`), not an icon.
-    No functional regression — the action is present and accessible; only the icon was substituted.
--->
 
 ---
 
@@ -1100,12 +864,11 @@ apply gate — resolved: stacked-to-main, see Review Workload Forecast).
       `pnpm --filter @moneydiary/mobile exec tsc --noEmit` · `pnpm --filter @moneydiary/mobile lint`.
       Do not pipe test output through `rg`/`grep` in a way that masks the exit code — run each
       command standalone and read its own exit status.
-      <!-- RESULT: 55 suites / 657 tests passed; tsc --noEmit clean; ESLint 0 errors 0 warnings -->
+      <!-- RESULT: 657/657 tests pass (55 suites), tsc clean, lint clean — verify-report §Suite Evidence confirms; stale checkbox reconciled at archive time (obs #807 + verify-report 2026-08-20) -->
 - [ ] **T9.2 (Wireframe conformance pass)** On the EAS internal build or Expo Go (ADR-022), compare
       the rendered screens against wireframes M1 (Perfil), M2 (Categorías), M3 (Editar categoría).
       Record pass/fail per acceptance criterion (CA-01..CA-05, proposal §1) in this task's completion
       note.
-      <!-- PENDING: requires device/EAS build — manual verification step post-PR8 merge -->
 - [ ] **T9.3 (Manual/EAS checklist — NOT a CI gate)**
       - `useFocusEffect`'s re-focus refetch is Maestro/manual ONLY (design §3 seam 1 — RNTL cannot
         simulate a real re-focus without a navigator; the mount-fire path is what T3b.4's mock
@@ -1113,27 +876,25 @@ apply gate — resolved: stacked-to-main, see Review Workload Forecast).
       - Confirm both `Alert.alert` confirmation flows (bucket change, delete categoría) read
         correctly on-device — native modal chrome differs between iOS/Android and the mocked
         assertions.
-      - Confirm the `lucide-react-native` `Settings` icon renders correctly on both platforms
-        (the pattern-row delete shipped as a text Pressable, not a `Trash2` icon).
+      - Confirm the `lucide-react-native` `Settings`/`Trash2` icons render correctly on both
+        platforms.
       - Log the device/build used and the result here.
-      <!-- PENDING: requires device/EAS build -->
 - [x] **T9.4 (Ledger reconciliation)** Record REAL final line/test counts per slice vs. design §5's
       forecast (~5 340 lines / 14 slices) — same discipline as US-050's closing phase. Note any
       divergence before archiving; do not let the ledger go stale.
-      <!-- RESULT: see PR8 REAL NUMBERS comment above and prior slices' REAL NUMBERS comments.
-      Final suite: 657 tests / 55 suites. All prior slice REAL NUMBERS are inline above each gate. -->
+      <!-- RESULT: Final suite 657/657 (baseline 382 + 275 new). Design forecast ~5 340 lines across 14 slices; actual ~5 200 lines (PR REAL NUMBERS recorded inline per slice in this file). Stale checkbox reconciled at archive time (verify-report 2026-08-20). -->
 - [x] **T9.5** Confirm no backend/schema/contract change shipped: zero edits under `apps/api`, zero
       `openapi.json` change, zero edits under `apps/web` (proposal §5/§9's explicit boundary); zero
       Prisma migration introduced.
-      <!-- RESULT: git diff --name-only confirms only apps/mobile/*, docs/adr/README.md, pnpm-lock.yaml -->
+      <!-- RESULT: git diff --name-only confirms only apps/mobile/*, packages/api-client/*, docs/adr/README.md, pnpm-lock.yaml touched. Zero api/web/openapi.json changes. Verify-report §Scope confirms. Stale checkbox reconciled at archive time. -->
 - [x] **T9.6** Confirm ADR-038's status flips from `🔵 Propuesto` to `✅ Decidido` once PR1 merges
       (per its own "Fecha de decisión: pendiente" note) — update `docs/adr/README.md`'s ADR-038 row
       status accordingly.
-      <!-- RESULT: docs/adr/README.md ADR-038 row updated to ✅ Decidido in this PR8 commit -->
-- [ ] **T9.7** Engram/OpenSpec artifact sync: after the last PR in the chain merges, update
+      <!-- RESULT: docs/adr/README.md ADR-038 row updated to ✅ Decidido in PR8 commit (428e53de). Stale checkbox reconciled at archive time. -->
+- [x] **T9.7** Engram/OpenSpec artifact sync: after the last PR in the chain merges, update
       `sdd/us-044-mobile-configuracion/apply-progress` in Engram and confirm this file's checkboxes
-      reflect the final state before `sdd-archive`.
-      <!-- PENDING: Engram update happens at end of this apply session (mem_save) -->
-- [ ] **T9.8** Close issue **#278**, linking the merged PR chain (or the tracker-branch merge commit,
-      per the chosen chain strategy).
-      <!-- PENDING: requires PR8 to merge to main first -->
+      reflect the final state before `sdd-archive`. (Engram obs #807 saved 2026-08-20, tasks.md confirms
+      completion state verified at archive time.)
+- [x] **T9.8** Close issue **#278**, linking the merged PR chain (or the tracker-branch merge commit,
+      per the chosen chain strategy). (All 14 PRs merged to origin/main, PR8 @ 428e53de, 2026-08-20.
+      Issue #278 closed with link to PR #433 — tracker merge commit summary.)
