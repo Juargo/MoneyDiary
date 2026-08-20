@@ -102,7 +102,7 @@ Wiring pin: `"LeyendaGasto requires onNavegar prop (no optional default)"` — r
 
 Branch off `main` after PR1 merges. Additive only — zero existing behavior changes. `size:exception` accepted (pure domain additive, low-risk diff).
 
-### T-04 — RED: unit specs for VMs + helpers + fetchers + reclassify wrapper + period helpers
+### T-04 ✅ (1f09720) — RED: unit specs for VMs + helpers + fetchers + reclassify wrapper + period helpers
 
 **Design refs**: D-13, D-14, D-15, D-16, D-21, D-22  
 **Spec refs**: MDET-07  
@@ -169,7 +169,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-05 — GREEN: port period helpers into periodo-anual.ts (M7)
+### T-05 ✅ (81d997d) — GREEN: port period helpers into periodo-anual.ts (M7)
 
 **Design refs**: D-13  
 **Spec refs**: MDET-04  
@@ -182,7 +182,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-06 — GREEN: domain helpers — fecha-corta, porcentaje, detalle.types, mensajes-reclasificar
+### T-06 ✅ (78550a9) — GREEN: domain helpers — fecha-corta, porcentaje, detalle.types, mensajes-reclasificar
 
 **Design refs**: D-14, D-15, D-21  
 **Spec refs**: MDET-07  
@@ -199,7 +199,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-07 — GREEN: view-models — detalle-bucket-mes-view-model + ingresos-mes-view-model
+### T-07 ✅ (41d3a88) — GREEN: view-models — detalle-bucket-mes-view-model + ingresos-mes-view-model
 
 **Design refs**: D-22  
 **Spec refs**: MDET-07  
@@ -213,7 +213,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-08 — GREEN: fetchers + shape guards in client.ts + reclasificar wrapper in categorias.ts
+### T-08 ✅ (1da3149) — GREEN: fetchers + shape guards in client.ts + reclasificar wrapper in categorias.ts
 
 **Design refs**: D-15, D-16  
 **Spec refs**: MDET-07  
@@ -227,7 +227,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-09 — GREEN: SelectorPeriodoMes component + spec
+### T-09 ✅ (1832bdb) — GREEN: SelectorPeriodoMes component + spec
 
 **Design refs**: D-13  
 **Spec refs**: MDET-04  
