@@ -554,7 +554,7 @@ Requirements: MCTG-01, MCTG-06, MCFG-MCTG-08. Depends on PR2b (`catalogo-constan
 Requirements: MCTG-01, MCFG-MCTG-08. Depends on PR5a (grouping + plural helpers), PR2b
 (`fetchCatalogo`), PR3b (route shell's Categorías-tab placeholder).
 
-- [ ] **T5b.1 (RED)** Create `apps/mobile/src/components/configuracion/CategoriaFila.spec.tsx`
+- [x] **T5b.1 (RED)** Create `apps/mobile/src/components/configuracion/CategoriaFila.spec.tsx`
       (~6 cases): renders `nombre` + `etiquetaPatrones(n)` tag; is a `Pressable` calling
       `router.push('/categoria/{id}')` on tap (assert via the `expo-router` mock's `push` spy, never
       a prop-identity probe); **no delete icon, no row-level `Alert`** (D-12) — non-tautological:
@@ -562,10 +562,10 @@ Requirements: MCTG-01, MCFG-MCTG-08. Depends on PR5a (grouping + plural helpers)
       via the identical query (judgment-anticipated class 3); accessible name includes the category
       name.
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test CategoriaFila.spec.tsx`
-- [ ] **T5b.2 (GREEN)** Create `apps/mobile/src/components/configuracion/CategoriaFila.tsx` —
+- [x] **T5b.2 (GREEN)** Create `apps/mobile/src/components/configuracion/CategoriaFila.tsx` —
       `Pressable` row (name + `etiquetaPatrones`), `router.push` only, per design §1.10/D-12.
       - Verify: `pnpm --filter @moneydiary/mobile test CategoriaFila.spec.tsx` — 6 green.
-- [ ] **T5b.3 (RED)** Create `apps/mobile/src/components/configuracion/CategoriasPanel.spec.tsx`
+- [x] **T5b.3 (RED)** Create `apps/mobile/src/components/configuracion/CategoriasPanel.spec.tsx`
       (~12 cases): groups render in fixed order `Necesidades → Gustos → Ahorro` with the display
       label (`ETIQUETA_BUCKET`, never the raw wire value `Deseos`) — MCTG-01's own scenario; ORDER
       pinning within a group via array/DOM-order assertion, never `toContain` (judgment-anticipated
@@ -575,20 +575,21 @@ Requirements: MCTG-01, MCFG-MCTG-08. Depends on PR5a (grouping + plural helpers)
       categories, reusing `states/Empty`; a `Nueva categoría` toggle button renders (the inline form
       itself ships PR5c — this task asserts only that the toggle exists, KISS scope discipline).
       - Verify (expect RED): `pnpm --filter @moneydiary/mobile test CategoriasPanel.spec.tsx`
-- [ ] **T5b.4 (GREEN)** Create `apps/mobile/src/components/configuracion/CategoriasPanel.tsx` —
+- [x] **T5b.4 (GREEN)** Create `apps/mobile/src/components/configuracion/CategoriasPanel.tsx` —
       groups via `agruparPorBucket`, `CategoriaFila` per row, empty state, `Nueva categoría` toggle
       revealing a placeholder until PR5c's real form lands.
       - Verify: `pnpm --filter @moneydiary/mobile test CategoriasPanel.spec.tsx` — 12 green.
-- [ ] **T5b.5** In `apps/mobile/app/configuracion.tsx`, replace PR3b's Categorías-tab placeholder with
+- [x] **T5b.5** In `apps/mobile/app/configuracion.tsx`, replace PR3b's Categorías-tab placeholder with
       the real `<CategoriasPanel catalogo={...} />` (mechanical wiring).
       - Verify: `pnpm --filter @moneydiary/mobile test app/configuracion.spec.tsx` — still green.
-- [ ] **T5b.6 (REFACTOR + sweep)** Confirm `CategoriasPanel` never fetches on its own — the catálogo
+- [x] **T5b.6 (REFACTOR + sweep)** Confirm `CategoriasPanel` never fetches on its own — the catálogo
       `{loading|error|data}` phase stays owned by `app/configuracion.tsx` (design §0 dependency
       rule). Confirm D-13's `movil` string variant is used everywhere web ships an
       `EtiquetaResponsiva`.
       - Verify: `pnpm --filter @moneydiary/mobile exec tsc --noEmit`; `pnpm --filter @moneydiary/mobile test` full suite green.
 
 **PR5b gate:** `pnpm --filter @moneydiary/mobile test && pnpm --filter @moneydiary/mobile exec tsc --noEmit` — ~425 lines, 18 new tests. **Over 400-line budget** — `size:exception` candidate.
+<!-- REAL NUMBERS (applied 2026-08-19): CategoriaFila.tsx 45L + CategoriaFila.spec.tsx 95L + CategoriasPanel.tsx 91L + CategoriasPanel.spec.tsx ~165L + configuracion.tsx +2 (import CategoriasPanel) - 4 (replaced placeholder) + configuracion.spec.tsx +3 changes (~394 total ledger lines). 18 new tests (6 CategoriaFila + 12 CategoriasPanel). Full suite: 48 suites / 553 tests (535 baseline + 18 new). tsc --noEmit clean. RED evidence: T5b.1 → Cannot find module './CategoriaFila'; T5b.3 → Cannot find module './CategoriasPanel'. Key discoveries: PatronDto requires categoriaId in fixtures (tsc-enforced); RNTL render must be awaited or screen queries fail with "render function has not been called"; getAllByRole('heading') requires accessible={true} on Text nodes — used testID-based heading order assertion instead. D-13 hint "Toca una categoría para editarla o eliminarla." used as mobile variant; ETIQUETA_BUCKET from theme/colors.ts maps Deseos→Gustos correctly. -->
 
 ---
 

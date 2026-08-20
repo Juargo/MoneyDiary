@@ -185,7 +185,7 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
     pendingCatalogo.resolve({ ok: true, value: sampleCatalogo });
     await waitFor(() => {
       expect(
-        screen.getByTestId('categorias-panel-placeholder'),
+        screen.getByRole('button', { name: 'Supermercado' }),
       ).toBeOnTheScreen();
     });
   });
@@ -216,7 +216,7 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId('categorias-panel-placeholder'),
+        screen.getByRole('button', { name: 'Supermercado' }),
       ).toBeOnTheScreen();
     });
   });
@@ -245,7 +245,7 @@ describe('Configuracion Screen (app/configuracion.tsx — US-044 PR3b)', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId('categorias-panel-placeholder'),
+        screen.getByRole('button', { name: 'Supermercado' }),
       ).toBeOnTheScreen();
     });
   });
