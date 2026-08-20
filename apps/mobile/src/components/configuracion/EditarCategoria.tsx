@@ -15,8 +15,8 @@
  *   onEliminado  — called after a successful delete (route navigates back)
  *
  * Binding constraints (PR6a):
- *   - bucket-dirty Guardar is a no-op stub (Alert.alert flow wired in PR6b)
- *   - Eliminar is a stub (Alert.alert flow wired in PR6b)
+ *   - bucket-dirty Guardar is an early-return (Alert.alert confirmation wired in PR6b)
+ *   - Eliminar calls eliminarCategoria directly; PR6b wraps it in Alert.alert (MCTG-05)
  *   - SelectorChips for Bucket gets testID='bucket-selector' (distinct, per
  *     the binding constraint on multiple SelectorChips on the same screen)
  *   - PatronesSection placeholder testID='patrones-placeholder'
@@ -54,15 +54,24 @@ export function EditarCategoria({
   const [nombre, setNombre] = useState(categoria.nombre);
   const [bucket, setBucket] = useState<BucketAsignable>(
     // Cast: the DTO's bucket is a string; BUCKETS_ASIGNABLES includes the
-    // canonical values. If the server ever sends an unknown bucket,
-    // the user can change it here.
-    (categoria.bucket as BucketAsignable) || BUCKETS_ASIGNABLES[0],
+    // canonical values. Only null/undefined falls back to BUCKETS_ASIGNABLES[0]
+    // (D-07: unknown non-empty bucket values pass through as-is so the user
+    // can see and correct them; we use ?? not || to avoid replacing '' with the
+    // fallback — an empty string is already invalid and will be visible).
+    (categoria.bucket as BucketAsignable) ?? BUCKETS_ASIGNABLES[0],
   );
 
-  const [enviando, setEnviando] = useState(false);
+  // Split in-flight label semantics: 'guardar' shows "Guardando…", 'eliminar'
+  // shows "Eliminando…". Both buttons are disabled during ANY in-flight op.
+  const [operacion, setOperacion] = useState<'guardar' | 'eliminar' | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
-  const bucketOriginal = categoria.bucket as BucketAsignable;
+  const enviando = operacion !== null;
+
+  const bucketOriginal =
+    (categoria.bucket as BucketAsignable) ?? BUCKETS_ASIGNABLES[0];
   const bucketCambiado = bucket !== bucketOriginal;
 
   async function handleGuardar() {
@@ -76,7 +85,7 @@ export function EditarCategoria({
     }
 
     // Bucket clean: send the patch directly, no confirmation needed
-    setEnviando(true);
+    setOperacion('guardar');
     setError(null);
 
     const resultado = await actualizarCategoria(categoria.id, {
@@ -84,7 +93,7 @@ export function EditarCategoria({
       bucket,
     });
 
-    setEnviando(false);
+    setOperacion(null);
 
     if (resultado.ok) {
       onGuardado();
@@ -96,17 +105,17 @@ export function EditarCategoria({
   async function handleEliminar() {
     if (enviando) return;
 
-    // Alert.alert confirmation — wired in PR6b.
-    // In PR6a this is a stub (no-op): the delete confirmation flow does not
-    // exist yet. PR6b will wire the full Alert.alert flow per design §1.11.
-    // For now, wire through to eliminarCategoria so the button is testable
-    // as "present" and the no-confirmation delete path works for the route.
-    setEnviando(true);
+    // PR6a calls eliminarCategoria directly (no Alert.alert yet).
+    // PR6b wraps this call in the Alert.alert confirmation flow per
+    // design §1.11 (MCTG-05). The route is UI-unreachable until PR8
+    // ships the gear (D-18), so no unconfirmed delete is user-triggerable
+    // in any shipped state.
+    setOperacion('eliminar');
     setError(null);
 
     const resultado = await eliminarCategoria(categoria.id);
 
-    setEnviando(false);
+    setOperacion(null);
 
     if (resultado.ok) {
       onEliminado();
@@ -161,13 +170,14 @@ export function EditarCategoria({
           className="rounded-xl bg-ingreso px-4 py-3"
         >
           <Text className="text-center text-sm font-medium text-white">
-            {enviando ? 'Guardando…' : 'Guardar'}
+            {operacion === 'guardar' ? 'Guardando…' : 'Guardar'}
           </Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancelar"
+          accessibilityState={{ disabled: enviando }}
           onPress={onCancelar}
           disabled={enviando}
           className="rounded-xl border border-hairline bg-white px-4 py-3"
@@ -180,12 +190,13 @@ export function EditarCategoria({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Eliminar categoría"
+          accessibilityState={{ disabled: enviando }}
           onPress={() => void handleEliminar()}
           disabled={enviando}
           className="rounded-xl border border-hairline bg-white px-4 py-3"
         >
           <Text className="text-center text-sm font-medium text-red-600">
-            Eliminar categoría
+            {operacion === 'eliminar' ? 'Eliminando…' : 'Eliminar categoría'}
           </Text>
         </Pressable>
       </View>

@@ -47,14 +47,6 @@ jest.mock('expo-router', () => {
 
 const mockFetchCatalogo = jest.fn<Promise<ApiResult<CatalogoDto>>, []>();
 
-jest.mock('../../src/api/categorias', () => {
-  const actual = jest.requireActual('../../src/api/categorias');
-  return {
-    ...actual,
-    fetchCatalogo: () => mockFetchCatalogo(),
-  };
-});
-
 // EditarCategoria calls actualizarCategoria and eliminarCategoria — mock them
 // so T6a tests can assert the identity-form renders without mutation side effects.
 const mockActualizarCategoria = jest.fn();
@@ -186,6 +178,21 @@ describe('app/categoria/[id].tsx — US-044 PR6a (T6a.1)', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('Supermercado')).toBeOnTheScreen();
     });
+  });
+
+  it('renders «Esa categoría ya no existe.» when id param is undefined (design §1.11)', async () => {
+    // useLocalSearchParams returns no id — e.g. a deep link with no param
+    mockUseLocalSearchParams.mockReturnValue({ id: undefined });
+
+    await render(<EditRouteCategoriaId />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Esa categoría ya no existe.')).toBeOnTheScreen();
+    });
+
+    // Must NOT be a role="alert" — a missing id param is a malformed link, not
+    // a failure of the action just taken (design §1.11's own distinction).
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('renders «Esa categoría ya no existe.» as a status when id is absent from catalog (design §1.11)', async () => {

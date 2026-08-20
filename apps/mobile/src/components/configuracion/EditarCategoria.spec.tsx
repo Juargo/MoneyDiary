@@ -168,6 +168,11 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
         bucket: 'Necesidades',
       });
     });
+
+    // Fix 9: success path calls onGuardado exactly once
+    await waitFor(() => {
+      expect(mockOnGuardado).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('rename-only save does NOT call solicitarRecargaResumen() (MCTG-07 negative-2)', async () => {
@@ -263,5 +268,184 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
 
     // PatronesSection is stubbed in PR6a — assert the placeholder testID
     expect(screen.getByTestId('patrones-placeholder')).toBeOnTheScreen();
+  });
+
+  // Fix 7: Guardar failure renders the alert region with the exact mensajes-catalogo literal
+  it('Guardar failure renders the error alert with the exact error message', async () => {
+    mockActualizarCategoria.mockResolvedValueOnce({
+      ok: false,
+      error: { tag: 'http', status: 500 },
+    });
+
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    // accessibilityRole="alert" + the exact GENERICO string from mensajes-catalogo.ts
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Ocurrió un error inesperado. Intenta nuevamente.',
+      );
+    });
+
+    // onGuardado was NOT called on failure
+    expect(mockOnGuardado).not.toHaveBeenCalled();
+  });
+
+  // Fix 8: Eliminar failure renders the alert region with the exact mensajes-catalogo literal
+  it('Eliminar failure renders the error alert with the exact error message', async () => {
+    mockEliminarCategoria.mockResolvedValueOnce({
+      ok: false,
+      error: { tag: 'http', status: 500 },
+    });
+
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    // accessibilityRole="alert" + the exact GENERICO string from mensajes-catalogo.ts
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Ocurrió un error inesperado. Intenta nuevamente.',
+      );
+    });
+
+    // onEliminado was NOT called on failure
+    expect(mockOnEliminado).not.toHaveBeenCalled();
+  });
+
+  // Fix 10a: double-submit on Guardar — label shows "Guardando…" in-flight,
+  // second press does not produce a second call.
+  it('Guardar is disabled and shows "Guardando…" while in-flight; second press is a no-op', async () => {
+    let resolveFirst!: (v: { ok: boolean; value: undefined }) => void;
+    const deferred = new Promise<{ ok: true; value: undefined }>((res) => {
+      resolveFirst = res as (v: { ok: boolean; value: undefined }) => void;
+    });
+    mockActualizarCategoria.mockReturnValueOnce(deferred);
+
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    // While in-flight: label shows "Guardando…" and accessibilityState.disabled is true
+    // Falsifiability: removing operacion state or the "Guardando…" label causes this to fail.
+    await waitFor(() => {
+      const guardarBtn = screen.getByRole('button', { name: 'Guardar' });
+      expect(guardarBtn.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      expect(screen.getByText('Guardando…')).toBeOnTheScreen();
+    });
+
+    // Second press while in-flight — must be a no-op (enviando guard)
+    fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    // Resolve and assert exactly 1 call
+    await act(async () => {
+      resolveFirst({ ok: true, value: undefined });
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Fix 10b: Eliminar label shows "Eliminando…" while its own call is in-flight.
+  it('Eliminar is disabled and shows "Eliminando…" while in-flight', async () => {
+    let resolveFirst!: (v: { ok: boolean; value: undefined }) => void;
+    const deferred = new Promise<{ ok: true; value: undefined }>((res) => {
+      resolveFirst = res as (v: { ok: boolean; value: undefined }) => void;
+    });
+    mockEliminarCategoria.mockReturnValueOnce(deferred);
+
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Eliminar categoría' }),
+      );
+    });
+
+    // While in-flight: label shows "Eliminando…" and accessibilityState.disabled is true
+    // Falsifiability: removing operacion === 'eliminar' check causes this to fail.
+    await waitFor(() => {
+      const eliminarBtn = screen.getByRole('button', {
+        name: 'Eliminar categoría',
+      });
+      expect(eliminarBtn.props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+      expect(screen.getByText('Eliminando…')).toBeOnTheScreen();
+    });
+
+    // Resolve and confirm exactly 1 call
+    await act(async () => {
+      resolveFirst({ ok: true, value: undefined });
+    });
+
+    await waitFor(() => {
+      expect(mockEliminarCategoria).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Fix 11: bucket-dirty Guardar is an early-return (PR6a stub) — actualizarCategoria NOT called
+  // Falsifiability: removing the `if (bucketCambiado) return;` guard causes this assertion to FAIL.
+  // The PR6b positive case will flip this expectation when the Alert.alert flow is wired.
+  it('bucket-dirty Guardar does NOT call actualizarCategoria (PR6a early-return stub)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    // Change the bucket (makes it dirty)
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    expect(mockActualizarCategoria).not.toHaveBeenCalled();
   });
 });
