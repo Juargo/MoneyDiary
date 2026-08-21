@@ -131,7 +131,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 `ingresos-mes-view-model.spec.ts` (~8 cases):
 - `"conteoLabel is '0 ingresos' for conteo=0"`, `"'1 ingreso' for conteo=1"`, `"'N ingresos' for N>1"`
 - `"totalLabel reads dto.total field (not totalIngreso — that field does not exist)"` — MDET-07 third scenario
-- `"totalLabel for dto.total='1500000' equals '$1.500.000'"` 
+- `"totalLabel for dto.total='1500000' equals '+$1.500.000'"` (signed — web parity via `formatearMontoConSigno`) 
 - `"totalLabel for '0' has no sign (zero-no-sign)"` 
 - `"mesLabel from periodo param"` and `"mesLabel falls back to periodoActualUTC when periodo undefined"`
 - `"origen is verbatim from dto — no client normalization"`
@@ -385,11 +385,11 @@ Branch off `main` after PR4 merges. Replaces the PR1 stub for `ingresos.tsx`. Ga
 **Files** (CREATE):
 - T-C13 `apps/mobile/src/components/detalle/IngresosMesScreen.spec.tsx` (~6 cases per design §5):
   - `"shows loading, error, empty, and data states (three-tag machine; empty = filas.length===0)"` — MDET-06 implicit (mirrors MDET-01 pattern)
-  - `"header shows 'Ingresos' title, SelectorPeriodoMes with julio 2026, and formatted total $1.500.000"` — MDET-06 first scenario
+  - `"header shows 'Ingresos' title, SelectorPeriodoMes with julio 2026, and formatted total +$1.500.000"` — MDET-06 first scenario (signed total, web parity)
   - `"each income row shows Origen badge text (Banco de Chile) verbatim"` — MDET-06 second scenario (no normalization)
   - `"no element with testID matching 'reclasificar-*' exists"` — MDET-06 third scenario (read-only contract)
   - `"pressing ‹ on SelectorPeriodoMes calls onChangePeriodo with '2026-06'"` — MDET-06 fourth scenario (screen asserts onChangePeriodo callback; fetchIngresosMes call on period change is asserted in T-C15b `app/ingresos.spec.tsx`)
-  - `"useFocusEffect triggers cargar on focus (stale-guard)"` — D-18 M2 focus guard
+  - `"useFocusEffect fires cargar on initial focus/mount (D-18 — re-focus stale-guard verified via Maestro)"` — D-18 M2 focus guard (renamed by the PR5 gate: RNTL proves mount-load; blur→refocus is Maestro-only)
 - T-C15b `apps/mobile/app/ingresos.spec.tsx` (~3 cases from route machine suite):
   - `"useLocalSearchParams seeds periodo state from query param"`
   - `"periodo state steps on SelectorPeriodoMes arrow press → re-fetch fires"`

@@ -254,7 +254,7 @@ Same-bucket reclassification MUST NOT produce an announcement or update the stat
 
 - GIVEN `dto.total = "1500000"` (the real `IngresosMesResponse` field — `totalIngreso` does not exist in the contract)
 - WHEN `aIngresosMesViewModel(dto, "2026-07")` is called
-- THEN `result.totalLabel` equals `"$1.500.000"` or equivalent string-safe formatted output
+- THEN `result.totalLabel` equals `"+$1.500.000"` (signed via `formatearMontoConSigno`, web parity) or equivalent string-safe formatted output
 
 #### Scenario: prev/next-month wraps correctly at year boundaries (unit test)
 
