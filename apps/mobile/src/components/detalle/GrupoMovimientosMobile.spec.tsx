@@ -1,13 +1,22 @@
 /**
  * GrupoMovimientosMobile spec — T-10 RED (US-056, D-04/D-19/MDET-03)
+ * Updated in T-15 to pass the required onReclasificado/onMovida props
+ * (added as REQUIRED props per us-044 PR7 banned-pattern contract).
  *
- * All cases MUST fail RED before the production source exists (T-10 RED contract).
- * Production source lands in T-11.
+ * ReclasificarMobileControl is mocked at the module boundary so these
+ * tests stay focused on accordion/destacado mechanics without triggering
+ * catalog fetches.
  */
 
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
+
+// Mock ReclasificarMobileControl — this spec tests accordion/destacado, not reclassify.
+// The real control is tested in ReclasificarMobileControl.spec.tsx.
+jest.mock('./ReclasificarMobileControl', () => ({
+  ReclasificarMobileControl: () => null,
+}));
 
 function makeTx(id: string) {
   return { id, descripcion: `Tx ${id}`, fecha: '2026-07-01', monto: '10000' };
@@ -33,7 +42,14 @@ describe('GrupoMovimientosMobile', () => {
   it('group with 5 rows shows exactly 3 rows and "Ver 2 más" collapsed (accessibilityState.expanded false)', async () => {
     const grupo = makeGrupo('cat-1', 'Entretenimiento', 5);
 
-    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
 
     // Exactly 3 rows visible (first 3)
     expect(screen.getByTestId('movimiento-cat-1-tx-1')).toBeTruthy();
@@ -54,7 +70,14 @@ describe('GrupoMovimientosMobile', () => {
   it('pressing "Ver N más" reveals all 5 rows and changes text to "Ver menos" (accessibilityState.expanded true)', async () => {
     const grupo = makeGrupo('cat-1', 'Entretenimiento', 5);
 
-    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
 
     // Press the toggle — wrap in act to flush state updates
     await act(async () => {
@@ -77,7 +100,14 @@ describe('GrupoMovimientosMobile', () => {
   it('group with ≤3 rows shows no "Ver N más" toggle', async () => {
     const grupo = makeGrupo('cat-2', 'Comida', 3);
 
-    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
 
     // All 3 rows visible
     expect(screen.getByTestId('movimiento-cat-2-tx-1')).toBeTruthy();
@@ -92,7 +122,14 @@ describe('GrupoMovimientosMobile', () => {
   it('SinCategoria group root always carries testID="grupo-movimientos-sin-categoria"', async () => {
     const grupo = makeGrupo(null, 'Sin categoría', 1);
 
-    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
 
     // Root always has the stable testID regardless of destacar
     expect(screen.getByTestId('grupo-movimientos-sin-categoria')).toBeTruthy();
@@ -102,7 +139,12 @@ describe('GrupoMovimientosMobile', () => {
     const grupo = makeGrupo(null, 'Sin categoría', 1);
 
     await render(
-      <GrupoMovimientosMobile grupo={grupo} destacar="sin-categoria" />,
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        destacar="sin-categoria"
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
     );
 
     // Root stable testID always present
@@ -114,7 +156,14 @@ describe('GrupoMovimientosMobile', () => {
   it('no element with testID="grupo-sin-categoria-destacado" when destacar is absent', async () => {
     const grupo = makeGrupo(null, 'Sin categoría', 1);
 
-    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
 
     // Root stable testID still present
     expect(screen.getByTestId('grupo-movimientos-sin-categoria')).toBeTruthy();

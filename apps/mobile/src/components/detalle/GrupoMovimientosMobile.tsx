@@ -10,11 +10,9 @@
  *     INNER wrapper `testID="grupo-sin-categoria-destacado"` renders ONLY when
  *     `destacar === "sin-categoria"` — conditional, not stable.
  *
- * Reclassify trigger: no-op placeholder Pressable in PR3.
- * PR4 (T-15) replaces this file to wire in the real ReclasificarMobileControl
- * and adds `onReclasificado` and `onMovida` as REQUIRED props at that point.
- * No callback props exist in PR3 — the us-044 PR7 banned-pattern
- * (optional-callback-silent-noop) is avoided by not declaring them here.
+ * Each row renders a ReclasificarMobileControl (D-17/D-19). The control is wired
+ * via `onReclasificado` and `onMovida` REQUIRED props threaded from BucketDetalleScreen
+ * (T-15). No optional-callback silent-noop variant (us-044 PR7 banned-pattern).
  *
  * Pure: no fetch, no router.
  */
@@ -24,6 +22,7 @@ import { Pressable, Text, View } from 'react-native';
 import { aFechaCorta } from '../../domain/fecha-corta';
 import { formatearMontoCLP } from '../../domain/formatear-monto';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
+import { ReclasificarMobileControl } from './ReclasificarMobileControl';
 
 /** Number of rows visible before the accordion collapses the rest (web parity D-04). */
 const FILAS_VISIBLES = 3;
@@ -48,17 +47,31 @@ interface GrupoMovimientosMobileProps {
   readonly grupo: GrupoDetalleBucketMesDto;
   /** When `"sin-categoria"`, renders the inner destacado wrapper inside SinCategoria root (D-19/MDET-03). */
   readonly destacar?: string;
-  // No callback props in PR3. PR4 T-15 adds onReclasificado and onMovida as
-  // required props when the real ReclasificarMobileControl is wired in.
+  /**
+   * REQUIRED: called after a successful reclassify PATCH so the screen can refetch
+   * the open detail (D-17/D-18). Typically wired to BucketDetalleScreen's cargar().
+   * Non-optional: the us-044 PR7 banned-pattern (optional-callback-silent-noop) is
+   * explicitly avoided here.
+   */
+  readonly onReclasificado: () => void;
+  /**
+   * REQUIRED: called on cross-bucket success with the ETIQUETA_BUCKET display label
+   * of the destination bucket. Screen owns both setAnuncio and announceForAccessibility
+   * (D-20 single announcement source). Non-optional per us-044 PR7 case law.
+   */
+  readonly onMovida: (bucketLabel: string) => void;
 }
 
 /**
  * GrupoMovimientosMobile renders one categoría group with an expandable
- * accordion when the group has more than 3 rows.
+ * accordion when the group has more than 3 rows. Each row includes a
+ * ReclasificarMobileControl for cross-bucket reclassification (T-15/D-17).
  */
 export function GrupoMovimientosMobile({
   grupo,
   destacar,
+  onReclasificado,
+  onMovida,
 }: GrupoMovimientosMobileProps) {
   const [expandido, setExpandido] = useState(false);
 
@@ -81,6 +94,20 @@ export function GrupoMovimientosMobile({
     ? 'Ver menos'
     : `Ver ${transacciones.length - FILAS_VISIBLES} más`;
 
+  // categoriaActual for all transactions in this group is the group's
+  // categoria. SinCategoria group has categoriaId=null and no named bucket.
+  // The bucket comes from the outer screen (BucketDetalleScreen passes the
+  // raw wire bucket key via GrupoDetalleBucketMesDto context).
+  // For SinCategoria groups, the screen bucket is still passed through
+  // (SinCategoria itself is not a reclassify destination per BUCKETS_ASIGNABLES).
+  const categoriaActual = {
+    id: categoriaId ?? '',
+    nombre,
+    // bucket is not on the transaction DTO — it equals the group's category bucket.
+    // SinCategoria groups use 'SinCategoria' as the bucket key.
+    bucket: categoriaId !== null ? grupo.nombre : 'SinCategoria',
+  };
+
   // Inner content (header + rows + optional toggle)
   const contenido = (
     <>
@@ -98,17 +125,13 @@ export function GrupoMovimientosMobile({
           <Text style={{ fontSize: 13, fontWeight: '500' }}>
             {tx.montoLabel}
           </Text>
-          {/* Reclassify trigger placeholder — wired in PR4 T-15 */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Cambiar categoría de ${tx.descripcion}`}
-            testID={`reclasificar-trigger-${tx.id}`}
-            onPress={() => {
-              // No-op in PR3 — PR4 T-15 replaces this with ReclasificarMobileControl
-            }}
-          >
-            <Text style={{ fontSize: 11, color: '#3B4266' }}>Reclasificar</Text>
-          </Pressable>
+          {/* Reclassify control — wired per D-17/D-19/T-15 */}
+          <ReclasificarMobileControl
+            tx={tx}
+            categoriaActual={categoriaActual}
+            onReclasificado={onReclasificado}
+            onMovida={onMovida}
+          />
         </View>
       ))}
 
