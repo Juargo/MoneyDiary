@@ -5,6 +5,10 @@ import {
   type TajadaGasto,
 } from './distribucion-gasto';
 import { mesAbreviado, mesCompletoLabel } from './periodo-anual';
+import {
+  SIN_PORCENTAJE_LABEL as _SIN_PORCENTAJE_LABEL,
+  aPorcentajeLabel as _aPorcentajeLabel,
+} from './porcentaje';
 import type {
   BucketResumenDto,
   ResumenAnualDto,
@@ -15,8 +19,12 @@ import type {
  * Etiqueta explícita para "sin porcentaje" (MOB-06): un `porcentajeBp: null`
  * (camino sinIngreso) NUNCA debe renderizarse como "0%" — se distingue con
  * este valor centinela para que el componente lo distinga de un 0 real.
+ *
+ * Re-exported from porcentaje.ts (US-056, D-14): the canonical definition moved
+ * there so detalle-mes view-models can use it without importing resumen-view-model.
+ * This re-export keeps all existing call sites unchanged (zero churn).
  */
-export const SIN_PORCENTAJE_LABEL = '—';
+export const SIN_PORCENTAJE_LABEL = _SIN_PORCENTAJE_LABEL;
 
 /**
  * ItemLeyenda — US-050 (design §1.4a): 3-kind discriminated union, portada
@@ -88,17 +96,12 @@ export interface ResumenAnualViewModel {
 }
 
 /**
- * Mapea `porcentajeBp` (basis points, entero seguro como number) a una
- * etiqueta de porcentaje. `null` (sinIngreso path) mapea a
- * SIN_PORCENTAJE_LABEL, nunca a "0%" — un `0` verdadero sí mapea a "0%"
- * (MOB-06). bp/100 es seguro como number: bp ≤ 10000, muy por debajo de 2^53.
+ * Alias over the shared `aPorcentajeLabel` from porcentaje.ts (US-056, D-14).
+ * The function was extracted there so detalle-mes view-models can reuse it
+ * without a cross-module dependency on resumen-view-model. The private alias
+ * here avoids touching any of the call sites in this file.
  */
-function aPorcentajeLabel(porcentajeBp: number | null): string {
-  if (porcentajeBp === null) {
-    return SIN_PORCENTAJE_LABEL;
-  }
-  return `${porcentajeBp / 100}%`;
-}
+const aPorcentajeLabel = _aPorcentajeLabel;
 
 function aBucketViewModel(bucket: BucketResumenDto): BucketViewModel {
   return {

@@ -17,6 +17,7 @@ import {
   screen,
   fireEvent,
   waitFor,
+  act,
 } from '@testing-library/react-native';
 import type { ApiResult } from '../../src/domain/api-error';
 import type { CatalogoDto } from '../../src/domain/catalogo.types';
@@ -51,6 +52,7 @@ const mockFetchCatalogo = jest.fn<Promise<ApiResult<CatalogoDto>>, []>();
 // so T6a tests can assert the identity-form renders without mutation side effects.
 const mockActualizarCategoria = jest.fn();
 const mockEliminarCategoria = jest.fn();
+const mockEliminarPatron = jest.fn();
 
 jest.mock('../../src/api/categorias', () => {
   const actual = jest.requireActual('../../src/api/categorias');
@@ -60,6 +62,7 @@ jest.mock('../../src/api/categorias', () => {
     actualizarCategoria: (...args: unknown[]) =>
       mockActualizarCategoria(...args),
     eliminarCategoria: (...args: unknown[]) => mockEliminarCategoria(...args),
+    eliminarPatron: (...args: unknown[]) => mockEliminarPatron(...args),
   };
 });
 
@@ -71,6 +74,27 @@ const sampleCatalogo: CatalogoDto = {
       nombre: 'Supermercado',
       bucket: 'Necesidades',
       patrones: [],
+      transaccionesCount: 5,
+    },
+  ],
+};
+
+// Catalog with one pattern — used by the route-wiring test (fix 2)
+const catalogoConPatron: CatalogoDto = {
+  categorias: [
+    {
+      id: 'cat-1',
+      nombre: 'Supermercado',
+      bucket: 'Necesidades',
+      patrones: [
+        {
+          id: 'pat-1',
+          categoriaId: 'cat-1',
+          patron: 'LIDER',
+          matchType: 'CONTAINS',
+          prioridad: 100,
+        },
+      ],
       transaccionesCount: 5,
     },
   ],
@@ -92,6 +116,7 @@ describe('app/categoria/[id].tsx — US-044 PR6a (T6a.1)', () => {
     // actualizarCategoria succeeds by default (for bucket-clean Guardar)
     mockActualizarCategoria.mockResolvedValue({ ok: true, value: undefined });
     mockEliminarCategoria.mockResolvedValue({ ok: true, value: undefined });
+    mockEliminarPatron.mockResolvedValue({ ok: true, value: undefined });
   });
 
   it('renders «Volver a Categorías» back control (D-03)', async () => {
@@ -286,5 +311,38 @@ describe('app/categoria/[id].tsx — US-044 PR6a (T6a.1)', () => {
 
     // The route itself called fetchCatalogo exactly once on mount
     expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix 2 (JD fix): route wires onCatalogoChange so pattern mutations trigger re-fetch.
+  // A pattern mutation (eliminarPatron) that succeeds MUST produce a SECOND fetchCatalogo call.
+  // Falsifiability: reverting fix 1 (removing onCatalogoChange from the EditarCategoria JSX)
+  // causes this test to FAIL — mockFetchCatalogo is called only once (mount), not twice.
+  it('pattern mutation (eliminarPatron success) triggers a SECOND catalog re-fetch via onCatalogoChange (fix 2)', async () => {
+    // Load with a catalog that has a pattern so PatronFila renders
+    mockFetchCatalogo.mockResolvedValue({ ok: true, value: catalogoConPatron });
+
+    await render(<EditRouteCategoriaId />);
+
+    // Wait for loaded state — pattern text input shows 'LIDER'
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('LIDER')).toBeOnTheScreen();
+    });
+
+    // One fetchCatalogo call so far (mount)
+    expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+
+    // Drive a successful pattern deletion via the rendered PatronFila
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Eliminar patrón' }));
+    });
+
+    await waitFor(() => {
+      expect(mockEliminarPatron).toHaveBeenCalledTimes(1);
+    });
+
+    // The route's onCatalogoChange must have triggered a SECOND fetchCatalogo call
+    await waitFor(() => {
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(2);
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useCategorias } from '@/api/use-categorias';
 import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
+import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 
@@ -72,6 +73,7 @@ export function ReclasificarCategoriaControl({
   bucketActual,
   categoriaActual,
   periodo,
+  onMovida,
 }: {
   readonly transaccionId: string;
   readonly descripcion: string;
@@ -79,8 +81,10 @@ export function ReclasificarCategoriaControl({
   readonly bucketActual: string;
   readonly categoriaActual: string | null;
   readonly periodo: string | undefined;
+  readonly onMovida: (bucketLabel: string) => void;
 }) {
   const selectId = useId();
+  const mensajeId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
   const confirmarRef = useRef<HTMLButtonElement>(null);
   const [valor, setValor] = useState(categoriaActual ?? '');
@@ -96,7 +100,13 @@ export function ReclasificarCategoriaControl({
   // during a background refetch. See the JSDoc above for why bare
   // `isFetching` would be wrong here.
   const catalogoCargandoInicial = data === undefined && catalogoEnVuelo;
-  const grupos = agruparPorBucket(data?.categorias ?? []);
+  // Local filter to BUCKETS_ASIGNABLES (D-06): agruparPorBucket may also
+  // emit an "Otros" catch-all for buckets outside the three spend buckets
+  // (e.g. Ingresos). Filter that out here — agruparPorBucket itself stays
+  // intact for Configuración, which legitimately shows every group.
+  const grupos = agruparPorBucket(data?.categorias ?? []).filter((g) =>
+    (BUCKETS_ASIGNABLES as ReadonlyArray<string>).includes(g.bucket),
+  );
   const bucketDe = (nombre: string): string | undefined =>
     data?.categorias.find((c) => c.nombre === nombre)?.bucket;
 
@@ -110,11 +120,18 @@ export function ReclasificarCategoriaControl({
     }
   }, [pendiente]);
 
-  function commit(nombre: string) {
+  // Cross-bucket commits need to fire onMovida only after the mutation
+  // settles successfully. We capture the pending bucket label at confirm
+  // time and thread it into the mutation's onSuccess callback so a
+  // failed PATCH never triggers the announcement.
+  function commit(nombre: string, onSuccess?: () => void) {
     setErrorMensaje(null);
     mutacion.mutate(
       { transaccionId, categoria: nombre },
       {
+        onSuccess: () => {
+          onSuccess?.();
+        },
         onError: (error) => {
           setErrorMensaje(error.message);
           setValor(categoriaActual ?? '');
@@ -156,7 +173,15 @@ export function ReclasificarCategoriaControl({
 
   function confirmar() {
     if (!pendiente) return;
-    commit(pendiente.nombre);
+    // Capture the destination label at confirm time before clearing
+    // `pendiente`. The label is derived here, not inside the callback,
+    // so the closure captures the value from this render, not a stale ref.
+    // onMovida fires only when the PATCH succeeds — a failed mutation
+    // must not announce a move that never happened (D-07).
+    const bucketLabel = etiqueta(pendiente.bucketNuevo);
+    commit(pendiente.nombre, () => {
+      onMovida(bucketLabel);
+    });
     setPendiente(null);
   }
 
@@ -210,20 +235,27 @@ export function ReclasificarCategoriaControl({
           </>
         )}
       </select>
-      <span aria-live="polite" className="sr-only">
-        {mutacion.isSuccess && !pendiente
-          ? `Categoría actualizada a ${mutacion.data?.categoria.nombre}.`
-          : ''}
-      </span>
       {errorMensaje && (
         <p role="alert" className="text-xs text-red-600">
           {errorMensaje}
         </p>
       )}
       {pendiente && (
+        // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`,
+        // not `widget` (verified against aria-query 5.3.2, installed via
+        // eslint-plugin-jsx-a11y@6.10.2 — same finding as
+        // ConfirmarPasswordDialog.tsx / ConfirmarImpactoDialog.tsx). The rule
+        // cannot distinguish a dialog's Escape-to-close from an arbitrary
+        // `<div onKeyDown>`. The WAI-ARIA dialog pattern binds Escape at the
+        // container so it works regardless of which button has focus.
+        // Remove this disable when aria-query classifies `alertdialog` under
+        // the `widget` superclass or when the rule gains a dialog-role
+        // exemption.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
         <div
           role="alertdialog"
           aria-label="Confirmar cambio de categoría"
+          aria-describedby={mensajeId}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               cancelar();
@@ -231,7 +263,7 @@ export function ReclasificarCategoriaControl({
           }}
           className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-sm"
         >
-          <p>
+          <p id={mensajeId}>
             Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}
             {etiqueta(pendiente.bucketNuevo)}.
           </p>

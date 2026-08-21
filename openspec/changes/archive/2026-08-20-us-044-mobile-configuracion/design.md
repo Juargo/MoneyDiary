@@ -539,8 +539,8 @@ No backend change, no schema/migration, no env var. **One** new dependency: `luc
 (CQ-2), installed with `npx expo install lucide-react-native` so Expo resolves the SDK-57-compatible
 line; `react-native-svg@15.15.4` is already a direct dep, and the version line is kept aligned with
 web's `lucide-react@^0.469.0` per ADR-027's go-forward rule. Only the icons actually used are
-imported (`Settings` for the gear; `Trash2` for the pattern-row delete) — lucide is tree-shakeable
-and per-icon imported, so no barrel import is introduced.
+imported (`Settings` for the gear; the pattern-row delete shipped as a text Pressable, not a `Trash2`
+icon) — lucide is tree-shakeable and per-icon imported, so no barrel import is introduced.
 
 ---
 

@@ -11,6 +11,12 @@ import type {
   ResumenMesDto,
   ResumenAnualDto,
 } from '../domain/resumen.types';
+import type {
+  DetalleBucketMesDto,
+  GrupoDetalleBucketMesDto,
+  TransaccionDetalleBucketMesDto,
+  IngresosMesDto,
+} from '../domain/detalle.types';
 import type { ApiResult } from '../domain/api-error';
 
 /**
@@ -490,4 +496,198 @@ export async function postLogout(): Promise<ApiResult<void>> {
   }
 
   return { ok: true, value: undefined };
+}
+
+// ---------------------------------------------------------------------------
+// US-056 (D-15): detalle-mes fetchers + shape guards
+// ---------------------------------------------------------------------------
+
+/**
+ * esTransaccionDetalleDto — per-row guard for BucketDetalleMesResponse
+ * transaction rows. Money guard: `monto` must pass `esMontoStringValido`
+ * (a malformed amount would crash `formatearMontoCLP` on render, MOB-02).
+ */
+function esTransaccionDetalleDto(
+  value: unknown,
+): value is TransaccionDetalleBucketMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const c = value as Partial<TransaccionDetalleBucketMesDto>;
+  return (
+    typeof c.id === 'string' &&
+    typeof c.descripcion === 'string' &&
+    typeof c.fecha === 'string' &&
+    typeof c.monto === 'string' &&
+    esMontoStringValido(c.monto)
+  );
+}
+
+/**
+ * esGrupoDetalleDto — per-group guard for BucketDetalleMesResponse.grupos.
+ * `categoriaId` is `string | null` (the "Sin categoría" synthetic group has
+ * `null`). Money guard on `subtotal`. `nombre` stays plain string.
+ */
+function esGrupoDetalleDto(value: unknown): value is GrupoDetalleBucketMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const c = value as Partial<GrupoDetalleBucketMesDto>;
+  return (
+    (typeof c.categoriaId === 'string' || c.categoriaId === null) &&
+    typeof c.nombre === 'string' &&
+    typeof c.conteo === 'number' &&
+    typeof c.subtotal === 'string' &&
+    esMontoStringValido(c.subtotal) &&
+    Array.isArray(c.transacciones) &&
+    c.transacciones.every(esTransaccionDetalleDto)
+  );
+}
+
+/**
+ * esDetalleBucketMesDto — shape guard for GET /api/buckets/{bucket}/detalle
+ * (BucketDetalleMesResponse). `bucket` and `periodo` are plain strings —
+ * `bucket` is NOT validated against BUCKETS_ASIGNABLES (the server is the
+ * authority; an unrecognised bucket must render, not fail — D-07 discipline).
+ * Money guard on `total`. `metaBp`/`porcentajeBp` are `number | null`.
+ */
+export function esDetalleBucketMesDto(
+  value: unknown,
+): value is DetalleBucketMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const c = value as Partial<DetalleBucketMesDto>;
+  return (
+    typeof c.bucket === 'string' &&
+    typeof c.periodo === 'string' &&
+    typeof c.total === 'string' &&
+    esMontoStringValido(c.total) &&
+    typeof c.totalTransacciones === 'number' &&
+    typeof c.totalCategorias === 'number' &&
+    (typeof c.porcentajeBp === 'number' || c.porcentajeBp === null) &&
+    (typeof c.metaBp === 'number' || c.metaBp === null) &&
+    Array.isArray(c.grupos) &&
+    c.grupos.every(esGrupoDetalleDto)
+  );
+}
+
+/**
+ * esIngresosMesDto — shape guard for GET /api/ingresos/mes
+ * (IngresosMesResponse). Money guard on `total` and each `monto`.
+ * `origen` is a plain string (bank name verbatim, server authority — D-07).
+ */
+export function esIngresosMesDto(value: unknown): value is IngresosMesDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const c = value as Partial<IngresosMesDto>;
+  return (
+    typeof c.conteo === 'number' &&
+    typeof c.total === 'string' &&
+    esMontoStringValido(c.total) &&
+    Array.isArray(c.transacciones) &&
+    c.transacciones.every((tx: unknown) => {
+      if (typeof tx !== 'object' || tx === null) {
+        return false;
+      }
+      const t = tx as Partial<IngresosMesDto['transacciones'][number]>;
+      return (
+        typeof t.id === 'string' &&
+        typeof t.descripcion === 'string' &&
+        typeof t.fecha === 'string' &&
+        typeof t.origen === 'string' &&
+        typeof t.monto === 'string' &&
+        esMontoStringValido(t.monto)
+      );
+    })
+  );
+}
+
+/**
+ * fetchDetalleBucketMes — GET {base}/api/buckets/{bucket}/detalle[?periodo=YYYY-MM]
+ * (US-056, D-15). Never-throw skeleton verbatim from `fetchResumen`/`fetchCatalogo`.
+ * CONTRACT path from packages/api-client/src/types.gen.ts:487 — NOT the
+ * mistaken path the proposal named.
+ */
+export async function fetchDetalleBucketMes(
+  bucket: string,
+  periodo?: string,
+): Promise<ApiResult<DetalleBucketMesDto>> {
+  if (!API_BASE_URL) {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `${API_BASE_URL}/api/buckets/${encodeURIComponent(bucket)}/detalle${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: await construirHeadersSesion() });
+  } catch {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized' } };
+  }
+  if (!res.ok) {
+    return { ok: false, error: { tag: 'http', status: res.status } };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  if (!esDetalleBucketMesDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * fetchIngresosMes — GET {base}/api/ingresos/mes[?periodo=YYYY-MM]
+ * (US-056, D-15). CONTRACT path from packages/api-client/src/types.gen.ts:949.
+ * Never-throw skeleton verbatim from `fetchDetalleBucketMes`.
+ */
+export async function fetchIngresosMes(
+  periodo?: string,
+): Promise<ApiResult<IngresosMesDto>> {
+  if (!API_BASE_URL) {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  const query = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+  const url = `${API_BASE_URL}/api/ingresos/mes${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: await construirHeadersSesion() });
+  } catch {
+    return { ok: false, error: { tag: 'network' } };
+  }
+
+  if (res.status === 401) {
+    return { ok: false, error: { tag: 'unauthorized' } };
+  }
+  if (!res.ok) {
+    return { ok: false, error: { tag: 'http', status: res.status } };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  if (!esIngresosMesDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+
+  return { ok: true, value: body };
 }

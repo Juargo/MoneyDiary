@@ -19,11 +19,17 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
  * math). The "Distribución del gasto" heading and `testID="semaforo-global"`
  * (now on `SemaforoTag`'s own root) are the Maestro anchors. Removed
  * (MOB-15): the "Ver detalles ›" affordance — no destination exists.
+ * US-056 PR1 (D-10): `periodo` and `onNavegar` threaded from `app/index.tsx`
+ * through here to `LeyendaGasto` so legend rows can navigate to detail screens.
  */
 export function ResumenScreen({
   viewModel,
+  periodo,
+  onNavegar,
 }: {
   readonly viewModel: ResumenViewModel;
+  readonly periodo: string | undefined;
+  readonly onNavegar: (path: string) => void;
 }) {
   return (
     <View className="gap-5 px-4">
@@ -47,6 +53,8 @@ export function ResumenScreen({
         <LeyendaGasto
           principales={viewModel.leyendaPrincipal}
           complemento={viewModel.leyendaComplemento}
+          periodo={periodo}
+          onNavegar={onNavegar}
         />
       </View>
     </View>

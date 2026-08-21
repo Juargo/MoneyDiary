@@ -31,18 +31,20 @@ export function invalidarCatalogo(qc: QueryClient): void {
 }
 
 /**
- * Perfil B — catálogo + las tres claves AMPLIAS del dashboard. Las tres
+ * Perfil B — catálogo + las cuatro claves AMPLIAS del dashboard. Las tres
  * mutaciones de CATEGORÍA (crear/renombrar/re-bucketear/borrar). Claves de
  * PREFIJO (sin período ni bucket): esta pantalla no sabe qué períodos tiene
  * cacheados el dashboard, y un cambio de bucket re-estampa TODO el
- * historial (`CAT038-03`). Un rename-only también necesita las 4 —
+ * historial (`CAT038-03`). Un rename-only también necesita las 5 —
  * `['detalle-bucket-mes']` en particular no es sobre-invalidación en ese caso:
  * el endpoint agrupado de drill-down agrupa por `tx.categoria?.nombre`
- * (design.md §1/Q5b).
+ * (design.md §1/Q5b). `['ingresos-mes']` se añade en US-055 D-09: un
+ * re-bucketear puede afectar los totales de ingresos del mes.
  */
 export function invalidarCatalogoYDashboard(qc: QueryClient): void {
   invalidarCatalogo(qc);
   void qc.invalidateQueries({ queryKey: ['resumen'] });
   void qc.invalidateQueries({ queryKey: ['resumen-anual'] });
   void qc.invalidateQueries({ queryKey: ['detalle-bucket-mes'] });
+  void qc.invalidateQueries({ queryKey: ['ingresos-mes'] });
 }

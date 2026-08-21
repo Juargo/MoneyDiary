@@ -66,10 +66,12 @@ export function ResumenScreen({
   viewModel,
   onPeriodoChange,
   onSelectBucket,
+  onSelectIngresos,
 }: {
   readonly viewModel: ResumenViewModel;
   readonly onPeriodoChange: (periodo: string) => void;
   readonly onSelectBucket: (bucket: string, destacar?: boolean) => void;
+  readonly onSelectIngresos: () => void;
 }) {
   // D-06: both chart controls keep their single-arg `onSelectBucket`; THIS
   // screen owns the `destacar` flag — the Sin categoría drill-down carries
@@ -124,6 +126,7 @@ export function ResumenScreen({
               principales={viewModel.leyendaPrincipal}
               complemento={viewModel.leyendaComplemento}
               onSelectBucket={onSeleccionarBucket}
+              onSelectIngresos={onSelectIngresos}
             />
           </div>
 
