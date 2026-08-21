@@ -231,19 +231,19 @@ Chain strategy: stacked-to-main
 
 *Satisfies: CONTRACT-01, DEP-01 (deprecated annotation); §6 items 17–21.*
 
-- [ ] T-28 — (RED+GREEN) Modify `apps/api/src/infrastructure/http-express/schemas/ingesta-preview.schema.ts` (§6 item 17): extend response schema — `resumen` object + `filas` array with per-row `rowIndex`, `esDuplicado`, `sugerido`. Update `ingesta-preview.schema.spec.ts` with cases for the new fields.
+- [x] T-28 — (RED+GREEN) Modify `apps/api/src/infrastructure/http-express/schemas/ingesta-preview.schema.ts` (§6 item 17): extend response schema — `resumen` object + `filas` array with per-row `rowIndex`, `esDuplicado`, `sugerido`. Update `ingesta-preview.schema.spec.ts` with cases for the new fields. (pulled forward to PR2 — schema and spec already fully updated; verified passing in PR5 full suite.)
 
-- [ ] T-29 — (RED+GREEN) Create `apps/api/src/infrastructure/http-express/schemas/ingesta-commit.schema.ts` (§6 item 18): `commitIngestaRequestSchema` (multipart file + `edits` string) + `commitIngestaResponseSchema` (mirrors `CommitIngestaResponseDto` with `bucket` + `categoriaId` per row). Create `ingesta-commit.schema.spec.ts` with sync-guarantee cases (real `aCommitIngestaResponseDto` output parses; `.strict()` rejects stray keys).
+- [x] T-29 — (RED+GREEN) Create `apps/api/src/infrastructure/http-express/schemas/ingesta-commit.schema.ts` (§6 item 18): `commitIngestaRequestSchema` (multipart file + `edits` string) + `commitIngestaResponseSchema` (mirrors `CommitIngestaResponseDto` with `bucket` + `categoriaId` per row). Create `ingesta-commit.schema.spec.ts` with sync-guarantee cases (real `aCommitIngestaResponseDto` output parses; `.strict()` rejects stray keys).
 
-- [ ] T-30 — (RED+GREEN) Modify `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (§6 item 19):
+- [x] T-30 — (RED+GREEN) Modify `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` (§6 item 19):
   - Add `ingestaCommitOperation` + `'/api/ingestas/commit': {post}` (APPEND at end of `paths` — never reorder).
   - Set `deprecated: true` on `ingestaUploadOperation` (D-14).
   - Extend preview operation description to reflect full-row `filas` + `resumen`.
   Update `openapi-document.spec.ts` (§6 item 20) with +cases: commit path registered; upload marked `deprecated: true`; preview schema extended. Write specs before the document change.
 
-- [ ] T-31 — Regenerate `apps/api/openapi.json` (§6 item 21) via `pnpm api openapi:emit`. Run `pnpm api openapi:check` — exits 0. Verify: commit path present, upload `deprecated: true`, preview response extended.
+- [x] T-31 — Regenerate `apps/api/openapi.json` (§6 item 21) via `pnpm api openapi:emit`. Run `pnpm api openapi:check` — exits 0. Verify: commit path present, upload `deprecated: true`, preview response extended.
 
-- [ ] T-32 — Verify phase 5: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0.
+- [x] T-32 — Verify phase 5: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0.
   **Work-unit commit:** `feat(api): openapi schemas + document update, deprecated one-shot, commit path (US-057 PR5)`.
 
 ---
