@@ -94,17 +94,17 @@ Chain strategy: stacked-to-main
 > - **Atomic A (persistence-chain retype):** items 8a + 9 + 9a + 9b + 9c in ONE commit.
 > - **Atomic A2 (preview extension):** items 7 + 7a in ONE commit (depends on Atomic A).
 
-- [ ] T-09 — Create `apps/api/src/application/ports/account-reader.port.ts` (§6 item 4): `IAccountReader` with `findByBanco(userId, banco: DetectedBank): Result<{accountId: string} | null, PersistenciaFallidaError>` and the injection token (D-05). Read-only port — no upsert, no create.
+- [x] T-09 — Create `apps/api/src/application/ports/account-reader.port.ts` (§6 item 4): `IAccountReader` with `findByBanco(userId, banco: DetectedBank): Result<{accountId: string} | null, PersistenciaFallidaError>` and the injection token (D-05). Read-only port — no upsert, no create.
 
-- [ ] T-10 — (RED) Write unit tests for `PrismaAccountReader` (§6 item 10, D-05):
+- [x] T-10 — (RED) Write unit tests for `PrismaAccountReader` (§6 item 10, D-05):
   - `findUnique` on the correct composite key (`userId_banco_tipoCuenta_numeroCuentaBlindIndex`), blind index computed via `IBlindIndexService`.
   - Returns `null` when the account does not exist.
   - No `upsert` call on any path.
   **File (test):** `apps/api/src/infrastructure/persistence/prisma-account-reader.repository.spec.ts`.
 
-- [ ] T-11 — (GREEN) Create `apps/api/src/infrastructure/persistence/prisma-account-reader.repository.ts` (§6 item 10): `PrismaAccountReader implements IAccountReader`. Pure read: `findUnique` + blind index. No write branches.
+- [x] T-11 — (GREEN) Create `apps/api/src/infrastructure/persistence/prisma-account-reader.repository.ts` (§6 item 10): `PrismaAccountReader implements IAccountReader`. Pure read: `findUnique` + blind index. No write branches.
 
-- [ ] T-12 — **[ATOMIC A — persistence-chain retype: items 8a + 9 + 9a + 9b + 9c]**
+- [x] T-12 — **[ATOMIC A — persistence-chain retype: items 8a + 9 + 9a + 9b + 9c]**
   Implement in a SINGLE commit (splitting leaves compilation broken):
 
   **(RED first)** Update existing tests to assert the new shapes before changing production code:
@@ -122,7 +122,7 @@ Chain strategy: stacked-to-main
   Verify: `pnpm api test` (all suites green, one-shot regression passing) + `pnpm api exec tsc --noEmit`.
   **Atomic commit A:** `refactor(api): retype persistence chain to TransaccionAPersistir, preserve one-shot null path (US-057 PR2-atomic-A)`.
 
-- [ ] T-13 — **[ATOMIC A2 — preview extension: items 7 + 7a]**
+- [x] T-13 — **[ATOMIC A2 — preview extension: items 7 + 7a]**
   Implement in a SINGLE commit (removing the export without updating the spec breaks compilation):
 
   **(RED first)** Extend `preview-ingesta.use-case.spec.ts` (item 7a) with new cases BEFORE changing the implementation:
@@ -146,7 +146,7 @@ Chain strategy: stacked-to-main
   Verify: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **Atomic commit A2:** `feat(api): extend preview use case — full rows, dedup status, suggestions (US-057 PR2-atomic-A2)`.
 
-- [ ] T-14 — Verify phase 2: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
+- [x] T-14 — Verify phase 2: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **PR 2 targets PR 1 branch (stacked-to-main).**
 
 ---
@@ -175,7 +175,7 @@ Chain strategy: stacked-to-main
   - `CommitIngestaError` union exhaustive per D-18.
   - Injects: `EjecutarPipelineIngestaUseCase`, `IAccountRepository`, `DetectarDuplicadosUseCase`, `ICatalogoClasificacion`, `ICategoriaRepository`, `CategorizarTransaccionUseCase`, `PersistTransactionsUseCase`, `IRegistrarIngestaFallidaWriter`, `ILogger`. No `Record<Bucket,string>` in the use case (D-15, ADR-005).
 
-- [ ] T-17 — (RED+GREEN) `PersistTransactionsUseCase` regression test: assert it forwards `ReadonlyArray<TransaccionAPersistir>` untouched to `persistirProcesada` (fake `IIngestaRepository`; Fix 1).
+- [x] T-17 — (RED+GREEN) `PersistTransactionsUseCase` regression test: assert it forwards `ReadonlyArray<TransaccionAPersistir>` untouched to `persistirProcesada` (fake `IIngestaRepository`; Fix 1). (pulled forward to PR2 — `persist-transactions.use-case.spec.ts` "pasa TODOS los campos... sin transformarlos" asserts `transacciones: TXS` verbatim, Atomic A `75fda805`.)
 
 - [ ] T-18 — Verify phase 3: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **Work-unit commit:** `feat(api): CommitIngestaUseCase test-first, persist-transactions regression (US-057 PR3)`.
@@ -186,7 +186,7 @@ Chain strategy: stacked-to-main
 
 *Satisfies: CMT-01 (edits parsing, D-02/D-03), CMT-05 (response DTO, D-13), PREV-EXT-02 (no-write guarantee, D-12), DEP-01; §6 items 11–15 + container.*
 
-- [ ] T-19 — Modify `apps/api/src/infrastructure/http/dto/preview-ingesta.dto.ts` (§6 item 11): add `resumen: {totalFilas, duplicadosDetectados, nuevas}`, rename `muestra` → `filas`, add `PreviewFilaDto` with `rowIndex`, `esDuplicado`, `sugerido` (D-08). Amounts stay BigInt-safe strings. Verify existing usage not broken.
+- [x] T-19 — Modify `apps/api/src/infrastructure/http/dto/preview-ingesta.dto.ts` (§6 item 11): add `resumen: {totalFilas, duplicadosDetectados, nuevas}`, rename `muestra` → `filas`, add `PreviewFilaDto` with `rowIndex`, `esDuplicado`, `sugerido` (D-08). Amounts stay BigInt-safe strings. Verify existing usage not broken. (pulled forward to PR2 — DTO shape changed alongside the `PreviewIngestaResult` retype to keep compilation green; Atomic A2 + review fixes.)
 
 - [ ] T-20 — (RED+GREEN) Create `apps/api/src/infrastructure/http/dto/commit-ingesta.dto.ts` (§6 item 12):
   - `parseEdits(raw: string | undefined): Result<CommitEdit[], EdicionesInvalidasError>`: valid JSON → typed array; malformed JSON / non-array / bad element / bad `rowIndex` type / bad `categoriaId` type ⇒ `EdicionesInvalidasError`, message never echoes raw field; absent/empty ⇒ `[]`.
@@ -206,7 +206,7 @@ Chain strategy: stacked-to-main
 
 - [ ] T-23 — Create `apps/api/src/composition/crear-commit-ingesta.ts` (§6 item 15): signature `(prisma, crypto, blindIndex, logger)`. Wires `EjecutarPipelineIngestaUseCase`, `PrismaAccountRepository` (write, for `ensure`), `DetectarDuplicadosUseCase(new PrismaTransaccionExistenteReader(prisma, crypto))` (crypto MANDATORY — D-17), `PrismaCatalogoClasificacionRepository`, `PrismaCategoriaRepository` (D-10/D-15 membership + bucket map), `CategorizarTransaccionUseCase`, `PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto))`, `PrismaRegistrarIngestaFallidaRepository`. No `BUCKET_IDS` value passed to `CommitIngestaUseCase` (FK resolution lives in `aPersistencia`, D-15).
 
-- [ ] T-24 — Modify `apps/api/src/composition/crear-preview-ingesta.ts` (§6 item 14): new signature `(prisma, crypto, blindIndex, logger)`. Wire ONLY read adapters: `PrismaAccountReader(prisma, blindIndex)` (D-05), `PrismaTransaccionExistenteReader(prisma, crypto)` (crypto MANDATORY — D-17), `PrismaCatalogoClasificacionRepository(prisma)`. MUST NOT import or construct `PrismaAccountRepository`, `PrismaIngestaRepository`, `PersistTransactionsUseCase`, or `PrismaTransaccionBucketRepository`.
+- [x] T-24 — Modify `apps/api/src/composition/crear-preview-ingesta.ts` (§6 item 14): new signature `(prisma, crypto, blindIndex, logger)`. Wire ONLY read adapters: `PrismaAccountReader(prisma, blindIndex)` (D-05), `PrismaTransaccionExistenteReader(prisma, crypto)` (crypto MANDATORY — D-17), `PrismaCatalogoClasificacionRepository(prisma)`. MUST NOT import or construct `PrismaAccountRepository`, `PrismaIngestaRepository`, `PersistTransactionsUseCase`, or `PrismaTransaccionBucketRepository`. (pulled forward to PR2 — required to wire the extended preview use case; read-only adapters only, verified no write repos imported. Note: `CategorizarTransaccionUseCase` also wired per PR2 review fix 4.)
 
 - [ ] T-25 — **[MANDATORY-BLOCKING]** Create `apps/api/src/composition/crear-preview-ingesta.spec.ts` (§6 item 14a): the no-write composition test. Mechanism:
   - Build a Prisma stub (partial `PrismaClient`) with write-surface traps: `account.upsert`, `ingesta.create`, `transaccion.createMany`, `transaccion.updateMany`, `$transaction` — each assigned to `vi.fn(() => { throw new Error('WRITE FORBIDDEN in preview'); })`.
@@ -215,10 +215,10 @@ Chain strategy: stacked-to-main
   - Assert `Result.isOk` AND each write trap was NOT called (`expect(stub.account.upsert).not.toHaveBeenCalled()` etc.).
   **This test is a merge blocker.** Apply MUST NOT merge PR 4 (or any subsequent PR) without this test passing.
 
-- [ ] T-26 — Modify `apps/api/src/composition/container.ts` (§6 item 16):
-  - Update `previewIngesta` call from `crearPreviewIngesta(logger)` (current line 246) to `crearPreviewIngesta(prisma, crypto, blindIndex, logger)` (D-12).
-  - Add `Container.commitIngesta: CommitIngestaUseCase` field via `crearCommitIngesta(prisma, crypto, blindIndex, logger)`.
-  - Expose `commitIngesta` so `app.ts` can pass it to `registrarIngestas`.
+- [ ] T-26 — Modify `apps/api/src/composition/container.ts` (§6 item 16): (PARTIAL — first bullet done in PR2, rest blocked on PR3 `CommitIngestaUseCase`; stays unchecked.)
+  - [x] Update `previewIngesta` call to `crearPreviewIngesta(prisma, crypto, blindIndex, logger)` (D-12). (done in PR2.)
+  - [ ] Add `Container.commitIngesta: CommitIngestaUseCase` field via `crearCommitIngesta(prisma, crypto, blindIndex, logger)`. (needs PR3.)
+  - [ ] Expose `commitIngesta` so `app.ts` can pass it to `registrarIngestas`. (needs PR3.)
 
 - [ ] T-27 — Verify phase 4: `pnpm api test` (all suites green, including MANDATORY-BLOCKING T-25) + `pnpm api exec tsc --noEmit`.
   **Work-unit commit:** `feat(api): commit DTO/routes, composition helpers, MANDATORY no-write test (US-057 PR4)`.
