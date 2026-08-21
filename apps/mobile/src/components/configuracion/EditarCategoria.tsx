@@ -1,39 +1,53 @@
 /**
- * EditarCategoria.tsx — US-044 PR6a, T6a.4
+ * EditarCategoria.tsx — US-044 PR7, T7.5 (extended from PR6b T6b.4)
  *
- * Identity form (Nombre + Bucket) + footer (Guardar / Cancelar / Eliminar).
- * The bucket-change Alert.alert flow is stubbed in PR6a (early-return);
- * Eliminar calls eliminarCategoria directly — PR6b adds the Alert.alert
- * wrapper (MCTG-05). In this slice, Guardar sends the patch directly when
- * the bucket is clean (design §1.11's "bucket clean" branch).
+ * Identity form (Nombre + Bucket) + PatronesSection + footer (Guardar / Cancelar / Eliminar).
  *
- * PatronesSection renders a placeholder until PR7 wires the real component.
+ * PR7 wires the real PatronesSection, replacing the placeholder from PR6a.
+ * Patterns commit independently via PatronFila's own confirm (MCTG-04).
+ * Cancelar discards only the identity draft — committed patterns survive.
+ *
+ * PR6b wires both Alert.alert confirmation flows (design §1.11, MCTG-03/MCTG-05):
+ *
+ *   bucket clean  → patchCategoria({nombre, bucket}) directly (unchanged from PR6a)
+ *   bucket dirty  → Alert.alert(fraseDeImpacto({tipo:'cambiar-bucket', …}))
+ *                   → confirm → patch → solicitarRecargaResumen() (MCTG-07 positive)
+ *                   → cancel  → zero requests
+ *
+ *   Eliminar      → Alert.alert(fraseDeImpacto({tipo:'eliminar-categoria', …}))
+ *                   → confirm → eliminarCategoria (no solicitarRecargaResumen — D-11)
+ *                   → cancel  → zero requests
+ *
+ * Two web mechanisms are deliberately NOT ported (D-15):
+ *   - snapshotAlAbrirDialogo freeze — Alert.alert IS a native modal; the OS
+ *     blocks all interaction beneath it, so nothing can move. Reading values
+ *     at the moment Alert.alert is called IS the freeze.
+ *   - disabled/focus-restore matrix — the non-modal dialog they guarded
+ *     does not exist here.
+ *
+ * transaccionesCount is read from the already-loaded DTO — never re-fetched
+ * (design §1.11, T6b.5 refactor requirement).
  *
  * Props:
  *   categoria    — the resolved CategoriaDto from the route
  *   onGuardado   — called after a successful save (route re-fetches catalog)
  *   onCancelar   — called on Cancelar (route navigates back)
  *   onEliminado  — called after a successful delete (route navigates back)
- *
- * Binding constraints (PR6a):
- *   - bucket-dirty Guardar is an early-return (Alert.alert confirmation wired in PR6b)
- *   - Eliminar calls eliminarCategoria directly; PR6b wraps it in Alert.alert (MCTG-05)
- *   - SelectorChips for Bucket gets testID='bucket-selector' (distinct, per
- *     the binding constraint on multiple SelectorChips on the same screen)
- *   - PatronesSection placeholder testID='patrones-placeholder'
- *   - solicitarRecargaResumen is never imported in this file (D-11:
- *     the zero-import guarantee from NuevaCategoriaForm carries forward;
- *     PR6b wires the bucket-change refresh and imports it there).
+ *   onCatalogoChange — called after a pattern mutation so the route can re-fetch
+ *                      (optional — route passes cargarCatalogo; omit in tests)
  */
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { actualizarCategoria, eliminarCategoria } from '../../api/categorias';
+import { solicitarRecargaResumen } from '../../api/resumen-refresh';
 import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
+import { fraseDeImpacto } from '../../domain/impacto-catalogo';
 import { mensajeDeErrorCatalogo } from '../../domain/mensajes-catalogo';
 import type { CategoriaDto } from '../../domain/catalogo.types';
 import { CampoTexto } from './CampoTexto';
 import { SelectorChips } from './SelectorChips';
+import { PatronesSection } from './PatronesSection';
 
 export interface EditarCategoriaProps {
   readonly categoria: CategoriaDto;
@@ -43,6 +57,12 @@ export interface EditarCategoriaProps {
   readonly onCancelar: () => void;
   /** Called after a successful Eliminar — navigates back */
   readonly onEliminado: () => void;
+  /**
+   * Called after any pattern mutation so the parent route can re-fetch the catalog.
+   * Optional — the route passes `cargarCatalogo`; tests that don't test pattern
+   * mutations can omit it.
+   */
+  readonly onCatalogoChange?: () => void;
 }
 
 export function EditarCategoria({
@@ -50,6 +70,7 @@ export function EditarCategoria({
   onGuardado,
   onCancelar,
   onEliminado,
+  onCatalogoChange,
 }: EditarCategoriaProps) {
   // Identity draft — seeded from the resolved row, local until Guardar
   const [nombre, setNombre] = useState(categoria.nombre);
@@ -69,19 +90,84 @@ export function EditarCategoria({
   );
   const [error, setError] = useState<string | null>(null);
 
+  // Guard against rapid double-tap opening stacked native Alerts.
+  // Set to true before Alert.alert is called, cleared in every button
+  // path (confirm, cancel) so subsequent presses open a new Alert.
+  const mostrandoAlerta = useRef(false);
+
   const enviando = operacion !== null;
 
   const bucketOriginal =
     (categoria.bucket as BucketAsignable) ?? BUCKETS_ASIGNABLES[0];
   const bucketCambiado = bucket !== bucketOriginal;
 
+  /**
+   * Execute the actual bucket-change PATCH after Alert confirmation.
+   * Called from the Alert's destructive button onPress.
+   * Fires solicitarRecargaResumen() only on success (D-11, MCTG-07 positive).
+   */
+  async function confirmarCambiarBucket() {
+    setOperacion('guardar');
+    setError(null);
+
+    const resultado = await actualizarCategoria(categoria.id, {
+      nombre: nombre.trim(),
+      bucket,
+    });
+
+    setOperacion(null);
+
+    if (resultado.ok) {
+      // Bucket change re-stamps transacciones' bucketId — resumen buckets shift
+      // (actualizar-categoria.use-case.ts:38-39, D-11). Fire the refresh.
+      solicitarRecargaResumen();
+      onGuardado();
+    } else {
+      setError(mensajeDeErrorCatalogo(resultado.error));
+    }
+  }
+
   async function handleGuardar() {
     if (enviando) return;
 
-    // bucket-dirty branch: Alert.alert confirmation — wired in PR6b.
-    // In PR6a this is a stub (no-op): the confirmation flow does not exist yet.
     if (bucketCambiado) {
-      // PR6b stub — bucket-change confirmation not yet wired
+      // bucket-dirty: show impact confirmation before patching (MCTG-03)
+      if (mostrandoAlerta.current) return;
+      mostrandoAlerta.current = true;
+      // Use nombre.trim() (draft) so the Alert names what will actually be
+      // saved — web parity (design §1.11). categoria.nombre is the original DTO.
+      const { titulo, lineas, textoConfirmar } = fraseDeImpacto({
+        tipo: 'cambiar-bucket',
+        nombre: nombre.trim(),
+        transaccionesCount: categoria.transaccionesCount,
+        bucketAnterior: bucketOriginal,
+        bucketNuevo: bucket,
+      });
+      // cancelable: false — Android's default is true; backdrop/back-button dismiss
+      // fires no button callback and would leave mostrandoAlerta.current stuck true,
+      // permanently disabling Guardar and Eliminar (dead buttons).
+      Alert.alert(
+        titulo,
+        lineas.join('\n'),
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+            onPress: () => {
+              mostrandoAlerta.current = false;
+            },
+          },
+          {
+            text: textoConfirmar,
+            style: 'destructive',
+            onPress: () => {
+              mostrandoAlerta.current = false;
+              void confirmarCambiarBucket();
+            },
+          },
+        ],
+        { cancelable: false },
+      );
       return;
     }
 
@@ -103,14 +189,13 @@ export function EditarCategoria({
     }
   }
 
-  async function handleEliminar() {
-    if (enviando) return;
-
-    // PR6a calls eliminarCategoria directly (no Alert.alert yet).
-    // PR6b wraps this call in the Alert.alert confirmation flow per
-    // design §1.11 (MCTG-05). The route is UI-unreachable until PR8
-    // ships the gear (D-18), so no unconfirmed delete is user-triggerable
-    // in any shipped state.
+  /**
+   * Execute the actual delete after Alert confirmation.
+   * Called from the Alert's destructive button onPress.
+   * Does NOT fire solicitarRecargaResumen — delete leaves bucketId untouched
+   * (eliminar-categoria.use-case.ts:14-18, D-11, MCTG-07 negative-3).
+   */
+  async function confirmarEliminar() {
     setOperacion('eliminar');
     setError(null);
 
@@ -123,6 +208,46 @@ export function EditarCategoria({
     } else {
       setError(mensajeDeErrorCatalogo(resultado.error));
     }
+  }
+
+  async function handleEliminar() {
+    if (enviando) return;
+    if (mostrandoAlerta.current) return;
+    mostrandoAlerta.current = true;
+
+    // Show delete impact confirmation (MCTG-05).
+    // transaccionesCount comes from the already-loaded DTO — never re-fetched
+    // (design §1.11: "never a fresh fetch — MCTG-05").
+    const { titulo, lineas, textoConfirmar } = fraseDeImpacto({
+      tipo: 'eliminar-categoria',
+      nombre: categoria.nombre,
+      transaccionesCount: categoria.transaccionesCount,
+    });
+    Alert.alert(
+      titulo,
+      lineas.join('\n'),
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => {
+            mostrandoAlerta.current = false;
+          },
+        },
+        {
+          text: textoConfirmar,
+          style: 'destructive',
+          onPress: () => {
+            mostrandoAlerta.current = false;
+            void confirmarEliminar();
+          },
+        },
+      ],
+      // cancelable: false — same rationale as the bucket-change Alert above:
+      // an Android backdrop/back dismiss fires no button callback and would
+      // leave mostrandoAlerta.current stuck true (dead buttons).
+      { cancelable: false },
+    );
   }
 
   return (
@@ -145,7 +270,7 @@ export function EditarCategoria({
         onChange={(v) => setBucket(v)}
       />
 
-      {/* Error region — PR6b adds the post-confirm failure path here */}
+      {/* Error region — post-confirm failures render here (R5, design §1.11) */}
       {error ? (
         <Text
           accessibilityRole="alert"
@@ -157,8 +282,15 @@ export function EditarCategoria({
         </Text>
       ) : null}
 
-      {/* PatronesSection placeholder — replaced by real component in PR7 */}
-      <View testID="patrones-placeholder" />
+      {/* PatronesSection — per-row pattern CRUD committing independently (MCTG-04).
+          Cancelar on this form discards only the identity draft; committed patterns
+          survive. onCatalogoChange triggers the route's catalog re-fetch after each
+          pattern mutation (D-10). */}
+      <PatronesSection
+        categoriaId={categoria.id}
+        patrones={categoria.patrones}
+        onPatronesChange={onCatalogoChange ?? (() => undefined)}
+      />
 
       {/* Footer: Guardar / Cancelar / Eliminar */}
       <View className="gap-3">

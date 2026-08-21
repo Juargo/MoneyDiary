@@ -40,7 +40,9 @@ export function PeriodoSelector({
   const ahora = new Date();
   const efectivo = periodo ?? periodoActualUTC(ahora);
   const enMesActual = esMesActual(efectivo, ahora);
-  const periodoActual = periodoActualUTC(ahora);
+  // D-01 §9: renamed to `mesActual` — avoids shadowing the `periodoActual()`
+  // module-level import from `domain/periodo.ts` if ever added to this file.
+  const mesActual = periodoActualUTC(ahora);
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -69,7 +71,7 @@ export function PeriodoSelector({
         <PopoverContent>
           <MonthYearPicker
             periodo={efectivo}
-            periodoActual={periodoActual}
+            periodoActual={mesActual}
             onSelect={(nuevoPeriodo) => {
               onChange(nuevoPeriodo);
               setAbierto(false);
@@ -95,7 +97,7 @@ export function PeriodoSelector({
         size="sm"
         aria-label="Ir al mes actual"
         disabled={enMesActual}
-        onClick={() => onChange(periodoActualUTC(ahora))}
+        onClick={() => onChange(mesActual)}
       >
         Hoy
       </Button>

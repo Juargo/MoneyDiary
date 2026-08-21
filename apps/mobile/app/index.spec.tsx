@@ -502,6 +502,61 @@ describe('Index (4-state switch)', () => {
     });
   });
 
+  // Fix 5 (D-10): route-level wiring pin — pressing a legend row in the data
+  // state must reach router.push with the exact path the shell computes.
+  // FALSIFIABILITY: removing the router.push(path) wiring in index.tsx's
+  // renderEstado would make onNavegar a no-op, so mockPush would not be
+  // called and this test would fail on the toHaveBeenCalledWith assertion.
+  describe('legend row navigation wiring (D-10, US-056 PR1)', () => {
+    it('pressing leyenda-fila-Necesidades calls router.push with the correct bucket path and periodo', async () => {
+      // Pin ONLY the Date constructor (every timer API stays real so RNTL's
+      // waitFor is unaffected). index.tsx derives periodoVista at render time
+      // via periodoActualUTC(new Date()); without this pin the test's own
+      // new Date() and the component's could straddle a UTC month boundary.
+      // Mid-June of the suite's current year keeps the annual-grid fixture
+      // (built from module-level anioActual) consistent with the pinned clock.
+      jest.useFakeTimers({
+        doNotFake: [
+          'hrtime',
+          'nextTick',
+          'performance',
+          'queueMicrotask',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+          'setImmediate',
+          'clearImmediate',
+          'setInterval',
+          'clearInterval',
+          'setTimeout',
+          'clearTimeout',
+        ],
+        now: new Date(Date.UTC(anioActual, 5, 15)),
+      });
+
+      try {
+        mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+        await render(<Index />);
+        await waitFor(() =>
+          expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen(),
+        );
+
+        fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
+
+        // periodoVista in index.tsx = periodo state ?? periodoActualUTC(new Date()).
+        // periodo state is undefined on initial mount (no month was tapped), so
+        // the pinned clock makes the expected path an exact literal month.
+        expect(mockPush).toHaveBeenCalledWith(
+          `/bucket/Necesidades?periodo=${anioActual}-06`,
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
   describe('month selection (design §1.9, MOB-13)', () => {
     it('fetches with periodo undefined on the default mount (current month)', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });

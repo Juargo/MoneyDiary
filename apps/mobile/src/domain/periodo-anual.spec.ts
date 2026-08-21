@@ -3,6 +3,9 @@ import {
   mesCompletoLabel,
   anioDePeriodo,
   periodoActualUTC,
+  mesAnterior,
+  mesSiguiente,
+  esMesActual,
 } from './periodo-anual';
 
 // Ported subset of apps/web/src/domain/periodo-anual.ts (US-050, design
@@ -55,21 +58,6 @@ describe('periodoActualUTC', () => {
     );
   });
 
-  // judgment-day WARNING fix: this boundary case only discriminates a
-  // regression to local-time getters (`getFullYear`/`getMonth`) when the
-  // runner's *local* TZ differs from UTC — GitHub Actions runners are UTC,
-  // so it silently passed either way in CI. Setting `process.env.TZ` inline
-  // does NOT work here: `jest-environment-node` gives every test file its
-  // own sandboxed `process.env` (`jest-util`'s `createProcessObject`, a
-  // proxy over a *copy* of the real env — verified by mutating
-  // `periodoActualUTC` to `getFullYear`/`getMonth` under `TZ=UTC` with an
-  // in-file `process.env.TZ` reassignment: the mutant still passed, because
-  // the real V8 `Date` engine never saw the reassignment). Instead, spy on
-  // `Date.prototype.getFullYear`/`getMonth` to return values that disagree
-  // with the UTC ones for this exact instant — deterministic on any host or
-  // CI timezone, and it precisely targets "did the implementation reach for
-  // the local getters" without depending on the environment's real TZ at
-  // all.
   it('resolves by UTC, not local time, for a date near a month boundary', () => {
     const instante = new Date('2026-07-01T00:30:00.000Z'); // UTC: July 1st.
     const getFullYearSpy = jest
@@ -91,5 +79,38 @@ describe('periodoActualUTC', () => {
     expect(periodoActualUTC(new Date('2026-01-05T00:00:00.000Z'))).toBe(
       '2026-01',
     );
+  });
+});
+
+// T-04 RED: new cases for period navigation helpers (US-056, D-13)
+describe('mesAnterior', () => {
+  it("mesAnterior('2026-07') returns '2026-06'", () => {
+    expect(mesAnterior('2026-07')).toBe('2026-06');
+  });
+
+  it("mesAnterior('2026-01') returns '2025-12' (Jan→Dec year rollover)", () => {
+    expect(mesAnterior('2026-01')).toBe('2025-12');
+  });
+});
+
+describe('mesSiguiente', () => {
+  it("mesSiguiente('2026-07') returns '2026-08'", () => {
+    expect(mesSiguiente('2026-07')).toBe('2026-08');
+  });
+
+  it("mesSiguiente('2026-12') returns '2027-01' (Dec→Jan year rollover)", () => {
+    expect(mesSiguiente('2026-12')).toBe('2027-01');
+  });
+});
+
+describe('esMesActual', () => {
+  it('returns true for current UTC month', () => {
+    const ahora = new Date('2026-08-15T12:00:00.000Z');
+    expect(esMesActual('2026-08', ahora)).toBe(true);
+  });
+
+  it('returns false for prior month', () => {
+    const ahora = new Date('2026-08-15T12:00:00.000Z');
+    expect(esMesActual('2026-07', ahora)).toBe(false);
   });
 });

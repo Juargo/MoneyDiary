@@ -38,6 +38,7 @@ function renderLeyenda(
       principales={principales}
       complemento={complemento}
       onSelectBucket={vi.fn()}
+      onSelectIngresos={vi.fn()}
       {...overrides}
     />,
   );
@@ -68,21 +69,25 @@ describe('LeyendaGasto', () => {
         principales={[]}
         complemento={complemento}
         onSelectBucket={vi.fn()}
+        onSelectIngresos={vi.fn()}
       />,
     );
     expect(screen.getByText('Ingresos')).toBeInTheDocument();
     expect(screen.getAllByTestId('leyenda-item')).toHaveLength(2);
   });
 
-  it('the Ingresos row has no % and is not a button or other interactive/focusable control (US-047 CA-04/WG5-06)', () => {
-    renderLeyenda();
-    const filaIngresos = screen.getByText('Ingresos').closest('li');
-    expect(filaIngresos).not.toBeNull();
-    expect(filaIngresos?.querySelector('button')).toBeNull();
-    expect(filaIngresos?.textContent).not.toContain('%');
-    expect(
-      screen.queryByRole('button', { name: /Ingresos/ }),
-    ).not.toBeInTheDocument();
+  // US-054 T-14 (D-05, WG5-03/06): the Ingresos row IS now a button —
+  // the US-047 interim ("none exists today") is removed; the endpoint exists
+  // (US-052). No `%` (income is not part of 50/30/20 spend split). Activation
+  // calls `onSelectIngresos` (new callback, distinct from `onSelectBucket`).
+  it('the Ingresos row IS a button with no %, and activation calls onSelectIngresos (US-054 D-05, WG5-03/06)', () => {
+    const onSelectIngresos = vi.fn();
+    renderLeyenda({ onSelectIngresos });
+    const boton = screen.getByRole('button', { name: /^Ingresos/ });
+    expect(boton).toBeInTheDocument();
+    expect(boton.textContent).not.toContain('%');
+    fireEvent.click(boton);
+    expect(onSelectIngresos).toHaveBeenCalledTimes(1);
   });
 
   it('spend-bucket amounts start with "-", the Ingresos amount starts with "+" (US-047 WG5-04)', () => {
