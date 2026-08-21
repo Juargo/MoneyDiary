@@ -40,11 +40,15 @@ describe('invalidarCatalogo — perfil A (mutaciones de patrón)', () => {
     // Exact array equality: una TERCERA clave (p.ej. ['resumen']) rompe esta
     // aserción — no se infiere por ausencia en el test de arriba.
     expect(claves()).toEqual([['categorias']]);
+    // WDM-09: explicit negation (spec: assert explicitly, not infer from absence).
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['ingresos-mes'],
+    });
   });
 });
 
 describe('invalidarCatalogoYDashboard — perfil B (mutaciones de categoría)', () => {
-  it('invalida EXACTAMENTE las 4 claves, en orden: categorias, resumen, resumen-anual, detalle-bucket-mes', () => {
+  it('invalida EXACTAMENTE las 5 claves, en orden: categorias, resumen, resumen-anual, detalle-bucket-mes, ingresos-mes (WDM-09)', () => {
     const { queryClient, claves } = crearQueryClientEspiado();
 
     invalidarCatalogoYDashboard(queryClient);
@@ -54,6 +58,7 @@ describe('invalidarCatalogoYDashboard — perfil B (mutaciones de categoría)', 
       ['resumen'],
       ['resumen-anual'],
       ['detalle-bucket-mes'],
+      ['ingresos-mes'],
     ]);
   });
 });

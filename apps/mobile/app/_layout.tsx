@@ -44,6 +44,10 @@ function RootNavigator() {
         <Stack.Screen name="subir" />
         <Stack.Screen name="configuracion" />
         <Stack.Screen name="categoria/[id]" />
+        {/* US-056 D-12/T-03: both detail routes registered in _layout.tsx.
+            bucket/[bucket] real screen (PR3 T-12); ingresos real screen (PR5 T-17). */}
+        <Stack.Screen name="bucket/[bucket]" />
+        <Stack.Screen name="ingresos" />
       </Stack.Protected>
       <Stack.Protected guard={estado === 'unauthenticated'}>
         <Stack.Screen name="login" />

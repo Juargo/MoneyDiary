@@ -59,7 +59,7 @@ describe('useActualizarCategoria', () => {
     });
   });
 
-  it('un cambio de bucket invalida EXACTAMENTE las 4 claves del perfil B, en orden (WCTG-09 inclusión)', async () => {
+  it('un cambio de bucket invalida EXACTAMENTE las 5 claves del perfil B, en orden (WCTG-09/WDM-09 inclusión)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 200 }),
@@ -78,10 +78,11 @@ describe('useActualizarCategoria', () => {
       ['resumen'],
       ['resumen-anual'],
       ['detalle-bucket-mes'],
+      ['ingresos-mes'],
     ]);
   });
 
-  it('BELT-AND-BRACES — un rename-only (bucket sin cambios) TAMBIÉN invalida las 4 claves completas (design.md §1/Q5b, no negociable)', async () => {
+  it('BELT-AND-BRACES — un rename-only (bucket sin cambios) TAMBIÉN invalida las 5 claves completas (design.md §1/Q5b/WDM-09, no negociable)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 200 }),
@@ -100,6 +101,7 @@ describe('useActualizarCategoria', () => {
       ['resumen'],
       ['resumen-anual'],
       ['detalle-bucket-mes'],
+      ['ingresos-mes'],
     ]);
   });
 

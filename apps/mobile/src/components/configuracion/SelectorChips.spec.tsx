@@ -104,6 +104,40 @@ describe('SelectorChips (US-044 PR3a)', () => {
     expect(screen.getByText('Bucket (obligatorio)')).toBeOnTheScreen();
   });
 
+  it('getOptionLabel: custom label renders while onChange emits the raw option value', async () => {
+    // Binding obligation 1 (PR7): getOptionLabel was removed as YAGNI in PR2b-4a
+    // with an explicit note "PR7 re-adds it WITH a test". This test pins both:
+    //   a) the custom label is what renders in the UI (accessibilityLabel + text)
+    //   b) onChange still emits the raw option value, not the label
+    const matchTypes = ['CONTAINS', 'STARTS_WITH', 'REGEX'] as const;
+    const labelMap: Record<string, string> = {
+      CONTAINS: 'CONTIENE',
+      STARTS_WITH: 'EMPIEZA CON',
+      REGEX: 'REGEX',
+    };
+    const onChange = jest.fn();
+
+    await render(
+      <SelectorChips
+        label="Tipo de coincidencia"
+        options={matchTypes}
+        value="CONTAINS"
+        onChange={onChange}
+        getOptionLabel={(opt) => labelMap[opt] ?? opt}
+        testID="match-type-selector"
+      />,
+    );
+
+    // Custom label 'CONTIENE' renders — NOT raw 'CONTAINS'
+    expect(screen.getByRole('radio', { name: 'CONTIENE' })).toBeOnTheScreen();
+    expect(screen.queryByRole('radio', { name: 'CONTAINS' })).toBeNull();
+
+    // Pressing 'EMPIEZA CON' (the label) emits raw value 'STARTS_WITH'
+    await fireEvent.press(screen.getByRole('radio', { name: 'EMPIEZA CON' }));
+    expect(onChange).toHaveBeenCalledWith('STARTS_WITH');
+    expect(onChange).not.toHaveBeenCalledWith('EMPIEZA CON');
+  });
+
   it.each([
     {
       nombre: 'buckets',

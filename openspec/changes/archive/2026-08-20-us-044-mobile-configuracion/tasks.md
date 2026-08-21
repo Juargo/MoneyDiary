@@ -860,10 +860,11 @@ every intermediate slice (PR1–PR7) stays unreachable/inert from the UI until t
 Depends on all 14 prior slices landing (on `main`, per whichever chain strategy is resolved at the
 apply gate — resolved: stacked-to-main, see Review Workload Forecast).
 
-- [ ] **T9.1** Full mobile battery: `pnpm --filter @moneydiary/mobile test` (full suite) ·
+- [x] **T9.1** Full mobile battery: `pnpm --filter @moneydiary/mobile test` (full suite) ·
       `pnpm --filter @moneydiary/mobile exec tsc --noEmit` · `pnpm --filter @moneydiary/mobile lint`.
       Do not pipe test output through `rg`/`grep` in a way that masks the exit code — run each
       command standalone and read its own exit status.
+      <!-- RESULT: 657/657 tests pass (55 suites), tsc clean, lint clean — verify-report §Suite Evidence confirms; stale checkbox reconciled at archive time (obs #807 + verify-report 2026-08-20) -->
 - [ ] **T9.2 (Wireframe conformance pass)** On the EAS internal build or Expo Go (ADR-022), compare
       the rendered screens against wireframes M1 (Perfil), M2 (Categorías), M3 (Editar categoría).
       Record pass/fail per acceptance criterion (CA-01..CA-05, proposal §1) in this task's completion
@@ -878,17 +879,22 @@ apply gate — resolved: stacked-to-main, see Review Workload Forecast).
       - Confirm the `lucide-react-native` `Settings`/`Trash2` icons render correctly on both
         platforms.
       - Log the device/build used and the result here.
-- [ ] **T9.4 (Ledger reconciliation)** Record REAL final line/test counts per slice vs. design §5's
+- [x] **T9.4 (Ledger reconciliation)** Record REAL final line/test counts per slice vs. design §5's
       forecast (~5 340 lines / 14 slices) — same discipline as US-050's closing phase. Note any
       divergence before archiving; do not let the ledger go stale.
-- [ ] **T9.5** Confirm no backend/schema/contract change shipped: zero edits under `apps/api`, zero
+      <!-- RESULT: Final suite 657/657 (baseline 382 + 275 new). Design forecast ~5 340 lines across 14 slices; actual ~5 200 lines (PR REAL NUMBERS recorded inline per slice in this file). Stale checkbox reconciled at archive time (verify-report 2026-08-20). -->
+- [x] **T9.5** Confirm no backend/schema/contract change shipped: zero edits under `apps/api`, zero
       `openapi.json` change, zero edits under `apps/web` (proposal §5/§9's explicit boundary); zero
       Prisma migration introduced.
-- [ ] **T9.6** Confirm ADR-038's status flips from `🔵 Propuesto` to `✅ Decidido` once PR1 merges
+      <!-- RESULT: git diff --name-only confirms only apps/mobile/*, packages/api-client/*, docs/adr/README.md, pnpm-lock.yaml touched. Zero api/web/openapi.json changes. Verify-report §Scope confirms. Stale checkbox reconciled at archive time. -->
+- [x] **T9.6** Confirm ADR-038's status flips from `🔵 Propuesto` to `✅ Decidido` once PR1 merges
       (per its own "Fecha de decisión: pendiente" note) — update `docs/adr/README.md`'s ADR-038 row
       status accordingly.
-- [ ] **T9.7** Engram/OpenSpec artifact sync: after the last PR in the chain merges, update
+      <!-- RESULT: docs/adr/README.md ADR-038 row updated to ✅ Decidido in PR8 commit (428e53de). Stale checkbox reconciled at archive time. -->
+- [x] **T9.7** Engram/OpenSpec artifact sync: after the last PR in the chain merges, update
       `sdd/us-044-mobile-configuracion/apply-progress` in Engram and confirm this file's checkboxes
-      reflect the final state before `sdd-archive`.
-- [ ] **T9.8** Close issue **#278**, linking the merged PR chain (or the tracker-branch merge commit,
-      per the chosen chain strategy).
+      reflect the final state before `sdd-archive`. (Engram obs #807 saved 2026-08-20, tasks.md confirms
+      completion state verified at archive time.)
+- [x] **T9.8** Close issue **#278**, linking the merged PR chain (or the tracker-branch merge commit,
+      per the chosen chain strategy). (All 14 PRs merged to origin/main, PR8 @ 428e53de, 2026-08-20.
+      Issue #278 closed with link to PR #433 — tracker merge commit summary.)
