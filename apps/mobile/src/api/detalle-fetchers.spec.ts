@@ -1,8 +1,12 @@
 import { fetchDetalleBucketMes, fetchIngresosMes } from './client';
 
 // T-04 RED: branch-matrix specs for detalle fetchers (US-056, D-15/T-C7)
-// Mocking 'client' module at the file level is not feasible here since we are
-// testing the functions themselves — instead mock the underlying fetch global.
+//
+// The !API_BASE_URL guard cases use jest.resetModules + jest.doMock +
+// jest.requireActual to load a fresh client.ts with API_BASE_URL=undefined,
+// mirroring the client.spec.ts pattern (fetchResumen no-base-url test).
+// The module-level jest.mock('./config') below covers all other cases;
+// the guard cases override it via jest.doMock after resetting the registry.
 
 const VALID_DETALLE_BODY = {
   bucket: 'Necesidades',
@@ -68,7 +72,7 @@ jest.mock('./session-store', () => ({
   leerToken: () => Promise.resolve(null),
 }));
 
-// Mock config so API_BASE_URL is set
+// Mock config so API_BASE_URL is set for the non-guard cases
 jest.mock('./config', () => ({
   API_BASE_URL: 'http://localhost:3000',
   API_KEY: 'test-key',
@@ -81,15 +85,31 @@ beforeEach(() => {
 // ---- fetchDetalleBucketMes ----
 
 describe('fetchDetalleBucketMes', () => {
-  it('no API_BASE_URL → network error', async () => {
+  it('no API_BASE_URL → network error (fetch NOT called)', async () => {
+    // Uses jest.resetModules + jest.doMock + jest.requireActual to load a fresh
+    // client.ts with API_BASE_URL=undefined, exercising the `if (!API_BASE_URL)`
+    // guard (client.ts ~line 617). Falsifiability pin: deleting that guard causes
+    // fetch to be called with 'undefined/api/buckets/...' and `expect(fetchMock)
+    // .not.toHaveBeenCalled()` fails. Mirrors client.spec.ts's guard test pattern
+    // but overrides the module-level jest.mock('./config') via jest.doMock inside
+    // a fresh module registry (resetModules clears the prior mock factory).
     jest.resetModules();
-    // We test this case by verifying the fetch guard path. The module-level mock
-    // keeps API_BASE_URL set, so we test the guard via a fetch-throws case:
-    // (the real no-base-url branch is exercised in the integration setup;
-    // here we cover it by mocking the module without API_BASE_URL)
-    // For simplicity, verify that a fetch-throw returns network error instead.
-    mockFetch(0, null, true);
-    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+    jest.doMock('./config', () => ({
+      API_BASE_URL: undefined,
+      API_KEY: 'test-key',
+    }));
+    jest.doMock('./session-store', () => ({
+      leerToken: () => Promise.resolve(null),
+    }));
+    const fetchMock = jest.fn();
+    (global as unknown as { fetch: typeof fetch }).fetch =
+      fetchMock as unknown as typeof fetch;
+
+    const { fetchDetalleBucketMes: fn } = jest.requireActual(
+      './client',
+    ) as typeof import('./client');
+    const result = await fn('Necesidades', '2026-07');
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.tag).toBe('network');
@@ -171,6 +191,33 @@ describe('fetchDetalleBucketMes', () => {
 // ---- fetchIngresosMes ----
 
 describe('fetchIngresosMes', () => {
+  it('no API_BASE_URL → network error (fetch NOT called)', async () => {
+    // Same pattern as the fetchDetalleBucketMes guard test. Deleting the guard
+    // at client.ts ~line 659 causes fetch to be called with
+    // 'undefined/api/ingresos/mes' — `expect(fetchMock).not.toHaveBeenCalled()` fails.
+    jest.resetModules();
+    jest.doMock('./config', () => ({
+      API_BASE_URL: undefined,
+      API_KEY: 'test-key',
+    }));
+    jest.doMock('./session-store', () => ({
+      leerToken: () => Promise.resolve(null),
+    }));
+    const fetchMock = jest.fn();
+    (global as unknown as { fetch: typeof fetch }).fetch =
+      fetchMock as unknown as typeof fetch;
+
+    const { fetchIngresosMes: fn } = jest.requireActual(
+      './client',
+    ) as typeof import('./client');
+    const result = await fn('2026-07');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.tag).toBe('network');
+    }
+  });
+
   it('fetch throws → network error', async () => {
     mockFetch(0, null, true);
     const result = await fetchIngresosMes('2026-07');

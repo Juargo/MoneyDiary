@@ -32,7 +32,7 @@ export interface IngresosMesFilaViewModel {
 }
 
 export interface IngresosMesViewModel {
-  /** `mesCompletoLabel(periodo ?? periodoActualUTC(new Date()))` */
+  /** `mesCompletoLabel(periodo ?? periodoActualUTC(ahora))` */
   readonly mesLabel: string;
   /** `conteo === 1 ? '1 ingreso' : \`${conteo} ingresos\`` (0 → plural, WDI-04). */
   readonly conteoLabel: string;
@@ -60,15 +60,17 @@ function aFilaViewModel(
  *
  * `mesLabel` derives from the `periodo` param because the wire does not echo
  * the periodo (MID-01); when `periodo` is undefined → current calendar month
- * via `periodoActualUTC(new Date())` (mobile equivalent of web's
- * `periodoActual()`).
+ * via `periodoActualUTC(ahora)` (mobile equivalent of web's `periodoActual()`).
+ *
+ * `ahora` is injectable for deterministic testing; defaults to `new Date()`.
  */
 export function aIngresosMesViewModel(
   dto: IngresosMesDto,
   periodo?: string,
+  ahora: Date = new Date(),
 ): IngresosMesViewModel {
   return {
-    mesLabel: mesCompletoLabel(periodo ?? periodoActualUTC(new Date())),
+    mesLabel: mesCompletoLabel(periodo ?? periodoActualUTC(ahora)),
     conteoLabel: dto.conteo === 1 ? '1 ingreso' : `${dto.conteo} ingresos`,
     totalLabel: formatearMontoConSigno(dto.total, '+'),
     filas: dto.transacciones.map(aFilaViewModel),

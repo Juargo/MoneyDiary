@@ -72,12 +72,14 @@ describe('aIngresosMesViewModel', () => {
     expect(vm.mesLabel).toBe('julio 2026');
   });
 
-  it('mesLabel falls back to periodoActualUTC when periodo undefined', () => {
-    // When periodo is undefined, must use periodoActualUTC(new Date())
-    // The test just verifies it returns a non-empty string (not '—' or undefined).
-    const vm = aIngresosMesViewModel(makeDto(), undefined);
-    expect(typeof vm.mesLabel).toBe('string');
-    expect(vm.mesLabel.length).toBeGreaterThan(0);
+  it('mesLabel falls back to periodoActualUTC(ahora) when periodo undefined — injectable clock pins the label', () => {
+    // Pass a pinned clock: Date.UTC(2026, 5, 15) = 2026-06-15 UTC → periodo '2026-06'
+    // → mesCompletoLabel('2026-06') = 'junio 2026'.
+    // If the !API_BASE_URL guard were deleted (i.e., the ahora param were ignored
+    // and new Date() used instead), the label would vary by wall-clock month.
+    const ahora = new Date(Date.UTC(2026, 5, 15)); // June = month index 5
+    const vm = aIngresosMesViewModel(makeDto(), undefined, ahora);
+    expect(vm.mesLabel).toBe('junio 2026');
   });
 
   it('origen is verbatim from dto — no client normalization', () => {

@@ -1,4 +1,5 @@
 import { aDetalleBucketMesViewModel } from './detalle-bucket-mes-view-model';
+import { SIN_PORCENTAJE_LABEL } from './porcentaje';
 import type { DetalleBucketMesDto } from './detalle.types';
 
 // T-04 RED: unit specs for aDetalleBucketMesViewModel (US-056, D-22/T-C1)
@@ -65,10 +66,10 @@ describe('aDetalleBucketMesViewModel', () => {
     expect(vm.porcentajeLabel).toBe('—');
   });
 
-  it("metaLabel is 'Sin meta' when metaBp is null", () => {
+  it("metaLabel is '—' (SIN_PORCENTAJE_LABEL) when metaBp is null — 'Sin meta' text is the screen's job", () => {
     const dto = makeDto({ metaBp: null });
     const vm = aDetalleBucketMesViewModel(dto);
-    expect(vm.metaLabel).toBe('Sin meta');
+    expect(vm.metaLabel).toBe(SIN_PORCENTAJE_LABEL);
   });
 
   it('sinMeta flag is true iff metaBp is null', () => {

@@ -8,14 +8,12 @@
  * - `grupos` passes verbatim — no re-sort, no re-group (WDM-03).
  * - Money: uses mobile's `formatearMontoCLP` (BigInt-exact, never parseFloat).
  * - `porcentajeLabel`/`metaLabel`: uses `aPorcentajeLabel` from porcentaje.ts
- *   (`SIN_PORCENTAJE_LABEL` for null, never "0%" for the null path — MOB-06).
+ *   (`SIN_PORCENTAJE_LABEL` ('—') for null, never "0%" for the null path — MOB-06).
+ *   Web parity: `metaLabel` is always the result of `aPorcentajeLabel(dto.metaBp)`,
+ *   yielding '—' when `metaBp` is null. The 'Sin meta' display text is a
+ *   screen-layer concern resolved from the `sinMeta` flag (design D-22, MDET-02).
  * - `fecha` travels verbatim (component layer calls `aFechaCorta` for display,
  *   mirroring web GrupoMovimientos.tsx:71 + fecha.ts:29-32).
- * - `metaLabel`: when `metaBp === null`, uses SIN_PORCENTAJE_LABEL ('—') not
- *   'Sin meta'. 'Sin meta' is a component-layer rendering decision — the VM
- *   produces the formatted label from aPorcentajeLabel.
- *   NOTE: tasks.md T-04 spec says "metaLabel is 'Sin meta' when metaBp is null".
- *   We implement this as a distinct label to match the spec exactly.
  *
  * Pure: no React Native, no fetch.
  */
@@ -54,7 +52,7 @@ export interface DetalleBucketMesViewModel {
   readonly totalCategorias: number;
   /** `aPorcentajeLabel(porcentajeBp)` — '—' for null (SIN_PORCENTAJE_LABEL, MOB-06). */
   readonly porcentajeLabel: string;
-  /** 'Sin meta' when metaBp is null; `aPorcentajeLabel(metaBp)` otherwise. */
+  /** `aPorcentajeLabel(metaBp)` — '—' (SIN_PORCENTAJE_LABEL) when metaBp is null (web parity). 'Sin meta' display text is the screen's job (sinMeta flag, D-22 MDET-02). */
   readonly metaLabel: string;
   /** `metaBp === null` → tag/meta zone not rendered. */
   readonly sinMeta: boolean;
@@ -110,7 +108,7 @@ export function aDetalleBucketMesViewModel(
     totalTransacciones: dto.totalTransacciones,
     totalCategorias: dto.totalCategorias,
     porcentajeLabel: aPorcentajeLabel(dto.porcentajeBp),
-    metaLabel: dto.metaBp === null ? 'Sin meta' : aPorcentajeLabel(dto.metaBp),
+    metaLabel: aPorcentajeLabel(dto.metaBp),
     sinMeta: dto.metaBp === null,
     sinPorcentaje: dto.porcentajeBp === null,
     marcaPorcentajePct: clampBp(dto.porcentajeBp ?? 0),
