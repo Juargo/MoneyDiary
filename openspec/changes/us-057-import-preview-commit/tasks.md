@@ -155,7 +155,7 @@ Chain strategy: stacked-to-main
 
 *Satisfies: CMT-01 through CMT-05; D-01/D-03/D-04/D-10/D-11/D-11a/D-13/D-15/D-16/D-17/D-18.*
 
-- [ ] T-15 — (RED) Write `commit-ingesta.use-case.spec.ts` with all unit cases (fakes for every port; spy `PersistTransactionsUseCase` OR fake `IIngestaRepository`):
+- [x] T-15 — (RED) Write `commit-ingesta.use-case.spec.ts` with all unit cases (fakes for every port; spy `PersistTransactionsUseCase` OR fake `IIngestaRepository`):
   - (a) Overlay applied PRE-PERSIST: `PersistTransactionsUseCase` receives `ReadonlyArray<TransaccionAPersistir>` with `bucket: Bucket | null` (domain enum, not FK); spy at `persistirProcesada` level asserts `bucketId` is a physical id (`'bucket-necesidades'` etc.) proving `aPersistencia` resolved correctly (D-11/D-15).
   - (b) Overlay bucket from `listarConPatrones` `Map<categoriaId, Bucket>`, NOT re-classification (D-15).
   - (c) ALL overlay `rowIndex` values validated against pre-dedup `filas.length` BEFORE classification — any out-of-range ⇒ `RowIndexFueraDeRangoError`, nothing persisted (D-04/5a); in-range index on omitted-duplicate row silently dropped (D-11a).
@@ -168,7 +168,7 @@ Chain strategy: stacked-to-main
   - (j) `SinCategoria` rows (no overlay, no match) persist `bucket: Bucket.SinCategoria` → `aPersistencia` resolves to `'bucket-sincategoria'` FK (D-11/D-15). `bucketId: null` reserved for one-shot degradable-island state.
   **File:** `apps/api/src/application/use-cases/commit-ingesta.use-case.spec.ts`.
 
-- [ ] T-16 — (GREEN) Create `apps/api/src/application/use-cases/commit-ingesta.use-case.ts` (§6 item 8):
+- [x] T-16 — (GREEN) Create `apps/api/src/application/use-cases/commit-ingesta.use-case.ts` (§6 item 8):
   - `CommitIngestaUseCase.execute({fileReader, userId, edits: CommitEdit[]})`.
   - Full algorithm per D-11: shared pipeline → `ensure` → dedup → load categories + patterns (REQUIRED, fail-closed) → build `Map<categoriaId, Bucket>` → validate ALL overlay `rowIndex` in range → validate overlay `categoriaId` ∈ `listarConPatrones` id set → auto-classify per row via `CategorizarTransaccionUseCase` → apply overlay in-memory (bucket from map) → retain `TransaccionAPersistir[]` array → `PersistTransactionsUseCase.execute` → build `CommitIngestaResult`.
   - Two-layer try/catch (D-18): inner wraps `listarConPatrones` throw → `PersistenciaFallidaError`, no FALLIDA; outer backstop catches mid-flight post-pipeline throws, registers FALLIDA.
@@ -177,7 +177,7 @@ Chain strategy: stacked-to-main
 
 - [x] T-17 — (RED+GREEN) `PersistTransactionsUseCase` regression test: assert it forwards `ReadonlyArray<TransaccionAPersistir>` untouched to `persistirProcesada` (fake `IIngestaRepository`; Fix 1). (pulled forward to PR2 — `persist-transactions.use-case.spec.ts` "pasa TODOS los campos... sin transformarlos" asserts `transacciones: TXS` verbatim, Atomic A `75fda805`.)
 
-- [ ] T-18 — Verify phase 3: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
+- [x] T-18 — Verify phase 3: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **Work-unit commit:** `feat(api): CommitIngestaUseCase test-first, persist-transactions regression (US-057 PR3)`.
 
 ---
