@@ -174,6 +174,8 @@ Chain strategy: stacked-to-main
   - Two-layer try/catch (D-18): inner wraps `listarConPatrones` throw → `PersistenciaFallidaError`, no FALLIDA; outer backstop catches mid-flight post-pipeline throws, registers FALLIDA.
   - `CommitIngestaError` union exhaustive per D-18.
   - Injects: `EjecutarPipelineIngestaUseCase`, `IAccountRepository`, `DetectarDuplicadosUseCase`, `ICatalogoClasificacion`, `ICategoriaRepository`, `CategorizarTransaccionUseCase`, `PersistTransactionsUseCase`, `IRegistrarIngestaFallidaWriter`, `ILogger`. No `Record<Bucket,string>` in the use case (D-15, ADR-005).
+  - **Overlay-application semantics pinned (product decisions, 2026-08-21 — see D-11):** overlay `categoriaId: null` = DES-CLASIFICAR (persist `{SinCategoria, null}`, auto discarded); the Ingreso rule is IMMUTABLE (Ingreso rows persist `{Ingreso, null}`, any overlay silently ignored, checked first); cross-tenant validation (D-10) runs globally before per-row application. Pinned by spec describe block `(k)` (5 tests).
+  - **Post-apply refinements (judgment-day review + product rulings, PR3 follow-up commits):** rowIndex validation hoisted before catalog loads; `CategoriaFueraDeCatalogoError` fixed message; KISS on the overlay branch; overlay-null/Ingreso-immutable semantics (above).
 
 - [x] T-17 — (RED+GREEN) `PersistTransactionsUseCase` regression test: assert it forwards `ReadonlyArray<TransaccionAPersistir>` untouched to `persistirProcesada` (fake `IIngestaRepository`; Fix 1). (pulled forward to PR2 — `persist-transactions.use-case.spec.ts` "pasa TODOS los campos... sin transformarlos" asserts `transacciones: TXS` verbatim, Atomic A `75fda805`.)
 
