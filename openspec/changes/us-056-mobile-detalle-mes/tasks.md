@@ -378,7 +378,7 @@ Branch off `main` after PR3 merges. Highest-effort PR. Gate: MDET-05 spec scenar
 
 Branch off `main` after PR4 merges. Replaces the PR1 stub for `ingresos.tsx`. Gate: MDET-06/07 green.
 
-### T-16 — RED: IngresosMesScreen + ingresos route specs
+### T-16 ✅ (92d5662) — RED: IngresosMesScreen + ingresos route specs
 
 **Design refs**: D-12, D-18 (focus guard), D-08 (read-only)  
 **Spec refs**: MDET-06  
@@ -401,7 +401,7 @@ Branch off `main` after PR4 merges. Replaces the PR1 stub for `ingresos.tsx`. Ga
 
 ---
 
-### T-17 — GREEN: IngresosMesLista + IngresosMesScreen + real ingresos.tsx route
+### T-17 ✅ (99dd81a) — GREEN: IngresosMesLista + IngresosMesScreen + real ingresos.tsx route
 
 **Design refs**: D-08, D-12, D-18  
 **Spec refs**: MDET-06  
