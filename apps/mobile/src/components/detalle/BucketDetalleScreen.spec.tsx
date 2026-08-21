@@ -5,7 +5,7 @@
  * Production source lands in T-12.
  */
 
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ApiResult } from '../../api/client';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 
@@ -243,36 +243,50 @@ describe('BucketDetalleScreen', () => {
     expect(screen.queryByText('0%')).toBeNull();
   });
 
-  it('anuncio status Text with testID="status-reclasificar" is present and outlives a moved row', async () => {
-    // First call returns data with one group
-    const initialDto = makeDto({
-      bucket: 'Deseos',
-      grupos: [
-        {
-          categoriaId: 'cat-1',
-          nombre: 'Entretenimiento',
-          conteo: 1,
-          subtotal: '50000',
-          transacciones: [
-            {
-              id: 'tx-1',
-              descripcion: 'Netflix',
-              fecha: '2026-07-01',
-              monto: '50000',
-            },
-          ],
-        },
-      ],
+  /**
+   * Case A: status-reclasificar region is a stable sibling OUTSIDE every group element (ancestry assertion).
+   *
+   * The full moved-row content-survival scenario (announce + refetch removes row + text persists)
+   * is exercised in PR4 (T-13/T-15) when the real reclassify trigger exists.
+   */
+  it('status-reclasificar region is a stable sibling OUTSIDE every group element (ancestry assertion)', async () => {
+    // Render data state with 2 groups including a SinCategoria group so both
+    // grupo-movimientos-cat-1 and grupo-movimientos-sin-categoria testIDs are present.
+    mockFetchDetalleBucketMes.mockResolvedValueOnce({
+      ok: true,
+      value: makeDto({
+        grupos: [
+          {
+            categoriaId: 'cat-1',
+            nombre: 'Entretenimiento',
+            conteo: 1,
+            subtotal: '50000',
+            transacciones: [
+              {
+                id: 'tx-1',
+                descripcion: 'Netflix',
+                fecha: '2026-07-01',
+                monto: '50000',
+              },
+            ],
+          },
+          {
+            categoriaId: null,
+            nombre: 'Sin categoría',
+            conteo: 1,
+            subtotal: '20000',
+            transacciones: [
+              {
+                id: 'tx-2',
+                descripcion: 'Desconocido',
+                fecha: '2026-07-02',
+                monto: '20000',
+              },
+            ],
+          },
+        ],
+      }),
     });
-
-    // After refetch (simulating a move), the group is removed
-    const emptyDto = makeDto({ bucket: 'Deseos', grupos: [] });
-
-    mockFetchDetalleBucketMes
-      .mockResolvedValueOnce({ ok: true, value: initialDto })
-      .mockResolvedValueOnce({ ok: true, value: emptyDto });
-
-    const mockOnMovida = jest.fn();
 
     render(
       <BucketDetalleScreen
@@ -281,22 +295,51 @@ describe('BucketDetalleScreen', () => {
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
         onBack={jest.fn()}
-        onMovida={mockOnMovida}
       />,
     );
 
-    // status-reclasificar region is always present (outside groups map — D-20)
     await waitFor(() => {
-      expect(screen.getByTestId('status-reclasificar')).toBeTruthy();
+      expect(screen.getByTestId('bucket-detalle-grupos')).toBeTruthy();
     });
 
-    // Simulate the screen's onMovida handler being called (mimics a cross-bucket move)
-    await act(async () => {
-      // Confirm the onMovida mock is wired correctly
-      expect(typeof mockOnMovida).toBe('function');
+    const statusRegion = screen.getByTestId('status-reclasificar');
+    expect(statusRegion).toBeTruthy();
+
+    // The region must NOT be a descendant of any group element.
+    // `within(group).queryByTestId('status-reclasificar')` returns null iff the
+    // region is outside the group's subtree (idiomatic RNTL ancestry check).
+    const group1 = screen.getByTestId('grupo-movimientos-cat-1');
+    const groupSin = screen.getByTestId('grupo-movimientos-sin-categoria');
+
+    expect(within(group1).queryByTestId('status-reclasificar')).toBeNull();
+    expect(within(groupSin).queryByTestId('status-reclasificar')).toBeNull();
+  });
+
+  /**
+   * Case B: status-reclasificar region exists even when grupos is empty.
+   * Proves the region is independent of the groups list — rendered outside/above it.
+   */
+  it('status-reclasificar region is present when grupos is empty (independent of group list)', async () => {
+    mockFetchDetalleBucketMes.mockResolvedValueOnce({
+      ok: true,
+      value: makeDto({ grupos: [] }),
     });
 
-    // The region still exists even when the grupo list becomes empty
+    render(
+      <BucketDetalleScreen
+        bucket="Deseos"
+        destacar={undefined}
+        periodo="2026-07"
+        onChangePeriodo={jest.fn()}
+        onBack={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bucket-detalle-vacio')).toBeTruthy();
+    });
+
+    // Region must survive even with zero groups
     expect(screen.getByTestId('status-reclasificar')).toBeTruthy();
   });
 });

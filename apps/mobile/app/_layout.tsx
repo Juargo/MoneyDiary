@@ -45,7 +45,7 @@ function RootNavigator() {
         <Stack.Screen name="configuracion" />
         <Stack.Screen name="categoria/[id]" />
         {/* US-056 PR1 (D-12/T-03): stub routes so legend row pushes resolve.
-            Replaced by real screens in PR3 (bucket/[bucket]) and PR5 (ingresos). */}
+            bucket/[bucket] replaced by real screen in PR3 (T-12); ingresos stub until PR5. */}
         <Stack.Screen name="bucket/[bucket]" />
         <Stack.Screen name="ingresos" />
       </Stack.Protected>

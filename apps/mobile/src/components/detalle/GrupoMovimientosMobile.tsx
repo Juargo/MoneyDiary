@@ -11,8 +11,10 @@
  *     `destacar === "sin-categoria"` — conditional, not stable.
  *
  * Reclassify trigger: no-op placeholder Pressable in PR3.
- * PR4 (T-15) replaces this file to wire in the real ReclasificarMobileControl.
- * No optional-callback-silent-noop pattern is used here (us-044 PR7 case law).
+ * PR4 (T-15) replaces this file to wire in the real ReclasificarMobileControl
+ * and adds `onReclasificado` and `onMovida` as REQUIRED props at that point.
+ * No callback props exist in PR3 — the us-044 PR7 banned-pattern
+ * (optional-callback-silent-noop) is avoided by not declaring them here.
  *
  * Pure: no fetch, no router.
  */
@@ -46,13 +48,8 @@ interface GrupoMovimientosMobileProps {
   readonly grupo: GrupoDetalleBucketMesDto;
   /** When `"sin-categoria"`, renders the inner destacado wrapper inside SinCategoria root (D-19/MDET-03). */
   readonly destacar?: string;
-  /**
-   * Placeholder for PR4 T-15 (ReclasificarMobileControl wiring).
-   * PR4 will pass these as required props and wire real handlers.
-   * Omitted in PR3 — the reclassify trigger is a no-op Pressable here.
-   */
-  readonly onReclasificado?: () => void;
-  readonly onMovida?: (bucketLabel: string) => void;
+  // No callback props in PR3. PR4 T-15 adds onReclasificado and onMovida as
+  // required props when the real ReclasificarMobileControl is wired in.
 }
 
 /**
