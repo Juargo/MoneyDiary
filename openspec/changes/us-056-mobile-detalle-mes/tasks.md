@@ -102,7 +102,7 @@ Wiring pin: `"LeyendaGasto requires onNavegar prop (no optional default)"` — r
 
 Branch off `main` after PR1 merges. Additive only — zero existing behavior changes. `size:exception` accepted (pure domain additive, low-risk diff).
 
-### T-04 — RED: unit specs for VMs + helpers + fetchers + reclassify wrapper + period helpers
+### T-04 ✅ (1f09720) — RED: unit specs for VMs + helpers + fetchers + reclassify wrapper + period helpers
 
 **Design refs**: D-13, D-14, D-15, D-16, D-21, D-22  
 **Spec refs**: MDET-07  
@@ -122,7 +122,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 - `"result.bucket equals the raw wire key — no etiquetaBucket field"` (MDET-07 first scenario — falsifies component-layer responsibility)
 - `"totalLabel preserves digits beyond Number.MAX_SAFE_INTEGER"` (dto.total="9007199254740993" → no precision loss; falsifies parseFloat)
 - `"porcentajeLabel is '—' when porcentajeBp is null (SIN_PORCENTAJE_LABEL)"` (sinPorcentaje: true)
-- `"metaLabel is 'Sin meta' when metaBp is null"` (sinMeta: true)
+- `"metaLabel is '—' (SIN_PORCENTAJE_LABEL) when metaBp is null (web parity; 'Sin meta' text is screen-layer per D-22)"` (sinMeta: true)
 - `"sinMeta flag is true iff metaBp is null"` and `"sinPorcentaje flag is true iff porcentajeBp is null"`
 - `"marcaPorcentajePct is clamped 0..100"` and `"marcaMetaPct is null when metaBp is null"` — pin VM field names exactly
 - `"grupos array order and count match dto.grupos verbatim"`
@@ -169,7 +169,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-05 — GREEN: port period helpers into periodo-anual.ts (M7)
+### T-05 ✅ (81d997d) — GREEN: port period helpers into periodo-anual.ts (M7)
 
 **Design refs**: D-13  
 **Spec refs**: MDET-04  
@@ -182,7 +182,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-06 — GREEN: domain helpers — fecha-corta, porcentaje, detalle.types, mensajes-reclasificar
+### T-06 ✅ (78550a9) — GREEN: domain helpers — fecha-corta, porcentaje, detalle.types, mensajes-reclasificar
 
 **Design refs**: D-14, D-15, D-21  
 **Spec refs**: MDET-07  
@@ -199,7 +199,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-07 — GREEN: view-models — detalle-bucket-mes-view-model + ingresos-mes-view-model
+### T-07 ✅ (41d3a88) — GREEN: view-models — detalle-bucket-mes-view-model + ingresos-mes-view-model
 
 **Design refs**: D-22  
 **Spec refs**: MDET-07  
@@ -213,7 +213,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-08 — GREEN: fetchers + shape guards in client.ts + reclasificar wrapper in categorias.ts
+### T-08 ✅ (1da3149) — GREEN: fetchers + shape guards in client.ts + reclasificar wrapper in categorias.ts
 
 **Design refs**: D-15, D-16  
 **Spec refs**: MDET-07  
@@ -227,7 +227,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 ---
 
-### T-09 — GREEN: SelectorPeriodoMes component + spec
+### T-09 ✅ (1832bdb) — GREEN: SelectorPeriodoMes component + spec
 
 **Design refs**: D-13  
 **Spec refs**: MDET-04  
@@ -301,7 +301,7 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
 **Design refs**: D-12, D-20  
 **Spec refs**: MDET-01, MDET-02  
 **Files** (CREATE + MODIFY):
-- C3 `apps/mobile/src/components/detalle/BucketDetalleScreen.tsx` — header renders `ETIQUETA_BUCKET[viewModel.bucket]` (display label, NOT `viewModel.bucket` raw); `SelectorPeriodoMes`; usage bar; `porcentajeLabel` (null→`'—'` via `SIN_PORCENTAJE_LABEL`); `metaLabel` (null→`'Sin meta'`); `totalLabel`; `conteoLabel`. Screen-owned `anuncio` state: `const [anuncio, setAnuncio] = useState('')`; `<Text testID="status-reclasificar" accessibilityRole="alert" accessibilityLiveRegion="polite">{anuncio}</Text>` OUTSIDE the groups map (stable sibling). `onMovida(bucketLabel)` handler: `setAnuncio(`Movida a ${bucketLabel}.')` + `AccessibilityInfo.announceForAccessibility(...)` — screen is the ONLY caller. Period change clears `anuncio` via `useEffect([periodo])`. Passes `onReclasificado={cargar}` and `onMovida` down to `GrupoMovimientosMobile`.
+- C3 `apps/mobile/src/components/detalle/BucketDetalleScreen.tsx` — header renders `ETIQUETA_BUCKET[viewModel.bucket]` (display label, NOT `viewModel.bucket` raw); `SelectorPeriodoMes`; usage bar; `porcentajeLabel` (null→`'—'` via `SIN_PORCENTAJE_LABEL`); `metaLabel` is always `'—'` when `metaBp` is null (web parity via `aPorcentajeLabel`); screen renders the 'Sin meta' display text from the `sinMeta` flag (D-22 MDET-02 — this is a screen-layer decision, not the VM's); `totalLabel`; `conteoLabel`. Screen-owned `anuncio` state: `const [anuncio, setAnuncio] = useState('')`; `<Text testID="status-reclasificar" accessibilityRole="alert" accessibilityLiveRegion="polite">{anuncio}</Text>` OUTSIDE the groups map (stable sibling). `onMovida(bucketLabel)` handler: `setAnuncio(`Movida a ${bucketLabel}.')` + `AccessibilityInfo.announceForAccessibility(...)` — screen is the ONLY caller. Period change clears `anuncio` via `useEffect([periodo])`. Passes `onReclasificado={cargar}` and `onMovida` down to `GrupoMovimientosMobile`.
 - C1 (replace stub) `apps/mobile/app/bucket/[bucket].tsx` — `useLocalSearchParams<{bucket?; destacar?; periodo?}>()`. State machine: `{ fase:'loading' } | { fase:'error'; error:ApiError } | { fase:'data'; dto:DetalleBucketMesDto }` — NO `empty` fourth tag (empty = `viewModel.grupos.length === 0`, derived INSIDE data tag). `cargar = useCallback([periodo])` → `fetchDetalleBucketMes(bucket, periodo)`. `useEffect([cargar])`. On-screen back `Pressable` `accessibilityLabel="Volver al resumen"`. **No `useFocusEffect`** for initial load (`categoria/[id].tsx:55-58` reasoning).
 
 **Commit**: `feat(mobile): BucketDetalleScreen + real bucket/[bucket].tsx replacing PR1 stub (D-12/D-20)`  
