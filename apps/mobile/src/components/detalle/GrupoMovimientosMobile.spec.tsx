@@ -2,6 +2,8 @@
  * GrupoMovimientosMobile spec — T-10 RED (US-056, D-04/D-19/MDET-03)
  * Updated in T-15 to pass the required onReclasificado/onMovida props
  * (added as REQUIRED props per us-044 PR7 banned-pattern contract).
+ * Updated in T-15 bugfix to pass the required `bucket` prop (raw wire key
+ * from BucketDetalleScreen — GrupoDetalleBucketMesDto does not carry it).
  *
  * ReclasificarMobileControl is mocked at the module boundary so these
  * tests stay focused on accordion/destacado mechanics without triggering
@@ -45,6 +47,7 @@ describe('GrupoMovimientosMobile', () => {
     await render(
       <GrupoMovimientosMobile
         grupo={grupo}
+        bucket="Deseos"
         destacar={undefined}
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
@@ -73,6 +76,7 @@ describe('GrupoMovimientosMobile', () => {
     await render(
       <GrupoMovimientosMobile
         grupo={grupo}
+        bucket="Deseos"
         destacar={undefined}
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
@@ -103,6 +107,7 @@ describe('GrupoMovimientosMobile', () => {
     await render(
       <GrupoMovimientosMobile
         grupo={grupo}
+        bucket="Deseos"
         destacar={undefined}
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
@@ -125,6 +130,7 @@ describe('GrupoMovimientosMobile', () => {
     await render(
       <GrupoMovimientosMobile
         grupo={grupo}
+        bucket="Deseos"
         destacar={undefined}
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
@@ -141,6 +147,7 @@ describe('GrupoMovimientosMobile', () => {
     await render(
       <GrupoMovimientosMobile
         grupo={grupo}
+        bucket="Deseos"
         destacar="sin-categoria"
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
@@ -159,6 +166,7 @@ describe('GrupoMovimientosMobile', () => {
     await render(
       <GrupoMovimientosMobile
         grupo={grupo}
+        bucket="Deseos"
         destacar={undefined}
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}

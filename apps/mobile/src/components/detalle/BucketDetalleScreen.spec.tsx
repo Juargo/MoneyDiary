@@ -51,6 +51,7 @@ jest.mock('./GrupoMovimientosMobile', () => {
     onMovida,
   }: {
     grupo: { categoriaId: string | null; nombre: string };
+    bucket: string;
     destacar?: string;
     onReclasificado: () => void;
     onMovida: (bucketLabel: string) => void;

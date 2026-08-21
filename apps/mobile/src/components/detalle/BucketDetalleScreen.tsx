@@ -261,6 +261,7 @@ export function BucketDetalleScreen({
               <GrupoMovimientosMobile
                 key={grupo.categoriaId ?? 'sin-categoria'}
                 grupo={estado.dto.grupos[idx]!}
+                bucket={bucket}
                 destacar={destacar}
                 onReclasificado={cargar}
                 onMovida={handleMovida}

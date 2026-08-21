@@ -45,6 +45,13 @@ function asTxVM(tx: GrupoDetalleBucketMesDto['transacciones'][number]): TxVM {
 
 interface GrupoMovimientosMobileProps {
   readonly grupo: GrupoDetalleBucketMesDto;
+  /**
+   * Raw wire bucket key (e.g. 'Deseos') for the screen that owns this group.
+   * GrupoDetalleBucketMesDto does not carry the bucket key per group — the screen
+   * passes its own `bucket` prop down so categoriaActual.bucket is correct for
+   * same-bucket detection in ReclasificarMobileControl.
+   */
+  readonly bucket: string;
   /** When `"sin-categoria"`, renders the inner destacado wrapper inside SinCategoria root (D-19/MDET-03). */
   readonly destacar?: string;
   /**
@@ -69,6 +76,7 @@ interface GrupoMovimientosMobileProps {
  */
 export function GrupoMovimientosMobile({
   grupo,
+  bucket,
   destacar,
   onReclasificado,
   onMovida,
@@ -94,18 +102,18 @@ export function GrupoMovimientosMobile({
     ? 'Ver menos'
     : `Ver ${transacciones.length - FILAS_VISIBLES} más`;
 
-  // categoriaActual for all transactions in this group is the group's
-  // categoria. SinCategoria group has categoriaId=null and no named bucket.
-  // The bucket comes from the outer screen (BucketDetalleScreen passes the
-  // raw wire bucket key via GrupoDetalleBucketMesDto context).
-  // For SinCategoria groups, the screen bucket is still passed through
-  // (SinCategoria itself is not a reclassify destination per BUCKETS_ASIGNABLES).
+  // categoriaActual for all transactions in this group is the group's categoria.
+  // GrupoDetalleBucketMesDto does not carry the bucket key — the screen passes
+  // its own `bucket` prop (the raw wire bucket key, e.g. 'Deseos') so the
+  // ReclasificarMobileControl can compare categoriaActual.bucket with the
+  // chosen category's bucket for same-bucket detection.
+  // SinCategoria groups have no category so we use the sentinel 'SinCategoria'
+  // (not a BUCKETS_ASIGNABLES member → cross-bucket Alert always shows, which
+  // is correct behaviour: SinCategoria txs have no home bucket).
   const categoriaActual = {
     id: categoriaId ?? '',
     nombre,
-    // bucket is not on the transaction DTO — it equals the group's category bucket.
-    // SinCategoria groups use 'SinCategoria' as the bucket key.
-    bucket: categoriaId !== null ? grupo.nombre : 'SinCategoria',
+    bucket: categoriaId !== null ? bucket : 'SinCategoria',
   };
 
   // Inner content (header + rows + optional toggle)
