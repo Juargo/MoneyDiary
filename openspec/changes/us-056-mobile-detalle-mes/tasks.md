@@ -388,7 +388,7 @@ Branch off `main` after PR4 merges. Replaces the PR1 stub for `ingresos.tsx`. Ga
   - `"header shows 'Ingresos' title, SelectorPeriodoMes with julio 2026, and formatted total $1.500.000"` — MDET-06 first scenario
   - `"each income row shows Origen badge text (Banco de Chile) verbatim"` — MDET-06 second scenario (no normalization)
   - `"no element with testID matching 'reclasificar-*' exists"` — MDET-06 third scenario (read-only contract)
-  - `"pressing ‹ on SelectorPeriodoMes calls fetchIngresosMes with periodo='2026-06'"` — MDET-06 fourth scenario
+  - `"pressing ‹ on SelectorPeriodoMes calls onChangePeriodo with '2026-06'"` — MDET-06 fourth scenario (screen asserts onChangePeriodo callback; fetchIngresosMes call on period change is asserted in T-C15b `app/ingresos.spec.tsx`)
   - `"useFocusEffect triggers cargar on focus (stale-guard)"` — D-18 M2 focus guard
 - T-C15b `apps/mobile/app/ingresos.spec.tsx` (~3 cases from route machine suite):
   - `"useLocalSearchParams seeds periodo state from query param"`
@@ -408,7 +408,7 @@ Branch off `main` after PR4 merges. Replaces the PR1 stub for `ingresos.tsx`. Ga
 **Files** (CREATE + MODIFY):
 - C7 `apps/mobile/src/components/detalle/IngresosMesLista.tsx` — read-only rows: `Fecha · Descripción · Origen · Monto`. `Origen` rendered as a small badge/`Text`. Row `testID={`ingreso-fila-${tx.id}`}`. `aFechaCorta(tx.fecha)` for date. NO reclassify trigger, NO mutation (D-08 / WDI-06 parity).
 - C6 `apps/mobile/src/components/detalle/IngresosMesScreen.tsx` — header: `SelectorPeriodoMes`, title `"Ingresos"`, `conteoLabel`, `totalLabel` (`dto.total`), static note ("Sin meta ni semáforo"). Empty = `viewModel.filas.length === 0`. NO reclassify, NO refresh signal.
-- C2 (replace stub) `apps/mobile/app/ingresos.tsx` — `useLocalSearchParams<{periodo?}>()`. Three-tag machine (`loading|error|data`). `cargar = useCallback([periodo])` → `fetchIngresosMes(periodo)`. `useEffect([cargar])`. **`useFocusEffect(useCallback(() => { cargar(); }, [cargar]))`** — the ONE `useFocusEffect` in this change; only for M2 stale-guard (D-18), NOT M1. On-screen back `Pressable`.
+- C2 (replace stub) `apps/mobile/app/ingresos.tsx` — thin route wrapper: `useLocalSearchParams<{periodo?}>()`, local `periodo` state, renders `IngresosMesScreen`. No three-tag machine, no `useEffect`, no `useFocusEffect` in the route. **Gate arbitration (PR3)**: both the fetch lifecycle (three-tag machine, `cargar`, `useFocusEffect`) and the D-18 stale-guard live in `IngresosMesScreen.tsx` (M1 pattern), not the route. `useFocusEffect(useCallback(() => { cargar(); }, [cargar]))` in the SCREEN is the ONE `useFocusEffect` for M2; no separate `useEffect([cargar])` (avoids double-fetch on mount).
 
 **Commit**: `feat(mobile): IngresosMesLista + IngresosMesScreen + real ingresos.tsx with focus guard (D-08/D-12/D-18)`  
 **Deps**: T-16  

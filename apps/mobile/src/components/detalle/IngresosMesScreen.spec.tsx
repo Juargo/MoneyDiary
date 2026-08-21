@@ -35,6 +35,7 @@
 import {
   render,
   screen,
+  within,
   waitFor,
   fireEvent,
   act,
@@ -188,10 +189,11 @@ describe('IngresosMesScreen', () => {
     expect(screen.getByText('Ingresos')).toBeTruthy();
     // SelectorPeriodoMes shows julio 2026
     expect(screen.getByText('julio 2026')).toBeTruthy();
-    // Total formatted with sign (D-22 / formatearMontoConSigno).
-    // Multiple elements may show the same amount (header total + row montoLabel)
-    // so use getAllByText and assert at least one exists.
-    expect(screen.getAllByText('+$1.500.000').length).toBeGreaterThan(0);
+    // Total scoped to header region (testID="ingresos-mes-header") so the
+    // assertion fails if the header's totalLabel is missing even if a row
+    // happens to render the same amount string (D-22 / formatearMontoConSigno).
+    const header = screen.getByTestId('ingresos-mes-header');
+    expect(within(header).getByText('+$1.500.000')).toBeTruthy();
   });
 
   it('each income row shows Origen badge text (Banco de Chile) verbatim (no normalization)', async () => {
@@ -315,11 +317,14 @@ describe('IngresosMesScreen', () => {
     }
   });
 
-  it('useFocusEffect triggers cargar on focus (stale-guard, D-18)', async () => {
-    // useFocusEffect is mocked as useEffect in this spec file (see mock at top).
-    // On mount, focus fires → cargar() is called → fetchIngresosMes is invoked.
-    // This test verifies the focus guard wiring: fetch must be called on mount
-    // (which simulates the initial focus event). One call on mount = one cargar.
+  it('useFocusEffect fires cargar on initial focus/mount (D-18 — re-focus stale-guard verified via Maestro)', async () => {
+    // useFocusEffect is mocked as useEffect in this spec file (see mock at top),
+    // so it fires once on mount, simulating the initial focus event.
+    // This proves the fetch lifecycle wiring on mount: focus → cargar() →
+    // fetchIngresosMes called once. The blur→refocus stale-guard scenario
+    // (user navigates away and returns) is verified via Maestro E2E only —
+    // expo-router's useFocusEffect re-runs when the callback identity changes,
+    // and that path is not reproducible in RNTL's synchronous mount model.
     mockFetchIngresosMes.mockResolvedValue({
       ok: true,
       value: makeDto(),
