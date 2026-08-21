@@ -5,7 +5,7 @@
  * Production source lands in T-11.
  */
 
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
 
@@ -30,10 +30,10 @@ function makeGrupo(
 }
 
 describe('GrupoMovimientosMobile', () => {
-  it('group with 5 rows shows exactly 3 rows and "Ver 2 más" collapsed (accessibilityState.expanded false)', () => {
+  it('group with 5 rows shows exactly 3 rows and "Ver 2 más" collapsed (accessibilityState.expanded false)', async () => {
     const grupo = makeGrupo('cat-1', 'Entretenimiento', 5);
 
-    render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
 
     // Exactly 3 rows visible (first 3)
     expect(screen.getByTestId('movimiento-cat-1-tx-1')).toBeTruthy();
@@ -51,13 +51,15 @@ describe('GrupoMovimientosMobile', () => {
     expect(toggle.props.accessibilityState?.expanded).toBe(false);
   });
 
-  it('pressing "Ver N más" reveals all 5 rows and changes text to "Ver menos" (accessibilityState.expanded true)', () => {
+  it('pressing "Ver N más" reveals all 5 rows and changes text to "Ver menos" (accessibilityState.expanded true)', async () => {
     const grupo = makeGrupo('cat-1', 'Entretenimiento', 5);
 
-    render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
 
-    // Press the toggle
-    fireEvent.press(screen.getByTestId('grupo-toggle-cat-1'));
+    // Press the toggle — wrap in act to flush state updates
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('grupo-toggle-cat-1'));
+    });
 
     // All 5 rows now visible
     expect(screen.getByTestId('movimiento-cat-1-tx-1')).toBeTruthy();
@@ -72,10 +74,10 @@ describe('GrupoMovimientosMobile', () => {
     expect(toggle.props.accessibilityState?.expanded).toBe(true);
   });
 
-  it('group with ≤3 rows shows no "Ver N más" toggle', () => {
+  it('group with ≤3 rows shows no "Ver N más" toggle', async () => {
     const grupo = makeGrupo('cat-2', 'Comida', 3);
 
-    render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
 
     // All 3 rows visible
     expect(screen.getByTestId('movimiento-cat-2-tx-1')).toBeTruthy();
@@ -87,19 +89,21 @@ describe('GrupoMovimientosMobile', () => {
     expect(screen.queryByText(/Ver \d+ más/)).toBeNull();
   });
 
-  it('SinCategoria group root always carries testID="grupo-movimientos-sin-categoria"', () => {
+  it('SinCategoria group root always carries testID="grupo-movimientos-sin-categoria"', async () => {
     const grupo = makeGrupo(null, 'Sin categoría', 1);
 
-    render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
 
     // Root always has the stable testID regardless of destacar
     expect(screen.getByTestId('grupo-movimientos-sin-categoria')).toBeTruthy();
   });
 
-  it('inner testID="grupo-sin-categoria-destacado" is present inside SinCategoria root ONLY when destacar="sin-categoria"', () => {
+  it('inner testID="grupo-sin-categoria-destacado" is present inside SinCategoria root ONLY when destacar="sin-categoria"', async () => {
     const grupo = makeGrupo(null, 'Sin categoría', 1);
 
-    render(<GrupoMovimientosMobile grupo={grupo} destacar="sin-categoria" />);
+    await render(
+      <GrupoMovimientosMobile grupo={grupo} destacar="sin-categoria" />,
+    );
 
     // Root stable testID always present
     expect(screen.getByTestId('grupo-movimientos-sin-categoria')).toBeTruthy();
@@ -107,10 +111,10 @@ describe('GrupoMovimientosMobile', () => {
     expect(screen.getByTestId('grupo-sin-categoria-destacado')).toBeTruthy();
   });
 
-  it('no element with testID="grupo-sin-categoria-destacado" when destacar is absent', () => {
+  it('no element with testID="grupo-sin-categoria-destacado" when destacar is absent', async () => {
     const grupo = makeGrupo(null, 'Sin categoría', 1);
 
-    render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
+    await render(<GrupoMovimientosMobile grupo={grupo} destacar={undefined} />);
 
     // Root stable testID still present
     expect(screen.getByTestId('grupo-movimientos-sin-categoria')).toBeTruthy();
