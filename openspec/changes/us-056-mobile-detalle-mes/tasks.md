@@ -251,7 +251,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].tsx`. Gate: MDET-01..04 spec scenarios green.
 
-### T-10 — RED: BucketDetalleScreen + GrupoMovimientosMobile + bucket route specs
+### T-10 ✅ (66a7a0e) — RED: BucketDetalleScreen + GrupoMovimientosMobile + bucket route specs
 
 **Design refs**: D-12, D-19, D-04 (accordion), MDET-03 (destacado dual mechanics)  
 **Spec refs**: MDET-01, MDET-02, MDET-03  
@@ -264,7 +264,7 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
   - `"header shows ETIQUETA_BUCKET display label, not raw key (Deseos → 'Gustos')"` — MDET-02 first scenario (raw-key implementation fails this)
   - `"sinMeta bucket shows 'Sin meta' text not 'null' or '%'"` — MDET-02 second scenario
   - `"sinPorcentaje bucket shows '—' not '0%'"` — MDET-02 third scenario (SIN_PORCENTAJE_LABEL)
-  - `"anuncio status Text with testID='status-reclasificar' is present and outlives a moved row"` — MDET-05 region outlives row (stub `onMovida` callback; assert region persists after mock refetch removes the row)
+  - `"status-reclasificar region is a stable sibling OUTSIDE every group element (ancestry assertion)"` + `"status-reclasificar region is present when grupos is empty (independent of group list)"` — MDET-05 structural placement (rewritten by the PR3 judgment gate, commit 07af81d: the original "outlives a moved row" case was vacuous in PR3 — the full moved-row content-survival scenario is exercised in PR4 T-13/T-15 when the real trigger exists)
 - T-C11 `apps/mobile/src/components/detalle/GrupoMovimientosMobile.spec.tsx` (~6 cases):
   - `"group with 5 rows shows exactly 3 rows and 'Ver 2 más' collapsed (accessibilityState.expanded false)"` — MDET-03 first scenario
   - `"pressing 'Ver N más' reveals all 5 rows and changes text to 'Ver menos' (accessibilityState.expanded true)"` — MDET-03 second scenario
@@ -281,32 +281,38 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
 **Deps**: T-09 (SelectorPeriodoMes must exist as import)  
 **AC**: all ~16 cases fail RED (production source absent). RED evidence recorded inline ✅.
 
+**Result**: Throwing stubs created to satisfy ESLint import/no-unresolved; all 17 cases failed RED. Committed `66a7a0e`.
+
 ---
 
-### T-11 — GREEN: GrupoMovimientosMobile accordion + SinCategoria destacado
+### T-11 ✅ (098403d) — GREEN: GrupoMovimientosMobile accordion + SinCategoria destacado
 
 **Design refs**: D-04 (3 visible + "ver N más"), D-19 (testID uniqueness), MDET-03 (destacado dual mechanics)  
 **Spec refs**: MDET-03  
 **Files** (CREATE):
-- C4 `apps/mobile/src/components/detalle/GrupoMovimientosMobile.tsx` — accordion component. Props: `grupo`, `destacar?: string`, `onReclasificado` (placeholder for PR4), `onMovida` (placeholder for PR4). Root container: `testID={`grupo-movimientos-${categoriaId ?? 'sin-categoria'}`}`. Accordion: first 3 rows always visible; toggle pressable `testID={`grupo-toggle-${categoriaId ?? 'sin-categoria'}`}`; `"Ver N más"` / `"Ver menos"` toggle text with `accessibilityState={{ expanded }}`. SinCategoria destacado: when `destacar === 'sin-categoria'`, render an INNER wrapper `testID="grupo-sin-categoria-destacado"` with distinct style INSIDE the root — this wrapper is ONLY rendered when `destacar` is active. Movement rows: `testID={`movimiento-${tx.id}`}`. Reclassify trigger: no-op `Pressable` placeholder in PR3 (wired in PR4 T-14). `aFechaCorta(tx.fecha)` for date display.
+- C4 `apps/mobile/src/components/detalle/GrupoMovimientosMobile.tsx` — accordion component. Props: `grupo`, `destacar?: string` ONLY — no callback props in PR3 (the PR3 judgment gate removed the premature optional `onReclasificado?`/`onMovida?` as a banned silent-noop variant, commit 07af81d; T-15 adds them as REQUIRED props when the real control lands). Root container: `testID={`grupo-movimientos-${categoriaId ?? 'sin-categoria'}`}`. Accordion: first 3 rows always visible; toggle pressable `testID={`grupo-toggle-${categoriaId ?? 'sin-categoria'}`}`; `"Ver N más"` / `"Ver menos"` toggle text with `accessibilityState={{ expanded }}`. SinCategoria destacado: when `destacar === 'sin-categoria'`, render an INNER wrapper `testID="grupo-sin-categoria-destacado"` with distinct style INSIDE the root — this wrapper is ONLY rendered when `destacar` is active. Movement rows: `testID={`movimiento-${tx.id}`}`. Reclassify trigger: no-op `Pressable` placeholder in PR3 (wired in PR4 T-14). `aFechaCorta(tx.fecha)` for date display.
 
 **Commit**: `feat(mobile): GrupoMovimientosMobile accordion + SinCategoria destacado dual mechanics (D-04/D-19)`  
 **Deps**: T-10  
 **AC**: `pnpm --filter @moneydiary/mobile test -- GrupoMovimientosMobile` — 6 cases green.
 
+**Result**: 6/6 green. Committed `098403d`. Patterns: imports must be at file top before component; `await act(async () => { fireEvent.press(...) })` for stateful toggle; commitlint rejects PascalCase subjects.
+
 ---
 
-### T-12 — GREEN: BucketDetalleScreen + real bucket/[bucket].tsx route
+### T-12 ✅ (22536d5) — GREEN: BucketDetalleScreen + real bucket/[bucket].tsx route
 
 **Design refs**: D-12, D-20  
 **Spec refs**: MDET-01, MDET-02  
 **Files** (CREATE + MODIFY):
-- C3 `apps/mobile/src/components/detalle/BucketDetalleScreen.tsx` — header renders `ETIQUETA_BUCKET[viewModel.bucket]` (display label, NOT `viewModel.bucket` raw); `SelectorPeriodoMes`; usage bar; `porcentajeLabel` (null→`'—'` via `SIN_PORCENTAJE_LABEL`); `metaLabel` is always `'—'` when `metaBp` is null (web parity via `aPorcentajeLabel`); screen renders the 'Sin meta' display text from the `sinMeta` flag (D-22 MDET-02 — this is a screen-layer decision, not the VM's); `totalLabel`; `conteoLabel`. Screen-owned `anuncio` state: `const [anuncio, setAnuncio] = useState('')`; `<Text testID="status-reclasificar" accessibilityRole="alert" accessibilityLiveRegion="polite">{anuncio}</Text>` OUTSIDE the groups map (stable sibling). `onMovida(bucketLabel)` handler: `setAnuncio(`Movida a ${bucketLabel}.')` + `AccessibilityInfo.announceForAccessibility(...)` — screen is the ONLY caller. Period change clears `anuncio` via `useEffect([periodo])`. Passes `onReclasificado={cargar}` and `onMovida` down to `GrupoMovimientosMobile`.
+- C3 `apps/mobile/src/components/detalle/BucketDetalleScreen.tsx` — header renders `ETIQUETA_BUCKET[viewModel.bucket]` (display label, NOT `viewModel.bucket` raw); `SelectorPeriodoMes`; usage bar; `porcentajeLabel` (null→`'—'` via `SIN_PORCENTAJE_LABEL`); `metaLabel` is always `'—'` when `metaBp` is null (web parity via `aPorcentajeLabel`); screen renders the 'Sin meta' display text from the `sinMeta` flag (D-22 MDET-02 — this is a screen-layer decision, not the VM's); `totalLabel`; `conteoLabel`. Screen-owned `anuncio` state: `const [anuncio, setAnuncio] = useState('')`; `<Text testID="status-reclasificar" accessibilityRole="alert" accessibilityLiveRegion="polite">{anuncio}</Text>` OUTSIDE the groups map (stable sibling). Period change clears `anuncio` via `useEffect([periodo])`. Note: passing `onReclasificado`/`onMovida` down to `GrupoMovimientosMobile` moved to T-15 (PR4) after the judgment gate removed the premature optional props from GrupoMovimientosMobile (us-044 PR7 banned-pattern); T-15 adds them as required props when the real trigger lands.
 - C1 (replace stub) `apps/mobile/app/bucket/[bucket].tsx` — `useLocalSearchParams<{bucket?; destacar?; periodo?}>()`. State machine: `{ fase:'loading' } | { fase:'error'; error:ApiError } | { fase:'data'; dto:DetalleBucketMesDto }` — NO `empty` fourth tag (empty = `viewModel.grupos.length === 0`, derived INSIDE data tag). `cargar = useCallback([periodo])` → `fetchDetalleBucketMes(bucket, periodo)`. `useEffect([cargar])`. On-screen back `Pressable` `accessibilityLabel="Volver al resumen"`. **No `useFocusEffect`** for initial load (`categoria/[id].tsx:55-58` reasoning).
 
 **Commit**: `feat(mobile): BucketDetalleScreen + real bucket/[bucket].tsx replacing PR1 stub (D-12/D-20)`  
 **Deps**: T-11  
 **AC**: `pnpm --filter @moneydiary/mobile test -- BucketDetalleScreen bucket` — all ~10 cases green. `tsc --noEmit` clean. MDET-01/02/03/04 gate green.
+
+**Result**: 745/745 green (+17 from 728 baseline). Committed `22536d5`. BucketDetalleScreen owns fetch (not thin presenter — spec mocks fetchDetalleBucketMes at module boundary). Falsifiability: inverted destacado→2 fail; raw key header→Gustos pin fails. Key fix: `react-hooks/set-state-in-effect` disable comment needed for EACH setState() in useEffect body.
 
 ---
 
