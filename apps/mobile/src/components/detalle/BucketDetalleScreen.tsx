@@ -12,21 +12,29 @@
  * - data     — successful DTO; empty = viewModel.grupos.length === 0 (NOT a 4th tag)
  *
  * `cargar` is a useCallback([bucket, periodo]) that re-fires when bucket or periodo changes.
- * PR4 T-15 passes `onReclasificado={cargar}` into GrupoMovimientosMobile when the
- * real reclassify trigger is wired.
+ * `onReclasificado={cargar}` is passed into GrupoMovimientosMobile so every successful
+ * reclassify PATCH refetches the open M1 detail (D-17/D-18).
  *
  * Screen-owned `anuncio` state + `status-reclasificar` live-region Text OUTSIDE
  * the groups map — survives a moved row's removal (D-20/MDET-05).
  * Period change clears anuncio via useEffect([periodo]) (web parity).
- * PR4 T-15 adds the onMovida handler: setAnuncio + AccessibilityInfo.announceForAccessibility
- * (settled-announcement, us-055 D-04).
+ *
+ * `onMovida` handler: setAnuncio + AccessibilityInfo.announceForAccessibility
+ * (settled-announcement, us-055 D-04 case law). The screen is the ONLY caller of
+ * AccessibilityInfo in this change (D-20 single announcement source).
  *
  * NO useFocusEffect for initial load (categoria/[id].tsx:55-58 rationale: the
  * route unmounts on nav-away, so mounting = every visit).
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchDetalleBucketMes } from '../../api/client';
 import { aDetalleBucketMesViewModel } from '../../domain/detalle-bucket-mes-view-model';
@@ -53,7 +61,6 @@ interface BucketDetalleScreenProps {
   readonly onChangePeriodo: (periodo: string) => void;
   /** Back navigation. */
   readonly onBack: () => void;
-  // onMovida is introduced in PR4 T-15 when the real reclassify trigger lands.
 }
 
 /**
@@ -92,8 +99,16 @@ export function BucketDetalleScreen({
     setAnuncio('');
   }, [periodo]);
 
-  // onMovida handler is introduced in PR4 T-15 when the real reclassify trigger lands.
-  // setAnuncio is only written by the useEffect([periodo]) clear in PR3.
+  /**
+   * Cross-bucket move handler (D-18/D-20 — wired T-15).
+   * The control calls this ONLY after the PATCH resolves ok (settled announcement,
+   * us-055 D-04 lesson). This screen is the ONLY caller of AccessibilityInfo
+   * in this change (single announcement source, D-20).
+   */
+  function handleMovida(bucketLabel: string) {
+    setAnuncio(`Movida a ${bucketLabel}.`);
+    AccessibilityInfo.announceForAccessibility(`Movida a ${bucketLabel}.`);
+  }
 
   // status-reclasificar live-region: OUTSIDE groups map — stable sibling (D-20/MDET-05).
   // Rendered in ALL states so it is never unmounted by a state transition.
@@ -246,7 +261,10 @@ export function BucketDetalleScreen({
               <GrupoMovimientosMobile
                 key={grupo.categoriaId ?? 'sin-categoria'}
                 grupo={estado.dto.grupos[idx]!}
+                bucket={bucket}
                 destacar={destacar}
+                onReclasificado={cargar}
+                onMovida={handleMovida}
               />
             ))}
           </View>

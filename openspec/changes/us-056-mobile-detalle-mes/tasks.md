@@ -320,7 +320,7 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
 
 Branch off `main` after PR3 merges. Highest-effort PR. Gate: MDET-05 spec scenarios green.
 
-### T-13 — RED: ReclasificarMobileControl spec
+### T-13 ✅ (2be46b2) — RED: ReclasificarMobileControl spec
 
 **Design refs**: D-16, D-17, D-20  
 **Spec refs**: MDET-05  
@@ -343,7 +343,7 @@ Branch off `main` after PR3 merges. Highest-effort PR. Gate: MDET-05 spec scenar
 
 ---
 
-### T-14 — GREEN: ReclasificarMobileControl component
+### T-14 ✅ (aab463a) — GREEN: ReclasificarMobileControl component
 
 **Design refs**: D-16, D-17  
 **Spec refs**: MDET-05  
@@ -360,7 +360,7 @@ Branch off `main` after PR3 merges. Highest-effort PR. Gate: MDET-05 spec scenar
 
 ---
 
-### T-15 — Wire reclassify trigger into GrupoMovimientosMobile + BucketDetalleScreen
+### T-15 ✅ (fcd8dd8 + 0283eb7) — Wire reclassify trigger into GrupoMovimientosMobile + BucketDetalleScreen
 
 **Design refs**: D-17, D-18, D-20  
 **Spec refs**: MDET-05  

@@ -1,11 +1,21 @@
 /**
  * BucketDetalleScreen spec — T-10 RED (US-056, D-12/D-20/MDET-01/MDET-02/MDET-05)
+ * Extended in T-15 with the moved-row content-survival test (deferred from PR3
+ * by the judgment gate, tasks.md T-10 note, commit 07af81d).
  *
- * All cases MUST fail RED before the production source exists (T-10 RED contract).
- * Production source lands in T-12.
+ * GrupoMovimientosMobile is mocked so this spec controls when onMovida/onReclasificado
+ * are called without requiring a live ReclasificarMobileControl or catalog fetch.
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react-native';
+import {
+  render,
+  screen,
+  waitFor,
+  within,
+  fireEvent,
+  act,
+} from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import type { ApiResult } from '../../api/client';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 
@@ -13,6 +23,10 @@ import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 // (no need to mock — it has no side effects and depends only on pure domain helpers)
 
 import { BucketDetalleScreen } from './BucketDetalleScreen';
+
+// ---------------------------------------------------------------------------
+// Module mocks
+// ---------------------------------------------------------------------------
 
 // Mock the fetcher at the module boundary
 const mockFetchDetalleBucketMes = jest.fn<
@@ -25,6 +39,46 @@ jest.mock('../../api/client', () => ({
   fetchDetalleBucketMes: (bucket: string, periodo?: string) =>
     mockFetchDetalleBucketMes(bucket, periodo),
 }));
+
+// Mock GrupoMovimientosMobile so we control onMovida/onReclasificado in T-15 tests.
+// The mock renders a Pressable that simulates firing onMovida + onReclasificado when pressed,
+// allowing the content-survival test to drive the full wiring without a live catalog fetch.
+// Uses a factory function to avoid react-native-css-interop displayName errors.
+jest.mock('./GrupoMovimientosMobile', () => {
+  const { View, Text, Pressable: P } = require('react-native');
+  function GrupoMovimientosMobile({
+    grupo,
+    onReclasificado,
+    onMovida,
+  }: {
+    grupo: { categoriaId: string | null; nombre: string };
+    bucket: string;
+    destacar?: string;
+    onReclasificado: () => void;
+    onMovida: (bucketLabel: string) => void;
+  }) {
+    const id = grupo.categoriaId ?? 'sin-categoria';
+    return (
+      <View testID={`grupo-movimientos-${id}`}>
+        <Text>{grupo.nombre}</Text>
+        <P
+          testID={`mock-reclasificar-trigger-${id}`}
+          onPress={() => {
+            onReclasificado();
+            onMovida('Gustos');
+          }}
+        >
+          <Text>Reclasificar (mock)</Text>
+        </P>
+      </View>
+    );
+  }
+  return { GrupoMovimientosMobile };
+});
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
 
 // Minimal valid DetalleBucketMesDto that satisfies the real esDetalleBucketMesDto guard
 function makeDto(
@@ -77,6 +131,10 @@ function makeDtoSinMeta(): DetalleBucketMesDto {
 function makeDtoSinPorcentaje(): DetalleBucketMesDto {
   return makeDto({ porcentajeBp: null });
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('BucketDetalleScreen', () => {
   beforeEach(() => {
@@ -246,8 +304,7 @@ describe('BucketDetalleScreen', () => {
   /**
    * Case A: status-reclasificar region is a stable sibling OUTSIDE every group element (ancestry assertion).
    *
-   * The full moved-row content-survival scenario (announce + refetch removes row + text persists)
-   * is exercised in PR4 (T-13/T-15) when the real reclassify trigger exists.
+   * The full moved-row content-survival scenario is exercised in the case below (T-15).
    */
   it('status-reclasificar region is a stable sibling OUTSIDE every group element (ancestry assertion)', async () => {
     // Render data state with 2 groups including a SinCategoria group so both
@@ -341,5 +398,83 @@ describe('BucketDetalleScreen', () => {
 
     // Region must survive even with zero groups
     expect(screen.getByTestId('status-reclasificar')).toBeTruthy();
+  });
+
+  /**
+   * T-15: moved-row content-survival test (deferred from PR3 by judgment gate,
+   * tasks.md T-10 note, commit 07af81d).
+   *
+   * Contract (D-20/MDET-05):
+   * 1. Fire the row's reclassify trigger (via mock which calls onMovida + onReclasificado).
+   * 2. Assert anuncio text 'Movida a Gustos.' is present.
+   * 3. onReclasificado triggers cargar → refetch resolves WITHOUT the row.
+   * 4. Assert the text 'Movida a Gustos.' STILL present (anuncio outlives moved row).
+   *
+   * The status-reclasificar region lives OUTSIDE the groups map, so it survives
+   * a refetch that removes the classified row (D-20 single announcement source).
+   */
+  it('anuncio text survives refetch that removes the reclassified row (region outlives moved row)', async () => {
+    // First fetch: data with one group (cat-1)
+    const dtoConGrupo = makeDto();
+    // Second fetch (triggered by onReclasificado=cargar): data WITHOUT the group
+    const dtoSinGrupo = makeDto({ grupos: [] });
+
+    mockFetchDetalleBucketMes
+      .mockResolvedValueOnce({ ok: true, value: dtoConGrupo })
+      .mockResolvedValueOnce({ ok: true, value: dtoSinGrupo });
+
+    // Pin the exact announce string emitted by handleMovida (MDET-05 S5).
+    // This spy verifies the screen calls AccessibilityInfo with EXACTLY
+    // 'Movida a Gustos.' (trailing period, ETIQUETA_BUCKET display label).
+    const announceSpy = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockReturnValue(undefined);
+
+    render(
+      <BucketDetalleScreen
+        bucket="Deseos"
+        destacar={undefined}
+        periodo="2026-07"
+        onChangePeriodo={jest.fn()}
+        onBack={jest.fn()}
+      />,
+    );
+
+    // Wait for the initial data render with the group
+    await waitFor(() => {
+      expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+    });
+
+    // Press the mock reclassify trigger — fires onMovida('Gustos') + onReclasificado()
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('mock-reclasificar-trigger-cat-1'));
+    });
+
+    // Step 2: assert anuncio text 'Movida a Gustos.' is present immediately after firing
+    await waitFor(() => {
+      expect(screen.getByTestId('status-reclasificar')).toBeTruthy();
+      expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+        'Movida a Gustos.',
+      );
+    });
+
+    // Pin the exact announce string: must be called with 'Movida a Gustos.' (trailing period).
+    // Raw bucket key 'Deseos' or missing period would fail this assertion.
+    expect(announceSpy).toHaveBeenCalledWith('Movida a Gustos.');
+    announceSpy.mockRestore();
+
+    // Step 3: wait for the refetch (triggered by onReclasificado=cargar) to complete.
+    // The second fetch returns dtoSinGrupo — the group is gone from the list.
+    await waitFor(() => {
+      expect(screen.getByTestId('bucket-detalle-vacio')).toBeTruthy();
+    });
+
+    // The grupo row is gone — verify cat-1 group is no longer in the tree
+    expect(screen.queryByTestId('grupo-movimientos-cat-1')).toBeNull();
+
+    // Step 4: anuncio text MUST STILL be present (survives the refetch, D-20)
+    expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+      'Movida a Gustos.',
+    );
   });
 });
