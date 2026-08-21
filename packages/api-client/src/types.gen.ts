@@ -790,8 +790,9 @@ export interface paths {
         };
         readonly put?: never;
         /**
-         * Upload a bank statement
-         * @description Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+         * Upload a bank statement (deprecated — use POST /api/ingestas/commit)
+         * @deprecated
+         * @description Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.
          */
         readonly post: {
             readonly parameters: {
@@ -890,6 +891,71 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/ingestas/commit": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Commit a bank statement import with optional edits overlay (US-057)
+         * @description Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "multipart/form-data": {
+                        /** @description JSON text field carrying the edit overlay: Array<{ rowIndex: number, categoriaId: string | null }>. Absent or empty ⇒ empty overlay (pure auto-classify commit). Max 256 KB, enforced by multer limits.fieldSize (D-02). */
+                        readonly edits?: string;
+                        /**
+                         * Format: binary
+                         * @description Bank statement file (.xlsx or .pdf). Extension/bank-format validation is a domain rule (ExtensionNoPermitidaError / BancoNoReconocidoError), not this schema.
+                         */
+                        readonly file: string;
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Import committed and persisted. Response carries per-row bucket + categoriaId. */
+                readonly 201: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["CommitIngestaResponse"];
+                    };
+                };
+                /** @description Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits (EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). Nothing is persisted. Amounts are scrubbed from every error message (ADR-013). */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure (PersistenciaFallidaError / CategorizacionFallidaError). Retryable. */
+                readonly 500: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/ingestas/preview": {
         readonly parameters: {
             readonly query?: never;
@@ -900,8 +966,8 @@ export interface paths {
         readonly get?: never;
         readonly put?: never;
         /**
-         * Preview a bank statement (dry run)
-         * @description Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the result itself is not scoped by user (no tenant data is touched).
+         * Preview a bank statement (dry run, US-057)
+         * @description Authenticated endpoint that detects the bank, validates structure, normalizes, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). Returns all rows (no sample cap — the 50-row limit is removed) with per-row dedup status (`esDuplicado`) and classification suggestion (`sugerido`). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation — dedup is scoped to the calling user's history).
          */
         readonly post: {
             readonly parameters: {
@@ -1892,6 +1958,27 @@ export interface components {
             }[];
             readonly transaccionesCount: number;
         };
+        /** @description POST /api/ingestas/commit — commit result with per-row bucket + categoriaId (US-057, CMT-05). */
+        readonly CommitIngestaResponse: {
+            /** @description New duplicates found at commit-time dedup — reported, never aborts (D-13/CA-03). */
+            readonly duplicadosOmitidos: number;
+            readonly ingestaId: string;
+            /** @description Rows actually persisted (excludes duplicates omitted at commit). Not money — plain JSON number. */
+            readonly totalTransacciones: number;
+            readonly transacciones: readonly {
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly abono: string;
+                /** @description Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso|SinCategoria). Always present for commit rows — classification is resolved pre-persist (D-11). */
+                readonly bucket: string;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly cargo: string;
+                /** @description Final category assigned, or null for Ingreso rows and DES-CLASIFICAR entries (D-11). */
+                readonly categoriaId: string | null;
+                readonly descripcion: string;
+                /** @description ISO-8601 UTC timestamp. */
+                readonly fecha: string;
+            }[];
+        };
         /** @description GET /api/buckets/:bucket — bucket drill-down (US-017). */
         readonly DetalleBucketResponse: {
             /** @description Validated bucket name (echo, not raw input). */
@@ -2014,23 +2101,31 @@ export interface components {
             readonly code: string;
             readonly message: string;
         };
-        /** @description POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003). */
+        /** @description POST /api/ingestas/preview — dry-run preview with per-row dedup and classification (US-057). */
         readonly PreviewIngestaResponse: {
             readonly banco: string;
-            readonly estructura: {
-                /** @description Row count PRE-dedupe, not money — plain JSON number. */
-                readonly totalFilasDatos: number;
-            };
-            readonly muestra: readonly {
+            readonly filas: readonly {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly abono: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly cargo: string;
                 readonly descripcion: string;
+                readonly esDuplicado: boolean;
                 /** @description ISO-8601 UTC timestamp. */
                 readonly fecha: string;
+                readonly rowIndex: number;
+                readonly sugerido: {
+                    readonly bucket: string;
+                    readonly categoriaId: string | null;
+                } | null;
             }[];
             readonly numeroCuenta: string;
+            readonly resumen: {
+                readonly duplicadosDetectados: number;
+                readonly nuevas: number;
+                /** @description Row count PRE-dedupe, not money — plain JSON number. */
+                readonly totalFilas: number;
+            };
             readonly tipoCuenta: string;
         };
         /** @description GET /api/resumen/anual — 50/30/20 annual breakdown (US-030). */
