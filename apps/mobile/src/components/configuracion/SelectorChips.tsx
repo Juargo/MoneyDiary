@@ -7,11 +7,22 @@ export interface SelectorChipsProps<T extends string = string> {
   readonly value: T;
   readonly onChange: (value: T) => void;
   readonly testID?: string;
+  /**
+   * Optional custom display label for each option (binding obligation 1, PR7).
+   * When provided, the rendered chip text and accessibilityLabel use the custom
+   * label; onChange still emits the raw option value (not the label).
+   * Example: ETIQUETA_MATCH_TYPE maps 'CONTAINS' → 'CONTIENE'.
+   */
+  readonly getOptionLabel?: (option: T) => string;
 }
 
 /**
  * Generic radiogroup chip selector (US-044 PR3a, D-17).
  * Serves both Bucket selection and MatchType selection across configuration screens.
+ *
+ * PR7 addition: `getOptionLabel` optional prop — custom label per chip.
+ * When absent, the raw option value is used as the label (existing behaviour,
+ * zero churn for all existing call sites).
  */
 export function SelectorChips<T extends string = string>({
   label,
@@ -19,6 +30,7 @@ export function SelectorChips<T extends string = string>({
   value,
   onChange,
   testID,
+  getOptionLabel,
 }: SelectorChipsProps<T>) {
   return (
     <View className="gap-1.5">
@@ -33,13 +45,15 @@ export function SelectorChips<T extends string = string>({
       >
         {options.map((option) => {
           const seleccionada = option === value;
+          // Custom label if provided; raw value otherwise (backward-compatible)
+          const chipLabel = getOptionLabel ? getOptionLabel(option) : option;
 
           return (
             <Pressable
               key={option}
               testID={testID ? `${testID}-${option}` : undefined}
               accessibilityRole="radio"
-              accessibilityLabel={option}
+              accessibilityLabel={chipLabel}
               accessibilityState={{ checked: seleccionada }}
               onPress={() => onChange(option)}
               className="rounded-full border px-3.5 py-1.5"
@@ -54,7 +68,7 @@ export function SelectorChips<T extends string = string>({
                   color: seleccionada ? '#ffffff' : COLORS.heading,
                 }}
               >
-                {option}
+                {chipLabel}
               </Text>
             </Pressable>
           );

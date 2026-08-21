@@ -1,11 +1,18 @@
-import { render, screen, within } from '@testing-library/react-native';
+import {
+  render,
+  screen,
+  within,
+  fireEvent,
+} from '@testing-library/react-native';
 import { LeyendaGasto } from './LeyendaGasto';
 import type { ItemLeyenda } from '../domain/resumen-view-model';
 
 // US-050 PR4b (design §1.7/§1.4a, MOB-08): rewritten from a 3-item
 // percent-only legend to a 5-row list dispatched on `ItemLeyenda.kind`
-// (never a boolean flag). Every row is an inert `View` — non-interactive,
-// no chevrons, no navigation (binding decision 2).
+// (never a boolean flag). US-056 PR1 (D-10/D-11/T-01/T-02): rows become
+// Pressable navigation targets — binding decision 2 reversed.
+const noop = () => undefined;
+
 const principales: readonly ItemLeyenda[] = [
   {
     kind: 'gasto',
@@ -30,14 +37,24 @@ const complemento: readonly ItemLeyenda[] = [
 describe('LeyendaGasto', () => {
   it('renders exactly 5 rows', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
-    expect(screen.getAllByTestId('leyenda-fila')).toHaveLength(5);
+    expect(screen.getAllByTestId(/^leyenda-fila-/)).toHaveLength(5);
   });
 
   it('renders the UI labels, never the raw domain names', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
@@ -52,7 +69,12 @@ describe('LeyendaGasto', () => {
 
   it('shows the ring % on spend rows only', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
     expect(screen.getByText('50%')).toBeOnTheScreen();
     expect(screen.getByText('30%')).toBeOnTheScreen();
@@ -61,7 +83,12 @@ describe('LeyendaGasto', () => {
 
   it('shows "N tx" and no % on the sinCategoria row', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
     expect(screen.getByText('3 tx', { exact: false })).toBeOnTheScreen();
     expect(screen.queryByText('3%')).not.toBeOnTheScreen();
@@ -69,24 +96,30 @@ describe('LeyendaGasto', () => {
 
   it('signs amounts by kind: + for ingreso, − for the rest', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
     expect(screen.getByText('+$1.000.000')).toBeOnTheScreen();
     expect(screen.getByText('-$500.000')).toBeOnTheScreen();
     expect(screen.getByText('-$0')).toBeOnTheScreen();
   });
 
-  it('renders zero buttons and zero chevrons (binding decision 2)', async () => {
-    await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
-    );
-    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
-    expect(screen.queryByText('›')).not.toBeOnTheScreen();
-  });
+  // NOTE: "renders zero buttons and zero chevrons (binding decision 2)" test
+  // is REMOVED — superseded by US-056 MOB-08 delta (rows are now Pressable).
+  // US-050 binding decision 2 reversed.
 
   it('spells out "transacciones sin categorizar" in the sinCategoria row\'s accessible name', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
     expect(
       screen.getByLabelText(/transacciones sin categorizar/),
@@ -104,16 +137,26 @@ describe('LeyendaGasto', () => {
       },
     ];
     await render(
-      <LeyendaGasto principales={principales} complemento={complementoCero} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complementoCero}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
     expect(screen.getByText('0 tx', { exact: false })).toBeOnTheScreen();
   });
 
   it('renders the 5 rows in the fixed MOB-08 order: Necesidades, Gustos, Ahorro, Ingresos, Sin categoría', async () => {
     await render(
-      <LeyendaGasto principales={principales} complemento={complemento} />,
+      <LeyendaGasto
+        principales={principales}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
     );
-    const rows = screen.getAllByTestId('leyenda-fila');
+    const rows = screen.getAllByTestId(/^leyenda-fila-/);
     expect(rows).toHaveLength(5);
     expect(within(rows[0]).getByText('Necesidades')).toBeOnTheScreen();
     expect(within(rows[1]).getByText('Gustos')).toBeOnTheScreen();
@@ -125,12 +168,165 @@ describe('LeyendaGasto', () => {
   });
 
   it('renders exactly 2 rows (Ingresos, Sin categoría) when there is no spend', async () => {
-    await render(<LeyendaGasto principales={[]} complemento={complemento} />);
-    const rows = screen.getAllByTestId('leyenda-fila');
+    await render(
+      <LeyendaGasto
+        principales={[]}
+        complemento={complemento}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
+    const rows = screen.getAllByTestId(/^leyenda-fila-/);
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByText('Ingresos')).toBeOnTheScreen();
     expect(
       within(rows[1]).getByText('Sin categoría', { exact: false }),
     ).toBeOnTheScreen();
+  });
+});
+
+// US-056 T-01 RED → T-02 GREEN — legend pressability + navigation + periodo threading
+
+const onNavegar = jest.fn();
+
+const principalesNav: readonly ItemLeyenda[] = [
+  {
+    kind: 'gasto',
+    bucket: 'Necesidades',
+    porcentaje: 50,
+    montoLabel: '-$500.000',
+  },
+  { kind: 'gasto', bucket: 'Deseos', porcentaje: 30, montoLabel: '-$300.000' },
+  { kind: 'gasto', bucket: 'Ahorro', porcentaje: 20, montoLabel: '-$200.000' },
+];
+
+const complementoNav: readonly ItemLeyenda[] = [
+  { kind: 'ingreso', montoLabel: '+$1.000.000' },
+  {
+    kind: 'sinCategoria',
+    bucket: 'SinCategoria',
+    montoLabel: '-$0',
+    cantidadLabel: '3 tx',
+  },
+];
+
+describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 GREEN)', () => {
+  beforeEach(() => {
+    onNavegar.mockClear();
+  });
+
+  it('each spend-bucket row is a Pressable with accessibilityRole button', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-07"
+        onNavegar={onNavegar}
+      />,
+    );
+    // All 5 rows must carry unique testIDs and accessibilityRole="button"
+    const rows = screen.getAllByTestId(/^leyenda-fila-/);
+    expect(rows).toHaveLength(5);
+    rows.forEach((row) => {
+      expect(row.props.accessibilityRole).toBe('button');
+    });
+    // Spend-bucket rows exist by unique testID
+    expect(screen.getByTestId('leyenda-fila-Necesidades')).toBeTruthy();
+    expect(screen.getByTestId('leyenda-fila-Deseos')).toBeTruthy();
+    expect(screen.getByTestId('leyenda-fila-Ahorro')).toBeTruthy();
+  });
+
+  it('pressing Necesidades row calls onNavegar with /bucket/Necesidades?periodo=2026-07', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-07"
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
+    expect(onNavegar).toHaveBeenCalledWith(
+      '/bucket/Necesidades?periodo=2026-07',
+    );
+  });
+
+  it('pressing SinCategoria row calls onNavegar with /bucket/SinCategoria?destacar=sin-categoria&periodo=2026-07', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-07"
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-SinCategoria'));
+    expect(onNavegar).toHaveBeenCalledWith(
+      '/bucket/SinCategoria?destacar=sin-categoria&periodo=2026-07',
+    );
+  });
+
+  it('pressing Ingresos row calls onNavegar with /ingresos?periodo=2026-07', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-07"
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-ingreso'));
+    expect(onNavegar).toHaveBeenCalledWith('/ingresos?periodo=2026-07');
+  });
+
+  it('testIDs resolve uniquely: leyenda-fila-Necesidades, -Deseos, -Ahorro, -ingreso, -SinCategoria', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-07"
+        onNavegar={onNavegar}
+      />,
+    );
+    expect(screen.getByTestId('leyenda-fila-Necesidades')).toBeTruthy();
+    expect(screen.getByTestId('leyenda-fila-Deseos')).toBeTruthy();
+    expect(screen.getByTestId('leyenda-fila-Ahorro')).toBeTruthy();
+    expect(screen.getByTestId('leyenda-fila-ingreso')).toBeTruthy();
+    expect(screen.getByTestId('leyenda-fila-SinCategoria')).toBeTruthy();
+  });
+
+  // Fix 1 (MOB-08): pressing the Deseos row must use the wire key 'Deseos',
+  // NOT the display label «Gustos» — the path is /bucket/Deseos, never /bucket/Gustos.
+  it('pressing Deseos row calls onNavegar with /bucket/Deseos?periodo=2026-06 (wire key, not display label)', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo="2026-06"
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-Deseos'));
+    expect(onNavegar).toHaveBeenCalledWith('/bucket/Deseos?periodo=2026-06');
+  });
+
+  // Fix 2: when periodo is undefined, paths must omit the ?periodo= suffix entirely
+  // — never produce ?periodo=undefined.
+  it('omits ?periodo= entirely when periodo is undefined', async () => {
+    await render(
+      <LeyendaGasto
+        principales={principalesNav}
+        complemento={complementoNav}
+        periodo={undefined}
+        onNavegar={onNavegar}
+      />,
+    );
+    fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
+    expect(onNavegar).toHaveBeenLastCalledWith('/bucket/Necesidades');
+
+    onNavegar.mockClear();
+
+    fireEvent.press(screen.getByTestId('leyenda-fila-ingreso'));
+    expect(onNavegar).toHaveBeenLastCalledWith('/ingresos');
   });
 });

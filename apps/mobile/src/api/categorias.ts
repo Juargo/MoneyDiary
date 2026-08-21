@@ -8,6 +8,7 @@ import type {
   CategoriaDto,
   PatronDto,
 } from '../domain/catalogo.types';
+import type { ReclasificarCategoriaDto } from '../domain/detalle.types';
 
 /**
  * api/categorias.ts — cliente de `/api/categorias` y `/api/patrones`
@@ -222,4 +223,61 @@ export async function eliminarPatron(id: string): Promise<ApiResult<void>> {
     'DELETE',
   );
   return r.ok ? { ok: true, value: undefined } : r;
+}
+
+// ---------------------------------------------------------------------------
+// US-056 (D-16): reclassify wrapper
+// ---------------------------------------------------------------------------
+
+/**
+ * esReclasificarDto — shape guard for PATCH /api/transacciones/:id/categoria
+ * (TransaccionesCategoriaResponse, types.gen.ts:2121-2129).
+ */
+function esReclasificarDto(value: unknown): value is ReclasificarCategoriaDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const c = value as Partial<ReclasificarCategoriaDto>;
+  return (
+    typeof c.id === 'string' &&
+    typeof c.bucket === 'string' &&
+    typeof c.categoria === 'object' &&
+    c.categoria !== null &&
+    typeof (c.categoria as { id?: unknown }).id === 'string' &&
+    typeof (c.categoria as { nombre?: unknown }).nombre === 'string'
+  );
+}
+
+/**
+ * reclasificarCategoria — PATCH {base}/api/transacciones/{id}/categoria
+ * (US-056, D-16). Wraps `enviarMutacion` and reads+guards the response body
+ * (this is the ONE mutation whose success body IS consumed — the bucket echo
+ * drives the cross-bucket announcement label, D-17).
+ *
+ * Body sends ONLY `{ categoria }` — never a `bucket` field (the backend
+ * derives the destination bucket; web client.ts:752-753 precedent).
+ */
+export async function reclasificarCategoria(
+  transaccionId: string,
+  categoria: string,
+): Promise<ApiResult<ReclasificarCategoriaDto>> {
+  const r = await enviarMutacion(
+    `/api/transacciones/${encodeURIComponent(transaccionId)}/categoria`,
+    'PATCH',
+    { categoria },
+  );
+  if (!r.ok) {
+    return r;
+  }
+  // enviarMutacion returns the raw Response on success; read and guard body here.
+  let body: unknown;
+  try {
+    body = await r.value.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+  if (!esReclasificarDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+  return { ok: true, value: body };
 }

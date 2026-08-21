@@ -314,6 +314,58 @@ const SEMAFORO_DETALLE_FIXTURE = {
   sinCategoria: { cantidad: 2, total: '15000' },
 };
 
+// GET /api/ingresos/mes (US-054 T-13) — a literal IngresosMesDto instance
+// (src/api/types.ts) with 3 transactions: BCI, Manual, and BancoEstado — so
+// ingresos-mes.e2e.ts exercises 3 distinct Origen badge variants at a real
+// viewport. For the pinned empty month 2026-05 the handler returns zeros —
+// exercises WDI-04 Empty state.
+const INGRESOS_MES_FIXTURE = {
+  conteo: 3,
+  total: '1500000',
+  transacciones: [
+    {
+      id: 'ing-1',
+      fecha: '2026-07-05T00:00:00.000Z',
+      descripcion: 'Pago nómina',
+      origen: 'BCI',
+      monto: '1000000',
+    },
+    {
+      id: 'ing-2',
+      fecha: '2026-07-12T00:00:00.000Z',
+      descripcion: 'Honorarios',
+      origen: 'Manual',
+      monto: '300000',
+    },
+    {
+      id: 'ing-3',
+      fecha: '2026-07-20T00:00:00.000Z',
+      descripcion: 'Dividendo',
+      origen: 'BancoEstado',
+      monto: '200000',
+    },
+  ],
+};
+
+// DETALLE_BUCKET_MES_FIXTURE_SIN_TX_P1: the detalle fixture with the first
+// Paseos row (tx-p1, 'Uber') removed. The detalle GET handler serves this
+// after the PATCH fires, simulating the server removing the reclassified row
+// from its original group on the next refetch (T-08 row-disappearance assert).
+const DETALLE_BUCKET_MES_FIXTURE_SIN_TX_P1 = {
+  ...DETALLE_BUCKET_MES_FIXTURE,
+  totalTransacciones: 5,
+  grupos: [
+    {
+      ...DETALLE_BUCKET_MES_FIXTURE.grupos[0],
+      conteo: 3,
+      subtotal: '150000',
+      transacciones:
+        DETALLE_BUCKET_MES_FIXTURE.grupos[0].transacciones.slice(1),
+    },
+    DETALLE_BUCKET_MES_FIXTURE.grupos[1],
+  ],
+};
+
 export async function stubApi(page: Page): Promise<void> {
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({ json: ME_FIXTURE }),
@@ -375,6 +427,96 @@ export async function stubApi(page: Page): Promise<void> {
         // `metaBp` and only its uncategorized group — the page then renders
         // no %/meta tag and no usage bar (D-02), with a single group for
         // the `destacar` highlight to land on.
+        ...(sinCategoria && {
+          porcentajeBp: null,
+          metaBp: null,
+          total: '50000',
+          totalTransacciones: 2,
+          totalCategorias: 1,
+          grupos: [DETALLE_BUCKET_MES_FIXTURE.grupos[1]],
+        }),
+      },
+    });
+  });
+  // US-054 T-13: `**/api/ingresos/mes*` — no collision with any existing stub.
+  // Playwright's `*` does not cross `/`, so `**/api/resumen*` and
+  // `**/api/buckets/**` can never match `/api/ingresos/mes`; registration
+  // order is therefore irrelevant for this route. Position recorded here for
+  // reader orientation only (WDI-08). The handler returns zeroes for the
+  // pinned empty month `2026-05` (exercises WDI-04).
+  await page.route('**/api/ingresos/mes*', (route) => {
+    const url = new URL(route.request().url());
+    const periodo = url.searchParams.get('periodo') ?? '2026-07';
+    if (periodo === '2026-05') {
+      route.fulfill({
+        json: { conteo: 0, total: '0', transacciones: [] },
+      });
+      return;
+    }
+    route.fulfill({
+      json: { ...INGRESOS_MES_FIXTURE },
+    });
+  });
+  // US-055 T-08: stateful stub for the reclassify flow.
+  // `detallePatchFired` gates the detalle GET handler so the refetch after
+  // the PATCH serves the fixture WITHOUT the reclassified row — proving the
+  // row-disappearance assertion (T-08 step 5) against a realistic stub.
+  let detallePatchFired = false;
+
+  // PATCH /api/transacciones/:id/categoria — the reclassify mutation.
+  // Returns a valid ReclasificarCategoriaDto so the client-side validator
+  // (esReclasificarCategoriaDto in client.ts) passes and the mutation's
+  // onSuccess fires. Sets `detallePatchFired = true` so the next detalle
+  // GET serves the modified fixture (row removed).
+  await page.route('**/api/transacciones/*/categoria', (route) => {
+    if (route.request().method() !== 'PATCH') {
+      void route.continue();
+      return;
+    }
+    detallePatchFired = true;
+    route.fulfill({
+      status: 200,
+      json: {
+        id: 'tx-p1',
+        categoria: { id: 'cat-2', nombre: 'Streaming' },
+        bucket: 'Deseos',
+      },
+    });
+  });
+
+  // Override the detalle GET handler registered above: re-register it AFTER
+  // the PATCH stub so Playwright (LIFO) tries this handler first. When
+  // `detallePatchFired` is true and the bucket matches Necesidades, serves
+  // the fixture with the reclassified row removed. This handler never calls
+  // route.continue(): it fully shadows the earlier same-pattern registration
+  // (Playwright LIFO), so it reproduces the complete handler logic for every
+  // path it owns.
+  await page.route('**/api/buckets/*/detalle*', (route) => {
+    const url = new URL(route.request().url());
+    const match = /\/api\/buckets\/([^/?]+)\/detalle/.exec(url.pathname);
+    const bucket = match ? decodeURIComponent(match[1]) : 'Deseos';
+    const periodo =
+      url.searchParams.get('periodo') ?? DETALLE_BUCKET_MES_FIXTURE.periodo;
+    const sinCategoria = bucket === 'SinCategoria';
+
+    if (detallePatchFired && bucket === 'Necesidades') {
+      // After the PATCH: serve the Necesidades fixture without 'Uber' (tx-p1),
+      // the row the e2e test reclassifies to a Deseos categoría.
+      route.fulfill({
+        json: {
+          ...DETALLE_BUCKET_MES_FIXTURE_SIN_TX_P1,
+          bucket,
+          periodo,
+        },
+      });
+      return;
+    }
+
+    route.fulfill({
+      json: {
+        ...DETALLE_BUCKET_MES_FIXTURE,
+        bucket,
+        periodo,
         ...(sinCategoria && {
           porcentajeBp: null,
           metaBp: null,
