@@ -75,11 +75,11 @@ export type ApiVersionDto = S['VersionResponse'];
 /** GET /api/auth/capabilities — feature-activation discovery (web + mobile Google login gates). */
 export type AuthCapabilitiesDto = S['AuthCapabilitiesResponse'];
 
-/** POST /api/ingestas/preview — dry-run sample of a would-be upload. */
+/** POST /api/ingestas/preview — dry-run of a would-be upload (US-057). All rows returned (no sample cap). */
 export type PreviewIngestaDto = S['PreviewIngestaResponse'];
 
-/** One transaction row inside `PreviewIngestaDto.muestra`. Money as decimal strings. */
-export type PreviewTransaccionDto = S['PreviewIngestaResponse']['muestra'][number];
+/** One transaction row inside `PreviewIngestaDto.filas`. Money as decimal strings. */
+export type PreviewTransaccionDto = S['PreviewIngestaResponse']['filas'][number];
 
 /** POST /api/auth/login — successful authentication (mobile). */
 export type LoginResponseDto = S['AuthLoginResponse'];

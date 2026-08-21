@@ -2014,23 +2014,31 @@ export interface components {
             readonly code: string;
             readonly message: string;
         };
-        /** @description POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003). */
+        /** @description POST /api/ingestas/preview — dry-run preview with per-row dedup and classification (US-057). */
         readonly PreviewIngestaResponse: {
             readonly banco: string;
-            readonly estructura: {
-                /** @description Row count PRE-dedupe, not money — plain JSON number. */
-                readonly totalFilasDatos: number;
-            };
-            readonly muestra: readonly {
+            readonly filas: readonly {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly abono: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly cargo: string;
                 readonly descripcion: string;
+                readonly esDuplicado: boolean;
                 /** @description ISO-8601 UTC timestamp. */
                 readonly fecha: string;
+                readonly rowIndex: number;
+                readonly sugerido: {
+                    readonly bucket: string;
+                    readonly categoriaId: string | null;
+                } | null;
             }[];
             readonly numeroCuenta: string;
+            readonly resumen: {
+                readonly duplicadosDetectados: number;
+                readonly nuevas: number;
+                /** @description Row count PRE-dedupe, not money — plain JSON number. */
+                readonly totalFilas: number;
+            };
             readonly tipoCuenta: string;
         };
         /** @description GET /api/resumen/anual — 50/30/20 annual breakdown (US-030). */
