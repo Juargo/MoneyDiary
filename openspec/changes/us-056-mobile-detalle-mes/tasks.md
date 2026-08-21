@@ -251,7 +251,7 @@ Branch off `main` after PR1 merges. Additive only — zero existing behavior cha
 
 Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].tsx`. Gate: MDET-01..04 spec scenarios green.
 
-### T-10 — RED: BucketDetalleScreen + GrupoMovimientosMobile + bucket route specs
+### T-10 ✅ (66a7a0e) — RED: BucketDetalleScreen + GrupoMovimientosMobile + bucket route specs
 
 **Design refs**: D-12, D-19, D-04 (accordion), MDET-03 (destacado dual mechanics)  
 **Spec refs**: MDET-01, MDET-02, MDET-03  
@@ -281,9 +281,11 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
 **Deps**: T-09 (SelectorPeriodoMes must exist as import)  
 **AC**: all ~16 cases fail RED (production source absent). RED evidence recorded inline ✅.
 
+**Result**: Throwing stubs created to satisfy ESLint import/no-unresolved; all 17 cases failed RED. Committed `66a7a0e`.
+
 ---
 
-### T-11 — GREEN: GrupoMovimientosMobile accordion + SinCategoria destacado
+### T-11 ✅ (098403d) — GREEN: GrupoMovimientosMobile accordion + SinCategoria destacado
 
 **Design refs**: D-04 (3 visible + "ver N más"), D-19 (testID uniqueness), MDET-03 (destacado dual mechanics)  
 **Spec refs**: MDET-03  
@@ -294,9 +296,11 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
 **Deps**: T-10  
 **AC**: `pnpm --filter @moneydiary/mobile test -- GrupoMovimientosMobile` — 6 cases green.
 
+**Result**: 6/6 green. Committed `098403d`. Patterns: imports must be at file top before component; `await act(async () => { fireEvent.press(...) })` for stateful toggle; commitlint rejects PascalCase subjects.
+
 ---
 
-### T-12 — GREEN: BucketDetalleScreen + real bucket/[bucket].tsx route
+### T-12 ✅ (22536d5) — GREEN: BucketDetalleScreen + real bucket/[bucket].tsx route
 
 **Design refs**: D-12, D-20  
 **Spec refs**: MDET-01, MDET-02  
@@ -307,6 +311,8 @@ Branch off `main` after PR2 merges. Replaces the PR1 stub for `bucket/[bucket].t
 **Commit**: `feat(mobile): BucketDetalleScreen + real bucket/[bucket].tsx replacing PR1 stub (D-12/D-20)`  
 **Deps**: T-11  
 **AC**: `pnpm --filter @moneydiary/mobile test -- BucketDetalleScreen bucket` — all ~10 cases green. `tsc --noEmit` clean. MDET-01/02/03/04 gate green.
+
+**Result**: 745/745 green (+17 from 728 baseline). Committed `22536d5`. BucketDetalleScreen owns fetch (not thin presenter — spec mocks fetchDetalleBucketMes at module boundary). Falsifiability: inverted destacado→2 fail; raw key header→Gustos pin fails. Key fix: `react-hooks/set-state-in-effect` disable comment needed for EACH setState() in useEffect body.
 
 ---
 
