@@ -168,7 +168,7 @@ describe('bucket/[bucket] route', () => {
     // Keep loading so the page renders quickly
     mockFetchDetalleBucketMes.mockReturnValue(new Promise(() => {}));
 
-    render(<BucketDetallePage />);
+    await render(<BucketDetallePage />);
 
     const backBtn = screen.getByRole('button', { name: 'Volver al resumen' });
     fireEvent.press(backBtn);

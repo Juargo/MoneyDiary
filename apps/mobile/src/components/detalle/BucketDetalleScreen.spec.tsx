@@ -87,7 +87,7 @@ describe('BucketDetalleScreen', () => {
     // Never resolves — keeps loading state
     mockFetchDetalleBucketMes.mockReturnValue(new Promise(() => {}));
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
