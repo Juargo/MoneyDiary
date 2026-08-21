@@ -71,8 +71,10 @@ export interface ReclasificarMobileControlProps {
   /**
    * Called after a successful reclassify PATCH and before solicitarRecargaResumen.
    * Typically wired to the screen's cargar() to refetch the open detail.
+   * Accepts a void-or-Promise return so the async cargar type is not hidden;
+   * fired-and-forgotten by this control (not awaited — fire-and-forget refetch).
    */
-  readonly onReclasificado: () => void;
+  readonly onReclasificado: () => void | Promise<void>;
   /**
    * Called ONLY on cross-bucket success, AFTER the PATCH resolves ok (settled
    * announcement, us-055 D-04 lesson). Receives the ETIQUETA_BUCKET display
@@ -143,7 +145,9 @@ export function ReclasificarMobileControl({
 
     // ok path: close modal first, then fire refresh callbacks in order.
     setModalAbierto(false);
-    onReclasificado();
+    // Fire-and-forget refetch: cargar() is async but we do not await it here
+    // so the announce path (onMovida) fires immediately after (settled order, D-20).
+    void onReclasificado();
     solicitarRecargaResumen();
 
     // Cross-bucket only: fire the screen-owned announcement handler.

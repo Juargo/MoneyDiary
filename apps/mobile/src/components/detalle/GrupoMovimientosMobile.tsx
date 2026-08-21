@@ -56,11 +56,13 @@ interface GrupoMovimientosMobileProps {
   readonly destacar?: string;
   /**
    * REQUIRED: called after a successful reclassify PATCH so the screen can refetch
-   * the open detail (D-17/D-18). Typically wired to BucketDetalleScreen's cargar().
+   * the open detail (D-17/D-18). Typically wired to BucketDetalleScreen's cargar(),
+   * which is async. The prop accepts a void-or-Promise return so the async cargar
+   * type is not hidden; the call site fires-and-forgets (not awaited by this component).
    * Non-optional: the us-044 PR7 banned-pattern (optional-callback-silent-noop) is
    * explicitly avoided here.
    */
-  readonly onReclasificado: () => void;
+  readonly onReclasificado: () => void | Promise<void>;
   /**
    * REQUIRED: called on cross-bucket success with the ETIQUETA_BUCKET display label
    * of the destination bucket. Screen owns both setAnuncio and announceForAccessibility

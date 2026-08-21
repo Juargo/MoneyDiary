@@ -36,13 +36,12 @@ const mockReclasificarCategoria = jest.fn<
   Promise<ApiResult<ReclasificarCategoriaDto>>,
   [string, string]
 >();
-jest.mock('../../api/categorias', () => ({
-  ...jest.requireActual('../../api/categorias'),
-  reclasificarCategoria: (txId: string, categoria: string) =>
-    mockReclasificarCategoria(txId, categoria),
-}));
 
 const mockFetchCatalogo = jest.fn<Promise<ApiResult<CatalogoDto>>, []>();
+
+// Single factory wiring both reclasificarCategoria and fetchCatalogo.
+// The previous file had two back-to-back jest.mock calls for the same module;
+// the first was dead (the second override always wins). Collapsed into one.
 jest.mock('../../api/categorias', () => ({
   ...jest.requireActual('../../api/categorias'),
   reclasificarCategoria: (txId: string, categoria: string) =>
@@ -381,11 +380,54 @@ describe('ReclasificarMobileControl', () => {
   });
 
   /**
-   * Case 7: onMovida (and announceForAccessibility via onMovida handler) fires ONLY after
-   * PATCH ok (settled announcement, us-055 D-04 lesson).
-   * Assert that onMovida is NOT called while PATCH is still pending.
+   * Case 3b: same-bucket commit DOES NOT call onMovida nor announce (MDET-05 S7).
+   * The cross-bucket guard in commit() must prevent onMovida from firing when
+   * the destination bucket equals the current bucket. announceSpy is the negative
+   * oracle here — the control must NEVER call AccessibilityInfo directly (D-20
+   * single-announcement-source rule); this test also confirms no accidental call
+   * slips through on the same-bucket path.
    */
-  it('AccessibilityInfo.announceForAccessibility called ONLY after PATCH ok (settled) — NOT while pending', async () => {
+  it('same-bucket commit does NOT call onMovida nor announce (MDET-05 S7)', async () => {
+    mockReclasificarCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: makeReclasificarDto('Deseos', 'Entretenimiento'),
+    });
+
+    const onMovida = jest.fn<void, [string]>();
+    const props = defaultProps({ onMovida });
+    await render(<ReclasificarMobileControl {...props} />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+    });
+
+    // Press the same-bucket option (Entretenimiento is in Deseos — same bucket)
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-Entretenimiento'),
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockReclasificarCategoria).toHaveBeenCalledTimes(1);
+    });
+
+    // Same-bucket: onMovida must NOT fire — the cross-bucket guard must hold.
+    expect(onMovida).not.toHaveBeenCalled();
+    // The control must NEVER call AccessibilityInfo (D-20; announcement is the
+    // screen's responsibility). This negative assert turns announceSpy live.
+    expect(announceSpy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Case 7: onMovida fires ONLY after PATCH resolves ok (settled announcement,
+   * us-055 D-04 lesson). Assert onMovida is NOT called while PATCH is still pending.
+   */
+  it('onMovida fires ONLY after PATCH resolves ok (settled announcement contract)', async () => {
     // Controlled promise so we can assert BEFORE it resolves
     let resolveReclasificar!: (v: ApiResult<ReclasificarCategoriaDto>) => void;
     const pendingPromise = new Promise<ApiResult<ReclasificarCategoriaDto>>(

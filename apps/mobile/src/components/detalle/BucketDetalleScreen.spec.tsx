@@ -15,6 +15,7 @@ import {
   fireEvent,
   act,
 } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import type { ApiResult } from '../../api/client';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 
@@ -422,6 +423,13 @@ describe('BucketDetalleScreen', () => {
       .mockResolvedValueOnce({ ok: true, value: dtoConGrupo })
       .mockResolvedValueOnce({ ok: true, value: dtoSinGrupo });
 
+    // Pin the exact announce string emitted by handleMovida (MDET-05 S5).
+    // This spy verifies the screen calls AccessibilityInfo with EXACTLY
+    // 'Movida a Gustos.' (trailing period, ETIQUETA_BUCKET display label).
+    const announceSpy = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockReturnValue(undefined);
+
     render(
       <BucketDetalleScreen
         bucket="Deseos"
@@ -449,6 +457,11 @@ describe('BucketDetalleScreen', () => {
         'Movida a Gustos.',
       );
     });
+
+    // Pin the exact announce string: must be called with 'Movida a Gustos.' (trailing period).
+    // Raw bucket key 'Deseos' or missing period would fail this assertion.
+    expect(announceSpy).toHaveBeenCalledWith('Movida a Gustos.');
+    announceSpy.mockRestore();
 
     // Step 3: wait for the refetch (triggered by onReclasificado=cargar) to complete.
     // The second fetch returns dtoSinGrupo — the group is gone from the list.
