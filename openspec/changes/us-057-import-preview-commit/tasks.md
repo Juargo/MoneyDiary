@@ -252,7 +252,7 @@ Chain strategy: stacked-to-main
 
 *Satisfies: spec §Testing Emphasis (integration test matrix), DEP-01 (transition note); §6 items 22–23; §7 TDD constraint b two-level regression guard.*
 
-- [ ] T-33 — (RED+GREEN) Write and run integration tests against the local ephemeral DB (`pnpm api test:integration`). Each test must be in a named group:
+- [x] T-33 — (RED+GREEN) Write and run integration tests against the local ephemeral DB (`pnpm api test:integration`). Each test must be in a named group:
 
   - **CA-01 no-write:** `POST /api/ingestas/preview` with a valid cartola; assert `Account`, `Ingesta`, `Transaccion` row counts unchanged after the call. Repeat three times (idempotency).
   - **CA-06 user isolation (preview):** user B's `findByBanco` does NOT see user A's transactions (dedup scoped to B); user A's rows are not read or modified by B's preview.
@@ -265,11 +265,11 @@ Chain strategy: stacked-to-main
 
   **File:** `apps/api/test/` (follow existing integration file naming convention).
 
-- [ ] T-34 — Modify `docs/adr/README.md` (§6 item 22): add transition note to the ADR-026 row: "deprecated at US-057, physical removal tracked by US-061" (D-14/CA-05).
+- [x] T-34 — Modify `docs/adr/README.md` (§6 item 22): add transition note to the ADR-026 row: "deprecated at US-057, physical removal tracked by US-061" (D-14/CA-05).
 
-- [ ] T-35 — Full sweep: `pnpm api test` + `pnpm api test:integration` + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0 + `pnpm api lint:ci` (if available in workspace).
+- [x] T-35 — Full sweep: `pnpm api test` + `pnpm api test:integration` + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0 + `pnpm api lint:ci` (if available in workspace).
 
-- [ ] T-36 — Verify phase 6: confirm T-25 (MANDATORY-BLOCKING no-write composition test) is green in the final CI run.
+- [x] T-36 — Verify phase 6: confirm T-25 (MANDATORY-BLOCKING no-write composition test) is green in the final CI run.
   **Work-unit commit:** `feat(api): integration tests, one-shot regression guard, ADR-026 deprecation note (US-057 PR6)`.
 
 ---
