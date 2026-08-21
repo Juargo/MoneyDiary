@@ -12,8 +12,8 @@ import type { ItemLeyenda } from '@/domain/resumen-view-model';
  * not this component's). Row shape is derived from the item's `kind`
  * (D-03's discriminated union), never from a boolean flag:
  * `'gasto'`/`'sinCategoria'` → clickable `<button>` + chevron (both drill
- * down via `onSelectBucket`, `WCAT-01`); `'ingreso'` → an inert `<li>`
- * (`WG5-06`, no drill-down endpoint exists yet).
+ * down via `onSelectBucket`, `WCAT-01`); `'ingreso'` → clickable `<button>`
+ * (US-054 D-05: the US-047 interim is retired — the endpoint now exists).
  *
  * US-053 PR3 (D-06): the `bucketSeleccionado`/`aria-pressed` selection
  * state is GONE — a row click NAVIGATES to the month-scoped bucket page
@@ -33,15 +33,19 @@ export function LeyendaGasto({
   principales,
   complemento,
   onSelectBucket,
+  onSelectIngresos,
 }: {
   readonly principales: ReadonlyArray<ItemLeyenda>;
   readonly complemento: ReadonlyArray<ItemLeyenda>;
   readonly onSelectBucket: (bucket: string) => void;
+  readonly onSelectIngresos: () => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <ul className="flex flex-col gap-1">
-        {principales.map((item) => filaParaItem(item, onSelectBucket))}
+        {principales.map((item) =>
+          filaParaItem(item, onSelectBucket, onSelectIngresos),
+        )}
       </ul>
 
       {/* D-09: a CSS-only visibility toggle, never conditional JSX — the
@@ -54,7 +58,9 @@ export function LeyendaGasto({
       />
 
       <ul className="flex flex-col gap-1">
-        {complemento.map((item) => filaParaItem(item, onSelectBucket))}
+        {complemento.map((item) =>
+          filaParaItem(item, onSelectBucket, onSelectIngresos),
+        )}
       </ul>
     </div>
   );
@@ -70,9 +76,16 @@ export function LeyendaGasto({
 function filaParaItem(
   item: ItemLeyenda,
   onSelectBucket: (bucket: string) => void,
+  onSelectIngresos: () => void,
 ) {
   if (item.kind === 'ingreso') {
-    return <FilaIngreso key="ingreso" item={item} />;
+    return (
+      <FilaIngreso
+        key="ingreso"
+        item={item}
+        onSelectIngresos={onSelectIngresos}
+      />
+    );
   }
   return (
     <FilaClickeable
@@ -160,27 +173,46 @@ function FilaClickeable({
 }
 
 /**
- * Ingresos row — inert `<li>`, NOT a disabled `<button>` (US-047 CA-04/
- * WG5-06 interim). No drill-down endpoint exists yet for Ingresos; a
- * disabled control would still sit in some assistive tech's browse order
- * looking "broken" rather than "not yet available" — a plain `<li>` is
- * genuinely inert (never reached by Tab). Trigger to make this
- * interactive: a real Ingresos drill-down endpoint (none exists today).
+ * Ingresos row — US-054 D-05 (WG5-03/06): the US-047 interim (`<li>` inert)
+ * is retired. The endpoint now exists (US-052). Same `FilaClickeable` shell
+ * minus the color dot — LOCKED classes: `px-2 py-1` (WCAG 2.5.8 target) +
+ * `focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800`
+ * (WCAG 1.4.11). `{' '}` text-node separators keep the accessible-name
+ * algorithm from concatenating adjacent inline elements without whitespace.
  */
 function FilaIngreso({
   item,
+  onSelectIngresos,
 }: {
   readonly item: Extract<ItemLeyenda, { kind: 'ingreso' }>;
+  readonly onSelectIngresos: () => void;
 }) {
   return (
-    <li
-      data-testid="leyenda-item"
-      className="flex items-center justify-between gap-3 px-2 py-1"
-    >
-      <span className="text-sm text-foreground">Ingresos</span>
-      <span className="text-sm font-semibold text-foreground">
-        {item.montoLabel}
-      </span>
+    <li data-testid="leyenda-item">
+      <button
+        type="button"
+        onClick={onSelectIngresos}
+        className={cn(
+          // LOCKED (WCAG 1.4.11): outline-slate-800 (>3:1 on white) — do
+          // NOT re-tint. LOCKED (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable
+          // tap target.
+          'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+        )}
+      >
+        <span className="flex items-center gap-2">
+          {/* No color dot — Ingresos has no bucket color (CA-04; not a spend bucket). */}
+          <span className="text-sm text-foreground">Ingresos</span>
+        </span>{' '}
+        <span className="flex items-center gap-1">
+          <span className="text-sm font-semibold text-foreground">
+            {item.montoLabel}
+          </span>
+          <ChevronRight
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+          />
+        </span>
+      </button>
     </li>
   );
 }
