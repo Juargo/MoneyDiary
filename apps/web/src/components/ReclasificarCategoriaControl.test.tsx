@@ -149,6 +149,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -178,6 +179,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -200,12 +202,23 @@ describe('ReclasificarCategoriaControl', () => {
     expect(screen.getAllByRole('option')).toHaveLength(8);
   });
 
-  it('offers all 8 categorías grouped by bucket via optgroup, current categoría preselected', async () => {
-    mockFetch({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(dtoDestino),
-    });
+  it('offers exactly 3 spend-bucket optgroups — Necesidades, Deseos (Gustos), Ahorro — no Otros group, no Ingresos-bucket categoría (WCAT-04/D-06)', async () => {
+    const catalogoConIngresos = {
+      categorias: [
+        ...CATALOGO_FIXTURE.categorias,
+        {
+          id: 'cat-ingresos',
+          nombre: 'Sueldo',
+          bucket: 'Ingresos',
+          patrones: [],
+          transaccionesCount: 0,
+        },
+      ],
+    };
+    mockFetch(
+      { ok: true, status: 200, json: () => Promise.resolve(dtoDestino) },
+      catalogoConIngresos,
+    );
 
     render(
       <ReclasificarCategoriaControl
@@ -215,6 +228,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -224,20 +238,20 @@ describe('ReclasificarCategoriaControl', () => {
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    expect(select.value).toBe('Supermercado');
-    expect(screen.getAllByRole('option')).toHaveLength(8);
-    const necesidades = screen.getByRole('group', {
-      name: 'Necesidades',
-    }) as HTMLOptGroupElement;
-    expect(Array.from(necesidades.children).map((o) => o.textContent)).toEqual([
-      'Supermercado',
-      'Combustible',
-      'Farmacia',
-      'Salud',
-      'Transporte',
+    // Exactly 3 spend-bucket optgroups — no "Otros" and no Ingresos group.
+    const grupos = screen.getAllByRole('group');
+    expect(grupos).toHaveLength(3);
+    expect(grupos.map((g) => (g as HTMLOptGroupElement).label)).toEqual([
+      'Necesidades',
+      'Gustos',
+      'Ahorro',
     ]);
-    expect(screen.getByRole('group', { name: 'Gustos' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Ahorro' })).toBeInTheDocument();
+    // The Ingresos-bucket categoría is NOT offered.
+    expect(
+      screen.queryByRole('option', { name: 'Sueldo' }),
+    ).not.toBeInTheDocument();
+    // Current categoría preselected.
+    expect(select.value).toBe('Supermercado');
   });
 
   it('a SinCategoria row starts with no categoría selected (placeholder)', async () => {
@@ -255,6 +269,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="SinCategoria"
         categoriaActual={null}
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -283,6 +298,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -321,6 +337,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Deseos"
         categoriaActual="Delivery"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -342,12 +359,13 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('confirming the cross-bucket move commits it', async () => {
+  it('confirming the cross-bucket move commits it and calls onMovida with the destination bucket label (D-07)', async () => {
     const fetchMock = mockFetch({
       ok: true,
       status: 200,
       json: () => Promise.resolve(dtoDestino),
     });
+    const onMovida = vi.fn();
     const user = userEvent.setup();
 
     render(
@@ -358,6 +376,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Deseos"
         categoriaActual="Delivery"
         periodo="2026-07"
+        onMovida={onMovida}
       />,
       { wrapper: crearWrapper() },
     );
@@ -379,6 +398,88 @@ describe('ReclasificarCategoriaControl', () => {
         }),
       ),
     );
+    // onMovida fires with the LABEL ('Necesidades' for Necesidades bucket) — not the raw key.
+    // Deseos→Necesidades: destination bucket label is 'Necesidades'.
+    expect(onMovida).toHaveBeenCalledTimes(1);
+    expect(onMovida).toHaveBeenCalledWith('Necesidades');
+  });
+
+  it('a same-bucket commit does NOT call onMovida (D-07)', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+    const onMovida = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual="Supermercado"
+        periodo="2026-07"
+        onMovida={onMovida}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // Same-bucket reclassify: Necesidades → Transporte (still Necesidades)
+    await user.selectOptions(select, 'Transporte');
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+    );
+
+    expect(onMovida).toHaveBeenCalledTimes(0);
+  });
+
+  it('alertdialog has aria-describedby pointing at the money-move paragraph (D-08)', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual="Delivery"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Uber Eats',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+    await user.selectOptions(select, 'Transporte');
+
+    const dialog = await screen.findByRole('alertdialog');
+    const describedById = dialog.getAttribute('aria-describedby');
+    expect(describedById).toBeTruthy();
+    // The element referenced by aria-describedby must contain the money-move sentence.
+    const describedBy = document.getElementById(describedById!);
+    expect(describedBy).not.toBeNull();
+    expect(describedBy).toHaveTextContent(
+      'Esto mueve $15.000 de Gustos a Necesidades',
+    );
+    // Focus is on the Confirmar button when the dialog opens (WCAT-05).
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Confirmar' }),
+    );
   });
 
   it('cancelling reverts the select to the original categoría, never commits', async () => {
@@ -397,6 +498,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Deseos"
         categoriaActual="Delivery"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -416,6 +518,8 @@ describe('ReclasificarCategoriaControl', () => {
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
     );
+    // WCAT-04 focus contract: cancelar() returns focus to the select.
+    expect(document.activeElement).toBe(select);
   });
 
   it('disables the select while the mutation is pending', async () => {
@@ -439,6 +543,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -475,6 +580,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -516,12 +622,13 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('a SinCategoria row shows the confirmation with source "Sin categoría" and the destination bucket, commits only on confirm', async () => {
+  it('a SinCategoria row shows the confirmation with source "Sin categoría" and the destination bucket, commits only on confirm, calls onMovida with label (D-07)', async () => {
     const fetchMock = mockFetch({
       ok: true,
       status: 200,
       json: () => Promise.resolve(dtoDestino),
     });
+    const onMovida = vi.fn();
     const user = userEvent.setup();
 
     render(
@@ -532,6 +639,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="SinCategoria"
         categoriaActual={null}
         periodo="2026-07"
+        onMovida={onMovida}
       />,
       { wrapper: crearWrapper() },
     );
@@ -567,6 +675,9 @@ describe('ReclasificarCategoriaControl', () => {
         ([url]) => url === '/api/transacciones/tx-2/categoria',
       ),
     ).toHaveLength(1);
+    // onMovida fires with the LABEL for Necesidades bucket ('Necesidades').
+    expect(onMovida).toHaveBeenCalledTimes(1);
+    expect(onMovida).toHaveBeenCalledWith('Necesidades');
   });
 
   it('pressing Escape while the confirmation is open cancels it, reverts the select, fires no PATCH', async () => {
@@ -585,6 +696,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Deseos"
         categoriaActual="Delivery"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -607,6 +719,8 @@ describe('ReclasificarCategoriaControl', () => {
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
     );
+    // WCAT-04 focus contract: cancelar() returns focus to the select.
+    expect(document.activeElement).toBe(select);
   });
 
   it('on a failed reclassify, reverts the select and shows an error message (WCAT-04 failed scenario)', async () => {
@@ -621,6 +735,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -662,6 +777,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -692,6 +808,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -722,6 +839,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Transporte"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -764,6 +882,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -790,6 +909,46 @@ describe('ReclasificarCategoriaControl', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('a cross-bucket FAILED PATCH does NOT call onMovida and the error copy renders (Fix 1 falsifiability)', async () => {
+    // Falsifiability: with the old synchronous onMovida() call inside confirmar()
+    // (before mutation settles), this test fails — onMovida fires even on a
+    // 404 response. With onMovida moved into mutation onSuccess, it must NOT
+    // fire when the PATCH rejects.
+    mockFetch({ ok: false, status: 404 });
+    const onMovida = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual="Delivery"
+        periodo="2026-07"
+        onMovida={onMovida}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Uber Eats',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // Cross-bucket: Deseos → Necesidades opens the confirmation dialog.
+    await user.selectOptions(select, 'Transporte');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    // The mutation rejects with a 404: the error copy must appear and
+    // onMovida must NOT have been called.
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(onMovida).not.toHaveBeenCalled();
+    // The select reverts to the original categoría (existing error path behavior).
+    expect(select.value).toBe('Delivery');
+  });
+
   it('an unresolved categoría (not found in the live catalog) is rejected as an error, never auto-committed as if same-bucket (ADR-015 fail-safe direction)', async () => {
     const fetchMock = mockFetch({
       ok: true,
@@ -805,6 +964,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -856,6 +1016,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
@@ -906,6 +1067,7 @@ describe('ReclasificarCategoriaControl', () => {
         bucketActual="Necesidades"
         categoriaActual="Supermercado"
         periodo="2026-07"
+        onMovida={vi.fn()}
       />,
       { wrapper },
     );

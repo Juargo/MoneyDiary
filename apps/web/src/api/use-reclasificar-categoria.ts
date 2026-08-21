@@ -18,9 +18,10 @@ export interface ReclasificarCategoriaInput {
  * la ruta — decide de dónde salen, este hook solo los usa para construir las
  * query keys exactas a invalidar).
  *
- * Invalidation story (design.md §4.3/§7.2): el backend solo persiste (no hay
- * resumen materializado que recalcular), así que la ÚNICA fuente de verdad
- * post-reclasificación es el próximo read — `onSuccess` invalida:
+ * Invalidation story (design.md §4.3/§7.2, US-055 D-09): el backend solo
+ * persiste (no hay resumen materializado que recalcular), así que la ÚNICA
+ * fuente de verdad post-reclasificación es el próximo read — `onSuccess`
+ * invalida 4 keys:
  * - `['resumen', periodo]` (exacto — coincide con `useResumen`'s queryKey):
  *   refresca el pie + semáforo del período visible.
  * - `['detalle-bucket-mes', bucket, periodo]` (exacto — coincide con
@@ -32,6 +33,12 @@ export interface ReclasificarCategoriaInput {
  *   en vez de adivinar uno; TanStack Query matchea por prefijo de key, así
  *   que esto no afecta `['resumen', ...]` ni
  *   `['detalle-bucket-mes', ...]` — claves distintas en la posición 0).
+ * - `['ingresos-mes']` (PREFIX — coincide con `useIngresosMes`'s
+ *   `['ingresos-mes', periodo ?? 'actual']` en la posición 0): una
+ *   reclasificación hacia/desde Ingresos no puede ocurrir vía este control
+ *   (BUCKETS_ASIGNABLES filtra ese bucket), pero un cambio de bucket puede
+ *   re-estempar totales de ingresos — se invalida por prefijo igual que
+ *   `['resumen-anual']`, sin adivinar el período cacheado en esa página.
  */
 export function useReclasificarCategoria(
   periodo: string | undefined,
@@ -58,6 +65,7 @@ export function useReclasificarCategoria(
         queryKey: ['detalle-bucket-mes', bucket, clave],
       });
       void queryClient.invalidateQueries({ queryKey: ['resumen-anual'] });
+      void queryClient.invalidateQueries({ queryKey: ['ingresos-mes'] });
     },
   });
 }

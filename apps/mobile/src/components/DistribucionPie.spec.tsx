@@ -45,6 +45,18 @@ describe('DistribucionPie', () => {
     expect(screen.getByLabelText('Distribución del gasto')).toBeOnTheScreen();
   });
 
+  // Fix 3 (MOB-08 D-01): donut slices are decorative SVG paths — no per-slice
+  // press handler must be attached (the whole ring is inert; navigation lives
+  // in LeyendaGasto rows, not in the chart).
+  it('no pie-slice element carries an onPress handler (D-01: decorative only)', async () => {
+    await render(<DistribucionPie tajadas={tajadas} />);
+    const slices = screen.getAllByTestId('pie-slice');
+    expect(slices.length).toBeGreaterThan(0);
+    slices.forEach((slice) => {
+      expect(slice.props.onPress).toBeUndefined();
+    });
+  });
+
   it('a single 100% bucket renders one donut path with two subpaths (360°+donut branch, D-01)', async () => {
     const unaTajada: readonly TajadaGasto[] = [
       { bucket: 'Necesidades', porcentaje: 100, fraccion: 1 },

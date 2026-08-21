@@ -147,6 +147,7 @@ describe('ResumenPage', () => {
         periodo={undefined}
         onPeriodoChange={() => {}}
         onSelectBucket={() => {}}
+        onSelectIngresos={() => {}}
       />,
     );
     expect(screen.getByText('Cargando resumen…')).toBeInTheDocument();
@@ -167,6 +168,7 @@ describe('ResumenPage', () => {
         periodo={undefined}
         onPeriodoChange={() => {}}
         onSelectBucket={() => {}}
+        onSelectIngresos={() => {}}
       />,
     );
 
@@ -183,6 +185,7 @@ describe('ResumenPage', () => {
         periodo="2026-07"
         onPeriodoChange={() => {}}
         onSelectBucket={() => {}}
+        onSelectIngresos={() => {}}
       />,
     );
     expect(screen.getByText(/cartola/i)).toBeInTheDocument();
@@ -198,6 +201,7 @@ describe('ResumenPage', () => {
         periodo="2026-07"
         onPeriodoChange={() => {}}
         onSelectBucket={() => {}}
+        onSelectIngresos={() => {}}
       />,
     );
     // Router harness resolves its initial match asynchronously — `findBy`
@@ -223,6 +227,25 @@ describe('ResumenPage', () => {
     ).toBeInTheDocument();
   });
 
+  // T-16 (US-054 D-05): `onSelectIngresos` is threaded through ResumenPage →
+  // ResumenScreen → LeyendaGasto. A click on the Ingresos legend row must
+  // reach the callback the caller passed — a silent-no-op would leave the
+  // navigation dead without any error.
+  it('threads onSelectIngresos to the Ingresos legend row (US-054 T-16, D-05)', async () => {
+    const onSelectIngresos = vi.fn();
+    renderData(
+      <ResumenPage
+        query={mockQuery({ data: dataDto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        onSelectBucket={() => {}}
+        onSelectIngresos={onSelectIngresos}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Ingresos/ }));
+    expect(onSelectIngresos).toHaveBeenCalledTimes(1);
+  });
+
   it('wires the period selector — reports the previous month via onPeriodoChange', async () => {
     const onPeriodoChange = vi.fn();
     renderData(
@@ -231,6 +254,7 @@ describe('ResumenPage', () => {
         periodo="2026-07"
         onPeriodoChange={onPeriodoChange}
         onSelectBucket={() => {}}
+        onSelectIngresos={() => {}}
       />,
     );
 

@@ -1,34 +1,50 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { ItemLeyenda } from '../domain/resumen-view-model';
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '../theme/colors';
 
 /**
  * 5-row spend/income legend (US-050 PR4b, design §1.7): props
- * `{ principales, complemento }: ReadonlyArray<ItemLeyenda>`. Every row is
- * an inert `View` — non-interactive, no chevrons, no navigation (binding
- * decision 2). Row shape dispatches on `item.kind` (D-03's discriminated
- * union), never a boolean flag: `'gasto'` rows show name · % · amount; the
- * `'sinCategoria'` row shows name · N tx · amount (no %); `'ingreso'` shows
- * name · amount only. The `'sinCategoria'` row additionally exposes an
- * explicit `accessibilityLabel` that expands the visible "N tx" into "N
- * transacciones sin categorizar" (web's exact `.replace` transform,
- * ADR-018) — the other rows rely on their visible text as the accessible
- * name.
+ * `{ principales, complemento }: ReadonlyArray<ItemLeyenda>`. US-056 PR1
+ * (D-10/D-11): every row is now a `Pressable` with `accessibilityRole="button"`,
+ * unique `testID="leyenda-fila-{key}"`, and an `onNavegar` callback that the
+ * caller (via `ResumenScreen` → `app/index.tsx`) wires to `router.push`. The
+ * `periodo` prop threads the currently-selected dashboard month so each push
+ * carries the correct period in the URL. Row shape still dispatches on
+ * `item.kind` (D-03's discriminated union): `'gasto'` rows show name · % · amount;
+ * `'sinCategoria'` row shows name · N tx · amount (no %) and adds
+ * `?destacar=sin-categoria` to its push path; `'ingreso'` shows name · amount.
+ * The `'sinCategoria'` row's `accessibilityLabel` still expands "N tx" into
+ * "N transacciones sin categorizar" (ADR-018 a11y). Previously these rows were
+ * inert `View`s (US-050 binding decision 2) — that decision is reversed here.
  */
 export function LeyendaGasto({
   principales,
   complemento,
+  periodo,
+  onNavegar,
 }: {
   readonly principales: readonly ItemLeyenda[];
   readonly complemento: readonly ItemLeyenda[];
+  readonly periodo: string | undefined;
+  readonly onNavegar: (path: string) => void;
 }) {
   return (
     <View className="gap-2">
       {principales.map((item) => (
-        <FilaLeyenda key={filaKey(item)} item={item} />
+        <FilaLeyenda
+          key={filaKey(item)}
+          item={item}
+          periodo={periodo}
+          onNavegar={onNavegar}
+        />
       ))}
       {complemento.map((item) => (
-        <FilaLeyenda key={filaKey(item)} item={item} />
+        <FilaLeyenda
+          key={filaKey(item)}
+          item={item}
+          periodo={periodo}
+          onNavegar={onNavegar}
+        />
       ))}
     </View>
   );
@@ -36,6 +52,31 @@ export function LeyendaGasto({
 
 function filaKey(item: ItemLeyenda): string {
   return item.kind === 'ingreso' ? 'ingreso' : item.bucket;
+}
+
+function testIDForItem(item: ItemLeyenda): string {
+  return item.kind === 'ingreso'
+    ? 'leyenda-fila-ingreso'
+    : `leyenda-fila-${item.bucket}`;
+}
+
+function pathForItem(item: ItemLeyenda, periodo: string | undefined): string {
+  const periodoParam = periodo ? `?periodo=${encodeURIComponent(periodo)}` : '';
+
+  if (item.kind === 'ingreso') {
+    return `/ingresos${periodoParam}`;
+  }
+
+  if (item.kind === 'sinCategoria') {
+    // SinCategoria path always carries destacar before periodo (exact order per spec).
+    // When periodo is undefined, omit the periodo param entirely.
+    return periodo
+      ? `/bucket/SinCategoria?destacar=sin-categoria&periodo=${encodeURIComponent(periodo)}`
+      : `/bucket/SinCategoria?destacar=sin-categoria`;
+  }
+
+  // 'gasto' bucket row
+  return `/bucket/${encodeURIComponent(item.bucket)}${periodoParam}`;
 }
 
 function Punto({ bucket }: { readonly bucket: string }) {
@@ -48,18 +89,32 @@ function Punto({ bucket }: { readonly bucket: string }) {
   );
 }
 
-function FilaLeyenda({ item }: { readonly item: ItemLeyenda }) {
+function FilaLeyenda({
+  item,
+  periodo,
+  onNavegar,
+}: {
+  readonly item: ItemLeyenda;
+  readonly periodo: string | undefined;
+  readonly onNavegar: (path: string) => void;
+}) {
+  const testID = testIDForItem(item);
+  const path = pathForItem(item, periodo);
+
   if (item.kind === 'ingreso') {
     return (
-      <View
-        testID="leyenda-fila"
+      <Pressable
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel="Ver detalle de ingresos"
+        onPress={() => onNavegar(path)}
         className="flex-row items-center justify-between"
       >
         <Text className="text-[15px] text-heading">Ingresos</Text>
         <Text className="text-[15px] font-semibold text-heading">
           {item.montoLabel}
         </Text>
-      </View>
+      </Pressable>
     );
   }
 
@@ -73,10 +128,11 @@ function FilaLeyenda({ item }: { readonly item: ItemLeyenda }) {
       ' transacciones sin categorizar',
     )} · ${item.montoLabel}`;
     return (
-      <View
-        testID="leyenda-fila"
-        accessible
+      <Pressable
+        testID={testID}
+        accessibilityRole="button"
         accessibilityLabel={accesible}
+        onPress={() => onNavegar(path)}
         className="flex-row items-center justify-between"
       >
         <View className="flex-row items-center gap-2">
@@ -88,13 +144,16 @@ function FilaLeyenda({ item }: { readonly item: ItemLeyenda }) {
         <Text className="text-[15px] font-semibold text-heading">
           {item.montoLabel}
         </Text>
-      </View>
+      </Pressable>
     );
   }
 
   return (
-    <View
-      testID="leyenda-fila"
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={`Ver detalle de ${etiqueta}`}
+      onPress={() => onNavegar(path)}
       className="flex-row items-center justify-between"
     >
       <View className="flex-row items-center gap-2">
@@ -107,6 +166,6 @@ function FilaLeyenda({ item }: { readonly item: ItemLeyenda }) {
           {item.montoLabel}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }

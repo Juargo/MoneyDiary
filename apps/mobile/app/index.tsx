@@ -118,7 +118,9 @@ export default function Index() {
           assert this layout fact; verification is Maestro/manual (T5b.4/T6.3). */}
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <Header periodoLabel={formatearPeriodoLabel(periodoVista)} />
-        {renderEstado(estado, cargar)}
+        {renderEstado(estado, cargar, periodoVista, (path) =>
+          router.push(path),
+        )}
         <ResumenAnual
           anio={anio}
           periodoSeleccionado={periodoVista}
@@ -147,7 +149,12 @@ export default function Index() {
   );
 }
 
-function renderEstado(estado: Estado, onRetry: () => void) {
+function renderEstado(
+  estado: Estado,
+  onRetry: () => void,
+  periodo: string,
+  onNavegar: (path: string) => void,
+) {
   switch (estado.fase) {
     case 'loading':
       return <Loading />;
@@ -159,6 +166,14 @@ function renderEstado(estado: Estado, onRetry: () => void) {
       if (estado.dto.sinIngreso) {
         return <Empty />;
       }
-      return <ResumenScreen viewModel={aResumenViewModel(estado.dto)} />;
+      // US-056 PR1 (D-10): periodo and onNavegar thread to ResumenScreen →
+      // LeyendaGasto so legend rows navigate to detail screens.
+      return (
+        <ResumenScreen
+          viewModel={aResumenViewModel(estado.dto)}
+          periodo={periodo}
+          onNavegar={onNavegar}
+        />
+      );
   }
 }
