@@ -48,6 +48,16 @@ The response MUST also carry an aggregate `resumen` object:
   is `true`.
 - `resumen.nuevas: number` — `totalFilas − duplicadosDetectados`.
 
+> **Note — backward-compatibility shim (product decision 2026-08-21, removed by
+> US-061):** the preview reshape is ADDITIVE, not a rename. The response MUST
+> ALSO carry the deprecated legacy shape so shipped clients keep working: a
+> `estructura: { totalFilasDatos: number }` object (mirror of
+> `resumen.totalFilas`) and a `muestra` array of the FIRST 50 rows in the old
+> 4-field shape (`{ fecha, descripcion, cargo, abono }` only — no
+> `rowIndex`/`esDuplicado`/`sugerido`). The canonical shape is `resumen` +
+> `filas`; `estructura` + `muestra` are deprecated and removed by US-061
+> alongside the one-shot endpoint.
+
 Preview MUST acquire `userId` from the authenticated session to scope both the
 dedup lookup and the catalog query.
 

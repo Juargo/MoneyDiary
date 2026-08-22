@@ -967,7 +967,7 @@ export interface paths {
         readonly put?: never;
         /**
          * Preview a bank statement (dry run, US-057)
-         * @description Authenticated endpoint that detects the bank, validates structure, normalizes, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). Returns all rows (no sample cap — the 50-row limit is removed) with per-row dedup status (`esDuplicado`) and classification suggestion (`sugerido`). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation — dedup is scoped to the calling user's history).
+         * @description Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
          */
         readonly post: {
             readonly parameters: {
@@ -2101,10 +2101,15 @@ export interface components {
             readonly code: string;
             readonly message: string;
         };
-        /** @description POST /api/ingestas/preview — dry-run preview with per-row dedup and classification (US-057). */
+        /** @description POST /api/ingestas/preview — dry-run preview. CANONICAL: resumen + filas (full set, per-row dedup and classification, US-057). DEPRECATED (removed by US-061): estructura + muestra (first 50 rows, old shape) kept for shipped clients. */
         readonly PreviewIngestaResponse: {
             readonly banco: string;
-            readonly filas: readonly {
+            /** @description DEPRECATED (US-061): legacy aggregate. Use resumen. */
+            readonly estructura: {
+                /** @description DEPRECATED (US-061): mirror of resumen.totalFilas. Kept for shipped clients. */
+                readonly totalFilasDatos: number;
+            };
+            readonly filas?: readonly {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly abono: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
@@ -2119,8 +2124,18 @@ export interface components {
                     readonly categoriaId: string | null;
                 } | null;
             }[];
+            /** @description DEPRECATED (US-061): legacy first-50-rows sample in the old 4-field shape. Use filas. */
+            readonly muestra: readonly {
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly abono: string;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly cargo: string;
+                readonly descripcion: string;
+                /** @description ISO-8601 UTC timestamp. */
+                readonly fecha: string;
+            }[];
             readonly numeroCuenta: string;
-            readonly resumen: {
+            readonly resumen?: {
                 readonly duplicadosDetectados: number;
                 readonly nuevas: number;
                 /** @description Row count PRE-dedupe, not money — plain JSON number. */
