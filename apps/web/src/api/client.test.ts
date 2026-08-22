@@ -8,6 +8,7 @@ import {
   fetchResumen,
   fetchResumenAnual,
   fetchSemaforoDetalle,
+  postCommitIngesta,
   postIngesta,
   postReclasificarCategoria,
   previewIngesta,
@@ -1355,10 +1356,18 @@ describe('postIngesta', () => {
   });
 });
 
-const validPreviewDto: PreviewIngestaDto = {
+// US-059 PR1 (T-02): validPreviewDto updated to the canonical shape.
+// The hardened guard now requires `filas` + `resumen` and no longer validates
+// `muestra`/`estructura` — those are legacy fields deprecated by US-061.
+// Typed with non-optional filas/muestra to avoid `!` in test bodies (Fix 6).
+const validPreviewDto: PreviewIngestaDto & {
+  filas: NonNullable<PreviewIngestaDto['filas']>;
+  muestra: NonNullable<PreviewIngestaDto['muestra']>;
+} = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
   numeroCuenta: '12345678',
+  // legacy fields still present in the live response (backend keeps them until US-061)
   estructura: { totalFilasDatos: 120 },
   muestra: [
     {
@@ -1368,6 +1377,19 @@ const validPreviewDto: PreviewIngestaDto = {
       abono: '0',
     },
   ],
+  // canonical fields required by the hardened guard (US-057/US-059)
+  filas: [
+    {
+      rowIndex: 0,
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Supermercado',
+      cargo: '50000',
+      abono: '0',
+      esDuplicado: false,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-01' },
+    },
+  ],
+  resumen: { totalFilas: 120, duplicadosDetectados: 5, nuevas: 115 },
 };
 
 // previewIngesta (us-003-vista-previa Slice 2, design.md §9.4): faithful
@@ -1480,13 +1502,16 @@ describe('previewIngesta', () => {
     expect(!result.ok && result.error.tag).toBe('parse');
   });
 
-  it('mapea a {tag: "parse"} cuando falta estructura.totalFilasDatos', async () => {
-    const bodySinEstructura = { ...validPreviewDto, estructura: {} };
+  // US-059 PR1 (T-02): guard no longer validates `estructura` (deprecated field
+  // removed in US-061). The hardened guard requires `filas` + `resumen` instead.
+  // Updated test: body missing `filas` is rejected even when `estructura` is intact.
+  it('mapea a {tag: "parse"} cuando falta filas (guard hardened US-059: canonical field requerida)', async () => {
+    const bodySinFilas = { ...validPreviewDto, filas: undefined };
 
     mockFetchOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(bodySinEstructura),
+      json: () => Promise.resolve(bodySinFilas),
     });
 
     const result = await previewIngesta(archivoDePrueba());
@@ -1495,10 +1520,32 @@ describe('previewIngesta', () => {
     expect(!result.ok && result.error.tag).toBe('parse');
   });
 
-  it('mapea a {tag: "parse"} sin lanzar cuando muestra[0].cargo es un string no decimal (money-safety boundary)', async () => {
-    const bodyConCargoMalformado = {
+  // US-059 PR1 (T-02): `muestra` is a deprecated legacy field — the hardened
+  // guard no longer validates it. A malformed `muestra` is ignored; only
+  // `filas[]` money fields are now validated. This test verifies that a bad
+  // `muestra[0].cargo` does NOT trigger a parse error (muestra is unchecked).
+  it('acepta payload con muestra[0].cargo malformado porque el guard ya no valida muestra (campo legacy)', async () => {
+    const bodyConMuestraMalformada = {
       ...validPreviewDto,
       muestra: [{ ...validPreviewDto.muestra[0], cargo: 'abc' }],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConMuestraMalformada),
+    });
+
+    const result = await previewIngesta(archivoDePrueba());
+
+    // muestra is no longer validated by the hardened guard (US-059, D-08)
+    expect(result.ok).toBe(true);
+  });
+
+  // US-059 PR1 (T-02): money-safety now applied to canonical `filas[]`, not `muestra[]`.
+  it('mapea a {tag: "parse"} sin lanzar cuando filas[0].cargo es un string no decimal (money-safety boundary)', async () => {
+    const bodyConCargoMalformado = {
+      ...validPreviewDto,
+      filas: [{ ...validPreviewDto.filas[0], cargo: 'abc' }],
     };
     mockFetchOnce({
       ok: true,
@@ -1512,18 +1559,158 @@ describe('previewIngesta', () => {
     expect(!result.ok && result.error.tag).toBe('parse');
   });
 
-  it('mapea a {tag: "parse"} cuando un cargo/abono de la muestra es number en vez de string', async () => {
-    const bodyConCargoNumerico = {
-      ...validPreviewDto,
-      muestra: [{ ...validPreviewDto.muestra[0], cargo: 50000 }],
-    };
+  it('mapea a {tag: "parse"} cuando falta resumen (guard hardened US-059: campo canónico requerido)', async () => {
+    const bodySinResumen = { ...validPreviewDto, resumen: undefined };
     mockFetchOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(bodyConCargoNumerico),
+      json: () => Promise.resolve(bodySinResumen),
     });
 
     const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+});
+
+const validCommitIngestaDto = {
+  ingestaId: 'ingesta-001',
+  totalTransacciones: 1,
+  duplicadosOmitidos: 0,
+  transacciones: [
+    {
+      bucket: 'Necesidades',
+      categoriaId: 'cat-01',
+      cargo: '50000',
+      abono: '0',
+      descripcion: 'Supermercado',
+      fecha: '2026-07-15T00:00:00.000Z',
+    },
+  ],
+};
+
+// US-059 PR1 (T-02): postCommitIngesta transport suite — faithful mirror of
+// previewIngesta's transport tests: same-origin multipart POST to
+// /api/ingestas/commit, never throws, same status-mapping conventions.
+// Also validates FormData structure (both `file` and `edits` fields).
+describe('postCommitIngesta', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('llama a POST /api/ingestas/commit con file en FormData y edits como JSON string', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(validCommitIngestaDto),
+    });
+    const archivo = archivoDePrueba();
+    const edits = [{ rowIndex: 2, categoriaId: 'cat-02' }];
+
+    await postCommitIngesta(archivo, edits);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/ingestas/commit');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeInstanceOf(FormData);
+    const body = init.body as FormData;
+    expect(body.get('file')).toBeInstanceOf(File);
+    expect(body.get('file')).toBe(archivo);
+    expect(body.get('edits')).toBe(JSON.stringify(edits));
+  });
+
+  it('resuelve {ok: true, value} en un body 201 válido', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(validCommitIngestaDto),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result).toEqual({ ok: true, value: validCommitIngestaDto });
+  });
+
+  it('mapea un 400 pasando el body.message del backend verbatim', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 400,
+      json: () =>
+        Promise.resolve({
+          statusCode: 400,
+          message: 'Banco no reconocido.',
+          error: 'Bad Request',
+        }),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message: 'Banco no reconocido.',
+    });
+  });
+
+  it('mapea un 400 con body ilegible/malformado a un mensaje genérico de fallback', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 400,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('invalid');
+    expect(!result.ok && result.error.message.length).toBeGreaterThan(0);
+  });
+
+  it('mapea un 401 a {tag: "unauthorized"} con el mensaje fijo de sesión expirada', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'unauthorized',
+      message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+    });
+  });
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('network');
+  });
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    });
+  });
+
+  it('mapea a {tag: "parse"} cuando el body 2xx no cumple la forma de CommitIngestaDto', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ nonsense: true }),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('parse');

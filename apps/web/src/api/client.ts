@@ -1,13 +1,15 @@
 import type {
   ApiVersionDto,
   BucketResumenDto,
+  CommitIngestaDto,
   DetalleBucketMesDto,
   GrupoDetalleBucketMesDto,
   IngestaListItemDto,
   IngestaResponseDto,
   IngresosMesDto,
+  PreviewFilaDto,
   PreviewIngestaDto,
-  PreviewTransaccionDto,
+  PreviewIngestaDtoConCanonicos,
   ReclasificarCategoriaDto,
   ResumenAnualDto,
   ResumenMesDto,
@@ -980,43 +982,88 @@ export async function postIngesta(
 }
 
 /**
- * Guarda money-safety para `PreviewIngestaDto` (`us-003-vista-previa` Slice
- * 2, design.md §9.4): mismo razonamiento que `esTransaccionResponseDto` —
- * `cargo`/`abono` de cada fila de `muestra` se validan con
- * `esMontoStringValido` y `fecha` con `esFechaValida` antes de que
- * `formatearMontoCLP` toque el valor (el sample table de `PreviewMuestra`
- * renderiza estos montos). Un 2xx que no cumpla la forma esperada se mapea a
- * `ApiError` tipado (tag "parse"), nunca lanza.
+ * Valida un `sugerido` de `PreviewFilaDto`: debe ser `null` o un objeto con
+ * `bucket: string` y `categoriaId: string | null`. Un objeto sin `categoriaId`
+ * (aunque tenga `bucket`) se rechaza — el guard downstream necesita el campo
+ * para el display-merge (D-05).
  */
-function esPreviewTransaccionDto(
+function esPreviewFilaSugerido(
   value: unknown,
-): value is PreviewTransaccionDto {
-  if (typeof value !== 'object' || value === null) {
+): value is { bucket: string; categoriaId: string | null } | null {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== 'object') {
     return false;
   }
-  const candidato = value as Partial<PreviewTransaccionDto>;
+  const s = value as Record<string, unknown>;
   return (
-    typeof candidato.fecha === 'string' &&
-    esFechaValida(candidato.fecha) &&
-    typeof candidato.descripcion === 'string' &&
-    typeof candidato.cargo === 'string' &&
-    esMontoStringValido(candidato.cargo) &&
-    typeof candidato.abono === 'string' &&
-    esMontoStringValido(candidato.abono)
+    typeof s['bucket'] === 'string' &&
+    (typeof s['categoriaId'] === 'string' || s['categoriaId'] === null)
   );
 }
 
-function esEstructuraPreviewDto(
-  value: unknown,
-): value is PreviewIngestaDto['estructura'] {
+/**
+ * Valida una fila canónica de `PreviewFilaDto` (US-057/US-059, D-08).
+ * Money-safety: `cargo`/`abono` validados con `esMontoStringValido`;
+ * `fecha` con `esFechaValida` — evita que `formatearMontoCLP` / `.slice(0,10)`
+ * procesen valores malformados en el render. `sugerido` puede ser `null` o el
+ * shape `{ bucket, categoriaId }` — validado por `esPreviewFilaSugerido`.
+ */
+function esPreviewFilaDto(value: unknown): value is PreviewFilaDto {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const candidato = value as Partial<PreviewIngestaDto['estructura']>;
-  return typeof candidato.totalFilasDatos === 'number';
+  const fila = value as Record<string, unknown>;
+  return (
+    typeof fila['rowIndex'] === 'number' &&
+    typeof fila['fecha'] === 'string' &&
+    esFechaValida(fila['fecha']) &&
+    typeof fila['descripcion'] === 'string' &&
+    typeof fila['cargo'] === 'string' &&
+    esMontoStringValido(fila['cargo']) &&
+    typeof fila['abono'] === 'string' &&
+    esMontoStringValido(fila['abono']) &&
+    typeof fila['esDuplicado'] === 'boolean' &&
+    esPreviewFilaSugerido(fila['sugerido'])
+  );
 }
 
-function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
+/**
+ * Valida el sub-objeto `resumen` canónico de `PreviewIngestaResponse` (US-057,
+ * D-08). Todos los campos son conteos (row counts, not money) — validados como
+ * `number`, NO `esMontoStringValido`.
+ */
+function esResumenPreviewDto(
+  value: unknown,
+): value is NonNullable<PreviewIngestaDto['resumen']> {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const r = value as Record<string, unknown>;
+  return (
+    typeof r['totalFilas'] === 'number' &&
+    typeof r['duplicadosDetectados'] === 'number' &&
+    typeof r['nuevas'] === 'number'
+  );
+}
+
+/**
+ * Guard hardened para `PreviewIngestaDtoConCanonicos` (US-059 PR1, D-08,
+ * WEB-PRV-03). Requiere AMBOS campos canónicos: `filas` (array no vacío de
+ * `PreviewFilaDto` validados) y `resumen` (objeto con conteos). Mantiene la
+ * validación de `banco`/`tipoCuenta`/`numeroCuenta` (presentes en el response
+ * y usados en el header). Retorna un type predicate que estrecha a
+ * `PreviewIngestaDtoConCanonicos` — downstream puede acceder a
+ * `data.filas`/`data.resumen` sin `!` (tsc-safe).
+ *
+ * // muestra/estructura not validated — deprecated fields removed in US-061.
+ *
+ * Reemplaza el guard legacy que solo validaba `muestra`/`estructura`.
+ */
+function esPreviewIngestaDto(
+  value: unknown,
+): value is PreviewIngestaDtoConCanonicos {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
@@ -1025,9 +1072,9 @@ function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
     typeof candidato.banco === 'string' &&
     typeof candidato.tipoCuenta === 'string' &&
     typeof candidato.numeroCuenta === 'string' &&
-    esEstructuraPreviewDto(candidato.estructura) &&
-    Array.isArray(candidato.muestra) &&
-    candidato.muestra.every(esPreviewTransaccionDto)
+    Array.isArray(candidato.filas) &&
+    (candidato.filas as unknown[]).every(esPreviewFilaDto) &&
+    esResumenPreviewDto(candidato.resumen)
   );
 }
 
@@ -1044,7 +1091,7 @@ function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
  */
 export async function previewIngesta(
   file: File,
-): Promise<ApiResult<PreviewIngestaDto>> {
+): Promise<ApiResult<PreviewIngestaDtoConCanonicos>> {
   const formData = new FormData();
   formData.append('file', file);
 
@@ -1120,6 +1167,159 @@ export async function previewIngesta(
   }
 
   if (!esPreviewIngestaDto(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  return { ok: true, value: body };
+}
+
+/**
+ * Valida una fila individual dentro de `CommitIngestaDto.transacciones`
+ * (US-059, D-08). Money-safety: `cargo`/`abono` con `esMontoStringValido`;
+ * `fecha` con `esFechaValida`. `categoriaId` puede ser `string | null`.
+ * `bucket` y `descripcion` son strings simples (no-money, no-fecha).
+ */
+function esCommitTransaccionDto(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const t = value as Record<string, unknown>;
+  return (
+    typeof t['bucket'] === 'string' &&
+    (typeof t['categoriaId'] === 'string' || t['categoriaId'] === null) &&
+    typeof t['cargo'] === 'string' &&
+    esMontoStringValido(t['cargo']) &&
+    typeof t['abono'] === 'string' &&
+    esMontoStringValido(t['abono']) &&
+    typeof t['descripcion'] === 'string' &&
+    typeof t['fecha'] === 'string' &&
+    esFechaValida(t['fecha'])
+  );
+}
+
+/**
+ * Guard para `CommitIngestaDto` (US-059, D-08). Valida campos de nivel raíz:
+ * `ingestaId` (string), `totalTransacciones`/`duplicadosOmitidos` (number,
+ * conteos no-money) y `transacciones[]` (cada fila validada por
+ * `esCommitTransaccionDto`). Sigue el mismo patrón que `esIngestaResponseDto`.
+ */
+function esCommitIngestaDto(value: unknown): value is CommitIngestaDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidato = value as Partial<CommitIngestaDto>;
+  return (
+    typeof candidato.ingestaId === 'string' &&
+    typeof candidato.totalTransacciones === 'number' &&
+    typeof candidato.duplicadosOmitidos === 'number' &&
+    Array.isArray(candidato.transacciones) &&
+    (candidato.transacciones as unknown[]).every(esCommitTransaccionDto)
+  );
+}
+
+/**
+ * postCommitIngesta — POST /api/ingestas/commit same-origin (US-059 PR1,
+ * D-04). Faithful mirror of `previewIngesta`'s transport doctrine — only
+ * differences are the URL (`/api/ingestas/commit`), the extra `edits` field
+ * (always sent, even when empty — an empty array is a valid pure
+ * auto-classify commit), and the response DTO (`CommitIngestaDto`, 201).
+ *
+ * FormData: `file` (binary) + `edits` (JSON string of the sparse overlay
+ * `[{ rowIndex, categoriaId }]`). No manual `Content-Type` — the browser sets
+ * the multipart boundary.
+ *
+ * Status mapping identical to `postIngesta`:
+ *   400 → `body.message` verbatim (backend-scrubbed Spanish)
+ *   401 → fixed "Tu sesión expiró…"
+ *   non-2xx → `server`
+ *   network throw → `network`
+ *   guard-fail on 2xx → `parse`
+ * Note: the commit endpoint responds 201; `!res.ok` is false for 201, so no
+ * special casing is needed — the `res.ok` branch handles it correctly.
+ */
+export async function postCommitIngesta(
+  file: File,
+  edits: ReadonlyArray<{ rowIndex: number; categoriaId: string | null }>,
+): Promise<ApiResult<CommitIngestaDto>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('edits', JSON.stringify(edits));
+
+  let res: Response;
+  try {
+    res = await fetch('/api/ingestas/commit', {
+      method: 'POST',
+      body: formData,
+    });
+  } catch {
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
+  }
+
+  if (res.status === 400) {
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      return {
+        ok: false,
+        error: {
+          tag: 'invalid',
+          message: 'El archivo no se pudo procesar. Intenta nuevamente.',
+        },
+      };
+    }
+    const mensaje = (body as { message?: unknown } | null)?.message;
+    return {
+      ok: false,
+      error: {
+        tag: 'invalid',
+        message:
+          typeof mensaje === 'string'
+            ? mensaje
+            : 'El archivo no se pudo procesar. Intenta nuevamente.',
+      },
+    };
+  }
+  if (res.status === 401) {
+    return {
+      ok: false,
+      error: {
+        tag: 'unauthorized',
+        message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+      },
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+
+  if (!esCommitIngestaDto(body)) {
     return {
       ok: false,
       error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },

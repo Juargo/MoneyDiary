@@ -5,6 +5,9 @@ import type { ReactNode } from 'react';
 import { usePreviewIngesta } from './use-preview-ingesta';
 import type { PreviewIngestaDto } from './types';
 
+// US-059 PR1 (T-02/T-04): updated to canonical shape — the hardened
+// `esPreviewIngestaDto` guard now requires `filas` + `resumen` (D-08).
+// Legacy `muestra`/`estructura` still present (backend emits them until US-061).
 const validDto: PreviewIngestaDto = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
@@ -18,6 +21,18 @@ const validDto: PreviewIngestaDto = {
       abono: '0',
     },
   ],
+  filas: [
+    {
+      rowIndex: 0,
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Supermercado',
+      cargo: '50000',
+      abono: '0',
+      esDuplicado: false,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-01' },
+    },
+  ],
+  resumen: { totalFilas: 120, duplicadosDetectados: 5, nuevas: 115 },
 };
 
 function archivoDePrueba(): File {
