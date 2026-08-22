@@ -8,29 +8,22 @@
  *   ['detalle-bucket-mes'], ['ingresos-mes'] (all 4 keys, verified individually).
  * - onSuccess does NOT call invalidateQueries with ['ingestas'] (the wrong 4th
  *   key from useCommitIngesta — must not appear in useRegistrarMovimiento).
- * - No navigate call anywhere in the hook (router-agnostic, D-05).
+ * - Router-agnostic: verified by absence of any router import in the hook (static guarantee, D-05).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { useRegistrarMovimiento } from './use-registrar-movimiento';
-import type { RegistrarMovimientoManualDto } from './types';
+import { unMovimientoManualDto } from '@/test-utils/movimiento-fixtures';
 
 // ---------------------------------------------------------------------------
 // Canonical DTO
 // ---------------------------------------------------------------------------
 
-const canonicalDto: RegistrarMovimientoManualDto = {
-  id: 'mov_abc',
+const canonicalDto = unMovimientoManualDto({
   fecha: '2026-08-22T14:30:00.000Z',
-  descripcion: 'Almuerzo',
-  cargo: '0',
-  abono: '5000',
-  bucket: 'Necesidades',
-  categoriaId: 'cat_xyz',
-  origen: 'Manual',
-};
+});
 
 // ---------------------------------------------------------------------------
 // Helpers

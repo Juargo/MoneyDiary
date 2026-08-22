@@ -6,29 +6,22 @@
  * - postMovimientoManual: 201 unwrap, 400-no-body → fixed message (no body read),
  *   401, 500, network throw, malformed 201 (guard-fail → parse).
  * - esRegistrarMovimientoManualDto: accepts canonical 8-field 201;
- *   rejects missing/malformed fields (origen, cargo, abono).
+ *   rejects missing/malformed fields (id, origen, cargo, abono).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   postMovimientoManual,
   esRegistrarMovimientoManualDto,
 } from './movimientos';
-import type { RegistrarMovimientoManualDto } from './types';
+import { unMovimientoManualDto } from '@/test-utils/movimiento-fixtures';
 
 // ---------------------------------------------------------------------------
 // Canonical 201 response factory
 // ---------------------------------------------------------------------------
 
-const canonicalDto: RegistrarMovimientoManualDto = {
-  id: 'mov_abc',
+const canonicalDto = unMovimientoManualDto({
   fecha: '2026-08-22T14:30:00.000Z',
-  descripcion: 'Almuerzo',
-  cargo: '0',
-  abono: '5000',
-  bucket: 'Necesidades',
-  categoriaId: 'cat_xyz',
-  origen: 'Manual',
-};
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,7 +95,17 @@ describe('postMovimientoManual', () => {
   });
 
   it('401: resuelve a { ok: false, error: { tag: "unauthorized", message: "Tu sesión expiró..." } }', async () => {
-    mockFetchOnce({ ok: false, status: 401 });
+    mockFetchOnce({
+      ok: false,
+      status: 401,
+      json: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            'unexpected res.json() call on 401 — this response has no body',
+          ),
+        ),
+    });
 
     const result = await postMovimientoManual(validIngresoBody);
 
@@ -116,7 +119,17 @@ describe('postMovimientoManual', () => {
   });
 
   it('500: resuelve a { ok: false, error: { tag: "server", status: 500 } }', async () => {
-    mockFetchOnce({ ok: false, status: 500 });
+    mockFetchOnce({
+      ok: false,
+      status: 500,
+      json: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            'unexpected res.json() call on 500 — this response has no body',
+          ),
+        ),
+    });
 
     const result = await postMovimientoManual(validIngresoBody);
 
@@ -163,6 +176,11 @@ describe('postMovimientoManual', () => {
 describe('esRegistrarMovimientoManualDto', () => {
   it('acepta el DTO canónico de 8 campos con origen: "Manual"', () => {
     expect(esRegistrarMovimientoManualDto(canonicalDto)).toBe(true);
+  });
+
+  it('rechaza cuando falta id', () => {
+    const { id: _i, ...sinId } = canonicalDto;
+    expect(esRegistrarMovimientoManualDto(sinId)).toBe(false);
   });
 
   it('rechaza cuando falta origen', () => {
