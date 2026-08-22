@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { Button } from './ui/button';
 import { DemoUploadNudge } from './DemoUploadNudge';
-import { PreviewMuestra, CANTIDAD_PREVIEW_DEFECTO } from './PreviewMuestra';
-import type { CantidadPreview } from './PreviewMuestra';
+// STUB (US-059 PR2): PreviewMuestra props rewritten to canonical shape in PR2;
+// SubirCartola call site updated as a non-behavioral stub (tsc compliance).
+// The full state-machine rewire (useCommitIngesta, edits Map, handleDescartar
+// navigation) lands in PR3 as the single behavioral flip.
+import { PreviewMuestra } from './PreviewMuestra';
 import { useIngesta } from '@/api/use-ingesta';
 import { usePreviewIngesta } from '@/api/use-preview-ingesta';
 import { validarArchivoWeb } from '@/domain/validar-archivo';
@@ -84,9 +87,6 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
 export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorValidacion, setErrorValidacion] = useState<string | null>(null);
-  const [cantidad, setCantidad] = useState<CantidadPreview>(
-    CANTIDAD_PREVIEW_DEFECTO,
-  );
   const previewMutation = usePreviewIngesta();
   const confirmMutation = useIngesta();
 
@@ -139,7 +139,6 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     previewMutation.reset();
     confirmMutation.reset();
     isSubmittingRef.current = false;
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
     if (!seleccionado) {
       setArchivo(null);
       setErrorValidacion(null);
@@ -177,7 +176,6 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   function handleCancelar() {
     setArchivo(null);
     setErrorValidacion(null);
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
     isSubmittingRef.current = false;
     previewMutation.reset();
     confirmMutation.reset();
@@ -254,12 +252,18 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           >
             Vista previa
           </h2>
+          {/* STUB (US-059 PR2): passes new canonical props — edits/catalog
+              wiring (D-02/D-07) and handleDescartar navigation (D-02) land in
+              PR3 as the single behavioral flip (state machine rewrite). The
+              legacy confirm flow (useIngesta, Confirmar/Cancelar) is unchanged
+              in this PR. */}
           <PreviewMuestra
-            muestra={previewMutation.data.muestra}
             banco={previewMutation.data.banco}
-            totalFilasDatos={previewMutation.data.estructura.totalFilasDatos}
-            cantidad={cantidad}
-            onCantidadChange={setCantidad}
+            filas={previewMutation.data.filas}
+            resumen={previewMutation.data.resumen}
+            edits={new Map()}
+            onEditChange={() => undefined}
+            catalogo={{ tag: 'cargando' }}
           />
           <div className="flex gap-3">
             {/* FIX 2 follow-up: this panel is only mounted when `mostrarPreview`
