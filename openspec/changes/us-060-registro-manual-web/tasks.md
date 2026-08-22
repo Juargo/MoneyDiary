@@ -127,7 +127,7 @@ Every PR must compile (`pnpm web typecheck` exits 0) and pass tests (`pnpm web t
 
 > PR2 targets PR1 branch (stacked-to-main). Adds the user-visible `/registrar` surface. Nothing existing changes.
 
-- [ ] T-10 — (RED) Write `apps/web/src/components/RegistrarMovimientoForm.test.tsx` (new — test-first per §7 matrix):
+- [x] T-10 — (RED) Write `apps/web/src/components/RegistrarMovimientoForm.test.tsx` (new — test-first per §7 matrix):
 
   **Setup / mocks:** `vi.mock('@/api/use-registrar-movimiento')` (returns a `unaMutacion<RegistrarMovimientoManualDto>()` spy); `vi.mock('@/api/use-categorias')` (returns `{ isPending: false, isError: false, data: unCatalogo() }`); wrap renders in `<QueryClientProvider>`.
 
@@ -152,7 +152,7 @@ Every PR must compile (`pnpm web typecheck` exits 0) and pass tests (`pnpm web t
   - **CA-09 (WEB-REG-04 — catalog error, cascade complete):** `useCategorias` mock errors AFTER bucket and categoría state are already set (pre-populate state) → cascade selects disabled, alert visible, submit proceeds (both values non-empty).
   - **CA-10 (WEB-REG-11 — a11y):** `vitest-axe` `expect(await axe(container)).toHaveNoViolations()` over Ingreso render AND over Gasto render (both branches tested). Focus moves to the bucket `<select>` (inside `cascadaRef`) when switching to Gasto — assert `document.activeElement` is the bucket `<select>` (enforces D-09 ordering invariant: if a different `<select>` is placed first inside `cascadaRef`, this test breaks loudly).
 
-- [ ] T-11 — (GREEN) Create `apps/web/src/components/RegistrarMovimientoForm.tsx` (new stateful component — D-01 through D-15):
+- [x] T-11 — (GREEN) Create `apps/web/src/components/RegistrarMovimientoForm.tsx` (new stateful component — D-01 through D-15):
   - Props: `{ readonly esDemo: boolean }`.
   - State (per-field `useState` — D-01): `tipo: 'Ingreso'|'Gasto'` (default `'Ingreso'`), `fecha: string` (default `hoyLocal()`), `descripcion: string` (default `''`), `monto: string` (default `''`), `bucketUI: string` (default `''`), `categoriaId: string` (default `''`).
   - `handleTipoChange(nuevo: string)`: calls `setTipo`, `setBucketUI('')`, `setCategoriaId('')` unconditionally (D-02 zeroing — not a bare `setTipo`).
@@ -178,18 +178,18 @@ Every PR must compile (`pnpm web typecheck` exits 0) and pass tests (`pnpm web t
   - Catalog error: inline `role="alert"` when `catalogo.tag === 'error'`; cascade selects already disabled via the `disabled` prop above.
   - Verify: `pnpm web test` (CA-01 through CA-10 green) + `pnpm web typecheck`.
 
-- [ ] T-12 — Create `apps/web/src/routes/_authenticated/registrar.tsx` (thin container — D-12):
+- [x] T-12 — Create `apps/web/src/routes/_authenticated/registrar.tsx` (thin container — D-12):
   - `createFileRoute('/_authenticated/registrar')`, reads `esDemo` from `Route.useRouteContext()`, renders `<RegistrarMovimientoForm esDemo={esDemo} />`. No logic. Untested (needs live router context — D-12).
   - After file creation, run `pnpm web typecheck` — TanStack Router will regenerate `routeTree.gen.ts` and validate that `'/registrar'` is a recognized `FileRouteTypes['to']` (required for D-13 nav typecheck).
 
-- [ ] T-13 — Modify `apps/web/src/components/app-shell/nav-items.ts` (D-13):
+- [x] T-13 — Modify `apps/web/src/components/app-shell/nav-items.ts` (D-13):
   - Import `PencilLine` from `lucide-react` (ADR-027).
   - Add `{ kind: 'link', label: 'Registrar', to: '/registrar', icon: PencilLine }` immediately AFTER the `/subir` "Subir nuevo archivo" item in `NAV_ITEMS`.
   - `to: '/registrar'` typechecks against `FileRouteTypes['to']` (fails `tsc` if T-12 route is absent — implement T-12 first).
   - If `Sidebar.test.tsx` or `BottomTabs.test.tsx` assert item count or label lists, update those assertions to include "Registrar".
   - Verify: `pnpm web typecheck` (nav type safe) + `pnpm web test`.
 
-- [ ] T-14 — Modify `apps/web/eslint.config.js` (D-14):
+- [x] T-14 — Modify `apps/web/eslint.config.js` (D-14):
   - Add a scoped `error`-level `jsx-a11y` block following the FILE-LIST + route-PATTERN form (alongside existing per-US blocks at lines 82-210, BEFORE the trailing prettier block):
     ```js
     {
@@ -199,13 +199,13 @@ Every PR must compile (`pnpm web typecheck` exits 0) and pass tests (`pnpm web t
     ```
   - Verify: run `eslint apps/web/src/components/RegistrarMovimientoForm.tsx` → zero a11y errors (WEB-REG-11 CA-11).
 
-- [ ] T-15 — Regression guard (WEB-REG-12):
+- [x] T-15 — Regression guard (WEB-REG-12):
   - Confirm `RegistrarMovimientoForm.tsx` and `registrar.tsx` do NOT import anything from `SubirCartola.tsx`, `FilaRevision.tsx`, `PreviewMuestra.tsx`, `use-ingesta.ts`, or `use-commit-ingesta.ts`.
   - Confirm `SubirCartola.tsx` and `use-commit-ingesta.ts` do NOT import from `movimientos.ts` or `use-registrar-movimiento.ts`.
   - Confirm `useIngesta` and `postIngesta` exports remain unchanged and unmodified.
 
-- [ ] T-16 — Final sweep: `pnpm web test` (all suites green, zero skipped) + `pnpm web typecheck` exits 0 + `pnpm --filter @moneydiary/web exec eslint src/components/RegistrarMovimientoForm.tsx src/routes/_authenticated/registrar.tsx` exits 0 with zero a11y errors. Confirm no `!` assertions in `RegistrarMovimientoForm.tsx`, `movimientos.ts`, or `use-registrar-movimiento.ts`.
-  **Work-unit commit:** `feat(web): RegistrarMovimientoForm, /registrar route, nav item, eslint a11y block (US-060 PR2)`.
+- [x] T-16 — Final sweep: `pnpm web test` (all suites green, zero skipped) + `pnpm web typecheck` exits 0 + `pnpm --filter @moneydiary/web exec eslint src/components/RegistrarMovimientoForm.tsx src/routes/_authenticated/registrar.tsx` exits 0 with zero a11y errors. Confirm no `!` assertions in `RegistrarMovimientoForm.tsx`, `movimientos.ts`, or `use-registrar-movimiento.ts`.
+  **Work-unit commit:** `feat(web): form component, /registrar route, nav item, eslint a11y block (US-060 PR2)` (f6742a1e).
 
 ---
 

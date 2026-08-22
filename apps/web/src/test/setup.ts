@@ -2,6 +2,21 @@
 // ...) en el `expect` de Vitest y aplica la augmentación de tipos en todo el
 // programa. Cargado por `vitest.config.ts` vía `setupFiles`.
 import '@testing-library/jest-dom/vitest';
+// vitest-axe matchers — `toHaveNoViolations` for CA-10 accessibility assertions.
+import * as axeMatchers from 'vitest-axe/matchers';
+import { expect } from 'vitest';
+import type { AxeMatchers } from 'vitest-axe/matchers';
+expect.extend(axeMatchers);
+
+// Augment Vitest's Assertion interface with the axe matcher.
+// The type parameter <T> mirrors Vitest's own Assertion<T> declaration exactly
+// (no default — see vitest/dist/chunks/global.d.*.ts `interface Assertion<T>`).
+declare module 'vitest' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-object-type
+  interface Assertion<T> extends AxeMatchers {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface AsymmetricMatchersContaining extends AxeMatchers {}
+}
 import { configure } from '@testing-library/react';
 import { vi } from 'vitest';
 
