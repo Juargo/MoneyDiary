@@ -258,6 +258,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               legacy confirm flow (useIngesta, Confirmar/Cancelar) is unchanged
               in this PR. */}
           <PreviewMuestra
+            banco={previewMutation.data.banco}
             filas={previewMutation.data.filas}
             resumen={previewMutation.data.resumen}
             edits={new Map()}

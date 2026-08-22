@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FilaRevision } from './FilaRevision';
 import type { CatalogoEstado } from '@/api/types';
-import type { PreviewFilaDto } from '@/api/types';
+import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
 
 // FilaRevision (US-059 PR2, D-06/D-10/D-12) — presentational row component.
 // Tests verify: cell rendering (fecha, descripcion, cargo, abono via
@@ -12,25 +12,9 @@ import type { PreviewFilaDto } from '@/api/types';
 //
 // NO network, NO state machine — pure presentational unit.
 
-// --- Fixtures ---
+// --- Fixtures (local extensions on top of shared ones) ---
 
-function unaFilaPreview(
-  overrides: Partial<PreviewFilaDto> = {},
-): PreviewFilaDto {
-  return {
-    rowIndex: 2, // 0-based → label "Fila 3: ..."
-    fecha: '2026-07-15T00:00:00.000Z',
-    descripcion: 'Supermercado Líder',
-    cargo: '50000',
-    abono: '0',
-    esDuplicado: false,
-    sugerido: null,
-    ...overrides,
-  };
-}
-
-const catalogoListo: CatalogoEstado = {
-  tag: 'listo',
+const catalogoListo = unCatalogo({
   grupos: [
     {
       bucket: 'Necesidades',
@@ -64,7 +48,7 @@ const catalogoListo: CatalogoEstado = {
       ],
     },
   ],
-};
+});
 
 const catalogoCargando: CatalogoEstado = { tag: 'cargando' };
 const catalogoError: CatalogoEstado = { tag: 'error' };
@@ -76,7 +60,7 @@ describe('FilaRevision', () => {
   it('renders fecha (sliced to YYYY-MM-DD), descripcion, formatted cargo and abono', () => {
     render(
       <FilaRevision
-        fila={unaFilaPreview()}
+        fila={unaFilaPreview({ rowIndex: 2 })}
         categoriaId={null}
         catalogo={catalogoListo}
         onEditChange={vi.fn()}
@@ -108,6 +92,23 @@ describe('FilaRevision', () => {
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     expect(bucketSelect).toBeDisabled();
     expect(categoriaSelect).toBeDisabled();
+  });
+
+  // Duplicate row has no data-duplicado attribute (fix 9)
+  it('duplicate row does not carry data-duplicado attribute', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const badge = screen.getByText('Duplicado');
+    // Walk up to find the li — should have no data-duplicado attr
+    const li = badge.closest('li');
+    expect(li).not.toHaveAttribute('data-duplicado');
   });
 
   // Non-duplicate row: selects are enabled (D-10)
@@ -166,6 +167,70 @@ describe('FilaRevision', () => {
     expect(options).not.toContain('Salud');
   });
 
+  // Fix 1a: first-time bucket selection fires NO onEditChange (sparse-overlay)
+  it('fix 1a: first-time bucket selection fires no onEditChange (categoriaId was null)', async () => {
+    const onEditChange = vi.fn();
+
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={onEditChange}
+      />,
+    );
+
+    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+
+    expect(onEditChange).toHaveBeenCalledTimes(0);
+  });
+
+  // Fix 1b: selecting a categoría fires onEditChange exactly once with the id
+  it('fix 1b: selecting a categoría fires onEditChange(rowIndex, categoriaId) exactly once', async () => {
+    const onEditChange = vi.fn();
+
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={onEditChange}
+      />,
+    );
+
+    // First select a bucket to enable categoría select
+    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+
+    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
+    await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
+
+    expect(onEditChange).toHaveBeenCalledTimes(1);
+    expect(onEditChange).toHaveBeenCalledWith(2, 'cat-nec-1');
+  });
+
+  // Fix 1c: changing bucket AFTER a categoría was chosen fires onEditChange(rowIndex, null)
+  it('fix 1c: changing bucket after a categoría was chosen fires onEditChange(rowIndex, null)', async () => {
+    const onEditChange = vi.fn();
+
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        // categoriaId is non-null: simulates a pre-assigned categoría
+        categoriaId={'cat-nec-1'}
+        catalogo={catalogoListo}
+        onEditChange={onEditChange}
+      />,
+    );
+
+    // Mount already has categoriaId — changing bucket should fire onEditChange(2, null)
+    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.selectOptions(bucketSelect, 'Deseos');
+
+    expect(onEditChange).toHaveBeenCalledWith(2, null);
+  });
+
   // onEditChange: selecting a categoría fires onEditChange(rowIndex, cat.id)
   it('selecting a categoría fires onEditChange(rowIndex, categoriaId)', async () => {
     const onEditChange = vi.fn();
@@ -214,30 +279,34 @@ describe('FilaRevision', () => {
     expect(onEditChange).toHaveBeenLastCalledWith(2, null);
   });
 
-  // Changing bucket resets categoría to the sentinel (D-06)
+  // Changing bucket resets categoría to the sentinel (D-06).
+  // The bucket change only fires onEditChange when the categoriaId PROP is non-null
+  // (fix 1c). Here we mount with categoriaId='cat-nec-1' to simulate a pre-assigned row.
   it('changing bucket resets categoría select to the sentinel (no stale categoría)', async () => {
     const onEditChange = vi.fn();
 
+    // Mount with a pre-assigned categoriaId so that a bucket change fires onEditChange(2, null)
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2 })}
-        categoriaId={null}
+        categoriaId={'cat-nec-1'}
         catalogo={catalogoListo}
         onEditChange={onEditChange}
       />,
     );
 
+    // categoriaId prop is 'cat-nec-1' → bucketUI seeds to 'Necesidades' (fix 2)
     const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    expect((bucketSelect as HTMLSelectElement).value).toBe('Necesidades');
 
-    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
-    await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
-    // Now change bucket — should reset categoría to sentinel
+    // Changing bucket fires onEditChange(2, null) because categoriaId is non-null
     await userEvent.selectOptions(bucketSelect, 'Deseos');
 
     // The categoría select should now show the sentinel value (empty)
+    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     expect((categoriaSelect as HTMLSelectElement).value).toBe('');
-    // onEditChange called with null for the reset
+    // onEditChange called once with null (un-assigning the prior choice)
+    expect(onEditChange).toHaveBeenCalledTimes(1);
     expect(onEditChange).toHaveBeenLastCalledWith(2, null);
   });
 
@@ -259,6 +328,29 @@ describe('FilaRevision', () => {
     expect((bucketSelect as HTMLSelectElement).value).toBe('Necesidades');
   });
 
+  // Fix 2: bucketUI seeds from edited categoriaId when it conflicts with sugerido.bucket
+  it('fix 2: bucketUI seeds from edited categoriaId bucket when it differs from sugerido.bucket', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({
+          rowIndex: 2,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        })}
+        // edited categoriaId is from Deseos, overrides sugerido bucket
+        categoriaId={'cat-des-1'}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    // Should show Deseos (from edited categoriaId) not Necesidades (from sugerido)
+    expect((bucketSelect as HTMLSelectElement).value).toBe('Deseos');
+
+    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
+    expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
+  });
+
   // When sugerido.bucket is NOT among groups, bucketUI starts empty, categoría disabled
   it('bucketUI starts empty when sugerido.bucket is not among catalog groups', () => {
     render(
@@ -277,7 +369,7 @@ describe('FilaRevision', () => {
     expect((bucketSelect as HTMLSelectElement).value).toBe('');
   });
 
-  // catalogo.tag === 'cargando' → selects disabled (no crash)
+  // catalogo.tag === 'cargando' → selects disabled (no crash); issue 5
   it('catalogo.tag cargando: selects are disabled (no crash)', () => {
     render(
       <FilaRevision

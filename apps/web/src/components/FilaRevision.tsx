@@ -46,15 +46,30 @@ export function FilaRevision({
   readonly catalogo: CatalogoEstado;
   readonly onEditChange: (rowIndex: number, categoriaId: string | null) => void;
 }) {
-  // Seed bucketUI from sugerido.bucket only when that bucket is present among
-  // the loaded catalog groups; otherwise start empty (D-06). Runs on mount
-  // only — `useState` initializer runs once per component instance.
-  const initialBucket =
-    catalogo.tag === 'listo' && fila.sugerido?.bucket
-      ? catalogo.grupos.some((g) => g.bucket === fila.sugerido!.bucket)
-        ? fila.sugerido.bucket
-        : ''
-      : '';
+  // Seed bucketUI giving PRIORITY to the edited categoriaId (fix 2, D-06):
+  // 1. If categoriaId prop is non-null, find the catalog group that contains
+  //    it — use that group's bucket (handles pre-populated edits from PR3).
+  // 2. Fall back to sugerido.bucket when that bucket is among the groups.
+  // 3. Otherwise empty string.
+  // Runs on mount only — `useState` initializer runs once per component instance.
+  const initialBucket = (() => {
+    if (catalogo.tag !== 'listo') return '';
+    // Priority 1: bucket of the currently-edited categoriaId
+    if (categoriaId !== null) {
+      const grupoEditado = catalogo.grupos.find((g) =>
+        g.categorias.some((c) => c.id === categoriaId),
+      );
+      if (grupoEditado) return grupoEditado.bucket;
+    }
+    // Priority 2: sugerido.bucket when present among the groups
+    if (
+      fila.sugerido?.bucket &&
+      catalogo.grupos.some((g) => g.bucket === fila.sugerido!.bucket)
+    ) {
+      return fila.sugerido.bucket;
+    }
+    return '';
+  })();
 
   const [bucketUI, setBucketUI] = useState<string>(initialBucket);
 
@@ -88,8 +103,13 @@ export function FilaRevision({
 
   function handleBucketChange(value: string) {
     setBucketUI(value);
-    // Changing the bucket resets the categoría to the sentinel (D-06).
-    onEditChange(fila.rowIndex, null);
+    // Fix 1: bucket select is UI-only — ONLY write to the overlay when the
+    // user had previously assigned a categoría (categoriaId prop is non-null),
+    // meaning they are un-assigning a real prior choice. This avoids writing
+    // null edits for rows the user never touched (sparse-overlay contract, D-03).
+    if (categoriaId !== null) {
+      onEditChange(fila.rowIndex, null);
+    }
   }
 
   function handleCategoriaChange(value: string) {
@@ -100,10 +120,7 @@ export function FilaRevision({
 
   if (fila.esDuplicado) {
     return (
-      <li
-        data-duplicado="true"
-        className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm opacity-50"
-      >
+      <li className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm opacity-50">
         <div className="flex items-center justify-between text-muted-foreground">
           <span>{fila.fecha.slice(0, 10)}</span>
           <Badge variant="secondary">Duplicado</Badge>

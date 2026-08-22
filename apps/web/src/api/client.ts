@@ -1050,8 +1050,9 @@ function esResumenPreviewDto(
 
 /**
  * Guard hardened para `PreviewIngestaDtoConCanonicos` (US-059 PR1, D-08,
- * WEB-PRV-03). Requiere AMBOS campos canónicos: `filas` (array no vacío de
- * `PreviewFilaDto` validados) y `resumen` (objeto con conteos). Mantiene la
+ * WEB-PRV-03). Requiere AMBOS campos canónicos: `filas` (array de
+ * `PreviewFilaDto` validados — el array puede estar vacío, una cartola sin
+ * movimientos es válida) y `resumen` (objeto con conteos). Mantiene la
  * validación de `banco`/`tipoCuenta`/`numeroCuenta` (presentes en el response
  * y usados en el header). Retorna un type predicate que estrecha a
  * `PreviewIngestaDtoConCanonicos` — downstream puede acceder a

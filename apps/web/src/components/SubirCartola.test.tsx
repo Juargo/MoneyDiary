@@ -179,10 +179,7 @@ describe('SubirCartola', () => {
   });
 
   // PREV-01/CA-02: on preview success, the sample panel renders (PreviewMuestra
-  // content) with canonical resumen counts and row data.
-  // US-059 PR2 stub update (non-behavioral): banco field no longer rendered in
-  // PreviewMuestra (moved to resumen header per D-12 rewrite); assertion
-  // updated to check resumen + row data instead.
+  // content) with banco name (D-08), canonical resumen counts, and row data.
   it('on preview success renders the PreviewMuestra sample panel (banco, count, rows)', () => {
     mockedUsePreviewIngesta.mockReturnValue(
       unaMutacion<PreviewIngestaDto>({
@@ -195,7 +192,11 @@ describe('SubirCartola', () => {
 
     render(<SubirCartola />);
 
-    // resumen.totalFilas=1 rendered in header; row descripcion and cargo rendered
+    // D-08: banco rendered in PreviewMuestra header
+    expect(screen.getByText('BancoEstado')).toBeInTheDocument();
+    // resumen.totalFilas=1 rendered in header (appears in multiple dd cells — use getAllByText)
+    expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+    // row descripcion and cargo rendered
     expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
     expect(screen.getByText('$50.000')).toBeInTheDocument();
   });
