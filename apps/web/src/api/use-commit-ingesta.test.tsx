@@ -165,6 +165,7 @@ describe('useCommitIngesta', () => {
     expect(init.method).toBe('POST');
     expect(init.body).toBeInstanceOf(FormData);
     const body = init.body as FormData;
+    expect(body.get('file')).toBeInstanceOf(File);
     expect(body.get('edits')).toBe(JSON.stringify(edits));
   });
 });

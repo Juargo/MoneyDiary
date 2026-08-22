@@ -198,6 +198,36 @@ describe('esPreviewIngestaDto (hardened — requires canonical filas + resumen)'
 
     expect(result.ok).toBe(true);
   });
+
+  // Fix 1: exercises the typeof branch of esPreviewFilaDto for cargo
+  // (numeric cargo was previously unexercised after the legacy muestra test was removed)
+  it('REJECTS a row with cargo: 50000 (JS number, not string) → {tag:"parse"} (typeof branch)', async () => {
+    const bodyConCargoNumerico = {
+      ...validCanonicalPreviewBody,
+      filas: [unaFila({ cargo: 50000 })],
+    };
+    mockFetchOk(bodyConCargoNumerico);
+
+    const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  // Fix 8: sugerido key absent/undefined must be rejected (only null or valid object accepted)
+  it('REJECTS a row with sugerido key absent → {tag:"parse"} (only null or valid object accepted)', async () => {
+    const { sugerido: _omitido, ...filaSinSugerido } = unaFila();
+    const bodyConSugeridoAusente = {
+      ...validCanonicalPreviewBody,
+      filas: [filaSinSugerido],
+    };
+    mockFetchOk(bodyConSugeridoAusente);
+
+    const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -244,5 +274,112 @@ describe('esCommitIngestaDto', () => {
       expect(result.value.ingestaId).toBe('ingesta-001');
       expect(result.value.totalTransacciones).toBe(1);
     }
+  });
+
+  // Fix 2a: transaccion row cargo: '12.5' (decimal) ⇒ guard fails
+  it('REJECTS a transaccion row with cargo: "12.5" (decimal) → {tag:"parse"} (esMontoStringValido gate)', async () => {
+    const bodyConCargoDecimal = {
+      ...validCommitResponseBody,
+      transacciones: [
+        { ...validCommitResponseBody.transacciones[0], cargo: '12.5' },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(bodyConCargoDecimal),
+      }),
+    );
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  // Fix 2b: transaccion row cargo: 50000 (number type) ⇒ guard fails
+  it('REJECTS a transaccion row with cargo: 50000 (JS number, not string) → {tag:"parse"} (typeof branch)', async () => {
+    const bodyConCargoNumerico = {
+      ...validCommitResponseBody,
+      transacciones: [
+        { ...validCommitResponseBody.transacciones[0], cargo: 50000 },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(bodyConCargoNumerico),
+      }),
+    );
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  // Fix 2c: transaccion row with malformed fecha ⇒ guard fails
+  it('REJECTS a transaccion row with malformed fecha → {tag:"parse"}', async () => {
+    const bodyConFechaMalformada = {
+      ...validCommitResponseBody,
+      transacciones: [
+        { ...validCommitResponseBody.transacciones[0], fecha: 'not-a-date' },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(bodyConFechaMalformada),
+      }),
+    );
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  // Fix 2d: missing totalTransacciones ⇒ guard fails
+  it('REJECTS a payload missing totalTransacciones → {tag:"parse"}', async () => {
+    const { totalTransacciones: _omitido, ...bodySinTotal } =
+      validCommitResponseBody;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(bodySinTotal),
+      }),
+    );
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+
+  // Fix 2e: missing transacciones array ⇒ guard fails
+  it('REJECTS a payload missing transacciones array → {tag:"parse"}', async () => {
+    const { transacciones: _omitido, ...bodySinTransacciones } =
+      validCommitResponseBody;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(bodySinTransacciones),
+      }),
+    );
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
   });
 });

@@ -999,8 +999,7 @@ function esPreviewFilaSugerido(
   const s = value as Record<string, unknown>;
   return (
     typeof s['bucket'] === 'string' &&
-    (typeof s['categoriaId'] === 'string' || s['categoriaId'] === null) &&
-    'categoriaId' in s
+    (typeof s['categoriaId'] === 'string' || s['categoriaId'] === null)
   );
 }
 

@@ -16,6 +16,9 @@
  * BigInt) — nunca se parsean a number aquí. `porcentajeBp` es un number
  * seguro en JS (basis points, ≤ 10000, muy por debajo de 2^53).
  */
+// Type-only import — no runtime cycle (api→domain type dependency is
+// intentional for this UI type; domain has no import of api).
+import type { GrupoCategoriaPorBucket } from '../domain/agrupar-categorias-por-bucket';
 
 /**
  * `BucketResumenDto`/`ResumenMesDto` — GET /api/resumen (50/30/20 mensual).
@@ -228,9 +231,7 @@ export type CatalogoEstado =
   | { readonly tag: 'error' }
   | {
       readonly tag: 'listo';
-      readonly grupos: ReadonlyArray<
-        import('../domain/agrupar-categorias-por-bucket').GrupoCategoriaPorBucket
-      >;
+      readonly grupos: ReadonlyArray<GrupoCategoriaPorBucket>;
     };
 
 /**

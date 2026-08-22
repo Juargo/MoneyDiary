@@ -8,6 +8,7 @@ import {
   fetchResumen,
   fetchResumenAnual,
   fetchSemaforoDetalle,
+  postCommitIngesta,
   postIngesta,
   postReclasificarCategoria,
   previewIngesta,
@@ -1358,7 +1359,11 @@ describe('postIngesta', () => {
 // US-059 PR1 (T-02): validPreviewDto updated to the canonical shape.
 // The hardened guard now requires `filas` + `resumen` and no longer validates
 // `muestra`/`estructura` — those are legacy fields deprecated by US-061.
-const validPreviewDto: PreviewIngestaDto = {
+// Typed with non-optional filas/muestra to avoid `!` in test bodies (Fix 6).
+const validPreviewDto: PreviewIngestaDto & {
+  filas: NonNullable<PreviewIngestaDto['filas']>;
+  muestra: NonNullable<PreviewIngestaDto['muestra']>;
+} = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
   numeroCuenta: '12345678',
@@ -1522,7 +1527,7 @@ describe('previewIngesta', () => {
   it('acepta payload con muestra[0].cargo malformado porque el guard ya no valida muestra (campo legacy)', async () => {
     const bodyConMuestraMalformada = {
       ...validPreviewDto,
-      muestra: [{ ...validPreviewDto.muestra![0], cargo: 'abc' }],
+      muestra: [{ ...validPreviewDto.muestra[0], cargo: 'abc' }],
     };
     mockFetchOnce({
       ok: true,
@@ -1540,7 +1545,7 @@ describe('previewIngesta', () => {
   it('mapea a {tag: "parse"} sin lanzar cuando filas[0].cargo es un string no decimal (money-safety boundary)', async () => {
     const bodyConCargoMalformado = {
       ...validPreviewDto,
-      filas: [{ ...validPreviewDto.filas![0], cargo: 'abc' }],
+      filas: [{ ...validPreviewDto.filas[0], cargo: 'abc' }],
     };
     mockFetchOnce({
       ok: true,
@@ -1563,6 +1568,149 @@ describe('previewIngesta', () => {
     });
 
     const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
+});
+
+const validCommitIngestaDto = {
+  ingestaId: 'ingesta-001',
+  totalTransacciones: 1,
+  duplicadosOmitidos: 0,
+  transacciones: [
+    {
+      bucket: 'Necesidades',
+      categoriaId: 'cat-01',
+      cargo: '50000',
+      abono: '0',
+      descripcion: 'Supermercado',
+      fecha: '2026-07-15T00:00:00.000Z',
+    },
+  ],
+};
+
+// US-059 PR1 (T-02): postCommitIngesta transport suite — faithful mirror of
+// previewIngesta's transport tests: same-origin multipart POST to
+// /api/ingestas/commit, never throws, same status-mapping conventions.
+// Also validates FormData structure (both `file` and `edits` fields).
+describe('postCommitIngesta', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('llama a POST /api/ingestas/commit con file en FormData y edits como JSON string', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(validCommitIngestaDto),
+    });
+    const archivo = archivoDePrueba();
+    const edits = [{ rowIndex: 2, categoriaId: 'cat-02' }];
+
+    await postCommitIngesta(archivo, edits);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/ingestas/commit');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeInstanceOf(FormData);
+    const body = init.body as FormData;
+    expect(body.get('file')).toBeInstanceOf(File);
+    expect(body.get('file')).toBe(archivo);
+    expect(body.get('edits')).toBe(JSON.stringify(edits));
+  });
+
+  it('resuelve {ok: true, value} en un body 201 válido', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(validCommitIngestaDto),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result).toEqual({ ok: true, value: validCommitIngestaDto });
+  });
+
+  it('mapea un 400 pasando el body.message del backend verbatim', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 400,
+      json: () =>
+        Promise.resolve({
+          statusCode: 400,
+          message: 'Banco no reconocido.',
+          error: 'Bad Request',
+        }),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message: 'Banco no reconocido.',
+    });
+  });
+
+  it('mapea un 400 con body ilegible/malformado a un mensaje genérico de fallback', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 400,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('invalid');
+    expect(!result.ok && result.error.message.length).toBeGreaterThan(0);
+  });
+
+  it('mapea un 401 a {tag: "unauthorized"} con el mensaje fijo de sesión expirada', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'unauthorized',
+      message: 'Tu sesión expiró. Inicia sesión de nuevo.',
+    });
+  });
+
+  it('mapea un rechazo de fetch a {tag: "network"}', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('network');
+  });
+
+  it('mapea un 5xx a {tag: "server"} genérico', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    });
+  });
+
+  it('mapea a {tag: "parse"} cuando el body 2xx no cumple la forma de CommitIngestaDto', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ nonsense: true }),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('parse');
