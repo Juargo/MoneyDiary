@@ -90,6 +90,10 @@ export function RegistrarMovimientoForm({
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [errores, setErrores] = useState<Errores>({});
 
+  // Compute local date once per render for the max attribute.
+  // Submit-time comparisons call hoyLocal() fresh (must reflect the moment of submit).
+  const hoy = hoyLocal();
+
   // Double-submit guard (D-10/WEB-REG-06): ref, not state — no re-render needed.
   const isSubmittingRef = useRef(false);
 
@@ -160,9 +164,19 @@ export function RegistrarMovimientoForm({
     if (tipo === 'Ingreso') {
       return { tipo: 'Ingreso', fecha, descripcion, monto };
     }
-    // Pre-validation guarantees esBucketAsignable(bucketUI) is true here.
-    const bucket = bucketUI as BucketAsignable;
-    return { tipo: 'Gasto', fecha, descripcion, monto, bucket, categoriaId };
+    if (!esBucketAsignable(bucketUI)) {
+      // Unreachable: handleEnviar's pre-validation gates this. The predicate here is the structural safety net (D-07).
+      throw new Error('Bucket inválido');
+    }
+    // bucketUI is now narrowed to BucketAsignable — no cast needed
+    return {
+      tipo: 'Gasto',
+      fecha,
+      descripcion,
+      monto,
+      bucket: bucketUI,
+      categoriaId,
+    };
   }
 
   /**
@@ -274,7 +288,7 @@ export function RegistrarMovimientoForm({
         <input
           type="date"
           value={fecha}
-          max={hoyLocal()}
+          max={hoy}
           onChange={(e) => setFecha(e.target.value)}
           required
           disabled={esDemo}
@@ -385,8 +399,12 @@ export function RegistrarMovimientoForm({
         Ir al dashboard
       </a>
 
-      {/* Success feedback region (aria-live="polite", D-10, PerfilForm idiom) */}
-      <div aria-live="polite" className="text-sm text-emerald-700">
+      {/* Success feedback region (aria-live="polite" + role="status", D-10, PerfilForm idiom) */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="text-sm text-emerald-700"
+      >
         {feedback?.tono === 'ok' && <p>{feedback.texto}</p>}
       </div>
     </form>

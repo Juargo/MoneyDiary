@@ -107,11 +107,12 @@ function renderForm(esDemo = false) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <RegistrarMovimientoForm esDemo={esDemo} />
     </QueryClientProvider>,
   );
+  return { ...result, queryClient };
 }
 
 function setupDefaultHooks(mutateSpy = vi.fn()) {
@@ -258,8 +259,9 @@ describe('RegistrarMovimientoForm (US-060)', () => {
   });
 
   // ── CA-04: WEB-REG-07 — 201 success: form clears + confirmation ──────────
+  // Uses a Gasto submission to also assert cascade is cleared on success (D-10).
 
-  it('CA-04: on onSuccess callback form clears, confirmation appears, dashboard link present', async () => {
+  it('CA-04: on Gasto onSuccess callback form clears to Ingreso, cascade cleared, confirmation appears, dashboard link present', async () => {
     let capturedOnSuccess: (() => void) | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mutateSpy = vi.fn((_body: any, options: any) => {
@@ -271,14 +273,20 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     const user = userEvent.setup();
     const hoy = hoyLocal();
 
-    // Fill form
-    const descripcionInput = screen.getByLabelText(/descripci[oó]n/i);
-    const montoInput = screen.getByLabelText(/monto/i);
+    // Switch to Gasto and fill cascade
+    await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
+    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(
+      screen.getByLabelText(/categor[ií]a/i),
+      'cat-des-1',
+    );
+
+    // Fill remaining fields
     fireEvent.change(screen.getByLabelText(/fecha/i), {
       target: { value: hoy },
     });
-    await user.type(descripcionInput, 'Almuerzo');
-    await user.type(montoInput, '5000');
+    await user.type(screen.getByLabelText(/descripci[oó]n/i), 'Almuerzo');
+    await user.type(screen.getByLabelText(/monto/i), '5000');
 
     // Submit
     await user.click(
@@ -290,32 +298,34 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     capturedOnSuccess?.();
 
     await waitFor(() => {
-      // Form cleared
+      // tipo RESET to Ingreso (cascade state cleared — Gasto-201 coverage)
+      expect((screen.getByLabelText(/tipo/i) as HTMLSelectElement).value).toBe(
+        'Ingreso',
+      );
+      // Cascade no longer rendered (tipo is Ingreso)
+      expect(screen.queryByLabelText(/bucket/i)).not.toBeInTheDocument();
+      // descripcion/monto cleared
       expect(
         (screen.getByLabelText(/descripci[oó]n/i) as HTMLInputElement).value,
       ).toBe('');
       expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
         '',
       );
+      // fecha reset to today
       expect((screen.getByLabelText(/fecha/i) as HTMLInputElement).value).toBe(
         hoyLocal(),
       );
-      // tipo reset to Ingreso
-      expect((screen.getByLabelText(/tipo/i) as HTMLSelectElement).value).toBe(
-        'Ingreso',
+      // Inline confirmation in aria-live="polite" region (role="status")
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /registrado|guardado|éxito|ok/i,
       );
     });
-
-    // Inline confirmation in aria-live region
-    const liveRegion = document.querySelector('[aria-live]');
-    expect(liveRegion).toBeTruthy();
-    expect(liveRegion?.textContent).toMatch(/registrado|guardado|éxito|ok/i);
 
     // "Ir al dashboard" link always present
     expect(
       screen.getByRole('link', { name: /ir al dashboard/i }),
     ).toBeInTheDocument();
-  });
+  }, 10000);
 
   // ── CA-05: WEB-REG-05/WEB-REG-08 — pre-validation + input preserved ──────
 
@@ -337,8 +347,10 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
 
     expect(mutateSpy).not.toHaveBeenCalled();
-    // Error shown
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    // Error alert shows the specific descripción message
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'La descripción es obligatoria.',
+    );
     // Monto preserved
     expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
       '5000',
@@ -363,7 +375,10 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
 
     expect(mutateSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    // Error alert shows the specific monto message
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Ingresá un monto válido (número entero positivo).',
+    );
     expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
       '0',
     );
@@ -387,7 +402,10 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
 
     expect(mutateSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    // Error alert shows the specific monto message
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Ingresá un monto válido (número entero positivo).',
+    );
     expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
       '-5',
     );
@@ -416,7 +434,10 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
 
     expect(mutateSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    // Error alert shows the specific fecha message
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'La fecha no puede ser futura.',
+    );
   });
 
   it('CA-05: Gasto with missing categoriaId fails pre-validation', async () => {
@@ -442,7 +463,10 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
 
     expect(mutateSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    // Error alert shows the specific cascade message
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Seleccioná una categoría.',
+    );
   });
 
   it('CA-05: mutation error shows fixed message, ALL fields preserved', async () => {
@@ -602,10 +626,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
-    const { rerender } = renderForm();
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+    const { rerender, queryClient } = renderForm();
 
     const user = userEvent.setup();
     const hoy = hoyLocal();
