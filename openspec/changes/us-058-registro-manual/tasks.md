@@ -197,12 +197,12 @@ Chain strategy: stacked-to-main
 
 *Satisfies: MAN-06 (openapi.json, ADR-011), D-12 (discriminated union, 201, scrubbed 400), D-09 (exhaustive never guard at route), ISO-01 (userId from session), ISO-02 (cross-user); spec §Testing Emphasis (Unit — DTO schema, route mapping).*
 
-- [ ] T-14 — (RED+GREEN) Create `apps/api/src/infrastructure/http/dto/movimiento-manual.dto.ts` (D-12):
+- [x] T-14 — (RED+GREEN) Create `apps/api/src/infrastructure/http/dto/movimiento-manual.dto.ts` (D-12):
   - `RegistrarMovimientoManualResponseDto` interface: `{ id, fecha (ISO string), descripcion, cargo (string), abono (string), bucket (string), categoriaId (string | null), origen: 'Manual' }`.
   - `aRegistrarMovimientoManualResponseDto(vo: MovimientoManual, id: string): RegistrarMovimientoManualResponseDto`: maps from the in-memory VO (`vo.transaccion.descripcion` is the plaintext string — already in memory); NO DB read-back, NO decrypt round-trip; `cargo` and `abono` as BigInt-safe strings.
   Write spec first: `apps/api/src/infrastructure/http/dto/movimiento-manual.dto.spec.ts` — covers mapper correctness (Ingreso: `cargo="0"`, `abono=montoStr`, `categoriaId=null`, `origen='Manual'`; Gasto: correct bucket string; BigInt → string serialization).
 
-- [ ] T-15 — (RED+GREEN) Create `apps/api/src/infrastructure/http-express/schemas/movimiento-manual.schema.ts` (D-12):
+- [x] T-15 — (RED+GREEN) Create `apps/api/src/infrastructure/http-express/schemas/movimiento-manual.schema.ts` (D-12):
   - Zod **discriminated union** on `tipo`:
     - Ingreso variant: `.strict()` — rejects stray `bucket` or `categoriaId` fields (Q3 resolution: fail-closed on malformed request, consistent with fail-closed boundary doctrine).
     - Gasto variant: requires `bucket` ∈ `{Necesidades, Deseos, Ahorro}` + `categoriaId: z.string()`.
@@ -210,7 +210,7 @@ Chain strategy: stacked-to-main
   - `fecha` as `z.string().regex(/^\d{4}-\d{2}-\d{2}$/)` — SHAPE ONLY (layer-honesty; `fecha ≤ today` business rule stays in domain, D-01/D-02).
   Write spec first: `apps/api/src/infrastructure/http-express/schemas/movimiento-manual.schema.spec.ts` — covers: Ingreso with stray `bucket`/`categoriaId` ⇒ `.strict()` 400; Gasto missing `bucket` ⇒ 400; `monto` as JSON number ⇒ 400; valid Ingreso parses; valid Gasto parses.
 
-- [ ] T-16 — Modify `apps/api/src/infrastructure/http-express/routes/movimientos.routes.ts` (D-12):
+- [x] T-16 — Modify `apps/api/src/infrastructure/http-express/routes/movimientos.routes.ts` (D-12):
   - Add exported sibling function `registrarMovimientoManual(router: Router, useCase: RegistrarMovimientoManualUseCase)` (POST handler at `/`, same route module as the existing `registrarMovimientos` GET handler — natural REST extension, D-12).
   - Handler: `express.json()` body → `registrarMovimientoManualSchema.safeParse(req.body)` → scrubbed 400 on shape fail (no raw body echo); `useCase.execute({ userId: req.userId!, ...parsed })`.
   - Error mapping with exhaustive `never` guard (D-09):
@@ -223,30 +223,30 @@ Chain strategy: stacked-to-main
   - Existing `registrarMovimientos` GET handler: UNTOUCHED (same file, same export pattern).
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-17 — Create `apps/api/src/composition/crear-registrar-movimiento-manual.ts` (D-04/D-08):
+- [x] T-17 — Create `apps/api/src/composition/crear-registrar-movimiento-manual.ts` (D-04/D-08):
   - Signature: `crearRegistrarMovimientoManual(prisma, crypto, blindIndex, logger)`.
   - Wires: `PrismaRegistrarMovimientoManualRepository(prisma, crypto, blindIndex)` as `IRegistrarMovimientoManualWriter`; `PrismaCategoriaRepository(prisma)` as `ICategoriaRepository`; logger.
   - Mirror `crear-commit-ingesta.ts` structure.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-18 — Modify `apps/api/src/composition/container.ts`:
+- [x] T-18 — Modify `apps/api/src/composition/container.ts`:
   - Add `registrarMovimientoManual: RegistrarMovimientoManualUseCase` field to `Container`.
   - Wire via `crearRegistrarMovimientoManual(prisma, crypto, blindIndex, logger)`.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-19 — Modify `apps/api/src/infrastructure/http-express/app.ts`:
+- [x] T-19 — Modify `apps/api/src/infrastructure/http-express/app.ts`:
   - Call `registrarMovimientoManual(protectedApi, container.registrarMovimientoManual)` near line 179, next to the existing `registrarMovimientos(...)` call.
   - Sibling function pattern — NOT extending the existing function's signature.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-20 — (RED+GREEN) Update OpenAPI contract (MAN-06, ADR-011):
+- [x] T-20 — (RED+GREEN) Update OpenAPI contract (MAN-06, ADR-011):
   - Modify `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts`: add `POST /api/movimientos` operation with the discriminated union request body schema (Ingreso variant + Gasto variant) and the 201 response schema (`RegistrarMovimientoManualResponseDto` shape). APPEND at end of `paths` — never reorder existing paths.
   - Update `openapi-document.spec.ts` (or create it if absent): add cases asserting the `POST /api/movimientos` path is present; Ingreso variant rejects `bucket`/`categoriaId`; Gasto variant requires them; `201` response carries all required fields.
   Write spec cases BEFORE updating the document.
 
-- [ ] T-21 — Regenerate `apps/api/openapi.json` via `pnpm api openapi:emit`. Run `pnpm api openapi:check` — exits 0. Verify: `POST /api/movimientos` operation present with correct request/response schemas.
+- [x] T-21 — Regenerate `apps/api/openapi.json` via `pnpm api openapi:emit`. Run `pnpm api openapi:check` — exits 0. Verify: `POST /api/movimientos` operation present with correct request/response schemas.
 
-- [ ] T-22 — Verify phase 3: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0.
+- [x] T-22 — Verify phase 3: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0.
   **Work-unit commit:** `feat(api): HTTP DTO, Zod schema, routes sibling, composition wiring, OpenAPI (US-058 PR3)`.
 
 ---
