@@ -901,7 +901,7 @@ export interface paths {
         readonly put?: never;
         /**
          * Preview a bank statement (dry run)
-         * @description Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the result itself is not scoped by user (no tenant data is touched).
+         * @description Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
          */
         readonly post: {
             readonly parameters: {
@@ -2014,13 +2014,30 @@ export interface components {
             readonly code: string;
             readonly message: string;
         };
-        /** @description POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003). */
+        /** @description POST /api/ingestas/preview — dry-run preview. CANONICAL: resumen + filas (full set, per-row dedup and classification, US-057). DEPRECATED (removed by US-061): estructura + muestra (first 50 rows, old shape) kept for shipped clients. */
         readonly PreviewIngestaResponse: {
             readonly banco: string;
+            /** @description DEPRECATED (US-061): legacy aggregate. Use resumen. */
             readonly estructura: {
-                /** @description Row count PRE-dedupe, not money — plain JSON number. */
+                /** @description DEPRECATED (US-061): mirror of resumen.totalFilas. Kept for shipped clients. */
                 readonly totalFilasDatos: number;
             };
+            readonly filas?: readonly {
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly abono: string;
+                /** @description BigInt-safe decimal string amount (never a JSON number). */
+                readonly cargo: string;
+                readonly descripcion: string;
+                readonly esDuplicado: boolean;
+                /** @description ISO-8601 UTC timestamp. */
+                readonly fecha: string;
+                readonly rowIndex: number;
+                readonly sugerido: {
+                    readonly bucket: string;
+                    readonly categoriaId: string | null;
+                } | null;
+            }[];
+            /** @description DEPRECATED (US-061): legacy first-50-rows sample in the old 4-field shape. Use filas. */
             readonly muestra: readonly {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly abono: string;
@@ -2031,6 +2048,12 @@ export interface components {
                 readonly fecha: string;
             }[];
             readonly numeroCuenta: string;
+            readonly resumen?: {
+                readonly duplicadosDetectados: number;
+                readonly nuevas: number;
+                /** @description Row count PRE-dedupe, not money — plain JSON number. */
+                readonly totalFilas: number;
+            };
             readonly tipoCuenta: string;
         };
         /** @description GET /api/resumen/anual — 50/30/20 annual breakdown (US-030). */

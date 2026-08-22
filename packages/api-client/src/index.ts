@@ -75,11 +75,31 @@ export type ApiVersionDto = S['VersionResponse'];
 /** GET /api/auth/capabilities — feature-activation discovery (web + mobile Google login gates). */
 export type AuthCapabilitiesDto = S['AuthCapabilitiesResponse'];
 
-/** POST /api/ingestas/preview — dry-run sample of a would-be upload. */
+/**
+ * POST /api/ingestas/preview — dry-run of a would-be upload.
+ *
+ * BACKWARD-COMPATIBLE (product decision 2026-08-21): carries BOTH the canonical
+ * US-057 shape (`resumen` + `filas`, optional at the type level so legacy client
+ * literals stay assignable) and the deprecated legacy shape (`estructura` +
+ * `muestra`, removed by US-061). The server always emits both.
+ */
 export type PreviewIngestaDto = S['PreviewIngestaResponse'];
 
-/** One transaction row inside `PreviewIngestaDto.muestra`. Money as decimal strings. */
+/**
+ * One row inside the deprecated `PreviewIngestaDto.muestra` (legacy 4-field
+ * shape). Money as decimal strings. @deprecated read `PreviewIngestaDto.filas`
+ * for the canonical per-row shape (rowIndex/esDuplicado/sugerido); removed by
+ * US-061. Aliased to the legacy row so shipped clients keep typechecking.
+ */
 export type PreviewTransaccionDto = S['PreviewIngestaResponse']['muestra'][number];
+
+/**
+ * One row inside the canonical `PreviewIngestaDto.filas` (US-057): full per-row
+ * dedup status + classification suggestion. Money as decimal strings.
+ */
+export type PreviewFilaDto = NonNullable<
+  S['PreviewIngestaResponse']['filas']
+>[number];
 
 /** POST /api/auth/login — successful authentication (mobile). */
 export type LoginResponseDto = S['AuthLoginResponse'];
