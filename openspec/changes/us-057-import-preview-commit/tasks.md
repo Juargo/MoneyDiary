@@ -192,27 +192,27 @@ Chain strategy: stacked-to-main
 
 - [x] T-19a — **Backward-compat shim (product decision 2026-08-21, D-08a; removed by US-061).** The preview reshape MUST be ADDITIVE, not a rename: shipped clients (deployed mobile APK, pre-migration web/mobile via `@moneydiary/api-client`) still read `estructura`/`muestra`. Restore both deprecated fields as a pure projection in `aPreviewIngestaDto` (`estructura.totalFilasDatos === resumen.totalFilas`; `muestra` = first 50 rows in the old 4-field shape `{fecha, descripcion, cargo, abono}`); mark `resumen`/`filas` `.optional()` and `estructura`/`muestra` required in `ingesta-preview.schema.ts` so legacy client literals stay assignable. Add mapper unit tests (`preview-ingesta.dto.spec.ts`) + schema legacy-mirror test + e2e assertions for BOTH shapes. Update `openapi-document.ts` preview description to note the deprecation. Acceptance gate: `pnpm web typecheck` + `pnpm --filter @moneydiary/mobile exec tsc --noEmit` pass with ZERO changes under `apps/web`/`apps/mobile`. Commit: `fix(api): backward-compatible preview response — legacy estructura/muestra until US-061 (US-057 PR2)`.
 
-- [ ] T-20 — (RED+GREEN) Create `apps/api/src/infrastructure/http/dto/commit-ingesta.dto.ts` (§6 item 12):
+- [x] T-20 — (RED+GREEN) Create `apps/api/src/infrastructure/http/dto/commit-ingesta.dto.ts` (§6 item 12):
   - `parseEdits(raw: string | undefined): Result<CommitEdit[], EdicionesInvalidasError>`: valid JSON → typed array; malformed JSON / non-array / bad element / bad `rowIndex` type / bad `categoriaId` type ⇒ `EdicionesInvalidasError`, message never echoes raw field; absent/empty ⇒ `[]`.
   - `CommitTransaccionResponseDto` interface (fecha, descripcion, cargo/abono as strings, bucket: string, categoriaId: string | null).
   - `CommitIngestaResponseDto` interface (ingestaId, totalTransacciones, duplicadosOmitidos, transacciones: CommitTransaccionResponseDto[]).
   - `aCommitIngestaResponseDto(result: CommitIngestaResult): CommitIngestaResponseDto` — fully independent mapper, does NOT delegate to `aIngestaResponseDto` (D-13); maps BigInt → string, domain `Bucket` enum → string (D-09 enum values).
   Write spec first: `commit-ingesta.dto.spec.ts` — covers all `parseEdits` branches + mapper correctness (D-13) + `TransaccionResponseDto`/`aIngestaResponseDto` unchanged (regression guard).
 
-- [ ] T-21 — Modify `apps/api/src/infrastructure/http-express/routes/ingesta.routes.ts` (§6 item 13):
+- [x] T-21 — Modify `apps/api/src/infrastructure/http-express/routes/ingesta.routes.ts` (§6 item 13):
   - Add `commitIngesta: CommitIngestaUseCase` to `IngestaRoutesDeps`.
   - Add `subirArchivoConEdits()` helper in this module (own multer instance, `.single('file')`, `limits: { fileSize: MAX_FILE_SIZE, fieldSize: 256 * 1024 }`); shared `subirArchivo()` NOT modified (D-02).
   - Add `POST /api/ingestas/commit` handler: `parseEdits(req.body.edits)` → 400 on fail; `deps.commitIngesta.execute({fileReader, userId: req.userId!, edits})`.
   - Add `aCommitHttpError` mapping the full `CommitIngestaError` union (D-18) with exhaustive `never` guard: `EdicionesInvalidasError` + `RowIndexFueraDeRangoError` + `CategoriaFueraDeCatalogoError` + pipeline errors ⇒ 400; `PersistenciaFallidaError` + `CategorizacionFallidaError` ⇒ 500.
   - Preview handler: forward `req.userId!`; remove the "NO forwarda userId" comment at lines 88-89 (D-07).
 
-- [ ] T-22 — Modify `apps/api/src/infrastructure/http-express/app.ts` (§6 item 13a): the `IngestaRoutesDeps` object passed to `registrarIngestas` gains `commitIngesta` (compile error otherwise).
+- [x] T-22 — Modify `apps/api/src/infrastructure/http-express/app.ts` (§6 item 13a): the `IngestaRoutesDeps` object passed to `registrarIngestas` gains `commitIngesta` (compile error otherwise).
 
-- [ ] T-23 — Create `apps/api/src/composition/crear-commit-ingesta.ts` (§6 item 15): signature `(prisma, crypto, blindIndex, logger)`. Wires `EjecutarPipelineIngestaUseCase`, `PrismaAccountRepository` (write, for `ensure`), `DetectarDuplicadosUseCase(new PrismaTransaccionExistenteReader(prisma, crypto))` (crypto MANDATORY — D-17), `PrismaCatalogoClasificacionRepository`, `PrismaCategoriaRepository` (D-10/D-15 membership + bucket map), `CategorizarTransaccionUseCase`, `PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto))`, `PrismaRegistrarIngestaFallidaRepository`. No `BUCKET_IDS` value passed to `CommitIngestaUseCase` (FK resolution lives in `aPersistencia`, D-15).
+- [x] T-23 — Create `apps/api/src/composition/crear-commit-ingesta.ts` (§6 item 15): signature `(prisma, crypto, blindIndex, logger)`. Wires `EjecutarPipelineIngestaUseCase`, `PrismaAccountRepository` (write, for `ensure`), `DetectarDuplicadosUseCase(new PrismaTransaccionExistenteReader(prisma, crypto))` (crypto MANDATORY — D-17), `PrismaCatalogoClasificacionRepository`, `PrismaCategoriaRepository` (D-10/D-15 membership + bucket map), `CategorizarTransaccionUseCase`, `PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto))`, `PrismaRegistrarIngestaFallidaRepository`. No `BUCKET_IDS` value passed to `CommitIngestaUseCase` (FK resolution lives in `aPersistencia`, D-15).
 
 - [x] T-24 — Modify `apps/api/src/composition/crear-preview-ingesta.ts` (§6 item 14): new signature `(prisma, crypto, blindIndex, logger)`. Wire ONLY read adapters: `PrismaAccountReader(prisma, blindIndex)` (D-05), `PrismaTransaccionExistenteReader(prisma, crypto)` (crypto MANDATORY — D-17), `PrismaCatalogoClasificacionRepository(prisma)`. MUST NOT import or construct `PrismaAccountRepository`, `PrismaIngestaRepository`, `PersistTransactionsUseCase`, or `PrismaTransaccionBucketRepository`. (pulled forward to PR2 — required to wire the extended preview use case; read-only adapters only, verified no write repos imported. Note: `CategorizarTransaccionUseCase` also wired per PR2 review fix 4.)
 
-- [ ] T-25 — **[MANDATORY-BLOCKING]** Create `apps/api/src/composition/crear-preview-ingesta.spec.ts` (§6 item 14a): the no-write composition test. Mechanism:
+- [x] T-25 — **[MANDATORY-BLOCKING]** Create `apps/api/src/composition/crear-preview-ingesta.spec.ts` (§6 item 14a): the no-write composition test. Mechanism:
   - Build a Prisma stub (partial `PrismaClient`) with write-surface traps: `account.upsert`, `ingesta.create`, `transaccion.createMany`, `transaccion.updateMany`, `$transaction` — each assigned to `vi.fn(() => { throw new Error('WRITE FORBIDDEN in preview'); })`.
   - Read surfaces preview legitimately uses return empty/null: `account.findUnique → null`, `transaccion.findMany → []`, `patronClasificacion.findMany → []`.
   - Call `crearPreviewIngesta(stubPrisma, crypto, blindIndex, logger)` then `await previewIngesta.execute({fileReader: fakeFileReaderWithValidCartola, userId})`.
@@ -221,10 +221,10 @@ Chain strategy: stacked-to-main
 
 - [ ] T-26 — Modify `apps/api/src/composition/container.ts` (§6 item 16): (PARTIAL — first bullet done in PR2, rest blocked on PR3 `CommitIngestaUseCase`; stays unchecked.)
   - [x] Update `previewIngesta` call to `crearPreviewIngesta(prisma, crypto, blindIndex, logger)` (D-12). (done in PR2.)
-  - [ ] Add `Container.commitIngesta: CommitIngestaUseCase` field via `crearCommitIngesta(prisma, crypto, blindIndex, logger)`. (needs PR3.)
-  - [ ] Expose `commitIngesta` so `app.ts` can pass it to `registrarIngestas`. (needs PR3.)
+  - [x] Add `Container.commitIngesta: CommitIngestaUseCase` field via `crearCommitIngesta(prisma, crypto, blindIndex, logger)`. (done in PR4.)
+  - [x] Expose `commitIngesta` so `app.ts` can pass it to `registrarIngestas`. (done in PR4.)
 
-- [ ] T-27 — Verify phase 4: `pnpm api test` (all suites green, including MANDATORY-BLOCKING T-25) + `pnpm api exec tsc --noEmit`.
+- [x] T-27 — Verify phase 4: `pnpm api test` (all suites green, including MANDATORY-BLOCKING T-25) + `pnpm api exec tsc --noEmit`.
   **Work-unit commit:** `feat(api): commit DTO/routes, composition helpers, MANDATORY no-write test (US-057 PR4)`.
 
 ---
