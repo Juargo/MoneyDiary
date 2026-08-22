@@ -12,7 +12,7 @@ Three stacked PRs merge green to main; backend/mobile untouched.
 
 **Apply starts from post-merge `main`, ONLY after the US-058 archive merge is confirmed.**
 
-- [ ] T-00 — Verify precondition: run `git log origin/main --oneline | head -10` and confirm the US-058 archive commit is present. Then verify: `pnpm web test` passes (zero failures) and `pnpm web typecheck` exits 0. If either check fails: **STOP — do not write code until the baseline is green.**
+- [x] T-00 — Verify precondition: run `git log origin/main --oneline | head -10` and confirm the US-058 archive commit is present. Then verify: `pnpm web test` passes (zero failures) and `pnpm web typecheck` exits 0. If either check fails: **STOP — do not write code until the baseline is green.**
 
 ---
 
@@ -53,7 +53,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
 
 *Satisfies: WEB-PRV-03 (guard rejects legacy shape, accepts canonical), WEB-PRV-06 (commit sends file+edits, invalidates 4 keys), WEB-PRV-11 (legacy postIngesta/useIngesta unchanged); D-04, D-05, D-08.*
 
-- [ ] T-01 — (RED) Write guard unit tests in a new `apps/web/src/api/client.guards.test.ts` (or co-locate in the existing test file if one exists for `client.ts`):
+- [x] T-01 — (RED) Write guard unit tests in a new `apps/web/src/api/client.guards.test.ts` (or co-locate in the existing test file if one exists for `client.ts`):
   - `esPreviewIngestaDto` REJECTS a payload missing `filas` (legacy shape with only `muestra`/`estructura`) → returns `false`.
   - `esPreviewIngestaDto` REJECTS a payload with `filas` present but `resumen` absent → returns `false`.
   - `esPreviewIngestaDto` REJECTS a row with `cargo: "12.5"` (decimal) → returns `false` (`esMontoStringValido` gate).
@@ -64,7 +64,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - `esCommitIngestaDto` ACCEPTS a valid commit response with `ingestaId`, `totalTransacciones`, `duplicadosOmitidos`, `transacciones[]` → returns `true`.
   **File (test first):** `apps/web/src/api/client.guards.test.ts`.
 
-- [ ] T-02 — (GREEN) Harden `esPreviewIngestaDto` in `apps/web/src/api/client.ts` (D-08):
+- [x] T-02 — (GREEN) Harden `esPreviewIngestaDto` in `apps/web/src/api/client.ts` (D-08):
   - Replace the existing body that validates only `muestra`/`estructura` with hardened checks:
     - Keep: `banco:string`, `tipoCuenta:string`, `numeroCuenta:string`.
     - Add: `Array.isArray(candidato.filas) && candidato.filas.every(esPreviewFilaDto)`.
@@ -75,7 +75,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - Add `esCommitIngestaDto` guard: validates `ingestaId:string`, `totalTransacciones:number`, `duplicadosOmitidos:number`, `transacciones[]` with `bucket:string`, `categoriaId:string|null`, money strings via `esMontoStringValido`, `fecha` via `esFechaValida`.
   Verify: `pnpm web test` (guard tests green) + `pnpm web typecheck`.
 
-- [ ] T-03 — Modify `apps/web/src/api/types.ts` (D-08):
+- [x] T-03 — Modify `apps/web/src/api/types.ts` (D-08):
   - Re-export `PreviewFilaDto` and `CommitIngestaDto` from `@moneydiary/api-client`.
   - Define and export locally `PreviewIngestaDtoConCanonicos` intersection alias:
     ```ts
@@ -94,12 +94,12 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
     ```
   Verify: `pnpm web typecheck`.
 
-- [ ] T-04 — Modify `apps/web/src/api/use-preview-ingesta.ts` (D-08):
+- [x] T-04 — Modify `apps/web/src/api/use-preview-ingesta.ts` (D-08):
   - Re-type the `useMutation` generic to `PreviewIngestaDtoConCanonicos` (from `types.ts`).
   - No logic changes; the return-type narrowing flows from `client.ts`'s hardened `previewIngesta` return type.
   Verify: `pnpm web typecheck`.
 
-- [ ] T-05 — Add `postCommitIngesta` to `apps/web/src/api/client.ts` (D-04):
+- [x] T-05 — Add `postCommitIngesta` to `apps/web/src/api/client.ts` (D-04):
   - Signature: `postCommitIngesta(file: File, edits: ReadonlyArray<{ rowIndex: number; categoriaId: string | null }>): Promise<ApiResult<CommitIngestaDto>>`.
   - Builds `FormData`: `append('file', file)` then `append('edits', JSON.stringify(edits))` (always send the field — empty array is valid).
   - No manual `Content-Type` header (browser sets the multipart boundary).
@@ -107,21 +107,21 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - Response validated by `esCommitIngestaDto` (T-02).
   Verify: `pnpm web typecheck`.
 
-- [ ] T-06 — (RED) Write unit tests for `useCommitIngesta` in `apps/web/src/api/use-commit-ingesta.test.ts` (D-05):
+- [x] T-06 — (RED) Write unit tests for `useCommitIngesta` in `apps/web/src/api/use-commit-ingesta.test.ts` (D-05):
   - `mutationFn` unwraps a successful `ApiResult<CommitIngestaDto>` and resolves the DTO.
   - `mutationFn` throws the tagged `ApiError` when `postCommitIngesta` returns `ok: false`.
   - `onSuccess` calls `queryClient.invalidateQueries` for `['resumen']`, `['resumen-anual']`, `['detalle-bucket-mes']`, and `['ingestas']` (spy on `invalidateQueries`; assert all 4 calls).
   - Navigation is NOT asserted here — it lives at the call site (`SubirCartola`), so the hook tests run without a router mock.
   **File (test first):** `apps/web/src/api/use-commit-ingesta.test.ts`.
 
-- [ ] T-07 — (GREEN) Create `apps/web/src/api/use-commit-ingesta.ts` (D-05):
+- [x] T-07 — (GREEN) Create `apps/web/src/api/use-commit-ingesta.ts` (D-05):
   - `useMutation<CommitIngestaDto, ApiError, { file: File; edits: ReadonlyArray<{ rowIndex: number; categoriaId: string | null }> }>`.
   - `mutationFn`: calls `postCommitIngesta(vars.file, vars.edits)`; unwraps `ApiResult` or throws `result.error` (mirror of `use-ingesta.ts:22-29`).
   - `onSuccess`: invalidates `['resumen']`, `['resumen-anual']`, `['detalle-bucket-mes']`, `['ingestas']`. Does NOT call `navigate` — navigation wired at the call site in `SubirCartola`.
   Verify: `pnpm web test` (hook tests green) + `pnpm web typecheck`.
 
-- [ ] T-08 — Verify Phase 1: `pnpm web test` (all suites green) + `pnpm web typecheck` exits 0. Confirm `useIngesta` / `postIngesta` exports are still present and unmodified (WEB-PRV-11).
-  **Work-unit commit:** `feat(web): API layer — guard hardening, postCommitIngesta, useCommitIngesta (US-059 PR1)`.
+- [x] T-08 — Verify Phase 1: `pnpm web test` (all suites green) + `pnpm web typecheck` exits 0. Confirm `useIngesta` / `postIngesta` exports are still present and unmodified (WEB-PRV-11).
+  **Work-unit commit:** `feat(web): api layer — guard hardening, postCommitIngesta, useCommitIngesta (US-059 PR1)`.
 
 ---
 
