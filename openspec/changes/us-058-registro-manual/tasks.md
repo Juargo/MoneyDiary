@@ -124,7 +124,7 @@ Chain strategy: stacked-to-main
   - Does NOT extend or reuse `TransaccionAPersistir` or `IIngestaRepository`.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-09 — (RED) Write unit tests for `RegistrarMovimientoManualUseCase` (D-09/D-10/D-11):
+- [x] T-09 — (RED) Write unit tests for `RegistrarMovimientoManualUseCase` (D-09/D-10/D-11):
   - **Ingreso happy path:** `CategorizarTransaccionUseCase` NOT invoked (assert via spy/no collaborator); catalog repo NOT called; result `{ bucket: Bucket.Ingreso, categoriaId: null }`; writer.asegurarCuentaManual called with `userId`; writer.registrar called once with correct payload.
   - **Gasto happy path:** catalog loaded, categoriaId in set, bucket matches; writer.registrar called with `{ bucket: requestedBucket, categoriaId }`.
   - **Gasto: categoriaId ∉ catalog set ⇒ `CategoriaFueraDeCatalogoError`; writer.registrar NOT called.**
@@ -135,17 +135,20 @@ Chain strategy: stacked-to-main
   - **Outer try/catch: unexpected throw ⇒ `Result.fail(PersistenciaFallidaError)`; never re-throws.**
   - **No `Ingesta` row written on any failure path (no historial for manual).**
   - **Exhaustive `never` guard compiles (error union: `MovimientoManualInvalidoError | CategoriaFueraDeCatalogoError | BucketCategoriaNoConcuerdaError | PersistenciaFallidaError`).**
+  - **Note (D-11 step ordering on failure paths):** `writer.asegurarCalls` MUST have length 1 on Gasto failure paths where the Gasto cascade rejects (`CategoriaFueraDeCatalogoError`, `BucketCategoriaNoConcuerdaError`), and on the `writer.registrar falla` path — proving step 2 completed before the failure. The "missing bucket/categoriaId on Gasto" case is a compile-time guarantee via `RegistrarMovimientoManualCommand` (discriminated union); runtime rejection of that shape is covered by the Zod schema tests in T-15 (PR3).
   **File (test first):** `apps/api/src/application/use-cases/registrar-movimiento-manual.use-case.spec.ts`.
 
-- [ ] T-10 — (GREEN) Create `apps/api/src/application/use-cases/registrar-movimiento-manual.use-case.ts` (D-11):
-  - `execute({ userId, tipo, fecha, descripcion, monto, bucket?, categoriaId? })`.
+- [x] T-10 — (GREEN) Create `apps/api/src/application/use-cases/registrar-movimiento-manual.use-case.ts` (D-11):
+  - `execute(input: RegistrarMovimientoManualCommand)` — discriminated union on `tipo`:
+    - Variant `tipo: 'Ingreso'`: NO `bucket`, NO `categoriaId` fields (compile-time guarantee).
+    - Variant `tipo: 'Gasto'`: `bucket: BucketDeGasto` and `categoriaId: string` are REQUIRED.
   - Algorithm (binding, D-11):
     1. `MovimientoManual.crear(...)` → fail-fast on bad money/fecha/descripcion.
     2. `writer.asegurarCuentaManual(userId)` → fail on persistence error.
     3. **if Gasto**: `categorias = await categoriaRepository.listarConPatrones(userId)` (INNER try/catch → throw ⇒ `PersistenciaFallidaError`); build `Set<categoriaId>` + `Map<categoriaId,Bucket>`; membership fail ⇒ `CategoriaFueraDeCatalogoError`; bucket-mismatch ⇒ `BucketCategoriaNoConcuerdaError`.
     4. Resolve `{ bucketFinal, categoriaIdFinal }`: Ingreso ⇒ `{Bucket.Ingreso, null}` (D-10); Gasto ⇒ `{requestedBucket, categoriaId}`.
     5. `writer.registrar({ userId, accountId, transaccion: vo.transaccion, bucket: bucketFinal, categoriaId: categoriaIdFinal })`.
-    6. `Result.ok({ id })`.
+    6. `Result.ok({ id, vo })` — the VO is returned so the route can call `aRegistrarMovimientoManualResponseDto(vo, id)` (T-16, PR3) without a DB read-back (D-08).
   - Entire body wrapped in outer try/catch (D-09).
   - No `CategorizarTransaccionUseCase` invocation.
   Verify: `pnpm api exec tsc --noEmit`.
@@ -185,7 +188,7 @@ Chain strategy: stacked-to-main
   Run `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **Atomic commit:** `feat(api): migration relax ingestaId, sentinel adapter, origen column (US-058 PR2-atomic)`.
 
-- [ ] T-13 — Verify phase 2: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
+- [x] T-13 — Verify phase 2: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **PR 2 targets PR 1 branch (stacked-to-main).**
 
 ---

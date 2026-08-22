@@ -29,7 +29,7 @@ Invariants:
 | `tipo` | MUST be one of `{Ingreso, Gasto}` |
 | `fecha` | MUST be ≤ today (ISO date); future dates MUST fail with a 400 |
 | `descripcion` | MUST be present and non-empty; max length follows repo precedent |
-| `monto` | MUST be a positive integer expressed as a BigInt-safe string; MUST be > 0; MUST NOT be a float; MUST be overflow-guarded at the `number → BigInt` boundary via the same guards used in `transaccion.mapper.ts` |
+| `monto` | MUST be a positive integer expressed as a BigInt-safe string; MUST be > 0; MUST NOT be a float; MUST be overflow-guarded at the `number → BigInt` boundary via the overflow guard established in `MovimientoManual.crear` (D-01-a; `transaccion.mapper.ts` has no such guard — it is a `bigint→bigint` passthrough) |
 | `cargo / abono` | Derived from `tipo` — Ingreso: `{abono=monto, cargo=0}`; Gasto: `{cargo=monto, abono=0}` |
 
 Amounts MUST be scrubbed from every error message (domain layer and HTTP 400 boundary).
@@ -60,11 +60,11 @@ Amounts MUST be scrubbed from every error message (domain layer and HTTP 400 bou
 - WHEN the domain factory validates the movement
 - THEN validation returns `Result.fail`
 
-#### Scenario: monto at or above `Number.MAX_SAFE_INTEGER` is overflow-guarded
+#### Scenario: monto exceeding `Number.MAX_SAFE_INTEGER` is overflow-guarded
 
 - GIVEN `monto` as a string whose numeric value exceeds `Number.MAX_SAFE_INTEGER`
 - WHEN the domain factory validates the movement
-- THEN validation returns `Result.fail` with an overflow error (same guard as `transaccion.mapper.ts`)
+- THEN validation returns `Result.fail` with an overflow error (guard established in `MovimientoManual.crear`, D-01-a)
 
 #### Scenario: Empty descripcion is rejected
 
