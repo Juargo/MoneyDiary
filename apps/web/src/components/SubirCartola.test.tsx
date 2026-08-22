@@ -871,4 +871,298 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       screen.queryByRole('status', { name: /aviso de subida en modo demo/i }),
     ).not.toBeInTheDocument();
   });
+
+  it('CU-07: file input is enabled in idle state', () => {
+    idleHooks();
+
+    render(<SubirCartola />);
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled();
+  });
+
+  // ── A11y: exito focus restoration (issue 1) ──────────────────────────────
+
+  it('CU-05: on exito, focus moves to the result heading', async () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ingestaId: 'ing-1',
+          totalTransacciones: 1,
+          duplicadosOmitidos: 0,
+          transacciones: [],
+        },
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: /importación completada/i }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it('CU-05: the exito heading carries the focus-visible outline convention', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ingestaId: 'ing-1',
+          totalTransacciones: 1,
+          duplicadosOmitidos: 0,
+          transacciones: [],
+        },
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    const heading = screen.getByRole('heading', {
+      name: /importación completada/i,
+    });
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(heading.className).toMatch(/focus-visible:outline/);
+  });
+
+  // ── SEC-01: guard releases on settle (issue 2) ───────────────────────────
+
+  it('SEC-01: double-submit guard releases after onSettled so retry is allowed', async () => {
+    // commitMutate immediately invokes onSettled to simulate settle after error
+    const commitMutate = vi.fn().mockImplementation(
+      (
+        _vars,
+        opts:
+          | {
+              onSuccess?: () => void;
+              onSettled?: () => void;
+            }
+          | undefined,
+      ) => {
+        opts?.onSettled?.();
+      },
+    );
+
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({}));
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({ mutate: commitMutate, isPending: false }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    const { rerender } = render(<SubirCartola />);
+
+    await userEvent.upload(
+      screen.getByLabelText(/selecciona un archivo/i),
+      unArchivo('cartola.xlsx', 1024),
+    );
+
+    // Flip to preview-listo
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    rerender(<SubirCartola />);
+
+    const btn = screen.getByRole('button', { name: /agregar transacciones/i });
+    fireEvent.click(btn);
+    // Guard released via onSettled; second click should go through
+    fireEvent.click(btn);
+
+    expect(commitMutate).toHaveBeenCalledTimes(2);
+  });
+
+  // ── Commit-error message variants (issue 3) ──────────────────────────────
+
+  it.each([
+    { tag: 'network', message: 'No se pudo conectar.' },
+    { tag: 'server', message: 'Error interno del servidor.' },
+  ] as Array<{ tag: string; message: string }>)(
+    'CU-04: commit error ($tag) renders message verbatim in role="alert" with no raw JSON leak',
+    ({ tag, message }) => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({
+          isError: true,
+          status: 'error',
+          error: { tag, message } as unknown as import('@/api/client').ApiError,
+        }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent(message);
+      // No raw JSON leak
+      expect(alert.textContent).not.toMatch(/\{"tag"/);
+    },
+  );
+
+  // ── CU-05 aria-live includes committing state (issue 4) ──────────────────
+
+  it('CU-05: aria-live region announces committing state', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({ isPending: true, status: 'pending' }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    const region = screen.getByRole('status', { name: /estado de la subida/i });
+    // MENSAJE_POR_ESTADO['committing'] = 'Subiendo transacciones…'
+    expect(region.textContent).toMatch(/subiendo transacciones/i);
+  });
+
+  // ── D-10: duplicate rows never enter committed edits (issue 5) ───────────
+
+  it('D-10: clicking "Agregar transacciones" with only duplicate rows calls commitMutate with edits: []', async () => {
+    const commitMutate = vi.fn();
+
+    mockedUsePreviewIngesta.mockReturnValue(unaMutacion<PreviewIngestaDto>({}));
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({ mutate: commitMutate }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    const { rerender } = render(<SubirCartola />);
+
+    // Upload a file first to set archivo state
+    await userEvent.upload(
+      screen.getByLabelText(/selecciona un archivo/i),
+      unArchivo('cartola.xlsx', 1024),
+    );
+
+    // Flip to preview-listo with only duplicate rows
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ...validPreviewDto,
+          filas: [
+            unaFilaPreview({
+              rowIndex: 0,
+              esDuplicado: true,
+              descripcion: 'Fila duplicada',
+            }),
+          ],
+          resumen: { totalFilas: 1, duplicadosDetectados: 1, nuevas: 0 },
+        },
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({ mutate: commitMutate }),
+    );
+    rerender(<SubirCartola />);
+
+    // Selects are disabled (existing D-10 assertion)
+    expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeDisabled();
+    expect(screen.getByLabelText(/Fila 1: categoría/i)).toBeDisabled();
+
+    // Click commit — edits map is empty so edits: [] is passed
+    fireEvent.click(
+      screen.getByRole('button', { name: /agregar transacciones/i }),
+    );
+
+    expect(commitMutate).toHaveBeenCalledTimes(1);
+    const [vars] = commitMutate.mock.calls[0] as [
+      {
+        file: File;
+        edits: Array<{ rowIndex: number; categoriaId: string | null }>;
+      },
+      unknown,
+    ];
+    expect(vars.edits).toEqual([]);
+  });
+
+  // ── .toBeEnabled() asserts (issue 6) ────────────────────────────────────
+
+  it('D-11: "Agregar transacciones" retry button is enabled after commit error', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isError: true,
+        status: 'error',
+        error: { tag: 'invalid', message: 'Error al procesar.' },
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    expect(
+      screen.getByRole('button', { name: /agregar transacciones/i }),
+    ).toBeEnabled();
+  });
+
+  // ── SEC-01: committing keeps review visible (issue 7) ────────────────────
+
+  it('SEC-01: while committing, the review affordance stays rendered', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isPending: true,
+        status: 'pending',
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    // Review affordance still rendered during commit
+    expect(screen.getByText(/nada se ha guardado aún/i)).toBeInTheDocument();
+    // "Agregar transacciones" button is disabled (committing) but present
+    expect(
+      screen.getByRole('button', { name: /agregar transacciones/i }),
+    ).toBeDisabled();
+  });
 });

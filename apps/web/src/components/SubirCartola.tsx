@@ -90,6 +90,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         };
 
   const previewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const exitoRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   // Synchronous double-submit guard (money-duplication risk, SEC-01): gates
   // "Agregar transacciones". `commitMutation.isPending`/`disabled` are stale
@@ -123,6 +124,8 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       errorRef.current?.focus();
     } else if (estado === 'preview-listo') {
       previewHeadingRef.current?.focus();
+    } else if (estado === 'exito') {
+      exitoRef.current?.focus();
     }
   }, [estado]);
 
@@ -300,7 +303,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         >
           <h2
             id="exito-heading"
-            className="text-base font-semibold text-foreground"
+            ref={exitoRef}
+            tabIndex={-1}
+            className="text-base font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Importación completada
           </h2>
