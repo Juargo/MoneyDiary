@@ -1103,7 +1103,71 @@ export interface paths {
             };
         };
         readonly put?: never;
-        readonly post?: never;
+        /**
+         * Register a manual movement (type-first: Ingreso or Gasto)
+         * @description Authenticated endpoint that registers a single hand-typed movement with no cartola (US-058, D-12). Type-first: `tipo=Ingreso` auto-classifies to {bucket=Ingreso, categoriaId=null}; `tipo=Gasto` requires `bucket` ∈ {Necesidades, Deseos, Ahorro} and a `categoriaId` from the caller's own catalog. The Ingreso variant is strict (stray `bucket`/`categoriaId` ⇒ 400, Q3 resolution). `monto` is a BigInt-safe decimal string (JSON number ⇒ 400). `fecha` must be YYYY-MM-DD; domain enforces ≤ today (future ⇒ 400). A per-user sentinel Account (banco='Manual') is created lazily (MAN-04). The persisted row has `ingestaId=null`, `origen='Manual'`, and is immune to `DELETE /api/ingestas/:id` (SQL NULL-equality, CA-04). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).
+         */
+        readonly post: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path?: never;
+                readonly cookie?: never;
+            };
+            readonly requestBody?: {
+                readonly content: {
+                    readonly "application/json": {
+                        readonly descripcion: string;
+                        /** @description Date of the movement, YYYY-MM-DD. Domain enforces ≤ today (future ⇒ 400). */
+                        readonly fecha: string;
+                        /** @description BigInt-safe decimal string (never a JSON number). Domain enforces: positive integer, no float, overflow guard (> Number.MAX_SAFE_INTEGER ⇒ 400). */
+                        readonly monto: string;
+                        /** @constant */
+                        readonly tipo: "Ingreso";
+                    } | {
+                        /**
+                         * @description Required for Gasto. One of Necesidades | Deseos | Ahorro. Ingreso and SinCategoria are invalid here (D-12).
+                         * @enum {string}
+                         */
+                        readonly bucket: "Necesidades" | "Deseos" | "Ahorro";
+                        /** @description Required for Gasto. Must be a non-empty string belonging to the calling user catalog AND map to the supplied bucket (CategoriaFueraDeCatalogoError / BucketCategoriaNoConcuerdaError => 400). */
+                        readonly categoriaId: string;
+                        readonly descripcion: string;
+                        /** @description Date of the movement, YYYY-MM-DD. */
+                        readonly fecha: string;
+                        /** @description BigInt-safe decimal string. */
+                        readonly monto: string;
+                        /** @constant */
+                        readonly tipo: "Gasto";
+                    };
+                };
+            };
+            readonly responses: {
+                /** @description Movement registered. Response carries id, fecha (ISO), descripcion (plaintext), cargo/abono (BigInt-safe strings), bucket, categoriaId, and origen="Manual" (D-08/D-12). No DB read-back — values sourced from the in-memory VO. */
+                readonly 201: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content: {
+                        readonly "application/json": components["schemas"]["RegistrarMovimientoManualResponse"];
+                    };
+                };
+                /** @description Shape mismatch (Zod: stray fields on Ingreso, missing bucket/categoriaId on Gasto, monto as JSON number, wrong fecha format) OR domain validation failure (MovimientoManualInvalidoError: FECHA_FUTURA, DESCRIPCION_VACIA/LARGA, MONTO_INVALIDO/OVERFLOW, SIN_MONTOS, MONTO_NEGATIVO) OR catalog cascade failure (CategoriaFueraDeCatalogoError, BucketCategoriaNoConcuerdaError). Amounts are scrubbed from every error message (ADR-013). */
+                readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Infrastructure fault — sentinel upsert, catalog load, or Transaccion.create failed (PersistenciaFallidaError). Retryable. */
+                readonly 500: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         readonly delete?: never;
         readonly options?: never;
         readonly head?: never;
@@ -2142,6 +2206,26 @@ export interface components {
                 readonly totalFilas: number;
             };
             readonly tipoCuenta: string;
+        };
+        /** @description POST /api/movimientos 201 — the persisted manual movement (US-058, D-12). Amounts are BigInt-safe strings. `origen` is always "Manual". */
+        readonly RegistrarMovimientoManualResponse: {
+            /** @description BigInt-safe decimal string; "0" for Gasto rows. */
+            readonly abono: string;
+            /** @description Bucket enum value (Ingreso | Necesidades | Deseos | Ahorro). Ingreso rows always carry "Ingreso"; Gasto rows carry the caller-supplied bucket. */
+            readonly bucket: string;
+            /** @description BigInt-safe decimal string; "0" for Ingreso rows. */
+            readonly cargo: string;
+            /** @description null for Ingreso rows; the caller-supplied categoriaId for Gasto rows. */
+            readonly categoriaId: string | null;
+            readonly descripcion: string;
+            /** @description ISO-8601 UTC timestamp. */
+            readonly fecha: string;
+            readonly id: string;
+            /**
+             * @description Provenance marker — always "Manual" for this endpoint (C-a, D-13).
+             * @constant
+             */
+            readonly origen: "Manual";
         };
         /** @description GET /api/resumen/anual — 50/30/20 annual breakdown (US-030). */
         readonly ResumenAnualResponse: {

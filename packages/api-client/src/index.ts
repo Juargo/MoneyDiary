@@ -121,3 +121,6 @@ export type CategoriaDto = S['CategoriaResponse'];
 
 /** One classification pattern (`POST`/`PATCH /api/patrones` response, also nested inside `CategoriaDto.patrones`). */
 export type PatronDto = S['PatronResponse'];
+
+/** POST /api/movimientos — registered manual movement (US-058). Money as decimal strings (BigInt-safe). */
+export type RegistrarMovimientoManualDto = S['RegistrarMovimientoManualResponse'];
