@@ -10,7 +10,7 @@ Four force-chained PRs merge green to main; web/mobile untouched (US-060/US-061)
 
 **Apply starts from post-merge `main`, ONLY after the US-057 chain (PRs #449–#454) merges.**
 
-- [ ] T-00 — Verify precondition: run `git log origin/main --oneline | head -10` and confirm all 6 US-057 PRs are present. Then verify: `git show origin/main:apps/api/src/domain/errors/categoria-fuera-de-catalogo.error.ts` resolves. If either check fails: **STOP — do not write code until US-057 is merged.**
+- [x] T-00 — Verify precondition: run `git log origin/main --oneline | head -10` and confirm all 6 US-057 PRs are present. Then verify: `git show origin/main:apps/api/src/domain/errors/categoria-fuera-de-catalogo.error.ts` resolves. If either check fails: **STOP — do not write code until US-057 is merged.**
 
 Also verify local ephemeral DB is available (`apps/api/docs/local-test-db.md`); confirm `pnpm api test:integration` baseline passes. Required before Phase 6. No code changes.
 
@@ -55,28 +55,28 @@ Chain strategy: stacked-to-main
 
 *Satisfies: MAN-01 (domain validation via Result, overflow guard, fecha≤today, descripcion≤500), D-01, D-02, D-03; spec §Testing Emphasis (Unit — domain).*
 
-- [ ] T-01 — (RED) Write unit test for `MovimientoManualInvalidoError`:
+- [x] T-01 — (RED) Write unit test for `MovimientoManualInvalidoError`:
   - Confirms fixed scrub-safe message (no amounts, no categoriaId echoed).
   - Confirms all code variants are representable: `FECHA_FUTURA`, `DESCRIPCION_VACIA`, `DESCRIPCION_LARGA`, `MONTO_INVALIDO`, `MONTO_OVERFLOW`, `SIN_MONTOS`, `MONTO_NEGATIVO`, `CARGO_Y_ABONO`.
   - Extends appropriate base class (pattern: `NormalizacionInvalidaError`, `PersistenciaFallidaError`).
   **File (test first):** `apps/api/src/domain/errors/movimiento-manual-invalido.error.spec.ts`.
 
-- [ ] T-02 — (GREEN) Create `apps/api/src/domain/errors/movimiento-manual-invalido.error.ts`:
+- [x] T-02 — (GREEN) Create `apps/api/src/domain/errors/movimiento-manual-invalido.error.ts`:
   - `MotivoMovimientoManualInvalido` string enum with all 8 codes (D-01/D-09).
   - `MovimientoManualInvalidoError` class: `readonly code: MotivoMovimientoManualInvalido`; fixed message string; no interpolation of any request value.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-03 — (RED) Write unit test for `BucketCategoriaNoConcuerdaError`:
+- [x] T-03 — (RED) Write unit test for `BucketCategoriaNoConcuerdaError`:
   - Fixed scrub-safe message.
   - Public props `categoriaId` and `bucket` present (for logging, never in `.message`).
   - Extends appropriate base class (mirrors `CategoriaFueraDeCatalogoError` at `apps/api/src/domain/errors/categoria-fuera-de-catalogo.error.ts`).
   **File (test first):** `apps/api/src/domain/errors/bucket-categoria-no-concuerda.error.spec.ts`.
 
-- [ ] T-04 — (GREEN) Create `apps/api/src/domain/errors/bucket-categoria-no-concuerda.error.ts` (D-03):
+- [x] T-04 — (GREEN) Create `apps/api/src/domain/errors/bucket-categoria-no-concuerda.error.ts` (D-03):
   - Fixed message, no interpolation; public `categoriaId: string` and `bucket: Bucket` props.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-05 — (RED) Write unit test matrix for `MovimientoManual.crear` (D-01/D-02):
+- [x] T-05 — (RED) Write unit test matrix for `MovimientoManual.crear` (D-01/D-02):
   - Ingreso: `{cargo:0n, abono:montoN}` mapping; `tipo` propagated.
   - Gasto: `{cargo:montoN, abono:0n}` mapping.
   - Non-numeric `monto` string ⇒ `MONTO_INVALIDO`.
@@ -95,7 +95,7 @@ Chain strategy: stacked-to-main
   - All failure paths return `Result.fail`; no throw in any branch.
   **File (test first):** `apps/api/src/domain/value-objects/movimiento-manual.spec.ts`.
 
-- [ ] T-06 — (GREEN) Create `apps/api/src/domain/value-objects/movimiento-manual.ts` (D-01/D-02):
+- [x] T-06 — (GREEN) Create `apps/api/src/domain/value-objects/movimiento-manual.ts` (D-01/D-02):
   - `MovimientoManual.crear({ tipo: 'Ingreso' | 'Gasto', fecha: Date, descripcion: string, monto: string, clock?: () => Date }): Result<MovimientoManual, MovimientoManualInvalidoError>`.
   - (a) Decimal-string → BigInt conversion + overflow guard (`Number.MAX_SAFE_INTEGER` boundary): NEWLY ESTABLISHED here (no exact repo precedent); emits `MONTO_INVALIDO` or `MONTO_OVERFLOW`.
   - (b) `descripcion` trimmed non-empty + ≤ 500 chars; emits `DESCRIPCION_VACIA` or `DESCRIPCION_LARGA`.
@@ -104,7 +104,7 @@ Chain strategy: stacked-to-main
   - Exposes `.transaccion`, `.tipo`, `.esIngreso()`.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-07 — Verify phase 1: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
+- [x] T-07 — Verify phase 1: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **Work-unit commit:** `feat(api): domain errors and MovimientoManual VO (US-058 PR1)`.
 
 ---
@@ -116,7 +116,7 @@ Chain strategy: stacked-to-main
 > **Atomic commit inside this PR (cannot be split across PRs):**
 > The migration SQL + `schema.prisma` edits + `prisma generate` + `PrismaRegistrarMovimientoManualRepository` MUST all land in a single commit because the adapter writes `ingestaId: null` + `origen: 'Manual'` — the pre-migration NOT NULL schema rejects that at the Prisma type level. Splitting the migration from the adapter leaves compilation broken.
 
-- [ ] T-08 — Create `apps/api/src/application/ports/registrar-movimiento-manual.port.ts` (D-04):
+- [x] T-08 — Create `apps/api/src/application/ports/registrar-movimiento-manual.port.ts` (D-04):
   - `RegistrarMovimientoManualInput = { userId: string; accountId: string; transaccion: Transaccion; bucket: Bucket; categoriaId: string | null }`.
   - `IRegistrarMovimientoManualWriter` interface with two methods:
     - `asegurarCuentaManual(userId: string): Promise<Result<{ accountId: string }, PersistenciaFallidaError>>`.
@@ -150,13 +150,13 @@ Chain strategy: stacked-to-main
   - No `CategorizarTransaccionUseCase` invocation.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-11 — (RED) Write unit tests for `PrismaRegistrarMovimientoManualRepository` (D-05/D-08):
+- [x] T-11 — (RED) Write unit tests for `PrismaRegistrarMovimientoManualRepository` (D-05/D-08):
   - **Sentinel idempotency (D-05):** two `asegurarCuentaManual(userId)` calls against a Prisma spy; upserts on the composite key `@@unique([userId, banco, tipoCuenta, numeroCuentaBlindIndex])`; returns same `accountId` both times; only one upsert create path fires; module-level constants used (`SENTINEL_BANCO`, `SENTINEL_TIPO_CUENTA`, `SENTINEL_NUMERO_CUENTA_RAW`); `numeroCuentaBlindIndex = blindIndex.compute(normalizeNumeroCuenta('MANUAL'))` (MUST NOT be null — null would break Postgres unique-NULL semantics, creating a new row on each call instead of finding the existing one).
   - **Adapter `registrar` (D-08):** writes `ingestaId: null`; `origen: 'Manual'`; `bucketId = BUCKET_IDS[input.bucket]`; `descripcion = crypto.encrypt(input.transaccion.descripcion)`; `accountId` from sentinel.
   - **No `Ingesta.create` or `createMany` on any path.**
   **File (test first):** `apps/api/src/infrastructure/persistence/prisma-registrar-movimiento-manual.repository.spec.ts`.
 
-- [ ] T-12 — **[ATOMIC COMMIT — migration + schema + prisma generate + adapter]**
+- [x] T-12 — **[ATOMIC COMMIT — migration + schema + prisma generate + adapter]**
   Implement in a SINGLE commit:
 
   **(a) Migration:** create `apps/api/prisma/migrations/<timestamp>_us058_manual_movement/migration.sql` with the exact D-13 SQL:
