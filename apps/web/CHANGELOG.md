@@ -1,5 +1,109 @@
 # Changelog
 
+## [0.3.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.2.0...web-v0.3.0) (2026-08-22)
+
+
+### Features
+
+* **api:** add semáforo diagnosis, advice copy, and detail assembly (US-049) ([012d7fb](https://github.com/Juargo/MoneyDiary/commit/012d7fb033e538b89b866f40fcee06f50d12240e))
+* **api:** expose cantidadSinCategoria on the resumen contract (US-045 PR-B, 2/2) ([162cbe8](https://github.com/Juargo/MoneyDiary/commit/162cbe8d56929cb66e3a1b79447d5c3158018961))
+* **api:** GET /api/resumen/semaforo — HTTP boundary and contract chain (US-049 PR4, 5/7) ([26376e1](https://github.com/Juargo/MoneyDiary/commit/26376e1fdb37b36d92ea3b8d494c738f519322cd))
+* **api:** semáforo diagnosis, advice copy and domain assembly (US-049 PR2b, 3/7) ([5963a99](https://github.com/Juargo/MoneyDiary/commit/5963a9998af72492a14a5d6483e0a02438b0951a))
+* **mobile,web:** ring dilutes SinCategoria over BUCKETS_ANILLO with D-09 parity fixture ([d128add](https://github.com/Juargo/MoneyDiary/commit/d128addc1c024977b1459058a1485fa50d958b9a))
+* **mobile:** 4-item ring domain parity with web (US-050 PR1, 1/7) ([57e9705](https://github.com/Juargo/MoneyDiary/commit/57e9705cc04884c780a789078f8b76468b8409c7))
+* **web:** add ['ingresos-mes'] prefix invalidation to reclassify + category CRUD (D-09) ([fb9e735](https://github.com/Juargo/MoneyDiary/commit/fb9e735b0fd9e07cfe2e1dd02719b5a1197d8241))
+* **web:** add /semaforo stub route and drop SemaforoTag's NavLink shim ([1a87630](https://github.com/Juargo/MoneyDiary/commit/1a87630c8e3a839c3acebb47cfa351112b0898a7))
+* **web:** add aFechaCorta date-part helper (US-054 PR1) ([9a01337](https://github.com/Juargo/MoneyDiary/commit/9a0133743556269c7433f01077d43615e93d86f1))
+* **web:** add aIngresosMesViewModel pure passthrough view-model (US-054 PR1) ([6e7a00a](https://github.com/Juargo/MoneyDiary/commit/6e7a00a8b4f56b7a1177d232558d2127509f88f3))
+* **web:** add BucketDetalleMesPage and GrupoMovimientos (US-053, T-08/T-09) ([224bc5b](https://github.com/Juargo/MoneyDiary/commit/224bc5ba091efd16999c8d3f62d154009e5b4e06))
+* **web:** add DetalleBucketMes view-model and normalizarDestacar (US-053, T-06/T-07) ([921243a](https://github.com/Juargo/MoneyDiary/commit/921243a261d6ac4210fee252f0c9baecda9b4c9f))
+* **web:** add donut annular geometry to arcoPath ([2b97f1a](https://github.com/Juargo/MoneyDiary/commit/2b97f1a86abdef8cd962756a9ab60fbfa3574072))
+* **web:** add donut hole geometry and Sin categoría wedge to DistribucionPie ([f8be32e](https://github.com/Juargo/MoneyDiary/commit/f8be32ec8bf612f363909c4e976fb344c60458f5))
+* **web:** add fetchDetalleBucketMes with money-safety guard ([97e15a4](https://github.com/Juargo/MoneyDiary/commit/97e15a4e2d7aac3760f67a062f964327e1d7d8e2))
+* **web:** add fetchIngresosMes + esIngresosMesDto guard (US-054 PR1) ([11536c2](https://github.com/Juargo/MoneyDiary/commit/11536c280c8b4e293bb95f61ed1f607c74236998))
+* **web:** add fetchSemaforoDetalle client with money-guard DTO validation ([90190a6](https://github.com/Juargo/MoneyDiary/commit/90190a6897c850de68b727198348cb565f7ea0fb))
+* **web:** add formatearMontoConSigno for signed money labels ([6064b49](https://github.com/Juargo/MoneyDiary/commit/6064b49170a11b526c38edbb65572f09ef9db8fc))
+* **web:** add grouped bucket detail DTO aliases to api-client and web types ([19fc32f](https://github.com/Juargo/MoneyDiary/commit/19fc32fdfca5be122b3b79bac4072efc65d5e938))
+* **web:** add IngresosMes DTO type aliases (US-054 PR1) ([3ba7bcf](https://github.com/Juargo/MoneyDiary/commit/3ba7bcf273ae60b5c145f9a52d9166599cd8dca2))
+* **web:** add IngresosMes page, table, route and a11y lint gate (US-054 PR2) ([2984b88](https://github.com/Juargo/MoneyDiary/commit/2984b884f4b40c6a7ab42728b8c6265fa132c7df))
+* **web:** add ItemLeyenda discriminated union to resumen view-model ([242fe30](https://github.com/Juargo/MoneyDiary/commit/242fe3004aacc19a12ae811ca02ee5af6c2cdfa3))
+* **web:** add MiniSemaforoTag component, unwired (US-048 PR3, 3/5) ([134f883](https://github.com/Juargo/MoneyDiary/commit/134f8839305a57d8860b1f092f0f8626bb951f36))
+* **web:** add MiniSemaforoTag, a compact navigable semáforo link ([b86af21](https://github.com/Juargo/MoneyDiary/commit/b86af21d5dfec98eb320660a19ec63847cffd1c0))
+* **web:** add periodoActual() current-month helper (US-054 PR1) ([bf0ec76](https://github.com/Juargo/MoneyDiary/commit/bf0ec7682683d6f34fe36a3c66b68a3ffbe975af))
+* **web:** add semaforo detail view-model (zone-bar geometry + advice copy) ([7b8371b](https://github.com/Juargo/MoneyDiary/commit/7b8371b41e93b28800df1b85cc187fa3952a11ef))
+* **web:** add SemaforoTag + minimal router test harness ([c1e9dc7](https://github.com/Juargo/MoneyDiary/commit/c1e9dc7d27d520519634905e4409f3bfe5fc6c73))
+* **web:** add useDetalleBucketMes hook and reclassify invalidation key ([65e914c](https://github.com/Juargo/MoneyDiary/commit/65e914c0bc5ee544295e474cb8054f2f4a91786c))
+* **web:** add useIngresosMes query hook (US-054 PR1) ([d44429b](https://github.com/Juargo/MoneyDiary/commit/d44429bf1c28c4ad091c0c9755881a2e9f30b296))
+* **web:** add useSemaforoDetalle query hook ([5dee318](https://github.com/Juargo/MoneyDiary/commit/5dee31822fb5660929734aa88c13e1430dc5671d))
+* **web:** add ZonaBar and BucketSemaforoCard for the semáforo detail page ([462a9e3](https://github.com/Juargo/MoneyDiary/commit/462a9e3b6106858df955ce9c4357f38178e0ff54))
+* **web:** annual minis adopt the 4-item ring reading (US-048 PR1, 1/5) ([5c39c2d](https://github.com/Juargo/MoneyDiary/commit/5c39c2d518a03409d1197f0a62f7685ad5b63433))
+* **web:** api layer — guard hardening, postCommitIngesta, useCommitIngesta (US-059 PR1) ([849e17b](https://github.com/Juargo/MoneyDiary/commit/849e17b8e67d57374d651d2617ebe45579c04699))
+* **web:** bucketDetalleMesPage — anuncio state + role=status region + alMovida callback (D-07) ([6fcf979](https://github.com/Juargo/MoneyDiary/commit/6fcf97955b4ac8fce2efbfc6b7716133eefbd95a))
+* **web:** compose the 5-item donut dashboard with clickable semáforo (US-047 PR3, 3/4) ([10cbc9b](https://github.com/Juargo/MoneyDiary/commit/10cbc9be98cb809442f6edbebfdb277d0b4add80))
+* **web:** control — BUCKETS_ASIGNABLES filter, onMovida callback, aria-describedby (D-06/07/08) ([61d1501](https://github.com/Juargo/MoneyDiary/commit/61d1501a2df7e02b7f26638e90a2e55ecb459a40))
+* **web:** Detalle MES-BUCKET page with real dashboard drill-down (US-053) ([cff13dd](https://github.com/Juargo/MoneyDiary/commit/cff13ddd26b484a1e70eb0a6d58e0bc1e4c38fcb))
+* **web:** domain foundation for the 5-item dashboard chart (US-047 PR1, 1/4) ([bcb4c1e](https://github.com/Juargo/MoneyDiary/commit/bcb4c1e9e115219776ee63d3cf12b51366c63f40))
+* **web:** donut, 2-group legend and SemaforoTag components (US-047 PR2, 2/4) ([940de36](https://github.com/Juargo/MoneyDiary/commit/940de36518de90fe80d3d1aa8f4abea0f69fb915))
+* **web:** extend esResumenMesDto guard with cantidadSinCategoria ([261f904](https://github.com/Juargo/MoneyDiary/commit/261f904aa64664feb3d77a9d7bf1e91f1c7dd31d))
+* **web:** filaRevision (new) + previewMuestra rewrite — review table (US-059 PR2) ([251937a](https://github.com/Juargo/MoneyDiary/commit/251937aba0e50a27e66a9d40e793561d5501cb26))
+* **web:** fill /semaforo with the real detail page, fix CA-08 back-link bug ([6fa8a68](https://github.com/Juargo/MoneyDiary/commit/6fa8a68781ec388eea7581374444308b45d16a08))
+* **web:** legend flip, navigate wiring, e2e suite (US-054 PR3) ([28ba8db](https://github.com/Juargo/MoneyDiary/commit/28ba8db3e07b7fcd5985449dec89342dc67211cb))
+* **web:** read the 4-item ring (incl. Sin categoría) in annual minis ([8036d39](https://github.com/Juargo/MoneyDiary/commit/8036d39468ef4d81f677deb7f106e2d31016fde4))
+* **web:** restructure MesCelda into sibling month/semáforo controls (CA-05) ([b903153](https://github.com/Juargo/MoneyDiary/commit/b90315394c8846a615fbaf1c1345114f5bc24651))
+* **web:** retire flat bucket panel from dashboard (US-053, T-12..T-15) ([cf8dd77](https://github.com/Juargo/MoneyDiary/commit/cf8dd77a449b875e474488eb7e43134c43d4c48a))
+* **web:** rewrite LeyendaGasto for the 2-group ItemLeyenda union ([6f0ac15](https://github.com/Juargo/MoneyDiary/commit/6f0ac152990b0f6db0db4786c97d9100dd4c0fa3))
+* **web:** selected-month marker, caption and header copy in the annual grid ([f139a4c](https://github.com/Juargo/MoneyDiary/commit/f139a4c8027b1eb47070d79be970d06803122588))
+* **web:** selected-month marker, caption and header copy in the annual grid (US-048 PR2, 2/5) ([fe139e6](https://github.com/Juargo/MoneyDiary/commit/fe139e6d29e77cf0332dbdefdf89465934de95e2))
+* **web:** semáforo detail data layer — client guard, hook and view-model (US-049 PR5, 6/7) ([d2a536a](https://github.com/Juargo/MoneyDiary/commit/d2a536a714315ad99c354ccd22ad08857e7c1444))
+* **web:** sibling-controls MesCelda with per-month semáforo tags (US-048 PR4, 4/5) ([2efee9c](https://github.com/Juargo/MoneyDiary/commit/2efee9c55bb92c92f9bc9ca6a60e023a766c2edb))
+* **web:** split BUCKETS_GASTO into BUCKETS_5030/BUCKETS_ANILLO ([eec5a2e](https://github.com/Juargo/MoneyDiary/commit/eec5a2eda341a1693e7ac444cc6221058f01976e))
+* **web:** subir-cartola rewrite, eslint a11y block, final sweep (US-059 PR3) ([7fb6fb7](https://github.com/Juargo/MoneyDiary/commit/7fb6fb7f36acac6a8797ed9daaa0b84f8fcf5dc1))
+* **web:** the semáforo detail page — explicativa y accionable (US-049 PR6, 7/7) ([fb1a223](https://github.com/Juargo/MoneyDiary/commit/fb1a2235c0f097f407c997cc3fb460929b357fa5))
+* **web:** thread onMovida through GrupoMovimientos + GrupoMovimientos.test.tsx scaffold (D-07) ([603a33d](https://github.com/Juargo/MoneyDiary/commit/603a33d18e25b691dac935c5b1bb3dc1a112a479))
+* **web:** US-054 PR1 — ingresos-mes client plumbing + domain helpers ([d1af23a](https://github.com/Juargo/MoneyDiary/commit/d1af23a04957c8d88c261b2e57c6b5cab1d1c4cb))
+* **web:** US-054 PR2 — IngresosMes page, table, route and a11y gate ([6cdc8e1](https://github.com/Juargo/MoneyDiary/commit/6cdc8e12eac3df59d09c3bf5048896c2a91dd86d))
+* **web:** US-054 PR3 — dashboard legend flip, PeriodoSelector rename and e2e ([f24c845](https://github.com/Juargo/MoneyDiary/commit/f24c8452a8c5e9f1d029e099d5419ce1be13e3b7))
+* **web:** US-055 — reclassify hardening on the MES-BUCKET page ([d87c592](https://github.com/Juargo/MoneyDiary/commit/d87c59271123cf3c48fbba5616f67168cc24e619))
+* **web:** US-059 PR1 — canonical preview guard, postCommitIngesta, useCommitIngesta ([2d27c5f](https://github.com/Juargo/MoneyDiary/commit/2d27c5f78d029dc328727313daac33061e0ee901))
+* **web:** US-059 PR2 — FilaRevision + PreviewMuestra editable review table ([0513581](https://github.com/Juargo/MoneyDiary/commit/0513581bf01bd8bc17b834f6e53526c57b6ea975))
+* **web:** US-059 PR3 — preview→review→commit flow switch on /subir ([74dafdd](https://github.com/Juargo/MoneyDiary/commit/74dafdd098396a2a6882cef5cc53b95c2340c146))
+* **web:** wire buckets route to grouped detail page (US-053, T-10/T-11) ([a30bb7c](https://github.com/Juargo/MoneyDiary/commit/a30bb7c0645925a3ffce0492b73c86acb373b3fd))
+* **web:** wire the real 4-item ring into ResumenScreen and add SemaforoTag ([5fe3e32](https://github.com/Juargo/MoneyDiary/commit/5fe3e3280d7665879a90d864a76d7f25e5f89f62))
+
+
+### Bug Fixes
+
+* **web:** accessible group landmark and highlight signal (US-053) ([f2a7622](https://github.com/Juargo/MoneyDiary/commit/f2a76224fa38ab8dc142e6b88dddd0dc657e904e))
+* **web:** carry destacar literal through the search type (US-053, T-20) ([dde9b0e](https://github.com/Juargo/MoneyDiary/commit/dde9b0ec63242a938d6315901d00adbd56a18ede))
+* **web:** close semáforo DTO guard completeness gap (WG5-05 recurrence) ([4426f70](https://github.com/Juargo/MoneyDiary/commit/4426f7053b6d095607c0c0c0879364a56b9917c0))
+* **web:** heading skip + WSEM-05/WSEM-03 test gaps in semáforo detail ([0bc62d7](https://github.com/Juargo/MoneyDiary/commit/0bc62d70f02bd4bad0daebc23c047c96939d6578))
+* **web:** keep annual minis on 3-slice interim distribution, pin renormalized 44/28/28 ([6a123c9](https://github.com/Juargo/MoneyDiary/commit/6a123c96beab92ba2848a7aff0d4d5335a55a7c4))
+* **web:** keep destacar across month changes in bucket page (US-053) ([9c7f7e5](https://github.com/Juargo/MoneyDiary/commit/9c7f7e5d76ec337a63b41050521dcd08559cce9a))
+* **web:** make donut hole opt-in and restore US-047 a11y coverage ([4bebe77](https://github.com/Juargo/MoneyDiary/commit/4bebe77d6a003f98eadb001a8e7bc020be934130))
+* **web:** prevent duplicate SinCategoria legend row on 4-item distribucionGasto ([b802a99](https://github.com/Juargo/MoneyDiary/commit/b802a99ae8aa9004d14a2d7680e2f3654f1353ef))
+* **web:** renormalize interim 3-item distribucionGasto instead of filtering ([62a5dc0](https://github.com/Juargo/MoneyDiary/commit/62a5dc016872b137a0b11dc97c8f4028c2dc2bb9))
+* **web:** reset group expansion across month changes (US-053) ([1017502](https://github.com/Juargo/MoneyDiary/commit/10175027202fee99cfc209b0d07aca3ac2c5c7e5))
+* **web:** ui-only bucket select, banco header, valid dl, shared fixtures (US-059 PR2 review) ([5a0f91c](https://github.com/Juargo/MoneyDiary/commit/5a0f91cf861e953baa15ab93187fc7bf3849695c))
+
+
+### Refactors
+
+* **web:** clean stale docstring references (US-053, T-23) ([3715517](https://github.com/Juargo/MoneyDiary/commit/371551796faa67bfabeb745f68b394f25d1e7891))
+* **web:** delete flat detail chain, rename invalidation keys (US-053, T-18/T-19) ([12eed5a](https://github.com/Juargo/MoneyDiary/commit/12eed5ac7317258e9a12c4bf5063e2bcf0a42d23))
+* **web:** derive Sin categoría from ring constant (US-053) ([a7b4506](https://github.com/Juargo/MoneyDiary/commit/a7b450683dba61919c636bf8dc6955bdc734d524))
+* **web:** extract aPorcentajeLabel into shared domain/porcentaje.ts ([4802bde](https://github.com/Juargo/MoneyDiary/commit/4802bde65ebafdcc3b2644a16fe6d5c6087fa26f))
+* **web:** extract estado-&gt;style table into lib/semaforo-estilos.ts ([ca64d02](https://github.com/Juargo/MoneyDiary/commit/ca64d021531459c5699ea158db8f783374a3c082))
+* **web:** re-home esFechaValida and CLAVE_SIN_CATEGORIA to domain (US-053, T-16/T-17) ([34bd978](https://github.com/Juargo/MoneyDiary/commit/34bd978d8f09a1a9495ae72d7ba511b5b85e9cff))
+* **web:** refresh retry docblock in bucket page (US-053, T-23) ([8dde413](https://github.com/Juargo/MoneyDiary/commit/8dde41314c6647fee06d292d9ea7bd7d6617d333))
+* **web:** remove dead default-selection view-model code (US-053) ([93d681e](https://github.com/Juargo/MoneyDiary/commit/93d681e257ad4741071508fb694e8808cd725102))
+
+
+### Documentation
+
+* **mobile,web:** fix stale money-guard docstrings ([4ecc262](https://github.com/Juargo/MoneyDiary/commit/4ecc262775d7220ecc01a29ef0df98946473445f))
+* **web:** reword stale aFechaLabel docblock references (US-054 PR1) ([8e4c518](https://github.com/Juargo/MoneyDiary/commit/8e4c518d2ef812e96b64954bb0ebd7247a61a890))
+* **web:** truthful mechanism notes and real fix-round sha in us-055 ledger ([6fe487a](https://github.com/Juargo/MoneyDiary/commit/6fe487ab6aa631c857f46f6b2da0aa9c97679ef3))
+
 ## [0.2.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.1.0...web-v0.2.0) (2026-08-15)
 
 
