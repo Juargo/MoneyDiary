@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -228,6 +229,7 @@ describe('FilaRevision', () => {
     const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
     await userEvent.selectOptions(bucketSelect, 'Deseos');
 
+    expect(onEditChange).toHaveBeenCalledTimes(1);
     expect(onEditChange).toHaveBeenCalledWith(2, null);
   });
 
@@ -310,15 +312,16 @@ describe('FilaRevision', () => {
     expect(onEditChange).toHaveBeenLastCalledWith(2, null);
   });
 
-  // bucketUI seeds from sugerido.bucket when present in catalog groups (D-06)
-  it('seeds bucketUI from sugerido.bucket when it exists among catalog groups', () => {
+  // Priority 2: bucketUI seeds from sugerido.bucket when no edited categoriaId (categoriaId=null)
+  it('seeds bucketUI from sugerido.bucket when it exists among catalog groups (no edited categoría — Priority 2)', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({
           rowIndex: 2,
           sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
         })}
-        categoriaId={'cat-nec-1'}
+        // categoriaId=null → no user edit; sugerido.bucket is the seed (Priority 2)
+        categoriaId={null}
         catalogo={catalogoListo}
         onEditChange={vi.fn()}
       />,
@@ -349,6 +352,48 @@ describe('FilaRevision', () => {
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
+  });
+
+  // Controlled-flow tripwire: documents the PR3 contract.
+  // The parent MUST be controlled (re-render on edit) for un-assignment to work —
+  // PR3's SubirCartola wiring satisfies this.
+  it('controlled-flow tripwire: bucket change after categoría was set (via controlled parent) fires onEditChange(rowIndex, null)', async () => {
+    // Stateful wrapper that feeds categoriaId back as a controlled prop,
+    // mirroring how SubirCartola's edits Map drives FilaRevision in PR3.
+    const onEditChange = vi.fn();
+
+    function Controlled() {
+      const [editedId, setEditedId] = React.useState<string | null>(null);
+      function handleEditChange(rowIndex: number, catId: string | null) {
+        setEditedId(catId);
+        onEditChange(rowIndex, catId);
+      }
+      return (
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={editedId}
+          catalogo={catalogoListo}
+          onEditChange={handleEditChange}
+        />
+      );
+    }
+
+    render(<Controlled />);
+
+    // Step 1: select bucket — no call (categoriaId is null, fix 1a)
+    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    expect(onEditChange).not.toHaveBeenCalled();
+
+    // Step 2: select categoría X — fires (2, 'cat-nec-1'); prop becomes non-null on re-render
+    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
+    await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
+    expect(onEditChange).toHaveBeenCalledWith(2, 'cat-nec-1');
+
+    // Step 3: change bucket again — categoriaId prop is now 'cat-nec-1' (non-null),
+    // so the bucket change must fire onEditChange(2, null) to clear the prior choice
+    await userEvent.selectOptions(bucketSelect, 'Deseos');
+    expect(onEditChange).toHaveBeenCalledWith(2, null);
   });
 
   // When sugerido.bucket is NOT among groups, bucketUI starts empty, categoría disabled

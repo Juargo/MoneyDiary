@@ -20,21 +20,13 @@ export function unaFilaPreview(
   };
 }
 
-export function unResumen(
-  overrides: Partial<{
-    totalFilas: number;
-    duplicadosDetectados: number;
-    nuevas: number;
-  }> = {},
-): { totalFilas: number; duplicadosDetectados: number; nuevas: number } {
-  return {
-    totalFilas: 1,
-    duplicadosDetectados: 0,
-    nuevas: 1,
-    ...overrides,
-  };
-}
-
+/**
+ * Returns a default `CatalogoEstado` in the `listo` state with two groups
+ * (Necesidades + Deseos) and one category each.
+ *
+ * @param overrides Shallow-merged into the default object. Passing `grupos`
+ * REPLACES the default array entirely — there is no deep merge.
+ */
 export function unCatalogo(
   overrides: Partial<Extract<CatalogoEstado, { tag: 'listo' }>> = {},
 ): CatalogoEstado {

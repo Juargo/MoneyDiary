@@ -194,8 +194,9 @@ describe('SubirCartola', () => {
 
     // D-08: banco rendered in PreviewMuestra header
     expect(screen.getByText('BancoEstado')).toBeInTheDocument();
-    // resumen.totalFilas=1 rendered in header (appears in multiple dd cells — use getAllByText)
-    expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+    // resumen.totalFilas=1 and nuevas=1 both render as '1' in separate <dd> cells
+    // (totalFilas dd + nuevas dd — duplicadosDetectados=0 renders as '0')
+    expect(screen.getAllByText('1')).toHaveLength(2);
     // row descripcion and cargo rendered
     expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
     expect(screen.getByText('$50.000')).toBeInTheDocument();

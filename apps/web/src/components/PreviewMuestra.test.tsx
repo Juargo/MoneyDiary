@@ -219,9 +219,11 @@ describe('PreviewMuestra', () => {
     // Rows still render
     expect(screen.getByText('Fila bajo error')).toBeInTheDocument();
     // An inline catalog-error affordance is present
-    expect(
-      screen.getByText(/no se pudo cargar el catálogo/i),
-    ).toBeInTheDocument();
+    const errorEl = screen.getByText(/no se pudo cargar el catálogo/i);
+    expect(errorEl).toBeInTheDocument();
+    // Mirrors the "nada se ha guardado" role test: error affordance is a plain <p>,
+    // not a live-region (no role="status")
+    expect(errorEl).not.toHaveAttribute('role', 'status');
   });
 
   // No pagination controls (decision 4, WEB-PRV-02)
