@@ -60,7 +60,7 @@ Amounts MUST be scrubbed from every error message (domain layer and HTTP 400 bou
 - WHEN the domain factory validates the movement
 - THEN validation returns `Result.fail`
 
-#### Scenario: monto at or above `Number.MAX_SAFE_INTEGER` is overflow-guarded
+#### Scenario: monto exceeding `Number.MAX_SAFE_INTEGER` is overflow-guarded
 
 - GIVEN `monto` as a string whose numeric value exceeds `Number.MAX_SAFE_INTEGER`
 - WHEN the domain factory validates the movement
