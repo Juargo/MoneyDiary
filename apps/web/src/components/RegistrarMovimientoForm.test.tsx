@@ -469,6 +469,36 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
   });
 
+  it('CA-05: Gasto with bucket at sentinel fails pre-validation, no fetch, alert shown', async () => {
+    const mutateSpy = vi.fn();
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    const hoy = hoyLocal();
+
+    await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
+    // Leave bucket at sentinel (do NOT select a bucket)
+
+    fireEvent.change(screen.getByLabelText(/fecha/i), {
+      target: { value: hoy },
+    });
+    await user.type(
+      screen.getByLabelText(/descripci[oó]n/i),
+      'Test gasto sin bucket',
+    );
+    await user.type(screen.getByLabelText(/monto/i), '3000');
+
+    await user.click(
+      screen.getByRole('button', { name: /guardar|registrar|enviar/i }),
+    );
+
+    expect(mutateSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Seleccioná un bucket válido.',
+    );
+  });
+
   it('CA-05: mutation error shows fixed message, ALL fields preserved', async () => {
     let capturedOnError: ((err: ApiError) => void) | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

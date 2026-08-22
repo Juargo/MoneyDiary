@@ -69,6 +69,13 @@ function esBucketAsignable(v: string): v is BucketAsignable {
   return (BUCKETS_ASIGNABLES as readonly string[]).includes(v);
 }
 
+/** Type predicate: narrows a string to TipoMovimiento (D-07, no `as` assertions). */
+function esTipoMovimiento(v: string): v is TipoMovimiento {
+  return (OPCIONES_TIPO as readonly { value: string }[]).some(
+    (o) => o.value === v,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -147,7 +154,9 @@ export function RegistrarMovimientoForm({
    * construirBody's structural guarantee).
    */
   function handleTipoChange(nuevo: string) {
-    setTipo(nuevo as TipoMovimiento);
+    // Silently ignore values not in OPCIONES_TIPO (unreachable via bound select).
+    if (!esTipoMovimiento(nuevo)) return;
+    setTipo(nuevo);
     setBucketUI('');
     setCategoriaId('');
     // Clear any cascade errors when switching tipo.
@@ -399,7 +408,7 @@ export function RegistrarMovimientoForm({
         Ir al dashboard
       </a>
 
-      {/* Success feedback region (aria-live="polite" + role="status", D-10, PerfilForm idiom) */}
+      {/* Success feedback region (aria-live="polite" + role="status", D-10, SubirCartola/ListaIngestas/CategoriasPanel pattern) */}
       <div
         role="status"
         aria-live="polite"
