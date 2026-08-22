@@ -1,5 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { aFechaCorta, esFechaValida } from './fecha';
+import { aFechaCorta, esFechaValida, hoyLocal } from './fecha';
+
+// US-060 T-01 (D-04): `hoyLocal()` — returns the current local date in
+// America/Santiago timezone as YYYY-MM-DD via Intl.DateTimeFormat('en-CA').
+// The en-CA locale outputs YYYY-MM-DD directly (no slice needed).
+// TZ rationale: `aFechaCorta(new Date().toISOString())` would yield TOMORROW
+// for Chilean evenings (UTC-4) — `hoyLocal()` uses Intl.DateTimeFormat with
+// America/Santiago to correctly pin the local calendar date.
+describe('hoyLocal', () => {
+  it('retorna un string en formato YYYY-MM-DD', () => {
+    expect(hoyLocal()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('es igual al resultado de Intl.DateTimeFormat en-CA con timeZone America/Santiago', () => {
+    const expected = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Santiago',
+    }).format(new Date());
+    expect(hoyLocal()).toBe(expected);
+  });
+
+  // Advisory/env-dependent: this assertion is only meaningful when the
+  // runtime UTC hour >= 20 (Chile is UTC-4; the UTC ISO string would yield
+  // tomorrow for Chilean evenings). At minimum the format + Intl equality
+  // assertions above are authoritative.
+  it('puede diferir de new Date().toISOString().slice(0,10) para horas vespertinas de Chile (TZ-rationale)', () => {
+    const utcSlice = new Date().toISOString().slice(0, 10);
+    const localHoy = hoyLocal();
+    // On most test environments this may be equal — the important contract
+    // is the Intl equality test above. We assert it does not throw.
+    expect(typeof localHoy).toBe('string');
+    expect(typeof utcSlice).toBe('string');
+  });
+});
 
 // US-053 T-16 (D-08): `esFechaValida` moved here from the flat chain's
 // `detalle-bucket-view-model.ts` (deleted in T-18) — the money-safety

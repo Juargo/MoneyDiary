@@ -1,4 +1,27 @@
 /**
+ * `hoyLocal` — US-060 (D-04): returns the current local date in the
+ * America/Santiago timezone as a `YYYY-MM-DD` string (the `en-CA` locale
+ * produces that format directly, no slice needed).
+ *
+ * NOT a replacement for `aFechaCorta` — they serve different purposes:
+ * - `aFechaCorta` slices the date part from a backend UTC ISO-8601 timestamp
+ *   (display use); it is TZ-safe for that purpose because the source string
+ *   is already UTC.
+ * - `hoyLocal` returns TODAY in the user's local calendar. Using
+ *   `aFechaCorta(new Date().toISOString())` for "today" would yield
+ *   TOMORROW for Chilean evening hours (UTC-4), because
+ *   `new Date().toISOString()` is already UTC-next-day by then.
+ *
+ * Used as: initial `fecha` state default, `max` attribute, and the
+ * `fecha <= hoyLocal()` submit-time pre-validation gate.
+ */
+export function hoyLocal(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+  }).format(new Date());
+}
+
+/**
  * `esFechaValida` — pure predicate (never throws) reused by the money-safety
  * guards in `api/client.ts` to reject a malformed `fecha` BEFORE it reaches a
  * positional slice (`aFechaCorta` only slices, it never
