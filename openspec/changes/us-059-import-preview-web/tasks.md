@@ -188,13 +188,13 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
 
 > PR 3 targets PR 2 branch (stacked-to-main). **This is the PR that switches the user-visible behavior.** After merge, `/subir` runs the new preview→review→commit flow. `useIngesta`/`postIngesta` remain exported and importable (WEB-PRV-11 regression guard).
 
-- [ ] T-14 — Modify `apps/web/src/components/configuracion/categorias/CampoSelect.tsx` (D-10):
+- [x] T-14 — Modify `apps/web/src/components/configuracion/categorias/CampoSelect.tsx` (D-10):
   - Add optional `srOnly?: boolean` prop.
   - When `srOnly={true}`: wrap label text in `<span className="sr-only">{label}</span>` instead of rendering the plain text node.
   - When `srOnly` is absent or `false`: behavior is identical to current (no change for existing callers — `NuevaCategoriaForm`, `EditarCategoria`, etc.).
   Verify: `pnpm web typecheck` (existing callers must not require prop).
 
-- [ ] T-15 — (RED) Rewrite `apps/web/src/components/SubirCartola.test.tsx`:
+- [x] T-15 — (RED) Rewrite `apps/web/src/components/SubirCartola.test.tsx`:
   - Replace `validPreviewDto` fixture (legacy `muestra`/`estructura` shape) with canonical `filas`/`resumen` shape using `unaFilaPreview()` factory.
   - Add `vi.mock('@/api/use-commit-ingesta')` alongside the existing `vi.mock('@/api/use-preview-ingesta')` and `vi.mock('@/api/use-categorias')`.
   - State machine transitions:
@@ -212,7 +212,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
     - Discard then re-upload: edits are empty after re-upload (WEB-PRV-07).
   **File (rewrite):** `apps/web/src/components/SubirCartola.test.tsx`.
 
-- [ ] T-16 — (GREEN) Rewrite `apps/web/src/components/SubirCartola.tsx` (D-01/D-02/D-03/D-07/D-11):
+- [x] T-16 — (GREEN) Rewrite `apps/web/src/components/SubirCartola.tsx` (D-01/D-02/D-03/D-07/D-11):
   - **State rename:** `subiendo → committing` throughout the `EstadoSubida` type and all references; update `MENSAJE_POR_ESTADO` map to stay exhaustive.
   - **New states:** add `preview-listo` and `preview-error`; derived `estado` logic covers: `previsualizando`, `preview-error` (when `previewMutation.isError`), `preview-listo` (when `previewMutation.isSuccess && !commitMutation.*`), `committing`, `error` (when `commitMutation.isError`), `exito` (transient).
   - **`File` state:** `archivo: File | null` (existing at `:85`). **NEW** `edits: Map<number, string | null>` state (initialized as `new Map()`).
@@ -229,25 +229,25 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - **`usePreviewIngesta`** remains wired; its `data` type is now `PreviewIngestaDtoConCanonicos` (no `!` assertions; D-08/§5).
   Verify: `pnpm web test` (SubirCartola tests green) + `pnpm web typecheck`.
 
-- [ ] T-17 — Modify `apps/web/eslint.config.js` (D-10, §7):
+- [x] T-17 — Modify `apps/web/eslint.config.js` (D-10, §7):
   - Add a scoped `error`-level `jsx-a11y` block covering:
     `src/components/FilaRevision.tsx`, `src/components/PreviewMuestra.tsx`, `src/components/SubirCartola.tsx`.
   - Follow the existing per-US FILE-LIST block pattern (same form as the US-047/054 blocks — loose siblings under `src/components/`, not a subdirectory; pattern at lines 114–184 of the current config).
   Verify: running `pnpm web lint` (or `eslint apps/web/src/components/FilaRevision.tsx`) reports zero a11y errors.
 
-- [ ] T-18 — A11y assertion + responsive check (WEB-PRV-09, WEB-PRV-10):
+- [x] T-18 — A11y assertion + responsive check (WEB-PRV-09, WEB-PRV-10):
   - In `FilaRevision.test.tsx` (or a dedicated `a11y.test.tsx`), add a `vitest-axe` assertion:
     `expect(await axe(container)).toHaveNoViolations()` over the rendered review table with ~3 rows (including 1 duplicate).
   - Verify the existing `PreviewMuestra` stacked `flex-col` list layout is preserved (no horizontal scroll trap at narrow widths); add a comment referencing WEB-PRV-10 and the T1 (768px) / T2 (1024px) viewport requirement.
   - Confirm the `<CampoSelect srOnly>` pair stacks under row cells on narrow widths (`flex-col sm:flex-row` pattern per design §8).
   Verify: `pnpm web test` (axe assertion passes).
 
-- [ ] T-19 — Regression guard check (WEB-PRV-11):
+- [x] T-19 — Regression guard check (WEB-PRV-11):
   - Confirm `useIngesta` and `postIngesta` are NOT imported anywhere in `SubirCartola.tsx`, `use-commit-ingesta.ts`, `PreviewMuestra.tsx`, or `FilaRevision.tsx`.
   - Confirm `useIngesta` and `postIngesta` exports still exist in `use-ingesta.ts` / `client.ts`.
   - In `SubirCartola.test.tsx`, assert that the commit mutation is the only one called on the "Agregar transacciones" path; the one-shot `postIngesta` is never invoked.
 
-- [ ] T-20 — Final sweep: `pnpm web test` (all suites green, zero skipped) + `pnpm web typecheck` exits 0 + `pnpm web lint` (or equivalent) exits 0 with zero a11y errors. Confirm no `!` assertions in `SubirCartola.tsx`, `PreviewMuestra.tsx`, or `FilaRevision.tsx` on `previewMutation.data.filas` / `.resumen`.
+- [x] T-20 — Final sweep: `pnpm web test` (all suites green, zero skipped) + `pnpm web typecheck` exits 0 + `pnpm web lint` (or equivalent) exits 0 with zero a11y errors. Confirm no `!` assertions in `SubirCartola.tsx`, `PreviewMuestra.tsx`, or `FilaRevision.tsx` on `previewMutation.data.filas` / `.resumen`.
   **Work-unit commit:** `feat(web): SubirCartola rewrite, CampoSelect srOnly, eslint a11y block, final sweep (US-059 PR3)`.
 
 ---

@@ -192,6 +192,22 @@ export default defineConfig([
     files: ['src/components/ReclasificarCategoriaControl.tsx'],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-059 (D-10, WEB-PRV-09). Same FILE-LIST form as the
+  // US-047/048/049/053/054/055 blocks above: `FilaRevision`, `PreviewMuestra`,
+  // and `SubirCartola` are loose siblings directly under `src/components/`,
+  // not their own subdirectory — globbing `src/components/**` here would
+  // absorb the app's pre-existing a11y debt (the exact blast radius the
+  // app-wide `warn` exists to avoid). The per-row `srOnly` labels (D-10) are
+  // the primary a11y obligation: `jsx-a11y` at error level catches any
+  // regression before merge.
+  {
+    files: [
+      'src/components/FilaRevision.tsx',
+      'src/components/PreviewMuestra.tsx',
+      'src/components/SubirCartola.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so
