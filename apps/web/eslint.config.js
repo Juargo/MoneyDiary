@@ -208,6 +208,22 @@ export default defineConfig([
     ],
     extends: [jsxA11y.flatConfigs.recommended],
   },
+  // Scoped ERROR — US-060 (D-14, WEB-REG-11). Same FILE-LIST form as the
+  // US-047/048/049/053/054/055/059 blocks above: `RegistrarMovimientoForm` is
+  // a loose sibling directly under `src/components/`, not its own subdirectory
+  // — globbing `src/components/**` here would absorb the app's pre-existing
+  // a11y debt (the exact blast radius the app-wide `warn` exists to avoid).
+  // The route entry stays a PATTERN (`registrar*.tsx`, same precedent as
+  // `configuracion*.tsx`/`semaforo*.tsx`/`buckets*.tsx`/`ingresos*.tsx`),
+  // covering `registrar.tsx` and any future sibling route file under
+  // `/_authenticated/registrar/*` — gated before it's authored.
+  {
+    files: [
+      'src/components/RegistrarMovimientoForm.tsx',
+      'src/routes/_authenticated/registrar*.tsx',
+    ],
+    extends: [jsxA11y.flatConfigs.recommended],
+  },
   // Prettier as an ESLint rule (parity with apps/api, ADR-020). Runs LAST so
   // eslint-config-prettier turns off conflicting stylistic rules and the
   // `prettier/prettier` rule wins. `endOfLine: 'auto'` mirrors apps/api so

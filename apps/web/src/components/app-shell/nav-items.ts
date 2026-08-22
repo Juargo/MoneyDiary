@@ -2,6 +2,7 @@ import {
   Files,
   HelpCircle,
   LayoutDashboard,
+  PencilLine,
   Settings,
   Upload,
   type LucideIcon,
@@ -54,6 +55,7 @@ export type NavItemModel =
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
   { kind: 'link', label: 'Subir nuevo archivo', to: '/subir', icon: Upload },
+  { kind: 'link', label: 'Registrar', to: '/registrar', icon: PencilLine },
   { kind: 'link', label: 'Gestionar cartolas', to: '/ingestas', icon: Files },
   {
     kind: 'link',
