@@ -64,7 +64,7 @@ Amounts MUST be scrubbed from every error message (domain layer and HTTP 400 bou
 
 - GIVEN `monto` as a string whose numeric value exceeds `Number.MAX_SAFE_INTEGER`
 - WHEN the domain factory validates the movement
-- THEN validation returns `Result.fail` with an overflow error (same guard as `transaccion.mapper.ts`)
+- THEN validation returns `Result.fail` with an overflow error (guard established in `MovimientoManual.crear`, D-01-a)
 
 #### Scenario: Empty descripcion is rejected
 
