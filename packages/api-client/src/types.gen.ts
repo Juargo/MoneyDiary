@@ -1130,7 +1130,7 @@ export interface paths {
                          * @enum {string}
                          */
                         readonly bucket: "Necesidades" | "Deseos" | "Ahorro";
-                        /** @description Required for Gasto. Must belong to the calling user catalog AND map to the supplied bucket (CategoriaFueraDeCatalogoError / BucketCategoriaNoConcuerdaError => 400). */
+                        /** @description Required for Gasto. Must be a non-empty string belonging to the calling user catalog AND map to the supplied bucket (CategoriaFueraDeCatalogoError / BucketCategoriaNoConcuerdaError => 400). */
                         readonly categoriaId: string;
                         readonly descripcion: string;
                         /** @description Date of the movement, YYYY-MM-DD. */

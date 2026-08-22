@@ -199,13 +199,13 @@ Chain strategy: stacked-to-main
 
 - [x] T-14 — (RED+GREEN) Create `apps/api/src/infrastructure/http/dto/movimiento-manual.dto.ts` (D-12):
   - `RegistrarMovimientoManualResponseDto` interface: `{ id, fecha (ISO string), descripcion, cargo (string), abono (string), bucket (string), categoriaId (string | null), origen: 'Manual' }`.
-  - `aRegistrarMovimientoManualResponseDto(vo: MovimientoManual, id: string): RegistrarMovimientoManualResponseDto`: maps from the in-memory VO (`vo.transaccion.descripcion` is the plaintext string — already in memory); NO DB read-back, NO decrypt round-trip; `cargo` and `abono` as BigInt-safe strings.
-  Write spec first: `apps/api/src/infrastructure/http/dto/movimiento-manual.dto.spec.ts` — covers mapper correctness (Ingreso: `cargo="0"`, `abono=montoStr`, `categoriaId=null`, `origen='Manual'`; Gasto: correct bucket string; BigInt → string serialization).
+  - `aRegistrarMovimientoManualResponseDto(vo: MovimientoManual, id: string, categoriaId?: string | null, bucket?: string): RegistrarMovimientoManualResponseDto`: maps from the in-memory VO (`vo.transaccion.descripcion` is the plaintext string — already in memory); NO DB read-back, NO decrypt round-trip; `cargo` and `abono` as BigInt-safe strings. For Ingreso rows `bucket` defaults to `"Ingreso"` and `categoriaId` to `null`; for Gasto rows both MUST be supplied — the function throws at runtime if `bucket` is omitted or empty on a Gasto VO (guards the dangerous-default pattern, PR3 review).
+  Write spec first: `apps/api/src/infrastructure/http/dto/movimiento-manual.dto.spec.ts` — covers mapper correctness (Ingreso: `cargo="0"`, `abono=montoStr`, `categoriaId=null`, `origen='Manual'`; Gasto: correct bucket string; BigInt → string serialization; runtime guard throws on Gasto without bucket).
 
 - [x] T-15 — (RED+GREEN) Create `apps/api/src/infrastructure/http-express/schemas/movimiento-manual.schema.ts` (D-12):
   - Zod **discriminated union** on `tipo`:
     - Ingreso variant: `.strict()` — rejects stray `bucket` or `categoriaId` fields (Q3 resolution: fail-closed on malformed request, consistent with fail-closed boundary doctrine).
-    - Gasto variant: requires `bucket` ∈ `{Necesidades, Deseos, Ahorro}` + `categoriaId: z.string()`.
+    - Gasto variant: requires `bucket` ∈ `{Necesidades, Deseos, Ahorro}` + `categoriaId: z.string().min(1)` (shape constraint — empty string is not a valid id at the transport layer).
   - `monto` as `z.string()` (BigInt-safe; JSON number ⇒ 400).
   - `fecha` as `z.string().regex(/^\d{4}-\d{2}-\d{2}$/)` — SHAPE ONLY (layer-honesty; `fecha ≤ today` business rule stays in domain, D-01/D-02).
   Write spec first: `apps/api/src/infrastructure/http-express/schemas/movimiento-manual.schema.spec.ts` — covers: Ingreso with stray `bucket`/`categoriaId` ⇒ `.strict()` 400; Gasto missing `bucket` ⇒ 400; `monto` as JSON number ⇒ 400; valid Ingreso parses; valid Gasto parses.
