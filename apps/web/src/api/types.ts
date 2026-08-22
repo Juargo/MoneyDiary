@@ -333,3 +333,16 @@ export type {
   IngresosMesDto,
   TransaccionIngresosMesDto,
 } from '@moneydiary/api-client';
+
+/**
+ * `RegistrarMovimientoManualDto` — POST /api/movimientos 201 response (US-060,
+ * D-06/WEB-REG-10). The persisted manual movement returned by the backend after
+ * a successful registration. Amounts are BigInt-safe strings; `origen` is always
+ * `"Manual"`. Used as the `useMutation` success type in `use-registrar-movimiento.ts`.
+ *
+ * `RegistrarMovimientoManualInput` (the request type alias) is NOT re-exported
+ * here — it lives in `movimientos.ts` only, following the `CategoriaInput`/
+ * `PatronInput` co-location precedent (`categorias.ts`) — request types are
+ * co-located with their client fn and not relayed through the barrel (D-06).
+ */
+export type { RegistrarMovimientoManualDto } from '@moneydiary/api-client';
