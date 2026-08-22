@@ -257,7 +257,7 @@ Chain strategy: stacked-to-main
 
 Requires: local ephemeral DB running (T-00 pre-flight).
 
-- [ ] T-23 — (RED+GREEN) Write integration tests in `apps/api/test/` (follow existing integration file naming convention). All tests run against local ephemeral Postgres (`ALLOW_DESTRUCTIVE_DB=1`). Group by named describe blocks:
+- [x] T-23 — (RED+GREEN) Write integration tests in `apps/api/test/` (follow existing integration file naming convention). All tests run against local ephemeral Postgres (`ALLOW_DESTRUCTIVE_DB=1`). Group by named describe blocks:
 
   - **MAN-01 / MAN-03 domain validation end-to-end:** `POST /api/movimientos` with future `fecha` ⇒ 400; `monto="0"` ⇒ 400; `monto="12.50"` ⇒ 400; `descripcion=""` ⇒ 400; all scrubbed (no raw amount in body). Gasto with missing `bucket` ⇒ 400. Amounts MUST NOT appear in any error response body.
 
@@ -277,14 +277,14 @@ Requires: local ephemeral DB running (T-00 pre-flight).
 
   - **ISO-01 / ISO-02 user isolation:** user B's `POST /api/movimientos` uses user B's `userId` exclusively; persisted row belongs to B; user A's resumen for period M is unchanged after B registers a manual movement in period M. User B cannot register into user A's space. Unauthenticated request (`POST /api/movimientos` with no session token) ⇒ 401 (middleware enforced before handler).
 
-- [ ] T-24 — Create new ADR `docs/adr/ADR-039-manual-movements-origen.md` (or the next sequential ADR number at time of apply, verifying `docs/adr/README.md` to confirm):
+- [x] T-24 — Create new ADR `docs/adr/ADR-039-manual-movements-origen.md` (or the next sequential ADR number at time of apply, verifying `docs/adr/README.md` to confirm):
   - **Amends ADR-026**: a `Transaccion` is no longer always ingesta-born. The manual origin path uses a per-user sentinel `Account(banco='Manual')` + `origen String?` column + nullable `ingestaId` (approach C, US-058).
   - Documents the `origen`/`ingestaId` pairing invariant (C-a semantics: `null = ingesta-born`, `'Manual' = manual`) and the DB-level CHECK constraint (`Transaccion_origen_ingesta_consistency`).
   - Documents delete-immunity guarantee (SQL three-valued logic: `NULL = <cuid>` is NULL, never TRUE).
   - Status: Accepted. This ADR is REQUIRED per §6 — not optional.
   - Update `docs/adr/README.md` to add the new ADR row.
 
-- [ ] T-25 — Full sweep: `pnpm api test` + `pnpm api test:integration` + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0 + `pnpm api lint:ci` (if available in workspace).
+- [x] T-25 — Full sweep: `pnpm api test` + `pnpm api test:integration` + `pnpm api exec tsc --noEmit` + `pnpm api openapi:check` exit 0 + `pnpm api lint:ci` (if available in workspace).
   **Work-unit commit:** `feat(api): integration tests, migration CHECK, Origen truthy-branch, ADR (US-058 PR4)`.
 
 ---
