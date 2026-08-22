@@ -29,7 +29,7 @@ Invariants:
 | `tipo` | MUST be one of `{Ingreso, Gasto}` |
 | `fecha` | MUST be ≤ today (ISO date); future dates MUST fail with a 400 |
 | `descripcion` | MUST be present and non-empty; max length follows repo precedent |
-| `monto` | MUST be a positive integer expressed as a BigInt-safe string; MUST be > 0; MUST NOT be a float; MUST be overflow-guarded at the `number → BigInt` boundary via the same guards used in `transaccion.mapper.ts` |
+| `monto` | MUST be a positive integer expressed as a BigInt-safe string; MUST be > 0; MUST NOT be a float; MUST be overflow-guarded at the `number → BigInt` boundary via the overflow guard established in `MovimientoManual.crear` (D-01-a; `transaccion.mapper.ts` has no such guard — it is a `bigint→bigint` passthrough) |
 | `cargo / abono` | Derived from `tipo` — Ingreso: `{abono=monto, cargo=0}`; Gasto: `{cargo=monto, abono=0}` |
 
 Amounts MUST be scrubbed from every error message (domain layer and HTTP 400 boundary).
