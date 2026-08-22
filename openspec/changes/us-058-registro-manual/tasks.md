@@ -124,7 +124,7 @@ Chain strategy: stacked-to-main
   - Does NOT extend or reuse `TransaccionAPersistir` or `IIngestaRepository`.
   Verify: `pnpm api exec tsc --noEmit`.
 
-- [ ] T-09 — (RED) Write unit tests for `RegistrarMovimientoManualUseCase` (D-09/D-10/D-11):
+- [x] T-09 — (RED) Write unit tests for `RegistrarMovimientoManualUseCase` (D-09/D-10/D-11):
   - **Ingreso happy path:** `CategorizarTransaccionUseCase` NOT invoked (assert via spy/no collaborator); catalog repo NOT called; result `{ bucket: Bucket.Ingreso, categoriaId: null }`; writer.asegurarCuentaManual called with `userId`; writer.registrar called once with correct payload.
   - **Gasto happy path:** catalog loaded, categoriaId in set, bucket matches; writer.registrar called with `{ bucket: requestedBucket, categoriaId }`.
   - **Gasto: categoriaId ∉ catalog set ⇒ `CategoriaFueraDeCatalogoError`; writer.registrar NOT called.**
@@ -137,7 +137,7 @@ Chain strategy: stacked-to-main
   - **Exhaustive `never` guard compiles (error union: `MovimientoManualInvalidoError | CategoriaFueraDeCatalogoError | BucketCategoriaNoConcuerdaError | PersistenciaFallidaError`).**
   **File (test first):** `apps/api/src/application/use-cases/registrar-movimiento-manual.use-case.spec.ts`.
 
-- [ ] T-10 — (GREEN) Create `apps/api/src/application/use-cases/registrar-movimiento-manual.use-case.ts` (D-11):
+- [x] T-10 — (GREEN) Create `apps/api/src/application/use-cases/registrar-movimiento-manual.use-case.ts` (D-11):
   - `execute({ userId, tipo, fecha, descripcion, monto, bucket?, categoriaId? })`.
   - Algorithm (binding, D-11):
     1. `MovimientoManual.crear(...)` → fail-fast on bad money/fecha/descripcion.
@@ -185,7 +185,7 @@ Chain strategy: stacked-to-main
   Run `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **Atomic commit:** `feat(api): migration relax ingestaId, sentinel adapter, origen column (US-058 PR2-atomic)`.
 
-- [ ] T-13 — Verify phase 2: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
+- [x] T-13 — Verify phase 2: `pnpm api test` (all suites green) + `pnpm api exec tsc --noEmit`.
   **PR 2 targets PR 1 branch (stacked-to-main).**
 
 ---
