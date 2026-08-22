@@ -101,6 +101,9 @@ export type PreviewFilaDto = NonNullable<
   S['PreviewIngestaResponse']['filas']
 >[number];
 
+/** POST /api/ingestas/commit — commit result: persisted ingesta + per-row summary (US-057, CMT-05). */
+export type CommitIngestaDto = S['CommitIngestaResponse'];
+
 /** POST /api/auth/login — successful authentication (mobile). */
 export type LoginResponseDto = S['AuthLoginResponse'];
 
