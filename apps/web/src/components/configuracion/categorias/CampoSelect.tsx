@@ -24,6 +24,7 @@ export function CampoSelect({
   options,
   required = false,
   disabled = false,
+  srOnly = false,
 }: {
   readonly label: string;
   readonly value: string;
@@ -34,10 +35,20 @@ export function CampoSelect({
   }[];
   readonly required?: boolean;
   readonly disabled?: boolean;
+  /**
+   * srOnly (US-059 D-10) — when `true`, wraps the label text in
+   * `<span className="sr-only">` so it remains accessible to screen readers
+   * but is visually hidden. Useful when a column header provides the visual
+   * affordance and the per-row label is only needed for AT.
+   *
+   * When absent or `false`, the label renders as a visible plain text node
+   * (existing callers: `NuevaCategoriaForm`, `EditarCategoria` — unchanged).
+   */
+  readonly srOnly?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm text-slate-600">
-      {label}
+      {srOnly ? <span className="sr-only">{label}</span> : label}
       <select
         value={value}
         onChange={(event: ChangeEvent<HTMLSelectElement>) =>

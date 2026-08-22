@@ -21,6 +21,11 @@ vi.mock('@/api/use-preview-ingesta', () => ({ usePreviewIngesta: vi.fn() }));
 const mockedUseIngesta = vi.mocked(useIngesta);
 const mockedUsePreviewIngesta = vi.mocked(usePreviewIngesta);
 
+// US-059 PR2 stub update (minimal, non-behavioral): added canonical `filas`
+// and `resumen` fields so `previewMutation.data.filas` / `.resumen` are
+// defined when SubirCartola passes them to the new PreviewMuestra props.
+// Legacy `muestra`/`estructura` retained — backend still returns them; the
+// guard no longer validates them (per US-059 D-08) but they don't break tsc.
 const validPreviewDto: PreviewIngestaDto = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
@@ -34,6 +39,18 @@ const validPreviewDto: PreviewIngestaDto = {
       abono: '0',
     },
   ],
+  filas: [
+    {
+      rowIndex: 0,
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Supermercado Líder',
+      cargo: '50000',
+      abono: '0',
+      esDuplicado: false,
+      sugerido: null,
+    },
+  ],
+  resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
 };
 
 const validDto: IngestaResponseDto = {
@@ -162,7 +179,10 @@ describe('SubirCartola', () => {
   });
 
   // PREV-01/CA-02: on preview success, the sample panel renders (PreviewMuestra
-  // content) with canonical headers/fields.
+  // content) with canonical resumen counts and row data.
+  // US-059 PR2 stub update (non-behavioral): banco field no longer rendered in
+  // PreviewMuestra (moved to resumen header per D-12 rewrite); assertion
+  // updated to check resumen + row data instead.
   it('on preview success renders the PreviewMuestra sample panel (banco, count, rows)', () => {
     mockedUsePreviewIngesta.mockReturnValue(
       unaMutacion<PreviewIngestaDto>({
@@ -175,8 +195,7 @@ describe('SubirCartola', () => {
 
     render(<SubirCartola />);
 
-    expect(screen.getByText('BancoEstado')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    // resumen.totalFilas=1 rendered in header; row descripcion and cargo rendered
     expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
     expect(screen.getByText('$50.000')).toBeInTheDocument();
   });

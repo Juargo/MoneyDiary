@@ -133,7 +133,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
 >
 > **Implementation note:** update `PreviewMuestra`'s props interface and body in this PR, but the call site in `SubirCartola.tsx` still passes the OLD props (which will produce a `tsc` error on PR 3 only). To keep PR 2 independently green, either (a) keep a temporary backward-compatible overload in `PreviewMuestra` or (b) coordinate the `SubirCartola` call site update into PR 2 as a stub. **Preferred approach:** update the call site in `SubirCartola.tsx` to pass the new props in this PR (as a stub that compiles but is not behaviorally activated — the state machine switch happens in PR 3). This keeps the type contract consistent across the PR.
 
-- [ ] T-09 — (RED) Write `apps/web/src/components/FilaRevision.test.tsx` (new test file, D-12):
+- [x] T-09 — (RED) Write `apps/web/src/components/FilaRevision.test.tsx` (new test file, D-12):
   - Renders row cells: `fecha` (`.slice(0,10)` of ISO string), `descripcion`, `formatearMontoCLP(cargo)`, `formatearMontoCLP(abono)`.
   - Duplicate row (`esDuplicado=true`): greyed container, `<Badge>Duplicado</Badge>` present, BOTH selects are `disabled` (query by label, assert `disabled` attribute).
   - Non-duplicate row (`esDuplicado=false`): selects are enabled and interactive.
@@ -146,7 +146,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - `catalogo.tag === 'error'` → selects are absent or disabled (no crash).
   **File (test first):** `apps/web/src/components/FilaRevision.test.tsx`.
 
-- [ ] T-10 — (GREEN) Create `apps/web/src/components/FilaRevision.tsx` (D-12):
+- [x] T-10 — (GREEN) Create `apps/web/src/components/FilaRevision.tsx` (D-12):
   - Props per design §4 `FilaRevision` contract: `{ fila, categoriaId, catalogo, onEditChange }`.
   - Local state: `bucketUI: string` — seeds from `fila.sugerido?.bucket` only when that bucket value exists among `catalogo.grupos` (when `catalogo.tag === 'listo'`); otherwise empty string.
   - Renders: date cell (`fila.fecha.slice(0,10)`), description cell, amount cells (`formatearMontoCLP(fila.cargo)`, `formatearMontoCLP(fila.abono)`).
@@ -156,7 +156,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - Does NOT import `agruparPorBucket` (receives pre-computed `grupos` via `CatalogoEstado`; D-06/D-12).
   Verify: `pnpm web test` (FilaRevision tests green) + `pnpm web typecheck`.
 
-- [ ] T-11 — (RED) Rewrite `apps/web/src/components/PreviewMuestra.test.tsx`:
+- [x] T-11 — (RED) Rewrite `apps/web/src/components/PreviewMuestra.test.tsx`:
   - Replace all `PreviewTransaccionDto`/`muestra`/`estructura` fixtures with `filas`/`resumen`/`edits`/`onEditChange`/`catalogo` prop shapes (use `unaFilaPreview(overrides)` factory).
   - Asserts: `resumen.totalFilas`, `resumen.duplicadosDetectados`, `resumen.nuevas` are displayed.
   - "nada se ha guardado aún" (or equivalent) affordance is visible (CA-02, WEB-PRV-02).
@@ -167,7 +167,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - No pagination controls exist (decision 4, WEB-PRV-02).
   **File (rewrite):** `apps/web/src/components/PreviewMuestra.test.tsx`.
 
-- [ ] T-12 — (GREEN) Rewrite props and body of `apps/web/src/components/PreviewMuestra.tsx` (D-12):
+- [x] T-12 — (GREEN) Rewrite props and body of `apps/web/src/components/PreviewMuestra.tsx` (D-12):
   - New props per design §4 `PreviewMuestra` contract: `{ filas, resumen, edits, onEditChange, catalogo }`.
   - Remove old props: `cantidad`, `onCantidadChange`, `banco`, `totalFilasDatos`.
   - Remove the 10/25/50 quantity selector UI.
@@ -177,7 +177,7 @@ The **legacy one-shot flow (`useIngesta`/`postIngesta`) remains live and untouch
   - When `catalogo.tag === 'cargando'` or `'error'`: render a non-blocking inline state alongside the table rows (degraded catalog, D-07).
   Verify: `pnpm web test` (PreviewMuestra tests green) + `pnpm web typecheck`.
 
-- [ ] T-13 — Verify Phase 2: `pnpm web test` (all suites green) + `pnpm web typecheck` exits 0. Confirm `useIngesta`/`postIngesta`/`PreviewMuestra.test.tsx` existing snapshot/behavior tests are not broken.
+- [x] T-13 — Verify Phase 2: `pnpm web test` (all suites green) + `pnpm web typecheck` exits 0. Confirm `useIngesta`/`postIngesta`/`PreviewMuestra.test.tsx` existing snapshot/behavior tests are not broken.
   **Work-unit commit:** `feat(web): FilaRevision (new) + PreviewMuestra rewrite — review table (US-059 PR2)`.
 
 ---

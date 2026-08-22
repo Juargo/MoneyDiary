@@ -1,107 +1,89 @@
-import { Button } from './ui/button';
-import { formatearMontoCLP } from '@/domain/formatear-monto';
-import type { PreviewTransaccionDto } from '@/api/types';
-
-const OPCIONES_CANTIDAD = [10, 25, 50] as const;
-
-export type CantidadPreview = (typeof OPCIONES_CANTIDAD)[number];
-
-export const CANTIDAD_PREVIEW_DEFECTO: CantidadPreview = 10;
+import { FilaRevision } from './FilaRevision';
+import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
- * PreviewMuestra (`us-003-vista-previa` Slice 2, design.md §9.3/§9.4) —
- * presentational sample table + 10/25/50 row-count selector (CA-01,
- * PREV-06), split out of `SubirCartola` for SRP.
+ * PreviewMuestra (US-059 PR2, D-12) — presentational review table shell.
  *
- * `cantidad` is a CONTROLLED prop (owned by the caller's state machine) —
- * this component only slices the already-fetched `muestra` array
- * (`muestra.slice(0, cantidad)`), it never issues a request. Selecting a
- * `cantidad` larger than `muestra.length` shows every available row with no
- * padding (`Array.prototype.slice` handles this natively, spec.md PREV-06
- * boundary scenario).
+ * Receives the canonical preview response props (`filas`, `resumen`) along
+ * with the edits overlay (`edits`, `onEditChange`) and the catalog state
+ * (`catalogo`). Maps every fila to a `<FilaRevision>` with the merged display
+ * value (D-05: `edits` wins over `sugerido`).
  *
- * A11y (ADR-018): the selector is a `<fieldset>`+`<legend>` group of real
- * `<button>`s (not a bare `<select>` nor color-only state) — the active
- * option carries `aria-pressed="true"`, matching the WCAG toggle-button
- * pattern.
+ * This component holds NO state and issues NO network requests (ADR-024).
+ * The old `cantidad`/`onCantidadChange`/`banco`/`totalFilasDatos` props are
+ * removed — product decision 4 renders the full list without pagination.
+ *
+ * D-07: when `catalogo.tag === 'cargando'` or `'error'`, the table still
+ * renders (rows, amounts, Duplicado badges are backend data independent of the
+ * catalog). A non-blocking inline affordance appears for the error case so
+ * the user understands why the cascade selects are unavailable, without hiding
+ * the preview data.
  */
 export function PreviewMuestra({
-  muestra,
-  banco,
-  totalFilasDatos,
-  cantidad,
-  onCantidadChange,
+  filas,
+  resumen,
+  edits,
+  onEditChange,
+  catalogo,
 }: {
-  readonly muestra: ReadonlyArray<PreviewTransaccionDto>;
-  readonly banco: string;
-  readonly totalFilasDatos: number;
-  readonly cantidad: CantidadPreview;
-  readonly onCantidadChange: (cantidad: CantidadPreview) => void;
+  readonly filas: ReadonlyArray<PreviewFilaDto>;
+  readonly resumen: {
+    readonly totalFilas: number;
+    readonly duplicadosDetectados: number;
+    readonly nuevas: number;
+  };
+  readonly edits: ReadonlyMap<number, string | null>;
+  readonly onEditChange: (rowIndex: number, categoriaId: string | null) => void;
+  readonly catalogo: CatalogoEstado;
 }) {
-  const filas = muestra.slice(0, cantidad);
-
   return (
     <div className="flex flex-col gap-3">
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
-        <dt className="font-medium">Banco</dt>
-        <dd>{banco}</dd>
-        <dt className="font-medium">Movimientos en total</dt>
-        <dd>{totalFilasDatos}</dd>
+      {/* Resumen header — WEB-PRV-02 */}
+      <dl className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <dt className="font-medium">Total filas</dt>
+        <dt className="font-medium">Duplicados</dt>
+        <dt className="font-medium">Nuevas</dt>
+        <dd>{resumen.totalFilas}</dd>
+        <dd>{resumen.duplicadosDetectados}</dd>
+        <dd>{resumen.nuevas}</dd>
       </dl>
 
-      <fieldset className="flex items-center gap-2">
-        <legend className="text-sm font-medium text-muted-foreground">
-          Filas a mostrar
-        </legend>
-        {OPCIONES_CANTIDAD.map((opcion) => (
-          <Button
-            key={opcion}
-            type="button"
-            variant={cantidad === opcion ? 'default' : 'outline'}
-            size="sm"
-            aria-pressed={cantidad === opcion}
-            onClick={() => onCantidadChange(opcion)}
-          >
-            {opcion}
-          </Button>
-        ))}
-      </fieldset>
+      {/* CA-02 / WEB-PRV-02: "nothing saved yet" affordance */}
+      <p role="status" className="text-sm text-muted-foreground">
+        Nada se ha guardado aún — revisa las filas y confirma para importar.
+      </p>
 
+      {/* D-07: non-blocking catalog error affordance */}
+      {catalogo.tag === 'error' && (
+        <p
+          role="status"
+          className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          No se pudo cargar el catálogo de categorías. La clasificación no está
+          disponible, pero podés revisar los montos y continuar.
+        </p>
+      )}
+
+      {/* Full filas list — no pagination (product decision 4, WEB-PRV-02) */}
       {filas.length === 0 ? (
-        // FIX 3 (review, WARNING): a file with 0 data rows is a legitimate
-        // outcome (`totalFilasDatos: 0`) — render a labeled empty state
-        // instead of a phantom empty `<ul>`.
         <p role="status" className="text-sm text-muted-foreground">
           No hay movimientos para mostrar en este archivo.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {filas.map((fila, indice) => (
-            // El DTO no trae `id` — la key combina los campos disponibles + el
-            // índice (mismo patrón que el `<ul>` de resultado de SubirCartola).
-            <li
-              key={`${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}-${indice}`}
-              className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm"
-            >
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>{fila.fecha.slice(0, 10)}</span>
-                <span className="font-medium">{fila.descripcion}</span>
-              </div>
-              <div className="flex items-center justify-between text-foreground">
-                <span>
-                  Cargo:{' '}
-                  <span className="font-medium">
-                    {formatearMontoCLP(fila.cargo)}
-                  </span>
-                </span>
-                <span>
-                  Abono:{' '}
-                  <span className="font-medium">
-                    {formatearMontoCLP(fila.abono)}
-                  </span>
-                </span>
-              </div>
-            </li>
+          {filas.map((fila) => (
+            <FilaRevision
+              key={fila.rowIndex}
+              fila={fila}
+              // D-05: merged display value — edits win over sugerido.categoriaId
+              categoriaId={
+                edits.has(fila.rowIndex)
+                  ? (edits.get(fila.rowIndex) ?? null)
+                  : (fila.sugerido?.categoriaId ?? null)
+              }
+              catalogo={catalogo}
+              onEditChange={onEditChange}
+            />
           ))}
         </ul>
       )}

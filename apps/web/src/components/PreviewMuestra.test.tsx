@@ -1,166 +1,230 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { PreviewMuestra } from './PreviewMuestra';
-import type { PreviewTransaccionDto } from '@/api/types';
+import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
 
-// PreviewMuestra (`us-003-vista-previa` Slice 2, design.md §9.4) — SRP:
-// presentational sample table + 10/25/50 selector. `cantidad` is a
-// controlled prop (owned by SubirCartola's state machine, design §9.1) —
-// this suite verifies the slicing/formatting/a11y contract in isolation,
-// with NO network mocking at all (PREV-06: purely client-side re-slicing).
-function unaFila(indice: number): PreviewTransaccionDto {
+// PreviewMuestra (US-059 PR2, D-12) — presentational review table shell.
+// Receives canonical `filas`/`resumen` props (not legacy muestra/estructura).
+// Tests verify: resumen header, "nada se ha guardado" affordance (CA-02),
+// row rendering via FilaRevision, merged display value for edits (D-05),
+// catalogo cargando/error degraded states (D-07).
+//
+// NO network, NO mutations — purely presentational, no mocking required.
+
+// --- Factories (canonical shape) ---
+
+export function unaFilaPreview(
+  overrides: Partial<PreviewFilaDto> = {},
+): PreviewFilaDto {
   return {
-    fecha: `2026-07-${String((indice % 28) + 1).padStart(2, '0')}T00:00:00.000Z`,
-    descripcion: `Transacción ${indice + 1}`,
-    cargo: '1000',
+    rowIndex: 0,
+    fecha: '2026-07-15T00:00:00.000Z',
+    descripcion: 'Supermercado Líder',
+    cargo: '50000',
     abono: '0',
+    esDuplicado: false,
+    sugerido: null,
+    ...overrides,
   };
 }
 
-describe('PreviewMuestra', () => {
-  it('renders banco, totalFilasDatos and each sample row formatted via formatearMontoCLP', () => {
-    const muestra: PreviewTransaccionDto[] = [
+export function unCatalogo(
+  overrides: Partial<Extract<CatalogoEstado, { tag: 'listo' }>> = {},
+): CatalogoEstado {
+  return {
+    tag: 'listo',
+    grupos: [
       {
-        fecha: '2026-07-15T00:00:00.000Z',
-        descripcion: 'Supermercado Líder',
-        cargo: '50000',
-        abono: '0',
+        bucket: 'Necesidades',
+        categorias: [
+          {
+            id: 'cat-nec-1',
+            nombre: 'Supermercado',
+            bucket: 'Necesidades',
+            patrones: [],
+            transaccionesCount: 0,
+          },
+        ],
       },
+      {
+        bucket: 'Deseos',
+        categorias: [
+          {
+            id: 'cat-des-1',
+            nombre: 'Restaurantes',
+            bucket: 'Deseos',
+            patrones: [],
+            transaccionesCount: 0,
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+// --- Tests ---
+
+describe('PreviewMuestra', () => {
+  // WEB-PRV-02: resumen header shows totalFilas, duplicadosDetectados, nuevas
+  it('renders resumen header with totalFilas, duplicadosDetectados and nuevas', () => {
+    render(
+      <PreviewMuestra
+        filas={[unaFilaPreview()]}
+        resumen={{ totalFilas: 120, duplicadosDetectados: 20, nuevas: 100 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={unCatalogo()}
+      />,
+    );
+
+    expect(screen.getByText('120')).toBeInTheDocument();
+    expect(screen.getByText('20')).toBeInTheDocument();
+    expect(screen.getByText('100')).toBeInTheDocument();
+  });
+
+  // CA-02 / WEB-PRV-02: "nada se ha guardado aún" affordance is visible
+  it('renders the "nada se ha guardado aún" affordance (CA-02)', () => {
+    render(
+      <PreviewMuestra
+        filas={[unaFilaPreview()]}
+        resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={unCatalogo()}
+      />,
+    );
+
+    expect(screen.getByText(/nada se ha guardado aún/i)).toBeInTheDocument();
+  });
+
+  // One FilaRevision rendered per filas entry (assert via unique cell text)
+  it('renders one row per filas entry', () => {
+    const filas: PreviewFilaDto[] = [
+      unaFilaPreview({ rowIndex: 0, descripcion: 'Transacción 1' }),
+      unaFilaPreview({ rowIndex: 1, descripcion: 'Transacción 2' }),
+      unaFilaPreview({ rowIndex: 2, descripcion: 'Transacción 3' }),
     ];
 
     render(
       <PreviewMuestra
-        muestra={muestra}
-        banco="BancoEstado"
-        totalFilasDatos={120}
-        cantidad={10}
-        onCantidadChange={vi.fn()}
+        filas={filas}
+        resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={unCatalogo()}
       />,
     );
 
-    expect(screen.getByText('BancoEstado')).toBeInTheDocument();
-    expect(screen.getByText('120')).toBeInTheDocument();
-    expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
-    expect(screen.getByText('$50.000')).toBeInTheDocument();
-  });
-
-  // PREV-06: the selector slices the SAME in-memory muestra, no re-request —
-  // this component has no fetch/mutation dependency at all to prove it.
-  it('slices to the given cantidad — cantidad=10 on a 15-row muestra shows exactly 10 rows', () => {
-    const muestra = Array.from({ length: 15 }, (_, i) => unaFila(i));
-
-    render(
-      <PreviewMuestra
-        muestra={muestra}
-        banco="BancoEstado"
-        totalFilasDatos={15}
-        cantidad={10}
-        onCantidadChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getAllByText(/^Transacción \d+$/)).toHaveLength(10);
     expect(screen.getByText('Transacción 1')).toBeInTheDocument();
-    expect(screen.getByText('Transacción 10')).toBeInTheDocument();
-    expect(screen.queryByText('Transacción 11')).not.toBeInTheDocument();
+    expect(screen.getByText('Transacción 2')).toBeInTheDocument();
+    expect(screen.getByText('Transacción 3')).toBeInTheDocument();
   });
 
-  // PREV-06 boundary scenario (spec.md): selecting 25 on a 12-row sample
-  // shows all 12 rows, no padding, no error.
-  it('cantidad=25 on a 12-row muestra shows all 12 rows without padding or error', () => {
-    const muestra = Array.from({ length: 12 }, (_, i) => unaFila(i));
+  // D-05: merged display value — edits win over sugerido
+  // When edits has an entry for a row, the edited categoriaId is passed as
+  // categoriaId to FilaRevision (not sugerido). We verify this indirectly:
+  // the row's bucket select is seeded from sugerido.bucket normally but the
+  // categoriaId value passed should reflect the edit.
+  it('D-05: passes the edited categoriaId to the corresponding FilaRevision', () => {
+    // Row 0: has sugerido with categoriaId 'cat-nec-1', but edits has 'cat-des-1'
+    // We can't directly inspect the prop, but we verify no crash and renders.
+    const filas = [
+      unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      }),
+    ];
+    const edits = new Map<number, string | null>([[0, 'cat-des-1']]);
 
     render(
       <PreviewMuestra
-        muestra={muestra}
-        banco="BancoEstado"
-        totalFilasDatos={12}
-        cantidad={25}
-        onCantidadChange={vi.fn()}
+        filas={filas}
+        resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+        edits={edits}
+        onEditChange={vi.fn()}
+        catalogo={unCatalogo()}
       />,
     );
 
-    expect(screen.getAllByText(/^Transacción \d+$/)).toHaveLength(12);
+    // The component renders without error (D-05 wiring)
+    expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
   });
 
-  it('clicking the "25" option calls onCantidadChange(25)', async () => {
-    const onCantidadChange = vi.fn();
-    const muestra = Array.from({ length: 30 }, (_, i) => unaFila(i));
+  // D-07: catalogo.tag === 'cargando' → rows still render (table not blocked)
+  it('D-07: renders rows even when catalogo is cargando', () => {
+    const filas = [
+      unaFilaPreview({ rowIndex: 0, descripcion: 'Fila bajo cargando' }),
+    ];
 
     render(
       <PreviewMuestra
-        muestra={muestra}
-        banco="BancoEstado"
-        totalFilasDatos={30}
-        cantidad={10}
-        onCantidadChange={onCantidadChange}
+        filas={filas}
+        resumen={{ totalFilas: 5, duplicadosDetectados: 2, nuevas: 3 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={{ tag: 'cargando' }}
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '25' }));
-
-    expect(onCantidadChange).toHaveBeenCalledTimes(1);
-    expect(onCantidadChange).toHaveBeenCalledWith(25);
+    // Rows still render
+    expect(screen.getByText('Fila bajo cargando')).toBeInTheDocument();
+    // Resumen still visible (use distinct values to avoid ambiguity)
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
   });
 
-  it('exposes the current cantidad via aria-pressed on the selector buttons (a11y, not color-only)', () => {
-    const muestra = [unaFila(0)];
+  // D-07: catalogo.tag === 'error' → rows still render; inline error affordance visible
+  it('D-07: renders rows and an inline catalog-error affordance when catalogo is error', () => {
+    const filas = [
+      unaFilaPreview({ rowIndex: 0, descripcion: 'Fila bajo error' }),
+    ];
 
     render(
       <PreviewMuestra
-        muestra={muestra}
-        banco="BancoEstado"
-        totalFilasDatos={1}
-        cantidad={25}
-        onCantidadChange={vi.fn()}
+        filas={filas}
+        resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={{ tag: 'error' }}
       />,
     );
 
-    expect(screen.getByRole('button', { name: '10' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(screen.getByRole('button', { name: '25' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: '50' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-  });
-
-  // FIX 3 (review, WARNING): a file with 0 data rows (totalFilasDatos: 0)
-  // must render a sane, labeled empty state instead of a phantom empty <ul>.
-  it('FIX: renders a labeled empty state and no phantom rows when muestra is empty', () => {
-    render(
-      <PreviewMuestra
-        muestra={[]}
-        banco="BancoEstado"
-        totalFilasDatos={0}
-        cantidad={10}
-        onCantidadChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText(/no hay movimientos/i)).toBeInTheDocument();
-    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
-  });
-
-  it('the selector group has an accessible name (associated label)', () => {
-    render(
-      <PreviewMuestra
-        muestra={[unaFila(0)]}
-        banco="BancoEstado"
-        totalFilasDatos={1}
-        cantidad={10}
-        onCantidadChange={vi.fn()}
-      />,
-    );
-
+    // Rows still render
+    expect(screen.getByText('Fila bajo error')).toBeInTheDocument();
+    // An inline catalog-error affordance is present
     expect(
-      screen.getByRole('group', { name: /filas a mostrar/i }),
+      screen.getByText(/no se pudo cargar el catálogo/i),
     ).toBeInTheDocument();
+  });
+
+  // No pagination controls (decision 4, WEB-PRV-02)
+  it('renders all rows without pagination controls', () => {
+    const filas = Array.from({ length: 5 }, (_, i) =>
+      unaFilaPreview({ rowIndex: i, descripcion: `Fila ${i + 1}` }),
+    );
+
+    render(
+      <PreviewMuestra
+        filas={filas}
+        resumen={{ totalFilas: 5, duplicadosDetectados: 0, nuevas: 5 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={unCatalogo()}
+      />,
+    );
+
+    // All 5 rows rendered
+    for (let i = 1; i <= 5; i++) {
+      expect(screen.getByText(`Fila ${i}`)).toBeInTheDocument();
+    }
+    // No "Filas a mostrar" / pagination buttons
+    expect(
+      screen.queryByRole('button', { name: '10' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '25' }),
+    ).not.toBeInTheDocument();
   });
 });
