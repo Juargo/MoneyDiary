@@ -448,4 +448,102 @@ describe('FilaRevision', () => {
     if (bucketSelect) expect(bucketSelect).toBeDisabled();
     if (categoriaSelect) expect(categoriaSelect).toBeDisabled();
   });
+
+  // T-18 / WEB-PRV-09 / WEB-PRV-10: structural a11y assertions for the review
+  // table. vitest-axe is not installed in this repo, so we use Testing Library's
+  // getByLabelText (which requires a proper <label>→<control> association) and
+  // structural invariant checks instead of an automated axe scan.
+  //
+  // The eslint-plugin-jsx-a11y error-level block in eslint.config.js (T-17)
+  // provides static analysis covering jsx-a11y rules. These structural tests
+  // complete the coverage at runtime: if the label association breaks (e.g.
+  // sr-only label stops wrapping the select, or the label/select pairing
+  // changes), getByLabelText throws and the test fails.
+  //
+  // WEB-PRV-10: The cascade selects stack under row cells on narrow widths via
+  // `flex-col sm:flex-row` (T1/T2 viewport requirement). The layout class is
+  // verified structurally rather than via a JSDOM viewport simulation.
+  describe('T-18 a11y / WEB-PRV-09 structural assertions', () => {
+    it('each non-duplicate select is reachable by accessible label (getByLabelText)', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      // getByLabelText throws if the element is missing or the label association is broken
+      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeInTheDocument();
+    });
+
+    it('each duplicate select is reachable by accessible label and is disabled', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeDisabled();
+      expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeDisabled();
+    });
+
+    it('T-18 responsive: cascade selects container has flex-col stacking class (WEB-PRV-10 T1/T2)', () => {
+      const { container } = render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      // The cascade selects wrapper must have the responsive stacking class so
+      // selects reflow to vertical on narrow viewports (T1=768px, T2=1024px).
+      // This is a structural check — not a visual/viewport simulation.
+      const flexContainer = container.querySelector('.flex-col.sm\\:flex-row');
+      expect(flexContainer).not.toBeNull();
+    });
+
+    it('three-row mix (1 duplicate + 2 non-duplicate): all six selects reachable by label', () => {
+      function ThreeRows() {
+        return (
+          <>
+            <FilaRevision
+              fila={unaFilaPreview({ rowIndex: 0, esDuplicado: false })}
+              categoriaId={null}
+              catalogo={catalogoListo}
+              onEditChange={vi.fn()}
+            />
+            <FilaRevision
+              fila={unaFilaPreview({ rowIndex: 1, esDuplicado: true })}
+              categoriaId={null}
+              catalogo={catalogoListo}
+              onEditChange={vi.fn()}
+            />
+            <FilaRevision
+              fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
+              categoriaId={null}
+              catalogo={catalogoListo}
+              onEditChange={vi.fn()}
+            />
+          </>
+        );
+      }
+
+      render(<ThreeRows />);
+
+      expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 1: categoría/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 2: bucket/i)).toBeDisabled();
+      expect(screen.getByLabelText(/Fila 2: categoría/i)).toBeDisabled();
+      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeInTheDocument();
+    });
+  });
 });
