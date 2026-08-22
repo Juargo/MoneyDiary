@@ -161,14 +161,77 @@ export type { AuthCapabilitiesDto } from '@moneydiary/api-client';
 export type { PreviewTransaccionDto } from '@moneydiary/api-client';
 
 /**
+ * `PreviewFilaDto` — fila canónica dentro de POST /api/ingestas/preview
+ * (US-057 canonical shape: rowIndex, fecha, descripcion, cargo, abono,
+ * esDuplicado, sugerido). Re-exported from `@moneydiary/api-client` (US-059,
+ * D-08). `cargo`/`abono` son strings decimales (BigInt-safe) — misma
+ * disciplina que `PreviewTransaccionDto`, nunca se parsean a number aquí.
+ */
+export type { PreviewFilaDto } from '@moneydiary/api-client';
+
+/**
+ * `CommitIngestaDto` — respuesta de POST /api/ingestas/commit (US-057,
+ * CMT-05). Re-exported from `@moneydiary/api-client` (US-059, D-08).
+ * Contiene `ingestaId`, `totalTransacciones`, `duplicadosOmitidos` y
+ * `transacciones[]` con bucket/categoriaId/cargo/abono/fecha por fila.
+ * Montos son strings decimales (BigInt-safe). No-money fields (conteos) son
+ * `number` plano.
+ */
+export type { CommitIngestaDto } from '@moneydiary/api-client';
+
+/**
  * `PreviewIngestaDto` — respuesta de POST /api/ingestas/preview.
  * `estructura.totalFilasDatos` es el conteo TOTAL de filas normalizadas del
  * archivo (PRE-dedupe, design.md D5) — puede ser mayor que `muestra.length`,
  * que queda capado a `PREVIEW_SAMPLE_MAX = 50` server-side (design.md D8, el
  * cliente nunca re-capa). `muestra` es la fuente de verdad ÚNICA que el
  * selector 10/25/50 (CA-01, PREV-06) re-slicea client-side, sin re-request.
+ *
+ * NOTA: a partir de US-059 el cliente web consume los campos canónicos
+ * `filas`/`resumen` (US-057). `muestra`/`estructura` son campos legacy
+ * que el backend mantiene hasta US-061.
  */
 export type { PreviewIngestaDto } from '@moneydiary/api-client';
+
+/**
+ * `PreviewIngestaDtoConCanonicos` — intersection alias que estrecha los campos
+ * opcionales `filas`/`resumen` de `PreviewIngestaDto` a required (no-`!`
+ * downstream, D-08, US-059). Producida por el guard `esPreviewIngestaDto`
+ * hardened en `client.ts` — después de pasar el guard, `filas` y `resumen`
+ * son siempre no-undefined en toda la cadena de tipos.
+ */
+export type PreviewIngestaDtoConCanonicos = Omit<
+  import('@moneydiary/api-client').PreviewIngestaDto,
+  'filas' | 'resumen'
+> & {
+  readonly filas: ReadonlyArray<
+    import('@moneydiary/api-client').PreviewFilaDto
+  >;
+  readonly resumen: NonNullable<
+    import('@moneydiary/api-client').PreviewIngestaDto['resumen']
+  >;
+};
+
+/**
+ * `CatalogoEstado` — discriminated union que modela el estado de la carga del
+ * catálogo de clasificación del usuario (US-059, D-07). Calculada en
+ * `SubirCartola` a partir de `useCategorias()` + `agruparPorBucket(...)` y
+ * pasada hacia abajo como prop a `PreviewMuestra`/`FilaRevision`.
+ *
+ * - `cargando`: `useCategorias.isPending` — selects deshabilitados.
+ * - `error`: `useCategorias.isError` — degradado inline, tabla sigue visible.
+ * - `listo`: catálogo cargado con grupos no-vacíos (empty-buckets ya filtrados
+ *   por `agruparPorBucket`).
+ */
+export type CatalogoEstado =
+  | { readonly tag: 'cargando' }
+  | { readonly tag: 'error' }
+  | {
+      readonly tag: 'listo';
+      readonly grupos: ReadonlyArray<
+        import('../domain/agrupar-categorias-por-bucket').GrupoCategoriaPorBucket
+      >;
+    };
 
 /**
  * `PatronDto`/`CategoriaDto`/`CatalogoDto` — contrato HTTP del catálogo de
