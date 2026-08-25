@@ -24,25 +24,21 @@ apps/
 
 El backend sigue Clean Architecture con manejo de errores vía `Result<T,E>` (nunca excepciones en domain/application). Detalle de arquitectura, ADRs y convenciones en [CLAUDE.md](./CLAUDE.md); modo mono-usuario y seguridad de BD en [apps/api/README.md](./apps/api/README.md).
 
-## Estado del proyecto (julio 2026)
+## Estado del proyecto (agosto 2026)
 
-Pipeline backend completo y verificado end-to-end en `main`:
+**MVP v1 cerrado (30-jul-2026)** y en producción bajo dominio propio: landing en [moneydiary.cl](https://moneydiary.cl), web en `app.moneydiary.cl`, API en `api.moneydiary.cl` (Render, protegida por `x-api-key`) y mobile con builds EAS. 15 sprints cerrados, 60/63 User Stories entregadas, releases vigentes `api-v0.4.0` · `web-v0.3.0` · `mobile-v0.3.0` (25-ago).
+
+Pipeline completo end-to-end:
 
 ```
-cargar → detectar banco → validar estructura → normalizar → persistir → categorizar → consolidar por mes → resumen 50/30/20 + semáforo
+cargar (xlsx/pdf/manual) → detectar banco → validar → normalizar → preview/commit → persistir (cifrado) → categorizar (catálogo per-user) → consolidar por mes → resumen 50/30/20 + semáforo + detalle
 ```
 
-- **Sprint 1** ✅ — parseo XLSX (detección, validación, normalización) de los 4 bancos.
-- **Sprint 2** ✅ — persistencia (US-011), categorización automática sin IA (US-012) y consolidación mensual (US-014). Único pendiente: cifrado de columna real (diferido como `NoOpCryptoService`).
-- **Sprint 3** 🟡 en curso — **UI de visualización**. El backend de la distribución 50/30/20 (US-015) y del semáforo (US-016) ya está en `main`; falta consumirlo desde `apps/web` + el detalle de bucket (US-017).
+El estado vivo se deriva de [GitHub Issues](https://github.com/Juargo/MoneyDiary/issues) y [Milestones](https://github.com/Juargo/MoneyDiary/milestones); el snapshot visual está en el artefacto **Estado del proyecto** (ver [Documentación](#documentación)).
 
-### Endpoints principales
+### Contrato HTTP
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `POST` | `/api/ingestas` | Sube un `.xlsx` y ejecuta el pipeline de ingesta |
-| `GET`  | `/api/movimientos?periodo=YYYY-MM` | Movimientos consolidados del mes (multi-banco) |
-| `GET`  | `/api/resumen?periodo=YYYY-MM` | Distribución 50/30/20 + semáforo por bucket |
+El contrato canónico es `apps/api/openapi.json` (contract-first, ADR-011) — se auto-bumpea en cada release del api. Endpoints principales: `POST /api/ingestas` (preview/commit), `POST /api/movimientos` (registro manual), `GET /api/resumen`, `GET /api/resumen/semaforo`, detalle mes-bucket/ingresos, y CRUD de `/api/categorias` + `/api/patrones`.
 
 > `periodo` ausente → mes en curso; inválido → 400. Montos serializados como string (dinero en `BigInt` para precisión exacta en CLP).
 
@@ -95,6 +91,27 @@ Seguridad es un foco explícito del proyecto:
 
 ## Documentación
 
-- **[CLAUDE.md](./CLAUDE.md)** — arquitectura, ADRs, convenciones, comandos y estado detallado (canónico para lo técnico del repo).
+Fuentes de verdad por tipo:
+
+- **[CLAUDE.md](./CLAUDE.md)** — arquitectura, convenciones, comandos y gotchas (canónico para lo técnico del repo).
+- **[docs/adr/](./docs/adr/)** — las 39 decisiones de arquitectura, un archivo por ADR + índice.
+- **[GitHub Issues](https://github.com/Juargo/MoneyDiary/issues)** y **[Milestones](https://github.com/Juargo/MoneyDiary/milestones)** — backlog de User Stories y sprints (fuente de verdad del estado).
+- **[openspec/](./openspec/)** — proceso SDD: specs vigentes + changes archivados.
 - **[apps/api/README.md](./apps/api/README.md)** — modo mono-usuario y seguridad de base de datos.
-- **Vault Obsidian** — proceso (Definition of Done, sprints, User Stories, casos de uso, threat model).
+- **[apps/api/docs/](./apps/api/docs/)** y **[docs/](./docs/)** — runbooks operativos (DB local de test, lanzamiento mobile, etc.).
+- **Vault Obsidian** — solo proceso (Definition of Done, DoR, ceremonias); ya NO es fuente de verdad de ADRs/US/sprints.
+
+### Artefactos visuales (Claude Artifacts)
+
+Diagramas y snapshots publicados como artifacts (privados de la cuenta — se listan con `/artifacts` en Claude Code o en [claude.ai/code/artifacts](https://claude.ai/code/artifacts)). Estado al 25-ago-2026; los marcados ⚠️ tienen drift o duplicado y son candidatos a depurar:
+
+| Artefacto | Actualizado | Estado |
+|-----------|-------------|--------|
+| [MoneyDiary — Estado del proyecto](https://claude.ai/code/artifact/bacddba6-296e-4a98-bdb5-377eb20a6ff6) | 25-ago-2026 | ✅ al día — snapshot completo (US, sprints, releases, deuda) |
+| [MoneyDiary · Flujos del proyecto](https://claude.ai/code/artifact/a53dc906-d1da-4cd2-a936-b15d3cb9924e) | 25-ago-2026 | ✅ al día — 5 diagramas Mermaid (bootstrap, dev loop, gate local, CI, release+deploy) |
+| [Ambientes de MoneyDiary](https://claude.ai/code/artifact/96f13089-ab8d-4e01-9ee7-a4ced9aa5636) | 28-jul-2026 | ⚠️ pre-implementación de ADR-029 · duplicado con el siguiente |
+| [Ambientes — MoneyDiary](https://claude.ai/code/artifact/1ae8c209-cb4d-4c2b-b1f6-21ccb7c0b6ec) | 27-jul-2026 | ⚠️ duplicado del anterior (versión más vieja) |
+| [Clean Architecture — MoneyDiary (apps/api)](https://claude.ai/code/artifact/57de7fa5-cb89-48f4-9138-c9e2b8b0fe6c) | 24-jul-2026 | ⚠️ duplicado con el siguiente (mismo título) |
+| [Clean Architecture — MoneyDiary (apps/api)](https://claude.ai/code/artifact/f265ca18-6d2b-40c1-85c6-8e2694856801) | 24-jul-2026 | ⚠️ duplicado del anterior |
+| [mapa-stack](https://claude.ai/code/artifact/e55b32b8-5602-401d-bb61-b21781903380) | 23-jul-2026 | ⚠️ previo a ADR-032…039; revisar vigencia |
+| [MoneyDiary API — Mapa de capas](https://claude.ai/code/artifact/f6d4d32e-551e-412c-b91b-f75131f7a2ee) | 21-jul-2026 | ⚠️ se solapa con los de Clean Architecture; el más antiguo |
