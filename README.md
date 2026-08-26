@@ -103,15 +103,12 @@ Fuentes de verdad por tipo:
 
 ### Artefactos visuales (Claude Artifacts)
 
-Diagramas y snapshots publicados como artifacts (privados de la cuenta — se listan con `/artifacts` en Claude Code o en [claude.ai/code/artifacts](https://claude.ai/code/artifacts)). Estado al 25-ago-2026; los marcados ⚠️ tienen drift o duplicado y son candidatos a depurar:
+Diagramas y snapshots publicados como artifacts (privados de la cuenta — se listan con `/artifacts` en Claude Code o en [claude.ai/code/artifacts](https://claude.ai/code/artifacts)). Estado al 25-ago-2026 (duplicados depurados en esa fecha); los marcados ⚠️ tienen drift y son candidatos a refrescar:
 
 | Artefacto | Actualizado | Estado |
 |-----------|-------------|--------|
 | [MoneyDiary — Estado del proyecto](https://claude.ai/code/artifact/bacddba6-296e-4a98-bdb5-377eb20a6ff6) | 25-ago-2026 | ✅ al día — snapshot completo (US, sprints, releases, deuda) |
 | [MoneyDiary · Flujos del proyecto](https://claude.ai/code/artifact/a53dc906-d1da-4cd2-a936-b15d3cb9924e) | 25-ago-2026 | ✅ al día — 5 diagramas Mermaid (bootstrap, dev loop, gate local, CI, release+deploy) |
-| [Ambientes de MoneyDiary](https://claude.ai/code/artifact/96f13089-ab8d-4e01-9ee7-a4ced9aa5636) | 28-jul-2026 | ⚠️ pre-implementación de ADR-029 · duplicado con el siguiente |
-| [Ambientes — MoneyDiary](https://claude.ai/code/artifact/1ae8c209-cb4d-4c2b-b1f6-21ccb7c0b6ec) | 27-jul-2026 | ⚠️ duplicado del anterior (versión más vieja) |
-| [Clean Architecture — MoneyDiary (apps/api)](https://claude.ai/code/artifact/57de7fa5-cb89-48f4-9138-c9e2b8b0fe6c) | 24-jul-2026 | ⚠️ duplicado con el siguiente (mismo título) |
-| [Clean Architecture — MoneyDiary (apps/api)](https://claude.ai/code/artifact/f265ca18-6d2b-40c1-85c6-8e2694856801) | 24-jul-2026 | ⚠️ duplicado del anterior |
+| [Ambientes — MoneyDiary](https://claude.ai/code/artifact/1ae8c209-cb4d-4c2b-b1f6-21ccb7c0b6ec) | 27-jul-2026 | ⚠️ previo a la implementación de ADR-029; refrescar contra `apps/api/src/config/env.ts` |
+| [Clean Architecture — MoneyDiary (apps/api)](https://claude.ai/code/artifact/57de7fa5-cb89-48f4-9138-c9e2b8b0fe6c) | 24-jul-2026 | ⚠️ del día del merge de ADR-028; verificar que refleje `http-express/` + composition root |
 | [mapa-stack](https://claude.ai/code/artifact/e55b32b8-5602-401d-bb61-b21781903380) | 23-jul-2026 | ⚠️ previo a ADR-032…039; revisar vigencia |
-| [MoneyDiary API — Mapa de capas](https://claude.ai/code/artifact/f6d4d32e-551e-412c-b91b-f75131f7a2ee) | 21-jul-2026 | ⚠️ se solapa con los de Clean Architecture; el más antiguo |
