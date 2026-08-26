@@ -131,68 +131,25 @@ El estado de sprints y User Stories **no vive en este archivo** — se derivaba 
 
 ## Notas técnicas por dominio (gotchas)
 
-Conocimiento no obvio del código ya entregado — durable, no derivable de un vistazo. El *estado* de cada US vive en los Issues; esto es solo el saber técnico. (Los nombres HTTP pre-migración a Express están cubiertos en **Arquitectura**; todas las rutas backend cuelgan de `apps/api/`.)
+Conocimiento no obvio del código ya entregado — durable, no derivable de un vistazo. El *estado* de cada US vive en los Issues; esto es solo el saber técnico.
 
-- **Parseo Excel:** las strategies leen celdas con `cell.text`, **no** `String(cell.value)` — BCI usa `richText` y `.value` no lo resuelve. Cada strategy expone `getEstructura()` (fila de encabezados + columnas esperadas). Fechas aceptadas: `DD/MM/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY` (el último para Santander). Detección de banco por celda clave → ver "Patrones de detección bancaria".
-- **Prisma:** `prisma.config.ts` (raíz de `apps/api/`) **NO** acepta `earlyAccess: true` (el tipo estable de Prisma 7 lo rechaza). El `CHECK cargo/abono ≥ 0` va por SQL puro en migración (`add_cargo_abono_check`) — Prisma no modela CHECK.
-- **Dinero:** `BigInt` exacto en `cargo/abono`, nunca `float`; el mapper `number ↔ BigInt` (`transaccion.mapper.ts`) tiene guardas de overflow (`Number.MAX_SAFE_INTEGER`). Los porcentajes 50/30/20 se calculan en basis points con round-half-up (`resumen-mes.ts`). Los montos crudos se **scrubben** de los mensajes de error (dominio y boundary HTTP 400). DTOs BigInt-safe: montos como string.
-- **Semáforo (`estado-semaforo.ts`):** umbrales en bp — Necesidades ≤50%, Deseos ≤30%, Ahorro en banda bidireccional 20–40%; `estadoGlobal` = peor estado entre los 3 buckets de gasto. El backend **calcula** el estado; el cliente solo lo renderiza (ADR-024).
-- **Categorización:** `PatronClasificacion.coincide()` es case-insensitive con `CONTAINS`/`STARTS_WITH`/`REGEX` (REGEX en try/catch, nunca lanza). Regla Ingreso = `abono>0 && cargo===0`. El paso de categorización en `ProcessIngestaUseCase` es una **isla degradable**: si falla, deja las filas no-Ingreso en `null` (no `SinCategoria`) para reintento. Seed idempotente del catálogo chileno. Sin IA (RES-ALC-003).
-- **Aislamiento multi-tenant (RNF-SEC-006):** todo repo que devuelve datos de usuario filtra por `userId` en el WHERE (p. ej. `account: { userId }`), **no** en memoria. `periodo` ausente → mes en curso; inválido → 400 con scrub.
-- **db-safety:** las mutaciones destructivas de BD exigen opt-in `ALLOW_DESTRUCTIVE_DB=1` y rechazan connection strings de prod. El gate bloquea e2e/int contra Supabase (por eso necesitan una DB local; ver `apps/api/docs/local-test-db.md`).
-- **Cifrado de columnas sensibles:** ver ADR-013 (`docs/adr/`).
+- **Backend (`apps/api/`):** gotchas de parseo Excel, Prisma, dinero, semáforo, categorización, aislamiento multi-tenant, db-safety y cifrado, más los patrones de detección bancaria y los fixtures de prueba, viven en `apps/api/CLAUDE.md` (se carga al trabajar bajo ese directorio).
 - **Landing (Tailwind 4 CSS-first):** la utility `rounded` a secas lee el token `--radius` — el nombre `--radius-DEFAULT` se ignora en silencio y `rounded` cae al fallback de 4px sin error de build. Al tocar tokens de `@theme`, verificar el mapping en el CSS de `dist/`. Tipografía: DM Sans (cuerpo) + Plus Jakarta Sans (títulos) con tinta `#022030` — excepción scoped documentada en `DESIGN.md` (las apps siguen en Inter). El header sticky exige `scroll-mt-*` en los targets de anchors (`#como-funciona`, `#main`).
-
----
-
-## Fixtures de prueba
-
-Los fixtures llevan sufijo `-test` y contienen datos anonimizados (los originales, con info sensible real, se eliminaron del repo).
-
-```
-apps/api/test/fixtures/
-  Últimos_Movimientos_CuentaRUT_test.xlsx            ← BancoEstado ✅ detectado
-  movimientos-test.xlsx                              ← BCI ✅ detectado
-  ultimos movimientos-Cuenta Corriente-test.xlsx     ← Santander ✅ detectado
-  cartola-test.xls     ← placeholder .xls (sin datos) — solo para el test de rechazo por extensión (ADR-007)
-  pdf/                 ← cartolas PDF de prueba (ADR-009, pdfjs-dist), una por banco:
-    bancochile-cartola-test.pdf · bancoestado-cartola-test.pdf · bci-cartola-test.pdf · santander-cartola-test.pdf
-```
 
 ---
 
 ## Comandos frecuentes
 
-La raíz tiene shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...`, idem `pnpm web ...`.
+La raíz tiene shortcuts: `pnpm api ...` → `pnpm --filter @moneydiary/api ...`, idem `pnpm web ...`. El listado completo de scripts está en el `package.json` de cada workspace; aquí solo los gated o no obvios:
 
 ```bash
-# Backend
-pnpm api test                                # vitest run (ADR-016; transformador Oxc por defecto)
-pnpm api test:watch                          # vitest (watch)
 pnpm api test:e2e                            # vitest e2e — muta BD real, gate ALLOW_DESTRUCTIVE_DB=1
 pnpm api test:integration                    # vitest integración — mismo gate
 pnpm api cli -- ./test/fixtures/movimientos-test.xlsx
-pnpm api dev                                 # server Express con watch (tsx watch — hot reload en dev)
-pnpm api start                               # server Express desde fuente (tsx, un arranque, sin watch)
-pnpm api build                               # tsc -p tsconfig.build.json → dist/
 pnpm api start:prod                          # node dist/infrastructure/http-express/server
-pnpm api exec tsc --noEmit                   # TypeScript check
-pnpm api exec prisma migrate dev             # migraciones
-
-# Mobile (sin shortcut raíz — usar --filter)
-pnpm --filter @moneydiary/mobile test        # jest-expo 57 (jest@29) + RNTL
-# dev: `npx expo start` dentro de apps/mobile (requiere .env con EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_API_KEY — ver .env.example)
-
-# Frontend
+pnpm --filter @moneydiary/mobile test        # mobile no tiene shortcut raíz; jest-expo 57 (jest@29) + RNTL
+# mobile dev: `npx expo start` dentro de apps/mobile (requiere .env con EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_API_KEY — ver .env.example)
 pnpm web dev                                 # Vite en :5173 con proxy /api → :3000
-pnpm web test                                # vitest run (jsdom + Testing Library, ADR-016)
-pnpm web build                               # tsr generate + tsc + vite build
-pnpm web typecheck                           # tsr generate + tsc -b
-
-# Workspace completo
-pnpm test                                    # tests de todos los workspaces
-pnpm build                                   # builds de todos los workspaces
-pnpm audit                                   # auditoría de seguridad
 ```
 
 ---
@@ -223,17 +180,6 @@ El plan de pruebas separa **verificación** (*¿lo construimos correctamente?*, 
 - **Peer review con checklist de seguridad fijo** antes de integrar (inyección, gestión de secretos, validación de entrada, no commitear claves — RNF-SEC-005).
 - **BDD / criterios de aceptación ejecutables** dan la trazabilidad requisito → prueba; la cobertura es guía para detectar huecos en lógica crítica, no una meta.
 - **Validación (ADR-014):** demos al cierre de sprint, pruebas de usabilidad (5 usuarios, think-aloud, SUS) y prueba piloto con datos reales en entorno tipo producción (ADR-004). Métricas de negocio y test A/B quedan como trabajo futuro.
-
----
-
-## Patrones de detección bancaria
-
-| Banco | Celda clave | Valor |
-|-------|-------------|-------|
-| BancoEstado | A1 | Contiene `"CuentaRUT"` |
-| Banco de Chile | B8/B9/B10 | `"Sr(a):"` / `"Rut:"` / `"Cuenta:"` |
-| Santander | A2 | Comienza con `"Cuenta Corriente:"` + contiene `"0-000-"` |
-| BCI | A1 + A8 | `"Últimos Movimientos"` + `"Fecha Transacción"` |
 
 ---
 
