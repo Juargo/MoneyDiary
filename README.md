@@ -103,12 +103,13 @@ Fuentes de verdad por tipo:
 
 ### Artefactos visuales (Claude Artifacts)
 
-Diagramas y snapshots publicados como artifacts (privados de la cuenta — se listan con `/artifacts` en Claude Code o en [claude.ai/code/artifacts](https://claude.ai/code/artifacts)). Estado al 25-ago-2026 (duplicados depurados en esa fecha); los marcados ⚠️ tienen drift y son candidatos a refrescar:
+Diagramas y snapshots publicados como artifacts (privados de la cuenta — se listan con `/artifacts` en Claude Code o en [claude.ai/code/artifacts](https://claude.ai/code/artifacts)). Estado al 26-ago-2026 (duplicados depurados el 25-ago); los marcados ⚠️ tienen drift y son candidatos a refrescar:
 
 | Artefacto | Actualizado | Estado |
 |-----------|-------------|--------|
 | [MoneyDiary — Estado del proyecto](https://claude.ai/code/artifact/bacddba6-296e-4a98-bdb5-377eb20a6ff6) | 25-ago-2026 | ✅ al día — snapshot completo (US, sprints, releases, deuda) |
 | [MoneyDiary · Flujos del proyecto](https://claude.ai/code/artifact/a53dc906-d1da-4cd2-a936-b15d3cb9924e) | 25-ago-2026 | ✅ al día — 5 diagramas Mermaid (bootstrap, dev loop, gate local, CI, release+deploy) |
+| [MoneyDiary · Mapa del monorepo](https://claude.ai/code/artifact/8cba6d90-69a6-42b1-90cc-9f6c34422d92) | 26-ago-2026 | ✅ al día — qué es y para qué sirve cada directorio, regla de dependencias del api y pipeline del contrato (api-client) |
 | [Ambientes — MoneyDiary](https://claude.ai/code/artifact/1ae8c209-cb4d-4c2b-b1f6-21ccb7c0b6ec) | 27-jul-2026 | ⚠️ previo a la implementación de ADR-029; refrescar contra `apps/api/src/config/env.ts` |
 | [Clean Architecture — MoneyDiary (apps/api)](https://claude.ai/code/artifact/57de7fa5-cb89-48f4-9138-c9e2b8b0fe6c) | 24-jul-2026 | ⚠️ del día del merge de ADR-028; verificar que refleje `http-express/` + composition root |
 | [mapa-stack](https://claude.ai/code/artifact/e55b32b8-5602-401d-bb61-b21781903380) | 23-jul-2026 | ⚠️ previo a ADR-032…039; revisar vigencia |
