@@ -93,7 +93,7 @@ export function SemaforoHeroCard({
       aria-label={`Semáforo: ${estilo.label} — ${mesCompletoLabel(periodo)}`}
       className={cn(
         DASHBOARD_CARD_CLASS,
-        'flex flex-col items-center gap-2 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+        'flex flex-col items-center gap-2 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
       )}
       onKeyDown={(event) => {
         // WG5-12 precedent (SemaforoTag): Space doesn't natively activate an

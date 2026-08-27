@@ -7,7 +7,6 @@
    * main.tsx — no Google Fonts CDN). Keep the system fallback stack for a
    * graceful degrade if the font fetch fails. */
   --font-sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, Consolas, monospace;
 
   /*
    * "Distribución del gasto" pie/legend bucket colors — Serene Finance
@@ -45,6 +44,63 @@
    */
   --color-vinculo-activo: #d1fae5; /* mint — same verified pair, 6.78:1 AA */
   --color-vinculo-activo-foreground: #065f46; /* emerald */
+
+  /*
+   * Semáforo estado chip PAIRS (design-token debt burn-down, 2026-08-27) —
+   * replace the ad-hoc `bg-emerald-100 text-emerald-700` / `bg-amber-100
+   * text-amber-700` / `bg-rose-100 text-rose-700` literals in
+   * `lib/semaforo-estilos.ts`. Exact Tailwind v4 default-palette hexes
+   * (verified via oklch→sRGB conversion of `node_modules/tailwindcss/
+   * theme.css` — v4's palette shifted from v3's, so the old hex memory is
+   * wrong). Each pair follows the `ingreso`/`vinculo-activo` precedent:
+   * literal values, no aliasing, so a future edit to one semáforo color
+   * never silently drags the others. Contrast verified AA (4.5:1 floor):
+   * verde 4.72:1, amarillo 4.52:1 (amber-700 fg — passes, but the closest
+   * margin of the three; re-check if the fill ever changes), rojo 5.02:1.
+   */
+  --color-semaforo-verde: #d0fae5; /* emerald-100 */
+  --color-semaforo-verde-foreground: #007a55; /* emerald-700 — 4.72:1 AA */
+  --color-semaforo-amarillo: #fef3c6; /* amber-100 */
+  --color-semaforo-amarillo-foreground: #bb4d00; /* amber-700 — 4.52:1 AA */
+  --color-semaforo-rojo: #ffe4e6; /* rose-100 */
+  --color-semaforo-rojo-foreground: #c70036; /* rose-700 — 5.02:1 AA */
+
+  /*
+   * Semáforo ZONE BAND fills (`ZonaBar.tsx`) — replace `bg-emerald-300` /
+   * `bg-amber-300` / `bg-rose-300`. Fills only, never text (two-tier color
+   * rule), so no `-foreground` pair is needed here — separate token family
+   * from the chip pairs above (a band fill and a chip fill are different
+   * intents even though both key off the same estado).
+   */
+  --color-semaforo-verde-band: #5ee9b5; /* emerald-300 */
+  --color-semaforo-amarillo-band: #ffd230; /* amber-300 */
+  --color-semaforo-rojo-band: #ffa1ad; /* rose-300 */
+
+  /*
+   * Warning surface family — replaces the ad-hoc amber-50/100/200/800/900
+   * literals scattered across `DemoBanner.tsx`, `DemoUploadNudge.tsx`,
+   * `SemaforoDetallePage.tsx`'s "sin categoría" notice, and
+   * `PatronFila.tsx`'s REGEX hint. `-foreground` unifies what used to be a
+   * mix of `text-amber-800`/`text-amber-900` (no visible reason for two
+   * shades of the same "notice" text) AND fixes `PatronFila`'s
+   * `text-amber-600` on white, which measured ~3.2:1 — FAILS AA (a11y fix,
+   * not just a token rename).
+   */
+  --color-warning: #fffbeb; /* amber-50 — notice surface */
+  --color-warning-border: #fee685; /* amber-200 */
+  --color-warning-foreground: #973c00; /* amber-800 — 6.84:1 on warning, 7.09:1 on white */
+  --color-warning-accent: #fef3c6; /* amber-100 — hover wash */
+
+  /*
+   * Success feedback TEXT (perfil/registro-movimiento "guardado" messages).
+   * SAME literal as `--color-ingreso-foreground` (#065f46, ~7.7:1 on white,
+   * 6.78:1 on the mint fill) — deliberately NOT aliased, same reasoning as
+   * `vinculo-activo` above: this is a distinct intent (generic success copy,
+   * not income money) and must not silently follow the income card if that
+   * ever changes. Call sites previously used `text-emerald-700` (AA-passing);
+   * the shift to #065f46 is for semantic-token consistency, not an AA fix.
+   */
+  --color-exito-foreground: #065f46;
 }
 
 /*
@@ -62,8 +118,12 @@
  * backgrounds/SVG-fills/dots ONLY — never text, never a button background
  * with light text. Strong tones below (`--primary`/`--secondary`/
  * `--foreground`) are for all text and any control needing a light
- * foreground. `.dark` is inert until a theme toggle exists (none in this
- * slice) — untouched by this restyle.
+ * foreground. Dark mode is unimplemented by decision (no theme toggle) —
+ * the `.dark` override block was deleted (design-token debt burn-down,
+ * 2026-08-27); `@custom-variant dark` above stays only because shadcn's
+ * stock `button.tsx`/`badge.tsx` ship `dark:` utility classes that still
+ * need the variant defined to compile, even though nothing ever applies
+ * the `.dark` class.
  */
 :root {
   --radius: 0.5rem; /* 8px default (was 0.625rem/10px) */
@@ -85,27 +145,6 @@
   --border: #c4c6cf; /* outline-variant */
   --input: #c4c6cf;
   --ring: #1a1c1c; /* focus ring — dark, >=3:1 on any surface */
-}
-
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
 }
 
 @theme inline {

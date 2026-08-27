@@ -58,7 +58,7 @@ function renderEstado(
           <Link
             to="/"
             search={{ periodo }}
-            className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Volver al resumen
           </Link>
@@ -93,7 +93,7 @@ function renderEstado(
           </div>
 
           {viewModel.sinCategoria.cantidad > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            <div className="rounded-lg border border-warning-border bg-warning p-3 text-xs text-warning-foreground">
               <p>
                 {viewModel.sinCategoria.cantidad}{' '}
                 {viewModel.sinCategoria.cantidad === 1

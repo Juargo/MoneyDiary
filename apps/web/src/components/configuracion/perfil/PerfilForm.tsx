@@ -144,7 +144,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           Guardar cambios
         </Button>
       </div>
-      <div aria-live="polite" className="text-sm text-emerald-700">
+      <div aria-live="polite" className="text-sm text-exito-foreground">
         {mensaje?.tono === 'ok' &&
           mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
       </div>

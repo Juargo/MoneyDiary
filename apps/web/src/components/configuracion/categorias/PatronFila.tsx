@@ -555,7 +555,11 @@ export function PatronFila({
         <Trash2 aria-hidden="true" className="size-[18px]" />
       </button>
       {regexInvalida && (
-        <p id={idHint} role="status" className="w-full text-xs text-amber-600">
+        <p
+          id={idHint}
+          role="status"
+          className="w-full text-xs text-warning-foreground"
+        >
           Esa expresión regular podría no ser válida.
         </p>
       )}

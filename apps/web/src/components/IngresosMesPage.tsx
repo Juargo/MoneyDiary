@@ -55,7 +55,7 @@ export function IngresosMesPage({
           <Link
             to="/"
             search={{ periodo }}
-            className="px-2 py-1 text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            className="px-2 py-1 text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Volver al resumen
           </Link>

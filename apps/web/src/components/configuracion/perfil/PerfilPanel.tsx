@@ -48,7 +48,7 @@ export function PerfilPanel({
 
   return (
     <div className="flex flex-col gap-8">
-      <h2 className="text-xl font-semibold text-slate-900">Editar perfil</h2>
+      <h2 className="text-xl font-semibold text-foreground">Editar perfil</h2>
       <PerfilForm me={me} />
       <GoogleVinculoSection
         me={me}
@@ -63,7 +63,7 @@ export function PerfilPanel({
       <div
         aria-live="polite"
         data-testid="aviso-google"
-        className="text-sm text-emerald-700"
+        className="text-sm text-exito-foreground"
       >
         {avisoGoogle?.tono === 'ok' &&
           avisoGoogle.lineas.map((linea, indice) => (

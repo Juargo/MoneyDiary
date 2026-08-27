@@ -62,7 +62,7 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
     <div
       role="status"
       aria-label="Aviso de modo demo"
-      className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+      className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-warning-border bg-warning px-4 py-2 text-sm text-warning-foreground"
     >
       <p className="flex-1">
         Estás en modo demo: los datos son de ejemplo y esta cuenta se elimina
@@ -74,7 +74,7 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
           variant="ghost"
           size="sm"
           onClick={() => void salirDelDemo()}
-          className="text-amber-900 hover:bg-amber-100 hover:text-amber-900"
+          className="text-warning-foreground hover:bg-warning-accent hover:text-warning-foreground"
         >
           Salir del demo
         </Button>
@@ -93,7 +93,7 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
           size="icon-sm"
           aria-label="Cerrar aviso de modo demo"
           onClick={() => setDescartado(true)}
-          className="text-lg leading-none text-amber-700 hover:bg-amber-100 hover:text-amber-700"
+          className="text-lg leading-none text-warning-foreground hover:bg-warning-accent hover:text-warning-foreground"
         >
           ×
         </Button>

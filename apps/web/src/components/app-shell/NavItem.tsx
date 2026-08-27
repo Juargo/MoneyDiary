@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import type { NavItemModel } from './nav-items';
 
 const FOCUS_RING =
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800';
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring';
 
 const VARIANT_STYLES = {
   sidebar: {

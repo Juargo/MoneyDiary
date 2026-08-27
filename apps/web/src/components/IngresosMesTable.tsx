@@ -52,7 +52,7 @@ export function IngresosMesTable({
               <td className="py-2 pr-4">
                 <Badge variant="secondary">{fila.origen}</Badge>
               </td>
-              <td className="py-2 text-right font-semibold text-emerald-600">
+              <td className="py-2 text-right font-semibold text-ingreso-foreground">
                 {fila.montoLabel}
               </td>
             </tr>
