@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PreviewMuestra } from './PreviewMuestra';
 import type { PreviewFilaDto } from '@/api/types';
@@ -707,7 +707,7 @@ describe('PreviewMuestra', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('clicking "Aplicar" opens a confirmation instead of applying immediately, and does not call onEditChange yet', async () => {
+    it('clicking "Aplicar" applies the chosen categoría directly — no confirmation, onEditChange fires immediately', async () => {
       const onEditChange = vi.fn();
 
       render(
@@ -734,18 +734,16 @@ describe('PreviewMuestra', () => {
       });
       await userEvent.click(aplicarBtn);
 
-      expect(onEditChange).not.toHaveBeenCalled();
-      const dialog = await screen.findByRole('alertdialog');
-      // Copy states the impact without client-side money math (ADR-024):
-      // category label, bucket, and row count only — never a sum of montos.
-      expect(dialog).toHaveTextContent('Supermercado');
-      expect(dialog).toHaveTextContent('Necesidades');
-      expect(dialog).toHaveTextContent('2 movimientos');
-      // Reassurance parity with the page-level commit gate.
-      expect(dialog).toHaveTextContent('Agregar transacciones');
+      // No dialog of any kind — direct apply.
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(onEditChange).toHaveBeenCalledTimes(2);
+      expect(onEditChange).toHaveBeenCalledWith(0, 'cat-nec-1');
+      expect(onEditChange).toHaveBeenCalledWith(1, 'cat-nec-1');
+      // Selection cleared — toolbar disappears.
+      expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
     });
 
-    it('confirming the bulk-apply dialog applies the chosen categoría to every selected row and clears the selection', async () => {
+    it('"Aplicar" stays disabled until both bucket and categoría are chosen, and is not clickable before that', async () => {
       const onEditChange = vi.fn();
 
       render(
@@ -773,120 +771,7 @@ describe('PreviewMuestra', () => {
       await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
 
       expect(aplicarBtn).toBeEnabled();
-      await userEvent.click(aplicarBtn);
-
-      await screen.findByRole('alertdialog');
-      await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
-
-      expect(onEditChange).toHaveBeenCalledTimes(2);
-      expect(onEditChange).toHaveBeenCalledWith(0, 'cat-nec-1');
-      expect(onEditChange).toHaveBeenCalledWith(1, 'cat-nec-1');
-      // Dialog closes, and selection cleared — toolbar disappears.
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-      expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
-    });
-
-    it('cancelling the bulk-apply confirmation preserves the selection and calls no onEditChange', async () => {
-      const onEditChange = vi.fn();
-
-      render(
-        <PreviewMuestra
-          banco="BancoEstado"
-          filas={filasDosGrupos}
-          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
-          edits={new Map()}
-          onEditChange={onEditChange}
-          catalogo={unCatalogo()}
-        />,
-      );
-
-      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
-      await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
-
-      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
-      await userEvent.selectOptions(bucketToolbar, 'Necesidades');
-      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
-      await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
-
-      const aplicarBtn = screen.getByRole('button', {
-        name: /aplicar a 2 seleccionadas/i,
-      });
-      await userEvent.click(aplicarBtn);
-      await screen.findByRole('alertdialog');
-
-      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-
       expect(onEditChange).not.toHaveBeenCalled();
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-      expect(screen.getByText('2 seleccionadas')).toBeInTheDocument();
-      expect(screen.getByLabelText(/Seleccionar fila 1/i)).toBeChecked();
-      expect(screen.getByLabelText(/Seleccionar fila 2/i)).toBeChecked();
-    });
-
-    it('moves focus to Confirmar when the bulk-apply dialog opens, and back to the Aplicar trigger on cancel', async () => {
-      render(
-        <PreviewMuestra
-          banco="BancoEstado"
-          filas={filasDosGrupos}
-          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
-          edits={new Map()}
-          onEditChange={vi.fn()}
-          catalogo={unCatalogo()}
-        />,
-      );
-
-      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
-      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
-      await userEvent.selectOptions(bucketToolbar, 'Necesidades');
-      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
-      await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
-
-      const aplicarBtn = screen.getByRole('button', {
-        name: /aplicar a 1 seleccionada/i,
-      });
-      await userEvent.click(aplicarBtn);
-      await screen.findByRole('alertdialog');
-
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Confirmar' })).toHaveFocus(),
-      );
-
-      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-
-      expect(aplicarBtn).toHaveFocus();
-    });
-
-    it('Escape cancels the bulk-apply confirmation, preserving the selection', async () => {
-      const onEditChange = vi.fn();
-
-      render(
-        <PreviewMuestra
-          banco="BancoEstado"
-          filas={filasDosGrupos}
-          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
-          edits={new Map()}
-          onEditChange={onEditChange}
-          catalogo={unCatalogo()}
-        />,
-      );
-
-      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
-      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
-      await userEvent.selectOptions(bucketToolbar, 'Necesidades');
-      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
-      await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
-
-      const aplicarBtn = screen.getByRole('button', {
-        name: /aplicar a 1 seleccionada/i,
-      });
-      await userEvent.click(aplicarBtn);
-      await screen.findByRole('alertdialog');
-
-      await userEvent.keyboard('{Escape}');
-
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-      expect(onEditChange).not.toHaveBeenCalled();
-      expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
     });
 
     it('"Limpiar selección" clears the selection without calling onEditChange', async () => {
@@ -1004,6 +889,116 @@ describe('PreviewMuestra', () => {
         expect(onEditChange).not.toHaveBeenCalled();
         expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText(/Seleccionar fila 1/i)).not.toBeChecked();
+      });
+    });
+
+    // ── Sticky header collapses the progress readout during selection ──────
+    describe('sticky header collapses the progress readout during selection', () => {
+      it('hides the progress text and progress bar once a row is selected', async () => {
+        const { container } = render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        expect(screen.getByText(/de 2 clasificadas/i)).toBeInTheDocument();
+        expect(container.querySelector('[data-progreso-fill]')).not.toBeNull();
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        expect(
+          screen.queryByText(/de 2 clasificadas/i),
+        ).not.toBeInTheDocument();
+        expect(container.querySelector('[data-progreso-fill]')).toBeNull();
+      });
+
+      it('keeps the master select-all checkbox and "Solo sin clasificar" toggle visible while a selection is active', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        expect(
+          screen.getByLabelText(/seleccionar todas las visibles \(2\)/i),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /solo sin clasificar/i }),
+        ).toBeInTheDocument();
+      });
+
+      it('restores the progress text and bar once the selection is cleared', async () => {
+        const { container } = render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+        expect(
+          screen.queryByText(/de 2 clasificadas/i),
+        ).not.toBeInTheDocument();
+
+        await userEvent.click(
+          screen.getByRole('button', { name: /limpiar selección/i }),
+        );
+
+        expect(screen.getByText(/de 2 clasificadas/i)).toBeInTheDocument();
+        expect(container.querySelector('[data-progreso-fill]')).not.toBeNull();
+      });
+
+      it('does not introduce an aria-live region to announce the collapse', async () => {
+        const { container } = render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        expect(container.querySelector('[aria-live]')).toBeNull();
+      });
+
+      it('the shared Bucket/Categoría column header is unaffected by the collapse (contract: column headers untouched)', async () => {
+        const { container } = render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        const header = container.querySelector('[data-columnas-header]');
+        expect(header).not.toBeNull();
+        expect(header).toHaveTextContent('Bucket');
+        expect(header).toHaveTextContent('Categoría');
       });
     });
 
