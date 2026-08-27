@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
 import {
@@ -7,7 +7,6 @@ import {
 } from './catalogo-select-sentinels';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { Button } from './ui/button';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -44,22 +43,19 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * the user understands why the cascade selects are unavailable, without hiding
  * the preview data.
  *
- * Design-system hardening round 2 (P3, reassurance parity): the bulk-apply
- * toolbar's "Aplicar a N seleccionadas" used to commit the edit immediately
- * on click — the only write action in this file with zero confirmation,
- * while the per-row cross-bucket reclassify (`ReclasificarCategoriaControl`)
- * always shows impact first. Clicking "Aplicar" now opens an inline
- * `role="alertdialog"` (same hand-rolled shape as `ReclasificarCategoriaControl`/
- * `EliminarIngestaControl`: focus moves to "Confirmar" on open and back to
- * the "Aplicar" trigger on cancel, Escape cancels) restating the categoría,
- * bucket, and row count — no monto/sum is computed here (ADR-024: amounts
- * are backend domain). Confirming runs the exact same per-row
- * `onEditChange` loop this used to run synchronously; cancelling leaves
- * `seleccionados`/`bucketToolbar`/`categoriaToolbar` untouched. Nothing this
- * dialog does writes to the server — it only stages `edits`, so its own
- * copy points at the real commit gate ("Agregar transacciones", the button
- * `SubirCartola` renders below this component) rather than promising a save
- * that hasn't happened.
+ * Design-system distill round (P4, subtraction over redesign): a prior
+ * round (P3) added an inline `role="alertdialog"` confirmation in front of
+ * "Aplicar a N seleccionadas", for parity with the per-row cross-bucket
+ * reclassify's confirmation. A fresh review reversed that: the dialog's own
+ * copy already said "Nada se guarda hasta que presiones «Agregar
+ * transacciones»", which means the real commit gate (`SubirCartola`'s
+ * button, rendered below this component) already protects against mistakes
+ * — the dialog was one avoidable extra click per bulk pass, not a safety
+ * net. "Aplicar a N seleccionadas" now applies directly again: the same
+ * per-row `onEditChange` loop this always ran, immediately on click, then
+ * clears `seleccionados`/`bucketToolbar`/`categoriaToolbar`. No network
+ * request happens here either way (ADR-024) — only the extra click was
+ * removed.
  *
  * Design critique P2 (fix 1 + fix 2, review-table polish):
  * - Fix 1 (column identity): the sticky progress container also renders a
@@ -71,6 +67,8 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  *   complementary, never both visible at once. Living inside the SAME
  *   sticky div as the progress readout (rather than its own sticky
  *   element) means it can never fight that header for stacking/z-index.
+ *   This column header is untouched by the P4 selection-collapse below —
+ *   it names columns for the selects, not selection progress.
  * - Fix 2 (toolbar distill): the old 5-zone toolbar (count text + bucket +
  *   categoría + Aplicar + a standalone "Limpiar selección" button) folded
  *   "Limpiar selección" into a dismiss icon inside the count pill
@@ -78,6 +76,16 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  *   unchanged ("Limpiar selección"), so it stays reachable by the exact
  *   same `getByRole('button', { name: /limpiar selección/i })` queries the
  *   pre-existing test suite already used.
+ *
+ * Design distill round P4: while `seleccionados.size > 0`, the sticky
+ * header hides the "N de M clasificadas · K duplicadas" text and the
+ * progress bar — the bulk-apply toolbar's count pill already carries the
+ * live selection number, so the two counts competed for the same reading
+ * moment. The master "select all visible" checkbox and the "Solo sin
+ * clasificar" toggle stay put either way (selection state doesn't change
+ * what they do), and the readout comes back the instant the selection is
+ * cleared. Conditional render, no live region — nothing here needs an
+ * announcement, it's a visibility change on already-static text.
  */
 
 interface FilaConMerged {
@@ -164,20 +172,6 @@ export function PreviewMuestra({
   );
   const [bucketToolbar, setBucketToolbar] = useState('');
   const [categoriaToolbar, setCategoriaToolbar] = useState('');
-  const [confirmandoBulk, setConfirmandoBulk] = useState(false);
-  const aplicarTriggerRef = useRef<HTMLButtonElement>(null);
-  const confirmarBulkRef = useRef<HTMLButtonElement>(null);
-  const mensajeBulkId = useId();
-
-  // Foco al abrir la confirmación (mismo mecanismo que
-  // ReclasificarCategoriaControl/EliminarIngestaControl): mueve el foco a
-  // "Confirmar" en vez de dejarlo huérfano en el botón "Aplicar" que acaba
-  // de abrir el diálogo.
-  useEffect(() => {
-    if (confirmandoBulk) {
-      confirmarBulkRef.current?.focus();
-    }
-  }, [confirmandoBulk]);
 
   // D-05: merged display value computed once — edits win over
   // sugerido.categoriaId. Backs the progress count, the filter, and the
@@ -273,29 +267,18 @@ export function PreviewMuestra({
     setCategoriaToolbar('');
   }
 
-  function handleAbrirConfirmacionBulk() {
+  function handleAplicarBulk() {
     if (!categoriaToolbar) return;
-    setConfirmandoBulk(true);
-  }
-
-  function confirmarAplicarBulk() {
     for (const rowIndex of seleccionados) {
       onEditChange(rowIndex, categoriaToolbar);
     }
     setSeleccionados(new Set());
     setBucketToolbar('');
     setCategoriaToolbar('');
-    setConfirmandoBulk(false);
-  }
-
-  function cancelarAplicarBulk() {
-    setConfirmandoBulk(false);
-    aplicarTriggerRef.current?.focus();
   }
 
   function handleLimpiarSeleccion() {
     setSeleccionados(new Set());
-    setConfirmandoBulk(false);
   }
 
   const etiquetaSeleccionadas =
@@ -318,15 +301,6 @@ export function PreviewMuestra({
             ?.categorias.map((c) => ({ value: c.id, label: c.nombre })) ?? []),
         ]
       : [SENTINEL_OPTION];
-
-  // Rendered copy for the bulk-apply confirmation — display labels only
-  // (bucket relabelled Deseos→"Gustos" per PRODUCT.md), never a monto sum.
-  const bucketLabelToolbar = ETIQUETA_BUCKET[bucketToolbar] ?? bucketToolbar;
-  const categoriaLabelToolbar =
-    categoriaOptionsToolbar.find((o) => o.value === categoriaToolbar)?.label ??
-    categoriaToolbar;
-  const etiquetaMovimientos =
-    seleccionados.size === 1 ? 'movimiento' : 'movimientos';
 
   return (
     <div className="flex flex-col gap-3">
@@ -387,13 +361,18 @@ export function PreviewMuestra({
                   {etiquetaSeleccionarVisibles}
                 </label>
               )}
-              <p className="text-sm font-medium text-foreground">
-                {clasificadas} de {totalNoDuplicadas} {etiquetaClasificadas}
-                <span className="text-muted-foreground">
-                  {' '}
-                  · {duplicadosCount} {etiquetaDuplicadas}
-                </span>
-              </p>
+              {/* P4 distill: hidden while a selection is active — the
+                  bulk-apply toolbar's count pill already carries the live
+                  number, so this text would be a second, redundant count. */}
+              {seleccionados.size === 0 && (
+                <p className="text-sm font-medium text-foreground">
+                  {clasificadas} de {totalNoDuplicadas} {etiquetaClasificadas}
+                  <span className="text-muted-foreground">
+                    {' '}
+                    · {duplicadosCount} {etiquetaDuplicadas}
+                  </span>
+                </p>
+              )}
             </div>
             <Button
               type="button"
@@ -405,16 +384,20 @@ export function PreviewMuestra({
               Solo sin clasificar
             </Button>
           </div>
-          <div
-            aria-hidden="true"
-            className="h-2 w-full overflow-hidden rounded-lg bg-muted"
-          >
+          {/* P4 distill: same collapse as the progress text above — this
+              bar restates the same ratio, so it hides alongside it. */}
+          {seleccionados.size === 0 && (
             <div
-              data-progreso-fill
-              className="h-full rounded-lg bg-primary transition-all"
-              style={{ width: `${progresoPct}%` }}
-            />
-          </div>
+              aria-hidden="true"
+              className="h-2 w-full overflow-hidden rounded-lg bg-muted"
+            >
+              <div
+                data-progreso-fill
+                className="h-full rounded-lg bg-primary transition-all"
+                style={{ width: `${progresoPct}%` }}
+              />
+            </div>
+          )}
           {/* P2 design critique fix 1: ONE shared column header, sm+ only —
               at sm+ each FilaRevision hides its own per-row "Bucket"/
               "Categoría" word (sm:sr-only) since selects sit side by side
@@ -572,57 +555,13 @@ export function PreviewMuestra({
               disabled={catalogo.tag !== 'listo' || !bucketToolbar}
             />
             <Button
-              ref={aplicarTriggerRef}
               type="button"
-              onClick={handleAbrirConfirmacionBulk}
+              onClick={handleAplicarBulk}
               disabled={!categoriaToolbar}
             >
               Aplicar a {seleccionados.size} {etiquetaSeleccionadas}
             </Button>
           </div>
-
-          {confirmandoBulk && (
-            // Same shape as ReclasificarCategoriaControl's inline
-            // confirmation: role="alertdialog", Escape bound at the
-            // container (WAI-ARIA dialog pattern), not a specific control.
-            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-            <div
-              role="alertdialog"
-              aria-label="Confirmar aplicación a movimientos seleccionados"
-              aria-describedby={mensajeBulkId}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  cancelarAplicarBulk();
-                }
-              }}
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-sm text-foreground shadow-sm"
-            >
-              <p id={mensajeBulkId}>
-                Aplicarás «{categoriaLabelToolbar}» ({bucketLabelToolbar}) a{' '}
-                {seleccionados.size} {etiquetaMovimientos}.
-              </p>
-              <p className="text-muted-foreground">
-                Nada se guarda hasta que presiones «Agregar transacciones».
-              </p>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelarAplicarBulk}
-                  className="text-muted-foreground"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  ref={confirmarBulkRef}
-                  type="button"
-                  onClick={confirmarAplicarBulk}
-                >
-                  Confirmar
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
