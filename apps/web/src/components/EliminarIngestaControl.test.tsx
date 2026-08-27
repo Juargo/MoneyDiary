@@ -242,6 +242,38 @@ describe('EliminarIngestaControl', () => {
     );
   });
 
+  // Touch-target quick win (round 2, P2): destructive confirms under a
+  // distracted thumb get the house default 36px control, not the 24px
+  // `xs` size used for compact inline rows. Asserted via Button's own
+  // `data-size` contract, not class strings.
+  it('renders Confirmar and Cancelar at the default (36px) touch target, not xs', async () => {
+    const user = userEvent.setup();
+    render(
+      <EliminarIngestaControl
+        id="ingesta-1"
+        banco="BancoEstado"
+        fechaLabel="2026-07-15"
+        estado="exitoso"
+        totalTransacciones={12}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
+    );
+    await screen.findByRole('alertdialog');
+
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toHaveAttribute(
+      'data-size',
+      'default',
+    );
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveAttribute(
+      'data-size',
+      'default',
+    );
+  });
+
   it('on a failed delete shows an error message and keeps the dialog open', async () => {
     mockFetchOnce({ ok: false, status: 500 });
     const user = userEvent.setup();

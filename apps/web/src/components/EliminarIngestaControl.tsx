@@ -148,7 +148,6 @@ export function EliminarIngestaControl({
             <Button
               type="button"
               variant="outline"
-              size="xs"
               onClick={cancelar}
               className="text-muted-foreground"
             >
@@ -158,7 +157,6 @@ export function EliminarIngestaControl({
               ref={confirmarRef}
               type="button"
               variant="destructive"
-              size="xs"
               onClick={confirmar}
               disabled={mutacion.isPending}
             >

@@ -125,4 +125,20 @@ describe('ConfirmarPasswordDialog', () => {
     renderDialog({ error: null });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  // Touch-target quick win (round 2, P2): destructive/sensitive confirms
+  // get the house default 36px control, not the 24px `xs` size. Asserted
+  // via Button's own `data-size` contract, not class strings.
+  it('renderiza Confirmar y Cancelar en el tamaño default (36px), no xs', () => {
+    renderDialog();
+
+    expect(screen.getByRole('button', { name: 'Vincular' })).toHaveAttribute(
+      'data-size',
+      'default',
+    );
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveAttribute(
+      'data-size',
+      'default',
+    );
+  });
 });

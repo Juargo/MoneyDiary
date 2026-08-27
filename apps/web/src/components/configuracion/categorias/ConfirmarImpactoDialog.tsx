@@ -131,7 +131,6 @@ export function ConfirmarImpactoDialog({
         <Button
           type="button"
           variant="outline"
-          size="xs"
           onClick={cancelar}
           disabled={pendiente}
           className="text-muted-foreground"
@@ -142,7 +141,6 @@ export function ConfirmarImpactoDialog({
           ref={confirmarRef}
           type="button"
           variant="destructive"
-          size="xs"
           onClick={onConfirmar}
           disabled={pendiente}
         >
