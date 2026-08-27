@@ -26,6 +26,7 @@ import type { ApiError } from '@/api/client';
 import type { CatalogoEstado } from '@/api/types';
 import { CampoTexto } from './configuracion/CampoTexto';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
+import { Button } from '@/components/ui/button';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -292,7 +293,7 @@ export function RegistrarMovimientoForm({
       />
 
       {/* Fecha — raw <label><input type="date"> (CampoTexto cannot host date, D-04/§0) */}
-      <label className="flex flex-col gap-1 text-sm text-slate-600">
+      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
         Fecha
         <input
           type="date"
@@ -301,10 +302,12 @@ export function RegistrarMovimientoForm({
           onChange={(e) => setFecha(e.target.value)}
           required
           disabled={esDemo}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+          className="rounded-md border border-input px-3 py-2 text-sm disabled:opacity-50"
         />
       </label>
-      {errores.fecha && <p className="text-sm text-red-600">{errores.fecha}</p>}
+      {errores.fecha && (
+        <p className="text-sm text-destructive">{errores.fecha}</p>
+      )}
 
       {/* Descripción — CampoTexto (type='text', D-15) */}
       <CampoTexto
@@ -315,11 +318,11 @@ export function RegistrarMovimientoForm({
         disabled={esDemo}
       />
       {errores.descripcion && (
-        <p className="text-sm text-red-600">{errores.descripcion}</p>
+        <p className="text-sm text-destructive">{errores.descripcion}</p>
       )}
 
       {/* Monto — raw <label><input type="text" inputMode="numeric"> (D-03/§0) */}
-      <label className="flex flex-col gap-1 text-sm text-slate-600">
+      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
         Monto
         <input
           type="text"
@@ -328,10 +331,12 @@ export function RegistrarMovimientoForm({
           value={monto}
           onChange={(e) => setMonto(e.target.value)}
           disabled={esDemo}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+          className="rounded-md border border-input px-3 py-2 text-sm disabled:opacity-50"
         />
       </label>
-      {errores.monto && <p className="text-sm text-red-600">{errores.monto}</p>}
+      {errores.monto && (
+        <p className="text-sm text-destructive">{errores.monto}</p>
+      )}
 
       {/* Gasto cascade (D-08/D-09): bucket → categoría */}
       {tipo === 'Gasto' && (
@@ -343,13 +348,15 @@ export function RegistrarMovimientoForm({
         >
           {/* Catalog error degrade (D-08, CA-08) */}
           {catalogo.tag === 'error' && (
-            <p role="alert" className="text-sm text-amber-700">
+            <p role="alert" className="text-sm text-destructive">
               No se pudo cargar el catálogo de categorías. Podés intentar con
               los valores que ya tenés seleccionados o reintentar más tarde.
             </p>
           )}
           {catalogo.tag === 'cargando' && (
-            <p className="text-sm text-slate-500">Cargando categorías…</p>
+            <p className="text-sm text-muted-foreground">
+              Cargando categorías…
+            </p>
           )}
 
           {/* Bucket select — first <select> inside cascadaRef (D-09 ordering invariant) */}
@@ -374,36 +381,32 @@ export function RegistrarMovimientoForm({
           />
 
           {errores.cascade && (
-            <p className="text-sm text-red-600">{errores.cascade}</p>
+            <p className="text-sm text-destructive">{errores.cascade}</p>
           )}
         </div>
       )}
 
       {/* Demo notice (D-11, NuevaCategoriaForm idiom) */}
       {esDemo && (
-        <p role="note" className="text-sm text-slate-500">
+        <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_REGISTRAR}
         </p>
       )}
 
       {/* Error feedback region (role="alert", D-10, PerfilForm idiom) */}
-      <div role="alert" className="text-sm text-red-600">
+      <div role="alert" className="text-sm text-destructive">
         {feedback?.tono === 'error' && <p>{feedback.texto}</p>}
       </div>
 
       {/* Submit button (D-11: disabled={esDemo || mutation.isPending}) */}
-      <button
-        type="submit"
-        disabled={esDemo || mutation.isPending}
-        className="rounded-full bg-slate-800 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={esDemo || mutation.isPending}>
         Guardar movimiento
-      </button>
+      </Button>
 
       {/* "Ir al dashboard" — static plain anchor, always present (D-10: not conditional on success) */}
       <a
         href="/"
-        className="text-center text-sm text-slate-600 underline hover:text-slate-900"
+        className="text-center text-sm text-muted-foreground underline hover:text-foreground"
       >
         Ir al dashboard
       </a>

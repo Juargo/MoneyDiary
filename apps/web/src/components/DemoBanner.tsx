@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { postLogout } from '@/api/auth';
+import { Button } from '@/components/ui/button';
 
 /**
  * DemoBanner (demo-trial-mode, DEMO-UI-02/DEMO-UI-04) — sticky, dismissable
@@ -68,29 +69,34 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
         automáticamente.
       </p>
       <div className="flex shrink-0 items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => void salirDelDemo()}
-          className="rounded-full px-3 py-1.5 text-sm font-semibold text-amber-900 underline-offset-2 hover:underline"
+          className="text-amber-900 hover:bg-amber-100 hover:text-amber-900"
         >
           Salir del demo
-        </button>
-        <a
-          href="https://moneydiary.cl"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full bg-slate-800 px-4 py-1.5 text-sm font-semibold text-white"
-        >
-          Crear cuenta
-        </a>
-        <button
+        </Button>
+        <Button asChild size="sm">
+          <a
+            href="https://moneydiary.cl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Crear cuenta
+          </a>
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           aria-label="Cerrar aviso de modo demo"
           onClick={() => setDescartado(true)}
-          className="rounded-full px-2 py-1 text-lg leading-none text-amber-700 hover:bg-amber-100"
+          className="text-lg leading-none text-amber-700 hover:bg-amber-100 hover:text-amber-700"
         >
           ×
-        </button>
+        </Button>
       </div>
     </div>
   );

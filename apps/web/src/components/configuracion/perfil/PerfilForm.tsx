@@ -6,6 +6,7 @@ import type { MeDto } from '@/api/types';
 import { CampoTexto } from '../CampoTexto';
 import { MENSAJE_DEMO_SOLO_LECTURA, mensajeDeResultado } from './mensajes';
 import type { Mensaje } from './mensajes';
+import { Button } from '@/components/ui/button';
 
 /**
  * PerfilForm — el formulario de CA-02 (US-042 design.md §1/Q1a/Q1b): cuatro
@@ -112,7 +113,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
         espaciado. Si tocás este bloque, verificalo en un browser.
       */}
       <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
-        <legend className="mb-4 p-0 text-sm font-semibold text-slate-700">
+        <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
           Cambiar password
         </legend>
         <CampoTexto
@@ -134,24 +135,20 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
         />
       </fieldset>
       {me.esDemo && (
-        <p role="note" className="text-sm text-slate-500">
+        <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_SOLO_LECTURA}
         </p>
       )}
       <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={mutation.isPending || me.esDemo}
-          className="rounded-full bg-slate-800 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
+        <Button type="submit" disabled={mutation.isPending || me.esDemo}>
           Guardar cambios
-        </button>
+        </Button>
       </div>
       <div aria-live="polite" className="text-sm text-emerald-700">
         {mensaje?.tono === 'ok' &&
           mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
       </div>
-      <div role="alert" className="text-sm text-red-600">
+      <div role="alert" className="text-sm text-destructive">
         {mensaje?.tono === 'error' &&
           mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
       </div>

@@ -16,6 +16,7 @@ import {
   MENSAJE_DEMO_CATALOGO,
   mensajeDeErrorCatalogo,
 } from './mensajes-catalogo';
+import { Button } from '@/components/ui/button';
 
 /**
  * CategoriasPanel (US-043, design.md §1/Q4a/Q8c, WCTG-02, WCTG-03,
@@ -207,7 +208,7 @@ export function CategoriasPanel() {
           <h2
             ref={tituloRef}
             tabIndex={-1}
-            className="text-xl font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-xl font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Categorías y patrones
           </h2>
@@ -217,18 +218,18 @@ export function CategoriasPanel() {
           </p>
         </div>
         {!creando && !(query.isError && eliminadoRecientemente) && (
-          <button
+          <Button
             type="button"
             aria-label="Nueva categoría"
             onClick={() => setCreando(true)}
-            className="w-full shrink-0 rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white md:w-auto"
+            className="w-full shrink-0 md:w-auto"
           >
             <EtiquetaResponsiva
               movil="Nueva categoría"
               tablet="Nueva"
               escritorio="Nueva categoría"
             />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -237,7 +238,7 @@ export function CategoriasPanel() {
       </span>
 
       {esDemo && !creando && (
-        <p role="note" className="text-sm text-slate-500">
+        <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_CATALOGO}
         </p>
       )}
@@ -267,7 +268,7 @@ export function CategoriasPanel() {
           <div className="flex flex-col gap-6">
             {grupos.map((grupo) => (
               <section key={grupo.bucket}>
-                <h3 className="mb-2 text-sm font-semibold text-slate-700">
+                <h3 className="mb-2 text-sm font-semibold text-foreground">
                   {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
                 </h3>
                 <ul>

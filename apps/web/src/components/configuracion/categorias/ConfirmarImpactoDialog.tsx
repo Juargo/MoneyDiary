@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 
 /**
  * ConfirmarImpactoDialog (US-043 PR #3b, design.md §1/Q6a, task 28) — the
@@ -127,23 +128,26 @@ export function ConfirmarImpactoDialog({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="xs"
           onClick={cancelar}
           disabled={pendiente}
-          className="rounded-full border border-border px-3 py-1 font-semibold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-muted-foreground"
         >
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
           ref={confirmarRef}
           type="button"
+          variant="destructive"
+          size="xs"
           onClick={onConfirmar}
           disabled={pendiente}
-          className="rounded-full bg-destructive px-3 py-1 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {textoConfirmar}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Info } from 'lucide-react';
 import type { PatronDto } from '@/api/types';
 import { EtiquetaResponsiva } from '../EtiquetaResponsiva';
 import { PatronFila } from './PatronFila';
+import { Button } from '@/components/ui/button';
 
 let contadorFilasNuevas = 0;
 
@@ -117,7 +118,7 @@ export function PatronesSection({
       <h2
         id="titulo-patrones"
         aria-label="Patrones de auto-categorización"
-        className="text-sm font-semibold text-slate-900"
+        className="text-sm font-semibold text-foreground"
       >
         <EtiquetaResponsiva
           movil="Patrones"
@@ -150,15 +151,15 @@ export function PatronesSection({
         ))}
       </ul>
       <div>
-        <button
+        <Button
           type="button"
+          variant="outline"
           aria-label="Agregar patrón"
           disabled={esDemo || bloqueado}
           onClick={agregarFila}
-          className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
           <EtiquetaResponsiva movil="Agregar" escritorio="Agregar patrón" />
-        </button>
+        </Button>
       </div>
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />

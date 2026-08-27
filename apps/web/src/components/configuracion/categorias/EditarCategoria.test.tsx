@@ -202,15 +202,8 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     const volver = await screen.findByRole('link', {
       name: 'Volver a Categorías',
     });
-    expect(volver).toHaveClass(
-      'rounded-full',
-      'border',
-      'border-slate-300',
-      'px-4',
-      'py-2',
-      'text-sm',
-      'font-semibold',
-    );
+    expect(volver).toHaveAttribute('data-slot', 'button');
+    expect(volver).toHaveAttribute('data-variant', 'outline');
   });
 
   it('si el id no existe en el catálogo cargado (stale/deleted), renderiza role="status" "Esa categoría ya no existe." + link', async () => {
@@ -238,15 +231,8 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     const volver = await screen.findByRole('link', {
       name: 'Volver a Categorías',
     });
-    expect(volver).toHaveClass(
-      'rounded-full',
-      'border',
-      'border-slate-300',
-      'px-4',
-      'py-2',
-      'text-sm',
-      'font-semibold',
-    );
+    expect(volver).toHaveAttribute('data-slot', 'button');
+    expect(volver).toHaveAttribute('data-variant', 'outline');
   });
 
   it('con id presente, renderiza el h1 "Editar categoría" y la breadcrumb con aria-current en la hoja', async () => {
