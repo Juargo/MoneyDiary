@@ -58,7 +58,7 @@ export function AyudaPage() {
         </p>
         <Link
           to="/semaforo"
-          className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+          className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
         >
           Ver tu semáforo del mes
         </Link>
@@ -137,7 +137,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/subir"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Subir cartola
             </Link>{' '}
@@ -146,7 +146,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/registrar"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Registrar movimiento
             </Link>{' '}
@@ -155,7 +155,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/ingestas"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Gestionar cartolas
             </Link>{' '}
@@ -164,7 +164,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/configuracion"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Configuración
             </Link>{' '}

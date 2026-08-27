@@ -2,9 +2,9 @@ import { cn } from '@/lib/utils';
 import type { SegmentoZona } from '@/domain/semaforo-detalle-view-model';
 
 const COLOR_SEGMENTO: Record<SegmentoZona['estado'], string> = {
-  verde: 'bg-emerald-300',
-  amarillo: 'bg-amber-300',
-  rojo: 'bg-rose-300',
+  verde: 'bg-semaforo-verde-band',
+  amarillo: 'bg-semaforo-amarillo-band',
+  rojo: 'bg-semaforo-rojo-band',
 };
 
 /**

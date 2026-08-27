@@ -31,7 +31,7 @@ export function DemoUploadNudge({
     <div
       role="status"
       aria-label="Aviso de subida en modo demo"
-      className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+      className="flex items-center justify-between gap-3 rounded-xl border border-warning-border bg-warning px-4 py-2 text-sm text-warning-foreground"
     >
       <p className="flex-1">
         Los datos de esta cuenta demo son temporales y se eliminan

@@ -97,7 +97,7 @@ function RouteComponent() {
           <Link
             to="/configuracion"
             aria-label="Configuración de la cuenta"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             <UserRound className="size-5" aria-hidden="true" />
           </Link>

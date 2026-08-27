@@ -302,7 +302,7 @@ export function RegistrarMovimientoForm({
           onChange={(e) => setFecha(e.target.value)}
           required
           disabled={esDemo}
-          className="rounded-md border border-input px-3 py-2 text-sm disabled:opacity-50"
+          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
         />
       </label>
       {errores.fecha && (
@@ -331,7 +331,7 @@ export function RegistrarMovimientoForm({
           value={monto}
           onChange={(e) => setMonto(e.target.value)}
           disabled={esDemo}
-          className="rounded-md border border-input px-3 py-2 text-sm disabled:opacity-50"
+          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
         />
       </label>
       {errores.monto && (
@@ -415,7 +415,7 @@ export function RegistrarMovimientoForm({
       <div
         role="status"
         aria-live="polite"
-        className="text-sm text-emerald-700"
+        className="text-sm text-exito-foreground"
       >
         {feedback?.tono === 'ok' && <p>{feedback.texto}</p>}
       </div>

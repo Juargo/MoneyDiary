@@ -53,7 +53,7 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           required
-          className="rounded-md border border-input px-3 py-2 text-sm"
+          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm text-muted-foreground">
@@ -63,7 +63,7 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
-          className="rounded-md border border-input px-3 py-2 text-sm"
+          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
       </label>
       {estado === 'error' && (

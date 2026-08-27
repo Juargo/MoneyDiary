@@ -8,20 +8,28 @@ const ESTILOS: Record<string, EstiloSemaforo> = {
   verde: {
     label: 'Verde',
     cara: '🙂',
-    className: 'bg-emerald-100 text-emerald-700',
+    className: 'bg-semaforo-verde text-semaforo-verde-foreground',
   },
   amarillo: {
     label: 'Amarillo',
     cara: '😐',
-    className: 'bg-amber-100 text-amber-700',
+    className: 'bg-semaforo-amarillo text-semaforo-amarillo-foreground',
   },
-  rojo: { label: 'Rojo', cara: '☹️', className: 'bg-rose-100 text-rose-700' },
+  rojo: {
+    label: 'Rojo',
+    cara: '☹️',
+    className: 'bg-semaforo-rojo text-semaforo-rojo-foreground',
+  },
 };
 
+// `bg-slate-100 text-slate-500` measured ~4.35:1 — fails the AA 4.5:1 floor.
+// Migrated to the EXISTING shadcn `muted`/`muted-foreground` pair (8.38:1)
+// instead of minting a new token — "sin datos" isn't a semáforo color, it's
+// the generic neutral-empty state (design-token debt burn-down, 2026-08-27).
 export const SIN_DATOS: EstiloSemaforo = {
   label: 'Sin datos',
   cara: '—',
-  className: 'bg-slate-100 text-slate-500',
+  className: 'bg-muted text-muted-foreground',
 };
 
 /**
