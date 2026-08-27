@@ -21,6 +21,7 @@ import {
   MENSAJE_DEMO_CATALOGO,
   mensajeDeErrorCatalogo,
 } from './mensajes-catalogo';
+import { Button } from '@/components/ui/button';
 
 const OPCIONES_BUCKET = BUCKETS_ASIGNABLES.map((bucket) => ({
   value: bucket,
@@ -155,12 +156,9 @@ export function EditarCategoria({
           padding, not an exemption. Reuses the footer's `Cancelar` pattern
           verbatim rather than inventing a fourth control style.
         */}
-        <Link
-          to="/configuracion/categorias"
-          className="inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
-        >
-          Volver a Categorías
-        </Link>
+        <Button asChild variant="outline">
+          <Link to="/configuracion/categorias">Volver a Categorías</Link>
+        </Button>
       </div>
     );
   }
@@ -171,12 +169,9 @@ export function EditarCategoria({
     return (
       <div>
         <p role="status">Esa categoría ya no existe.</p>
-        <Link
-          to="/configuracion/categorias"
-          className="inline-block rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
-        >
-          Volver a Categorías
-        </Link>
+        <Button asChild variant="outline">
+          <Link to="/configuracion/categorias">Volver a Categorías</Link>
+        </Button>
       </div>
     );
   }
@@ -437,7 +432,9 @@ function EditarCategoriaCargada({
           </li>
         </ol>
       </nav>
-      <h1 className="text-xl font-semibold text-slate-900">Editar categoría</h1>
+      <h1 className="text-xl font-semibold text-foreground">
+        Editar categoría
+      </h1>
 
       <form
         id="form-identidad"
@@ -477,7 +474,7 @@ function EditarCategoriaCargada({
       </form>
 
       {esDemo && (
-        <p role="note" className="text-sm text-slate-500">
+        <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_CATALOGO}
         </p>
       )}
@@ -490,7 +487,7 @@ function EditarCategoriaCargada({
         would duplicate the alert on a failed bucket-change confirm.
       */}
       {actualizacion.isError && dialogo === null && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {mensajeDeErrorCatalogo(actualizacion.error)}
         </p>
       )}
@@ -532,7 +529,7 @@ function EditarCategoriaCargada({
       */}
       <footer className="mt-2 flex flex-col gap-3 border-t border-border pt-4 md:flex-row-reverse md:flex-wrap md:items-center md:justify-between">
         <div className="flex flex-col gap-2 md:flex-row-reverse md:items-center">
-          <button
+          <Button
             ref={guardarRef}
             type="submit"
             form="form-identidad"
@@ -549,12 +546,13 @@ function EditarCategoriaCargada({
               eliminacion.isPending ||
               dialogo === 'eliminar'
             }
-            className="w-full rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 md:w-auto"
+            className="w-full md:w-auto"
           >
             Guardar
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             form="form-identidad"
             // `dialogo !== null` (judgment-day round 2): this button was
             // NOT disabled while a dialog was open — its `onClick` resets
@@ -577,14 +575,15 @@ function EditarCategoriaCargada({
             disabled={dialogo !== null || actualizacion.isPending}
             onClick={cancelarIdentidad}
             aria-label="Cancelar cambios de nombre y bucket"
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            className="text-muted-foreground"
           >
             Cancelar
-          </button>
+          </Button>
         </div>
-        <button
+        <Button
           ref={eliminarRef}
           type="button"
+          variant="outline"
           // `dialogo === 'cambiar-bucket'` (not `dialogo !== null`,
           // deliberately): blocking only the OTHER dialog stops the silent
           // dialog-swap race (clicking here while the bucket-change confirm
@@ -628,10 +627,10 @@ function EditarCategoriaCargada({
             setDialogo('eliminar');
           }}
           aria-label={`Eliminar categoría ${categoria.nombre}`}
-          className="self-start rounded-full border border-destructive px-4 py-2 text-sm font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+          className="self-start text-destructive"
         >
           Eliminar categoría
-        </button>
+        </Button>
       </footer>
 
       {dialogo === 'cambiar-bucket' && snapshotAlAbrirDialogo && (

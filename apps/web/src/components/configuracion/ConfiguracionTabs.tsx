@@ -1,8 +1,8 @@
 import { Link } from '@tanstack/react-router';
 
 const TAB_BASE =
-  'block rounded-md px-3 py-2 text-center text-sm text-slate-600 transition-colors hover:bg-slate-50 md:text-left';
-const TAB_ACTIVE = 'bg-slate-100 font-semibold text-slate-900';
+  'block rounded-md px-3 py-2 text-center text-sm text-muted-foreground transition-colors hover:bg-accent md:text-left';
+const TAB_ACTIVE = 'bg-accent font-semibold text-primary';
 
 /**
  * ConfiguracionTabs — the section-tab list, now shared chrome rendered once

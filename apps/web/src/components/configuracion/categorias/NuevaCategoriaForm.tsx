@@ -10,6 +10,7 @@ import {
   MENSAJE_DEMO_CATALOGO,
   mensajeDeErrorCatalogo,
 } from './mensajes-catalogo';
+import { Button } from '@/components/ui/button';
 
 /**
  * NuevaCategoriaForm — CA-01's creation flow (US-043, design.md §1/Q9a,
@@ -94,30 +95,27 @@ export function NuevaCategoriaForm({
         />
       </div>
       {esDemo && (
-        <p role="note" className="text-sm text-slate-500">
+        <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_CATALOGO}
         </p>
       )}
       {mutation.isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {mensajeDeErrorCatalogo(mutation.error)}
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          className="text-muted-foreground"
           onClick={onCerrar}
-          className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
         >
           Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={esDemo || mutation.isPending}
-          className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
+        </Button>
+        <Button type="submit" disabled={esDemo || mutation.isPending}>
           Crear
-        </button>
+        </Button>
       </div>
     </form>
   );

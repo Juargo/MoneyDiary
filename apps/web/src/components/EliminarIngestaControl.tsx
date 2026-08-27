@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEliminarIngesta } from '@/api/use-eliminar-ingesta';
 import type { EstadoIngestaResumen } from '@/api/types';
+import { Button } from '@/components/ui/button';
 
 /**
  * EliminarIngestaControl (`us-018-eliminar-ingesta` Slice 2, design.md §7.3,
@@ -115,15 +116,17 @@ export function EliminarIngestaControl({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
+      <Button
         ref={triggerRef}
         type="button"
+        variant="outline"
+        size="xs"
         onClick={abrir}
         aria-label={`Eliminar cartola ${banco} (${fechaLabel})`}
-        className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+        className="text-destructive"
       >
         Eliminar
-      </button>
+      </Button>
       {abierto && (
         <div
           role="alertdialog"
@@ -142,22 +145,25 @@ export function EliminarIngestaControl({
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={cancelar}
-              className="rounded-full border border-border px-3 py-1 font-semibold text-muted-foreground"
+              className="text-muted-foreground"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               ref={confirmarRef}
               type="button"
+              variant="destructive"
+              size="xs"
               onClick={confirmar}
               disabled={mutacion.isPending}
-              className="rounded-full bg-destructive px-3 py-1 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar
-            </button>
+            </Button>
           </div>
         </div>
       )}

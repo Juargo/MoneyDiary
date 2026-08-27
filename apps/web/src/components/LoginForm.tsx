@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { postLogin } from '@/api/auth';
+import { Button } from '@/components/ui/button';
 
 /**
  * LoginForm — owns the email+password form state, the `postLogin` call, and
@@ -45,38 +46,34 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
       onSubmit={enviar}
       className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8"
     >
-      <label className="flex flex-col gap-1 text-sm text-slate-600">
+      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
         Email
         <input
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           required
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-md border border-input px-3 py-2 text-sm"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-600">
+      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
         Contraseña
         <input
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-md border border-input px-3 py-2 text-sm"
         />
       </label>
       {estado === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           Credenciales inválidas.
         </p>
       )}
-      <button
-        type="submit"
-        disabled={estado === 'submitting'}
-        className="rounded-full bg-slate-800 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={estado === 'submitting'}>
         Ingresar
-      </button>
+      </Button>
     </form>
   );
 }

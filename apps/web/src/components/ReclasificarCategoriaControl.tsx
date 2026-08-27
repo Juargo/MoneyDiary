@@ -4,6 +4,7 @@ import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { Button } from '@/components/ui/button';
 
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
@@ -203,7 +204,7 @@ export function ReclasificarCategoriaControl({
         disabled={mutacion.isPending || data === undefined}
         aria-busy={catalogoCargandoInicial}
         onChange={alCambiar}
-        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         {data === undefined ? (
           // Mid-flight: the catalog hasn't loaded yet. Offer only the
@@ -236,7 +237,7 @@ export function ReclasificarCategoriaControl({
         )}
       </select>
       {errorMensaje && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="text-xs text-destructive">
           {errorMensaje}
         </p>
       )}
@@ -261,29 +262,31 @@ export function ReclasificarCategoriaControl({
               cancelar();
             }
           }}
-          className="flex flex-col gap-2 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-sm"
+          className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs text-foreground shadow-sm"
         >
           <p id={mensajeId}>
             Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}
             {etiqueta(pendiente.bucketNuevo)}.
           </p>
           <div className="flex justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={cancelar}
-              className="rounded-full border border-slate-300 px-3 py-1 font-semibold text-slate-600"
+              className="text-muted-foreground"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               ref={confirmarRef}
               type="button"
+              size="xs"
               onClick={confirmar}
               disabled={mutacion.isPending}
-              className="rounded-full bg-slate-800 px-3 py-1 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -16,6 +16,8 @@
  * announces this nudge as a separate, identifiable region and never
  * conflates it with the upload's own progress announcements (CU-05/CU-07).
  */
+import { Button } from '@/components/ui/button';
+
 export function DemoUploadNudge({
   esDemo = false,
 }: {
@@ -35,14 +37,15 @@ export function DemoUploadNudge({
         Los datos de esta cuenta demo son temporales y se eliminan
         automáticamente.
       </p>
-      <a
-        href="https://moneydiary.cl"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="shrink-0 rounded-full bg-slate-800 px-4 py-1.5 text-sm font-semibold text-white"
-      >
-        Crear cuenta
-      </a>
+      <Button asChild size="sm" className="shrink-0">
+        <a
+          href="https://moneydiary.cl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Crear cuenta
+        </a>
+      </Button>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from '@/api/use-google-vinculo';
 import { ConfirmarPasswordDialog } from './ConfirmarPasswordDialog';
 import { MENSAJE_DEMO_SOLO_LECTURA, mensajeDeApiError } from './mensajes';
+import { Button } from '@/components/ui/button';
 
 const DESCRIPCION_VINCULAR =
   'Vas a salir de MoneyDiary para autorizar en Google. Los cambios sin guardar se perderán.';
@@ -126,9 +127,11 @@ export function GoogleVinculoSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-slate-700">Cuenta de Google</h2>
+      <h2 className="text-sm font-semibold text-foreground">
+        Cuenta de Google
+      </h2>
       {me.esDemo && (
-        <p role="note" className="text-sm text-slate-500">
+        <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_SOLO_LECTURA}
         </p>
       )}
@@ -139,15 +142,14 @@ export function GoogleVinculoSection({
           )}
           {pillTexto}
         </span>
-        <button
+        <Button
           ref={triggerRef}
           type="button"
           onClick={abrir}
           disabled={me.esDemo}
-          className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {me.googleVinculado ? 'Desvincular' : 'Vincular con Google'}
-        </button>
+        </Button>
       </div>
       {abierto && (
         <ConfirmarPasswordDialog

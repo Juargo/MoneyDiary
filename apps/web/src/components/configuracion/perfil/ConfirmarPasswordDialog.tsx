@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { CampoTexto } from '../CampoTexto';
+import { Button } from '@/components/ui/button';
 
 /**
  * ConfirmarPasswordDialog — el diálogo `role="alertdialog"` hand-rolled que
@@ -99,10 +100,10 @@ export function ConfirmarPasswordDialog({
       }}
       className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground shadow-sm"
     >
-      <h2 id={tituloId} className="text-sm font-semibold text-slate-900">
+      <h2 id={tituloId} className="text-sm font-semibold text-foreground">
         {titulo}
       </h2>
-      <p id={descripcionId} className="text-sm text-slate-600">
+      <p id={descripcionId} className="text-sm text-muted-foreground">
         {descripcion}
       </p>
       <form onSubmit={enviar} className="flex flex-col gap-3">
@@ -121,20 +122,18 @@ export function ConfirmarPasswordDialog({
           </p>
         )}
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="xs"
             onClick={onCancelar}
-            className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground"
+            className="text-muted-foreground"
           >
             Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={pendiente}
-            className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          </Button>
+          <Button type="submit" size="xs" disabled={pendiente}>
             {textoConfirmar}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
