@@ -108,4 +108,40 @@ describe('useResumen', () => {
       message: 'Sin acceso.',
     });
   });
+
+  // `options.enabled` (peak-end landing, SubirCartola exito state): lets a
+  // caller mount the hook without firing a request until a condition is
+  // met (e.g. "only once the commit succeeded and a dominant month was
+  // derived") — TanStack Query's own `enabled` passthrough, no new
+  // behavior invented here.
+  it('options.enabled=false no dispara fetch', () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(
+      () => useResumen('2026-07', { enabled: false }),
+      { wrapper: crearWrapper() },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.isPending).toBe(true);
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('options.enabled=true (u omitido) dispara fetch como antes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validDto),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(
+      () => useResumen('2026-07', { enabled: true }),
+      { wrapper: crearWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumen?periodo=2026-07');
+  });
 });

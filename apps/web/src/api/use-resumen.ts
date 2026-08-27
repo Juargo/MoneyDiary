@@ -14,8 +14,17 @@ import type { ResumenMesDto } from './types';
  *
  * `periodo` ausente → el backend resuelve el mes actual (mismo contrato que
  * `GET /api/resumen` sin query param).
+ *
+ * `options.enabled` (peak-end landing, `SubirCartola` exito state) — thin
+ * passthrough a `useQuery`'s propio `enabled`: deja montar el hook sin
+ * disparar la request hasta que se cumpla una condición (p. ej. "solo
+ * después de que el commit tuvo éxito y se derivó un mes dominante").
+ * Ausente u `true` → mismo comportamiento de siempre (default `useQuery`).
  */
-export function useResumen(periodo?: string) {
+export function useResumen(
+  periodo?: string,
+  options?: { readonly enabled?: boolean },
+) {
   return useQuery<ResumenMesDto, ApiError>({
     queryKey: ['resumen', periodo ?? 'actual'],
     queryFn: async () => {
@@ -25,5 +34,6 @@ export function useResumen(periodo?: string) {
       }
       return result.value;
     },
+    enabled: options?.enabled,
   });
 }

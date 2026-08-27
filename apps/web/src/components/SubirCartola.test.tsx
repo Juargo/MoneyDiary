@@ -1,12 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SubirCartola } from './SubirCartola';
 import { usePreviewIngesta } from '@/api/use-preview-ingesta';
 import { useCommitIngesta } from '@/api/use-commit-ingesta';
 import { useCategorias } from '@/api/use-categorias';
+import { useResumen } from '@/api/use-resumen';
 import type { ApiError } from '@/api/client';
-import type { PreviewIngestaDto } from '@/api/types';
+import type { PreviewIngestaDto, ResumenMesDto } from '@/api/types';
 import { unaFilaPreview } from '@/test-utils/preview-fixtures';
 import type { CatalogoDto } from '@/api/types';
 
@@ -19,6 +20,12 @@ import type { CatalogoDto } from '@/api/types';
 // - `useCategorias` (catalog co-fetch, NEW) mocked to provide CatalogoEstado.
 // - `@tanstack/react-router` navigate mocked via vi.mock.
 // - `useIngesta`/`postIngesta` stay exported/untouched (WEB-PRV-11 guard).
+//
+// Peak-end landing (supersedes PR3's D-01): `useResumen` (NEW) mocked to
+// provide the exito-state verdict fetch — SubirCartola calls it
+// unconditionally every render (rules-of-hooks), gated internally via
+// `enabled`, so a sane default is installed in `beforeEach` and only
+// overridden by the tests that actually exercise the exito verdict block.
 
 vi.mock('@/api/use-preview-ingesta', () => ({
   usePreviewIngesta: vi.fn(),
@@ -28,6 +35,9 @@ vi.mock('@/api/use-commit-ingesta', () => ({
 }));
 vi.mock('@/api/use-categorias', () => ({
   useCategorias: vi.fn(),
+}));
+vi.mock('@/api/use-resumen', () => ({
+  useResumen: vi.fn(),
 }));
 
 // CatalogoDto factory — the shape returned by useCategorias (not CatalogoEstado).
@@ -68,6 +78,66 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 const mockedUsePreviewIngesta = vi.mocked(usePreviewIngesta);
 const mockedUseCommitIngesta = vi.mocked(useCommitIngesta);
 const mockedUseCategorias = vi.mocked(useCategorias);
+const mockedUseResumen = vi.mocked(useResumen);
+
+// Minimal resumen DTO fixture — only the fields the exito verdict block
+// reads (`estadoGlobal`, `periodo`). Other ResumenMesDto fields are filled
+// with neutral placeholders so the type checks without pulling in unrelated
+// money assertions this suite doesn't care about.
+function unResumenDto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
+  return {
+    periodo: '2026-07',
+    totalIngreso: '0',
+    sinIngreso: false,
+    buckets: [],
+    targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+    estadoGlobal: 'verde',
+    cantidadSinCategoria: 0,
+    ...overrides,
+  };
+}
+
+// Minimal stand-in for TanStack's UseQueryResult — only what SubirCartola
+// reads from `useResumen`.
+function unaResumenConsulta(overrides: {
+  isPending?: boolean;
+  isSuccess?: boolean;
+  isError?: boolean;
+  data?: ResumenMesDto;
+}) {
+  return {
+    isPending: overrides.isPending ?? false,
+    isSuccess: overrides.isSuccess ?? false,
+    isError: overrides.isError ?? false,
+    data: overrides.data,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+}
+
+// A single non-duplicate committed row, all in July 2026 — the shared
+// fixture for exito-state tests that don't care about the exact date/mode
+// derivation (those get their own dedicated test).
+function unCommitDtoExito(
+  overrides: Partial<{
+    totalTransacciones: number;
+    fechas: ReadonlyArray<string>;
+  }> = {},
+) {
+  const fechas = overrides.fechas ?? ['2026-07-10T00:00:00.000Z'];
+  return {
+    ingestaId: 'ing-1',
+    totalTransacciones: overrides.totalTransacciones ?? fechas.length,
+    duplicadosOmitidos: 0,
+    transacciones: fechas.map((fecha, i) => ({
+      abono: '0',
+      bucket: 'Necesidades',
+      cargo: '1000',
+      categoriaId: null,
+      descripcion: `fila-${i}`,
+      fecha,
+    })),
+  };
+}
 
 // Canonical preview fixture using shared factory (unaFilaPreview).
 const validPreviewDto: PreviewIngestaDto = {
@@ -129,10 +199,19 @@ function idleHooks() {
 }
 
 describe('SubirCartola (US-059 PR3 — commit flow)', () => {
+  beforeEach(() => {
+    // SubirCartola calls `useResumen` unconditionally every render
+    // (rules-of-hooks) — most tests never reach a state where its `enabled`
+    // flag is true, but the mock still needs a sane return value or every
+    // pre-existing test would blow up reading `.isPending` off `undefined`.
+    mockedUseResumen.mockReturnValue(unaResumenConsulta({}));
+  });
+
   afterEach(() => {
     mockedUsePreviewIngesta.mockReset();
     mockedUseCommitIngesta.mockReset();
     mockedUseCategorias.mockReset();
+    mockedUseResumen.mockReset();
     mockNavigate.mockReset();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -397,9 +476,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(vars.edits).toEqual([{ rowIndex: 3, categoriaId: 'cat-nec-1' }]);
   });
 
-  it('D-05: commit success calls navigate({to:"/"})', async () => {
+  it('peak-end landing: commit success does NOT auto-navigate (supersedes PR3 D-05/D-01) — it lands on exito instead', async () => {
     const commitMutate = vi.fn().mockImplementation((_vars, opts) => {
       opts?.onSuccess?.();
+      opts?.onSettled?.();
     });
 
     // Start idle so we can upload a file (sets archivo state).
@@ -431,7 +511,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       screen.getByRole('button', { name: /agregar transacciones/i }),
     );
 
-    expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   // ── Discard (WEB-PRV-07, CA-05) ──────────────────────────────────────────
@@ -704,9 +784,175 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     ).toBeDisabled();
   });
 
-  // ── Exito: minimal render with "Importación completada" (D-01) ───────────
+  // ── Peak-end landing: exito is a real destination, not transient (D-01
+  //    superseded) — the success moment lands on the verdict the import
+  //    just produced, per the "monthly verdict comes first" principle. ────
 
-  it('D-01: exito state renders minimal "Importación completada" text and dashboard link', () => {
+  it('renders the confirmation heading, the {N}/{banco} count, and both CTAs — no old "Ir al dashboard" link', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto, // banco: 'BancoEstado'
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito({ totalTransacciones: 3 }),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    expect(
+      screen.getByRole('heading', { name: /importación completada/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('3 movimientos importados de BancoEstado.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /ver resumen del mes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /subir otra cartola/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /ir al dashboard/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("derives the dominant month from the committed rows' fechas and fetches its resumen (enabled)", () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito({
+          fechas: [
+            '2026-07-01T00:00:00.000Z',
+            '2026-07-15T00:00:00.000Z',
+            '2026-06-30T00:00:00.000Z',
+          ],
+        }),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    expect(mockedUseResumen).toHaveBeenCalledWith('2026-07', {
+      enabled: true,
+    });
+  });
+
+  it('shows the compact loading pattern while the verdict resumen is in flight', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito(),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+    mockedUseResumen.mockReturnValue(unaResumenConsulta({ isPending: true }));
+
+    render(<SubirCartola />);
+
+    expect(screen.getByText('Así queda tu mes:')).toBeInTheDocument();
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+    expect(screen.getByText('Cargando tu resumen…')).toBeInTheDocument();
+    // Success + CTA still stand while the verdict loads.
+    expect(
+      screen.getByRole('heading', { name: /importación completada/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /ver resumen del mes/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the semáforo verdict (SemaforoBadge, verbatim backend state, ADR-024) once resumen loads', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito(),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+    mockedUseResumen.mockReturnValue(
+      unaResumenConsulta({
+        isSuccess: true,
+        data: unResumenDto({ estadoGlobal: 'rojo' }),
+      }),
+    );
+
+    render(<SubirCartola />);
+
+    expect(screen.getByRole('img', { name: /rojo/i })).toBeInTheDocument();
+    expect(screen.getByText(/semáforo: rojo/i)).toBeInTheDocument();
+  });
+
+  it('degrades gracefully when the verdict resumen fails to load: the success acknowledgment + CTAs still stand, no error look', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito({ totalTransacciones: 2 }),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+    mockedUseResumen.mockReturnValue(unaResumenConsulta({ isError: true }));
+
+    render(<SubirCartola />);
+
+    // Verdict block absent — but nothing here reads as failure.
+    expect(screen.queryByText('Así queda tu mes:')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /importación completada/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('2 movimientos importados de BancoEstado.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /ver resumen del mes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /subir otra cartola/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('when nothing was persisted (all rows were commit-time duplicates), skips the verdict block entirely — no crash, no undefined leak', () => {
     mockedUsePreviewIngesta.mockReturnValue(
       unaMutacion<PreviewIngestaDto>({
         isSuccess: true,
@@ -720,8 +966,8 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         status: 'success',
         data: {
           ingestaId: 'ing-1',
-          totalTransacciones: 1,
-          duplicadosOmitidos: 0,
+          totalTransacciones: 0,
+          duplicadosOmitidos: 1,
           transacciones: [],
         },
       }),
@@ -730,12 +976,118 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
 
+    expect(mockedUseResumen).toHaveBeenCalledWith(undefined, {
+      enabled: false,
+    });
+    expect(screen.queryByText('Así queda tu mes:')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /importación completada/i }),
+      screen.getByText('0 movimientos importados de BancoEstado.'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: /ir al dashboard/i }),
-    ).toBeInTheDocument();
+  });
+
+  it('"Ver resumen del mes" navigates to "/" with the derived month selected', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito({ fechas: ['2026-07-05T00:00:00.000Z'] }),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /ver resumen del mes/i }),
+    );
+
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/',
+      search: { periodo: '2026-07' },
+    });
+  });
+
+  it('"Subir otra cartola" resets both mutations and edits, and does NOT navigate', () => {
+    const previewReset = vi.fn();
+    const commitReset = vi.fn();
+
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+        reset: previewReset,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito(),
+        reset: commitReset,
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /subir otra cartola/i }),
+    );
+
+    expect(previewReset).toHaveBeenCalledTimes(1);
+    expect(commitReset).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  // Polish fix: `<input type="file">` is uncontrolled — clearing React state
+  // alone leaves the browser still showing the just-imported filename.
+  // `handleDescartar` doesn't need this (it navigates to a different route,
+  // which remounts the component); `handleSubirOtra` resets IN PLACE, so it
+  // must force the input to remount to actually clear the native selection.
+  it('"Subir otra cartola" clears the native file input selection (uncontrolled DOM state)', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({
+        isSuccess: true,
+        status: 'success',
+        data: unCommitDtoExito(),
+      }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    const archivo = new File(['contenido'], 'cartola-julio.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const input = screen.getByLabelText(
+      /selecciona un archivo/i,
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [archivo] } });
+    expect(input.files).toHaveLength(1);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /subir otra cartola/i }),
+    );
+
+    const inputTrasReset = screen.getByLabelText(
+      /selecciona un archivo/i,
+    ) as HTMLInputElement;
+    expect(inputTrasReset.files).toHaveLength(0);
   });
 
   // ── WEB-PRV-11: legacy useIngesta/postIngesta unchanged ──────────────────
