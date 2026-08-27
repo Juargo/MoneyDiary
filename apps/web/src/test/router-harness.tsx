@@ -87,11 +87,22 @@ export function renderConRouter(
       <div data-testid="bucket-sentinel">Bucket (stub de prueba)</div>
     ),
   });
+  // SemaforoHeroCard's SIN_DATOS CTA links to `/subir` — this sentinel lets
+  // that `<Link>` resolve in tests instead of throwing mid-test, same
+  // pattern as the `/semaforo` and `/buckets/$bucket` sentinels above.
+  const subirRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/subir',
+    component: () => (
+      <div data-testid="subir-sentinel">Subir (stub de prueba)</div>
+    ),
+  });
 
   const routeTree = rootRoute.addChildren([
     indexRoute,
     semaforoRoute,
     bucketRoute,
+    subirRoute,
   ]);
   const router = createRouter({
     routeTree,
