@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryHistory,
@@ -8,7 +8,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { LayoutDashboard, Upload } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { NavItem } from './NavItem';
 import type { NavItemModel } from './nav-items';
 
@@ -56,11 +56,6 @@ const FUNCTIONAL_ITEM: NavItemModel = {
   to: '/',
   icon: LayoutDashboard,
 };
-const PLACEHOLDER_ITEM: NavItemModel = {
-  kind: 'placeholder',
-  label: 'Subir nuevo archivo',
-  icon: Upload,
-};
 
 describe('NavItem', () => {
   it('gets active styling and aria-current on the matching route', async () => {
@@ -75,17 +70,5 @@ describe('NavItem', () => {
 
     const link = screen.getByRole('link', { name: 'Resumen' });
     expect(link).not.toHaveAttribute('aria-current');
-  });
-
-  it('renders a disabled placeholder that is not activatable', async () => {
-    const router = await renderNavItem(PLACEHOLDER_ITEM, '/');
-
-    const button = screen.getByRole('button', { name: 'Subir nuevo archivo' });
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('aria-disabled', 'true');
-
-    fireEvent.click(button);
-
-    expect(router.state.location.pathname).toBe('/');
   });
 });

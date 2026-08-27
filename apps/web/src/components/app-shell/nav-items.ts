@@ -13,44 +13,39 @@ import type { FileRouteTypes } from '@/routeTree.gen';
 export type NavRoute = FileRouteTypes['to'];
 
 /**
- * Nav items are a discriminated union on `kind`, not a `to?`/`disabled`
- * pair: "functional" (navigable, real route) and "placeholder" (inert,
- * announced-disabled) are mutually exclusive concepts, so there is exactly
- * one field (`kind`) that decides which shape — and therefore which shape
- * of `NavItem` renders — instead of two independently-settable flags that
- * could only be kept in sync by convention (`disabled: false` with no `to`,
- * or `disabled: true` with a stray `to`, were both previously representable
- * but meaningless).
+ * Every nav item is a real, navigable route. `kind: 'link'` used to sit
+ * alongside a `'placeholder'` variant (inert, announced-disabled, for
+ * WDS-03 items awaiting their route) — "Ayuda" was the last one standing,
+ * so once it converted (its own `/ayuda` route shipped) `'placeholder'` had
+ * no remaining consumer anywhere in `NAV_ITEMS` and became dead code: a
+ * discriminant with only one live arm is not a discriminated union, it is a
+ * single shape wearing a tag. Removed rather than kept "for the next
+ * placeholder" (YAGNI) — a future gap re-adds the variant when it actually
+ * has a second consumer, the same way this one is not the same variant
+ * `Sidebar` used to render (see `NavItem.tsx`'s inline history, and re-add
+ * the `NavItem.test.tsx`/`Sidebar.test.tsx`/`BottomTabs.test.tsx` disabled-
+ * control coverage alongside it if it comes back).
  */
-export type NavItemModel =
-  | {
-      readonly kind: 'link';
-      readonly label: string;
-      readonly to: NavRoute;
-      readonly icon: LucideIcon;
-    }
-  | {
-      readonly kind: 'placeholder';
-      readonly label: string;
-      readonly icon: LucideIcon;
-    };
+export type NavItemModel = {
+  readonly kind: 'link';
+  readonly label: string;
+  readonly to: NavRoute;
+  readonly icon: LucideIcon;
+};
 
 /**
  * Single source of the shell's nav model (design.md §5) — `Sidebar` and
  * `BottomTabs` both render this exact list (DRY: define the nav once,
  * render it twice per breakpoint).
  *
- * "Resumen" (`/`), "Subir nuevo archivo" (`/subir`), and "Gestionar
- * cartolas" (`/ingestas`) are `'link'` items: all three are nav-worthy
- * routes that exist today under `_authenticated` (`/buckets/$bucket` is a
- * drill-down destination reached from within the dashboard, not a primary
- * nav target). "Subir nuevo archivo" was a `'placeholder'` until the
- * `upload-cartola-ui` route landed; "Gestionar cartolas" likewise was a gap
- * until `us-018-eliminar-ingesta` Slice 2 landed the `/ingestas` route
- * (T2.13) — now both are live links. "Configuración" (US-042, WCFG-01) is
- * now a live link too, to `/configuracion`. "Ayuda" stays a `'placeholder'`
- * item (WDS-03) — visible, announced as disabled, never navigable, until its
- * route/feature exists.
+ * All six items are nav-worthy routes that exist today under
+ * `_authenticated` (`/buckets/$bucket` is a drill-down destination reached
+ * from within the dashboard, not a primary nav target). "Subir nuevo
+ * archivo", "Gestionar cartolas", and "Configuración" (US-042, WCFG-01) were
+ * each a `'placeholder'` until their route landed. "Ayuda" (WDS-03) was the
+ * last placeholder — it now points at `/ayuda`, a real help page, closing
+ * out the discriminated union's dead `'placeholder'` arm (see
+ * `NavItemModel`'s docstring).
  */
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
@@ -63,5 +58,5 @@ export const NAV_ITEMS: readonly NavItemModel[] = [
     to: '/configuracion',
     icon: Settings,
   },
-  { kind: 'placeholder', label: 'Ayuda', icon: HelpCircle },
+  { kind: 'link', label: 'Ayuda', to: '/ayuda', icon: HelpCircle },
 ];
