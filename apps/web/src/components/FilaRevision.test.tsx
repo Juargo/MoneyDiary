@@ -656,6 +656,62 @@ describe('FilaRevision', () => {
       expect(flexContainer).not.toBeNull();
     });
 
+    // P2 design critique fix 1 — bare dropdowns with no visible column
+    // identity once a value is chosen. Mobile strategy: a visible short
+    // label ("Bucket"/"Categoría") renders per-row above each select; the
+    // accessible name stays the full "Fila N: bucket/categoría" sentence
+    // (WCAG 2.5.3 label-in-name — the visible word is a case-insensitive
+    // substring of the full name) via the select's own `aria-label`.
+    it('P2 fix 1: a visible short column label renders per select, and the full sentence remains the accessible name', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      // Visible short labels are present (mobile column identity).
+      expect(screen.getByText('Bucket')).toBeInTheDocument();
+      expect(screen.getByText('Categoría')).toBeInTheDocument();
+
+      // Accessible name is still the full per-row sentence.
+      const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+      const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
+      expect(bucketSelect).toHaveAccessibleName('Fila 3: bucket');
+      expect(categoriaSelect).toHaveAccessibleName('Fila 3: categoría');
+    });
+
+    it('P2 fix 1: the visible short label is hidden from sighted sm+ users (sm:sr-only) — the shared column header takes over', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      const visibleBucketLabel = screen.getByText('Bucket');
+      expect(visibleBucketLabel.className).toMatch(/sm:sr-only/);
+    });
+
+    it('P2 fix 1: duplicate rows still carry the visible short column label alongside the disabled select', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText('Bucket')).toBeInTheDocument();
+      expect(screen.getByText('Categoría')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeDisabled();
+    });
+
     it('three-row mix (1 duplicate + 2 non-duplicate): all six selects reachable by label', () => {
       function ThreeRows() {
         return (

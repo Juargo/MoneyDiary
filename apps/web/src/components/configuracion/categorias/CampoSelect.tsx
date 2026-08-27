@@ -25,6 +25,7 @@ export function CampoSelect({
   required = false,
   disabled = false,
   srOnly = false,
+  columnLabel,
 }: {
   readonly label: string;
   readonly value: string;
@@ -45,11 +46,37 @@ export function CampoSelect({
    * (existing callers: `NuevaCategoriaForm`, `EditarCategoria` — unchanged).
    */
   readonly srOnly?: boolean;
+  /**
+   * columnLabel (design critique P2 fix 1, responsive column identity) —
+   * mutually exclusive with `srOnly`. When set, it REPLACES the default
+   * label rendering: the visible text becomes this short word (e.g.
+   * "Bucket") instead of the full `label` sentence, and it is shown only
+   * below the `sm` breakpoint (`sm:sr-only`) — at `sm` and up a shared
+   * column header takes over the same job for the whole list (see
+   * `PreviewMuestra`'s `data-columnas-header` row), so the per-row word
+   * would be redundant clutter once selects sit in a row.
+   *
+   * The full `label` sentence never disappears from the accessible name at
+   * ANY breakpoint: it moves onto the `<select>`'s own `aria-label`, which
+   * wins over the wrapping `<label>` text in accessible-name computation.
+   * This keeps WCAG 2.5.3 (label-in-name) satisfied — `columnLabel` is a
+   * case-insensitive substring of `label` (e.g. "Bucket" ⊂ "Fila 3: bucket").
+   */
+  readonly columnLabel?: string;
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-      {srOnly ? <span className="sr-only">{label}</span> : label}
+      {columnLabel ? (
+        <span className="text-xs text-muted-foreground sm:sr-only">
+          {columnLabel}
+        </span>
+      ) : srOnly ? (
+        <span className="sr-only">{label}</span>
+      ) : (
+        label
+      )}
       <select
+        aria-label={columnLabel ? label : undefined}
         value={value}
         onChange={(event: ChangeEvent<HTMLSelectElement>) =>
           onChange(event.target.value)
