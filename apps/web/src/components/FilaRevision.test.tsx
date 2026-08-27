@@ -431,6 +431,152 @@ describe('FilaRevision', () => {
     expect(categoriaSelect).toBeDisabled();
   });
 
+  // Gotcha fix: after a bulk apply changes the categoriaId PROP on an already
+  // -mounted row, bucketUI must stop reflecting the stale mount-time seed and
+  // instead derive from the catalog group that owns the new categoriaId — the
+  // categoría select's own value (bound straight to the `categoriaId` prop)
+  // was never the bug; the bucket select was silently stuck.
+  it('bulk-apply gotcha: an externally-changed categoriaId prop re-derives bucketUI (not stuck on stale local state)', () => {
+    const { rerender } = render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    // Mount: no sugerido, no edit — bucketUI seeds empty.
+    expect(
+      (screen.getByLabelText(/Fila 3: bucket/i) as HTMLSelectElement).value,
+    ).toBe('');
+
+    // Simulate a bulk apply: SubirCartola's edits Map updates and this row's
+    // categoriaId prop flips from null to 'cat-des-1' (Deseos) WITHOUT the
+    // user ever touching this row's own bucket/categoría selects.
+    rerender(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId="cat-des-1"
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const bucketSelect = screen.getByLabelText(
+      /Fila 3: bucket/i,
+    ) as HTMLSelectElement;
+    const categoriaSelect = screen.getByLabelText(
+      /Fila 3: categoría/i,
+    ) as HTMLSelectElement;
+
+    // Bucket select must now show "Deseos" — derived from the catalog group
+    // that owns 'cat-des-1', not the stale mount-time '' value.
+    expect(bucketSelect.value).toBe('Deseos');
+    // Categoría select shows the applied value and is enabled (bucket derived
+    // non-empty unlocks it).
+    expect(categoriaSelect.value).toBe('cat-des-1');
+    expect(categoriaSelect).not.toBeDisabled();
+  });
+
+  // Manual-flow semantics must survive the fix: when the categoriaId PROP does
+  // NOT change between renders (no external/bulk update), a user's own bucket
+  // pick still drives the cascade locally exactly as before.
+  it('bulk-apply gotcha fix preserves manual cascade flow when categoriaId prop is stable', async () => {
+    const onEditChange = vi.fn();
+
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={onEditChange}
+      />,
+    );
+
+    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.selectOptions(bucketSelect, 'Deseos');
+    expect((bucketSelect as HTMLSelectElement).value).toBe('Deseos');
+    // No onEditChange yet — categoriaId prop was null (fix 1a semantics kept).
+    expect(onEditChange).not.toHaveBeenCalled();
+
+    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
+    await userEvent.selectOptions(categoriaSelect, 'cat-des-1');
+    expect(onEditChange).toHaveBeenCalledWith(2, 'cat-des-1');
+  });
+
+  // ── Selection checkbox (feature: bulk apply) ────────────────────────────
+
+  it('non-duplicate row exposes an accessible "Seleccionar fila N" checkbox', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 4 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+        selected={false}
+        onToggleSelect={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByLabelText(/Seleccionar fila 5/i);
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).toHaveAttribute('type', 'checkbox');
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('checkbox reflects the `selected` prop', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 4 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+        selected
+        onToggleSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/Seleccionar fila 5/i)).toBeChecked();
+  });
+
+  it('clicking the checkbox calls onToggleSelect(rowIndex) exactly once', async () => {
+    const onToggleSelect = vi.fn();
+
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 4 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+        selected={false}
+        onToggleSelect={onToggleSelect}
+      />,
+    );
+
+    await userEvent.click(screen.getByLabelText(/Seleccionar fila 5/i));
+
+    expect(onToggleSelect).toHaveBeenCalledTimes(1);
+    expect(onToggleSelect).toHaveBeenCalledWith(4);
+  });
+
+  it('duplicate rows never render a selection checkbox (D-10)', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 4, esDuplicado: true })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+        selected={false}
+        onToggleSelect={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByLabelText(/Seleccionar fila 5/i),
+    ).not.toBeInTheDocument();
+  });
+
   // catalogo.tag === 'error' → selects absent or disabled (no crash)
   it('catalogo.tag error: selects are disabled (no crash)', () => {
     render(
