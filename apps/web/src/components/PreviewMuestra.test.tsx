@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { PreviewMuestra } from './PreviewMuestra';
 import type { PreviewFilaDto } from '@/api/types';
 // Fix 8: import shared fixtures; local factory functions removed
@@ -254,5 +255,479 @@ describe('PreviewMuestra', () => {
     expect(
       screen.queryByRole('button', { name: '25' }),
     ).not.toBeInTheDocument();
+  });
+
+  // ── Sticky classification progress ──────────────────────────────────────
+  describe('classification progress', () => {
+    it('shows "N de M clasificadas" — M excludes duplicates, N counts merged non-null values', () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        }),
+        unaFilaPreview({ rowIndex: 1, sugerido: null }),
+        unaFilaPreview({ rowIndex: 2, esDuplicado: true }),
+      ];
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(screen.getByText(/1 de 2 clasificadas/i)).toBeInTheDocument();
+      expect(screen.getByText(/1 duplicada\b/i)).toBeInTheDocument();
+    });
+
+    it('an edit overrides sugerido and counts as classified (D-05)', () => {
+      const filas = [
+        unaFilaPreview({ rowIndex: 0, sugerido: null }),
+        unaFilaPreview({ rowIndex: 1, sugerido: null }),
+      ];
+      const edits = new Map<number, string | null>([[0, 'cat-nec-1']]);
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+          edits={edits}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(screen.getByText(/1 de 2 clasificadas/i)).toBeInTheDocument();
+    });
+
+    it('renders a determinate progress bar whose fill width matches the classified ratio', () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        }),
+        unaFilaPreview({ rowIndex: 1, sugerido: null }),
+      ];
+
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const fill = container.querySelector('[data-progreso-fill]');
+      expect(fill).not.toBeNull();
+      expect((fill as HTMLElement).style.width).toBe('50%');
+    });
+
+    it('"Solo sin clasificar" toggle is an aria-pressed button, off by default', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const toggle = screen.getByRole('button', {
+        name: /solo sin clasificar/i,
+      });
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('toggling "Solo sin clasificar" filters out classified non-duplicate rows and duplicates', async () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          descripcion: 'Clasificada',
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        }),
+        unaFilaPreview({
+          rowIndex: 1,
+          descripcion: 'Sin clasificar',
+          sugerido: null,
+        }),
+        unaFilaPreview({
+          rowIndex: 2,
+          descripcion: 'Duplicada',
+          esDuplicado: true,
+        }),
+      ];
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const toggle = screen.getByRole('button', {
+        name: /solo sin clasificar/i,
+      });
+      await userEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText('Sin clasificar')).toBeInTheDocument();
+      expect(screen.queryByText('Clasificada')).not.toBeInTheDocument();
+      expect(screen.queryByText('Duplicada')).not.toBeInTheDocument();
+    });
+
+    it('filtered-empty state tells the user everything is classified and offers turning the filter off', async () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        }),
+      ];
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /solo sin clasificar/i }),
+      );
+
+      expect(
+        screen.getByText(/todas las filas están clasificadas/i),
+      ).toBeInTheDocument();
+
+      const volver = screen.getByRole('button', {
+        name: /mostrar todas las filas/i,
+      });
+      await userEvent.click(volver);
+
+      expect(
+        screen.getByRole('button', { name: /solo sin clasificar/i }),
+      ).toHaveAttribute('aria-pressed', 'false');
+    });
+  });
+
+  // ── Grouping by date ─────────────────────────────────────────────────────
+  describe('grouping by date', () => {
+    it('groups consecutive rows sharing the same fecha under one date heading and one <ul>', () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          fecha: '2026-07-15T00:00:00.000Z',
+          descripcion: 'A',
+        }),
+        unaFilaPreview({
+          rowIndex: 1,
+          fecha: '2026-07-15T00:00:00.000Z',
+          descripcion: 'B',
+        }),
+        unaFilaPreview({
+          rowIndex: 2,
+          fecha: '2026-07-16T00:00:00.000Z',
+          descripcion: 'C',
+        }),
+      ];
+
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const grupos = container.querySelectorAll('[data-fecha-grupo]');
+      expect(grupos).toHaveLength(2);
+      expect(grupos[0]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
+      expect(grupos[1]).toHaveAttribute('data-fecha-grupo', '2026-07-16');
+      expect(
+        within(grupos[0] as HTMLElement).getByText('A'),
+      ).toBeInTheDocument();
+      expect(
+        within(grupos[0] as HTMLElement).getByText('B'),
+      ).toBeInTheDocument();
+      expect(
+        within(grupos[1] as HTMLElement).getByText('C'),
+      ).toBeInTheDocument();
+    });
+
+    it('non-consecutive rows with the same fecha value form separate groups, in file order (no sorting)', () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          fecha: '2026-07-15T00:00:00.000Z',
+          descripcion: 'A',
+        }),
+        unaFilaPreview({
+          rowIndex: 1,
+          fecha: '2026-07-16T00:00:00.000Z',
+          descripcion: 'B',
+        }),
+        unaFilaPreview({
+          rowIndex: 2,
+          fecha: '2026-07-15T00:00:00.000Z',
+          descripcion: 'C',
+        }),
+      ];
+
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const grupos = container.querySelectorAll('[data-fecha-grupo]');
+      // Three groups, NOT two — the second '2026-07-15' is not merged with
+      // the first because it is not consecutive in file order.
+      expect(grupos).toHaveLength(3);
+      expect(grupos[0]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
+      expect(grupos[1]).toHaveAttribute('data-fecha-grupo', '2026-07-16');
+      expect(grupos[2]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
+      // DOM/focus order stays file order. Scoped to the top row's
+      // description span (direct child of the muted-foreground row) — the
+      // formatted cargo/abono amounts also carry `.font-medium` but live one
+      // level deeper, under the text-foreground row.
+      const descripciones = Array.from(
+        container.querySelectorAll('.text-muted-foreground > span.font-medium'),
+      ).map((el) => el.textContent);
+      expect(descripciones).toEqual(['A', 'B', 'C']);
+    });
+  });
+
+  // ── Selection + bulk apply ───────────────────────────────────────────────
+  describe('selection + bulk apply', () => {
+    const filasDosGrupos: PreviewFilaDto[] = [
+      unaFilaPreview({
+        rowIndex: 0,
+        fecha: '2026-07-15T00:00:00.000Z',
+        descripcion: 'Fila 1',
+      }),
+      unaFilaPreview({
+        rowIndex: 1,
+        fecha: '2026-07-15T00:00:00.000Z',
+        descripcion: 'Fila 2',
+      }),
+      unaFilaPreview({
+        rowIndex: 2,
+        fecha: '2026-07-16T00:00:00.000Z',
+        descripcion: 'Fila 3',
+        esDuplicado: true,
+      }),
+    ];
+
+    it('no bulk toolbar renders while nothing is selected', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
+    });
+
+    it('selecting a row shows the bulk toolbar with the selection count', async () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+      expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
+    });
+
+    it('the group "Seleccionar todas" checkbox selects every non-duplicate row in that date group', async () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const grupo1 = container.querySelector(
+        '[data-fecha-grupo="2026-07-15"]',
+      ) as HTMLElement;
+      const seleccionarTodas =
+        within(grupo1).getByLabelText(/Seleccionar todas/i);
+      await userEvent.click(seleccionarTodas);
+
+      expect(screen.getByLabelText(/Seleccionar fila 1/i)).toBeChecked();
+      expect(screen.getByLabelText(/Seleccionar fila 2/i)).toBeChecked();
+      expect(screen.getByText('2 seleccionadas')).toBeInTheDocument();
+    });
+
+    it('the group checkbox becomes indeterminate when only some rows in the group are selected', async () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+      const grupo1 = container.querySelector(
+        '[data-fecha-grupo="2026-07-15"]',
+      ) as HTMLElement;
+      const seleccionarTodas = within(grupo1).getByLabelText(
+        /Seleccionar todas/i,
+      ) as HTMLInputElement;
+
+      expect(seleccionarTodas.indeterminate).toBe(true);
+      expect(seleccionarTodas.checked).toBe(false);
+    });
+
+    it('a date group containing only duplicate rows renders no "Seleccionar todas" control', () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          fecha: '2026-07-20T00:00:00.000Z',
+          esDuplicado: true,
+        }),
+      ];
+
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 1, nuevas: 0 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const grupo = container.querySelector(
+        '[data-fecha-grupo="2026-07-20"]',
+      ) as HTMLElement;
+      expect(
+        within(grupo).queryByLabelText(/Seleccionar todas/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('applies the chosen categoría to every selected row and clears the selection', async () => {
+      const onEditChange = vi.fn();
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={onEditChange}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
+
+      const aplicarBtn = screen.getByRole('button', {
+        name: /aplicar a 2 seleccionadas/i,
+      });
+      expect(aplicarBtn).toBeDisabled();
+
+      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
+      await userEvent.selectOptions(bucketToolbar, 'Necesidades');
+      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
+      await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
+
+      expect(aplicarBtn).toBeEnabled();
+      await userEvent.click(aplicarBtn);
+
+      expect(onEditChange).toHaveBeenCalledTimes(2);
+      expect(onEditChange).toHaveBeenCalledWith(0, 'cat-nec-1');
+      expect(onEditChange).toHaveBeenCalledWith(1, 'cat-nec-1');
+      // Selection cleared — toolbar disappears.
+      expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
+    });
+
+    it('"Limpiar selección" clears the selection without calling onEditChange', async () => {
+      const onEditChange = vi.fn();
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={onEditChange}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+      await userEvent.click(
+        screen.getByRole('button', { name: /limpiar selección/i }),
+      );
+
+      expect(onEditChange).not.toHaveBeenCalled();
+      expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/Seleccionar fila 1/i)).not.toBeChecked();
+    });
+
+    it('duplicate rows never expose a selection checkbox', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.queryByLabelText(/Seleccionar fila 3/i),
+      ).not.toBeInTheDocument();
+    });
   });
 });
