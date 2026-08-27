@@ -272,7 +272,6 @@ export function ReclasificarCategoriaControl({
             <Button
               type="button"
               variant="outline"
-              size="xs"
               onClick={cancelar}
               className="text-muted-foreground"
             >
@@ -281,7 +280,6 @@ export function ReclasificarCategoriaControl({
             <Button
               ref={confirmarRef}
               type="button"
-              size="xs"
               onClick={confirmar}
               disabled={mutacion.isPending}
             >

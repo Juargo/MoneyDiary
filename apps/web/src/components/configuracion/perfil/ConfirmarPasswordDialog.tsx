@@ -125,13 +125,12 @@ export function ConfirmarPasswordDialog({
           <Button
             type="button"
             variant="outline"
-            size="xs"
             onClick={onCancelar}
             className="text-muted-foreground"
           >
             Cancelar
           </Button>
-          <Button type="submit" size="xs" disabled={pendiente}>
+          <Button type="submit" disabled={pendiente}>
             {textoConfirmar}
           </Button>
         </div>

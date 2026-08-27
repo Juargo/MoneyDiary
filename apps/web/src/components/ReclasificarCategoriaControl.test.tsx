@@ -440,6 +440,47 @@ describe('ReclasificarCategoriaControl', () => {
     expect(onMovida).toHaveBeenCalledTimes(0);
   });
 
+  // Touch-target quick win (round 2, P2): destructive/cross-bucket confirms
+  // get the house default 36px control, not the 24px `xs` size. Asserted
+  // via Button's own `data-size` contract, not class strings.
+  it('renders Confirmar and Cancelar at the default (36px) touch target, not xs', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual="Delivery"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Uber Eats',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+    await user.selectOptions(select, 'Transporte');
+    await screen.findByRole('alertdialog');
+
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toHaveAttribute(
+      'data-size',
+      'default',
+    );
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveAttribute(
+      'data-size',
+      'default',
+    );
+  });
+
   it('alertdialog has aria-describedby pointing at the money-move paragraph (D-08)', async () => {
     mockFetch({
       ok: true,
