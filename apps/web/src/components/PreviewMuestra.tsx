@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { FilaRevision } from './FilaRevision';
 import {
   SENTINEL_OPTION,
@@ -6,6 +6,7 @@ import {
 } from './catalogo-select-sentinels';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { Button } from './ui/button';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -41,6 +42,23 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * catalog). A non-blocking inline affordance appears for the error case so
  * the user understands why the cascade selects are unavailable, without hiding
  * the preview data.
+ *
+ * Design-system hardening round 2 (P3, reassurance parity): the bulk-apply
+ * toolbar's "Aplicar a N seleccionadas" used to commit the edit immediately
+ * on click — the only write action in this file with zero confirmation,
+ * while the per-row cross-bucket reclassify (`ReclasificarCategoriaControl`)
+ * always shows impact first. Clicking "Aplicar" now opens an inline
+ * `role="alertdialog"` (same hand-rolled shape as `ReclasificarCategoriaControl`/
+ * `EliminarIngestaControl`: focus moves to "Confirmar" on open and back to
+ * the "Aplicar" trigger on cancel, Escape cancels) restating the categoría,
+ * bucket, and row count — no monto/sum is computed here (ADR-024: amounts
+ * are backend domain). Confirming runs the exact same per-row
+ * `onEditChange` loop this used to run synchronously; cancelling leaves
+ * `seleccionados`/`bucketToolbar`/`categoriaToolbar` untouched. Nothing this
+ * dialog does writes to the server — it only stages `edits`, so its own
+ * copy points at the real commit gate ("Agregar transacciones", the button
+ * `SubirCartola` renders below this component) rather than promising a save
+ * that hasn't happened.
  */
 
 interface FilaConMerged {
@@ -127,6 +145,20 @@ export function PreviewMuestra({
   );
   const [bucketToolbar, setBucketToolbar] = useState('');
   const [categoriaToolbar, setCategoriaToolbar] = useState('');
+  const [confirmandoBulk, setConfirmandoBulk] = useState(false);
+  const aplicarTriggerRef = useRef<HTMLButtonElement>(null);
+  const confirmarBulkRef = useRef<HTMLButtonElement>(null);
+  const mensajeBulkId = useId();
+
+  // Foco al abrir la confirmación (mismo mecanismo que
+  // ReclasificarCategoriaControl/EliminarIngestaControl): mueve el foco a
+  // "Confirmar" en vez de dejarlo huérfano en el botón "Aplicar" que acaba
+  // de abrir el diálogo.
+  useEffect(() => {
+    if (confirmandoBulk) {
+      confirmarBulkRef.current?.focus();
+    }
+  }, [confirmandoBulk]);
 
   // D-05: merged display value computed once — edits win over
   // sugerido.categoriaId. Backs the progress count, the filter, and the
@@ -198,18 +230,29 @@ export function PreviewMuestra({
     setCategoriaToolbar('');
   }
 
-  function handleAplicarBulk() {
+  function handleAbrirConfirmacionBulk() {
     if (!categoriaToolbar) return;
+    setConfirmandoBulk(true);
+  }
+
+  function confirmarAplicarBulk() {
     for (const rowIndex of seleccionados) {
       onEditChange(rowIndex, categoriaToolbar);
     }
     setSeleccionados(new Set());
     setBucketToolbar('');
     setCategoriaToolbar('');
+    setConfirmandoBulk(false);
+  }
+
+  function cancelarAplicarBulk() {
+    setConfirmandoBulk(false);
+    aplicarTriggerRef.current?.focus();
   }
 
   function handleLimpiarSeleccion() {
     setSeleccionados(new Set());
+    setConfirmandoBulk(false);
   }
 
   const etiquetaSeleccionadas =
@@ -232,6 +275,15 @@ export function PreviewMuestra({
             ?.categorias.map((c) => ({ value: c.id, label: c.nombre })) ?? []),
         ]
       : [SENTINEL_OPTION];
+
+  // Rendered copy for the bulk-apply confirmation — display labels only
+  // (bucket relabelled Deseos→"Gustos" per PRODUCT.md), never a monto sum.
+  const bucketLabelToolbar = ETIQUETA_BUCKET[bucketToolbar] ?? bucketToolbar;
+  const categoriaLabelToolbar =
+    categoriaOptionsToolbar.find((o) => o.value === categoriaToolbar)?.label ??
+    categoriaToolbar;
+  const etiquetaMovimientos =
+    seleccionados.size === 1 ? 'movimiento' : 'movimientos';
 
   return (
     <div className="flex flex-col gap-3">
@@ -385,40 +437,86 @@ export function PreviewMuestra({
         // resolve to the same viewport edge (neither container scrolls
         // independently), so BottomTabs' `z-40` would paint over this
         // toolbar's `z-10` and hide the Aplicar button on every phone.
-        <div className="sticky bottom-16 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-sm lg:bottom-0">
-          <span className="text-sm font-medium text-foreground">
-            {seleccionados.size} {etiquetaSeleccionadas}
-          </span>
-          <CampoSelect
-            label="Bucket para aplicar"
-            srOnly
-            value={bucketToolbar}
-            onChange={handleBucketToolbarChange}
-            options={bucketOptionsToolbar}
-            disabled={catalogo.tag !== 'listo'}
-          />
-          <CampoSelect
-            label="Categoría para aplicar"
-            srOnly
-            value={categoriaToolbar}
-            onChange={setCategoriaToolbar}
-            options={categoriaOptionsToolbar}
-            disabled={catalogo.tag !== 'listo' || !bucketToolbar}
-          />
-          <Button
-            type="button"
-            onClick={handleAplicarBulk}
-            disabled={!categoriaToolbar}
-          >
-            Aplicar a {seleccionados.size} {etiquetaSeleccionadas}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleLimpiarSeleccion}
-          >
-            Limpiar selección
-          </Button>
+        <div className="sticky bottom-16 z-10 flex flex-col gap-2 lg:bottom-0">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+            <span className="text-sm font-medium text-foreground">
+              {seleccionados.size} {etiquetaSeleccionadas}
+            </span>
+            <CampoSelect
+              label="Bucket para aplicar"
+              srOnly
+              value={bucketToolbar}
+              onChange={handleBucketToolbarChange}
+              options={bucketOptionsToolbar}
+              disabled={catalogo.tag !== 'listo'}
+            />
+            <CampoSelect
+              label="Categoría para aplicar"
+              srOnly
+              value={categoriaToolbar}
+              onChange={setCategoriaToolbar}
+              options={categoriaOptionsToolbar}
+              disabled={catalogo.tag !== 'listo' || !bucketToolbar}
+            />
+            <Button
+              ref={aplicarTriggerRef}
+              type="button"
+              onClick={handleAbrirConfirmacionBulk}
+              disabled={!categoriaToolbar}
+            >
+              Aplicar a {seleccionados.size} {etiquetaSeleccionadas}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleLimpiarSeleccion}
+            >
+              Limpiar selección
+            </Button>
+          </div>
+
+          {confirmandoBulk && (
+            // Same shape as ReclasificarCategoriaControl's inline
+            // confirmation: role="alertdialog", Escape bound at the
+            // container (WAI-ARIA dialog pattern), not a specific control.
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+            <div
+              role="alertdialog"
+              aria-label="Confirmar aplicación a movimientos seleccionados"
+              aria-describedby={mensajeBulkId}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  cancelarAplicarBulk();
+                }
+              }}
+              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-sm text-foreground shadow-sm"
+            >
+              <p id={mensajeBulkId}>
+                Aplicarás «{categoriaLabelToolbar}» ({bucketLabelToolbar}) a{' '}
+                {seleccionados.size} {etiquetaMovimientos}.
+              </p>
+              <p className="text-muted-foreground">
+                Nada se guarda hasta que presiones «Agregar transacciones».
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelarAplicarBulk}
+                  className="text-muted-foreground"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  ref={confirmarBulkRef}
+                  type="button"
+                  onClick={confirmarAplicarBulk}
+                >
+                  Confirmar
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
