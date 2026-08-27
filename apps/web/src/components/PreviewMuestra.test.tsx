@@ -874,5 +874,188 @@ describe('PreviewMuestra', () => {
         screen.queryByLabelText(/Seleccionar fila 3/i),
       ).not.toBeInTheDocument();
     });
+
+    // ── Page-level "select all visible" master checkbox ─────────────────
+    describe('master "select all visible" checkbox', () => {
+      it('renders with the visible selectable count in its accessible name (excludes duplicates)', () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        const master = screen.getByLabelText(
+          /seleccionar todas las visibles \(2\)/i,
+        );
+        expect(master).not.toBeChecked();
+      });
+
+      it('uses singular copy when exactly one row is visible and selectable', () => {
+        const filas = [unaFilaPreview({ rowIndex: 0, descripcion: 'Única' })];
+
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filas}
+            resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        expect(
+          screen.getByLabelText(/seleccionar la visible \(1\)/i),
+        ).toBeInTheDocument();
+      });
+
+      it('does not render when there are no visible selectable rows', () => {
+        const filas = [unaFilaPreview({ rowIndex: 0, esDuplicado: true })];
+
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filas}
+            resumen={{ totalFilas: 1, duplicadosDetectados: 1, nuevas: 0 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        expect(
+          screen.queryByLabelText(
+            /seleccionar (todas las visibles|la visible)/i,
+          ),
+        ).not.toBeInTheDocument();
+      });
+
+      it('checking it selects every visible selectable row', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        const master = screen.getByLabelText(
+          /seleccionar todas las visibles \(2\)/i,
+        );
+        await userEvent.click(master);
+
+        expect(screen.getByLabelText(/Seleccionar fila 1/i)).toBeChecked();
+        expect(screen.getByLabelText(/Seleccionar fila 2/i)).toBeChecked();
+        expect(screen.getByText('2 seleccionadas')).toBeInTheDocument();
+      });
+
+      it('becomes indeterminate when only some visible selectable rows are selected', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        const master = screen.getByLabelText(
+          /seleccionar todas las visibles \(2\)/i,
+        ) as HTMLInputElement;
+        expect(master.indeterminate).toBe(true);
+        expect(master.checked).toBe(false);
+      });
+
+      it('becomes checked (not indeterminate) once all visible selectable rows are selected', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
+
+        const master = screen.getByLabelText(
+          /seleccionar todas las visibles \(2\)/i,
+        ) as HTMLInputElement;
+        expect(master.checked).toBe(true);
+        expect(master.indeterminate).toBe(false);
+      });
+
+      it('unchecking only touches currently visible rows — a selection hidden by the filter is preserved', async () => {
+        const filas = [
+          unaFilaPreview({
+            rowIndex: 0,
+            descripcion: 'Clasificada',
+            sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+          }),
+          unaFilaPreview({
+            rowIndex: 1,
+            descripcion: 'Sin clasificar 1',
+            sugerido: null,
+          }),
+          unaFilaPreview({
+            rowIndex: 2,
+            descripcion: 'Sin clasificar 2',
+            sugerido: null,
+          }),
+        ];
+
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filas}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        // Pre-select the classified row before it gets hidden by the filter.
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+        expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
+
+        // Turn on "Solo sin clasificar" — row 1 becomes hidden but stays selected.
+        await userEvent.click(
+          screen.getByRole('button', { name: /solo sin clasificar/i }),
+        );
+
+        // The master checkbox recomputes to the 2 now-visible rows, none selected.
+        const master = screen.getByLabelText(
+          /seleccionar todas las visibles \(2\)/i,
+        ) as HTMLInputElement;
+        expect(master.checked).toBe(false);
+
+        // Check it — selects both visible rows.
+        await userEvent.click(master);
+        expect(screen.getByLabelText(/Seleccionar fila 2/i)).toBeChecked();
+        expect(screen.getByLabelText(/Seleccionar fila 3/i)).toBeChecked();
+        expect(screen.getByText('3 seleccionadas')).toBeInTheDocument();
+
+        // Uncheck it — deselects only the 2 visible rows; the hidden row-1
+        // selection is untouched.
+        await userEvent.click(master);
+        expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
+      });
+    });
   });
 });

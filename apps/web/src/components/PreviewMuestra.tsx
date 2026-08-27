@@ -196,6 +196,30 @@ export function PreviewMuestra({
 
   const grupos = agruparPorFecha(filasVisibles);
 
+  // Page-level "select all visible" master checkbox: mirrors the per-group
+  // CheckboxIndeterminado exactly, just scoped to every currently-visible
+  // selectable rowIndex (all groups combined, duplicates excluded) instead of
+  // one date group. Recomputes on every render, so toggling "Solo sin
+  // clasificar" automatically recomputes N and the checked/indeterminate
+  // state — no extra effect needed.
+  const seleccionablesVisibles = filasVisibles
+    .filter((f) => !f.fila.esDuplicado)
+    .map((f) => f.fila.rowIndex);
+  const todasVisiblesSeleccionadas =
+    seleccionablesVisibles.length > 0 &&
+    seleccionablesVisibles.every((idx) => seleccionados.has(idx));
+  const algunaVisibleSeleccionada = seleccionablesVisibles.some((idx) =>
+    seleccionados.has(idx),
+  );
+  // Singular edge (product decision): "todas las visibles" reads wrong at
+  // N=1 ("select ALL the visible (1)"), so the determiner + noun switch to
+  // singular together rather than just pluralizing a trailing word like the
+  // other etiqueta* helpers in this file.
+  const etiquetaSeleccionarVisibles =
+    seleccionablesVisibles.length === 1
+      ? `Seleccionar la visible (${seleccionablesVisibles.length})`
+      : `Seleccionar todas las visibles (${seleccionablesVisibles.length})`;
+
   function handleToggleFila(rowIndex: number) {
     setSeleccionados((prev) => {
       const next = new Set(prev);
@@ -330,13 +354,28 @@ export function PreviewMuestra({
         // region (SubirCartola's announcer owns state-entry announcements).
         <div className="sticky top-0 z-10 flex flex-col gap-2 bg-card py-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">
-              {clasificadas} de {totalNoDuplicadas} {etiquetaClasificadas}
-              <span className="text-muted-foreground">
-                {' '}
-                · {duplicadosCount} {etiquetaDuplicadas}
-              </span>
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {seleccionablesVisibles.length > 0 && (
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <CheckboxIndeterminado
+                    checked={todasVisiblesSeleccionadas}
+                    indeterminate={
+                      algunaVisibleSeleccionada && !todasVisiblesSeleccionadas
+                    }
+                    onChange={() => handleToggleGrupo(seleccionablesVisibles)}
+                    ariaLabel={etiquetaSeleccionarVisibles}
+                  />
+                  {etiquetaSeleccionarVisibles}
+                </label>
+              )}
+              <p className="text-sm font-medium text-foreground">
+                {clasificadas} de {totalNoDuplicadas} {etiquetaClasificadas}
+                <span className="text-muted-foreground">
+                  {' '}
+                  · {duplicadosCount} {etiquetaDuplicadas}
+                </span>
+              </p>
+            </div>
             <Button
               type="button"
               variant="outline"
