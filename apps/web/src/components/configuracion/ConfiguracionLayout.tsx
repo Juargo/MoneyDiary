@@ -36,6 +36,14 @@ import { ConfiguracionTabs } from './ConfiguracionTabs';
  * default `min-width: auto` lets a long name inside the fluid `1fr` track
  * force the page to scroll sideways — this is the fix every per-component
  * `truncate` (mechanism 2, later PRs) depends on.
+ *
+ * **Mobile bottom-nav redesign (Impeccable critique P1):** `BottomTabs`
+ * dropped "Ayuda" to fit the 3-5 tab convention (`nav-items.ts`'s
+ * `hideFromBottomTabs`). Mobile users keep a discoverable path to it, but
+ * it lives inside `ConfiguracionTabs` itself — a trailing, `lg:hidden` tab
+ * in that component's own nav/ul (see its docstring) — not as a second
+ * element owned by this layout, so this component's structure is
+ * unchanged by that redesign.
  */
 export function ConfiguracionLayout({
   children,

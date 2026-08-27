@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { cn } from '@/lib/utils';
 
 const TAB_BASE =
   'block rounded-md px-3 py-2 text-center text-sm text-muted-foreground transition-colors hover:bg-accent md:text-left';
@@ -34,6 +35,25 @@ const TAB_ACTIVE = 'bg-accent font-semibold text-primary';
  * class literal is present, not that the row is actually horizontal (let
  * alone full-width) at a real viewport; that's `e2e/mobile-header.e2e.ts`'s
  * job (`E-01`'s tabs-row half).
+ *
+ * **Mobile bottom-nav redesign, fresh-review fix (Impeccable critique P1):**
+ * a trailing "Ayuda" `<li>` closes the list. `BottomTabs` dropped "Ayuda"
+ * to fit the 3-5 tab convention (`nav-items.ts`'s `hideFromBottomTabs`);
+ * mobile users need a discoverable path to it, and this landmark — the one
+ * other nav list rendered on `/configuracion` — is where it lives now. An
+ * earlier version placed it as a separate `NavItem` (`Sidebar`'s
+ * icon+rail-accent styling) next to this list, in its own wrapper; review
+ * caught two problems with that: it sat outside any nav/list landmark, and
+ * its sidebar-shaped visuals (icon, `border-r-4` accent, active-route
+ * styling that can never fire here — `/ayuda` never matches inside
+ * `/configuracion`) read as a foreign element beside these icon-less
+ * pills. Folding it in here fixes both: same landmark, same `TAB_BASE`
+ * pill, no icon, no `activeProps` (a static, always-inactive tab would be
+ * pointless — Perfil/Categorías earn `activeProps` because they really can
+ * become the current route in this tree; Ayuda never can). `lg:hidden` on
+ * the `<li>` — not the whole component — because the desktop `Sidebar`
+ * already renders "Ayuda" from that breakpoint up; showing it here too
+ * would be a redundant second link to the same destination.
  */
 const TAB_LI = 'flex-1 md:flex-none';
 
@@ -58,6 +78,11 @@ export function ConfiguracionTabs() {
             className={TAB_BASE}
           >
             Categorías
+          </Link>
+        </li>
+        <li className={cn(TAB_LI, 'lg:hidden')}>
+          <Link to="/ayuda" className={TAB_BASE}>
+            Ayuda
           </Link>
         </li>
       </ul>

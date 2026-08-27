@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryHistory,
@@ -46,27 +46,51 @@ describe('BottomTabs', () => {
     expect(screen.getByRole('link', { name: 'Resumen' })).toBeInTheDocument();
   });
 
-  it('renders "Subir nuevo archivo" as a real nav link to /subir', async () => {
+  // Mobile bottom-nav redesign (Impeccable critique P1): the bar shows the
+  // short label ("Subir"), not the full sidebar label — six long labels at
+  // 360px wrapped across lines. The link still resolves to the same route.
+  it('renders "Subir" (short label) as a real nav link to /subir', async () => {
     await renderBottomTabs();
 
-    const link = screen.getByRole('link', { name: 'Subir nuevo archivo' });
+    const link = screen.getByRole('link', { name: 'Subir' });
     expect(link).toHaveAttribute('href', '/subir');
   });
 
-  // US-042 WCFG-01: "Configuración" flipped from placeholder to a real link.
-  it('renders "Configuración" as a real nav link to /configuracion', async () => {
+  // US-042 WCFG-01: "Configuración" flipped from placeholder to a real
+  // link. Mobile bottom-nav redesign: the bar shows "Config" (short label).
+  it('renders "Config" (short label) as a real nav link to /configuracion', async () => {
     await renderBottomTabs();
 
-    const link = screen.getByRole('link', { name: 'Configuración' });
+    const link = screen.getByRole('link', { name: 'Config' });
     expect(link).toHaveAttribute('href', '/configuracion');
   });
 
-  // Ayuda flipped from placeholder to a real link once /ayuda shipped.
-  it('renders "Ayuda" as a real nav link to /ayuda', async () => {
+  // Mobile bottom-nav redesign (Impeccable critique P1): 6 tabs at 360px
+  // exceeded the 3-5 tab convention. "Ayuda" moved out of the bottom bar —
+  // it stays in the desktop Sidebar and gains an entry inside Configuración
+  // (ConfiguracionLayout.test.tsx) instead.
+  it('does not render "Ayuda" — it left the bottom bar for the 5-tab redesign', async () => {
     await renderBottomTabs();
 
-    const link = screen.getByRole('link', { name: 'Ayuda' });
-    expect(link).toHaveAttribute('href', '/ayuda');
+    expect(
+      screen.queryByRole('link', { name: 'Ayuda' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders exactly the 5 expected mobile tabs, in order', async () => {
+    await renderBottomTabs();
+
+    const nav = screen.getByRole('navigation', {
+      name: 'Navegación principal (móvil)',
+    });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Resumen',
+      'Subir',
+      'Registrar',
+      'Cartolas',
+      'Config',
+    ]);
   });
 
   it('exposes a navigation landmark distinct from the sidebar', async () => {

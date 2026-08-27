@@ -34,6 +34,11 @@ type Variant = keyof typeof VARIANT_STYLES;
  * concatenates rather than overrides, see `link.js`) and semantically via
  * `aria-current="page"` (WDS-02).
  *
+ * `bottom-tab` prefers `item.shortLabel` over `item.label` when the model
+ * provides one (mobile bottom-nav redesign, Impeccable critique P1) — the
+ * rendered text is the only label, so it stays the accessible name too;
+ * `sidebar` always renders the full `label`.
+ *
  * `VARIANT_STYLES` no longer carries a `disabled` treatment — it was the
  * announced-disabled styling for the placeholder branch removed above.
  * Nothing reads it now, so it went with the branch (YAGNI); a future
@@ -49,6 +54,13 @@ export function NavItem({
 }) {
   const styles = VARIANT_STYLES[variant];
   const Icon = item.icon;
+  // `bottom-tab` is the one presentation tight on horizontal space (5 tabs
+  // across 360px) — it prefers `shortLabel` when the model provides one.
+  // `sidebar` always renders the full `label`; there is no aria-label
+  // divergence, since whichever text renders is also the link's accessible
+  // name.
+  const displayLabel =
+    variant === 'bottom-tab' ? (item.shortLabel ?? item.label) : item.label;
 
   return (
     <Link
@@ -58,7 +70,7 @@ export function NavItem({
       className={styles.base}
     >
       <Icon className="size-5" aria-hidden="true" />
-      <span>{item.label}</span>
+      <span>{displayLabel}</span>
     </Link>
   );
 }

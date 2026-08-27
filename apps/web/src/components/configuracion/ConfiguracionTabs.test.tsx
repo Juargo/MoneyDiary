@@ -104,4 +104,34 @@ describe('ConfiguracionTabs', () => {
       'aria-current',
     );
   });
+
+  // Mobile bottom-nav redesign (Impeccable critique P1, fresh-review fix):
+  // "Ayuda" left `BottomTabs` (5-tab convention) and needed a discoverable
+  // mobile path. Folded in HERE — a trailing <li> in this same nav/ul — so
+  // it lives inside the existing "Secciones de configuración" landmark and
+  // list, styled exactly like Perfil/Categorías (same TAB_BASE pill, no
+  // icon), instead of a foreign NavItem-shaped element in its own wrapper.
+  it('renderiza "Ayuda" como <li> final, estilizado igual que las otras tabs (TAB_BASE), visible solo bajo lg', async () => {
+    await renderTabs('/configuracion');
+
+    const ayuda = screen.getByRole('link', { name: 'Ayuda' });
+    expect(ayuda).toHaveAttribute('href', '/ayuda');
+    // Perfil is active in this render (TAB_ACTIVE appended) — compare
+    // against Categorías, the other inactive tab, for a like-for-like
+    // TAB_BASE-only className match.
+    expect(ayuda.className).toBe(
+      screen.getByRole('link', { name: 'Categorías' }).className,
+    );
+
+    const ayudaLi = ayuda.closest('li');
+    expect(ayudaLi).toHaveClass('lg:hidden');
+  });
+
+  it('"Ayuda" no lleva aria-current — no es una sección de /configuracion, nunca es la ruta activa dentro de este árbol', async () => {
+    await renderTabs('/configuracion');
+
+    expect(screen.getByRole('link', { name: 'Ayuda' })).not.toHaveAttribute(
+      'aria-current',
+    );
+  });
 });
