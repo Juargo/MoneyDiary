@@ -9,7 +9,8 @@ import { useResumen } from '@/api/use-resumen';
 import type { ApiError } from '@/api/client';
 import type { PreviewIngestaDto, ResumenMesDto } from '@/api/types';
 import { unaFilaPreview } from '@/test-utils/preview-fixtures';
-import type { CatalogoDto } from '@/api/types';
+import type { CatalogoDto, PreviewIngestaDtoConCanonicos } from '@/api/types';
+import { cargarBorrador, guardarBorrador } from '@/lib/borrador-revision';
 
 // US-059 PR3 — SubirCartola state-machine rewrite test suite.
 //
@@ -139,8 +140,15 @@ function unCommitDtoExito(
   };
 }
 
-// Canonical preview fixture using shared factory (unaFilaPreview).
-const validPreviewDto: PreviewIngestaDto = {
+// Canonical preview fixture using shared factory (unaFilaPreview). Typed as
+// the CANÓNICO variant (filas/resumen required, not the wider optional
+// PreviewIngestaDto) so `unaPreviewCanonica()` below (draft-resilience
+// suite) can spread it directly into a PreviewIngestaDtoConCanonicos without
+// TS treating `filas`/`resumen` as possibly-undefined — the literal already
+// provides both, this only tightens what the type checker can see. Still
+// structurally assignable everywhere `PreviewIngestaDto` is expected
+// (required fields satisfy optional ones).
+const validPreviewDto: PreviewIngestaDtoConCanonicos = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
   numeroCuenta: '12345678',
@@ -215,6 +223,12 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockNavigate.mockReset();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    // Draft resilience persists to the REAL jsdom sessionStorage (only
+    // storage failures are mocked, never the store itself) — clear it so a
+    // draft written by one test's preview-success render never leaks into
+    // the next test's DOM query (e.g. an extra "Descartar borrador" button
+    // colliding with a `/descartar/i` match).
+    sessionStorage.clear();
   });
 
   // ── File validation (client-side gate, unchanged) ────────────────────────
@@ -1516,5 +1530,486 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(
       screen.getByRole('button', { name: /agregar transacciones/i }),
     ).toBeDisabled();
+  });
+
+  // ── Draft resilience (P1 fix: interruption resilience) ───────────────────
+  //
+  // API AUDIT VERDICT: `useCommitIngesta` re-sends the `File` to
+  // POST /api/ingestas/commit — there is no server-side preview/ingesta id
+  // to commit against. A `File` cannot be persisted, so the restore design
+  // is: restore `preview` + `edits` from sessionStorage, and require the
+  // user to re-pick the SAME file (matched by name+size+lastModified) before
+  // the review becomes editable/committable again.
+  describe('draft resilience (sessionStorage)', () => {
+    function unArchivoIdentidad(
+      nombre: string,
+      tamanoBytes: number,
+      ultimaModificacion: number,
+    ): File {
+      return new File([new Uint8Array(tamanoBytes)], nombre, {
+        lastModified: ultimaModificacion,
+      });
+    }
+
+    function unaPreviewCanonica(
+      overrides: Partial<PreviewIngestaDtoConCanonicos> = {},
+    ): PreviewIngestaDtoConCanonicos {
+      return {
+        ...validPreviewDto,
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      sessionStorage.clear();
+    });
+
+    afterEach(() => {
+      sessionStorage.clear();
+    });
+
+    it('shows no draft notice when nothing was saved', () => {
+      idleHooks();
+      render(<SubirCartola />);
+
+      expect(
+        screen.queryByText(/revisión sin terminar/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('offers to continue a fresh (< 24h) draft with file name and edit count', () => {
+      const archivo = unArchivoIdentidad(
+        'cartola.xlsx',
+        1024,
+        1_700_000_000_000,
+      );
+      guardarBorrador({
+        archivo,
+        preview: unaPreviewCanonica(),
+        edits: new Map([
+          [0, 'cat-nec-1'],
+          [1, null],
+        ]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+
+      const notice = screen.getByRole('status', {
+        name: /borrador de revisión/i,
+      });
+      expect(notice).toHaveTextContent('cartola.xlsx');
+      expect(notice).toHaveTextContent('2');
+      expect(
+        screen.getByRole('button', { name: /continuar revisión/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /descartar borrador/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('does not offer a stale draft older than 24h, and clears it from storage', () => {
+      const ahora = Date.now();
+      const archivo = unArchivoIdentidad('vieja.xlsx', 512, 1);
+      guardarBorrador({
+        archivo,
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: ahora - 25 * 60 * 60 * 1000,
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+
+      expect(
+        screen.queryByText(/revisión sin terminar/i),
+      ).not.toBeInTheDocument();
+      expect(cargarBorrador(ahora)).toBeNull();
+    });
+
+    it('never offers a draft in demo mode, even if one is saved', () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('demo.xlsx', 100, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola esDemo />);
+
+      expect(
+        screen.queryByText(/revisión sin terminar/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('"Descartar borrador" clears the notice and removes the draft from storage', async () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+      await userEvent.click(
+        screen.getByRole('button', { name: /descartar borrador/i }),
+      );
+
+      expect(
+        screen.queryByText(/revisión sin terminar/i),
+      ).not.toBeInTheDocument();
+      expect(cargarBorrador(Date.now())).toBeNull();
+    });
+
+    it('"Continuar revisión" switches to a re-pick prompt naming the file, without a live table (read-only recovery, PreviewMuestra untouched)', async () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+      await userEvent.click(
+        screen.getByRole('button', { name: /continuar revisión/i }),
+      );
+
+      expect(
+        screen.queryByRole('button', { name: /continuar revisión/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /descartar borrador/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/cartola\.xlsx/)).toBeInTheDocument();
+    });
+
+    it('"Continuar revisión" moves focus to the file input (its own button unmounts, so focus must land somewhere actionable)', async () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+      await userEvent.click(
+        screen.getByRole('button', { name: /continuar revisión/i }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/selecciona un archivo/i)).toHaveFocus(),
+      );
+    });
+
+    it('re-picking the SAME file after "Continuar revisión" restores the edits overlay into the commit payload', async () => {
+      const identidad = { nombre: 'cartola.xlsx', tamano: 1024, mod: 42 };
+      guardarBorrador({
+        archivo: unArchivoIdentidad(
+          identidad.nombre,
+          identidad.tamano,
+          identidad.mod,
+        ),
+        preview: unaPreviewCanonica({
+          filas: [
+            unaFilaPreview({ rowIndex: 0, descripcion: 'Fila A' }),
+            unaFilaPreview({ rowIndex: 1, descripcion: 'Fila B' }),
+          ],
+        }),
+        edits: new Map([[1, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+
+      const previewMutate = vi.fn();
+      const commitMutate = vi.fn();
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /continuar revisión/i }),
+      );
+
+      const mismoArchivo = unArchivoIdentidad(
+        identidad.nombre,
+        identidad.tamano,
+        identidad.mod,
+      );
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        mismoArchivo,
+      );
+
+      expect(previewMutate).toHaveBeenCalledWith(mismoArchivo);
+
+      // Flip to preview-listo with the same rows, as the mocked preview mutation would.
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: unaPreviewCanonica({
+            filas: [
+              unaFilaPreview({ rowIndex: 0, descripcion: 'Fila A' }),
+              unaFilaPreview({ rowIndex: 1, descripcion: 'Fila B' }),
+            ],
+          }),
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      );
+
+      expect(commitMutate).toHaveBeenCalledTimes(1);
+      const [vars] = commitMutate.mock.calls[0] as [
+        {
+          file: File;
+          edits: Array<{ rowIndex: number; categoriaId: string | null }>;
+        },
+        unknown,
+      ];
+      expect(vars.edits).toEqual([{ rowIndex: 1, categoriaId: 'cat-nec-1' }]);
+    });
+
+    it('picking a DIFFERENT file after "Continuar revisión" does not restore edits and clears the draft notice', async () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+
+      const previewMutate = vi.fn();
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+      await userEvent.click(
+        screen.getByRole('button', { name: /continuar revisión/i }),
+      );
+
+      const otroArchivo = unArchivoIdentidad('otra-cartola.xlsx', 2048, 99);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        otroArchivo,
+      );
+
+      expect(previewMutate).toHaveBeenCalledWith(otroArchivo);
+      expect(
+        screen.queryByText(/revisión sin terminar/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('persists a draft to sessionStorage once a file is picked and preview succeeds', async () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      const archivo = unArchivoIdentidad('nueva.xlsx', 4096, 7);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      const guardado = cargarBorrador(Date.now());
+      expect(guardado?.archivo).toEqual({
+        nombre: 'nueva.xlsx',
+        tamano: 4096,
+        ultimaModificacion: 7,
+      });
+    });
+
+    it('clears the draft from sessionStorage on successful commit', async () => {
+      const commitMutate = vi.fn().mockImplementation((_vars, opts) => {
+        opts?.onSuccess?.();
+        opts?.onSettled?.();
+      });
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      const archivo = unArchivoIdentidad('cartola.xlsx', 1024, 1);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(cargarBorrador(Date.now())).not.toBeNull();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      );
+
+      expect(cargarBorrador(Date.now())).toBeNull();
+    });
+
+    it('clears the draft from sessionStorage on "Descartar"', async () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map(),
+        ahora: Date.now(),
+      });
+
+      render(<SubirCartola />);
+      fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+
+      expect(cargarBorrador(Date.now())).toBeNull();
+    });
+
+    it('clears the draft from sessionStorage on "Subir otra cartola"', async () => {
+      const commitMutate = vi.fn().mockImplementation((_vars, opts) => {
+        opts?.onSuccess?.();
+        opts?.onSettled?.();
+      });
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      const archivo = unArchivoIdentidad('cartola.xlsx', 1024, 1);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseResumen.mockReturnValue(unaResumenConsulta({}));
+      rerender(<SubirCartola />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      );
+
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({
+          isSuccess: true,
+          status: 'success',
+          data: unCommitDtoExito(),
+          mutate: commitMutate,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /subir otra cartola/i }),
+      );
+
+      expect(cargarBorrador(Date.now())).toBeNull();
+    });
+
+    it('does not crash and shows no notice when sessionStorage holds corrupted JSON', () => {
+      sessionStorage.setItem('md:borrador-revision:v1', '{not json');
+      idleHooks();
+
+      expect(() => render(<SubirCartola />)).not.toThrow();
+      expect(
+        screen.queryByText(/revisión sin terminar/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('never breaks the review flow when sessionStorage.setItem throws (quota/private mode)', async () => {
+      const originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = () => {
+        throw new DOMException('QuotaExceededError');
+      };
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      const archivo = unArchivoIdentidad('cartola.xlsx', 1024, 1);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      expect(() => rerender(<SubirCartola />)).not.toThrow();
+
+      Storage.prototype.setItem = originalSetItem;
+    });
   });
 });

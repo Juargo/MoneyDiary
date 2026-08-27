@@ -14,6 +14,13 @@ import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { validarArchivoWeb } from '@/domain/validar-archivo';
 import { derivarMesDominante } from '@/domain/derivar-mes-dominante';
 import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
+import {
+  archivoCoincideConIdentidad,
+  borrarBorrador,
+  cargarBorrador,
+  guardarBorrador,
+  type BorradorRevision,
+} from '@/lib/borrador-revision';
 import type { CatalogoEstado } from '@/api/types';
 
 // US-059 PR3: SubirCartola state-machine rewrite — two-phase preview→commit flow.
@@ -101,6 +108,30 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // is selected. Bumping this key forces React to recreate the DOM node.
   const [selectorArchivoKey, setSelectorArchivoKey] = useState(0);
 
+  // P1 fix (interruption resilience): the review state above lived ONLY in
+  // React state — a reload, app-switch kill, or OS tab reclaim silently lost
+  // a potentially 100+-row classification pass. `borrador` is the draft
+  // loaded from `sessionStorage` on mount, offered back to the user via an
+  // inline notice (never a modal — this isn't an interruption-worthy
+  // decision). API AUDIT: `useCommitIngesta` re-sends the `File` itself
+  // (there is no server-side preview/ingesta id to commit against), so a
+  // `File` can never be restored — only `preview` + `edits` are. Recovering
+  // is therefore two steps: show the notice (`borrador` set, `archivo` still
+  // null) → user clicks "Continuar revisión" (`borradorRecuperando` true) →
+  // user re-picks the SAME file (matched by name+size+lastModified in
+  // `handleFileChange`) before the review becomes editable again. Picking a
+  // DIFFERENT file, or clicking "Descartar borrador", abandons the draft.
+  //
+  // Lazy `useState` initializer (not an effect): reading sessionStorage is a
+  // one-time mount concern, not a subscription to an external system that
+  // changes over the component's lifetime — `esDemo` is stable per route, so
+  // there is nothing to re-synchronize later. This also avoids the extra
+  // render an effect-driven `setState` would cost on every mount.
+  const [borrador, setBorrador] = useState<BorradorRevision | null>(() =>
+    esDemo ? null : cargarBorrador(Date.now()),
+  );
+  const [borradorRecuperando, setBorradorRecuperando] = useState(false);
+
   const previewMutation = usePreviewIngesta();
   const commitMutation = useCommitIngesta();
 
@@ -118,6 +149,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   const previewHeadingRef = useRef<HTMLHeadingElement>(null);
   const exitoRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Synchronous double-submit guard (money-duplication risk, SEC-01): gates
   // "Agregar transacciones". `commitMutation.isPending`/`disabled` are stale
   // until React re-renders, which doesn't happen between two synchronous clicks.
@@ -172,18 +204,64 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     }
   }, [estado]);
 
+  // Draft resilience: "Continuar revisión" unmounts its own button (the
+  // notice swaps to the re-pick prompt below) — without an explicit target,
+  // the browser drops focus to <body> and a keyboard/screen-reader user
+  // loses their place. The very next required action is re-picking the
+  // file, so focus goes straight to that input (same reflex as the
+  // preview/error/exito transitions above).
+  useEffect(() => {
+    if (borradorRecuperando) {
+      fileInputRef.current?.focus();
+    }
+  }, [borradorRecuperando]);
+
+  // Write-through persistence (no debounce needed at this scale, per spec):
+  // every edit and every fresh preview response re-saves the draft. Runs
+  // through `committing`/`error` too (D-11 already preserves the overlay
+  // in-memory for retry; this is the same guarantee surviving a reload).
+  // Stops mattering once `exito` clears the draft explicitly (below) — this
+  // effect's own deps don't change across that transition, so it doesn't
+  // re-save afterwards.
+  useEffect(() => {
+    if (esDemo || !archivo || !previewMutation.data) return;
+    guardarBorrador({
+      archivo,
+      preview: previewMutation.data,
+      edits,
+      ahora: Date.now(),
+    });
+  }, [esDemo, archivo, previewMutation.data, edits]);
+
   // D-02: handleFileChange clears both mutations + edits before firing preview.
+  // Draft resilience: a matching re-pick during `borradorRecuperando`
+  // restores `edits` from the draft instead of the usual blank Map; any
+  // other selection (including cancelling the picker) abandons the draft —
+  // the notice never survives a new file selection.
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const seleccionado = event.target.files?.[0];
     previewMutation.reset();
     commitMutation.reset();
-    setEdits(new Map());
     isSubmittingRef.current = false;
+
     if (!seleccionado) {
       setArchivo(null);
       setErrorValidacion(null);
+      setEdits(new Map());
       return;
     }
+
+    let edicionesRestauradas = new Map<number, string | null>();
+    if (
+      borradorRecuperando &&
+      borrador !== null &&
+      archivoCoincideConIdentidad(seleccionado, borrador.archivo)
+    ) {
+      edicionesRestauradas = new Map(borrador.edits);
+    }
+    setEdits(edicionesRestauradas);
+    setBorrador(null);
+    setBorradorRecuperando(false);
 
     const resultado = validarArchivoWeb(seleccionado);
     if (resultado.tag === 'rechazado') {
@@ -221,11 +299,21 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         })),
       },
       {
+        onSuccess: () => {
+          borrarBorrador();
+        },
         onSettled: () => {
           isSubmittingRef.current = false;
         },
       },
     );
+  }
+
+  // Draft resilience: explicit opt-out from the recovery notice.
+  function handleDescartarBorrador() {
+    borrarBorrador();
+    setBorrador(null);
+    setBorradorRecuperando(false);
   }
 
   // D-02: handleDescartar resets both mutations + edits, then navigates /.
@@ -236,6 +324,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     isSubmittingRef.current = false;
     previewMutation.reset();
     commitMutation.reset();
+    borrarBorrador();
     void navigate({ to: '/' });
   }
 
@@ -262,6 +351,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     isSubmittingRef.current = false;
     previewMutation.reset();
     commitMutation.reset();
+    borrarBorrador();
     setSelectorArchivoKey((k) => k + 1);
   }
 
@@ -278,11 +368,61 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     estado !== 'preview-error' &&
     estado !== 'exito';
 
+  // Draft resilience: only relevant before a file is picked in THIS session
+  // — once `archivo` is set, the notice's job is done (`handleFileChange`
+  // already cleared `borrador`).
+  const mostrarNoticiaBorrador = borrador !== null && archivo === null;
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <h1 className="text-lg font-semibold text-foreground">Subir cartola</h1>
 
       <DemoUploadNudge esDemo={esDemo} />
+
+      {mostrarNoticiaBorrador && borrador && !borradorRecuperando && (
+        <div
+          role="status"
+          aria-label="Borrador de revisión sin terminar"
+          className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-foreground"
+        >
+          <p>
+            Encontramos una revisión sin terminar de{' '}
+            <strong>{borrador.archivo.nombre}</strong> ({borrador.edits.length}{' '}
+            filas clasificadas). ¿Continuar donde quedaste?
+          </p>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setBorradorRecuperando(true)}
+            >
+              Continuar revisión
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleDescartarBorrador}
+            >
+              Descartar borrador
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {mostrarNoticiaBorrador && borrador && borradorRecuperando && (
+        <div
+          role="status"
+          aria-label="Retomando borrador de revisión"
+          className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 p-4 text-sm text-foreground"
+        >
+          <p>
+            Para continuar, selecciona nuevamente{' '}
+            <strong>{borrador.archivo.nombre}</strong> en el campo de abajo. No
+            guardamos el archivo — solo tus clasificaciones.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <label
@@ -293,6 +433,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         </label>
         <input
           key={selectorArchivoKey}
+          ref={fileInputRef}
           id="cartola-file"
           type="file"
           accept=".xlsx,.pdf"
