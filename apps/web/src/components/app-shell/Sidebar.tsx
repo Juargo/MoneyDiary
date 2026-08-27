@@ -7,7 +7,8 @@ import { SIDEBAR_WIDTH_CLASS } from './layout';
  * Sidebar — desktop nav rail (design.md §5): fixed left column, visible only
  * at `lg`+ (`hidden lg:flex`; `AppShell`'s `<main>` reserves the matching
  * `SIDEBAR_CONTENT_OFFSET_CLASS`, see `layout.ts`). Brand block + the shared
- * `NAV_ITEMS` (functional + inert placeholders, WDS-02/WDS-03).
+ * `NAV_ITEMS` — every item is a real, navigable link (WDS-02; see
+ * `nav-items.ts`'s docstring for the retired `'placeholder'` variant).
  *
  * Presentational: an optional `footer` slot renders pinned to the bottom
  * (`mt-auto`). The data-driven `ApiVersionBadge` is injected there from
@@ -23,7 +24,7 @@ export function Sidebar({ footer }: { readonly footer?: ReactNode }) {
       <div className="px-3">
         <p className="text-lg font-semibold text-primary">MoneyDiary</p>
         <p className="text-xs text-muted-foreground">
-          Sin registro. Solo analiza.
+          Tu mes, un veredicto claro.
         </p>
       </div>
       <ul className="flex flex-col gap-1">

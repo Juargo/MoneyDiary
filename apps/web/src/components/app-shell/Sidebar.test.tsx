@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryHistory,
@@ -44,7 +44,7 @@ describe('Sidebar', () => {
     await renderSidebar();
 
     expect(screen.getByText('MoneyDiary')).toBeInTheDocument();
-    expect(screen.getByText('Sin registro. Solo analiza.')).toBeInTheDocument();
+    expect(screen.getByText('Tu mes, un veredicto claro.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Resumen' })).toBeInTheDocument();
   });
 
@@ -63,14 +63,12 @@ describe('Sidebar', () => {
     expect(link).toHaveAttribute('href', '/configuracion');
   });
 
-  it('renders the remaining placeholder as an inert, disabled control', async () => {
-    const router = await renderSidebar();
+  // Ayuda flipped from placeholder to a real link once /ayuda shipped.
+  it('renders "Ayuda" as a real nav link to /ayuda', async () => {
+    await renderSidebar();
 
-    const button = screen.getByRole('button', { name: 'Ayuda' });
-    expect(button).toBeDisabled();
-    fireEvent.click(button);
-
-    expect(router.state.location.pathname).toBe('/');
+    const link = screen.getByRole('link', { name: 'Ayuda' });
+    expect(link).toHaveAttribute('href', '/ayuda');
   });
 
   it('exposes a navigation landmark distinct from the mobile bar', async () => {

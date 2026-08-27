@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryHistory,
@@ -61,14 +61,12 @@ describe('BottomTabs', () => {
     expect(link).toHaveAttribute('href', '/configuracion');
   });
 
-  it('renders the remaining placeholder as an inert, disabled tab', async () => {
-    const router = await renderBottomTabs();
+  // Ayuda flipped from placeholder to a real link once /ayuda shipped.
+  it('renders "Ayuda" as a real nav link to /ayuda', async () => {
+    await renderBottomTabs();
 
-    const button = screen.getByRole('button', { name: 'Ayuda' });
-    expect(button).toBeDisabled();
-    fireEvent.click(button);
-
-    expect(router.state.location.pathname).toBe('/');
+    const link = screen.getByRole('link', { name: 'Ayuda' });
+    expect(link).toHaveAttribute('href', '/ayuda');
   });
 
   it('exposes a navigation landmark distinct from the sidebar', async () => {

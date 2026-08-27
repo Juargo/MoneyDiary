@@ -12,8 +12,6 @@ const VARIANT_STYLES = {
       FOCUS_RING,
     ),
     active: 'border-primary bg-accent font-semibold text-primary',
-    disabled:
-      'cursor-not-allowed text-muted-foreground opacity-50 hover:bg-transparent',
   },
   'bottom-tab': {
     base: cn(
@@ -21,7 +19,6 @@ const VARIANT_STYLES = {
       FOCUS_RING,
     ),
     active: 'font-semibold text-primary',
-    disabled: 'cursor-not-allowed text-muted-foreground opacity-50',
   },
 } as const;
 
@@ -29,19 +26,19 @@ type Variant = keyof typeof VARIANT_STYLES;
 
 /**
  * NavItem — one entry shared by `Sidebar` and `BottomTabs` (design.md §5,
- * DRY). Branches on `item.kind` (see `nav-items.ts`'s discriminated union —
- * there is no separate `disabled` flag to fall out of sync with `to`).
+ * DRY). Every `NavItemModel` is a real, navigable route (see
+ * `nav-items.ts`'s docstring — the `'placeholder'` variant that used to
+ * share this type was removed once "Ayuda" was its last consumer), so this
+ * always renders a real `<Link>`. Active state (current route) is exposed
+ * both visually (`activeProps`, merged with the base classes — router-core
+ * concatenates rather than overrides, see `link.js`) and semantically via
+ * `aria-current="page"` (WDS-02).
  *
- * `'link'` items render as a real `<Link>`; active state (current route) is
- * exposed both visually (`activeProps`, merged with the base classes —
- * router-core concatenates rather than overrides, see `link.js`) and
- * semantically via `aria-current="page"` (WDS-02).
- *
- * `'placeholder'` items (WDS-03) render as a native `<button disabled>` —
- * no `href`, not focusable, not in the tab order, announced as disabled to
- * assistive tech out of the box. `aria-disabled="true"` is added explicitly
- * on top for tests/tooling that key off the ARIA state rather than the DOM
- * `disabled` property.
+ * `VARIANT_STYLES` no longer carries a `disabled` treatment — it was the
+ * announced-disabled styling for the placeholder branch removed above.
+ * Nothing reads it now, so it went with the branch (YAGNI); a future
+ * placeholder item re-adds both together instead of one outliving the
+ * other unreferenced.
  */
 export function NavItem({
   item,
@@ -52,20 +49,6 @@ export function NavItem({
 }) {
   const styles = VARIANT_STYLES[variant];
   const Icon = item.icon;
-
-  if (item.kind === 'placeholder') {
-    return (
-      <button
-        type="button"
-        disabled
-        aria-disabled="true"
-        className={cn(styles.base, styles.disabled)}
-      >
-        <Icon className="size-5" aria-hidden="true" />
-        <span>{item.label}</span>
-      </button>
-    );
-  }
 
   return (
     <Link
