@@ -11,6 +11,11 @@
  * optional `title`/`description` props let other screens supply
  * context-appropriate copy without duplicating this component (DRY) — the
  * resumen screen keeps the defaults, unchanged.
+ *
+ * Design-system hardening round 2 (P1): reskinned off raw `slate-*` onto
+ * the Serene Finance semantic tokens. Contrast (index.css hexes): title
+ * `--foreground` (#1a1c1c) on `--background` (#e8f0fa) ≈ 14.9:1; description
+ * `--muted-foreground` (#44474e) on `--background` ≈ 8.13:1 (both AA).
  */
 export function Empty({
   title = 'Todavía no hay movimientos este período',
@@ -18,8 +23,8 @@ export function Empty({
 }: { readonly title?: string; readonly description?: string } = {}) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 px-8 text-center">
-      <p className="text-sm font-medium text-slate-700">{title}</p>
-      <p className="text-sm text-slate-500">{description}</p>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }

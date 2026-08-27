@@ -59,7 +59,7 @@ export const CampoTexto = forwardRef(function CampoTexto(
   ref: Ref<HTMLInputElement>,
 ) {
   return (
-    <label className="flex flex-col gap-1 text-sm text-slate-600">
+    <label className="flex flex-col gap-1 text-sm text-muted-foreground">
       {label}
       <input
         ref={ref}
@@ -74,7 +74,7 @@ export const CampoTexto = forwardRef(function CampoTexto(
         disabled={disabled}
         autoComplete={autoComplete}
         aria-describedby={ariaDescribedBy}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+        className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
       />
     </label>
   );

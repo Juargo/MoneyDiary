@@ -47,7 +47,7 @@ export function ConfiguracionLayout({
       <div className="mb-2 md:hidden">
         <BotonVolver to="/" label="Volver al inicio" />
       </div>
-      <h1 className="text-2xl font-semibold text-slate-900 max-md:sr-only">
+      <h1 className="text-2xl font-semibold text-foreground max-md:sr-only">
         Configuración
       </h1>
       <div

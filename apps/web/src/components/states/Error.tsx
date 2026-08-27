@@ -1,4 +1,5 @@
 import type { ApiError } from '@/api/client';
+import { Button } from '@/components/ui/button';
 
 /**
  * Error state (spec W1-02): renders the typed `ApiError.message` verbatim —
@@ -18,6 +19,13 @@ import type { ApiError } from '@/api/client';
  * A11y (ADR-018): `role="alert"` carries an implicit `aria-live="assertive"`,
  * so a Data→Error refetch failure interrupts and announces the message to
  * assistive technology instead of failing silently.
+ *
+ * Design-system hardening round 2 (P1): the message now carries
+ * `text-destructive` (it IS an error, semantically) and the hand-rolled
+ * `rounded-full bg-slate-800` retry pill is retired in favor of the shared
+ * `<Button>` (default variant — the only action on this screen, same
+ * weight as a primary "Confirmar"). Contrast (index.css hexes):
+ * `--destructive` (#ba1a1a) on `--background` (#e8f0fa) ≈ 5.62:1 (AA).
  */
 export function ErrorState({
   error,
@@ -30,16 +38,12 @@ export function ErrorState({
 }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
-      <p role="alert" className="text-sm text-slate-700">
+      <p role="alert" className="text-sm text-destructive">
         {mensaje ?? error.message}
       </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="rounded-full bg-slate-800 px-6 py-2 text-sm font-semibold text-white"
-      >
+      <Button type="button" onClick={onRetry}>
         Reintentar
-      </button>
+      </Button>
     </div>
   );
 }

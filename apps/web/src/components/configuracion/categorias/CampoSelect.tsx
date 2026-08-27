@@ -47,7 +47,7 @@ export function CampoSelect({
   readonly srOnly?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm text-slate-600">
+    <label className="flex flex-col gap-1 text-sm text-muted-foreground">
       {srOnly ? <span className="sr-only">{label}</span> : label}
       <select
         value={value}
@@ -56,7 +56,7 @@ export function CampoSelect({
         }
         required={required}
         disabled={disabled}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+        className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
