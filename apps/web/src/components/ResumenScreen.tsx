@@ -1,5 +1,5 @@
 import { IngresoCard } from './IngresoCard';
-import { SemaforoTag } from './SemaforoTag';
+import { SemaforoHeroCard } from './SemaforoHeroCard';
 import { DistribucionPie } from './DistribucionPie';
 import { LeyendaGasto } from './LeyendaGasto';
 import { ResumenAnual } from './ResumenAnual';
@@ -50,9 +50,15 @@ import { cn } from '@/lib/utils';
  * `leyendaPrincipal`/`leyendaComplemento` fields (PR2 T5); WG5-13's
  * ring-percentage dilution is user-visible in both places at once.
  *
- * The card header swaps the static `SemaforoBadge` for the clickable
- * `SemaforoTag` (T9, design D-06/WG5-07) — a navigation entry point to the
- * `/semaforo` stub (T12), carrying `viewModel.periodo` as a search param.
+ * Design critique P0 fix (impeccable audit, PRODUCT.md principle 1 — "the
+ * monthly verdict comes first"): the semáforo used to be a `text-xs` pill
+ * (`SemaforoTag`) tucked into this chart card's header, upstaged by
+ * `IngresoCard`'s 4xl mint hero. `SemaforoHeroCard` is now the FIRST card on
+ * the page — the verdict, not income, leads — at `IngresoCard`'s own
+ * display scale. The chart card DROPS its `SemaforoTag` entirely (redundant
+ * with the hero directly above it); the `data-testid="semaforo-global"`
+ * smoke anchor MOVED to the hero (`SemaforoHeroCard`), so existing tests
+ * keep resolving through the single remaining instance.
  *
  * The card BODY wraps the pie + legend in the T1 tablet grid (design D-09):
  * stacked below `md`, side-by-side at `md:grid-cols-2` — independent of the
@@ -88,6 +94,10 @@ export function ResumenScreen({
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
       <h1 className="sr-only">Resumen mensual</h1>
+      <SemaforoHeroCard
+        estadoGlobal={viewModel.estadoGlobal}
+        periodo={viewModel.periodo}
+      />
       <IngresoCard totalIngreso={viewModel.totalIngreso} />
 
       {/* D-06: single column at every breakpoint — the transactions panel is
@@ -100,12 +110,6 @@ export function ResumenScreen({
             <h2 className="text-xs font-semibold tracking-widest text-secondary uppercase">
               Distribución del gasto
             </h2>
-            <span data-testid="semaforo-global">
-              <SemaforoTag
-                estadoGlobal={viewModel.estadoGlobal}
-                periodo={viewModel.periodo}
-              />
-            </span>
           </div>
 
           {/* T1 tablet variant (design D-09): stacked below `md`, side-by-side

@@ -367,14 +367,65 @@ describe('ResumenScreen', () => {
   // US-047 T11/PR3 (design D-06/WG5-07, CA-03 composition-level proof): the
   // static `SemaforoBadge` (`role="img"`) in the card header is replaced by
   // the clickable `SemaforoTag` (`role="link"`) — the `semaforo-global`
-  // testid anchor now resolves to a navigable link, not an inert image.
-  it('renders the global semáforo (spec W2-01, WG5-07) as a navigable link, with a distinct testID anchor', async () => {
+  // testid anchor resolves to a navigable link, not an inert image.
+  //
+  // CONTRACT CHANGE (design critique P0 fix): `semaforo-global` no longer
+  // lives inside the chart card's header — it moved to `SemaforoHeroCard`,
+  // the new FIRST card on the dashboard (verdict leads, PRODUCT.md
+  // principle 1). The single `getByRole` lookup below still doubles as a
+  // no-duplication guard: it throws if both the hero AND the (now-dropped)
+  // chart-header copy rendered at once.
+  it('renders the global semáforo (spec W2-01, WG5-07) as a navigable link, with a distinct testID anchor, now on the hero card', async () => {
     mockFetchAnual();
     renderScreen();
     const contenedor = await screen.findByTestId('semaforo-global');
     expect(contenedor).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /Semáforo: Verde/ }),
+    ).toBeInTheDocument();
+  });
+
+  // CONTRACT CHANGE (design critique P0 fix): the chart card's header used
+  // to carry its OWN `semaforo-global` (`SemaforoTag`) — now redundant with
+  // the hero directly above it, so it's dropped entirely (not duplicated).
+  it('drops the semáforo tag from the chart card header (redundant with the hero above it)', async () => {
+    mockFetchAnual();
+    renderScreen();
+    await screen.findByText('$1.000.000');
+
+    const encabezadoGrafico = screen
+      .getByText('Distribución del gasto')
+      .closest('div');
+    expect(encabezadoGrafico).not.toBeNull();
+    expect(
+      within(encabezadoGrafico as HTMLElement).queryByTestId('semaforo-global'),
+    ).not.toBeInTheDocument();
+  });
+
+  // CONTRACT CHANGE (design critique P0 fix): dashboard order becomes
+  // h1 (sr-only) -> SemaforoHeroCard -> IngresoCard -> chart card ->
+  // ResumenAnual — the verdict leads, income supports (PRODUCT.md
+  // principle 1). Rewritten (new assertion, no prior equivalent existed).
+  it('renders SemaforoHeroCard first, then IngresoCard, then the chart card (verdict leads, income supports)', async () => {
+    mockFetchAnual();
+    const { container } = renderScreen();
+    await screen.findByText('$1.000.000');
+
+    const raiz = container.firstElementChild as HTMLElement;
+    const [primeraTarjeta, segundaTarjeta, terceraSeccion] = Array.from(
+      raiz.children,
+    ).slice(1);
+
+    // `SemaforoHeroCard`'s root IS the `semaforo-global` node (a `<Link>`
+    // wrapping the whole card) — checked directly, not via `within`, since
+    // `within(x).getByTestId` only matches DESCENDANTS of `x`, never `x`
+    // itself.
+    expect(primeraTarjeta).toHaveAttribute('data-testid', 'semaforo-global');
+    expect(
+      within(segundaTarjeta as HTMLElement).getByText('$1.000.000'),
+    ).toBeInTheDocument();
+    expect(
+      within(terceraSeccion as HTMLElement).getByText('Distribución del gasto'),
     ).toBeInTheDocument();
   });
 
