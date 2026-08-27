@@ -38,7 +38,7 @@ export function BucketSemaforoCard({
       />
 
       {viewModel.consejo !== null && (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-600">
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
           {viewModel.consejo.direccion === 'reducir' ? (
             <ArrowDown
               aria-hidden="true"

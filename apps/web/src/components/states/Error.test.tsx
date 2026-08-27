@@ -84,4 +84,34 @@ describe('ErrorState', () => {
 
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  // Design-system hardening round 2 (P1): the hand-rolled retry pill
+  // (`rounded-full bg-slate-800`) is retired in favor of the shared
+  // <Button> — every write surface in the app renders confirm/retry actions
+  // through this one primitive (round 1 already did this for the rest of
+  // the app). Asserted via `data-slot`/`data-variant` (Button's own
+  // contract), not class strings.
+  it('renders the retry affordance through the shared Button primitive (default variant)', () => {
+    const error: ApiError = {
+      tag: 'network',
+      message: 'Problema de conexión.',
+    };
+    render(<ErrorState error={error} onRetry={() => {}} />);
+
+    const retry = screen.getByRole('button', { name: 'Reintentar' });
+    expect(retry).toHaveAttribute('data-slot', 'button');
+    expect(retry).toHaveAttribute('data-variant', 'default');
+  });
+
+  // Error copy is semantically an error — it must carry the destructive
+  // token, not a neutral slate gray (P1 audit finding).
+  it('renders the error message with the destructive text token', () => {
+    const error: ApiError = {
+      tag: 'network',
+      message: 'Problema de conexión.',
+    };
+    render(<ErrorState error={error} onRetry={() => {}} />);
+
+    expect(screen.getByRole('alert').className).toContain('text-destructive');
+  });
 });

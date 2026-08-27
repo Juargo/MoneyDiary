@@ -31,7 +31,7 @@ export function ZonaBar({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs font-medium text-slate-600">
+      <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
         <span>{porcentajeLabel}</span>
         <span>{estadoLabel}</span>
       </div>
@@ -53,13 +53,13 @@ export function ZonaBar({
         {markerPct !== null && (
           <div
             data-testid="zona-bar-marker"
-            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-800"
+            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
             style={{ left: `${markerPct}%` }}
           />
         )}
       </div>
 
-      <ul className="flex flex-wrap gap-x-2 text-[11px] text-slate-500">
+      <ul className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
         {segmentos.map((segmento) => (
           <li key={`${segmento.estado}-${segmento.desdePct}-label`}>
             {segmento.etiqueta}
