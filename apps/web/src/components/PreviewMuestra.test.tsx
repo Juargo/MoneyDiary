@@ -522,6 +522,61 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // ── P2 design critique fix 1: shared sm+ column header row ───────────────
+  describe('shared column header row (Bucket/Categoría)', () => {
+    it('renders a purely-visual, aria-hidden header row naming the Bucket/Categoría columns', () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const header = container.querySelector('[data-columnas-header]');
+      expect(header).not.toBeNull();
+      expect(header).toHaveAttribute('aria-hidden', 'true');
+      expect(header).toHaveTextContent('Bucket');
+      expect(header).toHaveTextContent('Categoría');
+    });
+
+    it('the header row lives inside the sticky progress container — no separate sticky context to fight z-index with', () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const header = container.querySelector('[data-columnas-header]');
+      expect(header?.closest('.sticky.top-0')).not.toBeNull();
+    });
+
+    it('is hidden below sm and only shown sm and up (per-row visible labels own mobile identity instead)', () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const header = container.querySelector('[data-columnas-header]');
+      expect(header?.className).toMatch(/hidden/);
+      expect(header?.className).toMatch(/sm:flex/);
+    });
+  });
+
   // ── Selection + bulk apply ───────────────────────────────────────────────
   describe('selection + bulk apply', () => {
     const filasDosGrupos: PreviewFilaDto[] = [
@@ -856,6 +911,100 @@ describe('PreviewMuestra', () => {
       expect(onEditChange).not.toHaveBeenCalled();
       expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
       expect(screen.getByLabelText(/Seleccionar fila 1/i)).not.toBeChecked();
+    });
+
+    // ── P2 design critique fix 2: toolbar distill (count pill + inline dismiss) ──
+    describe('toolbar distill: selection-count pill with inline dismiss', () => {
+      it('renders the selection count inside a pill that also contains the "Limpiar selección" dismiss control', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        const dismiss = screen.getByRole('button', {
+          name: /limpiar selección/i,
+        });
+        const pill = dismiss.closest('[data-conteo-pill]');
+        expect(pill).not.toBeNull();
+        expect(pill).toHaveTextContent('1 seleccionada');
+      });
+
+      it('the dismiss control is a real, keyboard-reachable <button> with focus-visible styling', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        const dismiss = screen.getByRole('button', {
+          name: /limpiar selección/i,
+        });
+        expect(dismiss.tagName).toBe('BUTTON');
+        expect(dismiss.className).toMatch(/focus-visible:/);
+      });
+
+      it('the toolbar distills to exactly two selects and two buttons (dismiss pill + Aplicar) — no separate "Limpiar selección" text button', async () => {
+        const { container } = render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        const toolbar = container.querySelector(
+          '[data-toolbar-bulk]',
+        ) as HTMLElement;
+        expect(toolbar).not.toBeNull();
+        const buttons = within(toolbar).getAllByRole('button');
+        expect(buttons).toHaveLength(2);
+        const ariaLabels = buttons.map((b) => b.getAttribute('aria-label'));
+        expect(ariaLabels).toContain('Limpiar selección');
+      });
+
+      it('clicking the dismiss control clears the selection without calling onEditChange (same behavior as before the distill)', async () => {
+        const onEditChange = vi.fn();
+
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={onEditChange}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+        await userEvent.click(
+          screen.getByRole('button', { name: /limpiar selección/i }),
+        );
+
+        expect(onEditChange).not.toHaveBeenCalled();
+        expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
+        expect(screen.getByLabelText(/Seleccionar fila 1/i)).not.toBeChecked();
+      });
     });
 
     it('duplicate rows never expose a selection checkbox', () => {

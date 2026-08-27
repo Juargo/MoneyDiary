@@ -42,10 +42,21 @@ import type { CatalogoEstado } from '@/api/types';
  * both selects `disabled` — no `onEditChange` is ever wired for them (D-10).
  * They never render a selection checkbox either (never selectable for bulk).
  *
- * A11y: accessible per-row labels via `CampoSelect`'s `label` prop +
- * optional `srOnly` (D-10). Label format: "Fila {rowIndex+1}: bucket" /
- * "Fila {rowIndex+1}: categoría" (1-based, stable, D-10). The selection
- * checkbox uses "Seleccionar fila {rowIndex+1}" (same numbering).
+ * A11y: accessible per-row labels via `CampoSelect`'s `label` prop. Label
+ * format: "Fila {rowIndex+1}: bucket" / "Fila {rowIndex+1}: categoría"
+ * (1-based, stable, D-10). The selection checkbox uses
+ * "Seleccionar fila {rowIndex+1}" (same numbering).
+ *
+ * Design critique P2 fix 1 (column identity): the selects used to be
+ * fully `srOnly` — a sighted user scanning 50+ rows saw two bare dropdowns
+ * with no visible column identity once a value was chosen. Now each select
+ * uses `CampoSelect`'s `columnLabel` ("Bucket"/"Categoría"): visible above
+ * the select on mobile (stacked layout), `sm:sr-only` at `sm`+ where
+ * `PreviewMuestra` renders ONE shared sticky column-header row instead. The
+ * full "Fila N: …" sentence never leaves the accessible name at any
+ * breakpoint — it lives on the `<select>`'s own `aria-label` (see
+ * `CampoSelect`). Each select is wrapped in `sm:flex-1` so both columns take
+ * equal width at `sm`+, matching the shared header's own `flex-1` split.
  *
  * ADR-024: zero business logic here — amounts formatted via `formatearMontoCLP`
  * (display-only), no re-computation, no dedup logic, no Ingreso rule.
@@ -177,22 +188,26 @@ export function FilaRevision({
           </span>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <CampoSelect
-            label={labelBucket}
-            srOnly
-            value=""
-            onChange={() => undefined}
-            options={bucketOptions}
-            disabled
-          />
-          <CampoSelect
-            label={labelCategoria}
-            srOnly
-            value=""
-            onChange={() => undefined}
-            options={[SENTINEL_OPTION]}
-            disabled
-          />
+          <div className="sm:flex-1">
+            <CampoSelect
+              label={labelBucket}
+              columnLabel="Bucket"
+              value=""
+              onChange={() => undefined}
+              options={bucketOptions}
+              disabled
+            />
+          </div>
+          <div className="sm:flex-1">
+            <CampoSelect
+              label={labelCategoria}
+              columnLabel="Categoría"
+              value=""
+              onChange={() => undefined}
+              options={[SENTINEL_OPTION]}
+              disabled
+            />
+          </div>
         </div>
       </li>
     );
@@ -224,22 +239,26 @@ export function FilaRevision({
         </span>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <CampoSelect
-          label={labelBucket}
-          srOnly
-          value={bucketUI}
-          onChange={handleBucketChange}
-          options={bucketOptions}
-          disabled={catalogoDisabled}
-        />
-        <CampoSelect
-          label={labelCategoria}
-          srOnly
-          value={categoriaId ?? ''}
-          onChange={handleCategoriaChange}
-          options={categoriaOptions}
-          disabled={catalogoDisabled || !bucketUI}
-        />
+        <div className="sm:flex-1">
+          <CampoSelect
+            label={labelBucket}
+            columnLabel="Bucket"
+            value={bucketUI}
+            onChange={handleBucketChange}
+            options={bucketOptions}
+            disabled={catalogoDisabled}
+          />
+        </div>
+        <div className="sm:flex-1">
+          <CampoSelect
+            label={labelCategoria}
+            columnLabel="Categoría"
+            value={categoriaId ?? ''}
+            onChange={handleCategoriaChange}
+            options={categoriaOptions}
+            disabled={catalogoDisabled || !bucketUI}
+          />
+        </div>
       </div>
     </li>
   );

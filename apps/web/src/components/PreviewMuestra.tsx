@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
 import {
   SENTINEL_OPTION,
@@ -59,6 +60,24 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * copy points at the real commit gate ("Agregar transacciones", the button
  * `SubirCartola` renders below this component) rather than promising a save
  * that hasn't happened.
+ *
+ * Design critique P2 (fix 1 + fix 2, review-table polish):
+ * - Fix 1 (column identity): the sticky progress container also renders a
+ *   purely-visual `data-columnas-header` row ("Bucket"/"Categoría",
+ *   aria-hidden) shown only at `sm`+, where `FilaRevision` hides its own
+ *   per-row visible label (`sm:sr-only`) since the selects sit in a row
+ *   there. Below `sm`, `FilaRevision`'s per-row visible labels carry the
+ *   identity instead and this header stays hidden — the two mechanisms are
+ *   complementary, never both visible at once. Living inside the SAME
+ *   sticky div as the progress readout (rather than its own sticky
+ *   element) means it can never fight that header for stacking/z-index.
+ * - Fix 2 (toolbar distill): the old 5-zone toolbar (count text + bucket +
+ *   categoría + Aplicar + a standalone "Limpiar selección" button) folded
+ *   "Limpiar selección" into a dismiss icon inside the count pill
+ *   (`data-conteo-pill`) — down to 4 zones. Its accessible name is
+ *   unchanged ("Limpiar selección"), so it stays reachable by the exact
+ *   same `getByRole('button', { name: /limpiar selección/i })` queries the
+ *   pre-existing test suite already used.
  */
 
 interface FilaConMerged {
@@ -396,6 +415,30 @@ export function PreviewMuestra({
               style={{ width: `${progresoPct}%` }}
             />
           </div>
+          {/* P2 design critique fix 1: ONE shared column header, sm+ only —
+              at sm+ each FilaRevision hides its own per-row "Bucket"/
+              "Categoría" word (sm:sr-only) since selects sit side by side
+              in a row there and this header names the columns instead.
+              Purely visual (aria-hidden): the real accessible names live on
+              each select via aria-label, never on this row. Lives INSIDE
+              the same sticky container as the progress readout (not a
+              second sticky element) so it can never fight that header's
+              stacking/z-index — it just scrolls and sticks together with it.
+              `px-2` + `flex-1` columns mirror FilaRevision's `li` padding
+              (`p-2`) and its `sm:flex-1` select wrappers so the header text
+              lines up over the selects below. */}
+          <div
+            aria-hidden="true"
+            data-columnas-header
+            className="hidden gap-2 px-2 sm:flex"
+          >
+            <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Bucket
+            </span>
+            <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Categoría
+            </span>
+          </div>
         </div>
       )}
 
@@ -477,9 +520,40 @@ export function PreviewMuestra({
         // independently), so BottomTabs' `z-40` would paint over this
         // toolbar's `z-10` and hide the Aplicar button on every phone.
         <div className="sticky bottom-16 z-10 flex flex-col gap-2 lg:bottom-0">
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
-            <span className="text-sm font-medium text-foreground">
+          <div
+            data-toolbar-bulk
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-sm"
+          >
+            {/* P2 design critique fix 2 (toolbar distill): "Limpiar selección"
+                used to be its own button — a 6th simultaneous control at the
+                highest-value moment (count + bucket + categoría + Aplicar +
+                Limpiar, alongside the header's master checkbox). It now
+                lives INSIDE the count pill as a dismiss icon, so the toolbar
+                reads as 4 zones: count-pill(with dismiss) + bucket +
+                categoría + Aplicar. The accessible name ("Limpiar
+                selección") is unchanged, so it's still reachable exactly as
+                before via getByRole('button', { name: /limpiar selección/i }). */}
+            <span
+              data-conteo-pill
+              className="inline-flex items-center gap-1.5 rounded-full bg-secondary py-1 pr-1.5 pl-3 text-sm font-medium text-secondary-foreground"
+            >
               {seleccionados.size} {etiquetaSeleccionadas}
+              {/* Polish fix: `size-6` = 24×24 CSS px, the WCAG 2.2 AA SC
+                  2.5.8 minimum hit area (same value as `CLASE_BOTON_ICONO`,
+                  `components/configuracion/estilos.ts` — not imported here
+                  since this component sits outside `configuracion/`'s
+                  ownership boundary, D-09; the value is duplicated, not the
+                  class, and stays at one call site so DRY's three-strike
+                  rule doesn't apply yet). The `X` glyph itself stays small
+                  (`size-3`) inside the larger tappable button. */}
+              <button
+                type="button"
+                onClick={handleLimpiarSeleccion}
+                aria-label="Limpiar selección"
+                className="flex size-6 items-center justify-center rounded-full text-secondary-foreground/70 outline-none hover:bg-secondary-foreground/10 hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <X aria-hidden="true" className="size-3" />
+              </button>
             </span>
             <CampoSelect
               label="Bucket para aplicar"
@@ -504,13 +578,6 @@ export function PreviewMuestra({
               disabled={!categoriaToolbar}
             >
               Aplicar a {seleccionados.size} {etiquetaSeleccionadas}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleLimpiarSeleccion}
-            >
-              Limpiar selección
             </Button>
           </div>
 
