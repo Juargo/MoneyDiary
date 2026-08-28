@@ -156,6 +156,16 @@ describe('SemaforoDetallePage', () => {
     expect(screen.getByText(/peor de los tres grupos/i)).toBeInTheDocument();
   });
 
+  it('P2-B: a contextual help link next to the worst-of-3 explainer points at /ayuda#ayuda-semaforo', async () => {
+    renderPage(successQuery(detalleDto()));
+    await screen.findByRole('heading', { name: 'Semáforo' });
+
+    const link = screen.getByRole('link', {
+      name: /ayuda: cómo se calcula el semáforo/i,
+    });
+    expect(link).toHaveAttribute('href', '/ayuda#ayuda-semaforo');
+  });
+
   it('renders three bucket cards with percentage vs meta and estado (CA-04)', async () => {
     renderPage(successQuery(detalleDto()));
     await screen.findByRole('heading', { name: 'Semáforo' });

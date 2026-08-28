@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,7 +13,43 @@ import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
 // affordance (CA-02), row rendering via FilaRevision, merged display value for
 // edits (D-05), catalogo cargando/error degraded states (D-07).
 //
-// NO network, NO mutations — purely presentational, no mocking required.
+// NO network, NO mutations — purely presentational, no mocking required for
+// the component's own logic. Design critique round-8 P2-B added a
+// `<Link to="/ayuda" hash="ayuda-glosario">` to the sticky header (rendered
+// whenever `filas.length > 0`, i.e. almost every test in this file). A real
+// `<Link>` needs `RouterProvider` context, and `renderConRouter`'s initial
+// route resolves ASYNCHRONOUSLY (see that helper's own docblock) — retrofitting
+// an `await` onto every one of this suite's ~45 synchronous assertions would
+// be a much larger, riskier diff than this component's own behavior change.
+// Instead — same pattern `SubirCartola.test.tsx` already uses for
+// `useNavigate` — `@tanstack/react-router`'s `Link` is mocked to a plain
+// `<a>` stub below: PreviewMuestra is router-agnostic in every way that
+// matters to ITS OWN tests (this file asserts href correctness only; actual
+// navigation/hash-scroll is exercised where a router is already the norm —
+// `SemaforoDetallePage.test.tsx`/`AyudaPage.test.tsx` — and is otherwise
+// browser-verified).
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tanstack/react-router')>();
+  return {
+    ...actual,
+    Link: ({
+      to,
+      hash,
+      children,
+      className,
+    }: {
+      readonly to: string;
+      readonly hash?: string;
+      readonly children: ReactNode;
+      readonly className?: string;
+    }) => (
+      <a href={hash ? `${to}#${hash}` : to} className={className}>
+        {children}
+      </a>
+    ),
+  };
+});
 
 // --- Tests ---
 
@@ -577,6 +614,69 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // ── P2-B contextual help: glossary link next to the column legend ───────
+  describe('contextual help link (P2-B)', () => {
+    it('links to the glossary section that defines "bucket"', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const link = screen.getByRole('link', {
+        name: /ayuda: qué es un bucket/i,
+      });
+      expect(link).toHaveAttribute('href', '/ayuda#ayuda-glosario');
+    });
+
+    it('is reachable in the accessibility tree — not nested inside the aria-hidden column header', () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const link = screen.getByRole('link', {
+        name: /ayuda: qué es un bucket/i,
+      });
+      expect(link.closest('[data-columnas-header]')).toBeNull();
+      expect(link.closest('[aria-hidden="true"]')).toBeNull();
+      // Not hidden below sm either — Sam needs it on mobile too.
+      expect(container.querySelector('[data-columnas-header]')).not.toBe(
+        link.parentElement,
+      );
+    });
+
+    it('stays visible while a selection is active (reference info, not a working-memory-budget control)', async () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+      expect(
+        screen.getByRole('link', { name: /ayuda: qué es un bucket/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
   // ── Selection + bulk apply ───────────────────────────────────────────────
   describe('selection + bulk apply', () => {
     const filasDosGrupos: PreviewFilaDto[] = [
@@ -917,7 +1017,33 @@ describe('PreviewMuestra', () => {
         expect(container.querySelector('[data-progreso-fill]')).toBeNull();
       });
 
-      it('keeps the master select-all checkbox and "Solo sin clasificar" toggle visible while a selection is active', async () => {
+      it('keeps the master select-all checkbox visible but hides the "Solo sin clasificar" toggle while a selection is active (P2-A distill)', async () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        expect(
+          screen.getByRole('button', { name: /solo sin clasificar/i }),
+        ).toBeInTheDocument();
+
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+        expect(
+          screen.getByLabelText(/seleccionar todas las visibles \(2\)/i),
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByRole('button', { name: /solo sin clasificar/i }),
+        ).not.toBeInTheDocument();
+      });
+
+      it('restores the "Solo sin clasificar" toggle, in its previous pressed state, once the selection is cleared (P2-A distill)', async () => {
         render(
           <PreviewMuestra
             banco="BancoEstado"
@@ -930,13 +1056,76 @@ describe('PreviewMuestra', () => {
         );
 
         await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+        await userEvent.click(
+          screen.getByRole('button', { name: /limpiar selección/i }),
+        );
 
-        expect(
-          screen.getByLabelText(/seleccionar todas las visibles \(2\)/i),
-        ).toBeInTheDocument();
-        expect(
+        const toggle = screen.getByRole('button', {
+          name: /solo sin clasificar/i,
+        });
+        expect(toggle).toBeInTheDocument();
+        expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      });
+
+      it('P2-A reconciliation: if the filter is already active when the first row is selected, the toolbar keeps the filtered view and only hides the toggle', async () => {
+        const filas = [
+          unaFilaPreview({
+            rowIndex: 0,
+            descripcion: 'Clasificada',
+            sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+          }),
+          unaFilaPreview({
+            rowIndex: 1,
+            descripcion: 'Sin clasificar 1',
+            sugerido: null,
+          }),
+          unaFilaPreview({
+            rowIndex: 2,
+            descripcion: 'Sin clasificar 2',
+            sugerido: null,
+          }),
+        ];
+
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filas}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        // Turn the filter on FIRST, while nothing is selected.
+        await userEvent.click(
           screen.getByRole('button', { name: /solo sin clasificar/i }),
-        ).toBeInTheDocument();
+        );
+        expect(screen.queryByText('Clasificada')).not.toBeInTheDocument();
+        expect(screen.getByText('Sin clasificar 1')).toBeInTheDocument();
+
+        // Select a row from the now-filtered view.
+        await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
+
+        // The toggle hides (P2-A) but the filtered view is untouched — the
+        // previously-hidden "Clasificada" row does NOT reappear.
+        expect(
+          screen.queryByRole('button', { name: /solo sin clasificar/i }),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText('Clasificada')).not.toBeInTheDocument();
+        expect(screen.getByText('Sin clasificar 1')).toBeInTheDocument();
+        expect(screen.getByText('Sin clasificar 2')).toBeInTheDocument();
+
+        // Clearing the selection restores the toggle, still pressed (ON) —
+        // the filter state was never touched by the fix.
+        await userEvent.click(
+          screen.getByRole('button', { name: /limpiar selección/i }),
+        );
+        const toggle = screen.getByRole('button', {
+          name: /solo sin clasificar/i,
+        });
+        expect(toggle).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.queryByText('Clasificada')).not.toBeInTheDocument();
       });
 
       it('restores the progress text and bar once the selection is cleared', async () => {
@@ -1144,62 +1333,133 @@ describe('PreviewMuestra', () => {
         expect(master.indeterminate).toBe(false);
       });
 
-      it('unchecking only touches currently visible rows — a selection hidden by the filter is preserved', async () => {
-        const filas = [
-          unaFilaPreview({
-            rowIndex: 0,
-            descripcion: 'Clasificada',
-            sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
-          }),
-          unaFilaPreview({
-            rowIndex: 1,
-            descripcion: 'Sin clasificar 1',
-            sugerido: null,
-          }),
-          unaFilaPreview({
-            rowIndex: 2,
-            descripcion: 'Sin clasificar 2',
-            sugerido: null,
-          }),
-        ];
+      // Superseded by design critique round-8's P2-A fix: this scenario
+      // used to select a row, THEN click "Solo sin clasificar" to hide it
+      // while keeping it selected. P2-A hides that TOGGLE BUTTON the
+      // instant a selection exists (see the toolbar-distill describe block
+      // above), so a selection can no longer be hidden by a *toggle-
+      // triggered* filter change — the filter can only be flipped while
+      // nothing is selected. That narrower claim is covered by "P2-A
+      // reconciliation: if the filter is already active..." above, which
+      // reaches the filtered-view-with-a-selection state through the only
+      // toggle-based path still open: filter first, select second.
+      //
+      // A second path to the SAME hidden-but-selected state survives P2-A
+      // untouched: with the filter already ON, select a visible row, then
+      // classify THAT row via its own per-row `<CampoSelect>` (FilaRevision
+      // never disables its selects based on `selected` — see
+      // `FilaRevision.tsx`). The edit updates `edits` externally, so on the
+      // next render `filasVisibles` filters the row out while it remains in
+      // `seleccionados`. Covered below: "individual per-row edit can hide a
+      // selected row from a filtered view".
+    });
+  });
 
-        render(
+  // ── P2-A gap found in review: edit-triggered hide (not toggle-triggered) ──
+  describe('individual per-row edit can hide a selected row from a filtered view', () => {
+    it('classifying a selected row via its own per-row select removes it from the "Solo sin clasificar" view but leaves it selected — and a later bulk apply overwrites that row\'s categoría too (current behavior, pinned — see report for the flag)', async () => {
+      const onEditChangeSpy = vi.fn();
+
+      // Stateful harness: PreviewMuestra is a controlled component (`edits`
+      // comes from a prop), so exercising "classify via the per-row select,
+      // then see the filtered view react" needs something that actually
+      // feeds `onEditChange` back into `edits` on the next render — a plain
+      // `vi.fn()` alone (as every other test in this file uses) can't do
+      // that. This wrapper does the minimum: mirror `onEditChange` into
+      // local state AND into `onEditChangeSpy`, so assertions can inspect
+      // exactly what was called, in order, while the DOM reacts for real.
+      function Harness() {
+        const [edits, setEdits] = useState<ReadonlyMap<number, string | null>>(
+          new Map(),
+        );
+        return (
           <PreviewMuestra
             banco="BancoEstado"
-            filas={filas}
-            resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
-            edits={new Map()}
-            onEditChange={vi.fn()}
+            filas={[
+              unaFilaPreview({
+                rowIndex: 0,
+                descripcion: 'Sin clasificar 1',
+                sugerido: null,
+              }),
+              unaFilaPreview({
+                rowIndex: 1,
+                descripcion: 'Sin clasificar 2',
+                sugerido: null,
+              }),
+            ]}
+            resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+            edits={edits}
+            onEditChange={(rowIndex, categoriaId) => {
+              onEditChangeSpy(rowIndex, categoriaId);
+              setEdits((prev) => new Map(prev).set(rowIndex, categoriaId));
+            }}
             catalogo={unCatalogo()}
-          />,
+          />
         );
+      }
 
-        // Pre-select the classified row before it gets hidden by the filter.
-        await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
-        expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
+      render(<Harness />);
 
-        // Turn on "Solo sin clasificar" — row 1 becomes hidden but stays selected.
-        await userEvent.click(
-          screen.getByRole('button', { name: /solo sin clasificar/i }),
-        );
+      // Filter ON first — the only path that keeps the toggle reachable.
+      await userEvent.click(
+        screen.getByRole('button', { name: /solo sin clasificar/i }),
+      );
 
-        // The master checkbox recomputes to the 2 now-visible rows, none selected.
-        const master = screen.getByLabelText(
-          /seleccionar todas las visibles \(2\)/i,
-        ) as HTMLInputElement;
-        expect(master.checked).toBe(false);
+      // Select BOTH rows.
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
+      expect(screen.getByText('2 seleccionadas')).toBeInTheDocument();
 
-        // Check it — selects both visible rows.
-        await userEvent.click(master);
-        expect(screen.getByLabelText(/Seleccionar fila 2/i)).toBeChecked();
-        expect(screen.getByLabelText(/Seleccionar fila 3/i)).toBeChecked();
-        expect(screen.getByText('3 seleccionadas')).toBeInTheDocument();
+      // Classify row 1 (Fila 1 / rowIndex 0) via ITS OWN per-row select —
+      // not the bulk toolbar, not the (now-hidden) filter toggle.
+      await userEvent.selectOptions(
+        screen.getByLabelText(/Fila 1: bucket/i),
+        'Necesidades',
+      );
+      await userEvent.selectOptions(
+        screen.getByLabelText(/Fila 1: categoría/i),
+        'cat-nec-1',
+      );
+      expect(onEditChangeSpy).toHaveBeenCalledWith(0, 'cat-nec-1');
 
-        // Uncheck it — deselects only the 2 visible rows; the hidden row-1
-        // selection is untouched.
-        await userEvent.click(master);
-        expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
-      });
+      // The still-ON filter now hides row 1 — it's classified.
+      expect(screen.queryByText('Sin clasificar 1')).not.toBeInTheDocument();
+      expect(screen.getByText('Sin clasificar 2')).toBeInTheDocument();
+
+      // It is STILL selected: the count pill counts the raw `seleccionados`
+      // Set (2), not the currently-visible count (1) — the hidden row is
+      // not silently dropped from the selection.
+      expect(screen.getByText('2 seleccionadas')).toBeInTheDocument();
+
+      // The master "select all visible" checkbox recomputes to the ONE
+      // now-visible selectable row (Fila 2), which IS selected.
+      const master = screen.getByLabelText(
+        /seleccionar la visible \(1\)/i,
+      ) as HTMLInputElement;
+      expect(master.checked).toBe(true);
+
+      // Bulk-applying now re-applies the toolbar's categoría to BOTH
+      // selected rows — including row 1, which the user just classified
+      // individually with a DIFFERENT categoría. This is CURRENT behavior:
+      // `handleAplicarBulk` iterates the raw `seleccionados` Set, not
+      // `seleccionablesVisibles`, so a hidden-but-selected row is not
+      // excluded. Pinned deliberately, not endorsed — flagged in the report
+      // as a plausible UX trap (an individual classification can be
+      // silently overwritten by a bulk apply the user can no longer see
+      // includes that row) rather than changed unilaterally here.
+      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
+      await userEvent.selectOptions(bucketToolbar, 'Deseos');
+      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
+      await userEvent.selectOptions(categoriaToolbar, 'cat-des-1');
+      await userEvent.click(
+        screen.getByRole('button', { name: /aplicar a 2 seleccionadas/i }),
+      );
+
+      expect(onEditChangeSpy.mock.calls).toEqual([
+        [0, 'cat-nec-1'], // individual per-row classification
+        [0, 'cat-des-1'], // bulk apply OVERWRITES it
+        [1, 'cat-des-1'], // bulk apply on the other selected row
+      ]);
     });
   });
 });

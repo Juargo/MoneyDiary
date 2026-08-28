@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { HelpCircle } from 'lucide-react';
 import { Loading } from './states/Loading';
 import { ErrorState } from './states/Error';
 import { Empty } from './states/Empty';
@@ -78,6 +79,18 @@ function renderEstado(
         Tu semáforo global es el peor de los tres grupos: si uno está en rojo,
         todo el mes queda en rojo.
       </p>
+      {/* Design critique round-8, P2-B: quiet contextual help next to the
+          worst-of-3 explainer — links to the same rule in `/ayuda`'s
+          "El semáforo" section (`AyudaPage.tsx` copies this exact sentence
+          so the two never drift, per that file's own docblock). */}
+      <Link
+        to="/ayuda"
+        hash="ayuda-semaforo"
+        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <HelpCircle aria-hidden="true" className="size-3.5" />
+        Ayuda: cómo se calcula el semáforo
+      </Link>
 
       {viewModel.sinIngreso ? (
         <Empty
