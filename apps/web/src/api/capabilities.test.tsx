@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { fetchAuthCapabilities, useAuthCapabilities } from './capabilities';
+import {
+  fetchAuthCapabilities,
+  useAuthCapabilities,
+  useGoogleLoginVisible,
+} from './capabilities';
 import type { AuthCapabilitiesDto } from './types';
 
 function crearWrapper() {
@@ -156,6 +160,85 @@ describe('useAuthCapabilities', () => {
       status: 500,
       message: 'Ocurrió un error inesperado. Intenta nuevamente.',
     });
+  });
+});
+
+/**
+ * `useGoogleLoginVisible` — la ÚNICA fuente de verdad para "¿el camino de
+ * login con Google se muestra?" (fresh-review finding, login round-7
+ * follow-up): antes de esta extracción `GoogleLoginButton` y `routes/login.tsx`
+ * reimplementaban la misma derivación (`!isPending && data?.googleLoginEnabled
+ * === true`) por su cuenta, con riesgo de que divergieran. Ambos consumidores
+ * ahora llaman a este hook — se prueba una sola vez aquí, no en cada
+ * consumidor.
+ */
+describe('useGoogleLoginVisible', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('visible: false e isPending: true mientras la capability sigue cargando', () => {
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
+
+    const { result } = renderHook(() => useGoogleLoginVisible(), {
+      wrapper: crearWrapper(),
+    });
+
+    expect(result.current).toEqual({ isPending: true, visible: false });
+  });
+
+  it('visible: true una vez resuelto con googleLoginEnabled: true', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ googleLoginEnabled: true }),
+      }),
+    );
+
+    const { result } = renderHook(() => useGoogleLoginVisible(), {
+      wrapper: crearWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current).toEqual({ isPending: false, visible: true }),
+    );
+  });
+
+  it('visible: false una vez resuelto con googleLoginEnabled: false (kill switch)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ googleLoginEnabled: false }),
+      }),
+    );
+
+    const { result } = renderHook(() => useGoogleLoginVisible(), {
+      wrapper: crearWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current).toEqual({ isPending: false, visible: false }),
+    );
+  });
+
+  it('visible: false cuando la request de capabilities falla (fail-closed, sin reintentos)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 401 }),
+    );
+
+    const { result } = renderHook(() => useGoogleLoginVisible(), {
+      wrapper: crearWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current).toEqual({ isPending: false, visible: false }),
+    );
   });
 });
 

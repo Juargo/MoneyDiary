@@ -146,3 +146,26 @@ export function useAuthCapabilities() {
     retry: shouldRetryAuthCapabilities,
   });
 }
+
+/**
+ * useGoogleLoginVisible — the SINGLE source of truth for "should the Google
+ * login path show right now?" (fresh-review finding, login round-7
+ * follow-up). Before this extraction `GoogleLoginButton` and
+ * `routes/login.tsx`'s divider gate each computed
+ * `!isPending && data?.googleLoginEnabled === true` independently, with no
+ * guarantee the two derivations would ever agree. Both now call this hook
+ * instead — `isPending` still comes through separately so
+ * `GoogleLoginButton` can keep rendering its layout-reserving placeholder
+ * while the capability is still loading, something a plain boolean can't
+ * express.
+ */
+export function useGoogleLoginVisible(): {
+  isPending: boolean;
+  visible: boolean;
+} {
+  const { data, isPending } = useAuthCapabilities();
+  return {
+    isPending,
+    visible: !isPending && data?.googleLoginEnabled === true,
+  };
+}

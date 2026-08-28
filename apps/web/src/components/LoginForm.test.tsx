@@ -143,6 +143,41 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: 'Ingresar' })).toBeEnabled();
   });
 
+  // ── In-button async feedback (impeccable critique round 7, P2) ─────────
+  it('swaps the submit label to "Ingresando…" while submitting, and back to "Ingresar" on failure', async () => {
+    let resolveFetch!: (value: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    }) => void;
+    const pending = new Promise<{
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    }>((resolve) => {
+      resolveFetch = resolve;
+    });
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(pending));
+    await renderLoginForm();
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'usuario@moneydiary.cl' },
+    });
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
+      target: { value: 'secreta123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresar' }));
+
+    const boton = await screen.findByRole('button', { name: 'Ingresando…' });
+    expect(boton).toBeDisabled();
+
+    resolveFetch({ ok: false, status: 401 });
+
+    expect(
+      await screen.findByRole('button', { name: 'Ingresar' }),
+    ).toBeEnabled();
+  });
+
   it('navigates to / on success', async () => {
     mockFetchOnce({
       ok: true,

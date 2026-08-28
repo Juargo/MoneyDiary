@@ -1,4 +1,4 @@
-import { useAuthCapabilities } from '@/api/capabilities';
+import { useGoogleLoginVisible } from '@/api/capabilities';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -12,20 +12,22 @@ import { Button } from '@/components/ui/button';
  *
  * Visibility is driven entirely by `GET /api/auth/capabilities`
  * (design.md §4.5) — the kill switch lives server-side (Render env vars),
- * never a build-time flag. While the capability answer is still loading, an
- * invisible placeholder reserves the button's footprint so the layout does
- * not jump once the answer arrives (no flash of a dead button); once
- * resolved to `false`, or on any fetch failure (fail-closed), nothing is
- * rendered at all.
+ * never a build-time flag — via the shared `useGoogleLoginVisible()` hook
+ * (`@/api/capabilities`), the single source of truth `routes/login.tsx`'s
+ * auth-path divider also reads so the two can never disagree. While the
+ * capability answer is still loading, an invisible placeholder reserves the
+ * button's footprint so the layout does not jump once the answer arrives (no
+ * flash of a dead button); once resolved to `false`, or on any fetch failure
+ * (fail-closed), nothing is rendered at all.
  */
 export function GoogleLoginButton() {
-  const { data, isPending } = useAuthCapabilities();
+  const { isPending, visible } = useGoogleLoginVisible();
 
   if (isPending) {
     return <div aria-hidden="true" className="h-9 w-full" />;
   }
 
-  if (!data?.googleLoginEnabled) {
+  if (!visible) {
     return null;
   }
 
