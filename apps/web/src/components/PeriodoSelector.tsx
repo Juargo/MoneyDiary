@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { MonthYearPicker } from './MonthYearPicker';
@@ -29,6 +30,24 @@ const PERIODO_SELECTOR_ROW_CLASS =
  * current month for both the label and the next/Hoy clamp (design.md
  * decision #4) — the backend already resolves an absent period to "now", so
  * the header stays truthful to what's actually being shown.
+ *
+ * keyboard-month-navigation (power-user efficiency round, critique
+ * round-7 P2): a single `onKeyDown` on the row container (`manejarTecla`)
+ * lets ArrowLeft/ArrowRight navigate month when focus is anywhere inside the
+ * group (either chevron, or the popover trigger) — not just via a click on
+ * the chevrons themselves. Guarded so it never hijacks arrows from the
+ * popover: while `abierto`, the handler is a no-op, because
+ * `MonthYearPicker`'s content renders through a Radix `Portal` that still
+ * bubbles React synthetic events up through this component's tree (portals
+ * follow the React fiber tree for event bubbling, not the real DOM
+ * position) — without this guard, arrow keys pressed on a month cell inside
+ * the open popover would ALSO fire this container's handler and change
+ * `efectivo` behind the popover. Also bails on text inputs/selects/
+ * contenteditable targets — defensive, since no such control exists in this
+ * component today, but the same container handler would otherwise steal
+ * arrow-key editing from one if ever added here. Respects the same
+ * next-month bound as the "Mes siguiente" button (`enMesActual`); "Mes
+ * anterior" stays unbounded, matching `mesAnterior`'s own contract.
  */
 export function PeriodoSelector({
   periodo,
@@ -45,8 +64,39 @@ export function PeriodoSelector({
   const mesActual = periodoActualUTC(ahora);
   const [abierto, setAbierto] = useState(false);
 
+  function manejarTecla(evento: KeyboardEvent<HTMLDivElement>) {
+    if (abierto) return;
+    if (evento.key !== 'ArrowLeft' && evento.key !== 'ArrowRight') return;
+
+    const objetivo = evento.target as HTMLElement;
+    const esControlDeTexto =
+      objetivo.tagName === 'INPUT' ||
+      objetivo.tagName === 'SELECT' ||
+      objetivo.tagName === 'TEXTAREA' ||
+      objetivo.isContentEditable;
+    if (esControlDeTexto) return;
+
+    if (evento.key === 'ArrowLeft') {
+      evento.preventDefault();
+      onChange(mesAnterior(efectivo));
+    } else if (!enMesActual) {
+      evento.preventDefault();
+      onChange(mesSiguiente(efectivo));
+    }
+  }
+
   return (
-    <div className={PERIODO_SELECTOR_ROW_CLASS}>
+    // This bare `<div>` carries no role and is not itself interactive — it
+    // only delegates ArrowLeft/ArrowRight from whichever real interactive
+    // descendant (a `<button>`) already has focus, so it needs neither a
+    // click handler nor its own keyboard support to satisfy the rule the
+    // normal way. (Not the same disable `InlineConfirm` carries on its own
+    // container: that one is `jsx-a11y/no-noninteractive-element-interactions`,
+    // justified by its `role="alertdialog"` — a role ESLint's `aria-query`
+    // can't resolve to the `widget` superclass. This is the codebase's only
+    // `no-static-element-interactions` disable.)
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div className={PERIODO_SELECTOR_ROW_CLASS} onKeyDown={manejarTecla}>
       <Button
         type="button"
         variant="ghost"

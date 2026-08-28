@@ -143,4 +143,59 @@ describe('PeriodoSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ir al mes actual' }));
     expect(onChange).toHaveBeenLastCalledWith('2026-07');
   });
+
+  // keyboard-month-navigation (power-user efficiency round, critique
+  // round-7 P2): ArrowLeft/ArrowRight navigate months when focus is
+  // anywhere inside the selector group (container keydown handler), not
+  // just via the chevron buttons' own click handlers.
+  describe('keyboard navigation', () => {
+    it('ArrowLeft anywhere in the group navigates to the previous month', () => {
+      const onChange = vi.fn();
+      render(<PeriodoSelector periodo="2026-06" onChange={onChange} />);
+
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Mes anterior' }), {
+        key: 'ArrowLeft',
+      });
+
+      expect(onChange).toHaveBeenCalledWith('2026-05');
+    });
+
+    it('ArrowRight anywhere in the group navigates to the next month when not at the bound', () => {
+      const onChange = vi.fn();
+      render(<PeriodoSelector periodo="2026-06" onChange={onChange} />);
+
+      fireEvent.keyDown(
+        screen.getByRole('button', { name: /cambiar mes y año/i }),
+        { key: 'ArrowRight' },
+      );
+
+      expect(onChange).toHaveBeenCalledWith('2026-07');
+    });
+
+    it('ArrowRight respects the current-month bound, same as the chevron button', () => {
+      const onChange = vi.fn();
+      render(<PeriodoSelector periodo="2026-07" onChange={onChange} />);
+
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Mes anterior' }), {
+        key: 'ArrowRight',
+      });
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('arrow keys fired inside the open popover do not double-trigger month navigation', () => {
+      const onChange = vi.fn();
+      render(<PeriodoSelector periodo="2026-07" onChange={onChange} />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /cambiar mes y año/i }),
+      );
+      const celdaMarzo = screen.getByRole('button', { name: /marzo 2026/i });
+
+      fireEvent.keyDown(celdaMarzo, { key: 'ArrowLeft' });
+      fireEvent.keyDown(celdaMarzo, { key: 'ArrowRight' });
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
 });
