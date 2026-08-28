@@ -48,6 +48,15 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Resumen' })).toBeInTheDocument();
   });
 
+  // ── fresh-review SUGGESTION: `/login`'s wordmark is now an <h1>; the
+  // sidebar's copy must stay plain chrome — each routed page under
+  // `AppShell` owns its own <h1>, so the sidebar must never contribute one.
+  it('contributes no heading from the brand block (each page owns its own <h1>)', async () => {
+    await renderSidebar();
+
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
   it('renders "Subir nuevo archivo" as a real nav link to /subir', async () => {
     await renderSidebar();
 

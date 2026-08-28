@@ -15,6 +15,11 @@ import { Button } from '@/components/ui/button';
  * On failure shows a single generic message — never distinguishes "wrong
  * password" from "unknown email" (mirrors the backend's no-enumeration
  * discipline, AUTH-02).
+ *
+ * Width/padding/surface (max-w-sm, card padding) are NOT this component's
+ * concern — `routes/login.tsx` wraps it in the Serene Finance card shell, so
+ * this form only fills whatever container it is given (impeccable critique
+ * round 7, P1).
  */
 export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
   const navigate = useNavigate();
@@ -42,10 +47,7 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
   }
 
   return (
-    <form
-      onSubmit={enviar}
-      className="mx-auto flex w-full max-w-sm flex-col gap-4 p-8"
-    >
+    <form onSubmit={enviar} className="flex w-full flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm text-muted-foreground">
         Email
         <input
@@ -72,7 +74,7 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
         </p>
       )}
       <Button type="submit" disabled={estado === 'submitting'}>
-        Ingresar
+        {estado === 'submitting' ? 'Ingresando…' : 'Ingresar'}
       </Button>
     </form>
   );
