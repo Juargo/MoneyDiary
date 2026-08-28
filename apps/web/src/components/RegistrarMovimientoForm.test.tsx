@@ -154,6 +154,19 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(screen.getByLabelText(/monto/i)).toBeInTheDocument();
   });
 
+  // ── Permanence expectation note (impeccable critique r7 P2, harden) ──────
+
+  it('shows the permanence note before submit: movement cannot be edited or deleted, only reclassified', () => {
+    setupDefaultHooks();
+    renderForm();
+
+    expect(
+      screen.getByText(
+        'Un movimiento registrado no se puede editar ni eliminar después; su categoría sí puede reclasificarse desde el dashboard.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   // ── CA-02: WEB-REG-03 — Ingreso zeroing + wire-body assertion ─────────────
 
   it('CA-02: switching Gasto→Ingreso zeroes cascade; submit body has NO bucket/categoriaId', async () => {
@@ -645,8 +658,14 @@ describe('RegistrarMovimientoForm (US-060)', () => {
       screen.getByRole('button', { name: /guardar|registrar|enviar/i }),
     ).toBeDisabled();
 
-    // Demo notice visible
-    expect(screen.getByRole('note')).toBeInTheDocument();
+    // Demo notice visible (getAllByRole: the permanence note is a second,
+    // always-present role="note" — assert the demo one by its text)
+    const notas = screen.getAllByRole('note');
+    expect(
+      notas.some((nota) =>
+        nota.textContent?.includes('No es posible registrar movimientos'),
+      ),
+    ).toBe(true);
 
     // Submit attempt = no-op
     await user.click(

@@ -413,6 +413,18 @@ export function RegistrarMovimientoForm({
         </p>
       )}
 
+      {/* Permanence expectation (impeccable critique r7 P2, harden): a
+          committed movement has no edit/delete path in the app — only
+          whole-ingesta deletion exists, which never covers manual
+          movements (ingestaId NULL, ADR-039) — while its categoría CAN
+          be reclassified inline later. Said here, at the decision point,
+          instead of after commit (error prevention over error recovery);
+          same role="note" idiom as MENSAJE_DEMO_REGISTRAR above. */}
+      <p role="note" className="text-sm text-muted-foreground">
+        Un movimiento registrado no se puede editar ni eliminar después; su
+        categoría sí puede reclasificarse desde el dashboard.
+      </p>
+
       {/* Error feedback region (role="alert", D-10, PerfilForm idiom) */}
       <div role="alert" className="text-sm text-destructive">
         {feedback?.tono === 'error' && <p>{feedback.texto}</p>}
