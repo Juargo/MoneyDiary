@@ -546,6 +546,58 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     );
   });
 
+  // ── In-button async feedback (impeccable critique P2) ─────────────────────
+
+  it('en reposo el botón muestra "Registrar movimiento"; pendiente muestra "Registrando…" y queda disabled', () => {
+    mockedUseRegistrarMovimiento.mockReturnValue(
+      unaMutacion<RegistrarMovimientoManualDto>({ isPending: false }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+    const { rerender, queryClient } = renderForm();
+
+    expect(
+      screen.getByRole('button', { name: 'Registrar movimiento' }),
+    ).toBeInTheDocument();
+
+    mockedUseRegistrarMovimiento.mockReturnValue(
+      unaMutacion<RegistrarMovimientoManualDto>({ isPending: true }),
+    );
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <RegistrarMovimientoForm esDemo={false} />
+      </QueryClientProvider>,
+    );
+
+    const boton = screen.getByRole('button', { name: 'Registrando…' });
+    expect(boton).toBeInTheDocument();
+    expect(boton).toBeDisabled();
+  });
+
+  // ── Form sectioning (impeccable critique P2) ───────────────────────────────
+
+  it('agrupa los datos del movimiento bajo el legend "Movimiento" (siempre visible)', () => {
+    setupDefaultHooks();
+    renderForm();
+
+    const grupo = screen.getByRole('group', { name: 'Movimiento' });
+    expect(within(grupo).getByLabelText(/tipo/i)).toBeInTheDocument();
+    expect(within(grupo).getByLabelText(/fecha/i)).toBeInTheDocument();
+    expect(within(grupo).getByLabelText(/descripci[oó]n/i)).toBeInTheDocument();
+    expect(within(grupo).getByLabelText(/monto/i)).toBeInTheDocument();
+  });
+
+  it('agrupa la cascada bucket/categoría bajo el legend "Clasificación" cuando tipo=Gasto', async () => {
+    setupDefaultHooks();
+    renderForm();
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
+
+    const grupo = screen.getByRole('group', { name: 'Clasificación' });
+    expect(within(grupo).getByLabelText(/bucket/i)).toBeInTheDocument();
+    expect(within(grupo).getByLabelText(/categor[ií]a/i)).toBeInTheDocument();
+  });
+
   // ── CA-06: WEB-REG-06 — double-submit guard ───────────────────────────────
 
   it('CA-06: two synchronous submit clicks call mutate exactly once', async () => {

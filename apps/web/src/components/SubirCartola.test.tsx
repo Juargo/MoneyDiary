@@ -775,7 +775,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(commitMutate).toHaveBeenCalledTimes(1);
   });
 
-  it('SEC-01: "Agregar transacciones" is disabled while committing (isPending)', () => {
+  it('SEC-01: commit button swaps to "Subiendo…" and is disabled while committing (isPending)', () => {
     mockedUsePreviewIngesta.mockReturnValue(
       unaMutacion<PreviewIngestaDto>({
         isSuccess: true,
@@ -794,8 +794,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     render(<SubirCartola />);
 
     expect(
-      screen.getByRole('button', { name: /agregar transacciones/i }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: /agregar transacciones/i }),
+    ).not.toBeInTheDocument();
+    const boton = screen.getByRole('button', { name: 'Subiendo…' });
+    expect(boton).toBeDisabled();
   });
 
   // ── Peak-end landing: exito is a real destination, not transient (D-01
@@ -1526,10 +1528,8 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     // Review affordance still rendered during commit
     expect(screen.getByText(/nada se ha guardado aún/i)).toBeInTheDocument();
-    // "Agregar transacciones" button is disabled (committing) but present
-    expect(
-      screen.getByRole('button', { name: /agregar transacciones/i }),
-    ).toBeDisabled();
+    // Commit button shows the pending label and is disabled (committing) but present
+    expect(screen.getByRole('button', { name: 'Subiendo…' })).toBeDisabled();
   });
 
   // ── Draft resilience (P1 fix: interruption resilience) ───────────────────

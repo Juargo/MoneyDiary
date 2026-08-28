@@ -123,7 +123,7 @@ describe('PerfilForm', () => {
     expect(screen.getByLabelText('Password actual')).toBeRequired();
   });
 
-  it('Guardar cambios se deshabilita mientras la mutación está pendiente', async () => {
+  it('el botón muestra "Guardando…" mientras la mutación está pendiente, y vuelve a "Guardar cambios" en reposo', async () => {
     let resolverFetch: (value: unknown) => void = () => {};
     const fetchMock = vi.fn(
       () =>
@@ -134,18 +134,29 @@ describe('PerfilForm', () => {
     vi.stubGlobal('fetch', fetchMock);
     await renderPerfilForm();
 
+    // Idle: el botón muestra su rótulo original.
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Ana Nueva' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
 
+    await waitFor(() => {
+      const boton = screen.getByRole('button', { name: 'Guardando…' });
+      expect(boton).toBeInTheDocument();
+      expect(boton).toBeDisabled();
+    });
+
+    resolverFetch({ ok: true, status: 200, json: async () => ({}) });
+
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: 'Guardar cambios' }),
-      ).toBeDisabled(),
+      ).not.toBeDisabled(),
     );
-
-    resolverFetch({ ok: true, status: 200, json: async () => ({}) });
   });
 
   it('sin cambios: cero requests, "No hay cambios para guardar." en la región polite', async () => {

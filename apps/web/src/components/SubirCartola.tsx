@@ -485,12 +485,16 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             catalogo={catalogoEstado}
           />
           <div className="flex gap-3">
+            {/* Label swaps to "Subiendo…" while committing (impeccable
+                critique P2: in-button async feedback) — matches
+                MENSAJE_POR_ESTADO.committing's own "Subiendo transacciones…"
+                wording already shown in the status region above. */}
             <Button
               type="button"
               onClick={handleConfirmar}
               disabled={estado === 'committing'}
             >
-              Agregar transacciones
+              {estado === 'committing' ? 'Subiendo…' : 'Agregar transacciones'}
             </Button>
             <Button
               type="button"
