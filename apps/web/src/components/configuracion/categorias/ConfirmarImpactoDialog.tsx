@@ -1,15 +1,14 @@
-import { useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { InlineConfirm } from '@/components/ui/inline-confirm';
 
 /**
  * ConfirmarImpactoDialog (US-043 PR #3b, design.md §1/Q6a, task 28) — the
  * `EliminarIngestaControl` shape, reused for BOTH destructive-impact
- * confirmations this feature needs: delete and bucket-change. `role=
- * "alertdialog"`, `aria-modal="false"` (inline widget, no focus trap — the
- * shipped scoping decision), focus moves to the confirm button on mount,
- * Escape cancels, `role="alert"` inline error, and the dialog does NOT
- * close on failure so the user can retry in place
- * (`EliminarIngestaControl:44-50`).
+ * confirmations this feature needs: delete and bucket-change. Built on the
+ * shared `InlineConfirm` shell (a11y round, part 1): `role="alertdialog"`,
+ * `aria-modal="false"` (inline widget, no focus trap — the shipped scoping
+ * decision), focus moves to the confirm button on mount, Escape cancels,
+ * `role="alert"` inline error, and the dialog does NOT close on failure so
+ * the user can retry in place (`EliminarIngestaControl:44-50`).
  *
  * Deliberately takes RENDERED copy (`titulo`/`lineas`/`textoConfirmar`), not
  * a discriminated union describing what it's confirming — US-042's D-02
@@ -37,6 +36,17 @@ import { Button } from '@/components/ui/button';
  * VISIBLE title stays `titulo` either way — only the accessible name needs
  * disambiguating, so this stays an optional prop on top of rendered copy
  * rather than a `modo`/category-aware branch inside the component.
+ * `InlineConfirm`'s `ariaLabel` override implements this exactly: visible
+ * title via `titleVisible`, but `aria-label` wins over `aria-labelledby`
+ * whenever `ariaLabel` is supplied.
+ *
+ * Pre-existing bug silently fixed by the shell (a11y round, part 1): the
+ * old hand-rolled dialog set `aria-label={ariaLabel}` unconditionally, so an
+ * empty-string `titulo`/`ariaLabel` (nothing observed to trigger this in
+ * practice, but nothing prevented it either) would have rendered with NO
+ * accessible name at all. `InlineConfirm` falls back to `aria-labelledby`
+ * pointing at the visible title whenever `ariaLabel` is falsy, so the
+ * accessible name always resolves to at least the visible `titulo` text.
  */
 export function ConfirmarImpactoDialog({
   titulo,
@@ -57,25 +67,12 @@ export function ConfirmarImpactoDialog({
   readonly onCancelar: () => void;
   readonly ariaLabel?: string;
 }) {
-  const confirmarRef = useRef<HTMLButtonElement>(null);
-
-  // Foco al montar: mueve el foco al botón de confirmación en vez de
-  // dejarlo huérfano en el trigger que acaba de abrir este diálogo — un
-  // usuario de teclado necesita saber que apareció un diálogo antes de
-  // seguir tabulando (mismo razonamiento que `EliminarIngestaControl`/
-  // `ReclasificarCategoriaControl`). Mount-only: este componente SIEMPRE
-  // se monta al abrirse (el caller no lo renderiza condicionalmente por
-  // dentro), así que no hace falta un `abierto` prop para disparar esto.
-  useEffect(() => {
-    confirmarRef.current?.focus();
-  }, []);
-
   // `cancelar` (judgment-day round 3, WCTG-07): the SINGLE place that
   // answers "what can dismiss this dialog while its own mutation is in
   // flight" — nothing, until `pendiente` clears, mirroring the confirm
   // button's own `disabled={pendiente}`. Both Escape and the "Cancelar"
-  // button route through this guard instead of calling `onCancelar`
-  // directly.
+  // button (via `InlineConfirm`'s `onCancel`) route through this guard
+  // instead of calling `onCancelar` directly.
   //
   // Before this guard, Escape called `onCancelar()` unconditionally. The
   // caller's `cerrarDialogo` (`EditarCategoria.tsx`) then synchronously
@@ -98,55 +95,22 @@ export function ConfirmarImpactoDialog({
   }
 
   return (
-    // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`, not
-    // `widget` (verified against aria-query, same finding recorded on
-    // `ConfirmarPasswordDialog.tsx`), so `isInteractiveRole` never
-    // recognises it — this rule cannot distinguish a real dialog's
-    // Escape-to-close container from an arbitrary `<div onKeyDown>`. The
-    // WAI-ARIA dialog pattern (and `EliminarIngestaControl`'s existing,
-    // unscoped instance of the exact same shape) binds Escape at the dialog
-    // container, not at a specific control.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
-      role="alertdialog"
-      aria-modal="false"
-      aria-label={ariaLabel}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          cancelar();
-        }
-      }}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground shadow-sm"
+    <InlineConfirm
+      title={titulo}
+      titleVisible
+      ariaLabel={ariaLabel}
+      confirmLabel={textoConfirmar}
+      destructive
+      onConfirm={onConfirmar}
+      onCancel={cancelar}
+      pending={pendiente}
+      cancelDisabled={pendiente}
+      error={error}
+      className="gap-3 p-4 text-sm"
     >
-      <p className="font-semibold">{titulo}</p>
       {lineas.map((linea, indice) => (
         <p key={indice}>{linea}</p>
       ))}
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={cancelar}
-          disabled={pendiente}
-          className="text-muted-foreground"
-        >
-          Cancelar
-        </Button>
-        <Button
-          ref={confirmarRef}
-          type="button"
-          variant="destructive"
-          onClick={onConfirmar}
-          disabled={pendiente}
-        >
-          {textoConfirmar}
-        </Button>
-      </div>
-    </div>
+    </InlineConfirm>
   );
 }
