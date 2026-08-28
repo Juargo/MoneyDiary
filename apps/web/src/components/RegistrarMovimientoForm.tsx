@@ -11,6 +11,8 @@
  * Guard: isSubmittingRef for double-submit money-safety (D-10/WEB-REG-06).
  * Demo: proactive disabled on every field + note (D-11, NuevaCategoriaForm idiom).
  * A11y: dual feedback regions (aria-live polite + role=alert); cascade focus (D-09).
+ * Confirm: submit opens a shared InlineConfirm dialog (critique round-8 P2)
+ * over a snapshotted body; `commitRegistro` is the only thing that mutates.
  */
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -18,15 +20,20 @@ import { useRegistrarMovimiento } from '@/api/use-registrar-movimiento';
 import { useCategorias } from '@/api/use-categorias';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { hoyLocal, esFechaValida } from '@/domain/fecha';
-import { esMontoStringValido } from '@/domain/formatear-monto';
+import {
+  esMontoStringValido,
+  formatearMontoCLP,
+} from '@/domain/formatear-monto';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { RegistrarMovimientoManualInput } from '@/api/movimientos';
 import type { ApiError } from '@/api/client';
 import type { CatalogoEstado } from '@/api/types';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CampoTexto } from './configuracion/CampoTexto';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { Button } from '@/components/ui/button';
+import { InlineConfirm } from '@/components/ui/inline-confirm';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -34,6 +41,13 @@ import { Button } from '@/components/ui/button';
 
 const MENSAJE_DEMO_REGISTRAR =
   'La cuenta demo es de solo lectura. No es posible registrar movimientos en modo demo.';
+
+// Reused verbatim in the always-visible note below the form AND inside the
+// confirmation dialog's body (critique round-8 P2, DRY) — the dialog
+// reiterates the exact same permanence expectation the user already saw
+// before opening it, rather than a differently-worded copy.
+const MENSAJE_PERMANENCIA =
+  'Un movimiento registrado no se puede editar ni eliminar después; su categoría sí puede reclasificarse desde el dashboard.';
 
 const OPCIONES_TIPO = [
   { value: 'Ingreso', label: 'Ingreso' },
@@ -97,6 +111,48 @@ export function RegistrarMovimientoForm({
   // Feedback state
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [errores, setErrores] = useState<Errores>({});
+
+  // Confirmation step (critique round-8 P2): hand-typed money commits
+  // permanently on one click, unlike the cartola preview→commit review
+  // table — so submit no longer mutates directly. `confirmacion` is a
+  // SNAPSHOT of the exact body that will POST (plus the display-only
+  // categoría name), captured once client pre-validation passes. Confirming
+  // later posts THIS captured body, not a fresh read of live field state —
+  // so the dialog can never drift from what it showed, even though it is
+  // non-modal and the fields behind it stay technically editable.
+  const [confirmacion, setConfirmacion] = useState<{
+    body: RegistrarMovimientoManualInput;
+    categoriaNombre: string | null;
+  } | null>(null);
+  // Mutation error while the confirmation dialog is open: rendered ONLY via
+  // InlineConfirm's own `error` slot, deliberately NOT mirrored into
+  // `feedback`'s role="alert" region below — the two would otherwise
+  // announce the identical failure twice on screen at once. `feedback`'s
+  // error tone stays reserved for outcomes reached with no dialog mounted
+  // (client pre-validation, which never opens the dialog).
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  // Focus-restore target for the dialog's Cancelar/Escape (InlineConfirm
+  // owns neither) — same responsibility EliminarIngestaControl/
+  // ReclasificarCategoriaControl already carry for their own triggers.
+  const submitRef = useRef<HTMLButtonElement>(null);
+  // Set by cancelarConfirmacion, consumed by the effect below. The submit
+  // button is DISABLED (formularioBloqueado) at the instant cancel/Escape
+  // fires — a synchronous `.focus()` call right there would silently no-op
+  // on a still-disabled button (state updates don't repaint until after the
+  // handler returns). This flag defers the actual `.focus()` to the effect,
+  // which runs after React re-renders the button enabled again.
+  const restaurarFocoRef = useRef(false);
+
+  // formularioBloqueado — the ONE flag every field + the submit button is
+  // disabled with while the dialog is open (fresh review CRITICAL, mirrors
+  // `useSeleccionMasivaIngestas`'s `interaccionBloqueada`). `InlineConfirm`
+  // is non-modal: without this, the user can tab back into the still-visible
+  // fields, edit them, and an implicit Enter re-invokes `handleEnviar`,
+  // silently REPLACING the already-open snapshot — defeating the whole
+  // review step. `confirmacion !== null` alone covers "mutating" too:
+  // `commitRegistro` never mutates without `confirmacion` set, and it only
+  // clears on success (dialog closes) — never while pending.
+  const formularioBloqueado = confirmacion !== null;
 
   // Compute local date once per render for the max attribute.
   // Submit-time comparisons call hoyLocal() fresh (must reflect the moment of submit).
@@ -196,8 +252,18 @@ export function RegistrarMovimientoForm({
   function handleEnviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    // Guard: esDemo, isPending, or isSubmittingRef (D-10/D-11).
-    if (esDemo || mutation.isPending || isSubmittingRef.current) {
+    // Guard: esDemo, isPending, isSubmittingRef, or the dialog already open
+    // (D-10/D-11; the `confirmacion` arm is the belt-and-suspenders half of
+    // the freeze — fields are also disabled via `formularioBloqueado`, but
+    // this holds even if a submit event ever reaches here some other way,
+    // e.g. a forced/synthetic submit bypassing the disabled UI, so a
+    // re-submit can never silently replace the already-open snapshot).
+    if (
+      esDemo ||
+      mutation.isPending ||
+      isSubmittingRef.current ||
+      confirmacion
+    ) {
       return;
     }
 
@@ -235,12 +301,36 @@ export function RegistrarMovimientoForm({
     setErrores({});
     setFeedback(null);
 
-    isSubmittingRef.current = true;
+    // Pre-validation passed: open the confirmation dialog instead of
+    // mutating directly (critique round-8 P2). Snapshot the exact body AND
+    // the human-readable categoría name NOW, from the values that just
+    // passed validation — `commitRegistro` posts this snapshot verbatim.
     const body = construirBody();
+    const categoriaNombre =
+      body.tipo === 'Gasto'
+        ? (categoriaOptions.find((o) => o.value === body.categoriaId)?.label ??
+          null)
+        : null;
+    setConfirmError(null);
+    setConfirmacion({ body, categoriaNombre });
+  }
 
-    mutation.mutate(body, {
+  /**
+   * commitRegistro — the confirmation dialog's onConfirm. Fires the actual
+   * POST for `confirmacion.body` (captured at handleEnviar time), reusing
+   * the same double-submit guard and success/error handling handleEnviar
+   * used to run directly (D-10/WEB-REG-06/WEB-REG-08, unchanged).
+   */
+  function commitRegistro() {
+    if (!confirmacion || mutation.isPending || isSubmittingRef.current) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    mutation.mutate(confirmacion.body, {
       onSuccess: () => {
-        // D-10: clear form on 201; reset to Ingreso.
+        // D-10: clear form on 201; reset to Ingreso. Same flow as before —
+        // just also closes the dialog now.
         setTipo('Ingreso');
         setFecha(hoyLocal());
         setDescripcion('');
@@ -248,19 +338,50 @@ export function RegistrarMovimientoForm({
         setBucketUI('');
         setCategoriaId('');
         setErrores({});
+        setConfirmacion(null);
+        setConfirmError(null);
         setFeedback({
           tono: 'ok',
           texto: 'Movimiento registrado exitosamente.',
         });
       },
       onError: (err: ApiError) => {
-        // D-10: show error, do NOT clear any field (WEB-REG-08).
-        setFeedback({ tono: 'error', texto: err.message });
+        // Reconciliation with the outer role="alert" region (see
+        // `confirmError`'s doc comment above): the error lives ONLY inside
+        // the still-open dialog. Do NOT clear any field (WEB-REG-08) and do
+        // NOT close the dialog — the user can retry without re-reading the
+        // summary.
+        setConfirmError(err.message);
       },
       onSettled: () => {
         isSubmittingRef.current = false;
       },
     });
+  }
+
+  /** cancelarConfirmacion — Cancelar click or Escape. Preserves every typed
+   * field (no state above is touched), fires nothing, restores focus to the
+   * submit button (InlineConfirm owns neither focus-restore nor closing).
+   *
+   * Fresh review BLOCKER: no-ops while `mutation.isPending` — mirrors
+   * `useSeleccionMasivaIngestas.cancelarConfirmacion`'s guard on
+   * `eliminando`. `InlineConfirm` calls `onCancel` UNCONDITIONALLY on
+   * Escape (its documented caller-owns-the-guard contract), so this guard
+   * has to live here, not only in the `cancelDisabled` prop below (which
+   * only disables the Cancelar button, never Escape). Without it: a
+   * "cancel" while a POST is in flight either lets that POST land after
+   * `onSuccess` already wiped the fields (a false-consent write), or its
+   * `onError` writes `confirmError` into a dialog the user believes is
+   * already closed (silently swallowed). */
+  function cancelarConfirmacion() {
+    if (mutation.isPending) {
+      return;
+    }
+    // See `restaurarFocoRef`'s doc comment: the actual `.focus()` call is
+    // deferred to the effect below, once the submit button is re-enabled.
+    restaurarFocoRef.current = true;
+    setConfirmacion(null);
+    setConfirmError(null);
   }
 
   // ---------------------------------------------------------------------------
@@ -274,6 +395,17 @@ export function RegistrarMovimientoForm({
       cascadaRef.current?.querySelector('select')?.focus();
     }
   }, [tipo]);
+
+  // Deferred focus-restore for cancelarConfirmacion (see `restaurarFocoRef`'s
+  // doc comment): runs after the dialog closes and the submit button is
+  // re-enabled, never after a successful commit (commitRegistro's onSuccess
+  // never sets the flag).
+  useEffect(() => {
+    if (confirmacion === null && restaurarFocoRef.current) {
+      restaurarFocoRef.current = false;
+      submitRef.current?.focus();
+    }
+  }, [confirmacion]);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -304,7 +436,7 @@ export function RegistrarMovimientoForm({
           value={tipo}
           onChange={handleTipoChange}
           options={OPCIONES_TIPO}
-          disabled={esDemo}
+          disabled={esDemo || formularioBloqueado}
         />
 
         {/* Fecha — raw <label><input type="date"> (CampoTexto cannot host date, D-04/§0) */}
@@ -316,7 +448,7 @@ export function RegistrarMovimientoForm({
             max={hoy}
             onChange={(e) => setFecha(e.target.value)}
             required
-            disabled={esDemo}
+            disabled={esDemo || formularioBloqueado}
             className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
           />
         </label>
@@ -330,7 +462,7 @@ export function RegistrarMovimientoForm({
           value={descripcion}
           onChange={setDescripcion}
           type="text"
-          disabled={esDemo}
+          disabled={esDemo || formularioBloqueado}
         />
         {errores.descripcion && (
           <p className="text-sm text-destructive">{errores.descripcion}</p>
@@ -345,7 +477,7 @@ export function RegistrarMovimientoForm({
             pattern="[0-9]*"
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
-            disabled={esDemo}
+            disabled={esDemo || formularioBloqueado}
             className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
           />
         </label>
@@ -388,7 +520,7 @@ export function RegistrarMovimientoForm({
               setCategoriaId('');
             }}
             options={bucketOptions}
-            disabled={esDemo || catalogo.tag !== 'listo'}
+            disabled={esDemo || formularioBloqueado || catalogo.tag !== 'listo'}
           />
 
           {/* Categoría select — disabled until bucket chosen (WEB-REG-04, FilaRevision precedent) */}
@@ -397,7 +529,12 @@ export function RegistrarMovimientoForm({
             value={categoriaId}
             onChange={setCategoriaId}
             options={categoriaOptions}
-            disabled={esDemo || catalogo.tag !== 'listo' || !bucketUI}
+            disabled={
+              esDemo ||
+              formularioBloqueado ||
+              catalogo.tag !== 'listo' ||
+              !bucketUI
+            }
           />
 
           {errores.cascade && (
@@ -421,8 +558,7 @@ export function RegistrarMovimientoForm({
           instead of after commit (error prevention over error recovery);
           same role="note" idiom as MENSAJE_DEMO_REGISTRAR above. */}
       <p role="note" className="text-sm text-muted-foreground">
-        Un movimiento registrado no se puede editar ni eliminar después; su
-        categoría sí puede reclasificarse desde el dashboard.
+        {MENSAJE_PERMANENCIA}
       </p>
 
       {/* Error feedback region (role="alert", D-10, PerfilForm idiom) */}
@@ -430,14 +566,65 @@ export function RegistrarMovimientoForm({
         {feedback?.tono === 'error' && <p>{feedback.texto}</p>}
       </div>
 
-      {/* Submit button (D-11: disabled={esDemo || mutation.isPending}) —
-          label swaps to "Registrando…" while pending (impeccable critique
-          P2: in-button async feedback, matching the "registrar" vocabulary
-          the rest of this flow already uses — useRegistrarMovimiento, the
-          success copy below, MENSAJE_DEMO_REGISTRAR). */}
-      <Button type="submit" disabled={esDemo || mutation.isPending}>
-        {mutation.isPending ? 'Registrando…' : 'Registrar movimiento'}
+      {/* Submit button (D-11: disabled={esDemo || mutation.isPending ||
+          formularioBloqueado}) — only opens the confirmation dialog below
+          (critique round-8 P2); it no longer mutates directly, so it no
+          longer carries the "Registrando…" in-flight label itself — that
+          moved to the dialog's own confirm button, the control that now
+          actually fires the mutation. `formularioBloqueado` freezes it
+          alongside every other field once the dialog is open (fresh review
+          CRITICAL). */}
+      <Button
+        ref={submitRef}
+        type="submit"
+        disabled={esDemo || mutation.isPending || formularioBloqueado}
+      >
+        Registrar movimiento
       </Button>
+
+      {/* Confirmation dialog (critique round-8 P2): the shared InlineConfirm
+          recipe (DESIGN.md "Inline Confirmation Dialog"), non-destructive
+          variant — this commits data, it doesn't delete it. Shows exactly
+          what `commitRegistro` will POST (D-07's discriminated union,
+          narrowed here the same way `construirBody` is). "Registrando…"
+          takes over the confirm label while pending — the same in-flight
+          vocabulary the submit button used to carry directly (impeccable
+          critique P2, now relocated to the control that actually fires the
+          mutation). */}
+      {confirmacion && (
+        <InlineConfirm
+          title="Confirmar registro"
+          confirmLabel={
+            mutation.isPending ? 'Registrando…' : 'Confirmar registro'
+          }
+          onConfirm={commitRegistro}
+          onCancel={cancelarConfirmacion}
+          pending={mutation.isPending}
+          cancelDisabled={mutation.isPending}
+          error={confirmError}
+          className="gap-2 p-4 text-sm"
+        >
+          <p>
+            <span className="font-semibold">{confirmacion.body.tipo}</span>
+            {' · '}
+            {confirmacion.body.fecha}
+          </p>
+          <p>{confirmacion.body.descripcion}</p>
+          <p className="font-semibold">
+            {formatearMontoCLP(confirmacion.body.monto)}
+          </p>
+          {confirmacion.body.tipo === 'Gasto' && (
+            <p>
+              {ETIQUETA_BUCKET[confirmacion.body.bucket] ??
+                confirmacion.body.bucket}
+              {confirmacion.categoriaNombre
+                ? ` · ${confirmacion.categoriaNombre}`
+                : ''}
+            </p>
+          )}
+          <p className="text-muted-foreground">{MENSAJE_PERMANENCIA}</p>
+        </InlineConfirm>
+      )}
 
       {/* "Ir al dashboard" — static plain anchor, always present (D-10: not conditional on success) */}
       <a
