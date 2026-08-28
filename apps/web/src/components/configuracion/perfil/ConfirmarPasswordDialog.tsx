@@ -1,12 +1,13 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useRef, useState } from 'react';
 import { CampoTexto } from '../CampoTexto';
-import { Button } from '@/components/ui/button';
+import { InlineConfirm } from '@/components/ui/inline-confirm';
 
 /**
- * ConfirmarPasswordDialog — el diálogo `role="alertdialog"` hand-rolled que
- * gatilla `Vincular con Google`/`Desvincular` (US-042 design.md §1/Q7c,
- * §2/D-02, WCFG-08/WCFG-12).
+ * ConfirmarPasswordDialog — the `Vincular con Google`/`Desvincular`
+ * confirmation (US-042 design.md §1/Q7c, §2/D-02, WCFG-08/WCFG-12), built on
+ * the shared `InlineConfirm` shell (a11y round, part 1). This component only
+ * owns the password field + submit guard; the alertdialog scaffolding
+ * (Escape, focus, footer, sizing) lives in `InlineConfirm`.
  *
  * **No sabe si está vinculando o desvinculando** (D-02): solo `titulo`,
  * `descripcion`, `textoConfirmar`, `pendiente`, `error`,
@@ -16,18 +17,23 @@ import { Button } from '@/components/ui/button';
  *
  * Foco IN → el input de password, no `Confirmar` (divergencia deliberada de
  * `EliminarIngestaControl`: acá lo primero que el usuario debe hacer es
- * escribir, no confirmar). Foco OUT → responsabilidad del CALLER: `onCancelar`
- * cierra Y restaura el foco al trigger en `GoogleVinculoSection` (mismo
- * idioma que `EliminarIngestaControl.cancelar()`) — Escape solo delega a
- * `onCancelar`, no restaura nada por sí mismo.
+ * escribir, no confirmar) — via `InlineConfirm`'s `initialFocusRef`. Foco OUT
+ * → responsabilidad del CALLER: `onCancelar` cierra Y restaura el foco al
+ * trigger en `GoogleVinculoSection` (mismo idioma que
+ * `EliminarIngestaControl.cancelar()`) — Escape solo delega a `onCancelar`,
+ * no restaura nada por sí mismo.
  *
- * `aria-modal="false"` EXPLÍCITO: es un widget inline, sin focus trap — el
- * resto de la página sigue siendo alcanzable. Decir `"true"` sin atrapar el
- * foco sería mentirle a un lector de pantalla.
+ * `InlineConfirm`'s `asForm` wraps the password field in a `<form>` so Enter
+ * submits — the guard below (`onConfirmar` blocked on empty password) is the
+ * same gate this component always owned, just no longer wired to a raw
+ * `FormEvent` (that plumbing moved into `InlineConfirm`).
  *
- * `aria-labelledby`/`aria-describedby` (NO `aria-label`): la advertencia de
- * "vas a salir de la app" vive en un `<p>` real, así que se anuncia al
- * abrirse el diálogo — con `aria-label` no se anunciaría.
+ * `titleVisible`/`titleAsHeading` (real `<h2>`) + real `aria-labelledby`/
+ * `aria-describedby` (NO `aria-label`): la advertencia de "vas a salir de la
+ * app" vive en un `<p>` real (pasado como `children`, no `extra`), así que
+ * se anuncia al abrirse el diálogo. El input de password va en `extra`
+ * — participa del layout pero NO de la descripción anunciada (su propio
+ * `<label>` visible ya lo nombra).
  *
  * `Confirmar` se deshabilita mientras `pendiente`; el input de password NO
  * (deshabilitarlo le quitaría el foco justo cuando el usuario podría querer
@@ -52,19 +58,8 @@ export function ConfirmarPasswordDialog({
 }) {
   const passwordRef = useRef<HTMLInputElement>(null);
   const [passwordActual, setPasswordActual] = useState('');
-  const tituloId = useId();
-  const descripcionId = useId();
 
-  // Foco al abrir → el input de password (Q7c). Este componente solo existe
-  // montado mientras el diálogo está abierto (el caller lo monta/desmonta
-  // condicionalmente), así que un efecto de montaje basta — no hace falta
-  // una prop `abierto`.
-  useEffect(() => {
-    passwordRef.current?.focus();
-  }, []);
-
-  function enviar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function confirmar() {
     // WCFG-08 escenario 2: con la password vacía la confirmación queda
     // BLOQUEADA. El `required` del input de abajo es la afordancia; ESTA
     // guarda es el portón real, porque `fireEvent.submit`/`user.click` sobre
@@ -77,36 +72,20 @@ export function ConfirmarPasswordDialog({
     onConfirmar(passwordActual);
   }
 
-  // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`, not
-  // `widget` (verified against aria-query 5.3.2's `roles.get('alertdialog')`),
-  // so `isInteractiveRole`/`isInteractiveElement` never recognise it — this
-  // rule cannot distinguish a real dialog's Escape-to-close container from an
-  // arbitrary `<div onKeyDown>`. The WAI-ARIA dialog pattern (and
-  // `EliminarIngestaControl`'s existing, unscoped instance of the exact same
-  // shape) binds Escape at the dialog container, not the input; moving it to
-  // `<CampoTexto>` would silently drop Escape-to-cancel for anyone tabbed to
-  // the Cancelar/Confirmar buttons.
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
-      role="alertdialog"
-      aria-modal="false"
-      aria-labelledby={tituloId}
-      aria-describedby={descripcionId}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          onCancelar();
-        }
-      }}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground shadow-sm"
-    >
-      <h2 id={tituloId} className="text-sm font-semibold text-foreground">
-        {titulo}
-      </h2>
-      <p id={descripcionId} className="text-sm text-muted-foreground">
-        {descripcion}
-      </p>
-      <form onSubmit={enviar} className="flex flex-col gap-3">
+    <InlineConfirm
+      title={titulo}
+      titleVisible
+      titleAsHeading
+      confirmLabel={textoConfirmar}
+      onConfirm={confirmar}
+      onCancel={onCancelar}
+      pending={pendiente}
+      error={error}
+      asForm
+      initialFocusRef={passwordRef}
+      className="gap-3 p-4 text-sm"
+      extra={
         <CampoTexto
           ref={passwordRef}
           label="Password actual"
@@ -116,25 +95,9 @@ export function ConfirmarPasswordDialog({
           required
           autoComplete="current-password"
         />
-        {error !== null && (
-          <p role="alert" className="text-xs text-destructive">
-            {error}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancelar}
-            className="text-muted-foreground"
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={pendiente}>
-            {textoConfirmar}
-          </Button>
-        </div>
-      </form>
-    </div>
+      }
+    >
+      <p className="text-sm text-muted-foreground">{descripcion}</p>
+    </InlineConfirm>
   );
 }

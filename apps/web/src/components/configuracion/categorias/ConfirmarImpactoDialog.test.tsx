@@ -39,6 +39,23 @@ function renderDialog(
 }
 
 describe('ConfirmarImpactoDialog', () => {
+  // Pins a fix that came along with the shared InlineConfirm shell (a11y
+  // round, part 1): when no `ariaLabel` override is passed (this is the
+  // single-instance edit-screen case — `renderDialog()` never passes one),
+  // the dialog's accessible name must still resolve to the visible título,
+  // never end up empty. The pre-shell implementation set `aria-label`
+  // unconditionally to `ariaLabel = titulo`, which is safe while `titulo`
+  // is non-empty but had no fallback if it ever weren't; InlineConfirm now
+  // falls back to `aria-labelledby` pointing at the visible title whenever
+  // `ariaLabel` is falsy, so there is no path to an empty accessible name.
+  it('with no ariaLabel override, the accessible name resolves to the visible título', () => {
+    renderDialog();
+
+    expect(screen.getByRole('alertdialog')).toHaveAccessibleName(
+      'Eliminar categoría',
+    );
+  });
+
   it('renderiza role="alertdialog" con aria-modal="false" y el título/líneas recibidas', () => {
     renderDialog();
 

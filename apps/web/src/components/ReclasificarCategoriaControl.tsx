@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useCategorias } from '@/api/use-categorias';
 import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
-import { Button } from '@/components/ui/button';
+import { InlineConfirm } from '@/components/ui/inline-confirm';
 
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
@@ -85,9 +85,7 @@ export function ReclasificarCategoriaControl({
   readonly onMovida: (bucketLabel: string) => void;
 }) {
   const selectId = useId();
-  const mensajeId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
-  const confirmarRef = useRef<HTMLButtonElement>(null);
   const [valor, setValor] = useState(categoriaActual ?? '');
   const [pendiente, setPendiente] = useState<{
     nombre: string;
@@ -110,16 +108,6 @@ export function ReclasificarCategoriaControl({
   );
   const bucketDe = (nombre: string): string | undefined =>
     data?.categorias.find((c) => c.nombre === nombre)?.bucket;
-
-  // Foco al abrir la confirmación (WCAT-05): mueve el foco a "Confirmar" en
-  // vez de dejarlo huérfano en el <select> que acaba de disparar `onChange`
-  // — un usuario de teclado necesita saber que apareció un diálogo antes de
-  // seguir tabulando.
-  useEffect(() => {
-    if (pendiente) {
-      confirmarRef.current?.focus();
-    }
-  }, [pendiente]);
 
   // Cross-bucket commits need to fire onMovida only after the mutation
   // settles successfully. We capture the pending bucket label at confirm
@@ -242,51 +230,19 @@ export function ReclasificarCategoriaControl({
         </p>
       )}
       {pendiente && (
-        // `role="alertdialog"`'s ARIA superclass chain is `window > dialog`,
-        // not `widget` (verified against aria-query 5.3.2, installed via
-        // eslint-plugin-jsx-a11y@6.10.2 — same finding as
-        // ConfirmarPasswordDialog.tsx / ConfirmarImpactoDialog.tsx). The rule
-        // cannot distinguish a dialog's Escape-to-close from an arbitrary
-        // `<div onKeyDown>`. The WAI-ARIA dialog pattern binds Escape at the
-        // container so it works regardless of which button has focus.
-        // Remove this disable when aria-query classifies `alertdialog` under
-        // the `widget` superclass or when the rule gains a dialog-role
-        // exemption.
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-        <div
-          role="alertdialog"
-          aria-label="Confirmar cambio de categoría"
-          aria-describedby={mensajeId}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              cancelar();
-            }
-          }}
-          className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs text-foreground shadow-sm"
+        <InlineConfirm
+          title="Confirmar cambio de categoría"
+          confirmLabel="Confirmar"
+          onConfirm={confirmar}
+          onCancel={cancelar}
+          pending={mutacion.isPending}
+          className="gap-2 p-3 text-xs"
         >
-          <p id={mensajeId}>
+          <p>
             Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}
             {etiqueta(pendiente.bucketNuevo)}.
           </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancelar}
-              className="text-muted-foreground"
-            >
-              Cancelar
-            </Button>
-            <Button
-              ref={confirmarRef}
-              type="button"
-              onClick={confirmar}
-              disabled={mutacion.isPending}
-            >
-              Confirmar
-            </Button>
-          </div>
-        </div>
+        </InlineConfirm>
       )}
     </div>
   );
