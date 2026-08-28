@@ -29,14 +29,32 @@ export type NavRoute = FileRouteTypes['to'];
 export type NavItemModel = {
   readonly kind: 'link';
   readonly label: string;
+  /**
+   * Shorter label for the `bottom-tab` presentation only (`NavItem.tsx`).
+   * `Sidebar` always renders `label` in full — the bottom bar is the one
+   * surface tight enough (5 tabs across 360px) that a label like "Subir
+   * nuevo archivo" wraps into multiple lines instead of fitting one. Omit
+   * this field when `label` is already short enough to work in both
+   * places (e.g. "Resumen", "Registrar").
+   */
+  readonly shortLabel?: string;
   readonly to: NavRoute;
   readonly icon: LucideIcon;
+  /**
+   * When true, `BottomTabs` skips this item — it still renders in
+   * `Sidebar`. Introduced for "Ayuda": 6 items across a 360px bottom bar
+   * violates the 3-5 tab convention, and Ayuda is the one item mobile
+   * users can reach a beat later without losing the task at hand (it gets
+   * its own entry inside the Configuración screen instead, see
+   * `ConfiguracionLayout.tsx`).
+   */
+  readonly hideFromBottomTabs?: boolean;
 };
 
 /**
  * Single source of the shell's nav model (design.md §5) — `Sidebar` and
  * `BottomTabs` both render this exact list (DRY: define the nav once,
- * render it twice per breakpoint).
+ * present it per breakpoint instead of duplicating it).
  *
  * All six items are nav-worthy routes that exist today under
  * `_authenticated` (`/buckets/$bucket` is a drill-down destination reached
@@ -45,18 +63,43 @@ export type NavItemModel = {
  * each a `'placeholder'` until their route landed. "Ayuda" (WDS-03) was the
  * last placeholder — it now points at `/ayuda`, a real help page, closing
  * out the discriminated union's dead `'placeholder'` arm (see
- * `NavItemModel`'s docstring).
+ * `NavItemModel`'s docstring above).
+ *
+ * `Sidebar` still renders all six; `BottomTabs` renders only the five whose
+ * `hideFromBottomTabs` is not set (mobile bottom-nav redesign, Impeccable
+ * critique P1) — six tabs at 360px exceeded the 3-5 tab convention and
+ * forced long labels to wrap across lines. `shortLabel` keeps the bottom
+ * bar's labels to one line without inventing a second nav list.
  */
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
-  { kind: 'link', label: 'Subir nuevo archivo', to: '/subir', icon: Upload },
+  {
+    kind: 'link',
+    label: 'Subir nuevo archivo',
+    shortLabel: 'Subir',
+    to: '/subir',
+    icon: Upload,
+  },
   { kind: 'link', label: 'Registrar', to: '/registrar', icon: PencilLine },
-  { kind: 'link', label: 'Gestionar cartolas', to: '/ingestas', icon: Files },
+  {
+    kind: 'link',
+    label: 'Gestionar cartolas',
+    shortLabel: 'Cartolas',
+    to: '/ingestas',
+    icon: Files,
+  },
   {
     kind: 'link',
     label: 'Configuración',
+    shortLabel: 'Config',
     to: '/configuracion',
     icon: Settings,
   },
-  { kind: 'link', label: 'Ayuda', to: '/ayuda', icon: HelpCircle },
+  {
+    kind: 'link',
+    label: 'Ayuda',
+    to: '/ayuda',
+    icon: HelpCircle,
+    hideFromBottomTabs: true,
+  },
 ];

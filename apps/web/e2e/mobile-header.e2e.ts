@@ -85,7 +85,7 @@ test.describe('mobile header — back control + sr-only h1 (E-05, tabs-row half 
     }
   });
 
-  test('the two tabs share a y and differ in x; the nav width ≈ the content band at 360 (E-01, tabs-row half)', async ({
+  test('the three tabs share a y and differ in x; the nav width ≈ the content band at 360 (E-01, tabs-row half)', async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -100,6 +100,12 @@ test.describe('mobile header — back control + sr-only h1 (E-05, tabs-row half 
 
     const perfil = page.getByRole('link', { name: 'Perfil' });
     const categorias = page.getByRole('link', { name: 'Categorías' });
+    // Third row member below `lg` since the mobile bottom-nav redesign:
+    // "Ayuda" left the 5-tab bottom bar and lives in this landmark as a
+    // trailing `lg:hidden` pill (ConfiguracionTabs.tsx). At 360px the
+    // desktop Sidebar (the only other "Ayuda" link) is `display:none`, so
+    // the role query resolves to exactly this pill.
+    const ayuda = page.getByRole('link', { name: 'Ayuda' });
     const nav = page.getByRole('navigation', {
       name: 'Secciones de configuración',
     });
@@ -107,14 +113,17 @@ test.describe('mobile header — back control + sr-only h1 (E-05, tabs-row half 
 
     const perfilBox = await perfil.boundingBox();
     const categoriasBox = await categorias.boundingBox();
+    const ayudaBox = await ayuda.boundingBox();
     const navBox = await nav.boundingBox();
     const gridBox = await grid.boundingBox();
-    if (!perfilBox || !categoriasBox || !navBox || !gridBox) {
+    if (!perfilBox || !categoriasBox || !ayudaBox || !navBox || !gridBox) {
       throw new Error('Tabs or grid did not render.');
     }
 
     expect(perfilBox.y).toBe(categoriasBox.y);
+    expect(ayudaBox.y).toBe(perfilBox.y);
     expect(perfilBox.x).not.toBe(categoriasBox.x);
+    expect(ayudaBox.x).not.toBe(categoriasBox.x);
     // The nav is a block-level element with no inline padding of its own
     // (only the outer `mx-auto max-w-5xl px-4` wrapper has it), so its
     // width already matches the content band regardless of the tab links'
@@ -123,16 +132,17 @@ test.describe('mobile header — back control + sr-only h1 (E-05, tabs-row half 
     expect(Math.abs(navBox.width - gridBox.width)).toBeLessThanOrEqual(
       CONTENT_BAND_TOLERANCE_PX,
     );
-    // CA-01's actual claim: the two tabs together span the row's full
-    // width, not just the nav container around them. `navBox.width`
-    // matching `gridBox.width` above says nothing about whether the tabs
-    // INSIDE the nav fill it — a `<li>` with no flex-grow collapses to
-    // content width while the nav (a plain block element) still reports
-    // the full content-band width regardless. This is the assertion that
-    // would have failed while `flex-1` sat on the `<a>` instead of the
-    // `<li>` (ConfiguracionTabs.tsx) — measured at 360px: `Perfil` ~58.5px,
-    // `Categorías` ~97.8px, span ~156px of the nav's ~328px before the fix.
-    const tabsSpan = categoriasBox.x + categoriasBox.width - perfilBox.x;
+    // CA-01's actual claim: the tabs together span the row's full width,
+    // not just the nav container around them. `navBox.width` matching
+    // `gridBox.width` above says nothing about whether the tabs INSIDE the
+    // nav fill it — a `<li>` with no flex-grow collapses to content width
+    // while the nav (a plain block element) still reports the full
+    // content-band width regardless. This is the assertion that would have
+    // failed while `flex-1` sat on the `<a>` instead of the `<li>`
+    // (ConfiguracionTabs.tsx). Since the bottom-nav redesign the row's
+    // last member below `lg` is the "Ayuda" pill, so the span runs from
+    // `Perfil`'s left edge to `Ayuda`'s right edge.
+    const tabsSpan = ayudaBox.x + ayudaBox.width - perfilBox.x;
     expect(Math.abs(tabsSpan - navBox.width)).toBeLessThanOrEqual(
       CONTENT_BAND_TOLERANCE_PX,
     );

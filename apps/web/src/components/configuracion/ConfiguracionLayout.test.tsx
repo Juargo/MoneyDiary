@@ -133,6 +133,13 @@ describe('ConfiguracionLayout', () => {
     ).toBeInTheDocument();
   });
 
+  // Mobile bottom-nav redesign (Impeccable critique P1): "Ayuda" left
+  // `BottomTabs` (5-tab convention). Fresh-review fix: the mobile access
+  // point is folded INTO `ConfiguracionTabs`'s own nav/ul as a trailing
+  // <li> (see `ConfiguracionTabs.test.tsx`) rather than a second element
+  // owned by this layout — this file only needs to keep asserting that
+  // `ConfiguracionTabs` itself renders in the grid (test above).
+
   it('renderiza el contenido enrutado (children/Outlet) dentro del track', async () => {
     renderAt('/configuracion/categorias');
 
