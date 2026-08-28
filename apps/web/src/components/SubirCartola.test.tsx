@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -66,6 +67,15 @@ function unCatalogoDto(): CatalogoDto {
 
 // Navigate mock — captures navigate({to}) calls for assertion.
 // Use importOriginal so Link and other exports remain available.
+//
+// `Link` is ALSO mocked here (design critique round-8 P2-B): `PreviewMuestra`
+// (rendered by `SubirCartola` once a preview succeeds) gained a
+// `<Link to="/ayuda" hash="...">` help affordance, and a real `Link` needs
+// `RouterProvider` context that this suite's plain `render(<SubirCartola />)`
+// calls don't provide. Same reasoning and stub shape as
+// `PreviewMuestra.test.tsx`'s own mock — this file doesn't test that link's
+// behavior (that's `PreviewMuestra.test.tsx`'s job), just needs it to not
+// crash the tree.
 const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual =
@@ -73,6 +83,21 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    Link: ({
+      to,
+      hash,
+      children,
+      className,
+    }: {
+      readonly to: string;
+      readonly hash?: string;
+      readonly children: ReactNode;
+      readonly className?: string;
+    }) => (
+      <a href={hash ? `${to}#${hash}` : to} className={className}>
+        {children}
+      </a>
+    ),
   };
 });
 

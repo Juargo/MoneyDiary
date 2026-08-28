@@ -122,6 +122,18 @@ export function renderConRouter(
       </div>
     ),
   });
+  // Design critique round-8 P2-B: contextual help links from PreviewMuestra
+  // and SemaforoDetallePage point at `/ayuda#<section-id>` — this sentinel
+  // lets those `<Link>`s resolve instead of throwing mid-test, same pattern
+  // as the routes above. No real `AyudaPage` rendering here — that page
+  // carries its own tests.
+  const ayudaRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/ayuda',
+    component: () => (
+      <div data-testid="ayuda-sentinel">Ayuda (stub de prueba)</div>
+    ),
+  });
 
   const routeTree = rootRoute.addChildren([
     indexRoute,
@@ -131,6 +143,7 @@ export function renderConRouter(
     registrarRoute,
     ingestasRoute,
     configuracionRoute,
+    ayudaRoute,
   ]);
   const router = createRouter({
     routeTree,

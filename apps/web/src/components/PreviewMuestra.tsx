@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { HelpCircle, X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
 import {
   SENTINEL_OPTION,
@@ -81,11 +82,46 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * header hides the "N de M clasificadas · K duplicadas" text and the
  * progress bar — the bulk-apply toolbar's count pill already carries the
  * live selection number, so the two counts competed for the same reading
- * moment. The master "select all visible" checkbox and the "Solo sin
- * clasificar" toggle stay put either way (selection state doesn't change
- * what they do), and the readout comes back the instant the selection is
- * cleared. Conditional render, no live region — nothing here needs an
- * announcement, it's a visibility change on already-static text.
+ * moment. The master "select all visible" checkbox stays put either way
+ * (selection state doesn't change what it does), and the readout comes back
+ * the instant the selection is cleared. Conditional render, no live region —
+ * nothing here needs an announcement, it's a visibility change on
+ * already-static text.
+ *
+ * Design critique round-8, P2-A (bulk-apply toolbar distill): while a
+ * selection is active the region surfaced ~6 simultaneous controls
+ * (select-all checkbox, "Solo sin clasificar" toggle, count pill with
+ * embedded dismiss, bucket select, categoría select, Aplicar) — over the
+ * ≤4 working-memory budget. Fix mirrors the P4 progress-collapse EXACTLY:
+ * `{seleccionados.size === 0 && (...)}` around the "Solo sin clasificar"
+ * `<Button>`, same conditional idiom, same restore-on-clear behavior (the
+ * button reappears with whatever `aria-pressed` value `soloSinClasificar`
+ * already held — that state is never touched by this fix).
+ *
+ * Reconciliation with filter state (explicit product decision): if
+ * `soloSinClasificar` is already ON when the first row gets selected, the
+ * fix does NOT clear the filter — it only hides the toggle button.
+ * `filasVisibles` keeps filtering on the unchanged `soloSinClasificar`
+ * value, so the exact same filtered rows stay on screen; only the control
+ * for changing that filter becomes reachable again once the selection is
+ * cleared. This was chosen over auto-clearing the filter because clearing
+ * it would reflow the list (previously-hidden classified rows reappearing)
+ * at the exact moment the user commits to a selection — the more
+ * surprising of the two options. Freezing the toggle instead changes
+ * nothing about what's on screen; the user simply can't touch that one
+ * control until they finish or cancel the bulk action, same as any other
+ * toolbar control that's momentarily out of reach during a task.
+ *
+ * Design critique round-8, P2-B (contextual help): a small, quiet
+ * `<Link>` next to the Bucket/Categoría column legend points screen-reader
+ * and first-time users straight at the glossary (`/ayuda#ayuda-glosario`)
+ * that defines "bucket" — previously that definition was only reachable by
+ * abandoning the upload flow to find `/ayuda` on its own nav item. It sits
+ * OUTSIDE the `aria-hidden` `data-columnas-header` row (that row is
+ * decorative, sm+-only) so it stays in the accessibility tree and visible
+ * at every breakpoint, and it renders unconditionally within the sticky
+ * header (not gated by `seleccionados.size` or `soloSinClasificar`) since
+ * it is reference information, not a working-memory-budget control.
  */
 
 interface FilaConMerged {
@@ -374,15 +410,22 @@ export function PreviewMuestra({
                 </p>
               )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-pressed={soloSinClasificar}
-              onClick={() => setSoloSinClasificar((v) => !v)}
-            >
-              Solo sin clasificar
-            </Button>
+            {/* P2-A distill: hidden while a selection is active — see the
+                docblock's "Reconciliation with filter state" note above.
+                `soloSinClasificar` itself is untouched, so the filtered
+                view never changes and the button reappears in the same
+                pressed state once the selection clears. */}
+            {seleccionados.size === 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={soloSinClasificar}
+                onClick={() => setSoloSinClasificar((v) => !v)}
+              >
+                Solo sin clasificar
+              </Button>
+            )}
           </div>
           {/* P4 distill: same collapse as the progress text above — this
               bar restates the same ratio, so it hides alongside it. */}
@@ -422,6 +465,16 @@ export function PreviewMuestra({
               Categoría
             </span>
           </div>
+          {/* P2-B contextual help: quiet, always-visible (not aria-hidden,
+              not sm+-only, not gated by selection) — see docblock. */}
+          <Link
+            to="/ayuda"
+            hash="ayuda-glosario"
+            className="inline-flex w-fit items-center gap-1 px-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <HelpCircle aria-hidden="true" className="size-3.5" />
+            Ayuda: qué es un bucket
+          </Link>
         </div>
       )}
 
