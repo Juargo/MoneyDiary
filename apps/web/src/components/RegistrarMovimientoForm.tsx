@@ -13,6 +13,12 @@
  * A11y: dual feedback regions (aria-live polite + role=alert); cascade focus (D-09).
  * Confirm: submit opens a shared InlineConfirm dialog (critique round-8 P2)
  * over a snapshotted body; `commitRegistro` is the only thing that mutates.
+ * Quick-repeat (critique round-8 P3): the dialog's secondary action
+ * ("Confirmar y agregar otro", via InlineConfirm's `secondaryConfirm`)
+ * commits the same snapshot and, on success, resets only fecha/descripción/
+ * monto — tipo/bucket/categoría stay put (sticky classification) so several
+ * same-category entries in one sitting stay fast. The primary "Confirmar
+ * registro" keeps today's full-reset behavior, unchanged.
  */
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -142,6 +148,31 @@ export function RegistrarMovimientoForm({
   // handler returns). This flag defers the actual `.focus()` to the effect,
   // which runs after React re-renders the button enabled again.
   const restaurarFocoRef = useRef(false);
+
+  // Quick-repeat (critique round-8 P3): tracks WHICH dialog action is
+  // in-flight, since `mutation.isPending` alone is shared by both buttons —
+  // this is what lets only the clicked one show the progressive
+  // "Registrando…" label while the other stays disabled with its idle text
+  // (requirement: both disabled while pending, whichever was clicked shows
+  // its own progressive label). Defaults to `'completo'` — the PRIMARY
+  // action — so that `mutation.isPending` alone (e.g. driven externally,
+  // with no click routed through `commitRegistro` first) still surfaces the
+  // in-flight label on the primary button, matching its pre-quick-repeat
+  // behavior exactly (this default is also what keeps externally-driven
+  // isPending test setups honest — absent a tracked click, assume the
+  // primary is in flight).
+  const [accionEnCurso, setAccionEnCurso] = useState<
+    'completo' | 'agregarOtro'
+  >('completo');
+  // Ref to the descripción <input> (CampoTexto forwards its ref, same
+  // mechanism ConfirmarPasswordDialog already uses) — the quick-repeat
+  // focus target after a successful "Confirmar y agregar otro".
+  const descripcionRef = useRef<HTMLInputElement>(null);
+  // Same deferred-focus pattern as `restaurarFocoRef` above: descripción is
+  // still disabled (formularioBloqueado) at the instant onSuccess fires, so
+  // a synchronous `.focus()` here would no-op — this flag defers the actual
+  // call to the effect below, which runs after the field re-renders enabled.
+  const enfocarDescripcionRef = useRef(false);
 
   // formularioBloqueado — the ONE flag every field + the submit button is
   // disabled with while the dialog is open (fresh review CRITICAL, mirrors
@@ -316,30 +347,49 @@ export function RegistrarMovimientoForm({
   }
 
   /**
-   * commitRegistro — the confirmation dialog's onConfirm. Fires the actual
-   * POST for `confirmacion.body` (captured at handleEnviar time), reusing
-   * the same double-submit guard and success/error handling handleEnviar
-   * used to run directly (D-10/WEB-REG-06/WEB-REG-08, unchanged).
+   * commitRegistro — both dialog actions' onClick/onConfirm. Fires the
+   * actual POST for `confirmacion.body` (captured at handleEnviar time),
+   * reusing the same double-submit guard and error handling handleEnviar
+   * used to run directly (D-10/WEB-REG-06/WEB-REG-08, unchanged) regardless
+   * of which action invoked it.
+   *
+   * `agregarOtro` (critique round-8 P3, quick-repeat) selects which success
+   * reset runs: `false` is today's unchanged full reset (primary "Confirmar
+   * registro"); `true` keeps tipo/bucket/categoría (sticky classification)
+   * and clears only fecha/descripción/monto, then flags the deferred focus
+   * effect below to land on descripción.
    */
-  function commitRegistro() {
+  function commitRegistro(agregarOtro: boolean) {
     if (!confirmacion || mutation.isPending || isSubmittingRef.current) {
       return;
     }
 
     isSubmittingRef.current = true;
+    setAccionEnCurso(agregarOtro ? 'agregarOtro' : 'completo');
     mutation.mutate(confirmacion.body, {
       onSuccess: () => {
-        // D-10: clear form on 201; reset to Ingreso. Same flow as before —
-        // just also closes the dialog now.
-        setTipo('Ingreso');
-        setFecha(hoyLocal());
-        setDescripcion('');
-        setMonto('');
-        setBucketUI('');
-        setCategoriaId('');
+        if (agregarOtro) {
+          // Quick-repeat: keep tipo/bucketUI/categoriaId untouched — only
+          // the per-movement facts reset, ready for the next entry in the
+          // same category.
+          setFecha(hoyLocal());
+          setDescripcion('');
+          setMonto('');
+          enfocarDescripcionRef.current = true;
+        } else {
+          // D-10: clear form on 201; reset to Ingreso. Same flow as before —
+          // just also closes the dialog now.
+          setTipo('Ingreso');
+          setFecha(hoyLocal());
+          setDescripcion('');
+          setMonto('');
+          setBucketUI('');
+          setCategoriaId('');
+        }
         setErrores({});
         setConfirmacion(null);
         setConfirmError(null);
+        setAccionEnCurso('completo');
         setFeedback({
           tono: 'ok',
           texto: 'Movimiento registrado exitosamente.',
@@ -350,8 +400,9 @@ export function RegistrarMovimientoForm({
         // `confirmError`'s doc comment above): the error lives ONLY inside
         // the still-open dialog. Do NOT clear any field (WEB-REG-08) and do
         // NOT close the dialog — the user can retry without re-reading the
-        // summary.
+        // summary. Same handling regardless of which action was clicked.
         setConfirmError(err.message);
+        setAccionEnCurso('completo');
       },
       onSettled: () => {
         isSubmittingRef.current = false;
@@ -407,6 +458,18 @@ export function RegistrarMovimientoForm({
     }
   }, [confirmacion]);
 
+  // Deferred focus for "Confirmar y agregar otro" (critique round-8 P3): see
+  // `enfocarDescripcionRef`'s doc comment — runs after the dialog closes and
+  // descripción is re-enabled, landing focus there so the next movement can
+  // be typed immediately. Never fires after the primary "Confirmar
+  // registro" (commitRegistro only sets the flag on the agregarOtro path).
+  useEffect(() => {
+    if (confirmacion === null && enfocarDescripcionRef.current) {
+      enfocarDescripcionRef.current = false;
+      descripcionRef.current?.focus();
+    }
+  }, [confirmacion]);
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -458,6 +521,7 @@ export function RegistrarMovimientoForm({
 
         {/* Descripción — CampoTexto (type='text', D-15) */}
         <CampoTexto
+          ref={descripcionRef}
           label="Descripción"
           value={descripcion}
           onChange={setDescripcion}
@@ -590,18 +654,35 @@ export function RegistrarMovimientoForm({
           takes over the confirm label while pending — the same in-flight
           vocabulary the submit button used to carry directly (impeccable
           critique P2, now relocated to the control that actually fires the
-          mutation). */}
+          mutation).
+
+          Quick-repeat (critique round-8 P3): `secondaryConfirm` adds
+          "Confirmar y agregar otro" next to the primary action — opt-in,
+          same snapshot, different success reset (see `commitRegistro`'s doc
+          comment). Both share `mutation.isPending` for disabling; only the
+          one `accionEnCurso` names shows the progressive label, so a click
+          on either never leaves the other looking falsely idle-and-usable. */}
       {confirmacion && (
         <InlineConfirm
           title="Confirmar registro"
           confirmLabel={
-            mutation.isPending ? 'Registrando…' : 'Confirmar registro'
+            mutation.isPending && accionEnCurso === 'completo'
+              ? 'Registrando…'
+              : 'Confirmar registro'
           }
-          onConfirm={commitRegistro}
+          onConfirm={() => commitRegistro(false)}
           onCancel={cancelarConfirmacion}
           pending={mutation.isPending}
           cancelDisabled={mutation.isPending}
           error={confirmError}
+          secondaryConfirm={{
+            label:
+              mutation.isPending && accionEnCurso === 'agregarOtro'
+                ? 'Registrando…'
+                : 'Confirmar y agregar otro',
+            onClick: () => commitRegistro(true),
+            disabled: mutation.isPending,
+          }}
           className="gap-2 p-4 text-sm"
         >
           <p>

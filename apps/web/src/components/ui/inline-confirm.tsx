@@ -95,6 +95,26 @@ export interface InlineConfirmProps {
    * varies by call site; the border/bg/shadow/radius recipe stays fixed
    * here. */
   readonly className?: string;
+  /** An opt-in THIRD footer action, rendered between Cancelar and Confirmar
+   * with the `secondary` Button variant (same 36px default size — never
+   * `xs`/`sm`, same house rule as Cancelar/Confirmar). For a second commit
+   * path alongside the primary one — e.g. "commit and reset for another
+   * entry" — that the caller wants offered at the same decision point as
+   * the primary confirm, without becoming ITS default. Unused by
+   * `EliminarIngestaControl`/`ReclasificarCategoriaControl`/
+   * `ConfirmarPasswordDialog`/`ConfirmarImpactoDialog`;
+   * `RegistrarMovimientoForm`'s quick-repeat is its only consumer today
+   * (critique round-8 P3). Optional — omitting it renders the original
+   * two-button footer, unchanged for all four existing call sites.
+   * Combines safely with `asForm`: this button is always `type="button"`,
+   * so Enter keeps routing to the primary `type="submit"` — untested today
+   * (no call site sets both) but by construction, not by accident. */
+  readonly secondaryConfirm?: {
+    readonly label: string;
+    readonly onClick: () => void;
+    /** @default false */
+    readonly disabled?: boolean;
+  };
 }
 
 export function InlineConfirm({
@@ -115,6 +135,7 @@ export function InlineConfirm({
   asForm = false,
   initialFocusRef,
   className,
+  secondaryConfirm,
 }: InlineConfirmProps) {
   const titleId = useId();
   const bodyId = useId();
@@ -177,6 +198,16 @@ export function InlineConfirm({
         >
           {cancelLabel}
         </Button>
+        {secondaryConfirm && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={secondaryConfirm.onClick}
+            disabled={secondaryConfirm.disabled ?? false}
+          >
+            {secondaryConfirm.label}
+          </Button>
+        )}
         <Button
           ref={confirmRef}
           type={asForm ? 'submit' : 'button'}

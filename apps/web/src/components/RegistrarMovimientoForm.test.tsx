@@ -1192,6 +1192,260 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     });
   });
 
+  // ── Quick-repeat: "Confirmar y agregar otro" (critique round-8 P3) ───────
+  // A second, secondary-styled action in the confirm dialog — opt-in,
+  // zero change to the default "Confirmar registro" path. Commits the same
+  // snapshot; on success it keeps tipo/bucket/categoría (sticky
+  // classification) and clears only fecha (→ today)/descripción/monto,
+  // then focuses descripción for immediate typing.
+
+  function getAgregarOtroButton() {
+    return within(getConfirmDialog()).getByRole('button', {
+      name: /confirmar y agregar otro/i,
+    });
+  }
+
+  it('el diálogo muestra "Confirmar y agregar otro" junto al "Confirmar registro" primario', async () => {
+    setupDefaultHooks();
+    renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user, {
+      descripcion: 'Test',
+      monto: '5000',
+    });
+
+    expect(getConfirmButton()).toBeInTheDocument();
+    expect(getAgregarOtroButton()).toBeInTheDocument();
+  });
+
+  it('Ingreso: "Confirmar y agregar otro" commit exitoso limpia fecha/descripción/monto, mantiene tipo, enfoca descripción y muestra feedback de éxito', async () => {
+    let capturedOnSuccess: (() => void) | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mutateSpy = vi.fn((_body: any, options: any) => {
+      capturedOnSuccess = options?.onSuccess;
+    });
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user, {
+      descripcion: 'Sueldo parcial',
+      monto: '100000',
+      fecha: hoyLocal(),
+    });
+
+    await user.click(getAgregarOtroButton());
+    expect(mutateSpy).toHaveBeenCalledTimes(1);
+    expect(mutateSpy.mock.calls[0][0].descripcion).toBe('Sueldo parcial');
+
+    expect(capturedOnSuccess).toBeDefined();
+    capturedOnSuccess?.();
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      // Tipo stays Ingreso (unchanged, but explicitly NOT reset to something
+      // else — the sticky-classification contract).
+      expect((screen.getByLabelText(/tipo/i) as HTMLSelectElement).value).toBe(
+        'Ingreso',
+      );
+      expect(
+        (screen.getByLabelText(/descripci[oó]n/i) as HTMLInputElement).value,
+      ).toBe('');
+      expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
+        '',
+      );
+      expect((screen.getByLabelText(/fecha/i) as HTMLInputElement).value).toBe(
+        hoyLocal(),
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /registrado|guardado|éxito|ok/i,
+      );
+      // Focus contract: descripción is ready for immediate typing.
+      expect(document.activeElement).toBe(
+        screen.getByLabelText(/descripci[oó]n/i),
+      );
+    });
+  });
+
+  it('Gasto: "Confirmar y agregar otro" commit exitoso mantiene tipo/bucket/categoría (clasificación pegajosa) y limpia solo fecha/descripción/monto', async () => {
+    let capturedOnSuccess: (() => void) | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mutateSpy = vi.fn((_body: any, options: any) => {
+      capturedOnSuccess = options?.onSuccess;
+    });
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
+    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(
+      screen.getByLabelText(/categor[ií]a/i),
+      'cat-des-1',
+    );
+    await completarYAbrirConfirmacion(user, {
+      descripcion: 'Cena 1',
+      monto: '15000',
+    });
+
+    await user.click(getAgregarOtroButton());
+    capturedOnSuccess?.();
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      // Sticky classification: tipo/bucket/categoría all preserved.
+      expect((screen.getByLabelText(/tipo/i) as HTMLSelectElement).value).toBe(
+        'Gasto',
+      );
+      expect(
+        (screen.getByLabelText(/bucket/i) as HTMLSelectElement).value,
+      ).toBe('Deseos');
+      expect(
+        (screen.getByLabelText(/categor[ií]a/i) as HTMLSelectElement).value,
+      ).toBe('cat-des-1');
+      // Only fecha/descripción/monto cleared.
+      expect(
+        (screen.getByLabelText(/descripci[oó]n/i) as HTMLInputElement).value,
+      ).toBe('');
+      expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
+        '',
+      );
+      expect((screen.getByLabelText(/fecha/i) as HTMLInputElement).value).toBe(
+        hoyLocal(),
+      );
+      expect(document.activeElement).toBe(
+        screen.getByLabelText(/descripci[oó]n/i),
+      );
+    });
+  });
+
+  it('pending: al hacer clic en "Confirmar y agregar otro", éste muestra el label progresivo y ambos botones quedan disabled; el primario conserva su label idle', async () => {
+    mockedUseRegistrarMovimiento.mockReturnValue(
+      unaMutacion<RegistrarMovimientoManualDto>({ isPending: false }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+    const { rerender, queryClient } = renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user);
+    await user.click(getAgregarOtroButton());
+
+    mockedUseRegistrarMovimiento.mockReturnValue(
+      unaMutacion<RegistrarMovimientoManualDto>({ isPending: true }),
+    );
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <RegistrarMovimientoForm esDemo={false} />
+      </QueryClientProvider>,
+    );
+
+    const dialog = getConfirmDialog();
+    const secundario = within(dialog).getByRole('button', {
+      name: /registrando/i,
+    });
+    expect(secundario).toBeDisabled();
+    const primario = within(dialog).getByRole('button', {
+      name: 'Confirmar registro',
+    });
+    expect(primario).toBeDisabled();
+  });
+
+  it('pending: al hacer clic en "Confirmar registro" (primario), éste muestra el label progresivo y el secundario queda disabled con su label idle', async () => {
+    mockedUseRegistrarMovimiento.mockReturnValue(
+      unaMutacion<RegistrarMovimientoManualDto>({ isPending: false }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+    const { rerender, queryClient } = renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user);
+    await user.click(getConfirmButton());
+
+    mockedUseRegistrarMovimiento.mockReturnValue(
+      unaMutacion<RegistrarMovimientoManualDto>({ isPending: true }),
+    );
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <RegistrarMovimientoForm esDemo={false} />
+      </QueryClientProvider>,
+    );
+
+    const dialog = getConfirmDialog();
+    expect(
+      within(dialog).getByRole('button', { name: /registrando/i }),
+    ).toBeDisabled();
+    const secundario = within(dialog).getByRole('button', {
+      name: 'Confirmar y agregar otro',
+    });
+    expect(secundario).toBeDisabled();
+  });
+
+  it('API error al confirmar por "Confirmar y agregar otro": el diálogo permanece abierto, el error se muestra inline y NINGÚN campo se limpia', async () => {
+    let capturedOnError: ((err: ApiError) => void) | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mutateSpy = vi.fn((_body: any, options: any) => {
+      capturedOnError = options?.onError;
+    });
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user, {
+      descripcion: 'Otro gasto',
+      monto: '8000',
+    });
+    await user.click(getAgregarOtroButton());
+
+    const apiError: ApiError = {
+      tag: 'invalid',
+      message: 'Datos inválidos. Revisa los campos y vuelve a intentar.',
+    };
+    capturedOnError?.(apiError);
+
+    await waitFor(() => {
+      expect(within(getConfirmDialog()).getByRole('alert')).toHaveTextContent(
+        'Datos inválidos',
+      );
+    });
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(
+      (screen.getByLabelText(/descripci[oó]n/i) as HTMLInputElement).value,
+    ).toBe('Otro gasto');
+    expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
+      '8000',
+    );
+  });
+
+  it('doble clic rápido en "Confirmar y agregar otro" llama a mutate una sola vez (guard de doble-submit compartido)', async () => {
+    const mutateSpy = vi.fn();
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user);
+
+    const boton = getAgregarOtroButton();
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+
+    expect(mutateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('clic en el primario seguido de clic sincrónico en "agregar otro" llama a mutate una sola vez (mismo guard)', async () => {
+    const mutateSpy = vi.fn();
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    await completarYAbrirConfirmacion(user);
+
+    fireEvent.click(getConfirmButton());
+    fireEvent.click(getAgregarOtroButton());
+
+    expect(mutateSpy).toHaveBeenCalledTimes(1);
+  });
+
   // ── Regression guard: "Ir al dashboard" link is always present ────────────
 
   it('"Ir al dashboard" link is present before any submission', () => {
