@@ -390,7 +390,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(mutateSpy).not.toHaveBeenCalled();
     // Error alert shows the specific monto message
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Ingresá un monto válido (número entero positivo).',
+      'Ingresa un monto válido (número entero positivo).',
     );
     expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
       '0',
@@ -417,7 +417,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(mutateSpy).not.toHaveBeenCalled();
     // Error alert shows the specific monto message
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Ingresá un monto válido (número entero positivo).',
+      'Ingresa un monto válido (número entero positivo).',
     );
     expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe(
       '-5',
@@ -478,7 +478,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(mutateSpy).not.toHaveBeenCalled();
     // Error alert shows the specific cascade message
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Seleccioná una categoría.',
+      'Selecciona una categoría.',
     );
   });
 
@@ -508,7 +508,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     expect(mutateSpy).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Seleccioná un bucket válido.',
+      'Selecciona un bucket válido.',
     );
   });
 
@@ -539,7 +539,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     // Simulate 400 error
     const apiError: ApiError = {
       tag: 'invalid',
-      message: 'Datos inválidos. Revisá los campos y volvé a intentar.',
+      message: 'Datos inválidos. Revisa los campos y vuelve a intentar.',
     };
     capturedOnError?.(apiError);
 

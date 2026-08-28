@@ -107,7 +107,7 @@ export async function postMovimientoManual(
       ok: false,
       error: {
         tag: 'invalid',
-        message: 'Datos inválidos. Revisá los campos y volvé a intentar.',
+        message: 'Datos inválidos. Revisa los campos y vuelve a intentar.',
       },
     };
   }
@@ -117,7 +117,7 @@ export async function postMovimientoManual(
       ok: false,
       error: {
         tag: 'unauthorized',
-        message: 'Tu sesión expiró. Iniciá sesión de nuevo.',
+        message: 'Tu sesión expiró. Inicia sesión de nuevo.',
       },
     };
   }
