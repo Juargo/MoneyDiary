@@ -79,6 +79,14 @@ describe('AyudaPage', () => {
     expect(screen.getByText('Modo demo')).toBeInTheDocument();
   });
 
+  it('caps the prose measure at max-w-prose, not the wider max-w-2xl (impeccable craft-floor: 65-75ch)', async () => {
+    const { container } = await renderAyudaPage();
+
+    const columna = container.firstElementChild;
+    expect(columna).toHaveClass('max-w-prose');
+    expect(columna).not.toHaveClass('max-w-2xl');
+  });
+
   it('maps the 4 main tasks to their nav destinations as links', async () => {
     await renderAyudaPage();
 

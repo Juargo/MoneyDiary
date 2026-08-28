@@ -105,8 +105,9 @@ export function RegistrarMovimientoForm({
   // Double-submit guard (D-10/WEB-REG-06): ref, not state — no re-render needed.
   const isSubmittingRef = useRef(false);
 
-  // Cascade container ref for focus management (D-09).
-  const cascadaRef = useRef<HTMLDivElement>(null);
+  // Cascade container ref for focus management (D-09). Element type follows
+  // the fieldset sectioning below (impeccable critique P2).
+  const cascadaRef = useRef<HTMLFieldSetElement>(null);
 
   // ---------------------------------------------------------------------------
   // API hooks
@@ -283,69 +284,88 @@ export function RegistrarMovimientoForm({
       className="flex flex-col gap-4 rounded-lg border border-border p-6"
       noValidate
     >
-      {/* Tipo selector — type-first (D-01/D-02) */}
-      <CampoSelect
-        label="Tipo"
-        value={tipo}
-        onChange={handleTipoChange}
-        options={OPCIONES_TIPO}
-        disabled={esDemo}
-      />
-
-      {/* Fecha — raw <label><input type="date"> (CampoTexto cannot host date, D-04/§0) */}
-      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-        Fecha
-        <input
-          type="date"
-          value={fecha}
-          max={hoy}
-          onChange={(e) => setFecha(e.target.value)}
-          required
+      {/*
+        Sectioning (impeccable critique P2): the movement facts (tipo, fecha,
+        descripción, monto) and the classification cascade below are two
+        distinct decisions for the user — this fieldset/legend gives that
+        break a name instead of reading as one flat list. `fieldset`/`legend`
+        over a heading+divider because it's already the app's own idiom for
+        grouping related fields (PerfilForm's "Cambiar password" section) and
+        gets the `role="group"` + accessible name for free. Same `mb-4`
+        legend spacing note as PerfilForm applies here (see that file).
+      */}
+      <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
+        <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
+          Movimiento
+        </legend>
+        {/* Tipo selector — type-first (D-01/D-02) */}
+        <CampoSelect
+          label="Tipo"
+          value={tipo}
+          onChange={handleTipoChange}
+          options={OPCIONES_TIPO}
           disabled={esDemo}
-          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
         />
-      </label>
-      {errores.fecha && (
-        <p className="text-sm text-destructive">{errores.fecha}</p>
-      )}
 
-      {/* Descripción — CampoTexto (type='text', D-15) */}
-      <CampoTexto
-        label="Descripción"
-        value={descripcion}
-        onChange={setDescripcion}
-        type="text"
-        disabled={esDemo}
-      />
-      {errores.descripcion && (
-        <p className="text-sm text-destructive">{errores.descripcion}</p>
-      )}
+        {/* Fecha — raw <label><input type="date"> (CampoTexto cannot host date, D-04/§0) */}
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Fecha
+          <input
+            type="date"
+            value={fecha}
+            max={hoy}
+            onChange={(e) => setFecha(e.target.value)}
+            required
+            disabled={esDemo}
+            className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+          />
+        </label>
+        {errores.fecha && (
+          <p className="text-sm text-destructive">{errores.fecha}</p>
+        )}
 
-      {/* Monto — raw <label><input type="text" inputMode="numeric"> (D-03/§0) */}
-      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-        Monto
-        <input
+        {/* Descripción — CampoTexto (type='text', D-15) */}
+        <CampoTexto
+          label="Descripción"
+          value={descripcion}
+          onChange={setDescripcion}
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={monto}
-          onChange={(e) => setMonto(e.target.value)}
           disabled={esDemo}
-          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
         />
-      </label>
-      {errores.monto && (
-        <p className="text-sm text-destructive">{errores.monto}</p>
-      )}
+        {errores.descripcion && (
+          <p className="text-sm text-destructive">{errores.descripcion}</p>
+        )}
 
-      {/* Gasto cascade (D-08/D-09): bucket → categoría */}
+        {/* Monto — raw <label><input type="text" inputMode="numeric"> (D-03/§0) */}
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Monto
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            disabled={esDemo}
+            className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+          />
+        </label>
+        {errores.monto && (
+          <p className="text-sm text-destructive">{errores.monto}</p>
+        )}
+      </fieldset>
+
+      {/* Gasto cascade (D-08/D-09): bucket → categoría — second fieldset,
+          same sectioning idiom as "Movimiento" above (D-09's ordering
+          invariant on cascadaRef's first <select> is unaffected by the
+          fieldset wrapper). */}
       {tipo === 'Gasto' && (
-        <div
+        <fieldset
           ref={cascadaRef}
-          role="group"
-          aria-label="Clasificación del gasto"
-          className="flex flex-col gap-4"
+          className="m-0 flex flex-col gap-4 border-0 p-0"
         >
+          <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
+            Clasificación
+          </legend>
           {/* Catalog error degrade (D-08, CA-08) */}
           {catalogo.tag === 'error' && (
             <p role="alert" className="text-sm text-destructive">
@@ -383,7 +403,7 @@ export function RegistrarMovimientoForm({
           {errores.cascade && (
             <p className="text-sm text-destructive">{errores.cascade}</p>
           )}
-        </div>
+        </fieldset>
       )}
 
       {/* Demo notice (D-11, NuevaCategoriaForm idiom) */}
@@ -398,9 +418,13 @@ export function RegistrarMovimientoForm({
         {feedback?.tono === 'error' && <p>{feedback.texto}</p>}
       </div>
 
-      {/* Submit button (D-11: disabled={esDemo || mutation.isPending}) */}
+      {/* Submit button (D-11: disabled={esDemo || mutation.isPending}) —
+          label swaps to "Registrando…" while pending (impeccable critique
+          P2: in-button async feedback, matching the "registrar" vocabulary
+          the rest of this flow already uses — useRegistrarMovimiento, the
+          success copy below, MENSAJE_DEMO_REGISTRAR). */}
       <Button type="submit" disabled={esDemo || mutation.isPending}>
-        Guardar movimiento
+        {mutation.isPending ? 'Registrando…' : 'Registrar movimiento'}
       </Button>
 
       {/* "Ir al dashboard" — static plain anchor, always present (D-10: not conditional on success) */}

@@ -18,7 +18,7 @@ import { Link } from '@tanstack/react-router';
  */
 export function AyudaPage() {
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8 p-4 pb-12">
+    <div className="mx-auto flex max-w-prose flex-col gap-8 p-4 pb-12">
       <h1 className="text-2xl font-bold text-foreground">Ayuda</h1>
 
       <section

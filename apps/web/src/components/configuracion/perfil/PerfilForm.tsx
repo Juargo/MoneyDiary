@@ -141,7 +141,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
       )}
       <div className="flex justify-end">
         <Button type="submit" disabled={mutation.isPending || me.esDemo}>
-          Guardar cambios
+          {mutation.isPending ? 'Guardando…' : 'Guardar cambios'}
         </Button>
       </div>
       <div aria-live="polite" className="text-sm text-exito-foreground">
