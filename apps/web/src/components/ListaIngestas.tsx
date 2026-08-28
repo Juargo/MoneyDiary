@@ -4,8 +4,19 @@ import { ErrorState } from './states/Error';
 import { Empty } from './states/Empty';
 import { EliminarIngestaControl } from './EliminarIngestaControl';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { InlineConfirm } from './ui/inline-confirm';
 import { useIngestas } from '@/api/use-ingestas';
+import { useMe } from '@/api/use-me';
+import {
+  useSeleccionMasivaIngestas,
+  type ResultadoEliminacionMasiva,
+} from '@/api/use-seleccion-masiva-ingestas';
+import { pluralizar } from '@/lib/pluralizar';
 import type { IngestaListItemDto } from '@/api/types';
+
+const MENSAJE_DEMO_SELECCION =
+  'Estás en una cuenta de demostración. Crea una cuenta real para eliminar varias cartolas a la vez.';
 
 /**
  * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3; widened
@@ -35,9 +46,34 @@ import type { IngestaListItemDto } from '@/api/types';
  * `<ul>`, so they survive any individual row unmounting.
  * `EliminarIngestaControl` calls the `onEliminado` callback it receives
  * instead of announcing/closing anything itself.
+ *
+ * Bulk delete (power-user efficiency round, critique round-7 P2; hardened
+ * by a 4R review): a year-two user with dozens of ingestas shouldn't have to
+ * delete them one at a time. Mirrors `PreviewMuestra`'s bulk idiom (master
+ * checkbox + sticky toolbar) rather than inventing a new one, but reuses the
+ * SAME per-ingesta DELETE mutation family sequentially — no new write
+ * surface. The whole selection/confirm/sequential-delete state machine lives
+ * in `useSeleccionMasivaIngestas` (`bulk` below) — see that hook's docstring
+ * for the structural fixes (frozen selection while the dialog is open,
+ * Escape guarded during a run, batched cache invalidation). This component
+ * only composes it: it owns the stable `anuncio` live region + heading
+ * focus, and decides (via `alResultadoMasivo`) that focus moves to the
+ * heading ONLY on full success — the dialog stays open on partial failure,
+ * so ripping focus away from it would be wrong.
+ *
+ * Demo (mirrors `CategoriaFila`/`CategoriasPanel`'s `esDemo` idiom — the
+ * closest existing "list with per-row destructive action + demo gating"
+ * precedent in this codebase; `EliminarIngestaControl` itself has no
+ * `esDemo` handling to mirror): `useMe()` reads `esDemo` directly (this
+ * component is mounted bare as the route's component, with no route context
+ * threaded in, unlike `SubirCartola`), proactively disables every checkbox,
+ * and a `role="note"` banner explains why — the per-row delete stays
+ * untouched (out of scope here).
  */
 export function ListaIngestas() {
   const query = useIngestas();
+  const { data: me } = useMe();
+  const esDemo = me?.esDemo ?? false;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [anuncio, setAnuncio] = useState('');
 
@@ -45,6 +81,19 @@ export function ListaIngestas() {
     setAnuncio('Cartola eliminada.');
     headingRef.current?.focus();
   }
+
+  function alResultadoMasivo(resultado: ResultadoEliminacionMasiva) {
+    setAnuncio(resultado.mensaje);
+    if (resultado.ok) {
+      headingRef.current?.focus();
+    }
+  }
+
+  // Called unconditionally (Rules of Hooks) — `query.data ?? []` is a safe
+  // placeholder while the query is pending/errored; the JSX below that
+  // actually reads `bulk` is only reached once `query.data` is guaranteed
+  // (past the early returns right below).
+  const bulk = useSeleccionMasivaIngestas(query.data ?? [], alResultadoMasivo);
 
   if (query.isPending) {
     return <Loading message="Cargando cartolas…" />;
@@ -61,6 +110,8 @@ export function ListaIngestas() {
     );
   }
 
+  const ingestas = query.data;
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <h1
@@ -73,15 +124,97 @@ export function ListaIngestas() {
       <span role="status" aria-live="polite" className="sr-only">
         {anuncio}
       </span>
+      {esDemo && (
+        <p role="note" className="text-sm text-muted-foreground">
+          {MENSAJE_DEMO_SELECCION}
+        </p>
+      )}
+      {bulk.idsSeleccionables.length > 0 && (
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            aria-label={bulk.etiquetaSeleccionarTodas}
+            checked={bulk.todasSeleccionadas}
+            disabled={esDemo || bulk.interaccionBloqueada}
+            ref={(el) => {
+              if (el) {
+                el.indeterminate =
+                  bulk.algunaSeleccionada && !bulk.todasSeleccionadas;
+              }
+            }}
+            onChange={bulk.alternarTodas}
+            className="size-4 shrink-0 rounded border-border accent-primary"
+          />
+          {bulk.etiquetaSeleccionarTodas}
+        </label>
+      )}
       <ul className="flex flex-col gap-3">
-        {query.data.map((ingesta) => (
+        {ingestas.map((ingesta) => (
           <IngestaItem
             key={ingesta.id}
             ingesta={ingesta}
             onEliminado={alEliminar}
+            selected={bulk.seleccionados.has(ingesta.id)}
+            onToggleSelect={bulk.alternarFila}
+            checkboxDeshabilitado={esDemo || bulk.interaccionBloqueada}
           />
         ))}
       </ul>
+      {bulk.seleccionados.size > 0 && (
+        // `bottom-16 lg:bottom-0` mirrors `PreviewMuestra`'s toolbar clearance
+        // for the fixed `BottomTabs` bar on mobile (`h-16`) — see that
+        // component's docstring for the full stacking-order reasoning.
+        <div className="sticky bottom-16 z-10 flex flex-col gap-2 lg:bottom-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
+            <span className="text-sm font-medium text-foreground">
+              {bulk.etiquetaSeleccionadas}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={bulk.abrirConfirmacion}
+              // 4R review fix (R1-CRITICAL stale dialog / R4-CRITICAL
+              // re-entrancy): disabled while a confirmation is already open
+              // or running — a second click could otherwise re-open (and
+              // reset) the dialog against a `seleccionados` set that no
+              // longer matches what's already disclosed/in flight.
+              disabled={bulk.interaccionBloqueada}
+              className="text-destructive"
+            >
+              Eliminar seleccionadas ({bulk.seleccionados.size})
+            </Button>
+          </div>
+          {bulk.confirmando && bulk.resumenMasivo && (
+            <InlineConfirm
+              title="Confirmar eliminación masiva"
+              confirmLabel={
+                bulk.eliminando
+                  ? `Eliminando… (${bulk.progreso}/${bulk.resumenMasivo.cantidad})`
+                  : 'Confirmar'
+              }
+              destructive
+              onConfirm={bulk.confirmar}
+              onCancel={bulk.cancelarConfirmacion}
+              pending={bulk.eliminando}
+              cancelDisabled={bulk.eliminando}
+              error={bulk.mensajeFallidas}
+              className="gap-2 p-3 text-sm"
+            >
+              <p>
+                Se eliminarán{' '}
+                {pluralizar(bulk.resumenMasivo.cantidad, 'cartola', 'cartolas')}{' '}
+                y{' '}
+                {pluralizar(
+                  bulk.resumenMasivo.movimientos,
+                  'movimiento',
+                  'movimientos',
+                )}{' '}
+                en total. Esta acción no se puede deshacer.
+              </p>
+            </InlineConfirm>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -103,24 +236,49 @@ export function ListaIngestas() {
  *
  * `nombreArchivo` is rendered as plain JSX text (React auto-escapes) — it is
  * a client-controlled, uploaded file name, never trusted as markup.
+ *
+ * `selected`/`onToggleSelect` (bulk delete): the checkbox only renders for a
+ * PROCESADA row — same gate as `EliminarIngestaControl` below, since a
+ * FALLIDA row is not deletable at all (ING-05). `checkboxDeshabilitado`
+ * covers BOTH reasons the caller might freeze it: `esDemo` (mirrors
+ * `CategoriaFila`'s pattern) and `interaccionBloqueada` (4R review fix — the
+ * confirmation dialog is open or a run is in flight).
  */
 function IngestaItem({
   ingesta,
   onEliminado,
+  selected,
+  onToggleSelect,
+  checkboxDeshabilitado,
 }: {
   readonly ingesta: IngestaListItemDto;
   readonly onEliminado: () => void;
+  readonly selected: boolean;
+  readonly onToggleSelect: (id: string) => void;
+  readonly checkboxDeshabilitado: boolean;
 }) {
   const fechaLabel = ingesta.fecha.slice(0, 10);
   const esFallida = ingesta.estado === 'FALLIDA';
 
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>{fechaLabel}</span>
-        <Badge variant={esFallida ? 'destructive' : 'secondary'}>
-          {esFallida ? 'Fallido' : 'Exitoso'}
-        </Badge>
+      <div className="flex items-center gap-2">
+        {!esFallida && (
+          <input
+            type="checkbox"
+            aria-label={`Seleccionar cartola ${ingesta.banco ?? ''} (${fechaLabel})`}
+            checked={selected}
+            disabled={checkboxDeshabilitado}
+            onChange={() => onToggleSelect(ingesta.id)}
+            className="size-4 shrink-0 rounded border-border accent-primary"
+          />
+        )}
+        <div className="flex flex-1 items-center justify-between text-sm text-muted-foreground">
+          <span>{fechaLabel}</span>
+          <Badge variant={esFallida ? 'destructive' : 'secondary'}>
+            {esFallida ? 'Fallido' : 'Exitoso'}
+          </Badge>
+        </div>
       </div>
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-foreground">
@@ -133,8 +291,11 @@ function IngestaItem({
       ) : (
         <div className="flex items-center justify-between text-sm text-foreground">
           <span>
-            {ingesta.totalTransacciones}{' '}
-            {ingesta.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
+            {pluralizar(
+              ingesta.totalTransacciones,
+              'movimiento',
+              'movimientos',
+            )}
           </span>
           {/* `estado="exitoso"` is hardcoded (not derived from `ingesta.estado`):
               this branch only renders for PROCESADA rows (US-004 gating
