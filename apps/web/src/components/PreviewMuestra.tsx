@@ -338,7 +338,7 @@ export function PreviewMuestra({
       {catalogo.tag === 'error' && (
         <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
           No se pudo cargar el catálogo de categorías. La clasificación no está
-          disponible, pero podés revisar los montos y continuar.
+          disponible, pero puedes revisar los montos y continuar.
         </p>
       )}
 

@@ -97,7 +97,7 @@ describe('useRegistrarMovimiento', () => {
 
     expect(result.current.error).toEqual({
       tag: 'unauthorized',
-      message: 'Tu sesión expiró. Iniciá sesión de nuevo.',
+      message: 'Tu sesión expiró. Inicia sesión de nuevo.',
     });
   });
 

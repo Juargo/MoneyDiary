@@ -87,7 +87,7 @@ describe('postMovimientoManual', () => {
     if (!result.ok) {
       expect(result.error.tag).toBe('invalid');
       expect(result.error.message).toBe(
-        'Datos inválidos. Revisá los campos y volvé a intentar.',
+        'Datos inválidos. Revisa los campos y vuelve a intentar.',
       );
     }
     // CRITICAL: must NOT attempt to read the body on 400 (no body exists)
@@ -113,7 +113,7 @@ describe('postMovimientoManual', () => {
     if (!result.ok) {
       expect(result.error.tag).toBe('unauthorized');
       expect(result.error.message).toBe(
-        'Tu sesión expiró. Iniciá sesión de nuevo.',
+        'Tu sesión expiró. Inicia sesión de nuevo.',
       );
     }
   });

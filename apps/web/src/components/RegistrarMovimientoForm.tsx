@@ -130,20 +130,20 @@ export function RegistrarMovimientoForm({
   const bucketOptions =
     catalogo.tag === 'listo'
       ? [
-          { value: '', label: 'Seleccioná un bucket' },
+          { value: '', label: 'Selecciona un bucket' },
           ...catalogo.grupos.map((g) => ({ value: g.bucket, label: g.bucket })),
         ]
-      : [{ value: '', label: 'Seleccioná un bucket' }];
+      : [{ value: '', label: 'Selecciona un bucket' }];
 
   const categoriaOptions =
     catalogo.tag === 'listo' && bucketUI
       ? [
-          { value: '', label: 'Seleccioná una categoría' },
+          { value: '', label: 'Selecciona una categoría' },
           ...(catalogo.grupos
             .find((g) => g.bucket === bucketUI)
             ?.categorias.map((c) => ({ value: c.id, label: c.nombre })) ?? []),
         ]
-      : [{ value: '', label: 'Seleccioná una categoría' }];
+      : [{ value: '', label: 'Selecciona una categoría' }];
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -208,16 +208,16 @@ export function RegistrarMovimientoForm({
       nextErrores.descripcion = 'La descripción es obligatoria.';
     }
     if (!esMontoManualValido(monto)) {
-      nextErrores.monto = 'Ingresá un monto válido (número entero positivo).';
+      nextErrores.monto = 'Ingresa un monto válido (número entero positivo).';
     }
     if (!esFechaValida(fecha) || fecha > hoyLocal()) {
       nextErrores.fecha = 'La fecha no puede ser futura.';
     }
     if (tipo === 'Gasto') {
       if (!esBucketAsignable(bucketUI)) {
-        nextErrores.cascade = 'Seleccioná un bucket válido.';
+        nextErrores.cascade = 'Selecciona un bucket válido.';
       } else if (!categoriaId) {
-        nextErrores.cascade = 'Seleccioná una categoría.';
+        nextErrores.cascade = 'Selecciona una categoría.';
       }
     }
 
@@ -369,8 +369,8 @@ export function RegistrarMovimientoForm({
           {/* Catalog error degrade (D-08, CA-08) */}
           {catalogo.tag === 'error' && (
             <p role="alert" className="text-sm text-destructive">
-              No se pudo cargar el catálogo de categorías. Podés intentar con
-              los valores que ya tenés seleccionados o reintentar más tarde.
+              No se pudo cargar el catálogo de categorías. Puedes intentar con
+              los valores que ya tienes seleccionados o reintentar más tarde.
             </p>
           )}
           {catalogo.tag === 'cargando' && (

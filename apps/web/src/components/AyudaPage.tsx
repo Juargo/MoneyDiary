@@ -32,10 +32,10 @@ export function AyudaPage() {
           Cómo funciona MoneyDiary
         </h2>
         <ol className="flex list-inside list-decimal flex-col gap-2 text-sm text-foreground">
-          <li>Subís tu cartola (el archivo que te da tu banco).</li>
+          <li>Subes tu cartola (el archivo que te da tu banco).</li>
           <li>
-            Revisás los movimientos — muchos ya vienen clasificados solos por
-            tus patrones — y ajustás lo que falte en Necesidades, Gustos o
+            Revisas los movimientos — muchos ya vienen clasificados solos por
+            tus patrones — y ajustas lo que falte en Necesidades, Gustos o
             Ahorro.
           </li>
           <li>
@@ -75,14 +75,14 @@ export function AyudaPage() {
           <div>
             <dt className="font-semibold text-foreground">Cartola</dt>
             <dd className="text-muted-foreground">
-              El archivo (.xlsx o .pdf) que descargás de tu banco con los
+              El archivo (.xlsx o .pdf) que descargas de tu banco con los
               movimientos del mes.
             </dd>
           </div>
           <div>
             <dt className="font-semibold text-foreground">Ingesta</dt>
             <dd className="text-muted-foreground">
-              Cada vez que subís una cartola. Queda registrada en Gestionar
+              Cada vez que subes una cartola. Queda registrada en Gestionar
               cartolas como exitosa o fallida.
             </dd>
           </div>

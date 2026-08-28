@@ -46,7 +46,7 @@ describe('AyudaPage', () => {
     const pasos = await screen.findAllByRole('listitem');
     const textos = pasos.map((li) => li.textContent);
 
-    expect(textos.some((t) => t?.includes('Subís tu cartola'))).toBe(true);
+    expect(textos.some((t) => t?.includes('Subes tu cartola'))).toBe(true);
     expect(
       textos.some((t) => t?.includes('Necesidades, Gustos o Ahorro')),
     ).toBe(true);

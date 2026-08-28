@@ -58,7 +58,7 @@ type EstadoSubida =
 const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
   idle: 'Selecciona un archivo .xlsx o .pdf para subir.',
   previsualizando: 'Generando vista previa…',
-  'preview-listo': 'Vista previa lista. Revisá y confirmá.',
+  'preview-listo': 'Vista previa lista. Revisa y confirma.',
   'preview-error': 'No se pudo generar la vista previa.',
   committing: 'Subiendo transacciones…',
   exito: 'Importación completada.',
