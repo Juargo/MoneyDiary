@@ -878,8 +878,6 @@ describe('PreviewMuestra', () => {
       await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
       await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
 
-      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
-      await userEvent.selectOptions(bucketToolbar, 'Necesidades');
       const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
       await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
 
@@ -897,11 +895,15 @@ describe('PreviewMuestra', () => {
       expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
     });
 
-    // Round-9 critique P1 fix 1: the bulk toolbar's bucket select shows
-    // "Gustos" as label while the option value stays "Deseos" — submitting
-    // (via "Aplicar") still writes the domain categoriaId, unaffected by
-    // the label change (bucket itself is never part of the wire payload).
-    it('round-9 P1: toolbar bucket select shows "Gustos" label with "Deseos" value; applying still uses the real categoriaId', async () => {
+    // Round-9 critique P2 structural distill: the bucket→categoría cascade
+    // collapsed into ONE select whose options are grouped by
+    // `<optgroup label="Gustos">` (etc). The bucket is DERIVED from the
+    // chosen categoría (every categoría belongs to exactly one bucket) — it
+    // is never a separate control and never part of the `onEditChange`
+    // payload (that was already true even under the old two-select cascade:
+    // bucket was UI-only filtering, categoriaId was always the only thing
+    // written to the wire).
+    it('round-9 P2: the combined categoría select groups options under bucket optgroups labeled with the UI label ("Gustos", never "Deseos")', async () => {
       const onEditChange = vi.fn();
 
       render(
@@ -917,26 +919,33 @@ describe('PreviewMuestra', () => {
 
       await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
 
-      const bucketToolbar = screen.getByLabelText(
-        /bucket para aplicar/i,
+      const categoriaToolbar = screen.getByLabelText(
+        /categoría para aplicar/i,
       ) as HTMLSelectElement;
-      const deseosOption = Array.from(bucketToolbar.options).find(
-        (o) => o.value === 'Deseos',
+
+      const deseosOption = Array.from(categoriaToolbar.options).find(
+        (o) => o.value === 'cat-des-1',
       );
       expect(deseosOption).toBeDefined();
-      expect(deseosOption?.text).toBe('Gustos');
+      expect(deseosOption?.text).toBe('Restaurantes');
+      const deseosGroup = deseosOption?.closest(
+        'optgroup',
+      ) as HTMLOptGroupElement | null;
+      expect(deseosGroup).not.toBeNull();
+      expect(deseosGroup?.label).toBe('Gustos');
+      expect(deseosGroup?.label).not.toBe('Deseos');
 
-      await userEvent.selectOptions(bucketToolbar, 'Deseos');
-      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
       await userEvent.selectOptions(categoriaToolbar, 'cat-des-1');
       await userEvent.click(
         screen.getByRole('button', { name: /aplicar a 1 seleccionada/i }),
       );
 
+      // Bucket never appears in the payload — categoriaId only (D-03).
       expect(onEditChange).toHaveBeenCalledWith(0, 'cat-des-1');
+      expect(onEditChange).toHaveBeenCalledTimes(1);
     });
 
-    it('"Aplicar" stays disabled until both bucket and categoría are chosen, and is not clickable before that', async () => {
+    it('"Aplicar" stays disabled until a categoría is chosen, and is not clickable before that', async () => {
       const onEditChange = vi.fn();
 
       render(
@@ -958,13 +967,39 @@ describe('PreviewMuestra', () => {
       });
       expect(aplicarBtn).toBeDisabled();
 
-      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
-      await userEvent.selectOptions(bucketToolbar, 'Necesidades');
       const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
       await userEvent.selectOptions(categoriaToolbar, 'cat-nec-1');
 
       expect(aplicarBtn).toBeEnabled();
       expect(onEditChange).not.toHaveBeenCalled();
+    });
+
+    it('the combined categoría select leads with a neutral placeholder option and no bucket select exists anymore', async () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+      const categoriaToolbar = screen.getByLabelText(
+        /categoría para aplicar/i,
+      ) as HTMLSelectElement;
+      expect(categoriaToolbar.value).toBe('');
+      expect(categoriaToolbar.options[0].value).toBe('');
+      expect(categoriaToolbar.options[0].text).toMatch(
+        /selecciona una categoría/i,
+      );
+
+      expect(
+        screen.queryByLabelText(/bucket para aplicar/i),
+      ).not.toBeInTheDocument();
     });
 
     it('"Limpiar selección" clears the selection without calling onEditChange', async () => {
@@ -1036,7 +1071,7 @@ describe('PreviewMuestra', () => {
         expect(dismiss.className).toMatch(/focus-visible:/);
       });
 
-      it('the toolbar distills to exactly two selects and two buttons (dismiss pill + Aplicar) — no separate "Limpiar selección" text button', async () => {
+      it('round-9 P2: the toolbar distills to ONE combined categoría select (no bucket select) plus two buttons (dismiss pill + Aplicar) — 4 controls total, the ≤4 working-memory budget', async () => {
         const { container } = render(
           <PreviewMuestra
             banco="BancoEstado"
@@ -1058,6 +1093,9 @@ describe('PreviewMuestra', () => {
         expect(buttons).toHaveLength(2);
         const ariaLabels = buttons.map((b) => b.getAttribute('aria-label'));
         expect(ariaLabels).toContain('Limpiar selección');
+
+        const selects = within(toolbar).getAllByRole('combobox');
+        expect(selects).toHaveLength(1);
       });
 
       it('clicking the dismiss control clears the selection without calling onEditChange (same behavior as before the distill)', async () => {
@@ -1569,8 +1607,6 @@ describe('PreviewMuestra', () => {
       // as a plausible UX trap (an individual classification can be
       // silently overwritten by a bulk apply the user can no longer see
       // includes that row) rather than changed unilaterally here.
-      const bucketToolbar = screen.getByLabelText(/bucket para aplicar/i);
-      await userEvent.selectOptions(bucketToolbar, 'Deseos');
       const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
       await userEvent.selectOptions(categoriaToolbar, 'cat-des-1');
       await userEvent.click(
