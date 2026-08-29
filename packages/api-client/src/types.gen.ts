@@ -2060,6 +2060,8 @@ export interface components {
                     readonly id: string;
                     /** @description BigInt-safe decimal string amount (never a JSON number). */
                     readonly monto: string;
+                    /** @description Bank name verbatim, or 'Manual' for a hand-entered movement (D-02). Drives the delete affordance on manual rows (WEB-DEL-01). */
+                    readonly origen: string;
                 }[];
             }[];
             /** @description Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05). */

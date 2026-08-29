@@ -46,15 +46,15 @@ Chain strategy: pending
 
 ## Phase 3: Gasto `origen` DTO plumbing (D-02)
 
-- [ ] 3.1 [RED] Extend `agrupar-detalle-por-categoria.spec.ts`: `origen` = banco verbatim; empty banco → `'Manual'`
-- [ ] 3.2 [RED] Extend `obtener-detalle-bucket-mes.use-case.spec.ts`: same `origen` assertions
-- [ ] 3.3 [RED] Extend `bucket-detalle-mes.schema.spec.ts`: mapper output parses under `.strict()` with new `origen` key
-- [ ] 3.4 [GREEN] Add `origen` to `recortarTransaccion` + `TransaccionDetalleBucketMes` in `agrupar-detalle-por-categoria.ts`
-- [ ] 3.5 [GREEN] Add `origen` to `detalle-bucket-mes.dto.ts` (type + mapper)
-- [ ] 3.6 [GREEN] Add `origen` inside `.strict()` in `bucket-detalle-mes.schema.ts`
-- [ ] 3.7 Run `pnpm contract:sync` for this DTO change
-- [ ] 3.8 [GREEN] Add `origen` to `apps/web/src/domain/detalle-bucket-mes-view-model.ts`
-- [ ] 3.9 Add cross-reference comment at both `origen: fila.banco || 'Manual'` occurrences (DRY annotate-at-2, no extraction yet)
+- [x] 3.1 [RED] Extend `agrupar-detalle-por-categoria.spec.ts`: `origen` = banco verbatim; empty banco → `'Manual'`
+- [x] 3.2 [RED] Extend `obtener-detalle-bucket-mes.use-case.spec.ts`: same `origen` assertions
+- [x] 3.3 [RED] Extend `bucket-detalle-mes.schema.spec.ts`: mapper output parses under `.strict()` with new `origen` key
+- [x] 3.4 [GREEN] Add `origen` to `recortarTransaccion` + `TransaccionDetalleBucketMes` in `agrupar-detalle-por-categoria.ts`
+- [x] 3.5 [GREEN] Add `origen` to `detalle-bucket-mes.dto.ts` (type + mapper)
+- [x] 3.6 [GREEN] Add `origen` inside `.strict()` in `bucket-detalle-mes.schema.ts`
+- [x] 3.7 Run `pnpm contract:sync` for this DTO change
+- [x] 3.8 [GREEN] Add `origen` to `apps/web/src/domain/detalle-bucket-mes-view-model.ts`
+- [x] 3.9 Add cross-reference comment at both `origen: fila.banco || 'Manual'` occurrences (DRY annotate-at-2, no extraction yet)
 
 ## Phase 4: Web delete control + wiring (TDD)
 
@@ -94,3 +94,34 @@ Verification run for this slice (2026-08-29, on `main`):
 - ESLint on all touched files — clean (after `--fix` for prettier formatting only)
 - Integration test file written per D-05 fixture strategy; NOT run locally (DB-gated,
   `ALLOW_DESTRUCTIVE_DB=1`, CI-only per house convention)
+
+## Slice 2 (PR 2) status — gasto `origen` DTO plumbing
+
+**All Phase 3 tasks complete** (this slice). Phase 4 (web delete control + wiring,
+PR 3) remains OUT OF SCOPE — depends on this slice's `origen` signal plus PR 1's
+endpoint, per the Suggested Work Units table above.
+
+Behavior change vs. the original MBD-08/W-2 gate tests: `banco` is no longer fully
+stripped at the gasto application boundary — it now survives as `origen` (bank name
+verbatim, or `'Manual'`), mirroring `TransaccionIngresoMes.origen`. Only ACCOUNT PII
+(`tipoCuenta`/`numeroCuenta`) remains recortada. Every test asserting "no PII"
+(`agrupar-detalle-por-categoria.spec.ts`, `obtener-detalle-bucket-mes.use-case.spec.ts`,
+`detalle-bucket-mes.dto.spec.ts`, `app.bucket-detalle-mes.spec.ts` fixture) was updated
+to reflect this — no longer forbidding the bank-name string, still forbidding
+`tipoCuenta`/`numeroCuenta`/account-number values.
+
+Verification run for this slice (2026-08-29, on `main`, uncommitted per orchestrator
+instruction):
+- `pnpm --filter @moneydiary/api test` — 264 files / 2411 tests, all green
+- `pnpm --filter @moneydiary/web test` — 126 files / 1544 tests, all green
+- `pnpm api exec tsc --noEmit` — clean
+- `pnpm api build` (`tsc -p tsconfig.build.json`) — clean
+- `cd apps/web && pnpm exec tsc --noEmit` — clean
+- `pnpm web build` (`tsr generate && tsc -b && vite build`) — clean (after fixing 14
+  pre-existing test fixtures across 4 web files that hard-typed
+  `TransaccionDetalleBucketMesDto`/`TransaccionDetalleMesViewModel` literals without
+  the now-required `origen` field — `tsc -b`'s project-reference build caught these;
+  plain `tsc --noEmit` at the app root did not)
+- `pnpm contract:sync` run; `pnpm api openapi:check` — in sync
+- ESLint on all touched files (api + web) — clean (one `--fix` pass on
+  `agrupar-detalle-por-categoria.spec.ts`, prettier line-wrap only)

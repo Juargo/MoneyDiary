@@ -29,6 +29,7 @@ const gruposOrdenServidor: DetalleBucketMesDto['grupos'] = [
         id: 'tx-1',
         fecha: '2026-07-15T00:00:00.000Z',
         descripcion: 'Ñoquis al pesto',
+        origen: 'BCI',
         monto: '400000',
       },
     ],
@@ -43,6 +44,7 @@ const gruposOrdenServidor: DetalleBucketMesDto['grupos'] = [
         id: 'tx-2',
         fecha: '2026-07-16T00:00:00.000Z',
         descripcion: 'Zapatos',
+        origen: 'BCI',
         monto: '50000',
       },
     ],
@@ -57,6 +59,7 @@ const gruposOrdenServidor: DetalleBucketMesDto['grupos'] = [
         id: 'tx-3',
         fecha: '2026-07-17T00:00:00.000Z',
         descripcion: 'Movimiento sin categoría',
+        origen: 'Manual',
         monto: '50000',
       },
     ],
@@ -127,8 +130,18 @@ describe('aDetalleBucketMesViewModel', () => {
       id: 'tx-3',
       fecha: '2026-07-17T00:00:00.000Z',
       descripcion: 'Movimiento sin categoría',
+      origen: 'Manual',
       montoLabel: '$50.000',
     });
+  });
+
+  it('D-02: origen pasa verbatim del wire — señal esManual para el futuro control de borrado (WEB-DEL-01, PR3)', () => {
+    const viewModel = aDetalleBucketMesViewModel(
+      dtoConGrupos(gruposOrdenServidor),
+    );
+
+    expect(viewModel.grupos[0].transacciones[0].origen).toBe('BCI');
+    expect(viewModel.grupos[2].transacciones[0].origen).toBe('Manual');
   });
 
   it('un mes sin movimientos llega con totales en cero y grupos vacíos (MBD-01/WDM-05)', () => {

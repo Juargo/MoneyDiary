@@ -97,6 +97,7 @@ const GRUPO_FIXTURE: GrupoDetalleMesViewModel = {
       id: 'tx-1',
       fecha: '2026-07-01',
       descripcion: 'Compra en Líder',
+      origen: 'BCI',
       montoLabel: '$10.000',
     },
   ],
