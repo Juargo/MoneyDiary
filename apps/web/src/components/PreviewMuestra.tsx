@@ -4,6 +4,7 @@ import { HelpCircle, X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
 import { Button } from './ui/button';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
 import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -120,6 +121,18 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * at every breakpoint, and it renders unconditionally within the sticky
  * header (not gated by `seleccionados.size` or `soloSinClasificar`) since
  * it is reference information, not a working-memory-budget control.
+ *
+ * Design critique round-10, P3 (inline definition at point of use): the
+ * round-8 P2-B glossary `<Link>` pointed first-timers at `/ayuda#ayuda-
+ * glosario` for the definition of "bucket", but reaching it meant abandoning
+ * the upload flow mid-review. A plain, always-visible `text-xs
+ * text-muted-foreground` line right above that link now states the
+ * definition inline ("el grupo 50/30/20 al que va el gasto…") — no
+ * tooltip/popover library, no `title`/`aria-describedby` hint mechanism
+ * (craft-floor idiom: quiet visible text over hover-gated affordances). The
+ * `Link` stays for anyone who wants the fuller glossary entry; the two are
+ * complementary, not redundant — one is the one-line answer, the other is
+ * the depth.
  *
  * Design critique round-9, P2 (structural distill, bulk-apply toolbar): three
  * prior rounds (P2 fix 2, P4, round-8 P2-A) trimmed the toolbar by hiding or
@@ -273,13 +286,14 @@ export function PreviewMuestra({
   const [categoriaToolbar, setCategoriaToolbar] = useState('');
 
   // D-05: merged display value computed once — edits win over
-  // sugerido.categoriaId. Backs the progress count, the filter, and the
-  // `categoriaId` prop each FilaRevision receives.
+  // sugerido.categoriaId (round-10 CRITICAL follow-up: extracted to
+  // `resolverCategoriaMerged` so `SubirCartola`'s discard confirm reads the
+  // SAME rule instead of a second copy that could drift). Backs the
+  // progress count, the filter, and the `categoriaId` prop each
+  // FilaRevision receives.
   const filasConMerged: FilaConMerged[] = filas.map((fila) => ({
     fila,
-    categoriaMerged: edits.has(fila.rowIndex)
-      ? (edits.get(fila.rowIndex) ?? null)
-      : (fila.sugerido?.categoriaId ?? null),
+    categoriaMerged: resolverCategoriaMerged(fila, edits),
   }));
 
   const noDuplicadas = filasConMerged.filter((f) => !f.fila.esDuplicado);
@@ -519,6 +533,30 @@ export function PreviewMuestra({
               Categoría
             </span>
           </div>
+          {/* Round-10 critique P3 fix 4: inline "bucket" definition at
+              point of use — the glossary link alone made a first-timer
+              abandon the upload flow just to learn what "bucket" means
+              (see docblock). Plain muted text-xs line (craft-floor idiom:
+              no tooltip/popover library, no title/aria-describedby hint
+              mechanism) — same always-visible register as the P2-B link
+              right below it, which stays for anyone wanting the fuller
+              glossary entry. */}
+          {/* `<strong>`, deliberately NOT `<span className="font-medium">`:
+              this `<p>` carries `text-muted-foreground`, and
+              `PreviewMuestra.test.tsx:582` (grouping-by-date suite) scopes
+              via `container.querySelectorAll('.text-muted-foreground >
+              span.font-medium')` to read ONLY the row-description spans —
+              querySelectorAll matches ANY depth in the container, not just
+              this row's siblings, so a `span.font-medium` direct child here
+              would have been picked up too (confirmed: swapping this back
+              to `<span className="font-medium ...">` makes that test fail
+              with an extra "Bucket" entry prepended to the expected
+              ['A','B','C']). `<strong>` conveys the same visual weight
+              without matching that selector. */}
+          <p className="px-2 text-xs text-muted-foreground">
+            <strong className="font-medium text-foreground">Bucket</strong>: el
+            grupo 50/30/20 al que va el gasto (Necesidades, Gustos o Ahorro).
+          </p>
           {/* P2-B contextual help: quiet, always-visible (not aria-hidden,
               not sm+-only, not gated by selection) — see docblock. */}
           <Link

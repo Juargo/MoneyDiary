@@ -196,13 +196,19 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(screen.getByLabelText(/monto/i)).toBeInTheDocument();
   });
 
-  // ── Permanence expectation note (impeccable critique r7 P2, harden) ──────
+  // ── Permanence expectation note (round-10 critique P3 reversal) ──────────
+  // r7 P2 originally rendered MENSAJE_PERMANENCIA as an always-visible form
+  // note (shipped PR #497). Round-10 found it duplicated inside the confirm
+  // dialog too (design D-04) and ruled the duplication dilutes the message
+  // rather than reinforcing it — see the component docblock for the full
+  // rationale. This test now pins the REMOVAL; the dialog copy is pinned
+  // separately below ("el diálogo resume ... y la nota de permanencia").
 
-  it('shows the permanence note before submit: movement cannot be edited, but CAN be deleted from the month detail (WEB-DEL-02)', () => {
+  it('round-10 P3: does NOT show the permanence note before the confirm dialog opens (moved to point-of-commitment only)', () => {
     setupDefaultHooks();
     renderForm();
 
-    expect(screen.getByText(MENSAJE_PERMANENCIA)).toBeInTheDocument();
+    expect(screen.queryByText(MENSAJE_PERMANENCIA)).not.toBeInTheDocument();
   });
 
   // ── CA-02: WEB-REG-03 — Ingreso zeroing + wire-body assertion ─────────────
@@ -1074,14 +1080,12 @@ describe('RegistrarMovimientoForm (US-060)', () => {
       screen.getByRole('button', { name: /guardar|registrar|enviar/i }),
     ).toBeDisabled();
 
-    // Demo notice visible (getAllByRole: the permanence note is a second,
-    // always-present role="note" — assert the demo one by its text)
-    const notas = screen.getAllByRole('note');
-    expect(
-      notas.some((nota) =>
-        nota.textContent?.includes('No es posible registrar movimientos'),
-      ),
-    ).toBe(true);
+    // Demo notice visible (round-10 P3: the permanence note no longer
+    // renders outside the confirm dialog, so this is the only role="note"
+    // left on the form).
+    expect(screen.getByRole('note').textContent).toContain(
+      'No es posible registrar movimientos',
+    );
 
     // Submit attempt = no-op — the submit button is disabled, so the click
     // never reaches handleEnviar: no confirmation dialog opens, no mutation.

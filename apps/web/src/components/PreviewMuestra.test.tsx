@@ -703,6 +703,51 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // ── Round-10 critique P3 fix 4: inline "bucket" definition ───────────────
+  describe('inline bucket definition (round-10 P3)', () => {
+    it('shows a one-line definition of "bucket" at point of use, without a tooltip/popover', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByText(
+          /el grupo 50\/30\/20 al que va el gasto \(necesidades, gustos o ahorro\)/i,
+        ),
+      ).toBeInTheDocument();
+      // Plain visible text, not gated behind hover/focus interaction —
+      // there is no [title]/[aria-describedby] tooltip mechanism to probe.
+      expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    });
+
+    it('keeps the Ayuda link alongside the inline definition (definition for the flow, link for depth)', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByText(/el grupo 50\/30\/20 al que va el gasto/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: /ayuda: qué es un bucket/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
   // ── Selection + bulk apply ───────────────────────────────────────────────
   describe('selection + bulk apply', () => {
     const filasDosGrupos: PreviewFilaDto[] = [
