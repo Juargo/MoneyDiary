@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Loading } from './states/Loading';
@@ -8,6 +9,9 @@ import { IngresosMesTable } from './IngresosMesTable';
 import { aIngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
 import type { ApiError } from '@/api/client';
 import type { IngresosMesDto } from '@/api/types';
+
+const MENSAJE_DEMO_ELIMINAR =
+  'Estás en una cuenta de demostración. Crea una cuenta real para eliminar movimientos.';
 
 /**
  * IngresosMesPage — US-054 (T-10, D-04/D-10): página de ingresos del mes.
@@ -22,16 +26,34 @@ import type { IngresosMesDto } from '@/api/types';
  * Empty state: `<Empty>` con copy "Sin ingresos en {mes}" — sin tabla (WDI-04).
  * NO prefetch de catálogo (WDI-06 — sin reclasificación en esta pantalla).
  * Nota estática: "Sin meta ni semáforo: los ingresos no participan del 50/30/20 como gasto".
+ *
+ * Delete affordance (SDD `correccion-movimientos-manuales` PR 3, WEB-DEL-01,
+ * D-03): `esDemo` arrives from the route's `Route.useRouteContext()` (D-12
+ * idiom, `RegistrarMovimientoForm`/`registrar.tsx` precedent) — no extra
+ * `fetchMe()` call here. A successful row delete is announced via a stable
+ * `role="status"` region OUTSIDE the table (survives the deleted row's own
+ * unmount, `EliminarIngestaControl`/`ListaIngestas` precedent) and focus
+ * moves to the `<h1>` (the trigger that was focused unmounts with its row).
  */
 export function IngresosMesPage({
   query,
   periodo,
   onPeriodoChange,
+  esDemo = false,
 }: {
   readonly query: UseQueryResult<IngresosMesDto, ApiError>;
   readonly periodo: string | undefined;
   readonly onPeriodoChange: (periodo: string) => void;
+  readonly esDemo?: boolean;
 }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [anuncio, setAnuncio] = useState('');
+
+  function alEliminar() {
+    setAnuncio('Movimiento eliminado.');
+    headingRef.current?.focus();
+  }
+
   if (query.isPending) {
     return <Loading message="Cargando ingresos…" />;
   }
@@ -60,7 +82,13 @@ export function IngresosMesPage({
             Volver al resumen
           </Link>
         </div>
-        <h1 className="text-2xl font-bold text-foreground">Ingresos</h1>
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-2xl font-bold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          Ingresos
+        </h1>
         <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
         <p className="text-sm text-muted-foreground">
           {viewModel.conteoLabel} · {viewModel.totalLabel}
@@ -71,13 +99,27 @@ export function IngresosMesPage({
         </p>
       </header>
 
+      <span role="status" aria-live="polite" className="sr-only">
+        {anuncio}
+      </span>
+      {esDemo && (
+        <p role="note" className="text-sm text-muted-foreground">
+          {MENSAJE_DEMO_ELIMINAR}
+        </p>
+      )}
+
       {viewModel.filas.length === 0 ? (
         <Empty
           title={`Sin ingresos en ${viewModel.mesLabel}`}
           description="No hay ingresos registrados para este período."
         />
       ) : (
-        <IngresosMesTable mes={viewModel.mesLabel} filas={viewModel.filas} />
+        <IngresosMesTable
+          mes={viewModel.mesLabel}
+          filas={viewModel.filas}
+          esDemo={esDemo}
+          onEliminado={alEliminar}
+        />
       )}
     </div>
   );

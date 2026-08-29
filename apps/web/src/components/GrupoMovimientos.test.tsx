@@ -109,6 +109,133 @@ describe('GrupoMovimientos', () => {
     vi.restoreAllMocks();
   });
 
+  // ── WEB-DEL-01: delete affordance (SDD correccion-movimientos-manuales PR 3) ──
+
+  it('renders EliminarMovimientoControl only for the manual-origin row, formatting fecha via aFechaCorta at the call site (WDM-03)', async () => {
+    mockFetch();
+    const grupoConManual: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      transacciones: [
+        ...GRUPO_FIXTURE.transacciones,
+        {
+          id: 'tx-2',
+          fecha: '2026-07-05T00:00:00.000Z',
+          descripcion: 'Bono manual',
+          origen: 'Manual',
+          montoLabel: '$20.000',
+        },
+      ],
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConManual}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await screen.findByLabelText('Cambiar categoría de Compra en Líder');
+
+    expect(
+      screen.getByRole('button', {
+        name: /Eliminar movimiento Bono manual \(2026-07-05\)/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /Eliminar movimiento Compra en Líder/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('confirming a delete calls onEliminado (parent owns the announcement)', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(CATALOGO_FIXTURE),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 204 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const onEliminado = vi.fn();
+    const grupoConManual: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      transacciones: [
+        {
+          id: 'tx-2',
+          fecha: '2026-07-05',
+          descripcion: 'Bono manual',
+          origen: 'Manual',
+          montoLabel: '$20.000',
+        },
+      ],
+    };
+    const user = userEvent.setup();
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConManual}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+        onEliminado={onEliminado}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Eliminar movimiento Bono manual/i,
+      }),
+    );
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    await waitFor(() => expect(onEliminado).toHaveBeenCalledTimes(1));
+  });
+
+  it('esDemo disables the delete trigger on the manual row', async () => {
+    mockFetch();
+    const grupoConManual: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      transacciones: [
+        {
+          id: 'tx-2',
+          fecha: '2026-07-05',
+          descripcion: 'Bono manual',
+          origen: 'Manual',
+          montoLabel: '$20.000',
+        },
+      ],
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConManual}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+        esDemo
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: /Eliminar movimiento Bono manual/i,
+      }),
+    ).toBeDisabled();
+  });
+
   it('threads onMovida to ReclasificarCategoriaControl and fires it on a cross-bucket confirm (D-07)', async () => {
     mockFetch();
     const onMovida = vi.fn();

@@ -11,6 +11,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   postMovimientoManual,
+  deleteMovimiento,
   esRegistrarMovimientoManualDto,
 } from './movimientos';
 import { unMovimientoManualDto } from '@/test-utils/movimiento-fixtures';
@@ -166,6 +167,96 @@ describe('postMovimientoManual', () => {
     if (!result.ok) {
       expect(result.error.tag).toBe('parse');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteMovimiento — DELETE /api/movimientos/:id (SDD correccion-movimientos-
+// manuales, PR 3, WEB-DEL-01/D-03). Mirrors `deleteIngesta`'s status map
+// (client.ts): 204 -> ok/undefined without reading a body, 401 ->
+// unauthorized, 404 -> server with a specific "ya no existe" message (merged
+// anti-enumeration, DEL-02), any other non-2xx (incl. 403 DEMO_SOLO_LECTURA)
+// -> generic server error, network throw -> network.
+// ---------------------------------------------------------------------------
+
+describe('deleteMovimiento', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('204: resuelve a { ok: true, value: undefined } sin llamar a res.json()', async () => {
+    const jsonSpy = vi.fn();
+    const fetchMock = mockFetchOnce({ ok: true, status: 204, json: jsonSpy });
+
+    const result = await deleteMovimiento('tx-1');
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith('/api/movimientos/tx-1', {
+      method: 'DELETE',
+    });
+  });
+
+  it('401: resuelve a { ok: false, error: { tag: "unauthorized" } }', async () => {
+    mockFetchOnce({ ok: false, status: 401 });
+
+    const result = await deleteMovimiento('tx-1');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.tag).toBe('unauthorized');
+    }
+  });
+
+  it('404: resuelve a { ok: false, error: { tag: "server", status: 404 } } (DEL-02 merged anti-enumeration)', async () => {
+    mockFetchOnce({ ok: false, status: 404 });
+
+    const result = await deleteMovimiento('tx-1');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.tag).toBe('server');
+      if (result.error.tag === 'server') {
+        expect(result.error.status).toBe(404);
+      }
+    }
+  });
+
+  it('403 (DEMO_SOLO_LECTURA): cae en la rama genérica non-2xx -> server', async () => {
+    mockFetchOnce({ ok: false, status: 403 });
+
+    const result = await deleteMovimiento('tx-1');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.tag).toBe('server');
+      if (result.error.tag === 'server') {
+        expect(result.error.status).toBe(403);
+      }
+    }
+  });
+
+  it('network throw: resuelve a { ok: false, error: { tag: "network" } }', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const result = await deleteMovimiento('tx-1');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.tag).toBe('network');
+    }
+  });
+
+  it('encodea el id en la URL', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+
+    await deleteMovimiento('tx with spaces');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/movimientos/tx%20with%20spaces',
+      { method: 'DELETE' },
+    );
   });
 });
 

@@ -152,3 +152,69 @@ export async function postMovimientoManual(
 
   return { ok: true, value: responseBody };
 }
+
+// ---------------------------------------------------------------------------
+// deleteMovimiento — DELETE /api/movimientos/:id
+// (SDD `correccion-movimientos-manuales`, PR 3, design D-03, DEL-01/02/03).
+//
+// Status map mirrors `deleteIngesta` (client.ts) verbatim:
+//   204 -> ok/undefined, WITHOUT calling res.json() (no body on a 204)
+//   401 -> unauthorized
+//   404 -> server, with a specific message (DEL-02 merged anti-enumeration —
+//          absent id, another user's row, and an ingesta-born row are all
+//          byte-identical on the wire, so the client copy stays generic too)
+//   any other non-2xx (incl. 403 DEMO_SOLO_LECTURA) -> the generic server
+//   fallback. The demo gate is surfaced client-side by `esDemo` disabling the
+//   trigger BEFORE this ever fires (EliminarMovimientoControl) — a real 403
+//   reaching this function is the server rejecting a stale/tampered request,
+//   not the expected happy path, so it does not need its own copy the way
+//   `enviarMutacion`/`errorConCodigo` (categorias.ts) surface `code` for
+//   forms that display server-authored messages inline.
+//   network throw -> network
+// ---------------------------------------------------------------------------
+
+export async function deleteMovimiento(id: string): Promise<ApiResult<void>> {
+  const url = `/api/movimientos/${encodeURIComponent(id)}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'DELETE' });
+  } catch {
+    return {
+      ok: false,
+      error: {
+        tag: 'network',
+        message: 'No se pudo conectar con el servidor.',
+      },
+    };
+  }
+
+  if (res.status === 401) {
+    return {
+      ok: false,
+      error: { tag: 'unauthorized', message: 'Sin acceso.' },
+    };
+  }
+  if (res.status === 404) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: 404,
+        message: 'El movimiento ya no existe. La lista se actualizará.',
+      },
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: {
+        tag: 'server',
+        status: res.status,
+        message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+      },
+    };
+  }
+
+  return { ok: true, value: undefined };
+}

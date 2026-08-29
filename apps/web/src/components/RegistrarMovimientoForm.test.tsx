@@ -15,7 +15,10 @@ import {
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { axe } from 'vitest-axe';
-import { RegistrarMovimientoForm } from './RegistrarMovimientoForm';
+import {
+  RegistrarMovimientoForm,
+  MENSAJE_PERMANENCIA,
+} from './RegistrarMovimientoForm';
 import { useRegistrarMovimiento } from '@/api/use-registrar-movimiento';
 import { useCategorias } from '@/api/use-categorias';
 import { hoyLocal } from '@/domain/fecha';
@@ -195,15 +198,11 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
   // ── Permanence expectation note (impeccable critique r7 P2, harden) ──────
 
-  it('shows the permanence note before submit: movement cannot be edited or deleted, only reclassified', () => {
+  it('shows the permanence note before submit: movement cannot be edited, but CAN be deleted from the month detail (WEB-DEL-02)', () => {
     setupDefaultHooks();
     renderForm();
 
-    expect(
-      screen.getByText(
-        'Un movimiento registrado no se puede editar ni eliminar después; su categoría sí puede reclasificarse desde el dashboard.',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(MENSAJE_PERMANENCIA)).toBeInTheDocument();
   });
 
   // ── CA-02: WEB-REG-03 — Ingreso zeroing + wire-body assertion ─────────────
@@ -784,11 +783,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(within(dialog).getByText('Sueldo agosto')).toBeInTheDocument();
     // formatearMontoCLP('850000') → '$850.000' (thousands separator, no decimals)
     expect(within(dialog).getByText('$850.000')).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        'Un movimiento registrado no se puede editar ni eliminar después; su categoría sí puede reclasificarse desde el dashboard.',
-      ),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText(MENSAJE_PERMANENCIA)).toBeInTheDocument();
     // No bucket/categoría line for an Ingreso.
     expect(within(dialog).queryByText(/Gustos|Necesidades|Ahorro/)).toBeNull();
   });

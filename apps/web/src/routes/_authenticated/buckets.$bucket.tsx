@@ -34,10 +34,15 @@ export const Route = createFileRoute('/_authenticated/buckets/$bucket')({
  * D-04), and `BucketDetalleMesPage` (which owns the actual query + rendering)
  * carries the component tests. US-053 replaces the US-047 `BucketDetailList`
  * panel here.
+ *
+ * `esDemo` (SDD `correccion-movimientos-manuales` PR 3, D-12 idiom): read
+ * from the authenticated route context (`_authenticated.tsx`'s `beforeLoad`
+ * population, same source `registrar.tsx` uses) — no extra `fetchMe()` call.
  */
 function BucketDetalleRoute() {
   const { bucket } = Route.useParams();
   const { periodo, destacar } = Route.useSearch();
+  const { esDemo } = Route.useRouteContext();
   const navigate = useNavigate();
   const query = useDetalleBucketMes(bucket, periodo);
 
@@ -45,6 +50,7 @@ function BucketDetalleRoute() {
     <BucketDetalleMesPage
       query={query}
       periodo={periodo}
+      esDemo={esDemo}
       onPeriodoChange={(nuevoPeriodo) =>
         navigate({
           to: '/buckets/$bucket',
