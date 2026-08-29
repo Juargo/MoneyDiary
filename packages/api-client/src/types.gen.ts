@@ -1195,6 +1195,60 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/api/movimientos/{id}": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        readonly post?: never;
+        /**
+         * Delete a manual movement
+         * @description Authenticated endpoint that deletes a Transaccion owned by the calling user with origen='Manual' (correccion-movimientos-manuales, ADR-040). Ingesta-born rows are never individually deletable — delete the whole ingesta instead (DELETE /api/ingestas/:id). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         */
+        readonly delete: {
+            readonly parameters: {
+                readonly query?: never;
+                readonly header?: never;
+                readonly path: {
+                    /** @description Transaccion id (raw path param). Existence/ownership/provenance is checked by the use case, not this schema. */
+                    readonly id: string;
+                };
+                readonly cookie?: never;
+            };
+            readonly requestBody?: never;
+            readonly responses: {
+                /** @description Movement deleted. No response body. */
+                readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The calling session is a demo session. Nothing is deleted. */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Anti-enumeration: the transaction does not exist, does not belong to the authenticated user, or is not origen='Manual' (ingesta-born rows collapse into this same response). */
+                readonly 404: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/patrones": {
         readonly parameters: {
             readonly query?: never;
