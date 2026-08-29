@@ -792,7 +792,7 @@ export interface paths {
         /**
          * Upload a bank statement (deprecated — use POST /api/ingestas/commit)
          * @deprecated
-         * @description Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.
+         * @description Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.
          */
         readonly post: {
             readonly parameters: {
@@ -829,6 +829,13 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description The calling session is a demo session (issue #500). */
+                readonly 403: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
                 /** @description Persistence failure (infrastructure fault, not the uploaded file). */
                 readonly 500: {
                     headers: {
@@ -856,7 +863,7 @@ export interface paths {
         readonly post?: never;
         /**
          * Delete an ingesta
-         * @description Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+         * @description Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
          */
         readonly delete: {
             readonly parameters: {
@@ -872,6 +879,13 @@ export interface paths {
             readonly responses: {
                 /** @description Ingesta deleted. No response body. */
                 readonly 204: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The calling session is a demo session (issue #500). Nothing is deleted. */
+                readonly 403: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
@@ -902,7 +916,7 @@ export interface paths {
         readonly put?: never;
         /**
          * Commit a bank statement import with optional edits overlay (US-057)
-         * @description Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
+         * @description Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
          */
         readonly post: {
             readonly parameters: {
@@ -936,6 +950,13 @@ export interface paths {
                 };
                 /** @description Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits (EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). Nothing is persisted. Amounts are scrubbed from every error message (ADR-013). */
                 readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The calling session is a demo session (issue #500). Nothing is persisted. */
+                readonly 403: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
