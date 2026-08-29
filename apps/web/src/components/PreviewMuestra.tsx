@@ -2,13 +2,8 @@ import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { HelpCircle, X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
-import {
-  SENTINEL_OPTION,
-  BUCKET_SENTINEL_OPTION,
-} from './catalogo-select-sentinels';
-import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { Button } from './ui/button';
-import { construirOpcionesBucket } from '@/lib/bucket-colors';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -32,8 +27,9 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * Local state (all ephemeral UI, none of it NETWORK/business state):
  * - `soloSinClasificar` — "Solo sin clasificar" filter toggle.
  * - `seleccionados` — the Set<rowIndex> backing the bulk-apply toolbar.
- * - `bucketToolbar`/`categoriaToolbar` — the toolbar's own bucket→categoría
- *   cascade, independent from any single row's `bucketUI` in FilaRevision.
+ * - `categoriaToolbar` — the toolbar's single categoría selection (round-9
+ *   P2, see below); independent from any single row's `bucketUI` in
+ *   FilaRevision, which keeps its own separate bucket→categoría cascade.
  * Selection is intentionally NOT persisted anywhere upstream: it never
  * touches `edits`, only `onEditChange` calls at "Aplicar" time do — bulk
  * apply is sugar over the same sparse-overlay contract (D-03), never a new
@@ -55,9 +51,8 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * — the dialog was one avoidable extra click per bulk pass, not a safety
  * net. "Aplicar a N seleccionadas" now applies directly again: the same
  * per-row `onEditChange` loop this always ran, immediately on click, then
- * clears `seleccionados`/`bucketToolbar`/`categoriaToolbar`. No network
- * request happens here either way (ADR-024) — only the extra click was
- * removed.
+ * clears `seleccionados`/`categoriaToolbar`. No network request happens here
+ * either way (ADR-024) — only the extra click was removed.
  *
  * Design critique P2 (fix 1 + fix 2, review-table polish):
  * - Fix 1 (column identity): the sticky progress container also renders a
@@ -93,7 +88,9 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * selection is active the region surfaced ~6 simultaneous controls
  * (select-all checkbox, "Solo sin clasificar" toggle, count pill with
  * embedded dismiss, bucket select, categoría select, Aplicar) — over the
- * ≤4 working-memory budget. Fix mirrors the P4 progress-collapse EXACTLY:
+ * ≤4 working-memory budget (superseded by round-9's structural fix below,
+ * which removes the bucket select outright rather than hiding a control).
+ * Fix mirrors the P4 progress-collapse EXACTLY:
  * `{seleccionados.size === 0 && (...)}` around the "Solo sin clasificar"
  * `<Button>`, same conditional idiom, same restore-on-clear behavior (the
  * button reappears with whatever `aria-pressed` value `soloSinClasificar`
@@ -123,6 +120,37 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * at every breakpoint, and it renders unconditionally within the sticky
  * header (not gated by `seleccionados.size` or `soloSinClasificar`) since
  * it is reference information, not a working-memory-budget control.
+ *
+ * Design critique round-9, P2 (structural distill, bulk-apply toolbar): three
+ * prior rounds (P2 fix 2, P4, round-8 P2-A) trimmed the toolbar by hiding or
+ * folding controls, but the bucket→categoría two-select cascade itself
+ * survived every diet — it was still 2 of the toolbar's zones. The domain
+ * fact that unlocks the real fix: every categoría belongs to exactly ONE
+ * bucket (`CategoriaDto.bucket`), so choosing a categoría already determines
+ * its bucket — the bucket select was never adding a degree of freedom, only
+ * ceremony. Fix replaces the cascade with ONE native `<select>` whose options
+ * are grouped with `<optgroup label={ETIQUETA_BUCKET[bucket]}>` per bucket
+ * (`catalogo.grupos`' own order — the same order `agruparPorBucket` already
+ * fixed), each `<option value={categoria.id}>`. The toolbar is now 4 total
+ * controls: master checkbox (in the header above, untouched) + count pill
+ * with dismiss + the one categoría select + Aplicar.
+ *
+ * `bucketToolbar` state is gone, not merely hidden — there was never a
+ * `bucket` field in the `onEditChange` payload even under the old cascade
+ * (`handleAplicarBulk` always wrote `categoriaToolbar` alone), so this is a
+ * pure UI simplification with zero apply-payload change. `FilaRevision`'s
+ * OWN per-row cascade is untouched — that one seeds `bucketUI` from
+ * `sugerido`/edited state per row (a different problem this distill doesn't
+ * try to solve) and is out of scope here.
+ *
+ * The combined select leads with a neutral placeholder option
+ * (`{ value: '', label: 'Selecciona una categoría' }`, distinct from
+ * `SENTINEL_OPTION`'s "Sin categoría" — that phrase means "explicitly
+ * uncategorized," which is not what an unselected toolbar control means) and
+ * stays disabled while `catalogo.tag !== 'listo'`, mirroring the old
+ * cascade's degraded-catalog behavior. "Aplicar" stays disabled until a
+ * categoría is chosen — same gating semantics as the old "both selects
+ * filled" rule, now expressed as "the one select is filled."
  */
 
 interface FilaConMerged {
@@ -242,7 +270,6 @@ export function PreviewMuestra({
   const [seleccionados, setSeleccionados] = useState<ReadonlySet<number>>(
     new Set(),
   );
-  const [bucketToolbar, setBucketToolbar] = useState('');
   const [categoriaToolbar, setCategoriaToolbar] = useState('');
 
   // D-05: merged display value computed once — edits win over
@@ -332,20 +359,12 @@ export function PreviewMuestra({
     });
   }
 
-  function handleBucketToolbarChange(value: string) {
-    setBucketToolbar(value);
-    // Same reset-on-bucket-change semantics as FilaRevision's own cascade —
-    // a previously chosen categoría no longer belongs to the new bucket.
-    setCategoriaToolbar('');
-  }
-
   function handleAplicarBulk() {
     if (!categoriaToolbar) return;
     for (const rowIndex of seleccionados) {
       onEditChange(rowIndex, categoriaToolbar);
     }
     setSeleccionados(new Set());
-    setBucketToolbar('');
     setCategoriaToolbar('');
   }
 
@@ -356,23 +375,13 @@ export function PreviewMuestra({
   const etiquetaSeleccionadas =
     seleccionados.size === 1 ? 'seleccionada' : 'seleccionadas';
 
-  const bucketOptionsToolbar =
-    catalogo.tag === 'listo'
-      ? [
-          BUCKET_SENTINEL_OPTION,
-          ...construirOpcionesBucket(catalogo.grupos.map((g) => g.bucket)),
-        ]
-      : [BUCKET_SENTINEL_OPTION];
-
-  const categoriaOptionsToolbar =
-    catalogo.tag === 'listo' && bucketToolbar
-      ? [
-          SENTINEL_OPTION,
-          ...(catalogo.grupos
-            .find((g) => g.bucket === bucketToolbar)
-            ?.categorias.map((c) => ({ value: c.id, label: c.nombre })) ?? []),
-        ]
-      : [SENTINEL_OPTION];
+  // Round-9 P2: the toolbar's combined categoría select, grouped by bucket —
+  // `catalogo.grupos` order IS the group order (agruparPorBucket already
+  // fixed it, D-06). Each group becomes one `<optgroup>`; the bucket itself
+  // is never selected directly, only derived (every categoría belongs to
+  // exactly one bucket — see docblock).
+  const gruposCategoriaToolbar =
+    catalogo.tag === 'listo' ? catalogo.grupos : [];
 
   return (
     <div className="flex flex-col gap-3">
@@ -612,15 +621,17 @@ export function PreviewMuestra({
             data-toolbar-bulk
             className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-sm"
           >
-            {/* P2 design critique fix 2 (toolbar distill): "Limpiar selección"
-                used to be its own button — a 6th simultaneous control at the
-                highest-value moment (count + bucket + categoría + Aplicar +
-                Limpiar, alongside the header's master checkbox). It now
-                lives INSIDE the count pill as a dismiss icon, so the toolbar
-                reads as 4 zones: count-pill(with dismiss) + bucket +
-                categoría + Aplicar. The accessible name ("Limpiar
-                selección") is unchanged, so it's still reachable exactly as
-                before via getByRole('button', { name: /limpiar selección/i }). */}
+            {/* P2 design critique fix 2 (toolbar distill), round-9 P2
+                (structural distill): "Limpiar selección" used to be its own
+                button — a 6th simultaneous control at the highest-value
+                moment. It now lives INSIDE the count pill as a dismiss icon,
+                and round-9 collapsed the bucket→categoría cascade into one
+                select, so the toolbar reads as 4 zones total: count-pill
+                (with dismiss) + the one categoría select + Aplicar (plus the
+                master checkbox in the header above). The dismiss's
+                accessible name ("Limpiar selección") is unchanged, so it's
+                still reachable exactly as before via
+                getByRole('button', { name: /limpiar selección/i }). */}
             <span
               data-conteo-pill
               className="inline-flex items-center gap-1.5 rounded-full bg-secondary py-1 pr-1.5 pl-3 text-sm font-medium text-secondary-foreground"
@@ -643,22 +654,40 @@ export function PreviewMuestra({
                 <X aria-hidden="true" className="size-3" />
               </button>
             </span>
-            <CampoSelect
-              label="Bucket para aplicar"
-              srOnly
-              value={bucketToolbar}
-              onChange={handleBucketToolbarChange}
-              options={bucketOptionsToolbar}
-              disabled={catalogo.tag !== 'listo'}
-            />
-            <CampoSelect
-              label="Categoría para aplicar"
-              srOnly
-              value={categoriaToolbar}
-              onChange={setCategoriaToolbar}
-              options={categoriaOptionsToolbar}
-              disabled={catalogo.tag !== 'listo' || !bucketToolbar}
-            />
+            {/* Round-9 P2: ONE combined categoría select, grouped by bucket
+                via native <optgroup> — replaces the old bucket→categoría
+                two-select cascade (see docblock). Hand-rolled rather than
+                `CampoSelect` because `CampoSelect`'s `options` prop is a flat
+                list with no grouping support; the same
+                label-wraps-sr-only-text-plus-select shape and the same
+                `<select>` classes are kept for visual/accessible-name parity
+                with every other select in this file. `<optgroup>` labels
+                come from `ETIQUETA_BUCKET` — the "Gustos" UI label, never
+                the raw "Deseos" domain key (DESIGN.md "Do label the Deseos
+                bucket as Gustos"). */}
+            <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+              <span className="sr-only">Categoría para aplicar</span>
+              <select
+                value={categoriaToolbar}
+                onChange={(event) => setCategoriaToolbar(event.target.value)}
+                disabled={catalogo.tag !== 'listo'}
+                className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
+              >
+                <option value="">Selecciona una categoría</option>
+                {gruposCategoriaToolbar.map((grupo) => (
+                  <optgroup
+                    key={grupo.bucket}
+                    label={ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
+                  >
+                    {grupo.categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nombre}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
             <Button
               type="button"
               onClick={handleAplicarBulk}
