@@ -154,13 +154,19 @@ describe('LeyendaGasto', () => {
     ).toBeTruthy();
   });
 
-  // LOCKED — must stay green unmodified (proof these invariants held).
-  it('uses the same focus-visible outline color as before (FIX 3, WCAG 1.4.11)', () => {
+  // Round-9 critique P3: the old "do NOT re-tint" LOCKED literal
+  // (outline-slate-800, #1e293b) converges to the shared --ring token
+  // (#1a1c1c) — verified DARKER, so contrast against every bucket pastel
+  // fill can only improve (see round-9 report for the computed ratios).
+  // `outline-ring` is the class the rest of the app already uses for this
+  // same focus grammar (was FIX 3, WCAG 1.4.11).
+  it('round-9 P3: uses the shared --ring focus-visible outline, converged from the old slate-800 literal', () => {
     renderLeyenda();
     const boton = screen.getByRole('button', {
       name: 'Necesidades 42% -$624.500',
     });
-    expect(boton.className).toContain('outline-slate-800');
+    expect(boton.className).toContain('outline-ring');
+    expect(boton.className).not.toContain('outline-slate-800');
     expect(boton.className).not.toContain('outline-slate-400');
   });
 

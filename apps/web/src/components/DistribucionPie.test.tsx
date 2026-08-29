@@ -173,6 +173,23 @@ describe('DistribucionPie', () => {
     expect(screen.getByRole('button', { name: 'Ahorro' })).toBeInTheDocument();
   });
 
+  // Round-9 critique P3 (converged from the "do NOT re-tint" LOCKED literal):
+  // the focus ring moves to the shared --ring token (#1a1c1c) — verified
+  // DARKER than the old outline-slate-800 (#1e293b), so contrast against
+  // every bucket pastel fill can only improve (see PreviewMuestra/DESIGN.md
+  // round-9 report for the computed ratios). `outline-ring` is the class the
+  // rest of the app already uses for this same focus grammar.
+  it('round-9 P3: uses the shared --ring focus-visible outline, converged from the old slate-800 literal', () => {
+    renderPie();
+    const boton = screen.getByRole('button', { name: 'Necesidades' });
+    // SVG elements expose `className` as an SVGAnimatedString, not a plain
+    // string — read the raw `class` attribute instead (same reason other
+    // SVG-path assertions in this file use `getAttribute`).
+    const clase = boton.getAttribute('class') ?? '';
+    expect(clase).toContain('outline-ring');
+    expect(clase).not.toContain('outline-slate-800');
+  });
+
   // US-053 PR3 (D-06): `aria-pressed` is GONE — a click navigates (not a
   // toggle), and the drill-down contract is the click/keyboard tests below.
   // The old "marks the selected bucket slice with aria-pressed" test

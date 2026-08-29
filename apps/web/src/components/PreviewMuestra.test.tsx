@@ -178,6 +178,32 @@ describe('PreviewMuestra', () => {
     expect((bucketSelect as HTMLSelectElement).value).toBe('Deseos');
   });
 
+  // Round-9 critique P1 fix 1: per-row bucket select shows "Gustos" as label
+  // while the option value stays "Deseos" (ETIQUETA_BUCKET applied at the
+  // PreviewMuestra→FilaRevision call site now).
+  it('round-9 P1: per-row bucket select shows "Gustos" label with "Deseos" value', () => {
+    render(
+      <PreviewMuestra
+        banco="BancoEstado"
+        filas={[unaFilaPreview({ rowIndex: 0 })]}
+        resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+        edits={new Map()}
+        onEditChange={vi.fn()}
+        catalogo={unCatalogo()}
+      />,
+    );
+
+    const bucketSelect = screen.getByLabelText(
+      /Fila 1: bucket/i,
+    ) as HTMLSelectElement;
+    const deseosOption = Array.from(bucketSelect.options).find(
+      (o) => o.value === 'Deseos',
+    );
+
+    expect(deseosOption).toBeDefined();
+    expect(deseosOption?.text).toBe('Gustos');
+  });
+
   // Fix 5: catalogo.tag === 'cargando' → inline hint "Cargando catálogo…" renders
   it('fix 5: shows "Cargando catálogo…" hint when catalogo is cargando', () => {
     render(
@@ -807,6 +833,34 @@ describe('PreviewMuestra', () => {
       ).not.toBeInTheDocument();
     });
 
+    // Round-9 critique P1 fix 2: the per-date-group "Seleccionar todas"
+    // checkbox is bare (no surrounding label with text) — it needs its own
+    // wrapping label sized to the 24×24 CSS px hit-target floor (WCAG 2.2 AA
+    // SC 2.5.8), while its own visual glyph stays size-4.
+    it('round-9 P1 fix 2: the group checkbox sits in a size-6 hit target while staying size-4 visually', () => {
+      const { container } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const grupo1 = container.querySelector(
+        '[data-fecha-grupo="2026-07-15"]',
+      ) as HTMLElement;
+      const seleccionarTodas =
+        within(grupo1).getByLabelText(/Seleccionar todas/i);
+
+      expect(seleccionarTodas.className).toContain('size-4');
+      const hitTarget = seleccionarTodas.closest('label');
+      expect(hitTarget).not.toBeNull();
+      expect(hitTarget?.className).toContain('size-6');
+    });
+
     it('clicking "Aplicar" applies the chosen categoría directly — no confirmation, onEditChange fires immediately', async () => {
       const onEditChange = vi.fn();
 
@@ -841,6 +895,45 @@ describe('PreviewMuestra', () => {
       expect(onEditChange).toHaveBeenCalledWith(1, 'cat-nec-1');
       // Selection cleared — toolbar disappears.
       expect(screen.queryByText(/seleccionadas/i)).not.toBeInTheDocument();
+    });
+
+    // Round-9 critique P1 fix 1: the bulk toolbar's bucket select shows
+    // "Gustos" as label while the option value stays "Deseos" — submitting
+    // (via "Aplicar") still writes the domain categoriaId, unaffected by
+    // the label change (bucket itself is never part of the wire payload).
+    it('round-9 P1: toolbar bucket select shows "Gustos" label with "Deseos" value; applying still uses the real categoriaId', async () => {
+      const onEditChange = vi.fn();
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasDosGrupos}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={onEditChange}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+      const bucketToolbar = screen.getByLabelText(
+        /bucket para aplicar/i,
+      ) as HTMLSelectElement;
+      const deseosOption = Array.from(bucketToolbar.options).find(
+        (o) => o.value === 'Deseos',
+      );
+      expect(deseosOption).toBeDefined();
+      expect(deseosOption?.text).toBe('Gustos');
+
+      await userEvent.selectOptions(bucketToolbar, 'Deseos');
+      const categoriaToolbar = screen.getByLabelText(/categoría para aplicar/i);
+      await userEvent.selectOptions(categoriaToolbar, 'cat-des-1');
+      await userEvent.click(
+        screen.getByRole('button', { name: /aplicar a 1 seleccionada/i }),
+      );
+
+      expect(onEditChange).toHaveBeenCalledWith(0, 'cat-des-1');
     });
 
     it('"Aplicar" stays disabled until both bucket and categoría are chosen, and is not clickable before that', async () => {
@@ -1226,6 +1319,35 @@ describe('PreviewMuestra', () => {
           /seleccionar todas las visibles \(2\)/i,
         );
         expect(master).not.toBeChecked();
+      });
+
+      // Round-9 critique P1 fix 2: the master checkbox already sits inside a
+      // full `<label>` that also contains its visible text ("Seleccionar
+      // todas las visibles (N)") — clicking that label already toggles the
+      // checkbox, so the fix here is a `min-h-6` floor on THAT label (24 CSS
+      // px height) rather than a second, nested `<label>` around the bare
+      // input (nested `<label>` elements are invalid HTML and can double-fire
+      // toggle events). The checkbox's own visual glyph stays size-4.
+      it("round-9 P1 fix 2: the master checkbox's wrapping label enforces a min-h-6 (24px) hit target", () => {
+        render(
+          <PreviewMuestra
+            banco="BancoEstado"
+            filas={filasDosGrupos}
+            resumen={{ totalFilas: 3, duplicadosDetectados: 1, nuevas: 2 }}
+            edits={new Map()}
+            onEditChange={vi.fn()}
+            catalogo={unCatalogo()}
+          />,
+        );
+
+        const master = screen.getByLabelText(
+          /seleccionar todas las visibles \(2\)/i,
+        );
+        expect(master.className).toContain('size-4');
+
+        const hitTarget = master.closest('label');
+        expect(hitTarget).not.toBeNull();
+        expect(hitTarget?.className).toContain('min-h-6');
       });
 
       it('uses singular copy when exactly one row is visible and selectable', () => {

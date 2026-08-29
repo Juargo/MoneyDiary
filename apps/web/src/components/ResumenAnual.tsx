@@ -187,9 +187,15 @@ function MesCelda({
           aria-current={esActual ? 'date' : undefined}
           onClick={() => onSelectPeriodo(mes.periodo)}
           className={cn(
-            // LOCKED (WCAG 1.4.11): focus ring stays outline-slate-800,
-            // matching the pie slices/legend — do NOT re-tint.
-            'flex h-full w-full flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+            // Round-9 critique P3: converged to the shared --ring token
+            // (#1a1c1c) from the old slate-800 (#1e293b) "do NOT re-tint"
+            // literal, matching the pie slices/legend's own round-9
+            // convergence — contrast against the MiniDistribucionPie pastel
+            // wedges inside this cell can only improve. See the canonical
+            // ratio table in `lib/bucket-colors.ts` (above
+            // `construirOpcionesBucket`'s "Focus-ring contrast" comment) for
+            // the verified numbers.
+            'flex h-full w-full flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
             // D-04: `esActual` no longer drives any className — cell chrome
             // is exclusively the "selected" channel now.
             esSeleccionado

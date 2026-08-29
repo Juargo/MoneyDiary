@@ -131,7 +131,12 @@ export function ListaIngestas() {
         </p>
       )}
       {bulk.idsSeleccionables.length > 0 && (
-        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+        // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this `<label>`
+        // already wraps the checkbox AND its visible text, so clicking the
+        // text already toggles it — `min-h-6` only raises the label's own
+        // box to the 24 CSS px floor (mirrors PreviewMuestra's master
+        // checkbox fix); the checkbox's size-4 visual glyph is untouched.
+        <label className="flex min-h-6 items-center gap-2 text-sm font-medium text-foreground">
           <input
             type="checkbox"
             aria-label={bulk.etiquetaSeleccionarTodas}
@@ -271,14 +276,21 @@ function IngestaItem({
     <li className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
       <div className="flex items-center gap-2">
         {!esFallida && (
-          <input
-            type="checkbox"
-            aria-label={`Seleccionar cartola ${ingesta.banco ?? ''} (${fechaLabel})`}
-            checked={selected}
-            disabled={checkboxDeshabilitado}
-            onChange={() => onToggleSelect(ingesta.id)}
-            className="size-4 shrink-0 rounded border-border accent-primary"
-          />
+          // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): bare checkbox,
+          // no sibling text to piggyback a click on — a wrapping `<label>`
+          // grows the hit target to size-6 (24×24 CSS px) while the
+          // checkbox's own visual glyph stays size-4 (same mechanism as
+          // `FilaRevision`'s per-row checkbox).
+          <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
+            <input
+              type="checkbox"
+              aria-label={`Seleccionar cartola ${ingesta.banco ?? ''} (${fechaLabel})`}
+              checked={selected}
+              disabled={checkboxDeshabilitado}
+              onChange={() => onToggleSelect(ingesta.id)}
+              className="size-4 shrink-0 rounded border-border accent-primary"
+            />
+          </label>
         )}
         <div className="flex flex-1 items-center justify-between text-sm text-muted-foreground">
           <span>{fechaLabel}</span>

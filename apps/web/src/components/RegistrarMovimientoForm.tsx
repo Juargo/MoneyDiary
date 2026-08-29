@@ -35,7 +35,7 @@ import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { RegistrarMovimientoManualInput } from '@/api/movimientos';
 import type { ApiError } from '@/api/client';
 import type { CatalogoEstado } from '@/api/types';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { ETIQUETA_BUCKET, construirOpcionesBucket } from '@/lib/bucket-colors';
 import { CampoTexto } from './configuracion/CampoTexto';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { Button } from '@/components/ui/button';
@@ -218,7 +218,7 @@ export function RegistrarMovimientoForm({
     catalogo.tag === 'listo'
       ? [
           { value: '', label: 'Selecciona un bucket' },
-          ...catalogo.grupos.map((g) => ({ value: g.bucket, label: g.bucket })),
+          ...construirOpcionesBucket(catalogo.grupos.map((g) => g.bucket)),
         ]
       : [{ value: '', label: 'Selecciona un bucket' }];
 

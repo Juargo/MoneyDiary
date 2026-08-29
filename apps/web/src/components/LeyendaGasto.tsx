@@ -25,9 +25,11 @@ import type { ItemLeyenda } from '@/domain/resumen-view-model';
  * is REMOVED — the row's own visible text (name, %/count, amount) now
  * forms the accessible name, satisfying WCAG 2.5.3 Label in Name and
  * removing a duplicated string that could drift from what's on screen. The
- * color dot and `outline-slate-800`/`px-2 py-1` focus/target-size treatment
- * carry over unchanged from the pre-US-047 component (LOCKED, WCAG 1.4.11 /
- * 2.5.8).
+ * color dot and `px-2 py-1` target-size treatment carry over unchanged from
+ * the pre-US-047 component (LOCKED, WCAG 2.5.8); the focus outline itself
+ * converged from `outline-slate-800` to the shared `outline-ring` token in
+ * round-9 (WCAG 1.4.11 contrast verified to only improve — see the call
+ * site's comment for the ratios).
  */
 export function LeyendaGasto({
   principales,
@@ -117,10 +119,14 @@ function FilaClickeable({
         type="button"
         onClick={() => onSelectBucket(item.bucket)}
         className={cn(
-          // LOCKED (WCAG 1.4.11): outline-slate-800 (>3:1 on white) — do
-          // NOT re-tint. LOCKED (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable
-          // tap target.
-          'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+          // Round-9 critique P3: converged to the shared --ring token
+          // (#1a1c1c) from the old slate-800 (#1e293b) "do NOT re-tint"
+          // literal — contrast against every bucket pastel dot fill (and
+          // white) can only improve. See the canonical ratio table in
+          // `lib/bucket-colors.ts` (above `construirOpcionesBucket`'s
+          // "Focus-ring contrast" comment) for the verified numbers. LOCKED
+          // (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable tap target.
+          'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
         )}
       >
         <span className="flex items-center gap-2">
@@ -175,10 +181,11 @@ function FilaClickeable({
 /**
  * Ingresos row — US-054 D-05 (WG5-03/06): the US-047 interim (`<li>` inert)
  * is retired. The endpoint now exists (US-052). Same `FilaClickeable` shell
- * minus the color dot — LOCKED classes: `px-2 py-1` (WCAG 2.5.8 target) +
- * `focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800`
- * (WCAG 1.4.11). `{' '}` text-node separators keep the accessible-name
- * algorithm from concatenating adjacent inline elements without whitespace.
+ * minus the color dot — LOCKED class: `px-2 py-1` (WCAG 2.5.8 target). The
+ * focus outline converged from `outline-slate-800` to the shared
+ * `outline-ring` token in round-9 (WCAG 1.4.11, contrast verified to only
+ * improve). `{' '}` text-node separators keep the accessible-name algorithm
+ * from concatenating adjacent inline elements without whitespace.
  */
 function FilaIngreso({
   item,
@@ -193,10 +200,14 @@ function FilaIngreso({
         type="button"
         onClick={onSelectIngresos}
         className={cn(
-          // LOCKED (WCAG 1.4.11): outline-slate-800 (>3:1 on white) — do
-          // NOT re-tint. LOCKED (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable
-          // tap target.
-          'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800',
+          // Round-9 critique P3: converged to the shared --ring token
+          // (#1a1c1c) from the old slate-800 (#1e293b) "do NOT re-tint"
+          // literal — contrast against every bucket pastel dot fill (and
+          // white) can only improve. See the canonical ratio table in
+          // `lib/bucket-colors.ts` (above `construirOpcionesBucket`'s
+          // "Focus-ring contrast" comment) for the verified numbers. LOCKED
+          // (WCAG 2.2 AA 2.5.8): px-2/py-1 comfortable tap target.
+          'flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
         )}
       >
         <span className="flex items-center gap-2">

@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useCrearCategoria } from '@/api/use-crear-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { construirOpcionesBucket } from '@/lib/bucket-colors';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
 import {
@@ -20,8 +20,10 @@ import { Button } from '@/components/ui/button';
  * flag, the exact anti-pattern US-042's D-02 rejected).
  *
  * `Nombre` (`CampoTexto`) + `Bucket (obligatorio)` (`CampoSelect`, A1: the
- * three `BUCKETS_ASIGNABLES` options displayed via `ETIQUETA_BUCKET` — same
- * lookup the list's group headings and `CategoriaFila` use, one source).
+ * three `BUCKETS_ASIGNABLES` options built via `construirOpcionesBucket`
+ * (`lib/bucket-colors.ts`) — same helper `EditarCategoria` and the review
+ * cascades (`FilaRevision`/`PreviewMuestra`/`RegistrarMovimientoForm`) use,
+ * one source for the `ETIQUETA_BUCKET` label lookup, round-9 critique fix).
  * Defaults `bucket` to the first assignable bucket — a native `<select>`
  * always has a selected value, so there is no "unchosen" state to model.
  *
@@ -41,10 +43,7 @@ import { Button } from '@/components/ui/button';
  * `role="note"` explanation (`MENSAJE_DEMO_CATALOGO`) — the `PerfilForm`
  * idiom, applied to this feature's own constant.
  */
-const OPCIONES_BUCKET = BUCKETS_ASIGNABLES.map((bucket) => ({
-  value: bucket,
-  label: ETIQUETA_BUCKET[bucket] ?? bucket,
-}));
+const OPCIONES_BUCKET = construirOpcionesBucket(BUCKETS_ASIGNABLES);
 
 export function NuevaCategoriaForm({
   esDemo,

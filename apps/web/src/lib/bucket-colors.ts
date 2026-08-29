@@ -52,3 +52,55 @@ export const ETIQUETA_BUCKET: Record<string, string> = {
   Ahorro: 'Ahorro',
   SinCategoria: 'Sin categoría',
 };
+
+/**
+ * construirOpcionesBucket — builds `{ value, label }[]` bucket option lists
+ * for a `<select>`, applying `ETIQUETA_BUCKET` uniformly: `value` stays the
+ * domain key (e.g. `'Deseos'`), `label` is the resolved UI text (e.g.
+ * `'Gustos'`).
+ *
+ * Round-9 critique fixes found this exact mapping duplicated ad hoc at FIVE
+ * call sites — `FilaRevision`, `PreviewMuestra` (per-row + toolbar),
+ * `RegistrarMovimientoForm`, and `NuevaCategoriaForm`/`EditarCategoria`'s
+ * shared `OPCIONES_BUCKET` — the same class of drift risk this file's own
+ * `ETIQUETA_BUCKET` doc comment already flags for the sibling
+ * `ETIQUETA_BUCKET_COPY` map in the backend. One function, one place to fix
+ * if the label rule ever changes. Callers still prepend their own sentinel
+ * option (`BUCKET_SENTINEL_OPTION`, `{ value: '', label: 'Selecciona un
+ * bucket' }`, …) — this helper only builds the "real" bucket entries.
+ */
+export function construirOpcionesBucket(
+  buckets: readonly string[],
+): { value: string; label: string }[] {
+  return buckets.map((bucket) => ({
+    value: bucket,
+    label: ETIQUETA_BUCKET[bucket] ?? bucket,
+  }));
+}
+
+/**
+ * Focus-ring contrast — round-9 critique P3 (canonical source: the numbers
+ * below live HERE ONLY; `DistribucionPie.tsx`, `LeyendaGasto.tsx`, and
+ * `ResumenAnual.tsx` point back to this comment instead of repeating the
+ * table). Their focus-visible outline converged from a literal
+ * `outline-slate-800` (#1E293B) to the shared `--ring` token, `outline-ring`
+ * (#1A1C1C) — the same focus grammar every other interactive element in the
+ * app already uses (DESIGN.md's "Do route every focus state through
+ * --ring"). The old literal carried a "do NOT re-tint" comment from an
+ * earlier review whose concern was contrast against these pastel fills;
+ * #1A1C1C is DARKER than #1E293B (relative luminance 0.01134 vs 0.02178 per
+ * the WCAG contrast formula), so contrast against every bucket pastel — and
+ * white — can only improve. Ratios (WCAG relative-luminance contrast, old
+ * outline-slate-800 → new outline-ring):
+ *
+ * | Surface                      | outline-slate-800 | outline-ring |
+ * | ----------------------------- | ------------------ | ------------ |
+ * | Necesidades   (#8FA7D1)       | 6.00:1              | 7.02:1       |
+ * | Deseos/Gustos (#B1A7D1)       | 6.49:1              | 7.60:1       |
+ * | Ahorro        (#E6D194)       | 9.69:1              | 11.34:1      |
+ * | Sin categoría (#AEB4C4)       | 7.05:1              | 8.25:1       |
+ * | White         (#FFFFFF)       | 14.63:1             | 17.12:1      |
+ *
+ * All values clear the WCAG 2.2 AA 3:1 large-text/non-text floor by a wide
+ * margin both before and after the convergence.
+ */

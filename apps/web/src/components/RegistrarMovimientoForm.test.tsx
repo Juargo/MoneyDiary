@@ -308,6 +308,44 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(body.categoriaId).toBe('cat-nec-1');
   });
 
+  // Round-9 critique P1 fix 1: bucket select shows "Gustos" as label while
+  // the option value stays "Deseos" — ETIQUETA_BUCKET is applied here now.
+  it('round-9 P1: bucket select shows "Gustos" label with "Deseos" value; submit body still carries "Deseos"', async () => {
+    const mutateSpy = vi.fn();
+    setupDefaultHooks(mutateSpy);
+    renderForm();
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
+
+    const bucketSelect = screen.getByLabelText(/bucket/i) as HTMLSelectElement;
+    const deseosOption = Array.from(bucketSelect.options).find(
+      (o) => o.value === 'Deseos',
+    );
+    expect(deseosOption).toBeDefined();
+    expect(deseosOption?.text).toBe('Gustos');
+
+    await user.selectOptions(bucketSelect, 'Deseos');
+    await user.selectOptions(
+      screen.getByLabelText(/categor[ií]a/i),
+      'cat-des-1',
+    );
+
+    const hoy = hoyLocal();
+    fireEvent.change(screen.getByLabelText(/fecha/i), {
+      target: { value: hoy },
+    });
+    await user.type(screen.getByLabelText(/descripci[oó]n/i), 'Test gasto');
+    await user.type(screen.getByLabelText(/monto/i), '5000');
+
+    await user.click(getSubmitButton());
+    await user.click(getConfirmButton());
+
+    expect(mutateSpy).toHaveBeenCalledTimes(1);
+    const body = mutateSpy.mock.calls[0][0];
+    expect(body.bucket).toBe('Deseos');
+  });
+
   // ── CA-04: WEB-REG-07 — 201 success: form clears + confirmation ──────────
   // Uses a Gasto submission to also assert cascade is cleared on success (D-10).
 
