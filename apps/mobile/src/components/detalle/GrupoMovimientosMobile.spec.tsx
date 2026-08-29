@@ -21,7 +21,13 @@ jest.mock('./ReclasificarMobileControl', () => ({
 }));
 
 function makeTx(id: string) {
-  return { id, descripcion: `Tx ${id}`, fecha: '2026-07-01', monto: '10000' };
+  return {
+    id,
+    descripcion: `Tx ${id}`,
+    fecha: '2026-07-01',
+    origen: 'BCI',
+    monto: '10000',
+  };
 }
 
 function makeGrupo(
