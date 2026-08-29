@@ -171,14 +171,24 @@ export async function postMovimientoManual(
 //   `enviarMutacion`/`errorConCodigo` (categorias.ts) surface `code` for
 //   forms that display server-authored messages inline.
 //   network throw -> network
+//
+// `keepalive` (design-hardening change, undo grace window): the smallest
+// possible escape hatch for `undo-manager.ts`'s `pagehide` flush — see
+// `deleteIngesta` (client.ts) for the identical rationale. `@default false`.
 // ---------------------------------------------------------------------------
 
-export async function deleteMovimiento(id: string): Promise<ApiResult<void>> {
+export async function deleteMovimiento(
+  id: string,
+  options?: { readonly keepalive?: boolean },
+): Promise<ApiResult<void>> {
   const url = `/api/movimientos/${encodeURIComponent(id)}`;
 
   let res: Response;
   try {
-    res = await fetch(url, { method: 'DELETE' });
+    res = await fetch(url, {
+      method: 'DELETE',
+      keepalive: options?.keepalive ?? false,
+    });
   } catch {
     return {
       ok: false,

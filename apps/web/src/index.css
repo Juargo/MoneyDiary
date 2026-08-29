@@ -210,3 +210,24 @@ body {
     transform: translateY(0);
   }
 }
+
+/*
+ * `undo-countdown` — the countdown track on `UndoToast` (design-hardening
+ * change, undo grace window for every destructive delete): a 3px bar
+ * draining from full to empty width over the grace window. Applied via
+ * `motion-safe:animate-[undo-countdown_7000ms_linear]` (the literal
+ * `7000ms` mirrors `UNDO_GRACE_MS`, `lib/undo-manager.ts` — keep both in
+ * sync by hand), which already gates on `prefers-reduced-motion` — but
+ * `UndoToast` additionally swaps this element out for static text under
+ * reduced motion (a JS `matchMedia` check, not just this CSS gate), since
+ * the reduced-motion branch renders different DOM, not merely a paused
+ * animation.
+ */
+@keyframes undo-countdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

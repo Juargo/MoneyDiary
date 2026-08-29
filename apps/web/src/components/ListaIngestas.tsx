@@ -12,6 +12,7 @@ import {
   useSeleccionMasivaIngestas,
   type ResultadoEliminacionMasiva,
 } from '@/api/use-seleccion-masiva-ingestas';
+import { usePendingIds } from '@/lib/undo-manager';
 import { pluralizar } from '@/lib/pluralizar';
 import type { IngestaListItemDto } from '@/api/types';
 
@@ -55,11 +56,23 @@ const MENSAJE_DEMO_SOLO_LECTURA =
  * surface. The whole selection/confirm/sequential-delete state machine lives
  * in `useSeleccionMasivaIngestas` (`bulk` below) — see that hook's docstring
  * for the structural fixes (frozen selection while the dialog is open,
- * Escape guarded during a run, batched cache invalidation). This component
- * only composes it: it owns the stable `anuncio` live region + heading
- * focus, and decides (via `alResultadoMasivo`) that focus moves to the
- * heading ONLY on full success — the dialog stays open on partial failure,
- * so ripping focus away from it would be wrong.
+ * batched cache invalidation) AND for how it now schedules through
+ * `undo-manager.ts` instead of running the delete loop synchronously
+ * (design-hardening change, resolves critique P1). This component only
+ * composes it: it owns the stable `anuncio` live region + heading focus,
+ * fired once the DEFERRED run settles (success or partial failure) via
+ * `alResultadoMasivo` — always moving focus, since the dialog that used to
+ * stay open on partial failure is long closed by then; a deferred failure's
+ * detail additionally surfaces through `UndoToast`'s `role="alert"` slot
+ * (`reportarErrorEliminacion`, inside the hook).
+ *
+ * Undo grace window (design-hardening change, resolves critique P1): both
+ * the single-row delete (`EliminarIngestaControl`) and the bulk delete
+ * (`bulk.confirmar`) now hide their row(s) via `usePendingIds()`
+ * (`pendientes` below) instead of removing them from `query.data` directly
+ * — the shared `undo-manager.ts` singleton is what actually schedules the
+ * delayed commit; this component only reads which ids are currently
+ * pending and filters them out of what it renders.
  *
  * Demo (mirrors `CategoriaFila`/`CategoriasPanel`'s `esDemo` idiom — the
  * closest existing "list with per-row destructive action + demo gating"
@@ -95,6 +108,13 @@ export function ListaIngestas() {
   // actually reads `bulk` is only reached once `query.data` is guaranteed
   // (past the early returns right below).
   const bulk = useSeleccionMasivaIngestas(query.data ?? [], alResultadoMasivo);
+  // Undo grace window (design-hardening change, resolves critique P1):
+  // neither `EliminarIngestaControl` (single-row) nor `bulk.confirmar`
+  // (bulk) removes a row on their own anymore — both schedule a delayed
+  // commit and this component is what actually hides the row(s), filtering
+  // by `usePendingIds()` (the shared `undo-manager.ts` singleton) before
+  // rendering. Covers both flows uniformly since they share one manager.
+  const pendientes = usePendingIds();
 
   if (query.isPending) {
     return <Loading message="Cargando cartolas…" />;
@@ -111,7 +131,7 @@ export function ListaIngestas() {
     );
   }
 
-  const ingestas = query.data;
+  const ingestas = query.data.filter((ingesta) => !pendientes.has(ingesta.id));
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
@@ -194,17 +214,10 @@ export function ListaIngestas() {
           {bulk.confirmando && bulk.resumenMasivo && (
             <InlineConfirm
               title="Confirmar eliminación masiva"
-              confirmLabel={
-                bulk.eliminando
-                  ? `Eliminando… (${bulk.progreso}/${bulk.resumenMasivo.cantidad})`
-                  : 'Confirmar'
-              }
+              confirmLabel="Confirmar"
               destructive
               onConfirm={bulk.confirmar}
               onCancel={bulk.cancelarConfirmacion}
-              pending={bulk.eliminando}
-              cancelDisabled={bulk.eliminando}
-              error={bulk.mensajeFallidas}
               className="gap-2 p-3 text-sm"
             >
               <p>
@@ -216,7 +229,8 @@ export function ListaIngestas() {
                   'movimiento',
                   'movimientos',
                 )}{' '}
-                en total. Esta acción no se puede deshacer.
+                en total. Podrás deshacer durante unos segundos después de
+                confirmar.
               </p>
             </InlineConfirm>
           )}

@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { deleteIngesta } from './client';
 import {
   invalidarCachesIngesta,
   useEliminarIngestaMasiva,
 } from './use-eliminar-ingesta';
+import {
+  programarEliminacion,
+  reportarErrorEliminacion,
+} from '@/lib/undo-manager';
 import { pluralizar } from '@/lib/pluralizar';
 import type { IngestaListItemDto } from './types';
 
@@ -25,27 +30,29 @@ export interface UseSeleccionMasivaIngestasResult {
   readonly etiquetaSeleccionarTodas: string;
   readonly etiquetaSeleccionadas: string;
   readonly confirmando: boolean;
-  readonly eliminando: boolean;
-  readonly progreso: number;
   readonly resumenMasivo: ResumenMasivo | null;
-  readonly mensajeFallidas: string | null;
-  /** `confirmando || eliminando` — the ONE flag the caller disables every
-   * checkbox + the trigger button with (4R review fix, R1-CRITICAL
-   * stale-dialog / R4-CRITICAL re-entrancy / R4-WARNING mid-run edits). */
+  /** `confirmando` — the ONE flag the caller disables every checkbox + the
+   * trigger button with while the confirmation dialog itself is open.
+   * Unlike the pre-undo-window version, there is no longer a separate
+   * "running" phase to guard against re-entrancy for: Confirmar now closes
+   * the dialog immediately (schedule, not run) — see `confirmar` below. */
   readonly interaccionBloqueada: boolean;
   readonly alternarFila: (id: string) => void;
   readonly alternarTodas: () => void;
   readonly abrirConfirmacion: () => void;
   readonly cancelarConfirmacion: () => void;
-  readonly confirmar: () => Promise<void>;
+  readonly confirmar: () => void;
+}
+
+function mensajeToastMasivo(cantidad: number): string {
+  return cantidad === 1
+    ? 'Cartola eliminada.'
+    : `${pluralizar(cantidad, 'cartola', 'cartolas')} eliminadas.`;
 }
 
 function construirMensajeFallidas(
   fallidas: ReadonlyMap<string, string>,
-): string | null {
-  if (fallidas.size === 0) {
-    return null;
-  }
+): string {
   const verbo = fallidas.size === 1 ? 'pudo' : 'pudieron';
   return `No se ${verbo} eliminar ${pluralizar(fallidas.size, 'cartola', 'cartolas')}: ${Array.from(
     fallidas.values(),
@@ -57,37 +64,49 @@ function construirMensajeFallidas(
  * (readability round, R2 nit: extracted from ~125 inline lines so the
  * component composes instead of implementing the machine itself).
  *
- * Structural fixes from the 4R review (R1-CRITICAL stale dialog,
- * R4-CRITICAL re-entrancy, R4-WARNING mid-run edits, R4-BLOCKER Escape
- * during a run, R4-WARNING invalidation storm):
- * - `interaccionBloqueada` (`confirmando || eliminando`) is the ONE flag the
- *   caller disables every checkbox + the trigger button with. Once the
- *   dialog is open, `seleccionados` can never again diverge from
- *   `resumenMasivo` (snapshotted at open time in `abrirConfirmacion`), and a
- *   second click on the trigger can't re-open/reset an in-flight run.
- * - `cancelarConfirmacion` no-ops while `eliminando` — `InlineConfirm`'s
- *   documented caller-owns-the-guard contract (same as
- *   `ConfirmarImpactoDialog`): Escape calls `onCancel` unconditionally, so
- *   the guard against cancelling mid-run has to live HERE, not in a
- *   `cancelDisabled` prop (which only disables the button, never Escape).
- * - `confirmar()` runs every delete through `useEliminarIngestaMasiva()` —
- *   the SAME mutationFn as the per-row `useEliminarIngesta()`, but with none
- *   of its per-call cache invalidation — then calls `invalidarCachesIngesta`
- *   exactly ONCE after the loop, instead of letting N sequential deletes
- *   each trigger their own 4-key invalidation (4×N overlapping refetches).
- *   Per-row `EliminarIngestaControl` keeps using `useEliminarIngesta()`
- *   unchanged.
- * - Deletes run strictly SEQUENTIALLY (`for...of` + `await`, never
- *   `Promise.all`): `progreso` only makes sense, and a failed row only stays
- *   isolated from the rest, if each call resolves before the next starts.
+ * Rewired for the design-hardening change (undo grace window, resolves
+ * critique P1 "No undo/grace period on any destructive action"):
+ * `confirmar` no longer runs the sequential DELETE loop itself. It closes
+ * the dialog and hands off to `programarEliminacion` (`lib/undo-manager.ts`,
+ * the ONE delayed-commit manager shared with `EliminarMovimientoControl`/
+ * `EliminarIngestaControl`) with ALL selected ids in a single record —
+ * `ListaIngestas` hides every selected row for the grace window by
+ * filtering on `usePendingIds()`, `UndoToast` (mounted once at the router
+ * root) shows "Deshacer" for the whole batch, and the real sequential
+ * delete loop only runs once the window expires (`onCommit`) — or never, if
+ * the user undoes.
  *
- * `onResultado` fires once after the loop completes, for BOTH outcomes —
- * full success (`ok: true`) and partial failure (`ok: false`) — so the
- * caller can push the outcome into its own stable live region even outside
- * the dialog (a partial failure's `InlineConfirm` error slot alone might not
- * reach a screen-reader user who isn't focused inside the non-modal
- * dialog). The dialog stays open on partial failure (so the caller should
- * NOT move focus away from it there); only a full success closes it.
+ * The structural fixes from the 4R review that predate this change still
+ * hold, now inside `onCommit`'s deferred run instead of `confirmar` itself:
+ * - Deletes still run strictly SEQUENTIALLY (`for...of` + `await`, never
+ *   `Promise.all`) — a failed row stays isolated from the rest.
+ * - `useEliminarIngestaMasiva()` (no per-call cache invalidation) +
+ *   `invalidarCachesIngesta` exactly ONCE after the whole batch, instead of
+ *   N sequential deletes each triggering their own 4-key invalidation.
+ *
+ * `onCommit` returns (does not discard) `ejecutarEliminacion`'s promise
+ * (adversarial-review fix): the manager keeps every selected id hidden —
+ * via its "committing" set, unioned into `usePendingIds()` — for the WHOLE
+ * sequential loop, not just until the grace window expires. Discarding that
+ * promise used to reappear every selected row for the entire (possibly
+ * long) loop, letting a user re-select and re-delete an already-deleted row
+ * and get a false "no se pudo eliminar" for a delete that had actually
+ * succeeded.
+ *
+ * What changed: there is no more visible "Eliminando… (n/N)" progress label
+ * or "dialog stays open on partial failure" — both were affordances for a
+ * run happening WHILE the dialog was still open. Now the dialog is long
+ * closed by the time the run happens (deferred past the grace window), so a
+ * deferred partial failure reports through `reportarErrorEliminacion`
+ * (`UndoToast`'s `role="alert"` slot) instead. `onResultado` still fires
+ * exactly once — now when the DEFERRED run settles (success or partial
+ * failure), preserving the page-level stable `role="status"` announcement
+ * `ListaIngestas` already owned, just delayed by the grace window instead of
+ * synchronous with the click.
+ *
+ * `onPageHide` fires the SAME per-id DELETE with `{ keepalive: true }` for
+ * every selected id — the `pagehide` escape hatch `undo-manager.ts` needs
+ * for a hard navigation/tab-close.
  */
 export function useSeleccionMasivaIngestas(
   ingestas: readonly IngestaListItemDto[],
@@ -99,11 +118,6 @@ export function useSeleccionMasivaIngestas(
     new Set(),
   );
   const [confirmando, setConfirmando] = useState(false);
-  const [eliminando, setEliminando] = useState(false);
-  const [progreso, setProgreso] = useState(0);
-  const [fallidas, setFallidas] = useState<ReadonlyMap<string, string>>(
-    new Map(),
-  );
   const [resumenMasivo, setResumenMasivo] = useState<ResumenMasivo | null>(
     null,
   );
@@ -126,8 +140,7 @@ export function useSeleccionMasivaIngestas(
     'seleccionada',
     'seleccionadas',
   );
-  const mensajeFallidas = construirMensajeFallidas(fallidas);
-  const interaccionBloqueada = confirmando || eliminando;
+  const interaccionBloqueada = confirmando;
 
   function alternarTodas() {
     setSeleccionados(
@@ -148,9 +161,6 @@ export function useSeleccionMasivaIngestas(
   }
 
   function abrirConfirmacion() {
-    eliminarMasivo.reset();
-    setFallidas(new Map());
-    setProgreso(0);
     const filasSeleccionadas = ingestas.filter((i) => seleccionados.has(i.id));
     setResumenMasivo({
       cantidad: filasSeleccionadas.length,
@@ -163,52 +173,63 @@ export function useSeleccionMasivaIngestas(
   }
 
   function cancelarConfirmacion() {
-    // R4-BLOCKER: `InlineConfirm` calls `onCancel` unconditionally on
-    // Escape — the guard against cancelling mid-run has to live here, not
-    // in `cancelDisabled` (which only disables the Cancelar button).
-    if (eliminando) {
-      return;
-    }
     setConfirmando(false);
   }
 
-  async function confirmar() {
-    setEliminando(true);
-    const ids = Array.from(seleccionados);
+  async function ejecutarEliminacion(ids: readonly string[]) {
     const nombresPorId = new Map(ingestas.map((i) => [i.id, i.nombreArchivo]));
-    const nuevasFallidas = new Map<string, string>();
+    const fallidas = new Map<string, string>();
     for (const id of ids) {
       try {
         // Sequential by construction: each iteration awaits before the
-        // next starts, never `Promise.all` — `progreso` and per-id failure
-        // isolation both depend on this.
+        // next starts, never `Promise.all` — per-id failure isolation
+        // depends on this.
         await eliminarMasivo.mutateAsync(id);
       } catch {
-        nuevasFallidas.set(id, nombresPorId.get(id) ?? id);
+        fallidas.set(id, nombresPorId.get(id) ?? id);
       }
-      setProgreso((p) => p + 1);
     }
-    // R4-WARNING: ONE invalidation of the 4 keys after the whole batch,
-    // instead of each delete triggering its own (the per-row
-    // `useEliminarIngesta` keeps doing that; this hook's mutation
-    // deliberately carries no `onSuccess` of its own).
+    // ONE invalidation of the 4 keys after the whole batch, instead of
+    // each delete triggering its own (the per-row `useEliminarIngesta`
+    // keeps doing that; this hook's mutation deliberately carries no
+    // `onSuccess` of its own).
     invalidarCachesIngesta(queryClient);
-    setEliminando(false);
-    setFallidas(nuevasFallidas);
-    setSeleccionados(new Set(nuevasFallidas.keys()));
-    if (nuevasFallidas.size === 0) {
-      setConfirmando(false);
+    if (fallidas.size > 0) {
+      reportarErrorEliminacion(construirMensajeFallidas(fallidas));
+      onResultado({ ok: false, mensaje: construirMensajeFallidas(fallidas) });
+    } else {
       onResultado({
         ok: true,
         mensaje:
           ids.length === 1 ? 'Cartola eliminada.' : 'Cartolas eliminadas.',
       });
-    } else {
-      onResultado({
-        ok: false,
-        mensaje: construirMensajeFallidas(nuevasFallidas) ?? '',
-      });
     }
+  }
+
+  function confirmar() {
+    const ids = Array.from(seleccionados);
+    setConfirmando(false);
+    setSeleccionados(new Set());
+    programarEliminacion({
+      ids,
+      mensaje: mensajeToastMasivo(ids.length),
+      // Returns (not discards) `ejecutarEliminacion`'s promise
+      // (adversarial-review fix): `undo-manager.ts` keeps every id in
+      // `ids` in its "committing" set — still reported by
+      // `usePendingIds()`, so every row stays hidden — until the WHOLE
+      // sequential loop settles, not just until the grace window expires.
+      // The pre-fix `void ejecutarEliminacion(ids)` let the manager treat
+      // the commit as instantly done, reappearing every row for the
+      // entire (possibly long) loop — a user could then re-select and
+      // re-delete an already-deleted row, producing a false "no se pudo
+      // eliminar" for a delete that had actually succeeded.
+      onCommit: () => ejecutarEliminacion(ids),
+      onPageHide: () => {
+        ids.forEach((id) => {
+          void deleteIngesta(id, { keepalive: true });
+        });
+      },
+    });
   }
 
   return {
@@ -219,10 +240,7 @@ export function useSeleccionMasivaIngestas(
     etiquetaSeleccionarTodas,
     etiquetaSeleccionadas,
     confirmando,
-    eliminando,
-    progreso,
     resumenMasivo,
-    mensajeFallidas,
     interaccionBloqueada,
     alternarFila,
     alternarTodas,

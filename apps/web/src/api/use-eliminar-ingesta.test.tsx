@@ -129,6 +129,7 @@ describe('useEliminarIngesta', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith('/api/ingestas/ingesta-1', {
       method: 'DELETE',
+      keepalive: false,
     });
   });
 });
@@ -161,6 +162,7 @@ describe('useEliminarIngestaMasiva', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith('/api/ingestas/ingesta-1', {
       method: 'DELETE',
+      keepalive: false,
     });
   });
 

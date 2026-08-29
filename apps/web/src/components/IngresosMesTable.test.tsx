@@ -1,8 +1,12 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { IngresosMesTable } from './IngresosMesTable';
 import { renderConRouter } from '@/test/router-harness';
+import {
+  deshacerEliminacionPendiente,
+  resetUndoManagerParaTests,
+} from '@/lib/undo-manager';
 import type { IngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
 
 // US-054 T-09 — IngresosMesTable behavior ledger (design.md §5, D-04):
@@ -119,6 +123,7 @@ describe('IngresosMesTable', () => {
 
   describe('delete affordance (WEB-DEL-01)', () => {
     afterEach(() => {
+      resetUndoManagerParaTests();
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
@@ -166,6 +171,35 @@ describe('IngresosMesTable', () => {
           name: /Eliminar movimiento Bono navidad/i,
         }),
       ).toBeDisabled();
+    });
+
+    // Design-hardening change (undo grace window, resolves critique P1):
+    // confirming hides the row immediately (optimistic) — before this
+    // change the row only left the DOM once the DELETE actually resolved.
+    it('confirming a delete hides the row immediately, and undo brings it back', async () => {
+      const user = userEvent.setup();
+      renderTabla();
+      const table = await screen.findByRole('table');
+
+      await user.click(
+        within(table).getByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      );
+      await screen.findByRole('alertdialog');
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+      expect(within(table).queryByText('Bono navidad')).not.toBeInTheDocument();
+      // The other row is untouched.
+      expect(within(table).getByText('Sueldo BCI')).toBeInTheDocument();
+
+      act(() => {
+        deshacerEliminacionPendiente();
+      });
+
+      expect(
+        await within(table).findByText('Bono navidad'),
+      ).toBeInTheDocument();
     });
   });
 });

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { IngresosMesPage } from './IngresosMesPage';
 import { renderConRouter } from '@/test/router-harness';
+import { resetUndoManagerParaTests } from '@/lib/undo-manager';
 import type { ApiError } from '@/api/client';
 import type { IngresosMesDto } from '@/api/types';
 
@@ -313,6 +314,10 @@ describe('IngresosMesPage', () => {
 
   describe('delete affordance (WEB-DEL-01)', () => {
     afterEach(() => {
+      // Design-hardening change (undo grace window): `undo-manager.ts` is a
+      // module singleton — a delete scheduled in one test stays pending
+      // (hiding its row via `usePendingIds()`) into the next test otherwise.
+      resetUndoManagerParaTests();
       vi.unstubAllGlobals();
     });
 

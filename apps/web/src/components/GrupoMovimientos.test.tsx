@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { GrupoMovimientos } from './GrupoMovimientos';
+import { resetUndoManagerParaTests } from '@/lib/undo-manager';
 import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
 import type { CatalogoDto } from '@/api/types';
 
@@ -105,6 +106,10 @@ const GRUPO_FIXTURE: GrupoDetalleMesViewModel = {
 
 describe('GrupoMovimientos', () => {
   afterEach(() => {
+    // Design-hardening change (undo grace window): `undo-manager.ts` is a
+    // module singleton — a delete scheduled in one test stays pending
+    // (hiding its row via `usePendingIds()`) into the next test otherwise.
+    resetUndoManagerParaTests();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });

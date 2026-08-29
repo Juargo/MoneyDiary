@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { BucketDetalleMesPage } from './BucketDetalleMesPage';
 import { renderConRouter } from '@/test/router-harness';
+import { resetUndoManagerParaTests } from '@/lib/undo-manager';
 import type { ApiError } from '@/api/client';
 import type { CatalogoDto, DetalleBucketMesDto } from '@/api/types';
 
@@ -275,6 +276,10 @@ async function verPrimerGrupo() {
 
 describe('BucketDetalleMesPage', () => {
   afterEach(() => {
+    // Design-hardening change (undo grace window): `undo-manager.ts` is a
+    // module singleton — a delete scheduled in one test stays pending
+    // (hiding its row via `usePendingIds()`) into the next test otherwise.
+    resetUndoManagerParaTests();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });

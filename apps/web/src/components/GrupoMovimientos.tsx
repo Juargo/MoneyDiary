@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
 import { EliminarMovimientoControl } from './EliminarMovimientoControl';
 import { aFechaCorta } from '@/domain/fecha';
+import { usePendingIds } from '@/lib/undo-manager';
 import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
 
 /**
@@ -31,6 +32,16 @@ import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-
  * already does the same slice, just one layer up the stack. Success/failure
  * is not announced here; the parent page owns the `role="status"` region
  * (`onEliminado` bubbles up to it, same as `onMovida`).
+ *
+ * Undo grace window (design-hardening change, resolves critique P1):
+ * `EliminarMovimientoControl` schedules a delayed commit and closes its
+ * dialog immediately instead of removing anything itself — THIS component
+ * hides the row, filtering `grupo.transacciones` by `usePendingIds()`
+ * (`lib/undo-manager.ts`) BEFORE the "ver N más…" slice, so the visible
+ * count and the collapsed/expanded toggle stay consistent with what's
+ * actually on screen. `grupo.subtotalLabel`/`conteo` (the group heading)
+ * are untouched — those are computed server-side and recompute only after
+ * the real DELETE commits (ADR-024).
  */
 export const FILAS_VISIBLES_POR_DEFECTO = 3;
 
@@ -54,11 +65,15 @@ export function GrupoMovimientos({
   const [expandido, setExpandido] = useState(false);
   const idLista = useId();
   const idTitulo = useId();
+  const pendientes = usePendingIds();
 
+  const transaccionesVisibles = grupo.transacciones.filter(
+    (tx) => !pendientes.has(tx.id),
+  );
   const visibles = expandido
-    ? grupo.transacciones
-    : grupo.transacciones.slice(0, FILAS_VISIBLES_POR_DEFECTO);
-  const ocultas = grupo.transacciones.length - FILAS_VISIBLES_POR_DEFECTO;
+    ? transaccionesVisibles
+    : transaccionesVisibles.slice(0, FILAS_VISIBLES_POR_DEFECTO);
+  const ocultas = transaccionesVisibles.length - FILAS_VISIBLES_POR_DEFECTO;
   const hayMas = ocultas > 0;
 
   return (
