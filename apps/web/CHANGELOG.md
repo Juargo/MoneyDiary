@@ -1,5 +1,79 @@
 # Changelog
 
+## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.3.0...web-v0.4.0) (2026-08-29)
+
+
+### Features
+
+* **web:** apply bulk classification directly and calm the review header ([a679595](https://github.com/Juargo/MoneyDiary/commit/a679595ddc5f86d4e6f123a8bf1819f2995aad32))
+* **web:** apply bulk classification directly and calm the review header ([c77c571](https://github.com/Juargo/MoneyDiary/commit/c77c571251038a72d1e3c924c2bf8899752a9da9))
+* **web:** brand the login screen and align it with the app's conventions ([138d804](https://github.com/Juargo/MoneyDiary/commit/138d80446525b3da077c05d2538ba1d26c56a789))
+* **web:** brand the login screen and align it with the app's conventions ([e225215](https://github.com/Juargo/MoneyDiary/commit/e225215ebc4f1e78dc07758a6f2782d001137da7))
+* **web:** bulk delete on ListaIngestas with frozen-selection confirm ([42f19e8](https://github.com/Juargo/MoneyDiary/commit/42f19e828d27093b4e8bc6bb48d4b776d568e13a))
+* **web:** bulk delete on ListaIngestas with frozen-selection confirm ([f9b9dbf](https://github.com/Juargo/MoneyDiary/commit/f9b9dbf8d14f93a5183faaddee2c1176277b0a17))
+* **web:** confirm bulk category apply with impact summary ([19fda42](https://github.com/Juargo/MoneyDiary/commit/19fda4260ea8263349e6833333459fa8f5f89ae2))
+* **web:** confirm bulk category apply with impact summary ([8383dec](https://github.com/Juargo/MoneyDiary/commit/8383decd684511ed5109ee4a5b4e5cd7c9c0bb20))
+* **web:** confirmation step before committing a manual movement ([71a62c7](https://github.com/Juargo/MoneyDiary/commit/71a62c7edda05b365ab7a9d1a39935a9440c241c))
+* **web:** confirmation step before committing a manual movement ([1f9827c](https://github.com/Juargo/MoneyDiary/commit/1f9827c4315db413cf01717869e8c10c9ccb8720))
+* **web:** distill the bulk toolbar and add contextual help links ([c3a020e](https://github.com/Juargo/MoneyDiary/commit/c3a020e3ad2e75377afed7635b968a204b20c0c4))
+* **web:** distill the bulk toolbar and add contextual help links ([61dd4a5](https://github.com/Juargo/MoneyDiary/commit/61dd4a5b1f3b9370db05f0dba547fc4240fc9a0c))
+* **web:** five-tab mobile nav with short labels, Ayuda folds into Configuracion ([65b79c2](https://github.com/Juargo/MoneyDiary/commit/65b79c2d3a88ceaa929266a4bd38afc335affc82))
+* **web:** five-tab mobile nav with short labels, Ayuda folds into Configuración ([8964e19](https://github.com/Juargo/MoneyDiary/commit/8964e19970db19effcbc0763812e674466c830e7))
+* **web:** in-button pending labels, manual-form sectioning, /ayuda measure ([69939e0](https://github.com/Juargo/MoneyDiary/commit/69939e016d0c1e6e6d4cf9b3b8fe20617280e062))
+* **web:** in-button pending labels, manual-form sectioning, /ayuda measure ([a7024a4](https://github.com/Juargo/MoneyDiary/commit/a7024a4fe5cfb7b97d6dc9ec4ba40d7781fde40e))
+* **web:** keyboard month navigation on the period selector ([73f7745](https://github.com/Juargo/MoneyDiary/commit/73f7745a2736a6b518f0edb7672679bd080eb6ef))
+* **web:** keyboard month navigation on the period selector ([fda679d](https://github.com/Juargo/MoneyDiary/commit/fda679dbf8eb7b262b0a87050aeb960eea80a276))
+* **web:** land cartola commit on the month's verdict ([ab13339](https://github.com/Juargo/MoneyDiary/commit/ab133393b5344a13d3ae6ae23b7603b1e330d550))
+* **web:** land cartola commit on the month's verdict ([e6308ba](https://github.com/Juargo/MoneyDiary/commit/e6308ba3078773ee041901be8fd325dadc955448))
+* **web:** lead the dashboard with the semaforo verdict ([e315400](https://github.com/Juargo/MoneyDiary/commit/e315400c85b2d8498c31cb66896dcab8040d9932))
+* **web:** lead the dashboard with the semaforo verdict ([ab11caf](https://github.com/Juargo/MoneyDiary/commit/ab11cafed1a600b253aa990e165f2c419613708e))
+* **web:** make the semaforo the dashboard's only headline ([835c715](https://github.com/Juargo/MoneyDiary/commit/835c715571ca7b45fa7953ac06ccae0fd6142bcf))
+* **web:** make the semaforo the dashboard's only headline ([1f71eda](https://github.com/Juargo/MoneyDiary/commit/1f71eda9ce84cf28baebbe1780dccad91536875a))
+* **web:** permanence expectation note on the manual movement form ([d04af90](https://github.com/Juargo/MoneyDiary/commit/d04af9011a4d8ccea6d56375773bb7a678b9b822))
+* **web:** permanence expectation note on the manual movement form ([10b3c33](https://github.com/Juargo/MoneyDiary/commit/10b3c333148c335dbd0413902e13164416d8ddae))
+* **web:** quick-repeat action on the manual movement confirm dialog ([382ac68](https://github.com/Juargo/MoneyDiary/commit/382ac683952f726278a9f5f24cbe0fcceaa3d8a9))
+* **web:** quick-repeat action on the manual movement confirm dialog ([0aa2b03](https://github.com/Juargo/MoneyDiary/commit/0aa2b03024956a8e5c8306eb303cc9bb721ad806))
+* **web:** scale cartola review with progress, date groups and bulk apply ([943f2b2](https://github.com/Juargo/MoneyDiary/commit/943f2b233a5a848ce7ebf40568c6b36025a3014f))
+* **web:** scale cartola review with progress, date groups and bulk apply ([801bf44](https://github.com/Juargo/MoneyDiary/commit/801bf4481f9efdf57f9a61d6cea200b9d0c2502b))
+* **web:** select all visible rows in the cartola review ([8216f40](https://github.com/Juargo/MoneyDiary/commit/8216f403a28663e55583c21b27a63f4b175cdf90))
+* **web:** select all visible rows in the cartola review ([8360478](https://github.com/Juargo/MoneyDiary/commit/83604783a02a1efe035e3b56855c97d72dd82434))
+* **web:** ship a real Ayuda page and an honest sidebar tagline ([36d80c7](https://github.com/Juargo/MoneyDiary/commit/36d80c781b7a1b6cdfd3da51149694583f57b331))
+* **web:** ship a real Ayuda page and an honest sidebar tagline ([d916e7a](https://github.com/Juargo/MoneyDiary/commit/d916e7ab96157279159dd6c5619c8414cdf821ba))
+* **web:** survive interruptions in the cartola review with a draft ([e8640b0](https://github.com/Juargo/MoneyDiary/commit/e8640b0f971caa578ffd0dcd4c9e177d71cabe13))
+* **web:** survive interruptions in the cartola review with a draft ([6d71907](https://github.com/Juargo/MoneyDiary/commit/6d719077d173d00f028a4fda8142ad27a31d3315))
+* **web:** visible column identity and a leaner bulk toolbar in the review ([2f02bf1](https://github.com/Juargo/MoneyDiary/commit/2f02bf1ffd51a0c09fc71d27f0ff3ac6acf60674))
+* **web:** visible column identity and a leaner bulk toolbar in the review ([2ddb939](https://github.com/Juargo/MoneyDiary/commit/2ddb9395a0af60075927a32c617800c91b9e6535))
+
+
+### Bug Fixes
+
+* **api:** server-side demo gate on all ingesta write surfaces ([ca3e1ee](https://github.com/Juargo/MoneyDiary/commit/ca3e1eefa6a2c7a0de08cb13158c344f551038ba))
+* **api:** server-side demo gate on all ingesta write surfaces ([8ded358](https://github.com/Juargo/MoneyDiary/commit/8ded3586522edcbfd11aceac1aa59a58b07bb381))
+* **web:** bucket labels, checkbox hit targets, focus-ring convergence ([95acf01](https://github.com/Juargo/MoneyDiary/commit/95acf012861e47b07fbbab4ff032838ed96e0683))
+* **web:** bucket labels, checkbox hit targets, focus-ring convergence ([27ccacd](https://github.com/Juargo/MoneyDiary/commit/27ccacd5770b79f80efb6359222f905be2c6c33a))
+* **web:** raise confirm buttons in destructive dialogs to default touch size ([c360edd](https://github.com/Juargo/MoneyDiary/commit/c360eddbd1cb77a3679a90c471dfa992ccb5deec))
+* **web:** raise confirm buttons in destructive dialogs to default touch size ([b7d0175](https://github.com/Juargo/MoneyDiary/commit/b7d017575def5bc140ad65e639830b73c46bbc71))
+* **web:** unify UI copy register to neutral tuteo ([ca431ad](https://github.com/Juargo/MoneyDiary/commit/ca431ad97bd8ea06b2d4fa7b28fbd378c58fba96))
+* **web:** unify UI copy register to neutral tuteo ([37e91b3](https://github.com/Juargo/MoneyDiary/commit/37e91b3febb6f2614aef01779d79c0c99c902df3))
+
+
+### Refactors
+
+* **web:** extract shared InlineConfirm alertdialog component ([dee0072](https://github.com/Juargo/MoneyDiary/commit/dee007283b34a5d62253e616ccb604f047fd690a))
+* **web:** extract shared InlineConfirm alertdialog component ([bef2a26](https://github.com/Juargo/MoneyDiary/commit/bef2a26b30181aa8a8b1831668e4b744901f27a4))
+* **web:** migrate ad-hoc palette literals to semantic design tokens ([24e192d](https://github.com/Juargo/MoneyDiary/commit/24e192de1d8132b83effc83d5a20b6b77c329ec5))
+* **web:** migrate ad-hoc palette literals to semantic design tokens ([560dc69](https://github.com/Juargo/MoneyDiary/commit/560dc694969f75adf5e61fbfcc6fa7116fd5b53f))
+* **web:** move shared states and field primitives onto semantic tokens ([016fad4](https://github.com/Juargo/MoneyDiary/commit/016fad473bdec8278b2aee7bc1001ef9e05dda46))
+* **web:** move shared states and field primitives onto semantic tokens ([f4d7aac](https://github.com/Juargo/MoneyDiary/commit/f4d7aaca7b370146ce0cd858eb2965c1283f457c))
+* **web:** unify write surfaces on design-system Button and tokens ([b936473](https://github.com/Juargo/MoneyDiary/commit/b9364739b7ef69844e2bef1c7fa11866aed3ed88))
+* **web:** unify write surfaces on design-system Button and tokens ([9113b45](https://github.com/Juargo/MoneyDiary/commit/9113b4537a46b4418892ad6c4af14469aed03923))
+
+
+### Documentation
+
+* **web:** add Impeccable PRODUCT.md with confirmed product truth ([3c5a32c](https://github.com/Juargo/MoneyDiary/commit/3c5a32c3d6e3682d001e3287bf247d9a35191f22))
+* **web:** add Impeccable PRODUCT.md with confirmed product truth ([2f1ea9c](https://github.com/Juargo/MoneyDiary/commit/2f1ea9c97d771098f411008477ddd3a643513b11))
+
 ## [0.3.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.2.0...web-v0.3.0) (2026-08-25)
 
 
