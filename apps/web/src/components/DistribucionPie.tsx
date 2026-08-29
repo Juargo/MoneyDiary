@@ -135,7 +135,13 @@ function Pie({
             tabIndex={0}
             aria-label={ETIQUETA_BUCKET[slice.bucket] ?? slice.bucket}
             stroke={PIE_WEDGE_STROKE}
-            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-800"
+            // Round-9 critique P3: converged to the shared --ring token
+            // (#1a1c1c) from the old slate-800 (#1e293b) "do NOT re-tint"
+            // literal — contrast against every bucket pastel wedge fill can
+            // only improve. See the canonical ratio table in
+            // `lib/bucket-colors.ts` (above `construirOpcionesBucket`'s
+            // "Focus-ring contrast" comment) for the verified numbers.
+            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             onClick={() => onSelectSlice(slice.bucket)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {

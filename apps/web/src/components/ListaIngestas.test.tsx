@@ -422,6 +422,56 @@ describe('ListaIngestas', () => {
       expect(screen.getAllByRole('checkbox')).toHaveLength(2);
     });
 
+    // Round-9 critique P1 fix 2: the per-row checkbox is bare (no wrapping
+    // label at all — the sibling text/badge is a separate flex block), so
+    // it needs its own wrapping `<label>` sized to the 24×24 CSS px
+    // hit-target floor (WCAG 2.2 AA SC 2.5.8), while its visual glyph stays
+    // size-4 — same mechanism as `FilaRevision`'s per-row checkbox.
+    it('round-9 P1 fix 2: the per-row checkbox sits in a size-6 hit target while staying size-4 visually', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ingestas: [dosIngestas[0]] }),
+      });
+
+      render(<ListaIngestas />, { wrapper: crearWrapper() });
+
+      await screen.findByText('BancoEstado');
+      const fila = screen.getByRole('checkbox', {
+        name: /seleccionar cartola bancoestado/i,
+      });
+
+      expect(fila.className).toContain('size-4');
+      const hitTarget = fila.closest('label');
+      expect(hitTarget).not.toBeNull();
+      expect(hitTarget?.className).toContain('size-6');
+    });
+
+    // Round-9 critique P1 fix 2: the master checkbox already sits inside a
+    // full `<label>` that also carries its visible text — the fix is a
+    // `min-h-6` floor on that label rather than a second, nested `<label>`
+    // around the bare input (nested labels are invalid HTML and can
+    // double-fire toggle events).
+    it("round-9 P1 fix 2: the master checkbox's wrapping label enforces a min-h-6 (24px) hit target", async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ingestas: dosIngestas }),
+      });
+
+      render(<ListaIngestas />, { wrapper: crearWrapper() });
+
+      await screen.findByText('BancoEstado');
+      const master = screen.getByRole('checkbox', {
+        name: /seleccionar todas las cartolas \(2\)/i,
+      });
+
+      expect(master.className).toContain('size-4');
+      const hitTarget = master.closest('label');
+      expect(hitTarget).not.toBeNull();
+      expect(hitTarget?.className).toContain('min-h-6');
+    });
+
     it('the master checkbox selects and deselects every PROCESADA row', async () => {
       mockFetchOnce({
         ok: true,

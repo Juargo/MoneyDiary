@@ -362,7 +362,14 @@ describe('ResumenAnual', () => {
 
   // FIX 2 (WCAG 1.4.11): match the focus-visible outline already used by
   // LeyendaGasto/DistribucionPie's interactive controls.
-  it('uses the same focus-visible outline color as the other cards (FIX 2, WCAG 1.4.11)', async () => {
+  // Round-9 critique P3: the old "do NOT re-tint" LOCKED literal
+  // (outline-slate-800, #1e293b) converges to the shared --ring token
+  // (#1a1c1c) — verified DARKER, so contrast against every bucket pastel
+  // fill (the MiniDistribucionPie wedges inside each cell) can only improve
+  // (see round-9 report for the computed ratios). `outline-ring` is the
+  // class the rest of the app already uses for this same focus grammar
+  // (was FIX 2, WCAG 1.4.11).
+  it('round-9 P3: uses the shared --ring focus-visible outline, converged from the old slate-800 literal', async () => {
     mockFetchAnual({
       ok: true,
       status: 200,
@@ -380,7 +387,8 @@ describe('ResumenAnual', () => {
 
     const boton = await screen.findByRole('button', { name: 'Ver enero 2026' });
     expect(boton.className).toContain('focus-visible:outline-2');
-    expect(boton.className).toContain('focus-visible:outline-slate-800');
+    expect(boton.className).toContain('focus-visible:outline-ring');
+    expect(boton.className).not.toContain('focus-visible:outline-slate-800');
   });
 
   // FIX 4: the section's accessible name must come from the h2 via

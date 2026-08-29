@@ -8,6 +8,7 @@ import {
 } from './catalogo-select-sentinels';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { Button } from './ui/button';
+import { construirOpcionesBucket } from '@/lib/bucket-colors';
 import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -156,20 +157,45 @@ function agruparPorFecha(filas: readonly FilaConMerged[]): GrupoPorFecha[] {
 /**
  * A checkbox that supports the native `indeterminate` visual state, which
  * has no HTML attribute — it can only be set imperatively on the DOM node.
- * Used by the per-date-group "Seleccionar todas" control.
+ * Used by the per-date-group "Seleccionar todas" control and the page-level
+ * master checkbox.
  */
 function CheckboxIndeterminado({
   checked,
   indeterminate,
   onChange,
   ariaLabel,
+  hitTarget = false,
 }: {
   readonly checked: boolean;
   readonly indeterminate: boolean;
   readonly onChange: () => void;
   readonly ariaLabel: string;
+  /**
+   * hitTarget (round-9 critique P1 fix 2, WCAG 2.2 AA SC 2.5.8; fresh-review
+   * fix, jsx-a11y/label-has-associated-control) — when `true`, wraps the
+   * checkbox in its OWN `<label className="inline-flex size-6 ...">` so the
+   * interactive area grows to 24×24 CSS px while the checkbox stays size-4
+   * visually. This wrapping MUST live inside this component, not at the call
+   * site: `jsx-a11y/label-has-associated-control` can only see a `<label>`
+   * as valid when it directly contains a recognized control (`input`,
+   * `select`, …) in the SAME JSX subtree — it cannot see through a custom
+   * component boundary. A `<label>` wrapped around `<CheckboxIndeterminado
+   * />` from the outside is exactly what tripped that rule; wrapping the
+   * literal `<input>` here instead resolves it for real (not via
+   * eslint-disable).
+   *
+   * Default `false`: the master "select all visible" checkbox is already
+   * embedded inside an OUTER `<label>` that also carries its own visible
+   * text — that label gets its `min-h-6` hit-target fix directly at its
+   * call site. A SECOND `<label>` around just this input would be invalid
+   * HTML (nested `<label>` elements can double-fire the toggle), so the
+   * master call site leaves this prop at its default and renders the bare
+   * `<input>`.
+   */
+  readonly hitTarget?: boolean;
 }) {
-  return (
+  const input = (
     <input
       type="checkbox"
       aria-label={ariaLabel}
@@ -180,6 +206,16 @@ function CheckboxIndeterminado({
       onChange={onChange}
       className="size-4 shrink-0 rounded border-border accent-primary"
     />
+  );
+
+  if (!hitTarget) {
+    return input;
+  }
+
+  return (
+    <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
+      {input}
+    </label>
   );
 }
 
@@ -324,7 +360,7 @@ export function PreviewMuestra({
     catalogo.tag === 'listo'
       ? [
           BUCKET_SENTINEL_OPTION,
-          ...catalogo.grupos.map((g) => ({ value: g.bucket, label: g.bucket })),
+          ...construirOpcionesBucket(catalogo.grupos.map((g) => g.bucket)),
         ]
       : [BUCKET_SENTINEL_OPTION];
 
@@ -385,7 +421,16 @@ export function PreviewMuestra({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-3">
               {seleccionablesVisibles.length > 0 && (
-                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
+                // `<label>` already wraps the checkbox AND its visible text
+                // ("Seleccionar todas las visibles (N)"), so clicking the
+                // text already toggles it — the only gap is HEIGHT (14px/20px
+                // text can sit under the 24px floor). `min-h-6` raises the
+                // label's own box to 24 CSS px without touching the
+                // checkbox's size-4 visual glyph. A second, nested `<label>`
+                // around just the input was rejected: nested `<label>`
+                // elements are invalid HTML and can double-fire the toggle.
+                <label className="flex min-h-6 items-center gap-2 text-sm font-medium text-foreground">
                   <CheckboxIndeterminado
                     checked={todasVisiblesSeleccionadas}
                     indeterminate={
@@ -516,11 +561,18 @@ export function PreviewMuestra({
               >
                 <div className="flex items-center gap-2">
                   {seleccionablesGrupo.length > 0 && (
+                    // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
+                    // checkbox is bare — the sibling `<span>` (the date) is
+                    // NOT part of any label. `hitTarget` makes
+                    // `CheckboxIndeterminado` wrap ITS OWN `<input>` in the
+                    // size-6 label internally (see that component's doc
+                    // comment for why the wrapping can't live out here).
                     <CheckboxIndeterminado
                       checked={todasSeleccionadas}
                       indeterminate={algunaSeleccionada && !todasSeleccionadas}
                       onChange={() => handleToggleGrupo(seleccionablesGrupo)}
                       ariaLabel={`Seleccionar todas: ${grupo.fecha}`}
+                      hitTarget
                     />
                   )}
                   <span className="text-xs font-medium text-muted-foreground">

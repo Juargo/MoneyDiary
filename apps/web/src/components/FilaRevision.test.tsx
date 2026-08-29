@@ -168,6 +168,58 @@ describe('FilaRevision', () => {
     expect(options).not.toContain('Salud');
   });
 
+  // Round-9 critique P1 fix 2: the selection checkbox's own visual glyph
+  // stays size-4 (16px), but it must sit inside a ≥24×24 CSS px hit target
+  // (WCAG 2.2 AA SC 2.5.8) — same mechanism as the pre-existing `size-6`
+  // icon-button precedent (`CLASE_BOTON_ICONO`), applied here via a
+  // wrapping `<label>` around the bare `<input>` (label-click toggles the
+  // checkbox natively, growing the interactive area without resizing the
+  // checkbox itself).
+  it('round-9 P1 fix 2: the row selection checkbox sits in a size-6 (24×24) hit target while staying size-4 visually', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByLabelText(/Seleccionar fila 3/i);
+    expect(checkbox.className).toContain('size-4');
+
+    const hitTarget = checkbox.closest('label');
+    expect(hitTarget).not.toBeNull();
+    expect(hitTarget?.className).toContain('size-6');
+  });
+
+  // Round-9 critique P1 fix 1: bucket options must show the UI label
+  // ("Gustos") while the underlying option value stays the domain key
+  // ("Deseos") — ETIQUETA_BUCKET is applied at this call site now.
+  it('round-9 P1: bucket select shows "Gustos" as label but keeps "Deseos" as the option value', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const bucketSelect = screen.getByLabelText(
+      /Fila 3: bucket/i,
+    ) as HTMLSelectElement;
+    const deseosOption = Array.from(bucketSelect.options).find(
+      (o) => o.value === 'Deseos',
+    );
+
+    expect(deseosOption).toBeDefined();
+    expect(deseosOption?.text).toBe('Gustos');
+    expect(Array.from(bucketSelect.options).map((o) => o.text)).not.toContain(
+      'Deseos',
+    );
+  });
+
   // Fix 1a: first-time bucket selection fires NO onEditChange (sparse-overlay)
   it('fix 1a: first-time bucket selection fires no onEditChange (categoriaId was null)', async () => {
     const onEditChange = vi.fn();

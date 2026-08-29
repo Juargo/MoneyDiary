@@ -10,7 +10,7 @@ import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { construirOpcionesBucket } from '@/lib/bucket-colors';
 import { BotonVolver } from '../BotonVolver';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
@@ -23,10 +23,7 @@ import {
 } from './mensajes-catalogo';
 import { Button } from '@/components/ui/button';
 
-const OPCIONES_BUCKET = BUCKETS_ASIGNABLES.map((bucket) => ({
-  value: bucket,
-  label: ETIQUETA_BUCKET[bucket] ?? bucket,
-}));
+const OPCIONES_BUCKET = construirOpcionesBucket(BUCKETS_ASIGNABLES);
 
 /**
  * EditarCategoria (US-043 PR #3b, design.md §1/Q1d/Q1e, WCTG-01, WCTG-10)

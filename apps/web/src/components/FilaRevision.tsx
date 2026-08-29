@@ -6,6 +6,7 @@ import {
   BUCKET_SENTINEL_OPTION,
 } from './catalogo-select-sentinels';
 import { formatearMontoCLP } from '@/domain/formatear-monto';
+import { construirOpcionesBucket } from '@/lib/bucket-colors';
 import type { PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
 
@@ -137,7 +138,7 @@ export function FilaRevision({
     catalogo.tag === 'listo'
       ? [
           BUCKET_SENTINEL_OPTION,
-          ...catalogo.grupos.map((g) => ({ value: g.bucket, label: g.bucket })),
+          ...construirOpcionesBucket(catalogo.grupos.map((g) => g.bucket)),
         ]
       : [BUCKET_SENTINEL_OPTION];
 
@@ -217,13 +218,22 @@ export function FilaRevision({
     <li className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm">
       <div className="flex items-center justify-between text-muted-foreground">
         <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            aria-label={labelSeleccionar}
-            checked={selected}
-            onChange={() => onToggleSelect(fila.rowIndex)}
-            className="size-4 shrink-0 rounded border-border accent-primary"
-          />
+          {/* Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): the checkbox
+              glyph stays size-4 (16px) visually, but a wrapping `<label>`
+              grows the CLICKABLE area to size-6 (24×24 CSS px) — the same
+              floor `CLASE_BOTON_ICONO` already enforces for icon buttons.
+              A native `<label>` around a bare `<input>` toggles it on click
+              anywhere inside, so this alone grows the hit target with no
+              extra handler. */}
+          <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
+            <input
+              type="checkbox"
+              aria-label={labelSeleccionar}
+              checked={selected}
+              onChange={() => onToggleSelect(fila.rowIndex)}
+              className="size-4 shrink-0 rounded border-border accent-primary"
+            />
+          </label>
           <span>{fila.fecha.slice(0, 10)}</span>
         </div>
         <span className="font-medium">{fila.descripcion}</span>
