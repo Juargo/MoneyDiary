@@ -114,6 +114,35 @@ describe('EliminarIngestaControl', () => {
     expect(dialog).not.toHaveTextContent('no se puede deshacer');
   });
 
+  // a11y round, part 1: the shared InlineConfirm shell wires every
+  // alertdialog's body to aria-describedby uniformly. Unrelated to the
+  // undo grace window rewiring — restored here after being dropped when
+  // this file's tests were rewired for that change.
+  it('the alertdialog is described by the impact paragraph via aria-describedby (a11y)', async () => {
+    const user = userEvent.setup();
+    render(
+      <EliminarIngestaControl
+        id="ingesta-1"
+        banco="BancoEstado"
+        fechaLabel="2026-07-15"
+        estado="exitoso"
+        totalTransacciones={12}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
+    );
+
+    const dialog = await screen.findByRole('alertdialog');
+    const describedById = dialog.getAttribute('aria-describedby');
+    expect(describedById).toBeTruthy();
+    expect(document.getElementById(describedById!)).toHaveTextContent(
+      'Se eliminarán 12 movimientos de BancoEstado',
+    );
+  });
+
   it('for a fallida ingesta, states the impact without the misleading "0 movimientos" (US-004)', async () => {
     const user = userEvent.setup();
     render(
