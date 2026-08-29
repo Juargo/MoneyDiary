@@ -325,4 +325,54 @@ describe('EliminarIngestaControl', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
+
+  // issue #500: demo (esDemo) client-side honesty — the server already
+  // rejects a demo DELETE (IngestaDemoSoloLecturaError), this proactively
+  // disables the trigger so a demo session never even gets to try.
+  describe('demo session (esDemo, issue #500)', () => {
+    it('disables the trigger and clicking it does not open the dialog', async () => {
+      const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+      const user = userEvent.setup();
+      render(
+        <EliminarIngestaControl
+          id="ingesta-1"
+          banco="BancoEstado"
+          fechaLabel="2026-07-15"
+          estado="exitoso"
+          totalTransacciones={12}
+          esDemo
+        />,
+        { wrapper: crearWrapper() },
+      );
+
+      const trigger = screen.getByRole('button', {
+        name: /Eliminar cartola BancoEstado/i,
+      });
+      expect(trigger).toBeDisabled();
+
+      await user.click(trigger);
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('esDemo=false (default) leaves the trigger enabled, unchanged', () => {
+      render(
+        <EliminarIngestaControl
+          id="ingesta-1"
+          banco="BancoEstado"
+          fechaLabel="2026-07-15"
+          estado="exitoso"
+          totalTransacciones={12}
+        />,
+        { wrapper: crearWrapper() },
+      );
+
+      expect(
+        screen.getByRole('button', {
+          name: /Eliminar cartola BancoEstado/i,
+        }),
+      ).toBeEnabled();
+    });
+  });
 });
