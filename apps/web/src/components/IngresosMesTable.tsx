@@ -1,5 +1,6 @@
 import { Badge } from './ui/badge';
 import { EliminarMovimientoControl } from './EliminarMovimientoControl';
+import { usePendingIds } from '@/lib/undo-manager';
 import type { IngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
 
 /**
@@ -24,6 +25,16 @@ import type { IngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
  * `ListaIngestas`).
  *
  * NO prefetch de catálogo (WDI-06 — sin reclasificación en esta pantalla).
+ *
+ * Undo grace window (design-hardening change, resolves critique P1):
+ * `EliminarMovimientoControl` no longer removes a row on its own — it
+ * schedules a delayed commit and closes its dialog immediately. THIS
+ * component is what actually hides the row, filtering `filas` by
+ * `usePendingIds()` (the shared `undo-manager.ts` singleton) before
+ * rendering — the same reactive id set `UndoToast` reads to show
+ * "Deshacer". Amounts/totals elsewhere on the page are untouched by this
+ * filter (ADR-024, server stays source of truth for money); only the row
+ * itself disappears.
  */
 export function IngresosMesTable({
   mes,
@@ -36,6 +47,9 @@ export function IngresosMesTable({
   readonly esDemo?: boolean;
   readonly onEliminado?: () => void;
 }) {
+  const pendientes = usePendingIds();
+  const filasVisibles = filas.filter((fila) => !pendientes.has(fila.id));
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -60,7 +74,7 @@ export function IngresosMesTable({
           </tr>
         </thead>
         <tbody>
-          {filas.map((fila) => (
+          {filasVisibles.map((fila) => (
             <tr key={fila.id} className="border-b last:border-0">
               <td className="py-2 pr-4 tabular-nums text-muted-foreground">
                 {fila.fechaLabel}

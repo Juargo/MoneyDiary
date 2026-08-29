@@ -195,6 +195,18 @@ describe('deleteMovimiento', () => {
     expect(jsonSpy).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledWith('/api/movimientos/tx-1', {
       method: 'DELETE',
+      keepalive: false,
+    });
+  });
+
+  it('keepalive: true forwards to fetch (design-hardening change, pagehide flush escape hatch)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+
+    await deleteMovimiento('tx-1', { keepalive: true });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/movimientos/tx-1', {
+      method: 'DELETE',
+      keepalive: true,
     });
   });
 
@@ -255,7 +267,7 @@ describe('deleteMovimiento', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/movimientos/tx%20with%20spaces',
-      { method: 'DELETE' },
+      { method: 'DELETE', keepalive: false },
     );
   });
 });

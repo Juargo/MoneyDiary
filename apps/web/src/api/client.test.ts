@@ -1991,8 +1991,19 @@ describe('deleteIngesta', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/ingestas/ingesta%20con%20espacio',
-      { method: 'DELETE' },
+      { method: 'DELETE', keepalive: false },
     );
+  });
+
+  it('keepalive: true forwards to fetch (design-hardening change, pagehide flush escape hatch)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+
+    await deleteIngesta('ingesta-1', { keepalive: true });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingestas/ingesta-1', {
+      method: 'DELETE',
+      keepalive: true,
+    });
   });
 
   it('en un 204 resuelve {ok: true, value: undefined} SIN llamar res.json() (D7 — un 204 no tiene body)', async () => {

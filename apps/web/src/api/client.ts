@@ -1450,13 +1450,25 @@ export async function fetchIngestas(): Promise<
  * `{ tag: 'server', status: 404 }` con un mensaje que invita a refrescar la
  * lista, en vez del genérico de 5xx — la UI lo trata como "ya no está", no
  * como un error inesperado.
+ *
+ * `keepalive` (design-hardening change, undo grace window): the smallest
+ * possible escape hatch for `undo-manager.ts`'s `pagehide` flush — a hard
+ * navigation/tab-close needs the DELETE to survive the page's own teardown,
+ * which a plain `fetch` does not guarantee. `@default false`, unchanged
+ * request otherwise (same URL, method, same-origin credentials).
  */
-export async function deleteIngesta(id: string): Promise<ApiResult<void>> {
+export async function deleteIngesta(
+  id: string,
+  options?: { readonly keepalive?: boolean },
+): Promise<ApiResult<void>> {
   const url = `/api/ingestas/${encodeURIComponent(id)}`;
 
   let res: Response;
   try {
-    res = await fetch(url, { method: 'DELETE' });
+    res = await fetch(url, {
+      method: 'DELETE',
+      keepalive: options?.keepalive ?? false,
+    });
   } catch {
     return {
       ok: false,

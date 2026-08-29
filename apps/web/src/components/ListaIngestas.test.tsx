@@ -1,11 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ListaIngestas } from './ListaIngestas';
 import { ME_QUERY_KEY } from '@/api/use-me';
 import { QUERY_CLIENT_DEFAULTS } from '@/api/query-client-defaults';
+import { UNDO_GRACE_MS, resetUndoManagerParaTests } from '@/lib/undo-manager';
 import type { IngestaListItemDto, MeDto } from '@/api/types';
 
 const dosIngestas: IngestaListItemDto[] = [
@@ -179,8 +186,14 @@ function mockFetchOnce(response: {
 
 describe('ListaIngestas', () => {
   afterEach(() => {
+    // Design-hardening change (undo grace window): `undo-manager.ts` is a
+    // module singleton — a delete scheduled in one test stays pending
+    // (hiding its row via `usePendingIds()`) into the next test otherwise.
+    resetUndoManagerParaTests();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('renders the loading state while the query is pending', () => {
@@ -531,11 +544,27 @@ describe('ListaIngestas', () => {
         'Se eliminarán 2 cartolas y 13 movimientos en total',
       );
       expect(dialogos[0]).toHaveTextContent(
-        'Esta acción no se puede deshacer.',
+        'Podrás deshacer durante unos segundos después de confirmar.',
       );
     });
 
-    it('confirming a bulk delete removes each selected row sequentially, clears selection, and announces success', async () => {
+    // Design-hardening change (undo grace window, resolves critique P1):
+    // Confirmar now closes the dialog immediately and schedules the whole
+    // batch as ONE delayed commit — the row(s) hide right away (optimistic,
+    // via `usePendingIds()`), and the real sequential DELETE loop only runs
+    // once the grace window expires. `confirmarBulkConTimersFalsos` fires
+    // and opens the dialog under REAL timers (mixing `userEvent`'s own
+    // real-timer machinery with fake timers deadlocks), then switches to
+    // fake timers and fires "Confirmar" via `fireEvent` (synchronous, no
+    // internal timers of its own) so `programarEliminacion`'s `setTimeout`
+    // is scheduled on the fake clock from the start.
+    function confirmarBulkConTimersFalsos() {
+      const confirmarButton = screen.getByRole('button', { name: 'Confirmar' });
+      vi.useFakeTimers();
+      fireEvent.click(confirmarButton);
+    }
+
+    it('confirming a bulk delete hides both rows immediately, then runs each DELETE sequentially once the grace window expires', async () => {
       const { fetchMock } = crearFetchMockIngestas(tresIngestas);
       const user = userEvent.setup();
 
@@ -554,28 +583,36 @@ describe('ListaIngestas', () => {
         screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
       );
       await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+      confirmarBulkConTimersFalsos();
 
-      await waitFor(() =>
-        expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument(),
-      );
-      await waitFor(() =>
-        expect(screen.queryByText('BCI')).not.toBeInTheDocument(),
-      );
+      // Optimistic hide — no DELETE has fired yet.
+      expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument();
+      expect(screen.queryByText('BCI')).not.toBeInTheDocument();
       expect(screen.getByText('Santander')).toBeInTheDocument();
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      const deleteCallsAntes = fetchMock.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
+      );
+      expect(deleteCallsAntes).toHaveLength(0);
+
+      await act(async () => {
+        vi.advanceTimersByTime(UNDO_GRACE_MS);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       expect(screen.getByText('Cartolas eliminadas.')).toBeInTheDocument();
       expect(document.activeElement).toBe(
         screen.getByRole('heading', { name: 'Gestionar cartolas' }),
       );
-
-      const deleteCalls = fetchMock.mock.calls.filter(
+      const deleteCallsDespues = fetchMock.mock.calls.filter(
         ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
       );
-      expect(deleteCalls).toHaveLength(2);
+      expect(deleteCallsDespues).toHaveLength(2);
     });
 
-    it('a partial bulk-delete failure keeps the failed row selected, reports it inline, and leaves the dialog open', async () => {
+    it('a partial bulk-delete failure: the failed row reappears, the succeeded one stays gone, and the toast surfaces the error', async () => {
       const { fallarIds } = crearFetchMockIngestas(tresIngestas);
       fallarIds.add('ingesta-2');
       const user = userEvent.setup();
@@ -595,19 +632,27 @@ describe('ListaIngestas', () => {
         screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
       );
       await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+      confirmarBulkConTimersFalsos();
+
+      act(() => {
+        vi.advanceTimersByTime(UNDO_GRACE_MS);
+      });
+      // Switch back to real timers so `waitFor` below can let the
+      // sequential DELETE loop + cache invalidation + refetch chain settle
+      // naturally — a fixed number of `Promise.resolve()` flushes can't
+      // reliably drain a multi-hop async chain (mutateAsync → deleteIngesta
+      // → next loop iteration → invalidateQueries → the background
+      // refetch's own fetch + json()).
+      vi.useRealTimers();
 
       await waitFor(() =>
         expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument(),
       );
       expect(screen.getByText('BCI')).toBeInTheDocument();
-      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(
         /no se pudo eliminar 1 cartola: cartola-bci\.xlsx/i,
       );
-      expect(
-        screen.getByRole('checkbox', { name: /seleccionar cartola bci/i }),
-      ).toBeChecked();
     });
 
     it('when the FIRST selected id fails, the loop still continues and deletes the rest (4R review R3 gap)', async () => {
@@ -630,48 +675,19 @@ describe('ListaIngestas', () => {
         screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
       );
       await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+      confirmarBulkConTimersFalsos();
+
+      act(() => {
+        vi.advanceTimersByTime(UNDO_GRACE_MS);
+      });
+      vi.useRealTimers();
 
       await waitFor(() =>
         expect(screen.queryByText('BCI')).not.toBeInTheDocument(),
       );
       expect(screen.getByText('BancoEstado')).toBeInTheDocument();
-      expect(
-        screen.getByRole('checkbox', {
-          name: /seleccionar cartola bancoestado/i,
-        }),
-      ).toBeChecked();
-      expect(screen.getByRole('alert')).toHaveTextContent(
+      expect(screen.getByRole('status')).toHaveTextContent(
         /no se pudo eliminar 1 cartola: cartola-bancoestado\.xlsx/i,
-      );
-    });
-
-    it('a partial-failure outcome is also announced in the stable live region, not just inside the dialog (4R review R4-WARNING)', async () => {
-      const { fallarIds } = crearFetchMockIngestas(tresIngestas);
-      fallarIds.add('ingesta-2');
-      const user = userEvent.setup();
-
-      render(<ListaIngestas />, { wrapper: crearWrapper() });
-
-      await screen.findByText('BancoEstado');
-      await user.click(
-        screen.getByRole('checkbox', {
-          name: /seleccionar cartola bancoestado/i,
-        }),
-      );
-      await user.click(
-        screen.getByRole('checkbox', { name: /seleccionar cartola bci/i }),
-      );
-      await user.click(
-        screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
-      );
-      await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
-
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(
-          /no se pudo eliminar 1 cartola: cartola-bci\.xlsx/i,
-        ),
       );
     });
 
@@ -714,35 +730,6 @@ describe('ListaIngestas', () => {
       ).toBeDisabled();
     });
 
-    it('ignores Escape while a bulk delete is running, so partial-failure feedback cannot be dismissed mid-run (4R review R4-BLOCKER)', async () => {
-      const { resolverSiguiente } =
-        crearFetchMockIngestasControlado(tresIngestas);
-      const user = userEvent.setup();
-
-      render(<ListaIngestas />, { wrapper: crearWrapper() });
-
-      await screen.findByText('BancoEstado');
-      await user.click(
-        screen.getByRole('checkbox', {
-          name: /seleccionar cartola bancoestado/i,
-        }),
-      );
-      await user.click(
-        screen.getByRole('button', { name: 'Eliminar seleccionadas (1)' }),
-      );
-      const dialog = await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
-      await screen.findByRole('button', { name: 'Eliminando… (0/1)' });
-
-      fireEvent.keyDown(dialog, { key: 'Escape' });
-      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-
-      resolverSiguiente();
-      await waitFor(() =>
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-      );
-    });
-
     it('batches cache invalidation into ONE pass of the 4 keys after the whole run, not once per delete (4R review R4-WARNING)', async () => {
       const queryClient = crearQueryClient();
       const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -766,11 +753,14 @@ describe('ListaIngestas', () => {
         screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
       );
       await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+      confirmarBulkConTimersFalsos();
 
-      await waitFor(() =>
-        expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument(),
-      );
+      await act(async () => {
+        vi.advanceTimersByTime(UNDO_GRACE_MS);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
 
       const clavesInvalidadas = invalidateSpy.mock.calls.map(
         ([arg]) => (arg as { queryKey?: unknown } | undefined)?.queryKey,
@@ -787,7 +777,7 @@ describe('ListaIngestas', () => {
       }
     });
 
-    it('runs deletes strictly sequentially: the second DELETE is not issued until the first resolves, and the progress label updates mid-flight (4R review R3 gap)', async () => {
+    it('runs deletes strictly sequentially: the second DELETE is not issued until the first resolves (4R review R3 gap)', async () => {
       const { fetchMock, resolverSiguiente } =
         crearFetchMockIngestasControlado(tresIngestas);
       const user = userEvent.setup();
@@ -813,20 +803,125 @@ describe('ListaIngestas', () => {
         screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
       );
       await screen.findByRole('alertdialog');
-      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+      confirmarBulkConTimersFalsos();
 
-      await screen.findByRole('button', { name: 'Eliminando… (0/2)' });
+      await act(async () => {
+        vi.advanceTimersByTime(UNDO_GRACE_MS);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
       expect(contarDeletes()).toBe(1);
 
-      resolverSiguiente();
-      await screen.findByRole('button', { name: 'Eliminando… (1/2)' });
+      await act(async () => {
+        resolverSiguiente();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
       expect(contarDeletes()).toBe(2);
 
-      resolverSiguiente();
-      await waitFor(() =>
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-      );
+      await act(async () => {
+        resolverSiguiente();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
       expect(contarDeletes()).toBe(2);
+    });
+
+    // Adversarial-review fix (defect 1): the old behavior cleared the
+    // "pending" ids the instant grace expired, BEFORE the sequential DELETE
+    // loop even started — every selected row reappeared and stayed visible
+    // for the whole loop. A user could then re-select and re-delete an
+    // already-deleted row mid-loop, hitting the endpoint's 404
+    // anti-enumeration and producing a false "no se pudo eliminar" for a
+    // delete that had actually succeeded. Fixed by keeping ids in a
+    // separate "committing" set (unioned into `usePendingIds()`) until the
+    // whole batch settles — this proves both halves: the rows stay hidden
+    // through the committing window, AND (since the checkbox that would let
+    // a user re-select them doesn't exist while hidden) the false-failure
+    // scenario can no longer be triggered.
+    it('rows stay hidden for the ENTIRE committing window (grace expiry through batch settlement) — the reappear-during-flight bug is fixed', async () => {
+      const { fetchMock, resolverSiguiente } =
+        crearFetchMockIngestasControlado(tresIngestas);
+      const user = userEvent.setup();
+
+      function contarDeletes() {
+        return fetchMock.mock.calls.filter(
+          ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
+        ).length;
+      }
+
+      render(<ListaIngestas />, { wrapper: crearWrapper() });
+
+      await screen.findByText('BancoEstado');
+      await user.click(
+        screen.getByRole('checkbox', {
+          name: /seleccionar cartola bancoestado/i,
+        }),
+      );
+      await user.click(
+        screen.getByRole('checkbox', { name: /seleccionar cartola bci/i }),
+      );
+      await user.click(
+        screen.getByRole('button', { name: 'Eliminar seleccionadas (2)' }),
+      );
+      await screen.findByRole('alertdialog');
+      confirmarBulkConTimersFalsos();
+
+      // Grace expires — the sequential loop starts (first DELETE fires) but
+      // neither DELETE has resolved yet.
+      await act(async () => {
+        vi.advanceTimersByTime(UNDO_GRACE_MS);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(contarDeletes()).toBe(1);
+
+      // THE BUG: both rows must still be hidden here — this is well past
+      // grace expiry, with the batch still mid-flight.
+      expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument();
+      expect(screen.queryByText('BCI')).not.toBeInTheDocument();
+      // And therefore un-reachable for a re-select/re-delete attempt — the
+      // false-failure scenario has no interaction surface to trigger it.
+      expect(
+        screen.queryByRole('checkbox', {
+          name: /seleccionar cartola bancoestado/i,
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('checkbox', { name: /seleccionar cartola bci/i }),
+      ).not.toBeInTheDocument();
+
+      // Resolve the first DELETE — the second fires, but still hasn't
+      // resolved. Both rows must STILL be hidden (this is exactly the
+      // window the bug used to reappear rows in).
+      await act(async () => {
+        resolverSiguiente();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(contarDeletes()).toBe(2);
+      expect(screen.queryByText('BancoEstado')).not.toBeInTheDocument();
+      expect(screen.queryByText('BCI')).not.toBeInTheDocument();
+
+      // Resolve the second DELETE — the batch fully settles now.
+      await act(async () => {
+        resolverSiguiente();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText('Cartolas eliminadas.')).toBeInTheDocument();
+      // No false failure — both deletes genuinely succeeded, exactly once
+      // each (`fetchMock` never saw a THIRD DELETE call, which a
+      // re-selected re-delete would have produced).
+      const deleteCalls = fetchMock.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'DELETE',
+      );
+      expect(deleteCalls).toHaveLength(2);
+      expect(screen.queryByRole('status')).not.toHaveTextContent(
+        /no se pudo eliminar/i,
+      );
     });
 
     it('the master checkbox uses the singular label with one PROCESADA row in a mixed list, and only selects that row', async () => {

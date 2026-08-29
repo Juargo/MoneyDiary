@@ -1,18 +1,41 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EliminarMovimientoControl } from './EliminarMovimientoControl';
+import {
+  UNDO_GRACE_MS,
+  deshacerEliminacionPendiente,
+  getPendingIds,
+  getUndoSnapshot,
+  resetUndoManagerParaTests,
+} from '@/lib/undo-manager';
 
 /**
- * EliminarMovimientoControl.test.tsx — SDD `correccion-movimientos-manuales`
- * PR 3 (design D-03, spec WEB-DEL-01). Structural clone of
- * `EliminarIngestaControl.test.tsx`: same InlineConfirm shell, same
- * error-stays-open idiom, same esDemo proactive-disable idiom. The dialog
- * discloses fecha/monto/descripcion (WEB-DEL-01) instead of banco/estado/
- * totalTransacciones (this control has no per-row "impact count" — deleting
- * one row is always exactly one row).
+ * EliminarMovimientoControl.test.tsx — design-hardening change (undo grace
+ * window, resolves critique P1). Confirmar no longer fires the DELETE
+ * synchronously: it schedules a delayed commit via the shared
+ * `undo-manager` singleton and closes its dialog immediately (the caller's
+ * list — `IngresosMesTable`/`GrupoMovimientos` — is responsible for hiding
+ * the row itself, via `usePendingIds()`; that is exercised in THOSE
+ * components' own tests, not here). This file exercises the CONTROL's own
+ * contract: what it schedules, when, and with what copy.
+ *
+ * Timer strategy: dialog interaction (open/cancel/escape/confirm) uses
+ * `userEvent` under REAL timers, same as before this change — mixing
+ * `userEvent`'s own internal real-timer-based promise machinery with fake
+ * timers deadlocks (`await user.click(...)` never resolves). Tests that
+ * need to control the grace window switch to `vi.useFakeTimers()` only
+ * AFTER the dialog is open, then fire "Confirmar" via `fireEvent` (plain,
+ * synchronous — no internal timers of its own) so the `setTimeout` inside
+ * `programarEliminacion` is scheduled on the fake clock from the start.
  */
 
 function crearWrapper() {
@@ -43,10 +66,24 @@ const PROPS = {
   montoLabel: '+$50.000',
 };
 
+async function abrirYConfirmar() {
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: /Eliminar movimiento Bono navidad/i }),
+  );
+  await screen.findByRole('alertdialog');
+  const confirmarButton = screen.getByRole('button', { name: 'Confirmar' });
+  vi.useFakeTimers();
+  fireEvent.click(confirmarButton);
+}
+
 describe('EliminarMovimientoControl', () => {
   afterEach(() => {
+    resetUndoManagerParaTests();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('exposes a distinguishing accessible name including fecha and descripcion (a11y, per-row disambiguation)', () => {
@@ -61,7 +98,7 @@ describe('EliminarMovimientoControl', () => {
     ).toBeInTheDocument();
   });
 
-  it('clicking "Eliminar" opens an alertdialog disclosing fecha, monto and descripcion (WEB-DEL-01)', async () => {
+  it('clicking "Eliminar" opens an alertdialog disclosing fecha, monto, descripcion, and the truthful (not "cannot be undone") copy', async () => {
     const user = userEvent.setup();
     render(<EliminarMovimientoControl {...PROPS} />, {
       wrapper: crearWrapper(),
@@ -75,7 +112,10 @@ describe('EliminarMovimientoControl', () => {
     expect(dialog).toHaveTextContent('2026-07-15');
     expect(dialog).toHaveTextContent('Bono navidad');
     expect(dialog).toHaveTextContent('+$50.000');
-    expect(dialog).toHaveTextContent('Esta acción no se puede deshacer.');
+    expect(dialog).toHaveTextContent(
+      'Podrás deshacer durante unos segundos después de confirmar.',
+    );
+    expect(dialog).not.toHaveTextContent('no se puede deshacer');
   });
 
   it('moves focus to the confirm button when the dialog opens', async () => {
@@ -94,7 +134,7 @@ describe('EliminarMovimientoControl', () => {
     );
   });
 
-  it('Cancelar closes the dialog without issuing a DELETE and returns focus to the trigger', async () => {
+  it('Cancelar closes the dialog without scheduling a delete and returns focus to the trigger', async () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     const user = userEvent.setup();
     render(<EliminarMovimientoControl {...PROPS} />, {
@@ -110,11 +150,12 @@ describe('EliminarMovimientoControl', () => {
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(getUndoSnapshot()).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(trigger).toHaveFocus();
   });
 
-  it('Escape closes the dialog without issuing a DELETE and returns focus to the trigger', async () => {
+  it('Escape closes the dialog without scheduling a delete and returns focus to the trigger', async () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     const user = userEvent.setup();
     render(<EliminarMovimientoControl {...PROPS} />, {
@@ -130,36 +171,66 @@ describe('EliminarMovimientoControl', () => {
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(getUndoSnapshot()).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(trigger).toHaveFocus();
   });
 
-  it('Confirmar fires the DELETE and on success closes the dialog and calls onEliminado', async () => {
+  it('Confirmar closes the dialog and calls onEliminado immediately, WITHOUT firing the DELETE', async () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     const onEliminado = vi.fn();
-    const user = userEvent.setup();
     render(<EliminarMovimientoControl {...PROPS} onEliminado={onEliminado} />, {
       wrapper: crearWrapper(),
     });
 
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar movimiento Bono navidad/i }),
-    );
-    await screen.findByRole('alertdialog');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await abrirYConfirmar();
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith('/api/movimientos/tx-1', {
-        method: 'DELETE',
-      }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(onEliminado).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('disables the confirm button while the mutation is pending', async () => {
+  it('schedules the delayed delete via the shared undo manager with the movement message', async () => {
+    mockFetchOnce({ ok: true, status: 204 });
+    render(<EliminarMovimientoControl {...PROPS} />, {
+      wrapper: crearWrapper(),
+    });
+
+    await abrirYConfirmar();
+
+    expect(getUndoSnapshot()).toMatchObject({
+      kind: 'pendiente',
+      mensaje: 'Movimiento eliminado.',
+    });
+  });
+
+  it('grace-window expiry fires exactly one DELETE for the scheduled id', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+    render(<EliminarMovimientoControl {...PROPS} />, {
+      wrapper: crearWrapper(),
+    });
+
+    await abrirYConfirmar();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/movimientos/tx-1', {
+      method: 'DELETE',
+      keepalive: false,
+    });
+  });
+
+  // Adversarial-review fix (defect 1, applied uniformly to the single-row
+  // flows too): the id must stay hidden (reported by `getPendingIds()`,
+  // which the caller list filters on) for the FULL DELETE round-trip, not
+  // just until the grace window expires — otherwise the row could flash
+  // back into view while its own DELETE is still in flight.
+  it('the id stays reported as pending for the full DELETE round-trip, not just until grace expires', async () => {
     let resolverFetch: (value: unknown) => void = () => {};
     const fetchMock = vi.fn().mockReturnValue(
       new Promise((resolve) => {
@@ -167,41 +238,63 @@ describe('EliminarMovimientoControl', () => {
       }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const user = userEvent.setup();
     render(<EliminarMovimientoControl {...PROPS} />, {
       wrapper: crearWrapper(),
     });
 
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar movimiento Bono navidad/i }),
-    );
-    await screen.findByRole('alertdialog');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await abrirYConfirmar();
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled(),
-    );
-    resolverFetch({ ok: true, status: 204 });
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
+    await act(async () => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Grace expired and the DELETE is in flight — this is the exact bug:
+    // the id must NOT have reappeared yet.
+    expect(getPendingIds()).toEqual(new Set(['tx-1']));
+
+    await act(async () => {
+      resolverFetch({ ok: true, status: 204 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(getPendingIds()).toEqual(new Set());
   });
 
-  it('on a failed delete shows an error message and KEEPS the dialog open for retry (WEB-DEL-01)', async () => {
-    mockFetchOnce({ ok: false, status: 500 });
-    const user = userEvent.setup();
+  it('undo before the grace window expires cancels the scheduled delete — no DELETE fires', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     render(<EliminarMovimientoControl {...PROPS} />, {
       wrapper: crearWrapper(),
     });
 
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar movimiento Bono navidad/i }),
-    );
-    await screen.findByRole('alertdialog');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await abrirYConfirmar();
 
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    act(() => {
+      deshacerEliminacionPendiente();
+    });
+    act(() => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('on a deferred delete failure, reports the error to the shared undo manager', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+    render(<EliminarMovimientoControl {...PROPS} />, {
+      wrapper: crearWrapper(),
+    });
+
+    await abrirYConfirmar();
+
+    await act(async () => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getUndoSnapshot()).toMatchObject({ kind: 'error' });
   });
 
   describe('demo session (esDemo)', () => {

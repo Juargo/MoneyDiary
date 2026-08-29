@@ -1,9 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { EliminarIngestaControl } from './EliminarIngestaControl';
+import {
+  UNDO_GRACE_MS,
+  deshacerEliminacionPendiente,
+  getPendingIds,
+  getUndoSnapshot,
+  resetUndoManagerParaTests,
+} from '@/lib/undo-manager';
+
+/**
+ * EliminarIngestaControl.test.tsx — design-hardening change (undo grace
+ * window, resolves critique P1). Same rewiring as
+ * `EliminarMovimientoControl.test.tsx`: Confirmar schedules a delayed
+ * commit via `undo-manager.ts` instead of firing the DELETE synchronously.
+ * See that file's docstring for the fake-timer/`userEvent` interaction
+ * strategy this file mirrors.
+ */
 
 function crearWrapper() {
   const queryClient = new QueryClient({
@@ -26,10 +48,24 @@ function mockFetchOnce(response: {
   return fetchMock;
 }
 
+async function abrirYConfirmar() {
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
+  );
+  await screen.findByRole('alertdialog');
+  const confirmarButton = screen.getByRole('button', { name: 'Confirmar' });
+  vi.useFakeTimers();
+  fireEvent.click(confirmarButton);
+}
+
 describe('EliminarIngestaControl', () => {
   afterEach(() => {
+    resetUndoManagerParaTests();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('exposes a distinguishing accessible name including the banco and fecha (a11y)', () => {
@@ -51,7 +87,7 @@ describe('EliminarIngestaControl', () => {
     ).toBeInTheDocument();
   });
 
-  it('clicking "Eliminar" opens an alertdialog stating the exact impact count (ING-05)', async () => {
+  it('clicking "Eliminar" opens an alertdialog stating the exact impact count and the truthful (not "cannot be undone") copy', async () => {
     const user = userEvent.setup();
     render(
       <EliminarIngestaControl
@@ -72,7 +108,39 @@ describe('EliminarIngestaControl', () => {
     expect(dialog).toHaveTextContent(
       'Se eliminarán 12 movimientos de BancoEstado',
     );
-    expect(dialog).toHaveTextContent('Esta acción no se puede deshacer.');
+    expect(dialog).toHaveTextContent(
+      'Podrás deshacer durante unos segundos después de confirmar.',
+    );
+    expect(dialog).not.toHaveTextContent('no se puede deshacer');
+  });
+
+  // a11y round, part 1: the shared InlineConfirm shell wires every
+  // alertdialog's body to aria-describedby uniformly. Unrelated to the
+  // undo grace window rewiring — restored here after being dropped when
+  // this file's tests were rewired for that change.
+  it('the alertdialog is described by the impact paragraph via aria-describedby (a11y)', async () => {
+    const user = userEvent.setup();
+    render(
+      <EliminarIngestaControl
+        id="ingesta-1"
+        banco="BancoEstado"
+        fechaLabel="2026-07-15"
+        estado="exitoso"
+        totalTransacciones={12}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
+    );
+
+    const dialog = await screen.findByRole('alertdialog');
+    const describedById = dialog.getAttribute('aria-describedby');
+    expect(describedById).toBeTruthy();
+    expect(document.getElementById(describedById!)).toHaveTextContent(
+      'Se eliminarán 12 movimientos de BancoEstado',
+    );
   });
 
   it('for a fallida ingesta, states the impact without the misleading "0 movimientos" (US-004)', async () => {
@@ -97,7 +165,9 @@ describe('EliminarIngestaControl', () => {
       'Se eliminará esta cartola fallida de Santander',
     );
     expect(dialog).not.toHaveTextContent('movimientos');
-    expect(dialog).toHaveTextContent('Esta acción no se puede deshacer.');
+    expect(dialog).toHaveTextContent(
+      'Podrás deshacer durante unos segundos después de confirmar.',
+    );
   });
 
   it('moves focus to the confirm button when the dialog opens', async () => {
@@ -123,7 +193,7 @@ describe('EliminarIngestaControl', () => {
     );
   });
 
-  it('Cancelar closes the dialog without issuing a DELETE and returns focus to the trigger', async () => {
+  it('Cancelar closes the dialog without scheduling a delete and returns focus to the trigger', async () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     const user = userEvent.setup();
     render(
@@ -146,11 +216,12 @@ describe('EliminarIngestaControl', () => {
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(getUndoSnapshot()).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(trigger).toHaveFocus();
   });
 
-  it('Escape closes the dialog without issuing a DELETE and returns focus to the trigger', async () => {
+  it('Escape closes the dialog without scheduling a delete and returns focus to the trigger', async () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     const user = userEvent.setup();
     render(
@@ -173,13 +244,13 @@ describe('EliminarIngestaControl', () => {
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(getUndoSnapshot()).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(trigger).toHaveFocus();
   });
 
-  it('Confirmar fires the DELETE and on success closes the dialog', async () => {
+  it('Confirmar closes the dialog immediately, WITHOUT firing the DELETE', async () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 204 });
-    const user = userEvent.setup();
     render(
       <EliminarIngestaControl
         id="ingesta-1"
@@ -191,23 +262,66 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     );
 
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
-    );
-    await screen.findByRole('alertdialog');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await abrirYConfirmar();
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith('/api/ingestas/ingesta-1', {
-        method: 'DELETE',
-      }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('disables the confirm button while the mutation is pending', async () => {
+  it('schedules the delayed delete via the shared undo manager with the ingesta message', async () => {
+    mockFetchOnce({ ok: true, status: 204 });
+    render(
+      <EliminarIngestaControl
+        id="ingesta-1"
+        banco="BancoEstado"
+        fechaLabel="2026-07-15"
+        estado="exitoso"
+        totalTransacciones={12}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await abrirYConfirmar();
+
+    expect(getUndoSnapshot()).toMatchObject({
+      kind: 'pendiente',
+      mensaje: 'Cartola eliminada.',
+    });
+  });
+
+  it('grace-window expiry fires exactly one DELETE for the scheduled id', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+    render(
+      <EliminarIngestaControl
+        id="ingesta-1"
+        banco="BancoEstado"
+        fechaLabel="2026-07-15"
+        estado="exitoso"
+        totalTransacciones={12}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    await abrirYConfirmar();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/ingestas/ingesta-1', {
+      method: 'DELETE',
+      keepalive: false,
+    });
+  });
+
+  // Adversarial-review fix (defect 1, applied uniformly to the single-row
+  // flows too): the id must stay hidden (reported by `getPendingIds()`,
+  // which `ListaIngestas` filters on) for the FULL DELETE round-trip, not
+  // just until the grace window expires.
+  it('the id stays reported as pending for the full DELETE round-trip, not just until grace expires', async () => {
     let resolverFetch: (value: unknown) => void = () => {};
     const fetchMock = vi.fn().mockReturnValue(
       new Promise((resolve) => {
@@ -215,7 +329,6 @@ describe('EliminarIngestaControl', () => {
       }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const user = userEvent.setup();
     render(
       <EliminarIngestaControl
         id="ingesta-1"
@@ -227,26 +340,27 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     );
 
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
-    );
-    await screen.findByRole('alertdialog');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await abrirYConfirmar();
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled(),
-    );
-    resolverFetch({ ok: true, status: 204 });
-    await waitFor(() =>
-      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
-    );
+    await act(async () => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Grace expired and the DELETE is in flight — this is the exact bug:
+    // the id must NOT have reappeared yet.
+    expect(getPendingIds()).toEqual(new Set(['ingesta-1']));
+
+    await act(async () => {
+      resolverFetch({ ok: true, status: 204 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(getPendingIds()).toEqual(new Set());
   });
 
-  // a11y round, part 1: the shared InlineConfirm shell wires every
-  // alertdialog's body to aria-describedby uniformly — this dialog never
-  // had that before (it only carried a fixed aria-label).
-  it('the alertdialog is described by the impact paragraph via aria-describedby (a11y)', async () => {
-    const user = userEvent.setup();
+  it('undo before the grace window expires cancels the scheduled delete — no DELETE fires', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
     render(
       <EliminarIngestaControl
         id="ingesta-1"
@@ -258,16 +372,41 @@ describe('EliminarIngestaControl', () => {
       { wrapper: crearWrapper() },
     );
 
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
+    await abrirYConfirmar();
+
+    act(() => {
+      deshacerEliminacionPendiente();
+    });
+    act(() => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('on a deferred delete failure, reports the error to the shared undo manager', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+    render(
+      <EliminarIngestaControl
+        id="ingesta-1"
+        banco="BancoEstado"
+        fechaLabel="2026-07-15"
+        estado="exitoso"
+        totalTransacciones={12}
+      />,
+      { wrapper: crearWrapper() },
     );
 
-    const dialog = await screen.findByRole('alertdialog');
-    const describedById = dialog.getAttribute('aria-describedby');
-    expect(describedById).toBeTruthy();
-    expect(document.getElementById(describedById!)).toHaveTextContent(
-      'Se eliminarán 12 movimientos de BancoEstado',
-    );
+    await abrirYConfirmar();
+
+    await act(async () => {
+      vi.advanceTimersByTime(UNDO_GRACE_MS);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getUndoSnapshot()).toMatchObject({ kind: 'error' });
   });
 
   // Touch-target quick win (round 2, P2): destructive confirms under a
@@ -300,30 +439,6 @@ describe('EliminarIngestaControl', () => {
       'data-size',
       'default',
     );
-  });
-
-  it('on a failed delete shows an error message and keeps the dialog open', async () => {
-    mockFetchOnce({ ok: false, status: 500 });
-    const user = userEvent.setup();
-    render(
-      <EliminarIngestaControl
-        id="ingesta-1"
-        banco="BancoEstado"
-        fechaLabel="2026-07-15"
-        estado="exitoso"
-        totalTransacciones={12}
-      />,
-      { wrapper: crearWrapper() },
-    );
-
-    await user.click(
-      screen.getByRole('button', { name: /Eliminar cartola BancoEstado/i }),
-    );
-    await screen.findByRole('alertdialog');
-    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
-
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 
   // issue #500: demo (esDemo) client-side honesty — the server already

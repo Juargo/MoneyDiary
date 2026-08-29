@@ -112,6 +112,7 @@ describe('useEliminarMovimiento', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith('/api/movimientos/tx-1', {
       method: 'DELETE',
+      keepalive: false,
     });
   });
 });

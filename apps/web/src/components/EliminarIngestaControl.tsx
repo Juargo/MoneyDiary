@@ -1,8 +1,13 @@
 import { useRef, useState } from 'react';
+import { deleteIngesta } from '@/api/client';
 import { useEliminarIngesta } from '@/api/use-eliminar-ingesta';
 import type { EstadoIngestaResumen } from '@/api/types';
 import { Button } from '@/components/ui/button';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
+import {
+  programarEliminacion,
+  reportarErrorEliminacion,
+} from '@/lib/undo-manager';
 
 /**
  * EliminarIngestaControl (`us-018-eliminar-ingesta` Slice 2, design.md §7.3,
@@ -37,22 +42,34 @@ import { InlineConfirm } from '@/components/ui/inline-confirm';
  * - Escape and "Cancelar" both call `cancelar()`, which returns focus to the
  *   trigger button — this component's own responsibility, unchanged by the
  *   shell extraction.
- * - The dialog body states the impact + irreversibility. The impact clause is
- *   estado-aware (US-004): a successful ingesta reports the movement count
- *   ("Se eliminarán {n} movimientos de {banco} ({fechaLabel})"), while a
- *   fallida/pendiente one — which imported no transactions (count is 0) —
- *   drops the misleading "0 movimientos" and reads "Se eliminará esta cartola
- *   {fallida|pendiente} de {banco} ({fechaLabel})". Both close with "Esta
- *   acción no se puede deshacer."
- * - Confirm button `pending={mutacion.isPending}`; on click fires
- *   `useEliminarIngesta().mutate(id)`.
- * - `role="alert"` error message on failure. Unlike
- *   `ReclasificarCategoriaControl` (which closes/resets on error), THIS
- *   control deliberately KEEPS THE DIALOG OPEN on a failed delete — the
- *   error is shown inline and "Confirmar" stays available so the user can
- *   retry without reopening the dialog and re-reading the impact statement.
- *   This divergence is intentional, not an oversight of the "structural
- *   clone" claim above.
+ * - The dialog body states the impact + the TRUTHFUL undo-window copy
+ *   (design-hardening change, resolves critique P1 — the old "Esta acción no
+ *   se puede deshacer." was false during the grace window). The impact
+ *   clause is estado-aware (US-004): a successful ingesta reports the
+ *   movement count ("Se eliminarán {n} movimientos de {banco}
+ *   ({fechaLabel})"), while a fallida/pendiente one — which imported no
+ *   transactions (count is 0) — drops the misleading "0 movimientos" and
+ *   reads "Se eliminará esta cartola {fallida|pendiente} de {banco}
+ *   ({fechaLabel})". Both close with "Podrás deshacer durante unos segundos
+ *   después de confirmar."
+ * - Confirmar does NOT fire the DELETE. It closes the dialog and hands off
+ *   to `programarEliminacion` (`lib/undo-manager.ts`, the ONE delayed-commit
+ *   manager shared by `EliminarMovimientoControl` and the bulk delete in
+ *   `useSeleccionMasivaIngestas`): `ListaIngestas` hides the row for the
+ *   grace window by filtering on `usePendingIds()`, `UndoToast` (mounted
+ *   once at the router root) shows "Deshacer", and `useEliminarIngesta`
+ *   only fires once the window expires (`onCommit`) — or never, if the user
+ *   undoes. `onCommit` is `async` and AWAITS `mutateAsync`
+ *   (adversarial-review fix, not a fire-and-forget `.mutate`) so
+ *   `undo-manager.ts` keeps the row hidden for the DELETE's full
+ *   round-trip, not just until grace expires. A deferred failure reports
+ *   through `reportarErrorEliminacion` instead of this (long since closed)
+ *   dialog's own `role="alert"` slot — the "keep the dialog open for retry"
+ *   divergence from `ReclasificarCategoriaControl` no longer applies: there
+ *   is no dialog left open by the time a deferred delete can fail.
+ * - `onPageHide` fires the SAME DELETE with `{ keepalive: true }` — the
+ *   `pagehide` escape hatch `undo-manager.ts` needs for a hard
+ *   navigation/tab-close.
  *
  * `fechaLabel` arrives PRE-FORMATTED (mirrors `montoLabel` on
  * `ReclasificarCategoriaControl` — the caller, `ListaIngestas`, already knows
@@ -93,7 +110,6 @@ export function EliminarIngestaControl({
   const mutacion = useEliminarIngesta();
 
   function abrir() {
-    mutacion.reset();
     setAbierto(true);
   }
 
@@ -103,12 +119,29 @@ export function EliminarIngestaControl({
   }
 
   function confirmar() {
-    mutacion.mutate(id, {
-      onSuccess: () => {
-        setAbierto(false);
-        onEliminado?.();
+    setAbierto(false);
+    programarEliminacion({
+      ids: [id],
+      mensaje: 'Cartola eliminada.',
+      // Returns the mutation's promise (adversarial-review fix, applied
+      // uniformly across all three flows): `undo-manager.ts` keeps `id` in
+      // its "committing" set — still reported by `usePendingIds()`, so the
+      // row stays hidden — until this promise settles, not just until the
+      // grace window expires.
+      onCommit: async () => {
+        try {
+          await mutacion.mutateAsync(id);
+        } catch {
+          reportarErrorEliminacion(
+            'No se pudo eliminar la cartola. Intenta nuevamente.',
+          );
+        }
+      },
+      onPageHide: () => {
+        void deleteIngesta(id, { keepalive: true });
       },
     });
+    onEliminado?.();
   }
 
   // Impacto estado-aware (US-004): las fallidas/pendientes no importaron
@@ -139,11 +172,12 @@ export function EliminarIngestaControl({
           destructive
           onConfirm={confirmar}
           onCancel={cancelar}
-          pending={mutacion.isPending}
-          error={mutacion.isError ? mutacion.error.message : null}
           className="gap-2 p-3 text-xs"
         >
-          <p>{impacto} Esta acción no se puede deshacer.</p>
+          <p>
+            {impacto} Podrás deshacer durante unos segundos después de
+            confirmar.
+          </p>
         </InlineConfirm>
       )}
     </div>
