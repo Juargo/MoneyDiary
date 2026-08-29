@@ -19,9 +19,14 @@ export const Route = createFileRoute('/_authenticated/ingresos')({
  *
  * `onPeriodoChange` functional updater keeps any future search params alive
  * across month navigation (WDI-03, US-053 D-04 mirror).
+ *
+ * `esDemo` (SDD `correccion-movimientos-manuales` PR 3, D-12 idiom): read
+ * from the authenticated route context (`_authenticated.tsx`'s `beforeLoad`
+ * population, same source `registrar.tsx` uses) — no extra `fetchMe()` call.
  */
 function IngresosRoute() {
   const { periodo } = Route.useSearch();
+  const { esDemo } = Route.useRouteContext();
   const navigate = useNavigate();
   const query = useIngresosMes(periodo);
 
@@ -29,6 +34,7 @@ function IngresosRoute() {
     <IngresosMesPage
       query={query}
       periodo={periodo}
+      esDemo={esDemo}
       onPeriodoChange={(nuevoPeriodo) =>
         navigate({
           to: '/ingresos',

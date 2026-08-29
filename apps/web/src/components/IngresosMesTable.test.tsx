@@ -1,5 +1,6 @@
-import { screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { IngresosMesTable } from './IngresosMesTable';
 import { renderConRouter } from '@/test/router-harness';
 import type { IngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
@@ -30,8 +31,13 @@ const FILAS_FIXTURE: IngresosMesViewModel['filas'] = [
   },
 ];
 
-function renderTabla(filas: IngresosMesViewModel['filas'] = FILAS_FIXTURE) {
-  renderConRouter(<IngresosMesTable mes="julio 2026" filas={filas} />);
+function renderTabla(
+  filas: IngresosMesViewModel['filas'] = FILAS_FIXTURE,
+  props: { readonly esDemo?: boolean; readonly onEliminado?: () => void } = {},
+) {
+  renderConRouter(
+    <IngresosMesTable mes="julio 2026" filas={filas} {...props} />,
+  );
 }
 
 describe('IngresosMesTable', () => {
@@ -40,11 +46,11 @@ describe('IngresosMesTable', () => {
     expect(await screen.findByRole('table')).toBeInTheDocument();
   });
 
-  it('renders four column headers each with scope="col"', async () => {
+  it('renders five column headers each with scope="col" (WEB-DEL-01 adds Acciones)', async () => {
     renderTabla();
     const table = await screen.findByRole('table');
     const columnHeaders = within(table).getAllByRole('columnheader');
-    expect(columnHeaders).toHaveLength(4);
+    expect(columnHeaders).toHaveLength(5);
     columnHeaders.forEach((th) => {
       expect(th).toHaveAttribute('scope', 'col');
     });
@@ -53,6 +59,7 @@ describe('IngresosMesTable', () => {
       'Descripción',
       'Origen',
       'Monto',
+      'Acciones',
     ]);
   });
 
@@ -106,5 +113,59 @@ describe('IngresosMesTable', () => {
     const rows = within(table).getAllByRole('row');
     // header row + 2 data rows
     expect(rows).toHaveLength(3);
+  });
+
+  // ── WEB-DEL-01: delete affordance, manual rows only ──────────────────────
+
+  describe('delete affordance (WEB-DEL-01)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it('renders EliminarMovimientoControl only on the Manual row, not on the BCI row', async () => {
+      renderTabla();
+      const table = await screen.findByRole('table');
+      expect(
+        within(table).getByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(table).queryByRole('button', {
+          name: /Eliminar movimiento Sueldo BCI/i,
+        }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('confirming a delete calls onEliminado with the row id (parent owns the announcement)', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
+      );
+      const onEliminado = vi.fn();
+      const user = userEvent.setup();
+      renderTabla(FILAS_FIXTURE, { onEliminado });
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      );
+      await screen.findByRole('alertdialog');
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+      await waitFor(() => expect(onEliminado).toHaveBeenCalledTimes(1));
+    });
+
+    it('esDemo disables the delete trigger on the manual row', async () => {
+      renderTabla(FILAS_FIXTURE, { esDemo: true });
+
+      expect(
+        await screen.findByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      ).toBeDisabled();
+    });
   });
 });

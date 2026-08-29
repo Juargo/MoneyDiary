@@ -52,8 +52,16 @@ const MENSAJE_DEMO_REGISTRAR =
 // confirmation dialog's body (critique round-8 P2, DRY) — the dialog
 // reiterates the exact same permanence expectation the user already saw
 // before opening it, rather than a differently-worded copy.
-const MENSAJE_PERMANENCIA =
-  'Un movimiento registrado no se puede editar ni eliminar después; su categoría sí puede reclasificarse desde el dashboard.';
+//
+// Rewritten (SDD `correccion-movimientos-manuales` PR 3, design D-04,
+// WEB-DEL-02): the original copy promised a manual movement "no se puede
+// editar ni eliminar después" — false as of ADR-040/`EliminarMovimientoControl`
+// (DELETE /api/movimientos/:id). Editing is still impossible; deletion now
+// exists. EXPORTED (not just module-local) so `RegistrarMovimientoForm.test.tsx`
+// pins the SAME constant both render sites consume, instead of duplicating
+// the literal string in two places that could silently drift apart.
+export const MENSAJE_PERMANENCIA =
+  'Un movimiento registrado no se puede editar, pero puedes eliminarlo desde el detalle del mes y registrarlo de nuevo; su categoría también puede reclasificarse desde el dashboard.';
 
 const OPCIONES_TIPO = [
   { value: 'Ingreso', label: 'Ingreso' },

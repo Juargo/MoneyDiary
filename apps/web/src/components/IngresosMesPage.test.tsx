@@ -1,5 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { IngresosMesPage } from './IngresosMesPage';
 import { renderConRouter } from '@/test/router-harness';
@@ -59,16 +60,19 @@ function renderPagina({
   query = mockQuery({ data: DTO_COMPLETO }),
   periodo = '2026-07',
   onPeriodoChange = vi.fn(),
+  esDemo = false,
 }: {
   query?: UseQueryResult<IngresosMesDto, ApiError>;
   periodo?: string | undefined;
   onPeriodoChange?: (periodo: string) => void;
+  esDemo?: boolean;
 } = {}) {
   return renderConRouter(
     <IngresosMesPage
       query={query}
       periodo={periodo}
       onPeriodoChange={onPeriodoChange}
+      esDemo={esDemo}
     />,
   );
 }
@@ -292,14 +296,65 @@ describe('IngresosMesPage', () => {
     expect(within(rows[2]).getByText('+$50.000')).toBeInTheDocument();
 
     // Only interactive controls: period buttons (prev/next/Hoy/cambiar) + back link
-    // No comboboxes (reclassify), no extra buttons (WDI-06)
+    // + one delete trigger per manual row (WEB-DEL-01). No comboboxes
+    // (reclassify) (WDI-06).
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 
     // PeriodoSelector (closed): prev (1) + month-picker trigger (2) + next (3) + Hoy (4)
+    // + 1 delete trigger (DTO_COMPLETO has exactly one Manual row, WEB-DEL-01)
     // Page success state: no retry button (renders only in error state)
-    // Total buttons = 4; total links = 1 (back link "Volver al resumen")
-    expect(screen.getAllByRole('button')).toHaveLength(4);
+    // Total buttons = 5; total links = 1 (back link "Volver al resumen")
+    expect(screen.getAllByRole('button')).toHaveLength(5);
     expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  // ── WEB-DEL-01: delete affordance wiring (SDD correccion-movimientos-manuales) ──
+
+  describe('delete affordance (WEB-DEL-01)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('confirming a delete announces success via a page-level role="status" region and moves focus to the heading', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({ ok: true, status: 204 }),
+      );
+      const user = userEvent.setup();
+      renderPagina();
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      );
+      await screen.findByRole('alertdialog');
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'Movimiento eliminado.',
+        ),
+      );
+      expect(screen.getByRole('heading', { level: 1 })).toHaveFocus();
+    });
+
+    it('esDemo disables the delete trigger and shows an explanatory note', async () => {
+      renderPagina({ esDemo: true });
+
+      expect(
+        await screen.findByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      ).toBeDisabled();
+      expect(screen.getByRole('note')).toHaveTextContent(/demostraci[oó]n/i);
+    });
+
+    it('esDemo=false (default) renders no explanatory note', async () => {
+      renderPagina();
+      await screen.findByRole('table');
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    });
   });
 });

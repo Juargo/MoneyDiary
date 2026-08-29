@@ -954,4 +954,97 @@ describe('BucketDetalleMesPage', () => {
 
     await waitFor(() => expect(statusRegion).toHaveTextContent(''));
   });
+
+  // ── WEB-DEL-01: delete affordance (SDD correccion-movimientos-manuales PR 3) ──
+
+  describe('delete affordance (WEB-DEL-01)', () => {
+    it('confirming a delete on the manual row (tx-9, "Sin categoría" group) announces success in the SHARED anuncio region and moves focus to the heading (D-03 reuse)', async () => {
+      stubFetchInteraccion();
+      const user = userEvent.setup();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: /Eliminar movimiento Algo sin categorizar/i,
+        }),
+      );
+      await screen.findByRole('alertdialog');
+      await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+      const statusRegion = screen.getByTestId('anuncio-reclasificar');
+      await waitFor(() =>
+        expect(statusRegion).toHaveTextContent('Movimiento eliminado.'),
+      );
+      expect(screen.getByRole('heading', { level: 1 })).toHaveFocus();
+    });
+
+    it('renders no delete control on BCI rows, only on the Manual row', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await screen.findByRole('button', {
+        name: /Eliminar movimiento Algo sin categorizar/i,
+      });
+      expect(
+        screen.queryByRole('button', {
+          name: /Eliminar movimiento Ñoquis de la abuela/i,
+        }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('esDemo disables the delete trigger and shows an explanatory note', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+          esDemo
+        />,
+      );
+
+      expect(
+        await screen.findByRole('button', {
+          name: /Eliminar movimiento Algo sin categorizar/i,
+        }),
+      ).toBeDisabled();
+      expect(screen.getByRole('note')).toHaveTextContent(/demostraci[oó]n/i);
+    });
+
+    it('esDemo=false (default) renders no explanatory note', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await screen.findByRole('button', {
+        name: /Eliminar movimiento Algo sin categorizar/i,
+      });
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    });
+  });
 });

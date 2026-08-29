@@ -1,5 +1,7 @@
 import { useId, useState } from 'react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
+import { EliminarMovimientoControl } from './EliminarMovimientoControl';
+import { aFechaCorta } from '@/domain/fecha';
 import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
 
 /**
@@ -19,6 +21,16 @@ import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-
  * all, not merely CSS-hidden). The toggle wires `aria-expanded` +
  * `aria-controls` to its own list (unique id via `useId`, since groups
  * render in a `map`). Groups with ≤3 rows render no toggle.
+ *
+ * Delete affordance (SDD `correccion-movimientos-manuales` PR 3, WEB-DEL-01,
+ * D-03): `EliminarMovimientoControl` renders only for rows with
+ * `origen === 'Manual'`. `tx.fecha` arrives as a RAW ISO string on this
+ * view-model (WDM-03 — unlike `IngresosMesViewModel`'s pre-formatted
+ * `fechaLabel`), so the ISO-to-label conversion happens HERE, at the call
+ * site, via `aFechaCorta` — mirroring how `ingresos-mes-view-model.ts`
+ * already does the same slice, just one layer up the stack. Success/failure
+ * is not announced here; the parent page owns the `role="status"` region
+ * (`onEliminado` bubbles up to it, same as `onMovida`).
  */
 export const FILAS_VISIBLES_POR_DEFECTO = 3;
 
@@ -28,12 +40,16 @@ export function GrupoMovimientos({
   bucketActual,
   periodo,
   onMovida,
+  onEliminado,
+  esDemo = false,
 }: {
   readonly grupo: GrupoDetalleMesViewModel;
   readonly destacar: boolean;
   readonly bucketActual: string;
   readonly periodo: string | undefined;
   readonly onMovida: (bucketLabel: string) => void;
+  readonly onEliminado?: () => void;
+  readonly esDemo?: boolean;
 }) {
   const [expandido, setExpandido] = useState(false);
   const idLista = useId();
@@ -88,6 +104,16 @@ export function GrupoMovimientos({
                 periodo={periodo}
                 onMovida={onMovida}
               />
+              {tx.origen === 'Manual' && (
+                <EliminarMovimientoControl
+                  id={tx.id}
+                  fechaLabel={aFechaCorta(tx.fecha)}
+                  descripcion={tx.descripcion}
+                  montoLabel={tx.montoLabel}
+                  esDemo={esDemo}
+                  onEliminado={onEliminado}
+                />
+              )}
             </div>
           </li>
         ))}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Loading } from './states/Loading';
@@ -51,18 +51,24 @@ import type { DetalleBucketMesDto } from '@/api/types';
  * the transactions' own loading/error early returns, so a failed
  * transactions fetch never double-renders an alert for the catalog.
  */
+const MENSAJE_DEMO_ELIMINAR =
+  'Estás en una cuenta de demostración. Crea una cuenta real para eliminar movimientos.';
+
 export function BucketDetalleMesPage({
   query,
   periodo,
   onPeriodoChange,
   destacar,
+  esDemo = false,
 }: {
   readonly query: UseQueryResult<DetalleBucketMesDto, ApiError>;
   readonly periodo: string | undefined;
   readonly onPeriodoChange: (periodo: string) => void;
   readonly destacar: boolean;
+  readonly esDemo?: boolean;
 }) {
   const categoriasQuery = useCategorias();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   // Page-owned cross-bucket announcement (D-07): persists until replaced by a
   // subsequent cross-bucket move, a period change, or page unmount. No timer,
   // no auto-clear on inactivity, no `setTimeout` state machine (KISS). The
@@ -83,6 +89,17 @@ export function BucketDetalleMesPage({
 
   const alMovida = (bucketLabel: string) =>
     setAnuncio(`Movida a ${bucketLabel}.`);
+
+  // SDD `correccion-movimientos-manuales` PR 3 (WEB-DEL-01, D-03): reuses
+  // the SAME page-owned `anuncio` region as `alMovida` above — a delete is a
+  // different mutation but the same "one page-level status line" contract.
+  // Unlike a reclassify (the row survives, just re-grouped), a delete
+  // UNMOUNTS the row that held the focused trigger — focus moves to the
+  // `<h1>` (`ListaIngestas`/`EliminarIngestaControl` precedent).
+  const alEliminarMovimiento = () => {
+    setAnuncio('Movimiento eliminado.');
+    headingRef.current?.focus();
+  };
 
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
@@ -148,8 +165,19 @@ export function BucketDetalleMesPage({
             Volver al resumen
           </Link>
         </div>
-        <h1 className="text-2xl font-bold text-foreground">{etiqueta}</h1>
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-2xl font-bold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {etiqueta}
+        </h1>
         <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
+        {esDemo && (
+          <p role="note" className="text-sm text-muted-foreground">
+            {MENSAJE_DEMO_ELIMINAR}
+          </p>
+        )}
         {!viewModel.sinMeta && (
           <p className="text-sm font-semibold text-foreground">
             {viewModel.porcentajeLabel} · Meta: {viewModel.metaLabel}
@@ -198,6 +226,8 @@ export function BucketDetalleMesPage({
               bucketActual={viewModel.bucket}
               periodo={periodo}
               onMovida={alMovida}
+              onEliminado={alEliminarMovimiento}
+              esDemo={esDemo}
             />
           ))}
         </div>
