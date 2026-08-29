@@ -11,6 +11,10 @@ export interface TransaccionDetalleMesViewModel {
   /** ISO-8601 UTC verbatim — la cadena viaja como llega del wire (WDM-03). */
   readonly fecha: string;
   readonly descripcion: string;
+  /** Origen verbatim — nombre de banco o `'Manual'` (D-02). Señal esManual
+   *  para el control de borrado por fila (WEB-DEL-01, PR3) — este slice
+   *  solo la transporta, sin renderizarla todavía. */
+  readonly origen: string;
   readonly montoLabel: string;
 }
 
@@ -58,6 +62,7 @@ function aTransaccionViewModel(
     id: tx.id,
     fecha: tx.fecha,
     descripcion: tx.descripcion,
+    origen: tx.origen,
     montoLabel: formatearMontoCLP(tx.monto),
   };
 }
