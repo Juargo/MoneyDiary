@@ -68,6 +68,7 @@ export function EliminarIngestaControl({
   fechaLabel,
   estado,
   totalTransacciones,
+  esDemo = false,
   onEliminado,
 }: {
   readonly id: string;
@@ -75,6 +76,16 @@ export function EliminarIngestaControl({
   readonly fechaLabel: string;
   readonly estado: EstadoIngestaResumen;
   readonly totalTransacciones: number;
+  /**
+   * Demo gate client-side honesty (issue #500) — mirrors `CategoriaFila`'s
+   * `esDemo` idiom: proactively disables the trigger so a demo session never
+   * gets to open the dialog. The server (`EliminarIngestaUseCase`) already
+   * rejects with `IngestaDemoSoloLecturaError` regardless; this is UI
+   * honesty, not the real gate. The explanatory `role="note"` lives at the
+   * list level (`ListaIngestas`, one-per-screen, WCTG-11 convention) —
+   * this component only disables.
+   */
+  readonly esDemo?: boolean;
   readonly onEliminado?: () => void;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -114,6 +125,7 @@ export function EliminarIngestaControl({
         type="button"
         variant="outline"
         size="xs"
+        disabled={esDemo}
         onClick={abrir}
         aria-label={`Eliminar cartola ${banco} (${fechaLabel})`}
         className="text-destructive"

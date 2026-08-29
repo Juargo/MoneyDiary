@@ -867,5 +867,48 @@ describe('ListaIngestas', () => {
         }),
       ).toBeDisabled();
     });
+
+    // issue #500: the per-row EliminarIngestaControl had no esDemo gating —
+    // only the bulk selection did (PR #499). WCTG-11: a single role="note"
+    // per screen covers both reasons the delete affordances are disabled.
+    it('in a demo session, the per-row delete trigger is ALSO disabled — one note covers both (issue #500)', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ingestas: dosIngestas }),
+      });
+
+      render(<ListaIngestas />, { wrapper: crearWrapper(ME_DEMO) });
+
+      await screen.findByText('BancoEstado');
+      expect(screen.getAllByRole('note')).toHaveLength(1);
+      expect(
+        screen.getByRole('button', {
+          name: /Eliminar cartola BancoEstado/i,
+        }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole('button', {
+          name: /Eliminar cartola BCI/i,
+        }),
+      ).toBeDisabled();
+    });
+
+    it('outside a demo session, the per-row delete trigger stays enabled', async () => {
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ ingestas: dosIngestas }),
+      });
+
+      render(<ListaIngestas />, { wrapper: crearWrapper(ME_NO_DEMO) });
+
+      await screen.findByText('BancoEstado');
+      expect(
+        screen.getByRole('button', {
+          name: /Eliminar cartola BancoEstado/i,
+        }),
+      ).toBeEnabled();
+    });
   });
 });

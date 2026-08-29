@@ -15,8 +15,8 @@ import {
 import { pluralizar } from '@/lib/pluralizar';
 import type { IngestaListItemDto } from '@/api/types';
 
-const MENSAJE_DEMO_SELECCION =
-  'Estás en una cuenta de demostración. Crea una cuenta real para eliminar varias cartolas a la vez.';
+const MENSAJE_DEMO_SOLO_LECTURA =
+  'Estás en una cuenta de demostración. Crea una cuenta real para eliminar cartolas.';
 
 /**
  * ListaIngestas (`us-018-eliminar-ingesta` Slice 2, design.md §7.3; widened
@@ -63,12 +63,13 @@ const MENSAJE_DEMO_SELECCION =
  *
  * Demo (mirrors `CategoriaFila`/`CategoriasPanel`'s `esDemo` idiom — the
  * closest existing "list with per-row destructive action + demo gating"
- * precedent in this codebase; `EliminarIngestaControl` itself has no
- * `esDemo` handling to mirror): `useMe()` reads `esDemo` directly (this
+ * precedent in this codebase): `useMe()` reads `esDemo` directly (this
  * component is mounted bare as the route's component, with no route context
- * threaded in, unlike `SubirCartola`), proactively disables every checkbox,
- * and a `role="note"` banner explains why — the per-row delete stays
- * untouched (out of scope here).
+ * threaded in, unlike `SubirCartola`), proactively disables every checkbox
+ * AND the per-row `EliminarIngestaControl` (issue #500 — it had no `esDemo`
+ * gating; only the bulk selection did, PR #499), and a single `role="note"`
+ * banner explains why (WCTG-11: one note per screen covers both reasons the
+ * delete affordances are disabled).
  */
 export function ListaIngestas() {
   const query = useIngestas();
@@ -126,7 +127,7 @@ export function ListaIngestas() {
       </span>
       {esDemo && (
         <p role="note" className="text-sm text-muted-foreground">
-          {MENSAJE_DEMO_SELECCION}
+          {MENSAJE_DEMO_SOLO_LECTURA}
         </p>
       )}
       {bulk.idsSeleccionables.length > 0 && (
@@ -157,6 +158,7 @@ export function ListaIngestas() {
             selected={bulk.seleccionados.has(ingesta.id)}
             onToggleSelect={bulk.alternarFila}
             checkboxDeshabilitado={esDemo || bulk.interaccionBloqueada}
+            esDemo={esDemo}
           />
         ))}
       </ul>
@@ -242,7 +244,10 @@ export function ListaIngestas() {
  * FALLIDA row is not deletable at all (ING-05). `checkboxDeshabilitado`
  * covers BOTH reasons the caller might freeze it: `esDemo` (mirrors
  * `CategoriaFila`'s pattern) and `interaccionBloqueada` (4R review fix — the
- * confirmation dialog is open or a run is in flight).
+ * confirmation dialog is open or a run is in flight). `esDemo` is threaded
+ * separately into `EliminarIngestaControl` (issue #500) — that control has
+ * no `interaccionBloqueada` concept of its own, only its own mutation's
+ * pending state.
  */
 function IngestaItem({
   ingesta,
@@ -250,12 +255,14 @@ function IngestaItem({
   selected,
   onToggleSelect,
   checkboxDeshabilitado,
+  esDemo,
 }: {
   readonly ingesta: IngestaListItemDto;
   readonly onEliminado: () => void;
   readonly selected: boolean;
   readonly onToggleSelect: (id: string) => void;
   readonly checkboxDeshabilitado: boolean;
+  readonly esDemo: boolean;
 }) {
   const fechaLabel = ingesta.fecha.slice(0, 10);
   const esFallida = ingesta.estado === 'FALLIDA';
@@ -309,6 +316,7 @@ function IngestaItem({
             fechaLabel={fechaLabel}
             estado="exitoso"
             totalTransacciones={ingesta.totalTransacciones}
+            esDemo={esDemo}
             onEliminado={onEliminado}
           />
         </div>
