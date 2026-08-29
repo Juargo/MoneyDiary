@@ -48,18 +48,17 @@ import { InlineConfirm } from '@/components/ui/inline-confirm';
 const MENSAJE_DEMO_REGISTRAR =
   'La cuenta demo es de solo lectura. No es posible registrar movimientos en modo demo.';
 
-// Reused verbatim in the always-visible note below the form AND inside the
-// confirmation dialog's body (critique round-8 P2, DRY) — the dialog
-// reiterates the exact same permanence expectation the user already saw
-// before opening it, rather than a differently-worded copy.
+// Rendered ONLY inside the confirmation dialog's body (round-10 critique P3
+// reversal — see the docblock note near that render site for the full
+// rationale). EXPORTED (not just module-local) so
+// `RegistrarMovimientoForm.test.tsx` pins the SAME constant the dialog
+// consumes, instead of duplicating the literal string.
 //
 // Rewritten (SDD `correccion-movimientos-manuales` PR 3, design D-04,
 // WEB-DEL-02): the original copy promised a manual movement "no se puede
 // editar ni eliminar después" — false as of ADR-040/`EliminarMovimientoControl`
 // (DELETE /api/movimientos/:id). Editing is still impossible; deletion now
-// exists. EXPORTED (not just module-local) so `RegistrarMovimientoForm.test.tsx`
-// pins the SAME constant both render sites consume, instead of duplicating
-// the literal string in two places that could silently drift apart.
+// exists.
 export const MENSAJE_PERMANENCIA =
   'Un movimiento registrado no se puede editar, pero puedes eliminarlo desde el detalle del mes y registrarlo de nuevo; su categoría también puede reclasificarse desde el dashboard.';
 
@@ -622,17 +621,6 @@ export function RegistrarMovimientoForm({
         </p>
       )}
 
-      {/* Permanence expectation (impeccable critique r7 P2, harden): a
-          committed movement has no edit/delete path in the app — only
-          whole-ingesta deletion exists, which never covers manual
-          movements (ingestaId NULL, ADR-039) — while its categoría CAN
-          be reclassified inline later. Said here, at the decision point,
-          instead of after commit (error prevention over error recovery);
-          same role="note" idiom as MENSAJE_DEMO_REGISTRAR above. */}
-      <p role="note" className="text-sm text-muted-foreground">
-        {MENSAJE_PERMANENCIA}
-      </p>
-
       {/* Error feedback region (role="alert", D-10, PerfilForm idiom) */}
       <div role="alert" className="text-sm text-destructive">
         {feedback?.tono === 'error' && <p>{feedback.texto}</p>}
@@ -669,7 +657,22 @@ export function RegistrarMovimientoForm({
           same snapshot, different success reset (see `commitRegistro`'s doc
           comment). Both share `mutation.isPending` for disabling; only the
           one `accionEnCurso` names shows the progressive label, so a click
-          on either never leaves the other looking falsely idle-and-usable. */}
+          on either never leaves the other looking falsely idle-and-usable.
+
+          Round-10 critique P3 (deliberate reversal of part of r7 P2/PR
+          #497): `MENSAJE_PERMANENCIA` used to ALSO render as an
+          always-visible `role="note"` on the form itself — so the exact
+          same sentence appeared twice on screen once the dialog opened
+          (once as a static note, once inside the dialog body, design
+          D-04). Round-10 judged the duplication dilutes the message
+          rather than reinforcing it: a sentence a user already read once,
+          unconditionally, before they'd even started typing carries
+          little weight repeated verbatim at the one moment it actually
+          matters. This dialog — the point of actual commitment, the last
+          screen before the POST fires — is now the ONLY place
+          `MENSAJE_PERMANENCIA` renders. Same house precedent as round-5's
+          bulk-confirmation reversal: a documented, evidence-based walk-back
+          of a previously shipped decision, not a silent regression. */}
       {confirmacion && (
         <InlineConfirm
           title="Confirmar registro"

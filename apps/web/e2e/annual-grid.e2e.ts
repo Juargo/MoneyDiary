@@ -114,6 +114,43 @@ test.describe('annual grid — a semáforo tag navigates to the /semaforo stub (
   });
 });
 
+test.describe('annual grid — the semáforo tag never shares hit-test area with the month control (E-05, round-10 critique P2)', () => {
+  test('for every one of the 12 cells, the semáforo tag bounding box does not intersect the month control bounding box (E-05)', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'movil',
+      'E-05 is scoped to the movil project (360px, the tightest tier — same as E-01/E-04).',
+    );
+
+    await gotoAnnualGrid(page);
+
+    const region = page.getByRole('region', {
+      name: 'Año 2026 — vista macro por mes',
+    });
+    const controles = await region.getByRole('button').all();
+    const tags = await region
+      .getByRole('link', { name: /^Semáforo de / })
+      .all();
+    expect(controles).toHaveLength(12);
+    expect(tags).toHaveLength(12);
+
+    for (let i = 0; i < 12; i += 1) {
+      const controlBox = await controles[i].boundingBox();
+      const tagBox = await tags[i].boundingBox();
+      if (!controlBox || !tagBox) {
+        throw new Error('A month control or its semáforo tag did not render.');
+      }
+      const seSolapan =
+        controlBox.x < tagBox.x + tagBox.width &&
+        controlBox.x + controlBox.width > tagBox.x &&
+        controlBox.y < tagBox.y + tagBox.height &&
+        controlBox.y + controlBox.height > tagBox.y;
+      expect(seSolapan).toBe(false);
+    }
+  });
+});
+
 test.describe('annual grid — the selected-month marker is a real ≥64×64 box (E-04, CA-02)', () => {
   test('exactly one mes-seleccionado-marker renders, at least 64×64 at 360px (E-04)', async ({
     page,

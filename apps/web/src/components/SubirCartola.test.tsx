@@ -553,9 +553,190 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  // ── Discard (WEB-PRV-07, CA-05) ──────────────────────────────────────────
+  // ── Discard (WEB-PRV-07, CA-05; gated by InlineConfirm, round-10 P1) ─────
 
-  it('WEB-PRV-07: "Descartar" resets both mutations, clears edits, and navigates /', async () => {
+  it('round-10 P1: "Descartar" opens a destructive InlineConfirm instead of discarding immediately', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  // Fresh-review CRITICAL follow-up: the discard confirm used to disclose
+  // `previewMutation.data.filas.length` — the RAW total, wrongly including
+  // duplicate rows AND unclassified rows under the label "clasificados".
+  // These tests pin the HONEST counts instead: total = non-duplicate rows,
+  // clasificados = non-duplicate rows with an effective categoría (D-05
+  // merge rule via `resolverCategoriaMerged`, shared with `PreviewMuestra`).
+
+  it('round-10 P1 (honest count): discloses total non-duplicate rows AND how many are actually classified — duplicates excluded, an edit counts like a sugerido', async () => {
+    const catalogoListo = unCatalogoDto();
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ...validPreviewDto,
+          filas: [
+            unaFilaPreview({
+              rowIndex: 0,
+              esDuplicado: true,
+              descripcion: 'Fila duplicada',
+            }),
+            unaFilaPreview({
+              rowIndex: 1,
+              descripcion: 'Fila clasificada por sugerido',
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+            }),
+            unaFilaPreview({
+              rowIndex: 2,
+              descripcion: 'Fila sin clasificar',
+              sugerido: null,
+            }),
+            unaFilaPreview({
+              rowIndex: 3,
+              descripcion: 'Fila a clasificar por edición',
+              sugerido: null,
+            }),
+          ],
+          resumen: { totalFilas: 4, duplicadosDetectados: 1, nuevas: 3 },
+        },
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: catalogoListo }));
+
+    render(<SubirCartola />);
+
+    // Classify row 4 (rowIndex 3) via the edit overlay — must count exactly
+    // like a sugerido-derived classification (D-05).
+    const user = userEvent.setup();
+    await user.selectOptions(
+      screen.getByLabelText(/Fila 4: bucket/i),
+      'Necesidades',
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/Fila 4: categoría/i),
+      'cat-nec-1',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+
+    // Honest total: 3 (the esDuplicado row is excluded, NOT 4).
+    // Honest classified: 2 — row 1 (sugerido) + row 3 (edit) — NOT 4 (the
+    // old bug: raw filas.length mislabeled "clasificados").
+    expect(
+      screen.getByText(
+        'Se descartará la revisión de 3 movimientos (2 ya clasificados). Se perderá el archivo seleccionado; esta acción no se puede deshacer.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('round-10 P1 (honest count): degrades gracefully to a plain total when nothing is classified — no "(0 ya clasificados)"', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ...validPreviewDto,
+          filas: [
+            unaFilaPreview({ rowIndex: 0, sugerido: null }),
+            unaFilaPreview({
+              rowIndex: 1,
+              descripcion: 'Fila 2',
+              sugerido: null,
+            }),
+          ],
+        },
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+
+    expect(
+      screen.getByText(
+        'Se descartará la revisión de 2 movimientos. Se perderá el archivo seleccionado; esta acción no se puede deshacer.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('round-10 P1 (honest count): Spanish singular agreement at N=1/M=1 ("1 movimiento (1 ya clasificado)")', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ...validPreviewDto,
+          filas: [
+            unaFilaPreview({
+              rowIndex: 0,
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+            }),
+          ],
+        },
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+
+    expect(
+      screen.getByText(
+        'Se descartará la revisión de 1 movimiento (1 ya clasificado). Se perderá el archivo seleccionado; esta acción no se puede deshacer.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('round-10 P1: "Cancelar" in the discard confirm keeps the review intact and restores focus to "Descartar"', async () => {
+    const previewReset = vi.fn();
+    const commitReset = vi.fn();
+
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+        reset: previewReset,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({ reset: commitReset }));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    const trigger = screen.getByRole('button', { name: /^descartar$/i });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: /^cancelar$/i }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    // The review itself is untouched — no reset, no navigation.
+    expect(previewReset).not.toHaveBeenCalled();
+    expect(commitReset).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('WEB-PRV-07: confirming the discard resets both mutations, clears edits, and navigates /', async () => {
     const previewReset = vi.fn();
     const commitReset = vi.fn();
     const commitMutate = vi.fn();
@@ -578,7 +759,8 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
 
-    fireEvent.click(screen.getByRole('button', { name: /descartar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
 
     // No commit called
     expect(commitMutate).not.toHaveBeenCalled();
@@ -720,7 +902,8 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
 
-    fireEvent.click(screen.getByRole('button', { name: /descartar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
 
     expect(commitMutate).not.toHaveBeenCalled();
     expect(previewReset).toHaveBeenCalledTimes(1);
@@ -1669,7 +1852,81 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('"Descartar borrador" clears the notice and removes the draft from storage', async () => {
+    // Fresh-review CRITICAL follow-up: `handleDescartarBorrador` used to
+    // fire directly off the click — the very contradiction the review found
+    // in the docblock's "every other destructive control confirms" claim.
+    // Gated behind the same InlineConfirm family as the review-discard
+    // above, disclosing the draft's own edits count (the SAME number the
+    // recovery notice right next to it already shows).
+
+    it('round-10 P2 (CRITICAL follow-up): "Descartar borrador" opens a destructive InlineConfirm instead of discarding immediately', () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+      fireEvent.click(
+        screen.getByRole('button', { name: /descartar borrador/i }),
+      );
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      // The draft itself is untouched until the user confirms.
+      expect(cargarBorrador(Date.now())).not.toBeNull();
+    });
+
+    it('round-10 P2: the borrador discard confirm discloses how many rows the draft holds', () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([
+          [0, 'cat-nec-1'],
+          [1, null],
+        ]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+      fireEvent.click(
+        screen.getByRole('button', { name: /descartar borrador/i }),
+      );
+
+      expect(
+        screen.getByText(
+          /se descartará el borrador de cartola\.xlsx.*2 filas clasificadas/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('round-10 P2: "Cancelar" keeps the borrador notice intact and restores focus to "Descartar borrador"', async () => {
+      guardarBorrador({
+        archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
+        preview: unaPreviewCanonica(),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+      idleHooks();
+
+      render(<SubirCartola />);
+      const trigger = screen.getByRole('button', {
+        name: /descartar borrador/i,
+      });
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('button', { name: /^cancelar$/i }));
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(cargarBorrador(Date.now())).not.toBeNull();
+      expect(
+        screen.getByRole('status', { name: /borrador de revisión/i }),
+      ).toBeInTheDocument();
+      await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it('"Descartar borrador" confirmed clears the notice and removes the draft from storage', async () => {
       guardarBorrador({
         archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
         preview: unaPreviewCanonica(),
@@ -1681,6 +1938,9 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       render(<SubirCartola />);
       await userEvent.click(
         screen.getByRole('button', { name: /descartar borrador/i }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: /^confirmar$/i }),
       );
 
       expect(
@@ -1937,6 +2197,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
       render(<SubirCartola />);
       fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
 
       expect(cargarBorrador(Date.now())).toBeNull();
     });

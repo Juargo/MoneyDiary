@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from './ui/button';
+import { InlineConfirm } from './ui/inline-confirm';
 import { DemoUploadNudge } from './DemoUploadNudge';
 import { PreviewMuestra } from './PreviewMuestra';
 import { SemaforoBadge } from './SemaforoBadge';
@@ -13,7 +14,9 @@ import { useResumen } from '@/api/use-resumen';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { validarArchivoWeb } from '@/domain/validar-archivo';
 import { derivarMesDominante } from '@/domain/derivar-mes-dominante';
+import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
 import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
+import { pluralizar } from '@/lib/pluralizar';
 import {
   archivoCoincideConIdentidad,
   borrarBorrador,
@@ -88,6 +91,44 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
  *
  * `esDemo` (CU-07): renders `<DemoUploadNudge>` here so this component's
  * own test suite covers CU-07 directly.
+ *
+ * Round-10 critique P1 (discard confirmation): `handleDescartar` used to
+ * fire directly off the "Descartar" click — a destructive action that
+ * silently wipes a classified review AND the `sessionStorage` draft with
+ * zero recourse. Fixed by gating it behind the shared `InlineConfirm`
+ * (destructive variant, `confirmandoDescarte` below), matching the
+ * trigger/confirm-label split every other destructive control in the app
+ * already uses (trigger keeps the specific verb "Descartar"; the dialog's
+ * own confirm button reads the generic "Confirmar" —
+ * `EliminarIngestaControl`/`ReclasificarCategoriaControl` precedent — so
+ * tests and screen readers never see two identically-named "Descartar"
+ * buttons at once). The confirm body discloses HONEST numbers — total
+ * non-duplicate rows and how many are actually classified right now, via
+ * the shared `resolverCategoriaMerged` (D-05 merge rule, same function
+ * `PreviewMuestra` uses) — not the raw `filas.length` an earlier pass of
+ * this fix mislabeled "clasificados" (fresh-review CRITICAL catch: that
+ * count included duplicate AND unclassified rows).
+ *
+ * Round-10 critique P2 (CRITICAL follow-up): a fresh review caught that
+ * `handleDescartarBorrador` — a SECOND destructive action in this same
+ * file, wiping the saved `sessionStorage` draft from the recovery notice —
+ * still fired unconditionally, contradicting the very "every destructive
+ * control confirms" precedent this docblock claimed. Fixed the same way:
+ * gated behind `InlineConfirm` (`confirmandoDescarteBorrador` below),
+ * disclosing the draft's own edits count (the same number the recovery
+ * notice next to it already shows). Both discard paths in this component
+ * now share the family, so the precedent claim below is actually true.
+ *
+ * Gates UNCONDITIONALLY (not only when `edits.size > 0`): every other
+ * destructive control in this app confirms regardless of blast radius —
+ * `EliminarMovimientoControl` confirms deleting a single row,
+ * `ListaIngestas`'s bulk delete confirms even with one ingesta selected,
+ * and (per the P2 fix above) BOTH discard paths in this very file now do
+ * too. An `edits.size === 0` preview still discards a real uploaded file
+ * and a review the user chose to look at, and conditional gating would make
+ * "Descartar" sometimes silent and sometimes confirmed — unpredictable for
+ * the exact same click. Consistency (one rule, no branching) wins over the
+ * marginal savings of skipping a confirm on a technically-untouched preview.
  */
 export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   const navigate = useNavigate();
@@ -131,6 +172,12 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     esDemo ? null : cargarBorrador(Date.now()),
   );
   const [borradorRecuperando, setBorradorRecuperando] = useState(false);
+  // Round-10 P1: gates handleDescartar behind a destructive InlineConfirm.
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
+  // Round-10 P2 (CRITICAL follow-up): gates handleDescartarBorrador too —
+  // see that handler's doc comment for why.
+  const [confirmandoDescarteBorrador, setConfirmandoDescarteBorrador] =
+    useState(false);
 
   const previewMutation = usePreviewIngesta();
   const commitMutation = useCommitIngesta();
@@ -150,6 +197,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   const exitoRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Round-10 P1: focus-restore target for the discard confirm's Cancelar/Escape.
+  const descartarTriggerRef = useRef<HTMLButtonElement>(null);
+  // Round-10 P2: same, for the borrador-discard confirm.
+  const descartarBorradorTriggerRef = useRef<HTMLButtonElement>(null);
   // Synchronous double-submit guard (money-duplication risk, SEC-01): gates
   // "Agregar transacciones". `commitMutation.isPending`/`disabled` are stale
   // until React re-renders, which doesn't happen between two synchronous clicks.
@@ -309,15 +360,39 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     );
   }
 
-  // Draft resilience: explicit opt-out from the recovery notice.
+  // Draft resilience: explicit opt-out from the recovery notice. Round-10 P2
+  // (CRITICAL follow-up): the fresh review caught this handler contradicting
+  // the "every other destructive control confirms unconditionally" claim
+  // guarding `handleDescartar` above — it fired straight off the click, no
+  // gate, despite wiping a saved draft. Now shares the same InlineConfirm
+  // family (`confirmandoDescarteBorrador` below), so the claim is actually
+  // true across the whole file.
   function handleDescartarBorrador() {
+    setConfirmandoDescarteBorrador(false);
     borrarBorrador();
     setBorrador(null);
     setBorradorRecuperando(false);
   }
 
+  // Round-10 P2: "Descartar borrador" click opens the confirm instead of
+  // discarding immediately.
+  function handleAbrirConfirmacionDescarteBorrador() {
+    setConfirmandoDescarteBorrador(true);
+  }
+
+  // Round-10 P2: Cancelar/Escape — leaves the draft untouched, restores
+  // focus to the "Descartar borrador" trigger.
+  function handleCancelarConfirmacionDescarteBorrador() {
+    setConfirmandoDescarteBorrador(false);
+    descartarBorradorTriggerRef.current?.focus();
+  }
+
   // D-02: handleDescartar resets both mutations + edits, then navigates /.
+  // Round-10 P1: only ever invoked from the InlineConfirm's onConfirm now —
+  // the "Descartar" click itself just opens that dialog (see
+  // `handleAbrirConfirmacionDescarte` below).
   function handleDescartar() {
+    setConfirmandoDescarte(false);
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
@@ -326,6 +401,18 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     commitMutation.reset();
     borrarBorrador();
     void navigate({ to: '/' });
+  }
+
+  // Round-10 P1: "Descartar" click opens the confirm instead of discarding.
+  function handleAbrirConfirmacionDescarte() {
+    setConfirmandoDescarte(true);
+  }
+
+  // Round-10 P1: Cancelar/Escape — leaves the review untouched, restores
+  // focus to the "Descartar" trigger (same idiom as `EliminarMovimientoControl`).
+  function handleCancelarConfirmacionDescarte() {
+    setConfirmandoDescarte(false);
+    descartarTriggerRef.current?.focus();
   }
 
   // Peak-end landing primary CTA: navigate to the dashboard with the
@@ -373,6 +460,30 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // already cleared `borrador`).
   const mostrarNoticiaBorrador = borrador !== null && archivo === null;
 
+  // Fresh-review CRITICAL follow-up (round-10 P1): the discard confirm used
+  // to disclose `previewMutation.data.filas.length` — the RAW row count,
+  // wrongly including duplicate AND unclassified rows under the label
+  // "clasificados". Honest version: `total` counts only non-duplicate rows;
+  // `clasificadas` counts only rows with an EFFECTIVE categoría right now
+  // (D-05 merge rule via `resolverCategoriaMerged`, the SAME function
+  // `PreviewMuestra` uses for its own progress readout — one rule, not two
+  // that can drift). Degrades to a plain total when nothing is classified
+  // (`clasificadas === 0`) instead of a misleading "(0 ya clasificados)".
+  const filasNoDuplicadasDescarte =
+    previewMutation.data?.filas.filter((f) => !f.esDuplicado) ?? [];
+  const filasClasificadasDescarte = filasNoDuplicadasDescarte.filter(
+    (f) => resolverCategoriaMerged(f, edits) !== null,
+  ).length;
+  const textoConfirmacionDescarte = `Se descartará la revisión de ${pluralizar(
+    filasNoDuplicadasDescarte.length,
+    'movimiento',
+    'movimientos',
+  )}${
+    filasClasificadasDescarte > 0
+      ? ` (${pluralizar(filasClasificadasDescarte, 'ya clasificado', 'ya clasificados')})`
+      : ''
+  }. Se perderá el archivo seleccionado; esta acción no se puede deshacer.`;
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <h1 className="text-lg font-semibold text-foreground">Subir cartola</h1>
@@ -380,34 +491,63 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       <DemoUploadNudge esDemo={esDemo} />
 
       {mostrarNoticiaBorrador && borrador && !borradorRecuperando && (
-        <div
-          role="status"
-          aria-label="Borrador de revisión sin terminar"
-          className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-foreground"
-        >
-          <p>
-            Encontramos una revisión sin terminar de{' '}
-            <strong>{borrador.archivo.nombre}</strong> ({borrador.edits.length}{' '}
-            filas clasificadas). ¿Continuar donde quedaste?
-          </p>
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setBorradorRecuperando(true)}
-            >
-              Continuar revisión
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={handleDescartarBorrador}
-            >
-              Descartar borrador
-            </Button>
+        <>
+          <div
+            role="status"
+            aria-label="Borrador de revisión sin terminar"
+            className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-foreground"
+          >
+            <p>
+              Encontramos una revisión sin terminar de{' '}
+              <strong>{borrador.archivo.nombre}</strong> (
+              {borrador.edits.length} filas clasificadas). ¿Continuar donde
+              quedaste?
+            </p>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setBorradorRecuperando(true)}
+              >
+                Continuar revisión
+              </Button>
+              <Button
+                ref={descartarBorradorTriggerRef}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAbrirConfirmacionDescarteBorrador}
+              >
+                Descartar borrador
+              </Button>
+            </div>
           </div>
-        </div>
+          {/* Round-10 critique P2 (CRITICAL follow-up): destructive
+              InlineConfirm gate for the borrador discard too — rendered as
+              a SIBLING of the role="status" notice above, not nested inside
+              it, so a mounted `alertdialog` never lives inside a polite
+              live region. */}
+          {confirmandoDescarteBorrador && (
+            <InlineConfirm
+              title="Confirmar descarte del borrador"
+              confirmLabel="Confirmar"
+              destructive
+              onConfirm={handleDescartarBorrador}
+              onCancel={handleCancelarConfirmacionDescarteBorrador}
+              className="gap-2 p-3 text-sm"
+            >
+              <p>
+                Se descartará el borrador de {borrador.archivo.nombre} con{' '}
+                {pluralizar(
+                  borrador.edits.length,
+                  'fila clasificada',
+                  'filas clasificadas',
+                )}
+                . Esta acción no se puede deshacer.
+              </p>
+            </InlineConfirm>
+          )}
+        </>
       )}
 
       {mostrarNoticiaBorrador && borrador && borradorRecuperando && (
@@ -497,14 +637,29 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               {estado === 'committing' ? 'Subiendo…' : 'Agregar transacciones'}
             </Button>
             <Button
+              ref={descartarTriggerRef}
               type="button"
               variant="outline"
-              onClick={handleDescartar}
+              onClick={handleAbrirConfirmacionDescarte}
               disabled={estado === 'committing'}
             >
               Descartar
             </Button>
           </div>
+          {/* Round-10 critique P1: destructive InlineConfirm gate — see the
+              component docblock for why this gates unconditionally. */}
+          {confirmandoDescarte && (
+            <InlineConfirm
+              title="Confirmar descarte"
+              confirmLabel="Confirmar"
+              destructive
+              onConfirm={handleDescartar}
+              onCancel={handleCancelarConfirmacionDescarte}
+              className="gap-2 p-3 text-sm"
+            >
+              <p>{textoConfirmacionDescarte}</p>
+            </InlineConfirm>
+          )}
         </section>
       )}
 

@@ -171,15 +171,28 @@ function MesCelda({
   );
 
   // US-048 D-01/D-02/D-03: the month control and MiniSemaforoTag are SIBLING
-  // interactive elements — never nested (CA-05). The wrapper itself carries
-  // no role/handler/visual style; every existing visual class stays on the
-  // month control (byte-identical), which now also gains h-full w-full. The
-  // tag is absolutely positioned top-right, OUTSIDE the disabled branch's
+  // interactive elements — never nested (CA-05). DOM order is month control
+  // THEN tag (D-02 tab order); no tabIndex anywhere, the disabled branch
+  // keeps none (FIX 3, D-13). The tag renders OUTSIDE the disabled branch's
   // opacity-60 element (D-2 — an empty month's semáforo still reads live).
-  // DOM order is month control THEN tag (D-02 tab order); no tabIndex
-  // anywhere, the disabled branch keeps none (FIX 3, D-13).
+  //
+  // Round-10 critique P2 (hit-target overlap): the tag used to be absolutely
+  // positioned (`top-1 right-1`) INSIDE this same relative wrapper while the
+  // month control filled it edge-to-edge (`h-full w-full`) — two interactive
+  // siblings sharing the same screen pixels in that corner, so a click there
+  // could resolve to either one depending on stacking order (proven at real
+  // geometry by `e2e/annual-grid.e2e.ts`'s E-05). Fixed by giving the tag
+  // its OWN row: the wrapper is now a flex column (month control, then a
+  // dedicated `justify-end` row for the tag) instead of a relative/absolute
+  // pair — the control still fills the remaining height (`flex-1` replaces
+  // `h-full`) but never spatially overlaps the tag's row. `contenido`
+  // (label, ✓ marker, pie/selected marker) is UNCHANGED and stays fully
+  // inside the control/disabled-div, preserving every existing accessible-
+  // name and marker-nesting assertion (`ResumenAnual.test.tsx`'s
+  // `within(boton).getByTestId(...)` checks, N-05/N-08's sibling/order
+  // checks, December's content-derived "DIC" accessible name).
   return (
-    <div className="relative h-full">
+    <div className="flex h-full flex-col gap-1">
       {tieneDatos ? (
         <button
           type="button"
@@ -195,7 +208,7 @@ function MesCelda({
             // ratio table in `lib/bucket-colors.ts` (above
             // `construirOpcionesBucket`'s "Focus-ring contrast" comment) for
             // the verified numbers.
-            'flex h-full w-full flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
+            'flex w-full flex-1 flex-col items-center gap-1 rounded-lg border p-3 text-foreground transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
             // D-04: `esActual` no longer drives any className — cell chrome
             // is exclusively the "selected" channel now.
             esSeleccionado
@@ -215,17 +228,17 @@ function MesCelda({
           // is an unavailable month cell" to AT, it does NOT make the cell
           // activatable by mouse or keyboard (FIX 3).
           aria-current={esActual ? 'date' : undefined}
-          className="flex h-full w-full flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted p-3 text-muted-foreground opacity-60"
+          className="flex w-full flex-1 flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted p-3 text-muted-foreground opacity-60"
         >
           {contenido}
         </div>
       )}
-      <span className="absolute top-1 right-1">
+      <div className="flex justify-end">
         <MiniSemaforoTag
           estadoGlobal={mes.estadoGlobal}
           periodo={mes.periodo}
         />
-      </span>
+      </div>
     </div>
   );
 }
