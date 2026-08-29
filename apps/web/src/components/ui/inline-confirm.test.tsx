@@ -276,4 +276,75 @@ describe('InlineConfirm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  // ── secondaryConfirm (critique round-8 P3, RegistrarMovimientoForm's
+  //    quick-repeat): an opt-in third footer button. Unused by the other
+  //    four call sites — these tests cover only the shell mechanics.
+
+  it('without secondaryConfirm, the footer renders exactly two buttons (Cancelar, Confirmar)', () => {
+    renderInlineConfirm({ confirmLabel: 'Confirmar' });
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
+  it('secondaryConfirm renders a third footer button with its own label, positioned between Cancelar and Confirmar', () => {
+    renderInlineConfirm({
+      confirmLabel: 'Confirmar',
+      secondaryConfirm: { label: 'Confirmar y agregar otro', onClick: vi.fn() },
+    });
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      'Cancelar',
+      'Confirmar y agregar otro',
+      'Confirmar',
+    ]);
+  });
+
+  it('clicking the secondaryConfirm button calls its own onClick, not onConfirm', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    const onSecondaryClick = vi.fn();
+    renderInlineConfirm({
+      confirmLabel: 'Confirmar',
+      onConfirm,
+      secondaryConfirm: {
+        label: 'Confirmar y agregar otro',
+        onClick: onSecondaryClick,
+      },
+    });
+    await user.click(
+      screen.getByRole('button', { name: 'Confirmar y agregar otro' }),
+    );
+    expect(onSecondaryClick).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('secondaryConfirm.disabled toggles the button independently of `pending`/`cancelDisabled`', () => {
+    renderInlineConfirm({
+      confirmLabel: 'Confirmar',
+      pending: false,
+      secondaryConfirm: {
+        label: 'Confirmar y agregar otro',
+        onClick: vi.fn(),
+        disabled: true,
+      },
+    });
+    expect(
+      screen.getByRole('button', { name: 'Confirmar y agregar otro' }),
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeEnabled();
+  });
+
+  it('secondaryConfirm renders with the `secondary` Button variant, at the house default (36px) size', () => {
+    renderInlineConfirm({
+      confirmLabel: 'Confirmar',
+      secondaryConfirm: { label: 'Confirmar y agregar otro', onClick: vi.fn() },
+    });
+    const boton = screen.getByRole('button', {
+      name: 'Confirmar y agregar otro',
+    });
+    expect(boton).toHaveAttribute('data-variant', 'secondary');
+    expect(boton).toHaveAttribute('data-size', 'default');
+    expect(boton).toHaveAttribute('type', 'button');
+  });
 });
