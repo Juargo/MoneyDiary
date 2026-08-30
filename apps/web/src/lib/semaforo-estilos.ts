@@ -4,19 +4,24 @@ export interface EstiloSemaforo {
   readonly className: string;
 }
 
+// Label rebrand (semáforo hero redesign, 2026-08-30): the color words
+// ('Verde'/'Amarillo'/'Rojo') became health words — the verdict now says
+// what it MEANS, not what color it is. One edit here renames the estado
+// across every consumer (hero, badges, tags, aria-labels) — the whole point
+// of this single table. Mirror table: apps/mobile/src/theme/semaforo-estilos.ts.
 const ESTILOS: Record<string, EstiloSemaforo> = {
   verde: {
-    label: 'Verde',
+    label: 'Muy Saludable',
     cara: '🙂',
     className: 'bg-semaforo-verde text-semaforo-verde-foreground',
   },
   amarillo: {
-    label: 'Amarillo',
+    label: 'Saludable',
     cara: '😐',
     className: 'bg-semaforo-amarillo text-semaforo-amarillo-foreground',
   },
   rojo: {
-    label: 'Rojo',
+    label: 'En peligro',
     cara: '☹️',
     className: 'bg-semaforo-rojo text-semaforo-rojo-foreground',
   },

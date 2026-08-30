@@ -13,7 +13,7 @@ import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
  * The accessible name is MONTH-scoped (`Semáforo de {mes}: {estado}`,
  * D-07), not `SemaforoTag`'s plain `Semáforo: {estado}`: twelve identically
  * named links in one grid would be an AX failure, and the plain form would
- * collide with `SemaforoTag`'s own `/Semáforo: Verde/` query on the
+ * collide with `SemaforoTag`'s own `/Semáforo: Muy Saludable/` query on the
  * composed dashboard (`ResumenScreen.test.tsx`, T14) since RTL's
  * `getByRole` throws on multiple matches.
  *

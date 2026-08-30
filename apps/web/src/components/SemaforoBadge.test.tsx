@@ -8,17 +8,17 @@ import { SemaforoBadge } from './SemaforoBadge';
 describe('SemaforoBadge', () => {
   it('exposes the green label for "verde"', () => {
     render(<SemaforoBadge estadoSemaforo="verde" />);
-    expect(screen.getByLabelText('Verde')).toBeInTheDocument();
+    expect(screen.getByLabelText('Muy Saludable')).toBeInTheDocument();
   });
 
   it('exposes the yellow label for "amarillo"', () => {
     render(<SemaforoBadge estadoSemaforo="amarillo" />);
-    expect(screen.getByLabelText('Amarillo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Saludable')).toBeInTheDocument();
   });
 
   it('exposes the red label for "rojo"', () => {
     render(<SemaforoBadge estadoSemaforo="rojo" />);
-    expect(screen.getByLabelText('Rojo')).toBeInTheDocument();
+    expect(screen.getByLabelText('En peligro')).toBeInTheDocument();
   });
 
   it('exposes a distinct "Sin datos" label for null, not a crash', () => {
@@ -33,6 +33,6 @@ describe('SemaforoBadge', () => {
 
   it('exposes the state via role="img" — not color alone (ADR-018)', () => {
     render(<SemaforoBadge estadoSemaforo="rojo" />);
-    expect(screen.getByRole('img', { name: 'Rojo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'En peligro' })).toBeInTheDocument();
   });
 });

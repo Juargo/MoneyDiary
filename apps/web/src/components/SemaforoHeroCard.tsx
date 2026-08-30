@@ -3,80 +3,48 @@ import { Button } from '@/components/ui/button';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { mesCompletoLabel } from '@/domain/periodo-anual';
 import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
+import type { VeredictoSemaforo } from '@/domain/veredicto-semaforo';
 import { cn } from '@/lib/utils';
 
 /**
- * SemaforoHeroCard — design critique P0 fix. The semáforo is the product's
- * core promise (PRODUCT.md principle 1, "the monthly verdict comes first"),
- * but it used to render as a `text-xs` pill (`SemaforoTag`) buried in the
- * chart card's header, upstaged by `IngresoCard`'s 4xl mint hero. This card
- * is now the FIRST card on the dashboard (`ResumenScreen`), at
- * `IngresoCard`'s own display scale (`text-4xl font-extrabold`) — the
- * verdict wins the squint test.
+ * SemaforoHeroCard — the FIRST card on the dashboard (`ResumenScreen`): the
+ * monthly verdict leads (PRODUCT.md principle 1). Redesigned 2026-08-30 to
+ * the mock's anatomy, replacing the emoji-face + estado-washed-card look:
  *
- * Reuses `resolverEstiloSemaforo` — the estado → (label, cara, className)
- * table is NOT forked here (`SemaforoBadge`/`SemaforoTag` share the same
- * source, `lib/semaforo-estilos.ts`).
+ * - Ring indicator (aria-hidden): halo in the estado chip token, thick ring
+ *   in the estado's deep `-foreground` tone, filled core in the `-band`
+ *   tone — all three are EXISTING `index.css` estado tokens, no new hex.
+ * - Title `Semáforo: {label}` at display scale (squint-test winner), using
+ *   the rebranded labels from `resolverEstiloSemaforo` (Muy Saludable /
+ *   Saludable / En peligro — single label table, never forked here).
+ * - Tinted verdict box: the estado chip pair (`estilo.className`, AA
+ *   verified in index.css) carrying `construirVeredictoSemaforo`'s copy —
+ *   bold lead + the why. The card surface itself went back to neutral
+ *   `bg-card`; the estado tint lives in this box now (the 2026-08-29
+ *   full-card wash is retired by this redesign).
+ * - Three-segment scale (worst → best), decorative and `aria-hidden`
+ *   (redundant with the title, which is the single accessible carrier):
+ *   labels in the deep estado tones (AA on white), only the active
+ *   segment's track fills with its estado color.
  *
- * `data-testid="semaforo-global"` MOVED here from the chart card header's
- * `SemaforoTag` wrapper (`ResumenScreen.tsx`) — the chart card drops its own
- * copy as redundant with the hero directly above it. Existing smoke anchors
- * (`ResumenScreen.test.tsx`) keep resolving through this single instance.
- *
- * Two renders, not one component forked by a boolean:
- * - A known estado (verde/amarillo/rojo) renders the WHOLE card as a
- *   `<Link>` to `/semaforo?periodo=…` — the primary entry point to the
- *   verdict detail. `aria-label` gives it ONE accessible name combining the
- *   verdict and the period ("Semáforo: Verde — julio 2026"); the visible
- *   face emoji is `aria-hidden` (color/emoji are never the only carrier —
- *   the label text always renders). The Space-key handler mirrors
- *   `SemaforoTag`'s own precedent (WG5-12): no browser natively activates
- *   an `<a href>` on Space, so it's wired explicitly.
- * - `estadoGlobal: null` (SIN_DATOS) is NOT a `/semaforo` link — there is no
- *   verdict to explain yet. It renders "Sin datos" calmly with a real CTA
- *   (`Button asChild` → `<Link to="/subir">`), fixing the previously
- *   observed "empty state without a CTA" gap. This is a deliberate
- *   deviation from `SemaforoTag`'s "always navigable, never disabled"
- *   precedent — appropriate here because the hero's whole purpose in this
- *   state is to drive the user to the ingestion flow, not to a verdict page
- *   with nothing on it.
- *
- * Colorize pass (2026-08-29): a red month and a green month used to render
- * as the identical white `DASHBOARD_CARD_CLASS` shell — only the 56px emoji
- * circle carried the estado color. `FONDO_TARJETA_POR_ESTADO` below washes
- * the card's own background in the SAME `semaforo-verde`/`-amarillo`/
- * `-rojo` chip-surface tokens the emoji circle already uses (no new
- * literals) — an opaque fill, not an alpha overlay, so contrast stays
- * computable rather than context-dependent. Foreground text is untouched:
- * against all three washes `text-foreground` measures ≥14.2:1 and
- * `text-muted-foreground` ≥7.7:1 (well past the 4.5:1 AA floor), so neither
- * needs to switch to an estado `-foreground` token. `DASHBOARD_CARD_CLASS` itself is NOT
- * touched — the wash is appended via `cn()` here only, so every other
- * consumer of the shared recipe is unaffected. "Sin datos"/loading/error
- * states keep the neutral `bg-card` shell exactly as before (no entry in the
- * map — `FONDO_TARJETA_POR_ESTADO[estadoGlobal]` is only read from the
- * known-estado branch, which never runs for `null`).
+ * Behavior is unchanged from the previous design: a known estado renders
+ * the WHOLE card as a `<Link>` to `/semaforo?periodo=…` with ONE accessible
+ * name ("Semáforo: En peligro — julio 2026") and the WG5-12 Space-key
+ * handler; `estadoGlobal: null` renders the calm "Sin datos" state with the
+ * `/subir` CTA (no verdict box, no scale, neutral ring). The
+ * `data-testid="semaforo-global"` smoke anchor stays on the card root.
  */
 export function SemaforoHeroCard({
   estadoGlobal,
   periodo,
+  veredicto,
 }: {
   readonly estadoGlobal: string | null;
   readonly periodo: string;
+  /** Precomputed by the caller (`construirVeredictoSemaforo`) — this card only renders. */
+  readonly veredicto: VeredictoSemaforo | null;
 }) {
   const estilo = resolverEstiloSemaforo(estadoGlobal);
-
-  const cara = (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'flex size-14 items-center justify-center rounded-full text-3xl',
-        estilo.className,
-      )}
-    >
-      {estilo.cara}
-    </span>
-  );
 
   if (!estadoGlobal) {
     return (
@@ -87,7 +55,7 @@ export function SemaforoHeroCard({
           'flex flex-col items-center gap-2 text-center',
         )}
       >
-        {cara}
+        <AnilloEstado tono={TONOS_SIN_DATOS} />
         <span className="text-4xl font-extrabold text-foreground">
           Sin datos
         </span>
@@ -109,8 +77,7 @@ export function SemaforoHeroCard({
       aria-label={`Semáforo: ${estilo.label} — ${mesCompletoLabel(periodo)}`}
       className={cn(
         DASHBOARD_CARD_CLASS,
-        FONDO_TARJETA_POR_ESTADO[estadoGlobal],
-        'flex flex-col items-center gap-2 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
+        'flex flex-col items-center gap-4 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
       )}
       onKeyDown={(event) => {
         // WG5-12 precedent (SemaforoTag): Space doesn't natively activate an
@@ -122,44 +89,129 @@ export function SemaforoHeroCard({
         }
       }}
     >
-      {cara}
+      <AnilloEstado tono={TONOS_POR_ESTADO[estadoGlobal] ?? TONOS_SIN_DATOS} />
+
       <span className="text-4xl font-extrabold text-foreground">
         Semáforo: {estilo.label}
       </span>
-      <p className="text-sm text-muted-foreground">
-        {COPIA_SOPORTE[estadoGlobal] ?? COPIA_SOPORTE_DEFECTO}
-      </p>
+
+      {veredicto && (
+        <p
+          className={cn(
+            'max-w-prose rounded-lg px-5 py-4 text-sm leading-relaxed',
+            estilo.className,
+          )}
+        >
+          <strong className="font-bold">{veredicto.lead}</strong>{' '}
+          {veredicto.detalle}
+        </p>
+      )}
+
+      <div
+        aria-hidden="true"
+        className="grid w-full max-w-md grid-cols-3 gap-3 pt-1"
+      >
+        {ESCALA.map(({ estado, textoClase, barraClase }) => (
+          <div key={estado} className="flex flex-col gap-1.5 text-left">
+            <span className={cn('text-xs font-bold', textoClase)}>
+              {resolverEstiloSemaforo(estado).label}
+            </span>
+            <span
+              className={cn(
+                'h-2 rounded-full',
+                estado === estadoGlobal ? barraClase : 'bg-border',
+              )}
+            />
+          </div>
+        ))}
+      </div>
     </Link>
   );
 }
 
 /**
- * Static, calm supporting copy per estado (Serene Finance voice — even rojo
- * states the fact plainly and points to the detail, never alarmist). Keyed
- * by the wire enum value, same discipline as `lib/semaforo-estilos.ts`'s
- * `ESTILOS` table — an estado outside this set (should not happen, the
- * backend contract is closed) falls back to a neutral line instead of
- * rendering `undefined`.
+ * Ring indicator (mock anatomy): soft halo → thick deep ring on a white gap
+ * → filled mid-tone core. Purely decorative — the title text is the only
+ * accessible carrier of the estado (ADR-018: never color alone).
  */
-const COPIA_SOPORTE: Record<string, string> = {
-  verde: 'Tus gastos del mes están dentro del plan.',
-  amarillo: 'Vas ajustado este mes — revisa el detalle para no pasarte.',
-  rojo: 'Te pasaste del plan este mes. Revisa el detalle para ver dónde.',
-};
+function AnilloEstado({ tono }: { readonly tono: TonosAnillo }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex size-16 items-center justify-center rounded-full',
+        tono.halo,
+      )}
+    >
+      <span
+        className={cn(
+          'flex size-12 items-center justify-center rounded-full border-4 bg-card',
+          tono.aro,
+        )}
+      >
+        <span className={cn('size-6 rounded-full', tono.nucleo)} />
+      </span>
+    </span>
+  );
+}
 
-const COPIA_SOPORTE_DEFECTO = 'Revisa el detalle de tu mes.';
+interface TonosAnillo {
+  readonly halo: string;
+  readonly aro: string;
+  readonly nucleo: string;
+}
 
 /**
- * Card surface wash per estado (colorize pass, 2026-08-29) — background
- * only, reusing the EXISTING `semaforo-verde`/`-amarillo`/`-rojo` chip
- * tokens (`lib/semaforo-estilos.ts` keys the SAME wire-enum values, so this
- * table stays deliberately separate rather than forking that one: the chip
- * pairs a fill with its `-foreground` text color, this pairs a fill with
- * nothing — card text stays ink/muted-foreground). Only read from the
- * known-estado branch below, so `null`/unknown never resolve here.
+ * Estado → ring tones, all from the EXISTING index.css estado token
+ * families: chip fill (halo), `-foreground` deep tone (ring), `-band` mid
+ * tone (core). Deliberately separate from `resolverEstiloSemaforo`'s chip
+ * pair — that table pairs fill+text for chips; this one composes three
+ * fills for a decoration (two-tier color rule: none of these carry text).
  */
-const FONDO_TARJETA_POR_ESTADO: Record<string, string> = {
-  verde: 'bg-semaforo-verde',
-  amarillo: 'bg-semaforo-amarillo',
-  rojo: 'bg-semaforo-rojo',
+const TONOS_POR_ESTADO: Record<string, TonosAnillo> = {
+  verde: {
+    halo: 'bg-semaforo-verde',
+    aro: 'border-semaforo-verde-foreground',
+    nucleo: 'bg-semaforo-verde-band',
+  },
+  amarillo: {
+    halo: 'bg-semaforo-amarillo',
+    aro: 'border-semaforo-amarillo-foreground',
+    nucleo: 'bg-semaforo-amarillo-band',
+  },
+  rojo: {
+    halo: 'bg-semaforo-rojo',
+    aro: 'border-semaforo-rojo-foreground',
+    nucleo: 'bg-semaforo-rojo-band',
+  },
 };
+
+const TONOS_SIN_DATOS: TonosAnillo = {
+  halo: 'bg-muted',
+  aro: 'border-muted-foreground',
+  nucleo: 'bg-muted-foreground',
+};
+
+/**
+ * Decorative worst→best scale under the verdict (mock bottom row). Labels
+ * resolve through `resolverEstiloSemaforo` at render time — zero forked
+ * label strings. Deep `-foreground` tones for the label text keep AA on the
+ * white card (they already clear it on their own tinted chips).
+ */
+const ESCALA = [
+  {
+    estado: 'rojo',
+    textoClase: 'text-semaforo-rojo-foreground',
+    barraClase: 'bg-semaforo-rojo-foreground',
+  },
+  {
+    estado: 'amarillo',
+    textoClase: 'text-semaforo-amarillo-foreground',
+    barraClase: 'bg-semaforo-amarillo-foreground',
+  },
+  {
+    estado: 'verde',
+    textoClase: 'text-semaforo-verde-foreground',
+    barraClase: 'bg-semaforo-verde-foreground',
+  },
+] as const;

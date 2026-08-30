@@ -62,7 +62,7 @@ function detalleDto(
     sinIngreso: false,
     estadoGlobal: 'verde',
     diagnostico:
-      'Tu mes está en verde: los tres grupos están dentro de su rango.',
+      'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
     bucketsCriticos: [],
     buckets: [
       bucketDto({ bucket: 'Necesidades' }),
@@ -145,7 +145,7 @@ describe('SemaforoDetallePage', () => {
     expect(screen.getByText(/julio 2026/i)).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Tu mes está en verde: los tres grupos están dentro de su rango.',
+        'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
       ),
     ).toBeInTheDocument();
   });
@@ -178,7 +178,7 @@ describe('SemaforoDetallePage', () => {
   it('an Amarillo/Rojo bucket shows the advice row with the formatted amount (CA-05)', async () => {
     const dto = detalleDto({
       estadoGlobal: 'rojo',
-      diagnostico: 'Tu mes está en rojo por Necesidades.',
+      diagnostico: 'Tu veredicto del mes es En peligro por Necesidades.',
       bucketsCriticos: ['Necesidades'],
       buckets: [
         bucketDto({
@@ -189,7 +189,7 @@ describe('SemaforoDetallePage', () => {
             direccion: 'reducir',
             monto: '199951',
             mensaje:
-              'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+              'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
           },
         }),
         bucketDto({ bucket: 'Deseos', metaBp: 3000 }),
@@ -200,7 +200,7 @@ describe('SemaforoDetallePage', () => {
     await screen.findByRole('heading', { name: 'Semáforo' });
     expect(
       screen.getByText(
-        'Para volver a Verde, reduce $199.951 en Necesidades este mes.',
+        'Para volver a Muy Saludable, reduce $199.951 en Necesidades este mes.',
       ),
     ).toBeInTheDocument();
   });
@@ -208,7 +208,9 @@ describe('SemaforoDetallePage', () => {
   it('a Verde bucket shows no advice row', async () => {
     renderPage(successQuery(detalleDto()));
     await screen.findByRole('heading', { name: 'Semáforo' });
-    expect(screen.queryByText(/Para volver a Verde/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Para volver a Muy Saludable/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText(/ahorrando por sobre la banda/),
     ).not.toBeInTheDocument();
@@ -225,7 +227,8 @@ describe('SemaforoDetallePage', () => {
           consejo: {
             direccion: 'aumentar',
             monto: '50000',
-            mensaje: 'Para volver a Verde, aumenta {monto} en Ahorro este mes.',
+            mensaje:
+              'Para volver a Muy Saludable, aumenta {monto} en Ahorro este mes.',
           },
         }),
       ],
@@ -234,7 +237,7 @@ describe('SemaforoDetallePage', () => {
     await screen.findByRole('heading', { name: 'Semáforo' });
     expect(
       screen.getByText(
-        'Para volver a Verde, aumenta $50.000 en Ahorro este mes.',
+        'Para volver a Muy Saludable, aumenta $50.000 en Ahorro este mes.',
       ),
     ).toBeInTheDocument();
   });
@@ -251,7 +254,7 @@ describe('SemaforoDetallePage', () => {
             direccion: 'reducir',
             monto: '25000',
             mensaje:
-              'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Verde.',
+              'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Muy Saludable.',
           },
         }),
       ],
@@ -260,7 +263,7 @@ describe('SemaforoDetallePage', () => {
     await screen.findByRole('heading', { name: 'Semáforo' });
     expect(
       screen.getByText(
-        'Estás ahorrando por sobre la banda: puedes liberar hasta $25.000 y quedar en Verde.',
+        'Estás ahorrando por sobre la banda: puedes liberar hasta $25.000 y quedar en Muy Saludable.',
       ),
     ).toBeInTheDocument();
   });
@@ -312,10 +315,10 @@ describe('SemaforoDetallePage', () => {
 
   it('the header badge is the static SemaforoBadge (role=img, not a link), D-06', async () => {
     renderPage(successQuery(detalleDto()));
-    const badge = await screen.findByRole('img', { name: 'Verde' });
+    const badge = await screen.findByRole('img', { name: 'Muy Saludable' });
     expect(badge.tagName).not.toBe('A');
     expect(
-      screen.queryByRole('link', { name: /Verde/ }),
+      screen.queryByRole('link', { name: /Muy Saludable/ }),
     ).not.toBeInTheDocument();
   });
 

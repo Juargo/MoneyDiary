@@ -58,7 +58,7 @@ describe('AyudaPage', () => {
 
     expect(
       screen.getByText(
-        'Tu semáforo global es el peor de los tres grupos: si uno está en rojo, todo el mes queda en rojo.',
+        'Tu semáforo global es el peor de los tres grupos: si un grupo está en peligro, todo el mes queda en peligro.',
       ),
     ).toBeInTheDocument();
 

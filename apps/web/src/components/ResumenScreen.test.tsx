@@ -381,7 +381,7 @@ describe('ResumenScreen', () => {
     const contenedor = await screen.findByTestId('semaforo-global');
     expect(contenedor).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /Semáforo: Verde/ }),
+      screen.getByRole('link', { name: /Semáforo: Muy Saludable/ }),
     ).toBeInTheDocument();
   });
 
@@ -494,7 +494,10 @@ describe('ResumenScreen', () => {
     // p-4 = 16px side margins around the whole dashboard body.
     expect(paginaRaiz.className).toMatch(/\bp-4\b/);
 
-    const seccionUnica = container.querySelector('.grid') as HTMLElement;
+    // Anchor on the page-level grid's own testid — the hero's decorative
+    // 3-segment scale (redesign 2026-08-30) is also a `.grid` and renders
+    // first in DOM order.
+    const seccionUnica = screen.getByTestId('dashboard-page-grid');
     expect(seccionUnica).toBeInTheDocument();
     expect(seccionUnica.className).toMatch(/\bgrid-cols-1\b/);
     expect(seccionUnica.className).not.toMatch(/\blg:grid-cols-2\b/);
@@ -533,7 +536,7 @@ describe('ResumenScreen', () => {
     await screen.findByText('$1.000.000');
 
     const controlesEsperados = [
-      screen.getByRole('link', { name: /Semáforo: Verde/ }),
+      screen.getByRole('link', { name: /Semáforo: Muy Saludable/ }),
       screen.getByRole('button', { name: /^Necesidades / }),
       screen.getByRole('button', { name: /^Gustos / }),
       screen.getByRole('button', { name: /^Ahorro / }),
@@ -550,7 +553,9 @@ describe('ResumenScreen', () => {
     // navigation is already proven by the "renders the global semáforo..."
     // test above) — Enter is the anchor's native activation.
     const user = userEvent.setup();
-    const semaforoTag = screen.getByRole('link', { name: /Semáforo: Verde/ });
+    const semaforoTag = screen.getByRole('link', {
+      name: /Semáforo: Muy Saludable/,
+    });
     semaforoTag.focus();
     await user.keyboard('{Enter}');
     expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();
@@ -585,5 +590,55 @@ describe('ResumenScreen', () => {
     expect(
       within(botonEnero).getByTestId('mes-seleccionado-marker'),
     ).toBeInTheDocument();
+  });
+
+  // Integration seam (review finding): the unit tests for
+  // `construirVeredictoSemaforo` and `SemaforoHeroCard` each exercise their
+  // own layer with hand-built inputs — neither proves that THIS screen's
+  // `BUCKETS_5030`/`ETIQUETA_BUCKET` mapping glue actually feeds the real
+  // pipeline correctly end to end. This test renders the composed screen
+  // with a realistic rojo month and asserts the verbatim copy from the
+  // matrix in `veredicto-semaforo.ts`'s `detalleRojo`.
+  it('threads a realistic rojo month through the real veredicto pipeline into the hero card copy (integration seam)', async () => {
+    mockFetchAnual();
+    const viewModelRojo: ResumenViewModel = {
+      ...viewModel,
+      estadoGlobal: 'rojo',
+      buckets: [
+        {
+          bucket: 'Necesidades',
+          total: '$600.000',
+          porcentajeLabel: '60%',
+          estadoSemaforo: 'rojo',
+        },
+        {
+          bucket: 'Deseos',
+          total: '$200.000',
+          porcentajeLabel: '20%',
+          estadoSemaforo: 'verde',
+        },
+        {
+          bucket: 'Ahorro',
+          total: '$200.000',
+          porcentajeLabel: '20%',
+          estadoSemaforo: 'verde',
+        },
+        {
+          bucket: 'SinCategoria',
+          total: '$0',
+          porcentajeLabel: '—',
+          estadoSemaforo: null,
+        },
+      ],
+    };
+    renderScreen(viewModelRojo);
+    await screen.findByText('$1.000.000');
+
+    const contenedor = screen.getByTestId('semaforo-global');
+    const veredictoParrafo = contenedor.querySelector('p');
+    expect(veredictoParrafo).not.toBeNull();
+    expect(veredictoParrafo?.textContent).toBe(
+      'Tu veredicto es En peligro. Aunque Gustos y Ahorro están en rango, Necesidades queda fuera de rango y define el estado global de este mes siguiendo la lógica de mayor riesgo.',
+    );
   });
 });

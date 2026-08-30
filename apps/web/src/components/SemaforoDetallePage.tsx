@@ -76,8 +76,8 @@ function renderEstado(
       </header>
 
       <p className="text-xs text-muted-foreground">
-        Tu semáforo global es el peor de los tres grupos: si uno está en rojo,
-        todo el mes queda en rojo.
+        Tu semáforo global es el peor de los tres grupos: si un grupo está en
+        peligro, todo el mes queda en peligro.
       </p>
       {/* Design critique round-8, P2-B: quiet contextual help next to the
           worst-of-3 explainer — links to the same rule in `/ayuda`'s

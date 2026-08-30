@@ -5,7 +5,9 @@ import { LeyendaGasto } from './LeyendaGasto';
 import { ResumenAnual } from './ResumenAnual';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 import { anioDePeriodo } from '@/domain/periodo-anual';
-import { BUCKETS_ANILLO } from '@/domain/distribucion-gasto';
+import { BUCKETS_5030, BUCKETS_ANILLO } from '@/domain/distribucion-gasto';
+import { construirVeredictoSemaforo } from '@/domain/veredicto-semaforo';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { cn } from '@/lib/utils';
 
@@ -91,12 +93,29 @@ export function ResumenScreen({
       bucket === BUCKETS_ANILLO[BUCKETS_ANILLO.length - 1],
     );
 
+  // Hero verdict copy (redesign 2026-08-30): phrased from the per-bucket
+  // estados the view model already carries verbatim (never recomputed). The
+  // UI label resolution (Deseos → 'Gustos') happens HERE so the pure domain
+  // function stays lib-free; canonical 50/30/20 order comes from
+  // `BUCKETS_5030`, and a bucket absent from the DTO degrades to estado
+  // null (the function falls back to its self-contained per-estado line).
+  const veredicto = construirVeredictoSemaforo(
+    viewModel.estadoGlobal,
+    BUCKETS_5030.map((bucket) => ({
+      nombre: ETIQUETA_BUCKET[bucket] ?? bucket,
+      estado:
+        viewModel.buckets.find((b) => b.bucket === bucket)?.estadoSemaforo ??
+        null,
+    })),
+  );
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
       <h1 className="sr-only">Resumen mensual</h1>
       <SemaforoHeroCard
         estadoGlobal={viewModel.estadoGlobal}
         periodo={viewModel.periodo}
+        veredicto={veredicto}
       />
       <IngresoCard totalIngreso={viewModel.totalIngreso} />
 
