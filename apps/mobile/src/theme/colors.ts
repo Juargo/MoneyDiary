@@ -44,6 +44,11 @@ export const COLORS = {
   ingreso: '#3B4266',
   heading: '#2D2F3A',
   muted: '#8A8F9C',
+  // AA-passing muted for small text (income card redesign 2026-08-30):
+  // `muted` (#8A8F9C, ~3.4:1 on white) fails WCAG AA below large-text size.
+  // Minted per the semáforo deep-tone precedent (5.85:1 on white); existing
+  // `muted` call sites are pre-existing debt, migrated opportunistically.
+  mutedDeep: '#5F6572',
   hairline: '#EBEBEE',
   canvas: '#F3F3F5',
 } as const;

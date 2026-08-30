@@ -7,10 +7,15 @@ import type { ApiError, ApiResult } from '../src/api/client';
 import { borrarToken } from '../src/api/session-store';
 import { useSession } from '../src/api/session-context';
 import { registrarRecargaResumen } from '../src/api/resumen-refresh';
-import type { ResumenMesDto } from '../src/domain/resumen.types';
+import type {
+  ResumenAnualDto,
+  ResumenMesDto,
+} from '../src/domain/resumen.types';
 import { aResumenViewModel } from '../src/domain/resumen-view-model';
 import { anioDePeriodo, periodoActualUTC } from '../src/domain/periodo-anual';
 import { formatearPeriodoLabel } from '../src/domain/periodo-label';
+import { calcularVariacionIngreso } from '../src/domain/variacion-ingreso';
+import { calcularBarrasIngreso } from '../src/domain/sparkline-ingreso';
 import { ResumenScreen } from '../src/components/ResumenScreen';
 import { ResumenAnual } from '../src/components/ResumenAnual';
 import { Header } from '../src/components/Header';
@@ -41,6 +46,13 @@ export default function Index() {
   // binding decision 4: no persistence — selection resets on app restart).
   const [periodo, setPeriodo] = useState<string | undefined>(undefined);
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
+  // Income card redesign (2026-08-30): the raw annual months, observed from
+  // `ResumenAnual`'s own successful fetch (its `onMeses` event) — ONE annual
+  // request feeds both the grid and the income card's pill/sparkline. Starts
+  // (and on annual failure stays) empty: the pure helpers then degrade the
+  // card to its base render. No money math here — the BigInt work lives in
+  // the domain helpers called at render time below.
+  const [mesesAnual, setMesesAnual] = useState<ResumenAnualDto['meses']>([]);
 
   const cargar = useCallback(async () => {
     setEstado({ fase: 'loading' });
@@ -118,13 +130,18 @@ export default function Index() {
           assert this layout fact; verification is Maestro/manual (T5b.4/T6.3). */}
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <Header periodoLabel={formatearPeriodoLabel(periodoVista)} />
-        {renderEstado(estado, cargar, periodoVista, (path) =>
-          router.push(path),
-        )}
+        {renderEstado({
+          estado,
+          onRetry: cargar,
+          periodo: periodoVista,
+          mesesAnual,
+          onNavegar: (path) => router.push(path),
+        })}
         <ResumenAnual
           anio={anio}
           periodoSeleccionado={periodoVista}
           onSelectPeriodo={onSelectPeriodo}
+          onMeses={setMesesAnual}
         />
       </ScrollView>
       <Pressable
@@ -149,12 +166,19 @@ export default function Index() {
   );
 }
 
-function renderEstado(
-  estado: Estado,
-  onRetry: () => void,
-  periodo: string,
-  onNavegar: (path: string) => void,
-) {
+function renderEstado({
+  estado,
+  onRetry,
+  periodo,
+  mesesAnual,
+  onNavegar,
+}: {
+  readonly estado: Estado;
+  readonly onRetry: () => void;
+  readonly periodo: string;
+  readonly mesesAnual: ResumenAnualDto['meses'];
+  readonly onNavegar: (path: string) => void;
+}) {
   switch (estado.fase) {
     case 'loading':
       return <Loading />;
@@ -168,10 +192,19 @@ function renderEstado(
       }
       // US-056 PR1 (D-10): periodo and onNavegar thread to ResumenScreen →
       // LeyendaGasto so legend rows navigate to detail screens.
+      // Income card (2026-08-30): pill/sparkline derived from the observed
+      // annual months by the pure domain helpers — same call-the-view-model-
+      // here pattern as `aResumenViewModel` (the DTO's resolved `periodo` is
+      // the authoritative current month, not the tapped selection).
       return (
         <ResumenScreen
           viewModel={aResumenViewModel(estado.dto)}
           periodo={periodo}
+          variacionIngreso={calcularVariacionIngreso(
+            estado.dto.periodo,
+            mesesAnual,
+          )}
+          barrasIngreso={calcularBarrasIngreso(estado.dto.periodo, mesesAnual)}
           onNavegar={onNavegar}
         />
       );

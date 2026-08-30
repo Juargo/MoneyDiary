@@ -21,6 +21,17 @@ import { COLORS } from '../theme/colors';
  * states, independent of the main chart card's fetch (MOB-12): a failure or
  * loading state here never blanks (or is blanked by) the chart card. Not yet
  * mounted anywhere — `app/index.tsx` wiring is Phase 5b (design §1.9).
+ *
+ * `onMeses` (income card redesign, 2026-08-30): optional observer invoked
+ * with the raw annual `meses` after each successful fetch — the shell
+ * derives the income card's trend pill and sparkline from it WITHOUT a
+ * second `/api/resumen/anual` request and without breaking this component's
+ * self-contained fetch ownership (data flows up as an event; loading/error
+ * stay private here, so an annual failure still degrades the income card
+ * silently instead of coupling the two sections). MUST be referentially
+ * stable (e.g. a `useState` setter, as `app/index.tsx` passes) — `cargar`
+ * depends on it, so the mount effect above re-runs whenever its identity
+ * changes; an inline arrow at the call site would re-fetch on every render.
  */
 type Estado =
   | { fase: 'loading' }
@@ -31,10 +42,12 @@ export function ResumenAnual({
   anio,
   periodoSeleccionado,
   onSelectPeriodo,
+  onMeses,
 }: {
   readonly anio: number;
   readonly periodoSeleccionado?: string;
   readonly onSelectPeriodo: (periodo: string) => void;
+  readonly onMeses?: (meses: ResumenAnualDto['meses']) => void;
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
 
@@ -45,10 +58,11 @@ export function ResumenAnual({
     const resultado: ApiResult<ResumenAnualDto> = await fetchResumenAnual();
     if (resultado.ok) {
       setEstado({ fase: 'data', dto: resultado.value });
+      onMeses?.(resultado.value.meses);
     } else {
       setEstado({ fase: 'error', error: resultado.error });
     }
-  }, []);
+  }, [onMeses]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

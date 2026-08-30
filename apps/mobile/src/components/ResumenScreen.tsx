@@ -7,6 +7,8 @@ import { BUCKETS_5030 } from '../domain/distribucion-gasto';
 import { construirVeredictoSemaforo } from '../domain/veredicto-semaforo';
 import { ETIQUETA_BUCKET } from '../theme/colors';
 import type { ResumenViewModel } from '../domain/resumen-view-model';
+import type { VariacionIngreso } from '../domain/variacion-ingreso';
+import type { BarraIngreso } from '../domain/sparkline-ingreso';
 
 /**
  * Data-state composition (MOB-03/MOB-04) — US-050 PR4b re-scope (design
@@ -34,10 +36,15 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
 export function ResumenScreen({
   viewModel,
   periodo,
+  variacionIngreso,
+  barrasIngreso,
   onNavegar,
 }: {
   readonly viewModel: ResumenViewModel;
   readonly periodo: string | undefined;
+  /** Pre-computed by the shell from the annual months (no money math here). */
+  readonly variacionIngreso: VariacionIngreso | null;
+  readonly barrasIngreso: readonly BarraIngreso[];
   readonly onNavegar: (path: string) => void;
 }) {
   const veredicto = construirVeredictoSemaforo(
@@ -57,7 +64,12 @@ export function ResumenScreen({
         veredicto={veredicto}
       />
 
-      <IngresoCard totalIngreso={viewModel.totalIngreso} />
+      <IngresoCard
+        totalIngreso={viewModel.totalIngreso}
+        periodo={viewModel.periodo}
+        variacion={variacionIngreso}
+        barras={barrasIngreso}
+      />
 
       <View className="gap-5 rounded-2xl border border-hairline bg-white p-5">
         {/* Source text stays normal-case (test + Maestro anchor); the

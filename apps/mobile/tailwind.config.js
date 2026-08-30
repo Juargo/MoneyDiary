@@ -12,6 +12,7 @@ module.exports = {
         ingreso: '#3B4266',
         heading: '#2D2F3A',
         muted: '#8A8F9C',
+        'muted-deep': '#5F6572',
         hairline: '#EBEBEE',
         canvas: '#F3F3F5',
         link: '#3B5BDB',
