@@ -32,6 +32,17 @@ import type { NavRoute } from '@/components/app-shell/nav-items';
  * destination every current caller needs (YAGNI); widen the literal union
  * the day a second destination shows up, same discipline as
  * `BotonVolver.tsx`'s `Extract<NavRoute, …>`.
+ *
+ * Semantic wash extension (DESIGN.md "Status Families" update, 2026-08-29):
+ * unlike `SemaforoHeroCard`/`BucketSemaforoCard`/`IngresoCard`, this
+ * component has no estado to wash and no card surface of its own — it sits
+ * directly on the pale-sky `--background`. Scoped instead to a soft, modest
+ * `bg-muted/40` + `border-border` box (the SAME notice idiom `SubirCartola`
+ * already uses for its draft-recovery notice) around the copy, so an empty
+ * period reads as a considered state rather than bare floating text — no
+ * illustration, no new token. Contrast is effectively unchanged from the
+ * `--background` figures documented above: `--muted` blended at 40% over
+ * `--background` shifts the surface by only a few RGB points.
  */
 export function Empty({
   title = 'Todavía no hay movimientos este período',
@@ -47,13 +58,15 @@ export function Empty({
 } = {}) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 px-8 text-center">
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="text-sm text-muted-foreground">{description}</p>
-      {accion && (
-        <Button asChild className="mt-2">
-          <Link to={accion.to}>{accion.label}</Link>
-        </Button>
-      )}
+      <div className="flex max-w-sm flex-col items-center gap-2 rounded-xl border border-border bg-muted/40 px-6 py-8">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+        {accion && (
+          <Button asChild className="mt-2">
+            <Link to={accion.to}>{accion.label}</Link>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

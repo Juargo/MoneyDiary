@@ -67,6 +67,33 @@ describe('SemaforoHeroCard', () => {
     expect(await screen.findByTestId('semaforo-global')).toBeInTheDocument();
   });
 
+  // ── Colorize pass (2026-08-29): the card wears its estado via a subtle
+  // wash of the EXISTING semaforo-*/-100 surface tokens, reusing the same
+  // fill the estado chip already carries — foreground text stays ink/
+  // muted-foreground (verified AA on every wash) per the Two-Tier Color
+  // Rule. "Sin datos" keeps the neutral `bg-card` surface unchanged.
+  it.each([
+    ['verde', 'bg-semaforo-verde'],
+    ['amarillo', 'bg-semaforo-amarillo'],
+    ['rojo', 'bg-semaforo-rojo'],
+  ])(
+    'wears estado "%s" as the card surface wash',
+    async (estado, claseEsperada) => {
+      renderConRouter(
+        <SemaforoHeroCard estadoGlobal={estado} periodo="2026-07" />,
+      );
+      const tarjeta = await screen.findByTestId('semaforo-global');
+      expect(tarjeta.className).toMatch(new RegExp(`\\b${claseEsperada}\\b`));
+    },
+  );
+
+  it('keeps a neutral bg-card surface (no estado wash) when there is no verdict yet', async () => {
+    renderConRouter(<SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />);
+    const tarjeta = await screen.findByTestId('semaforo-global');
+    expect(tarjeta.className).toMatch(/\bbg-card\b/);
+    expect(tarjeta.className).not.toMatch(/\bbg-semaforo-/);
+  });
+
   it('is keyboard-operable with Space (WG5-12 precedent from SemaforoTag)', async () => {
     renderConRouter(
       <SemaforoHeroCard estadoGlobal="verde" periodo="2026-07" />,

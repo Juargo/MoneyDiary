@@ -509,19 +509,20 @@ export function RegistrarMovimientoForm({
           disabled={esDemo || formularioBloqueado}
         />
 
-        {/* Fecha — raw <label><input type="date"> (CampoTexto cannot host date, D-04/§0) */}
-        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-          Fecha
-          <input
-            type="date"
-            value={fecha}
-            max={hoy}
-            onChange={(e) => setFecha(e.target.value)}
-            required
-            disabled={esDemo || formularioBloqueado}
-            className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
-          />
-        </label>
+        {/* Fecha — CampoTexto (type='date', max=hoy). Used to be a hand-rolled
+            <label><input> pair because CampoTexto couldn't host `date`; that
+            gap closed when its internal input became the shared `ui/input.tsx`
+            primitive (US-060 polish pass), so this now matches Descripción's
+            pattern below. */}
+        <CampoTexto
+          label="Fecha"
+          value={fecha}
+          onChange={setFecha}
+          type="date"
+          max={hoy}
+          required
+          disabled={esDemo || formularioBloqueado}
+        />
         {errores.fecha && (
           <p className="text-sm text-destructive">{errores.fecha}</p>
         )}
@@ -539,19 +540,17 @@ export function RegistrarMovimientoForm({
           <p className="text-sm text-destructive">{errores.descripcion}</p>
         )}
 
-        {/* Monto — raw <label><input type="text" inputMode="numeric"> (D-03/§0) */}
-        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-          Monto
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            disabled={esDemo || formularioBloqueado}
-            className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
-          />
-        </label>
+        {/* Monto — CampoTexto (type='text', inputMode='numeric', pattern
+            digits-only). Same closed gap as Fecha above — the numeric-keypad
+            hint no longer needs a hand-rolled field. */}
+        <CampoTexto
+          label="Monto"
+          value={monto}
+          onChange={setMonto}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          disabled={esDemo || formularioBloqueado}
+        />
         {errores.monto && (
           <p className="text-sm text-destructive">{errores.monto}</p>
         )}

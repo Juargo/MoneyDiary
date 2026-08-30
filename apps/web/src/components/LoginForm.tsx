@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { postLogin } from '@/api/auth';
 import { Button } from '@/components/ui/button';
+import { CampoTexto } from '@/components/configuracion/CampoTexto';
 
 /**
  * LoginForm — owns the email+password form state, the `postLogin` call, and
@@ -48,26 +49,20 @@ export function LoginForm({ redirectTo }: { readonly redirectTo?: string }) {
 
   return (
     <form onSubmit={enviar} className="flex w-full flex-col gap-4">
-      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-        Email
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-        Contraseña
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-          className="rounded-md border border-input px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        />
-      </label>
+      <CampoTexto
+        label="Email"
+        value={email}
+        onChange={setEmail}
+        type="email"
+        required
+      />
+      <CampoTexto
+        label="Contraseña"
+        value={password}
+        onChange={setPassword}
+        type="password"
+        required
+      />
       {estado === 'error' && (
         <p role="alert" className="text-sm text-destructive">
           Credenciales inválidas.

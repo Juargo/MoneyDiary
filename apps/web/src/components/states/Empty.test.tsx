@@ -87,4 +87,20 @@ describe('Empty', () => {
       '/subir',
     );
   });
+
+  // Semantic wash extension (DESIGN.md "Status Families" update, 2026-08-29):
+  // Empty has no state to wash (it isn't a semaforo/ingreso outcome) and no
+  // card wrapper of its own — it sits directly on the pale-sky background.
+  // Scoped instead to a soft, restrained surface treatment (same
+  // `bg-muted/40`/`border-border`/`rounded-xl` idiom already used for notice
+  // boxes elsewhere, e.g. `SubirCartola`'s draft-recovery notice) so the
+  // empty state reads as considered rather than bare text on the page.
+  it('gives the empty state a soft muted surface instead of bare text on the page background', () => {
+    const { container } = render(<Empty />);
+    const superficie = container.querySelector('.bg-muted\\/40');
+    expect(superficie).toBeInTheDocument();
+    expect(superficie).toContainElement(
+      screen.getByText(/no hay movimientos/i),
+    );
+  });
 });

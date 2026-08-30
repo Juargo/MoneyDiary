@@ -68,6 +68,13 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
   error: 'No se pudo completar la importación.',
 };
 
+// Adjacent honest copy for the disabled commit button in demo mode
+// (RegistrarMovimientoForm's MENSAJE_DEMO_REGISTRAR idiom) — distinct from
+// DemoUploadNudge's start-of-flow wording, this one explains the specific
+// block the user just hit.
+const MENSAJE_DEMO_COMMIT =
+  'En modo demo, esta vista previa es solo para probar: la importación no se guarda.';
+
 /**
  * SubirCartola (US-059 PR3) — preview→review→commit state machine.
  *
@@ -89,8 +96,11 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
  * `pickerGateado` excludes `error` so the file input re-enables after a
  * commit error, enabling the "pick new file" retry path (D-11, two changes).
  *
- * `esDemo` (CU-07): renders `<DemoUploadNudge>` here so this component's
- * own test suite covers CU-07 directly.
+ * `esDemo` (CU-07, later revised): renders `<DemoUploadNudge>` here so this
+ * component's own test suite covers CU-07 directly. Demo evaluators run the
+ * full picker→preview→classify loop like any other user — only the commit
+ * step ("Agregar transacciones") stays disabled, paired with inline honest
+ * copy explaining why and pointing at the same "Crear cuenta" path.
  *
  * Round-10 critique P1 (discard confirmation): `handleDescartar` used to
  * fire directly off the "Descartar" click — a destructive action that
@@ -169,7 +179,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // there is nothing to re-synchronize later. This also avoids the extra
   // render an effect-driven `setState` would cost on every mount.
   const [borrador, setBorrador] = useState<BorradorRevision | null>(() =>
-    esDemo ? null : cargarBorrador(Date.now()),
+    cargarBorrador(Date.now()),
   );
   const [borradorRecuperando, setBorradorRecuperando] = useState(false);
   // Round-10 P1: gates handleDescartar behind a destructive InlineConfirm.
@@ -223,6 +233,15 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
   // D-11: `error` REMOVED from pickerGateado so the picker re-enables after a
   // commit error; `subiendo` renamed to `committing` (two simultaneous changes).
+  //
+  // Demo (US-060 harden pass, issue #500 UI-honesty follow-up, later revised):
+  // `POST /api/ingestas/preview` is UNGATED for demo sessions — it is a
+  // read-only dry run that persists nothing — so demo evaluators get the
+  // real core loop: upload a cartola, see the auto-detected bank, classify
+  // rows. `esDemo` does NOT gate the picker; only `CommitIngestaUseCase`
+  // rejects a demo session (`IngestaDemoSoloLecturaError`, 403
+  // DEMO_SOLO_LECTURA), and the "Agregar transacciones" button below stays
+  // proactively disabled so that 403 is never actually hit.
   const pickerGateado =
     estado === 'previsualizando' ||
     estado === 'preview-listo' ||
@@ -275,14 +294,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // effect's own deps don't change across that transition, so it doesn't
   // re-save afterwards.
   useEffect(() => {
-    if (esDemo || !archivo || !previewMutation.data) return;
+    if (!archivo || !previewMutation.data) return;
     guardarBorrador({
       archivo,
       preview: previewMutation.data,
       edits,
       ahora: Date.now(),
     });
-  }, [esDemo, archivo, previewMutation.data, edits]);
+  }, [archivo, previewMutation.data, edits]);
 
   // D-02: handleFileChange clears both mutations + edits before firing preview.
   // Draft resilience: a matching re-pick during `borradorRecuperando`
@@ -336,7 +355,15 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // PR3's D-05/D-01) — the exito state IS the destination now. Only
   // `onSettled` survives here to release the double-submit guard.
   function handleConfirmar() {
-    if (!archivo || commitMutation.isPending || isSubmittingRef.current) {
+    // Demo guard inside the handler (RegistrarMovimientoForm's handleSubmit
+    // idiom): the disabled Button is the visible gate, but a forced/synthetic
+    // invocation bypassing it must still never reach the 403 commit.
+    if (
+      esDemo ||
+      !archivo ||
+      commitMutation.isPending ||
+      isSubmittingRef.current
+    ) {
       return;
     }
     isSubmittingRef.current = true;
@@ -624,15 +651,44 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             onEditChange={handleEditChange}
             catalogo={catalogoEstado}
           />
+          {/* Demo (RegistrarMovimientoForm's MENSAJE_DEMO_REGISTRAR idiom):
+              a demo session reaches preview-listo for real now — this note
+              explains why "Agregar transacciones" stays disabled right where
+              the user hits it, instead of only at the top-of-flow nudge,
+              which can have scrolled out of view after classifying rows. */}
+          {esDemo && (
+            <p
+              id="demo-commit-nota"
+              role="note"
+              className="text-sm text-muted-foreground"
+            >
+              {MENSAJE_DEMO_COMMIT}{' '}
+              <a
+                href="https://moneydiary.cl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                Crea una cuenta real
+              </a>{' '}
+              para guardar tus movimientos.
+            </p>
+          )}
+
           <div className="flex gap-3">
             {/* Label swaps to "Subiendo…" while committing (impeccable
                 critique P2: in-button async feedback) — matches
                 MENSAJE_POR_ESTADO.committing's own "Subiendo transacciones…"
                 wording already shown in the status region above. */}
+            {/* `esDemo` stays as a belt-and-suspenders client-side gate: the
+                server rejects a demo commit with `IngestaDemoSoloLecturaError`
+                (403 DEMO_SOLO_LECTURA) — this disables the control so that
+                rejection is never actually hit. */}
             <Button
               type="button"
               onClick={handleConfirmar}
-              disabled={estado === 'committing'}
+              disabled={esDemo || estado === 'committing'}
+              aria-describedby={esDemo ? 'demo-commit-nota' : undefined}
             >
               {estado === 'committing' ? 'Subiendo…' : 'Agregar transacciones'}
             </Button>

@@ -17,6 +17,18 @@ describe('DemoUploadNudge', () => {
     ).toBeInTheDocument();
   });
 
+  // "preview sí, commit no": the nudge sets expectations at the START of the
+  // flow — it must say the try loop (upload + classify) works, not just that
+  // the account is temporary, so nobody discovers the commit block only
+  // after classifying a full cartola.
+  it('announces that uploading and classifying works, with nothing saved without a real account', () => {
+    render(<DemoUploadNudge esDemo={true} />);
+
+    expect(
+      screen.getByRole('status', { name: /aviso de subida en modo demo/i }),
+    ).toHaveTextContent(/subir.*cartola.*clasificar/i);
+  });
+
   it('renders null when esDemo is false', () => {
     render(<DemoUploadNudge esDemo={false} />);
 

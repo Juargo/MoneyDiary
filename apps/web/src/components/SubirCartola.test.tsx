@@ -374,6 +374,86 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled();
   });
 
+  // ── Demo mode: "preview sí, commit no" (product decision, supersedes the
+  // US-060 harden-pass picker gate) ─────────────────────────────────────────
+  // `POST /api/ingestas/preview` is UNGATED for demo sessions (read-only dry
+  // run, nothing persisted) — demo evaluators get the real core loop: upload
+  // a cartola, see the auto-detected bank, classify rows. Only the commit
+  // step is blocked: the server rejects a demo commit with
+  // `IngestaDemoSoloLecturaError` (403 DEMO_SOLO_LECTURA), and
+  // `handleConfirmar`/the disabled "Agregar transacciones" button are
+  // belt-and-suspenders so that 403 is never actually hit.
+
+  it('esDemo leaves the file picker enabled in idle state (the demo preview loop is real)', () => {
+    idleHooks();
+
+    render(<SubirCartola esDemo />);
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled();
+  });
+
+  it('esDemo=false leaves the file picker enabled (unchanged)', () => {
+    idleHooks();
+
+    render(<SubirCartola esDemo={false} />);
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled();
+  });
+
+  it('esDemo disables "Agregar transacciones" even once preview-listo is reached, with adjacent honest copy', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola esDemo />);
+
+    // Preview flow itself is fully usable in demo — the row and its bank are
+    // rendered like any other session.
+    expect(screen.getByText('BancoEstado')).toBeInTheDocument();
+    expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
+
+    expect(
+      screen.getByRole('button', { name: /agregar transacciones/i }),
+    ).toBeDisabled();
+    // Honest, discoverable explanation right next to the disabled control
+    // (not only at the top-of-flow nudge), with the "Crear cuenta" path.
+    expect(
+      screen.getByText(/vista previa es solo para probar/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /crea una cuenta real/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('esDemo: clicking the disabled "Agregar transacciones" never calls commitMutation.mutate (handleConfirmar stays inert)', () => {
+    const commitMutate = vi.fn();
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(
+      unaMutacion({ mutate: commitMutate }),
+    );
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola esDemo />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /agregar transacciones/i }),
+    );
+
+    expect(commitMutate).not.toHaveBeenCalled();
+  });
+
   // ── Edit overlay (D-02/D-03) ─────────────────────────────────────────────
 
   it('D-03: edits state updates on onEditChange so FilaRevision receives the updated categoriaId', async () => {
@@ -1836,7 +1916,11 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(cargarBorrador(ahora)).toBeNull();
     });
 
-    it('never offers a draft in demo mode, even if one is saved', () => {
+    // "preview sí, commit no": the demo preview/classification loop is real
+    // now, so draft recovery (sessionStorage-only, never sent anywhere) is
+    // just as useful for a demo evaluator as for a real user — nothing about
+    // it touches the commit gate.
+    it('offers a draft in demo mode too, same as a real session', () => {
       guardarBorrador({
         archivo: unArchivoIdentidad('demo.xlsx', 100, 1),
         preview: unaPreviewCanonica(),
@@ -1847,9 +1931,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
       render(<SubirCartola esDemo />);
 
-      expect(
-        screen.queryByText(/revisión sin terminar/i),
-      ).not.toBeInTheDocument();
+      expect(screen.getByText(/revisión sin terminar/i)).toBeInTheDocument();
     });
 
     // Fresh-review CRITICAL follow-up: `handleDescartarBorrador` used to

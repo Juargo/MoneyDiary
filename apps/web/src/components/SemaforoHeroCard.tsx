@@ -40,6 +40,22 @@ import { cn } from '@/lib/utils';
  *   precedent — appropriate here because the hero's whole purpose in this
  *   state is to drive the user to the ingestion flow, not to a verdict page
  *   with nothing on it.
+ *
+ * Colorize pass (2026-08-29): a red month and a green month used to render
+ * as the identical white `DASHBOARD_CARD_CLASS` shell — only the 56px emoji
+ * circle carried the estado color. `FONDO_TARJETA_POR_ESTADO` below washes
+ * the card's own background in the SAME `semaforo-verde`/`-amarillo`/
+ * `-rojo` chip-surface tokens the emoji circle already uses (no new
+ * literals) — an opaque fill, not an alpha overlay, so contrast stays
+ * computable rather than context-dependent. Foreground text is untouched:
+ * against all three washes `text-foreground` measures ≥14.2:1 and
+ * `text-muted-foreground` ≥7.7:1 (well past the 4.5:1 AA floor), so neither
+ * needs to switch to an estado `-foreground` token. `DASHBOARD_CARD_CLASS` itself is NOT
+ * touched — the wash is appended via `cn()` here only, so every other
+ * consumer of the shared recipe is unaffected. "Sin datos"/loading/error
+ * states keep the neutral `bg-card` shell exactly as before (no entry in the
+ * map — `FONDO_TARJETA_POR_ESTADO[estadoGlobal]` is only read from the
+ * known-estado branch, which never runs for `null`).
  */
 export function SemaforoHeroCard({
   estadoGlobal,
@@ -93,6 +109,7 @@ export function SemaforoHeroCard({
       aria-label={`Semáforo: ${estilo.label} — ${mesCompletoLabel(periodo)}`}
       className={cn(
         DASHBOARD_CARD_CLASS,
+        FONDO_TARJETA_POR_ESTADO[estadoGlobal],
         'flex flex-col items-center gap-2 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
       )}
       onKeyDown={(event) => {
@@ -131,3 +148,18 @@ const COPIA_SOPORTE: Record<string, string> = {
 };
 
 const COPIA_SOPORTE_DEFECTO = 'Revisa el detalle de tu mes.';
+
+/**
+ * Card surface wash per estado (colorize pass, 2026-08-29) — background
+ * only, reusing the EXISTING `semaforo-verde`/`-amarillo`/`-rojo` chip
+ * tokens (`lib/semaforo-estilos.ts` keys the SAME wire-enum values, so this
+ * table stays deliberately separate rather than forking that one: the chip
+ * pairs a fill with its `-foreground` text color, this pairs a fill with
+ * nothing — card text stays ink/muted-foreground). Only read from the
+ * known-estado branch below, so `null`/unknown never resolve here.
+ */
+const FONDO_TARJETA_POR_ESTADO: Record<string, string> = {
+  verde: 'bg-semaforo-verde',
+  amarillo: 'bg-semaforo-amarillo',
+  rojo: 'bg-semaforo-rojo',
+};

@@ -56,4 +56,34 @@ describe('CampoTexto', () => {
     render(<CampoTexto label="Nombre" value="" onChange={() => {}} disabled />);
     expect(screen.getByLabelText('Nombre')).toBeDisabled();
   });
+
+  it('type="date" acepta max (US-060, sustituye el par label+input a mano)', () => {
+    render(
+      <CampoTexto
+        label="Fecha"
+        value="2026-08-29"
+        onChange={() => {}}
+        type="date"
+        max="2026-08-29"
+      />,
+    );
+    const input = screen.getByLabelText('Fecha');
+    expect(input).toHaveAttribute('type', 'date');
+    expect(input).toHaveAttribute('max', '2026-08-29');
+  });
+
+  it('inputMode y pattern pasan al input nativo (US-060, campo Monto)', () => {
+    render(
+      <CampoTexto
+        label="Monto"
+        value=""
+        onChange={() => {}}
+        inputMode="numeric"
+        pattern="[0-9]*"
+      />,
+    );
+    const input = screen.getByLabelText('Monto');
+    expect(input).toHaveAttribute('inputmode', 'numeric');
+    expect(input).toHaveAttribute('pattern', '[0-9]*');
+  });
 });

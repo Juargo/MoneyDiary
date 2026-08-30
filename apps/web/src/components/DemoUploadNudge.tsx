@@ -1,7 +1,13 @@
 /**
- * DemoUploadNudge (`upload-cartola-ui`, US-032, CU-07) — non-blocking notice
- * shown only on the upload screen for demo sessions, reminding the user the
- * demo data is temporary and offering a CTA to create a real account.
+ * DemoUploadNudge (`upload-cartola-ui`, US-032, CU-07; copy revised for
+ * "preview sí, commit no") — non-blocking notice shown only on the upload
+ * screen for demo sessions, set at the START of the flow: it tells the user
+ * up front that the picker, preview, and row classification all work in
+ * demo mode, but nothing is saved without a real account — so nobody
+ * discovers the block only after classifying a full cartola. A second,
+ * differently-worded note sits next to the disabled "Agregar transacciones"
+ * button itself (`SubirCartola`'s `MENSAJE_DEMO_COMMIT`), for the reader who
+ * only notices at that point.
  *
  * Presentational and prop-driven (mirrors `DemoBanner.tsx`'s style): the
  * caller (`SubirCartola`) decides `esDemo` from route context (design.md
@@ -34,8 +40,9 @@ export function DemoUploadNudge({
       className="flex items-center justify-between gap-3 rounded-xl border border-warning-border bg-warning px-4 py-2 text-sm text-warning-foreground"
     >
       <p className="flex-1">
-        Los datos de esta cuenta demo son temporales y se eliminan
-        automáticamente.
+        Puedes subir una cartola de prueba y clasificar sus movimientos: los
+        datos de esta cuenta demo son temporales y nada se guarda sin una cuenta
+        real.
       </p>
       <Button asChild size="sm" className="shrink-0">
         <a
