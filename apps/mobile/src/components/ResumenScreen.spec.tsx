@@ -79,50 +79,46 @@ const viewModel: ResumenViewModel = {
 
 const noop = () => undefined;
 
+// Test hygiene (review fix): the 8 call sites below all repeated the same
+// `variacionIngreso={null} barrasIngreso={[]}` pair (income-card redesign
+// props no test in this file exercises) — mirrors the web pattern
+// (`IngresoCard.test.tsx`'s `renderCard` helper) so each site states only
+// what it actually varies.
+async function renderScreen(
+  overrides: Partial<React.ComponentProps<typeof ResumenScreen>> = {},
+) {
+  return render(
+    <ResumenScreen
+      viewModel={viewModel}
+      periodo="2026-07"
+      variacionIngreso={null}
+      barrasIngreso={[]}
+      onNavegar={noop}
+      {...overrides}
+    />,
+  );
+}
+
 describe('ResumenScreen', () => {
   it('renders the "Distribución del gasto" heading anchor', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
   });
 
   it('exposes the heading as an accessible header', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     expect(
       screen.getByRole('header', { name: 'Distribución del gasto' }),
     ).toBeOnTheScreen();
   });
 
   it('renders totalIngreso formatted as CLP', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
   });
 
   it('renders the 5 legend labels', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
@@ -133,13 +129,7 @@ describe('ResumenScreen', () => {
   });
 
   it('renders testID="semaforo-global"', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     const semaforo = screen.getByTestId('semaforo-global');
     expect(semaforo).toBeOnTheScreen();
     // Fix 4 (MOB-08 binding decision 1): SemaforoHeroCard's root is a static
@@ -150,26 +140,14 @@ describe('ResumenScreen', () => {
   });
 
   it('renders no "Ver detalles ›" affordance anywhere (MOB-15)', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     expect(
       screen.queryByText('Ver detalles ›', { exact: false }),
     ).not.toBeOnTheScreen();
   });
 
   it('renders no "IDEAL" element anywhere', async () => {
-    await render(
-      <ResumenScreen
-        viewModel={viewModel}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen();
     expect(screen.queryByText('IDEAL', { exact: false })).not.toBeOnTheScreen();
   });
 
@@ -211,13 +189,7 @@ describe('ResumenScreen', () => {
         },
       ],
     };
-    await render(
-      <ResumenScreen
-        viewModel={viewModelRojo}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
+    await renderScreen({ viewModel: viewModelRojo });
 
     expect(screen.getByText(/Tu veredicto es En peligro\./)).toBeOnTheScreen();
     expect(

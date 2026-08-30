@@ -687,4 +687,65 @@ describe('Index (4-state switch)', () => {
       expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
     });
   });
+
+  // Income card redesign (2026-08-30): integration test for the REAL annual
+  // pipeline — `ResumenAnual`'s fetch reports its months up via `onMeses`,
+  // the shell feeds them to `calcularVariacionIngreso`/`calcularBarrasIngreso`
+  // and the card renders the pill verbatim. Pins the glue the pure-function
+  // and prop-injected component tests both bypass. Year-independent: this
+  // annual DTO hardcodes 2026 to match `dataDto`'s own '2026-07'.
+  it('derives the income trend pill from the annual payload (integration)', async () => {
+    mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+    mockFetchResumenAnual.mockReset().mockResolvedValue({
+      ok: true,
+      value: {
+        anio: 2026,
+        meses: MESES_NUM.map((mes) => {
+          const base = mesAnualConDatos(mes);
+          const periodo = `2026-${mes}`;
+          // June 1.000.000 -> July 1.120.000: exactly the mock's +12%.
+          return {
+            ...base,
+            periodo,
+            totalIngreso: periodo === '2026-07' ? '1120000' : '1000000',
+          };
+        }),
+      },
+    });
+
+    await render(<Index />);
+
+    await waitFor(() =>
+      expect(screen.getByText('+12% vs mes anterior')).toBeOnTheScreen(),
+    );
+    expect(
+      screen.getByTestId('ingreso-sparkline', { includeHiddenElements: true }),
+    ).toBeOnTheScreen();
+  });
+
+  // Sibling of the D-05 "annual section alongside loading and error too"
+  // test above, but for the ANNUAL fetch itself (not the month resumen):
+  // `ResumenAnual` never calls `onMeses` on its own error branch (see its
+  // `cargar`), so `mesesAnual` stays `[]` and the pure helpers degrade the
+  // income card to its base render — an annual failure must never gate or
+  // blank the income card.
+  it('keeps the income card on its base render when the annual fetch fails', async () => {
+    mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+    mockFetchResumenAnual
+      .mockReset()
+      .mockResolvedValue({ ok: false, error: { tag: 'network' } });
+
+    await render(<Index />);
+
+    await waitFor(() =>
+      expect(screen.getByText('$1.000.000')).toBeOnTheScreen(),
+    );
+    expect(screen.getByText('INGRESOS TOTALES')).toBeOnTheScreen();
+    expect(screen.queryByText(/vs mes anterior/)).not.toBeOnTheScreen();
+    expect(
+      screen.queryByTestId('ingreso-sparkline', {
+        includeHiddenElements: true,
+      }),
+    ).not.toBeOnTheScreen();
+  });
 });

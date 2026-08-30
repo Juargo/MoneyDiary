@@ -641,4 +641,81 @@ describe('ResumenScreen', () => {
       'Tu veredicto es En peligro. Aunque Gustos y Ahorro están en rango, Necesidades queda fuera de rango y define el estado global de este mes siguiendo la lógica de mayor riesgo.',
     );
   });
+
+  // Income card redesign (2026-08-30): integration test for the REAL annual
+  // pipeline — the screen's own `useResumenAnual` query (deduped with
+  // `ResumenAnual`'s by queryKey) feeds `calcularVariacionIngreso`/
+  // `calcularBarrasIngreso`, whose outputs the card renders. This pins the
+  // glue the pure-function tests bypass (prop-injected `variacion`/`barras`).
+  it('derives the trend pill and sparkline from the annual payload (integration)', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.startsWith('/api/resumen/anual')) {
+        const dto: ResumenAnualDto = {
+          anio: 2026,
+          // June 1.000.000 -> July 1.120.000: exactly the mock's +12%.
+          meses: Array.from({ length: 12 }, (_, i) => {
+            const periodo = `2026-${String(i + 1).padStart(2, '0')}`;
+            if (periodo === '2026-06') {
+              return mesConDatos(periodo);
+            }
+            if (periodo === '2026-07') {
+              return { ...mesConDatos(periodo), totalIngreso: '1120000' };
+            }
+            return mesSinDatos(periodo);
+          }),
+        };
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dto),
+        });
+      }
+      return Promise.reject(new Error(`fetch inesperado: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderScreen();
+
+    expect(await screen.findByText('+12% vs mes anterior')).toBeInTheDocument();
+    const sparkline = await screen.findByTestId('ingreso-sparkline');
+    // Window: June + July only (earlier months are sinIngreso but still in
+    // the 7-month slice — they render as stubs), current month highlighted.
+    const barras = sparkline.querySelectorAll('[data-barra]');
+    expect(barras).toHaveLength(7);
+    expect(barras[barras.length - 1]).toHaveClass('bg-ingreso-foreground');
+
+    // FIX 1 (review): pins the TanStack queryKey dedupe between this
+    // screen's own `useResumenAnual` call and `ResumenAnual`'s internal
+    // one — both share the same queryKey (`['resumen-anual', anio]`), so
+    // exactly one network request should reach `fetch` despite two
+    // consumers mounting the query.
+    const llamadasAnual = fetchMock.mock.calls.filter(([url]) =>
+      url.startsWith('/api/resumen/anual'),
+    );
+    expect(llamadasAnual).toHaveLength(1);
+  });
+
+  // FIX 2 (review): the annual query never GATES the income card — a
+  // failed `/api/resumen/anual` fetch degrades `IngresoCard` to its base
+  // render (amount + eyebrow + period), never a spinner or a blank card.
+  // The month resumen itself is a prop here (not fetched by this screen),
+  // so "the month resumen succeeds" is represented by rendering with the
+  // default `viewModel` fixture while only the annual endpoint fails.
+  it('keeps IngresoCard on its base render when the annual fetch fails (annual never gates the income card)', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.startsWith('/api/resumen/anual')) {
+        return Promise.reject(new Error('fetch anual inesperadamente falló'));
+      }
+      return Promise.reject(new Error(`fetch inesperado: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderScreen();
+
+    expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
+    expect(screen.getByText('INGRESOS TOTALES')).toBeInTheDocument();
+    expect(screen.getByText('julio 2026')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/vs mes anterior|Sin cambio/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ingreso-sparkline')).not.toBeInTheDocument();
+  });
 });
