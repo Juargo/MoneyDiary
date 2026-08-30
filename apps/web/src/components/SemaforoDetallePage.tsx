@@ -93,9 +93,13 @@ function renderEstado(
       </Link>
 
       {viewModel.sinIngreso ? (
+        // P1 design-critique fix: same "Subir cartola" CTA as
+        // `SemaforoHeroCard`'s own sinDatos state and `ResumenPage`'s
+        // first-run empty state — upload IS the true next step here too.
         <Empty
           title="Este mes no tiene ingresos registrados"
           description="Carga una cartola para ver tu semáforo del mes."
+          accion={{ label: 'Subir cartola', to: '/subir' }}
         />
       ) : (
         <>

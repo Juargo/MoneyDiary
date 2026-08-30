@@ -101,10 +101,13 @@ function renderEstado({
     return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.meses.every((mes) => mes.sinIngreso)) {
+    // P1 design-critique fix: the annual grid's own copy already told the
+    // user to upload — it just had no button to act on it.
     return (
       <Empty
         title="Todavía no hay datos este año"
         description="Carga cartolas de algún mes para ver tu resumen anual."
+        accion={{ label: 'Subir cartola', to: '/subir' }}
       />
     );
   }

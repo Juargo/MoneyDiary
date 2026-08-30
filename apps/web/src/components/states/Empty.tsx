@@ -1,3 +1,7 @@
+import { Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
+import type { NavRoute } from '@/components/app-shell/nav-items';
+
 /**
  * Empty state (spec W1-02): shown when `sinIngreso: true`. Invites the user
  * to load a cartola — deliberately distinct from a bucket rendering "$0" or
@@ -16,15 +20,40 @@
  * the Serene Finance semantic tokens. Contrast (index.css hexes): title
  * `--foreground` (#1a1c1c) on `--background` (#e8f0fa) ≈ 14.9:1; description
  * `--muted-foreground` (#44474e) on `--background` ≈ 8.13:1 (both AA).
+ *
+ * Design critique P1 fix ("empty state without a CTA"): `accion` is OPT-IN
+ * — this component never assumes "upload a cartola" is every caller's true
+ * next step (e.g. `CategoriasPanel`'s empty state wants "create a category",
+ * not `/subir`). Callers whose empty copy genuinely points at ingestion wire
+ * it explicitly; the button + `Link` pattern (and its exact copy, "Subir
+ * cartola") is copied from `SemaforoHeroCard`'s own `sinDatos` CTA rather
+ * than invented fresh, so the product speaks with one voice for the same
+ * next step. `to` is narrowed to `/subir` (not a bare `string`) — the ONLY
+ * destination every current caller needs (YAGNI); widen the literal union
+ * the day a second destination shows up, same discipline as
+ * `BotonVolver.tsx`'s `Extract<NavRoute, …>`.
  */
 export function Empty({
   title = 'Todavía no hay movimientos este período',
   description = 'Carga una cartola para ver tu resumen del mes.',
-}: { readonly title?: string; readonly description?: string } = {}) {
+  accion,
+}: {
+  readonly title?: string;
+  readonly description?: string;
+  readonly accion?: {
+    readonly label: string;
+    readonly to: Extract<NavRoute, '/subir'>;
+  };
+} = {}) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 px-8 text-center">
       <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="text-sm text-muted-foreground">{description}</p>
+      {accion && (
+        <Button asChild className="mt-2">
+          <Link to={accion.to}>{accion.label}</Link>
+        </Button>
+      )}
     </div>
   );
 }

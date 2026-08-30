@@ -61,7 +61,11 @@ function renderEstado(
     return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.sinIngreso) {
-    return <Empty />;
+    // P1 design-critique fix: the dashboard's first-run empty state now
+    // carries a CTA — "upload a cartola" IS the true next step here, and
+    // this reuses `SemaforoHeroCard`'s own sinDatos copy/pattern verbatim
+    // (one voice for the same next step across the dashboard).
+    return <Empty accion={{ label: 'Subir cartola', to: '/subir' }} />;
   }
   return (
     <ResumenScreen

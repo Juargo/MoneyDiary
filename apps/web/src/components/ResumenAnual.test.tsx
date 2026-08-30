@@ -182,6 +182,13 @@ describe('ResumenAnual', () => {
     await waitFor(() =>
       expect(screen.getByText(/no hay datos/i)).toBeInTheDocument(),
     );
+    // P1 design-critique fix: the annual empty state now carries a "Subir
+    // cartola" CTA — its copy already told the user to upload, it just had
+    // no button to act on it.
+    expect(screen.getByRole('link', { name: 'Subir cartola' })).toHaveAttribute(
+      'href',
+      '/subir',
+    );
   });
 
   it('renders all 12 months Ene→Dic', async () => {

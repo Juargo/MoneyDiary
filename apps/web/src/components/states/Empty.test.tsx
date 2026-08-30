@@ -1,5 +1,40 @@
 import { render, screen } from '@testing-library/react';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import { Empty } from './Empty';
+
+/**
+ * `<Empty accion>` needs a real router (`Link`), so any test exercising it
+ * mounts through a minimal router harness — same shape as
+ * `DemoBanner.test.tsx` — instead of rendering `<Empty>` bare.
+ */
+async function renderEmptyConRouter(
+  props: Parameters<typeof Empty>[0] = undefined,
+) {
+  const rootRoute = createRootRoute();
+  const homeRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <Empty {...props} />,
+  });
+  const subirRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/subir',
+    component: () => <div>pantalla de subida</div>,
+  });
+  const routeTree = rootRoute.addChildren([homeRoute, subirRoute]);
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+  await router.load();
+  render(<RouterProvider router={router} />);
+}
 
 // DOM port of apps/mobile/src/components/states/Empty.spec.tsx (spec
 // W1-02): shown when `sinIngreso: true`. Copy invites a cartola upload,
@@ -32,5 +67,24 @@ describe('Empty', () => {
       screen.getByText('No hay movimientos en este bucket para el período.'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Carga una cartola/)).not.toBeInTheDocument();
+  });
+
+  // P1 design-critique fix: the CTA is opt-in via the `accion` prop — no
+  // Empty usage gets a `/subir` link unless its caller explicitly wires one
+  // (not every empty state's true next step is "upload a cartola").
+  it('renders NO call-to-action when `accion` is not provided', () => {
+    render(<Empty />);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('renders the `accion` call-to-action, linking to the given route, when provided', async () => {
+    await renderEmptyConRouter({
+      accion: { label: 'Subir cartola', to: '/subir' },
+    });
+
+    expect(screen.getByRole('link', { name: 'Subir cartola' })).toHaveAttribute(
+      'href',
+      '/subir',
+    );
   });
 });
