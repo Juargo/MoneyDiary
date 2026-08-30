@@ -1,5 +1,12 @@
 import { forwardRef } from 'react';
-import type { ChangeEvent, FocusEvent, KeyboardEvent, Ref } from 'react';
+import type {
+  ChangeEvent,
+  ComponentPropsWithoutRef,
+  FocusEvent,
+  KeyboardEvent,
+  Ref,
+} from 'react';
+import { Input } from '@/components/ui/input';
 
 /**
  * CampoTexto — `<label>` envolviendo un `<input>` (US-042 design.md §1/Q1a).
@@ -31,6 +38,16 @@ import type { ChangeEvent, FocusEvent, KeyboardEvent, Ref } from 'react';
  * asociar su hint de REGEX (`role="status"`) y su error (`role="alert"`)
  * con el `<input>` `Patrón` — mismo criterio aditivo que `onBlur`/
  * `onKeyDown`, los demás usos no lo pasan.
+ *
+ * `type="date"` + `max`/`inputMode`/`pattern` (US-060, polish pass
+ * 2026-08-29): el `<input>` interno ahora es el primitivo compartido
+ * `ui/input.tsx` en lugar de un `<input>` a mano, así que hostear `date`
+ * (con `max`) y `inputMode`/`pattern` (para el patrón `type="text"
+ * inputMode="numeric"` de un campo Monto) ya no requiere reimplementar el
+ * wrapper — la nota histórica "CampoTexto no puede hostear date" queda
+ * obsoleta. `RegistrarMovimientoForm` deja de duplicar el par
+ * `<label><input>` para fecha/monto y usa este componente para fecha,
+ * descripción y monto ("Tipo" sigue en `CampoSelect`).
  */
 export const CampoTexto = forwardRef(function CampoTexto(
   {
@@ -44,24 +61,30 @@ export const CampoTexto = forwardRef(function CampoTexto(
     onBlur,
     onKeyDown,
     ariaDescribedBy,
+    max,
+    inputMode,
+    pattern,
   }: {
     readonly label: string;
     readonly value: string;
     readonly onChange: (value: string) => void;
-    readonly type?: 'text' | 'email' | 'password';
+    readonly type?: 'text' | 'email' | 'password' | 'date';
     readonly required?: boolean;
     readonly disabled?: boolean;
     readonly autoComplete?: string;
     readonly onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
     readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
     readonly ariaDescribedBy?: string;
+    readonly max?: string;
+    readonly inputMode?: ComponentPropsWithoutRef<'input'>['inputMode'];
+    readonly pattern?: string;
   },
   ref: Ref<HTMLInputElement>,
 ) {
   return (
     <label className="flex flex-col gap-1 text-sm text-muted-foreground">
       {label}
-      <input
+      <Input
         ref={ref}
         type={type}
         value={value}
@@ -74,7 +97,9 @@ export const CampoTexto = forwardRef(function CampoTexto(
         disabled={disabled}
         autoComplete={autoComplete}
         aria-describedby={ariaDescribedBy}
-        className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
+        max={max}
+        inputMode={inputMode}
+        pattern={pattern}
       />
     </label>
   );
