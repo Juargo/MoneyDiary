@@ -5,7 +5,7 @@ import type { ResumenViewModel } from '../domain/resumen-view-model';
 // US-050 PR4b (design §1.7/D-06): re-scoped from "the whole screen" to "the
 // month block" — `ScrollView`/`Header` moved up into the route shell
 // (Phase 5b). Asserts the Maestro anchors — the "Distribución del gasto"
-// heading and `testID="semaforo-global"` (now on `SemaforoTag` itself) —
+// heading and `testID="semaforo-global"` (now on `SemaforoHeroCard`'s root) —
 // plus income, the 5-row legend, and the removal of "Ver detalles ›"
 // (MOB-15) and the IDEAL inset (already removed in PR4a, reconfirmed here).
 // US-056 PR1 (D-10/T-02): `periodo` and `onNavegar` are now required props.
@@ -142,9 +142,10 @@ describe('ResumenScreen', () => {
     );
     const semaforo = screen.getByTestId('semaforo-global');
     expect(semaforo).toBeOnTheScreen();
-    // Fix 4 (MOB-08 binding decision 1): SemaforoTag is a static display
-    // element, never a button — asserting on the element itself survives the
-    // legend rows being Pressable (US-056 delta reversed binding decision 2).
+    // Fix 4 (MOB-08 binding decision 1): SemaforoHeroCard's root is a static
+    // display element, never a button — asserting on the element itself
+    // survives the legend rows being Pressable (US-056 delta reversed
+    // binding decision 2).
     expect(semaforo.props.accessibilityRole).not.toBe('button');
   });
 
@@ -170,5 +171,59 @@ describe('ResumenScreen', () => {
       />,
     );
     expect(screen.queryByText('IDEAL', { exact: false })).not.toBeOnTheScreen();
+  });
+
+  // Integration seam (review finding): the unit tests for
+  // `construirVeredictoSemaforo` and `SemaforoHeroCard` each exercise their
+  // own layer with hand-built inputs — neither proves that THIS screen's
+  // `BUCKETS_5030`/`ETIQUETA_BUCKET` mapping glue actually feeds the real
+  // pipeline correctly end to end. This test renders the composed screen
+  // with a realistic rojo month and asserts the verbatim copy from the
+  // matrix in `veredicto-semaforo.ts`'s `detalleRojo`.
+  it('threads a realistic rojo month through the real veredicto pipeline into the hero card copy (integration seam)', async () => {
+    const viewModelRojo: ResumenViewModel = {
+      ...viewModel,
+      estadoGlobal: 'rojo',
+      buckets: [
+        {
+          bucket: 'Necesidades',
+          total: '$600.000',
+          porcentajeLabel: '60%',
+          estadoSemaforo: 'rojo',
+        },
+        {
+          bucket: 'Deseos',
+          total: '$200.000',
+          porcentajeLabel: '20%',
+          estadoSemaforo: 'verde',
+        },
+        {
+          bucket: 'Ahorro',
+          total: '$200.000',
+          porcentajeLabel: '20%',
+          estadoSemaforo: 'verde',
+        },
+        {
+          bucket: 'SinCategoria',
+          total: '$0',
+          porcentajeLabel: '—',
+          estadoSemaforo: null,
+        },
+      ],
+    };
+    await render(
+      <ResumenScreen
+        viewModel={viewModelRojo}
+        periodo="2026-07"
+        onNavegar={noop}
+      />,
+    );
+
+    expect(screen.getByText(/Tu veredicto es En peligro\./)).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        /Aunque Gustos y Ahorro están en rango, Necesidades queda fuera de rango y define el estado global de este mes siguiendo la lógica de mayor riesgo\./,
+      ),
+    ).toBeOnTheScreen();
   });
 });

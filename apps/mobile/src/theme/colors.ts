@@ -30,6 +30,15 @@ export const COLORS = {
   semaforoRojoBg: '#F7DEE1',
   semaforoSinDatosIcon: '#8A8F9C',
   semaforoSinDatosBg: '#ECECEF',
+  // Semáforo deep text tones (hero redesign 2026-08-30): darker siblings of
+  // the icon hues, minted because the icon colors fail AA as small TEXT on
+  // white (#C99A2E ≈ 2.6:1). WCAG-verified: verde 6.20:1, amarillo 6.07:1,
+  // rojo 7.33:1 on white; 5.20 / 5.02 / 5.75 on their own tinted chip
+  // backgrounds (verdict box). Same divergence-from-web license as the rest
+  // of this palette (do not copy web's rose/amber/emerald hexes here).
+  semaforoVerdeDeep: '#2A6E39',
+  semaforoAmarilloDeep: '#7E5D0F',
+  semaforoRojoDeep: '#A32438',
 
   // Chrome.
   ingreso: '#3B4266',
