@@ -27,16 +27,22 @@ describe('IngresoCard', () => {
     expect(card).not.toHaveClass('border-l-slate-800');
   });
 
-  // REWRITTEN (design critique P1, DCR-01/DCR-03 amended): income is
-  // NEUTRALIZED, not recolored — bucket colors carry bucket semantics, so
-  // this card must not borrow the generic "green = money in" fintech
-  // convention. It now sits on the same neutral `bg-card` white surface
-  // every other dashboard card uses, not the mint `--color-ingreso` fill.
-  it('renders on the neutral dashboard card surface, not a colored income fill (design critique P1)', () => {
+  // REWRITTEN (semantic wash extension, DESIGN.md "Status Families" update,
+  // 2026-08-29): supersedes design critique P1's neutral-surface decision.
+  // `ingreso`/`ingreso-foreground` is a paired token minted specifically for
+  // this card (not the generic fintech "green = money in" convention P1
+  // rejected) — the same reasoning that washed `SemaforoHeroCard` and
+  // `BucketSemaforoCard` in their own estado tokens now extends to this
+  // card's own dedicated pair.
+  it('washes the card surface with the ingreso token (semantic wash extension)', () => {
     const { container } = render(<IngresoCard totalIngreso="$1.000.000" />);
     const card = container.querySelector('[data-slot="card"]');
-    expect(card).toHaveClass('bg-card');
-    expect(card).not.toHaveClass('bg-ingreso');
+    expect(card).toHaveClass('bg-ingreso');
+  });
+
+  it('renders the INGRESOS label on the paired ingreso-foreground accent color', () => {
+    render(<IngresoCard totalIngreso="$1.000.000" />);
+    expect(screen.getByText('INGRESOS')).toHaveClass('text-ingreso-foreground');
   });
 
   // REWRITTEN (design critique P1): the 4xl/extrabold display scale is now
