@@ -374,6 +374,47 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled();
   });
 
+  // ── Demo gating (US-060 harden pass, issue #500 UI-honesty follow-up) ────
+  // The server already rejects a demo session's commit with
+  // `IngestaDemoSoloLecturaError` (403 DEMO_SOLO_LECTURA) — this only closes
+  // the client-side honesty gap: a demo user used to be able to pick a file,
+  // classify every row, and only discover the account is read-only at the
+  // very last step (commit). `esDemo` now disables the entry point itself.
+
+  it('esDemo disables the file picker in idle state (never starts a preview it cannot commit)', () => {
+    idleHooks();
+
+    render(<SubirCartola esDemo />);
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeDisabled();
+  });
+
+  it('esDemo=false leaves the file picker enabled (unchanged)', () => {
+    idleHooks();
+
+    render(<SubirCartola esDemo={false} />);
+
+    expect(screen.getByLabelText(/selecciona un archivo/i)).toBeEnabled();
+  });
+
+  it('esDemo disables "Agregar transacciones" even if preview-listo is reached (belt-and-suspenders)', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: validPreviewDto,
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola esDemo />);
+
+    expect(
+      screen.getByRole('button', { name: /agregar transacciones/i }),
+    ).toBeDisabled();
+  });
+
   // ── Edit overlay (D-02/D-03) ─────────────────────────────────────────────
 
   it('D-03: edits state updates on onEditChange so FilaRevision receives the updated categoriaId', async () => {

@@ -223,7 +223,20 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
   // D-11: `error` REMOVED from pickerGateado so the picker re-enables after a
   // commit error; `subiendo` renamed to `committing` (two simultaneous changes).
+  //
+  // Demo gating (US-060 harden pass, issue #500 UI-honesty follow-up):
+  // `esDemo` now gates the picker too — the sibling write surfaces
+  // (`EliminarIngestaControl`, `RegistrarMovimientoForm`, `PerfilForm`,
+  // `CategoriasPanel`) all disable proactively client-side, mirroring the
+  // server's real gate rather than letting the user discover it late.
+  // `CommitIngestaUseCase`/`EliminarIngestaUseCase` already reject a demo
+  // session with `IngestaDemoSoloLecturaError` (403 DEMO_SOLO_LECTURA) —
+  // that stays the actual gate; this is UI honesty, not the enforcement.
+  // Disabling the picker itself (not just the commit button) prevents the
+  // worse failure mode this finding named: classifying every row in a
+  // preview only to hit a late server rejection at "Agregar transacciones".
   const pickerGateado =
+    esDemo ||
     estado === 'previsualizando' ||
     estado === 'preview-listo' ||
     estado === 'committing';
@@ -629,10 +642,15 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
                 critique P2: in-button async feedback) — matches
                 MENSAJE_POR_ESTADO.committing's own "Subiendo transacciones…"
                 wording already shown in the status region above. */}
+            {/* Belt-and-suspenders (esDemo, see pickerGateado's comment
+                above): this state is unreachable in practice once the
+                picker is gated, since no demo session can start a preview —
+                but the commit button stays proactively disabled too, same
+                discipline as every sibling write surface. */}
             <Button
               type="button"
               onClick={handleConfirmar}
-              disabled={estado === 'committing'}
+              disabled={esDemo || estado === 'committing'}
             >
               {estado === 'committing' ? 'Subiendo…' : 'Agregar transacciones'}
             </Button>
