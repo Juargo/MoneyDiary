@@ -54,7 +54,7 @@ function detalleDto(
     sinIngreso: false,
     estadoGlobal: 'verde',
     diagnostico:
-      'Tu mes está en verde: los tres grupos están dentro de su rango.',
+      'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
     bucketsCriticos: [],
     buckets,
     sinCategoria: { cantidad: 0, total: '0' },
@@ -70,7 +70,7 @@ describe('aSemaforoDetalleViewModel', () => {
           direccion: 'reducir',
           monto: '199951',
           mensaje:
-            'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+            'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
         },
       }),
     ]);
@@ -78,7 +78,7 @@ describe('aSemaforoDetalleViewModel', () => {
     const vm = aSemaforoDetalleViewModel(dto);
 
     expect(vm.buckets[0].consejo?.texto).toBe(
-      'Para volver a Verde, reduce $199.951 en Necesidades este mes.',
+      'Para volver a Muy Saludable, reduce $199.951 en Necesidades este mes.',
     );
   });
 
@@ -90,7 +90,7 @@ describe('aSemaforoDetalleViewModel', () => {
           direccion: 'reducir',
           monto: '199951',
           mensaje:
-            'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+            'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
         },
       }),
     ]);

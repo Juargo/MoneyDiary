@@ -6,9 +6,9 @@ import { resolverEstiloSemaforo } from './semaforo-estilos';
 // web's own US-047 D-06 extraction (`lib/semaforo-estilos.ts`).
 describe('resolverEstiloSemaforo', () => {
   it.each([
-    ['verde', 'Verde'],
-    ['amarillo', 'Amarillo'],
-    ['rojo', 'Rojo'],
+    ['verde', 'Muy Saludable'],
+    ['amarillo', 'Saludable'],
+    ['rojo', 'En peligro'],
   ])('resolves a distinct label for "%s"', (estado, labelEsperado) => {
     expect(resolverEstiloSemaforo(estado).label).toBe(labelEsperado);
   });

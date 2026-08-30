@@ -31,7 +31,7 @@ const SEMAFORO_DETALLE_DTO: SemaforoDetalleDto = {
   sinIngreso: false,
   estadoGlobal: 'verde',
   diagnostico:
-    'Tu mes está en verde: los tres grupos están dentro de su rango.',
+    'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
   bucketsCriticos: [],
   buckets: [
     {
@@ -146,7 +146,7 @@ describe('/semaforo route (real route tree, US-049 WSEM-01..08)', () => {
     expect(screen.queryByText(/en construcción/i)).not.toBeInTheDocument();
     expect(
       await screen.findByText(
-        'Tu mes está en verde: los tres grupos están dentro de su rango.',
+        'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
       ),
     ).toBeInTheDocument();
     expect(

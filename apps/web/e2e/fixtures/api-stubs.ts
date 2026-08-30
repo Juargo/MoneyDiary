@@ -261,7 +261,7 @@ const SEMAFORO_DETALLE_FIXTURE = {
   totalIngreso: '1000000',
   sinIngreso: false,
   estadoGlobal: 'amarillo',
-  diagnostico: 'Tu mes está en amarillo por Necesidades.',
+  diagnostico: 'Tu veredicto del mes es Saludable por Necesidades.',
   bucketsCriticos: ['Necesidades'],
   buckets: [
     {
@@ -279,7 +279,8 @@ const SEMAFORO_DETALLE_FIXTURE = {
       consejo: {
         direccion: 'reducir',
         monto: '50049',
-        mensaje: 'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+        mensaje:
+          'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
       },
     },
     {

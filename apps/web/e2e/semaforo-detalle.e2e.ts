@@ -31,9 +31,9 @@ test.describe('/semaforo — deep link + back navigation (US-049)', () => {
     await page.goto('/semaforo?periodo=2026-07');
 
     await expect(page.getByRole('heading', { name: 'Semáforo' })).toBeVisible();
-    await expect(page.getByRole('img', { name: 'Amarillo' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Saludable' })).toBeVisible();
     await expect(
-      page.getByText('Tu mes está en amarillo por Necesidades.'),
+      page.getByText('Tu veredicto del mes es Saludable por Necesidades.'),
     ).toBeVisible();
     await expect(page.getByText(/peor de los tres grupos/i)).toBeVisible();
 
@@ -45,7 +45,7 @@ test.describe('/semaforo — deep link + back navigation (US-049)', () => {
 
     await expect(
       page.getByText(
-        'Para volver a Verde, reduce $50.049 en Necesidades este mes.',
+        'Para volver a Muy Saludable, reduce $50.049 en Necesidades este mes.',
       ),
     ).toBeVisible();
 

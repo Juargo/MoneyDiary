@@ -2134,7 +2134,7 @@ const validSemaforoDetalleDto: SemaforoDetalleDto = {
   totalIngreso: '1000000',
   sinIngreso: false,
   estadoGlobal: 'amarillo',
-  diagnostico: 'Tu mes está en amarillo por Ahorro.',
+  diagnostico: 'Tu veredicto del mes es Saludable por Ahorro.',
   bucketsCriticos: ['Ahorro'],
   buckets: [
     {
@@ -2180,7 +2180,8 @@ const validSemaforoDetalleDto: SemaforoDetalleDto = {
       consejo: {
         direccion: 'aumentar',
         monto: '49950',
-        mensaje: 'Para volver a Verde, aumenta {monto} en Ahorro este mes.',
+        mensaje:
+          'Para volver a Muy Saludable, aumenta {monto} en Ahorro este mes.',
       },
     },
   ],

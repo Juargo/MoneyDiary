@@ -19,7 +19,7 @@ describe('MiniSemaforoTag', () => {
     renderConRouter(<MiniSemaforoTag estadoGlobal="verde" periodo="2026-01" />);
     expect(
       await screen.findByRole('link', {
-        name: 'Semáforo de enero 2026: Verde',
+        name: 'Semáforo de enero 2026: Muy Saludable',
       }),
     ).toBeInTheDocument();
   });
@@ -27,7 +27,7 @@ describe('MiniSemaforoTag', () => {
   it('M-02: href targets /semaforo and carries ?periodo= matching the prop passed in', async () => {
     renderConRouter(<MiniSemaforoTag estadoGlobal="verde" periodo="2026-01" />);
     const link = await screen.findByRole('link', {
-      name: 'Semáforo de enero 2026: Verde',
+      name: 'Semáforo de enero 2026: Muy Saludable',
     });
     expect(link).toHaveAttribute('href', '/semaforo?periodo=2026-01');
   });
@@ -49,7 +49,7 @@ describe('MiniSemaforoTag', () => {
   it('M-05: the glyph is aria-hidden and the accessible name comes from the sr-only text', async () => {
     renderConRouter(<MiniSemaforoTag estadoGlobal="rojo" periodo="2026-05" />);
     const link = await screen.findByRole('link', {
-      name: 'Semáforo de mayo 2026: Rojo',
+      name: 'Semáforo de mayo 2026: En peligro',
     });
     const glyph = link.querySelector('[aria-hidden="true"]');
     expect(glyph).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('MiniSemaforoTag', () => {
   it('M-06: is focusable and reachable by Tab (WG5-12)', async () => {
     renderConRouter(<MiniSemaforoTag estadoGlobal="verde" periodo="2026-01" />);
     const link = await screen.findByRole('link', {
-      name: 'Semáforo de enero 2026: Verde',
+      name: 'Semáforo de enero 2026: Muy Saludable',
     });
     link.focus();
     expect(link).toHaveFocus();
@@ -68,7 +68,7 @@ describe('MiniSemaforoTag', () => {
   it('M-07: activates on Space, preventing the default page-scroll (WG5-12/D-08)', async () => {
     renderConRouter(<MiniSemaforoTag estadoGlobal="verde" periodo="2026-01" />);
     const link = await screen.findByRole('link', {
-      name: 'Semáforo de enero 2026: Verde',
+      name: 'Semáforo de enero 2026: Muy Saludable',
     });
     const evento = createEvent.keyDown(link, { key: ' ' });
     const preventDefaultSpy = vi.spyOn(evento, 'preventDefault');
@@ -82,7 +82,7 @@ describe('MiniSemaforoTag', () => {
   it('M-08: activating the tag navigates to /semaforo (mouse)', async () => {
     renderConRouter(<MiniSemaforoTag estadoGlobal="verde" periodo="2026-01" />);
     const link = await screen.findByRole('link', {
-      name: 'Semáforo de enero 2026: Verde',
+      name: 'Semáforo de enero 2026: Muy Saludable',
     });
     fireEvent.click(link);
     expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();

@@ -39,8 +39,8 @@ export function AyudaPage() {
             Ahorro.
           </li>
           <li>
-            El semáforo responde "¿estoy bien este mes?" con un veredicto verde,
-            amarillo o rojo.
+            El semáforo responde "¿estoy bien este mes?" con un veredicto: Muy
+            Saludable, Saludable o En peligro.
           </li>
         </ol>
       </section>
@@ -53,8 +53,8 @@ export function AyudaPage() {
           El semáforo
         </h2>
         <p className="text-sm text-foreground">
-          Tu semáforo global es el peor de los tres grupos: si uno está en rojo,
-          todo el mes queda en rojo.
+          Tu semáforo global es el peor de los tres grupos: si un grupo está en
+          peligro, todo el mes queda en peligro.
         </p>
         <Link
           to="/semaforo"

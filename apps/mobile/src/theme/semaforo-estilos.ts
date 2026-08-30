@@ -5,26 +5,35 @@ export interface EstiloSemaforo {
   readonly cara: string;
   readonly icon: string;
   readonly bg: string;
+  /** Darker sibling of `icon`, AA-safe as small text on white AND on `bg`. */
+  readonly deep: string;
 }
 
+// Label rebrand (semáforo hero redesign, 2026-08-30): the color words
+// ('Verde'/'Amarillo'/'Rojo') became health words — same one-table rename
+// as web's `apps/web/src/lib/semaforo-estilos.ts` (mirror by hand, no
+// shared package, ADR-008).
 const ESTILOS: Record<string, EstiloSemaforo> = {
   verde: {
-    label: 'Verde',
+    label: 'Muy Saludable',
     cara: '🙂',
     icon: COLORS.semaforoVerdeIcon,
     bg: COLORS.semaforoVerdeBg,
+    deep: COLORS.semaforoVerdeDeep,
   },
   amarillo: {
-    label: 'Amarillo',
+    label: 'Saludable',
     cara: '😐',
     icon: COLORS.semaforoAmarilloIcon,
     bg: COLORS.semaforoAmarilloBg,
+    deep: COLORS.semaforoAmarilloDeep,
   },
   rojo: {
-    label: 'Rojo',
+    label: 'En peligro',
     cara: '☹️',
     icon: COLORS.semaforoRojoIcon,
     bg: COLORS.semaforoRojoBg,
+    deep: COLORS.semaforoRojoDeep,
   },
 };
 
@@ -33,6 +42,7 @@ export const SIN_DATOS: EstiloSemaforo = {
   cara: '—',
   icon: COLORS.semaforoSinDatosIcon,
   bg: COLORS.semaforoSinDatosBg,
+  deep: COLORS.semaforoSinDatosIcon,
 };
 
 /**

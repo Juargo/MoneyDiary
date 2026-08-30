@@ -1215,8 +1215,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
 
-    expect(screen.getByRole('img', { name: /rojo/i })).toBeInTheDocument();
-    expect(screen.getByText(/semáforo: rojo/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: /en peligro/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/semáforo: en peligro/i)).toBeInTheDocument();
   });
 
   it('degrades gracefully when the verdict resumen fails to load: the success acknowledgment + CTAs still stand, no error look', () => {
