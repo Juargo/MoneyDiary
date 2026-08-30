@@ -1,9 +1,10 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
-import { UserRound } from 'lucide-react';
+import { LogOut, UserRound } from 'lucide-react';
 import { fetchMe } from '@/api/auth';
 import { ME_QUERY_KEY, meQueryOptions } from '@/api/use-me';
 import { requireSession } from '@/lib/require-session';
 import { consumeSkipNextAuthRefetch } from '@/lib/skip-next-auth-refetch';
+import { useCerrarSesion } from '@/lib/use-cerrar-sesion';
 import { DemoBanner } from '@/components/DemoBanner';
 import { AppShell } from '@/components/app-shell/AppShell';
 import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
@@ -74,7 +75,39 @@ import { ApiVersionBadge } from '@/components/app-shell/ApiVersionBadge';
  * user renames themselves on that very page). `AppShell`/`Sidebar.tsx` are
  * untouched: this rides the existing `sidebarFooter` prop, so the addition is
  * a one-call-site change here.
+ *
+ * Design-hardening fix P0 ("no logout"): below the Configuración link, the
+ * footer now also carries `CerrarSesionSidebarButton` — a real `<button>`
+ * (not a `Link`, there is no route to navigate TO before logging out)
+ * sharing the SAME resting-nav-item classes as the Configuración link
+ * (Deep Lavanda text, `accent` hover wash) rather than `Button`'s `ghost`
+ * variant — this IS the quiet, non-destructive treatment the sidebar's own
+ * nav items already use, so it is reused verbatim instead of inventing a
+ * second "quiet button" look. Icon + visible label (never icon-only, unlike
+ * the Configuración link above it — logout is a NEW action here, not
+ * already-labelled chrome). Wired to `useCerrarSesion`
+ * (`lib/use-cerrar-sesion.ts`) — the same hook `DemoBanner` uses — so demo
+ * and real users share one logout semantic; nothing here checks `esDemo`,
+ * logging out of a demo session through this control is harmless and
+ * equivalent to `DemoBanner`'s own exit.
  */
+const CLASE_ITEM_FOOTER =
+  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring';
+
+function CerrarSesionSidebarButton() {
+  const { cerrarSesion, cerrando } = useCerrarSesion();
+  return (
+    <button
+      type="button"
+      disabled={cerrando}
+      onClick={() => void cerrarSesion()}
+      className={`${CLASE_ITEM_FOOTER} disabled:pointer-events-none disabled:opacity-50`}
+    >
+      <LogOut className="size-5" aria-hidden="true" />
+      {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
+    </button>
+  );
+}
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location, context }) => {
     const cachedMe = consumeSkipNextAuthRefetch()
@@ -97,10 +130,11 @@ function RouteComponent() {
           <Link
             to="/configuracion"
             aria-label="Configuración de la cuenta"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className={CLASE_ITEM_FOOTER}
           >
             <UserRound className="size-5" aria-hidden="true" />
           </Link>
+          <CerrarSesionSidebarButton />
         </div>
       }
     >
