@@ -123,10 +123,13 @@ export function ListaIngestas() {
     return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
   if (query.data.length === 0) {
+    // P1 design-critique fix: this empty state's own copy already told the
+    // user to upload — it just had no button to act on it.
     return (
       <Empty
         title="No hay cartolas cargadas"
         description="Sube una cartola para poder gestionarla aquí."
+        accion={{ label: 'Subir cartola', to: '/subir' }}
       />
     );
   }

@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { postLogout } from '@/api/auth';
+import { useCerrarSesion } from '@/lib/use-cerrar-sesion';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -36,26 +34,20 @@ import { Button } from '@/components/ui/button';
  * name-based queries disambiguate them). The dismiss button carries its own
  * `aria-label` since its visible glyph ("×") alone is not descriptive.
  *
- * "Salir del demo" is the only in-app way out of a demo session: it calls
- * `postLogout`, clears the query cache (same identity-switch rationale as
- * `LoginForm`'s post-login clear — a subsequent real login must not see
- * cached demo data), then navigates to `/login`. Logout failing server-side
- * (network/500) must not trap the user in demo, so the cache-clear + redirect
- * happen regardless of `postLogout`'s result.
+ * "Salir del demo" is the only in-app way out of a demo session — it now
+ * shares `useCerrarSesion` (`lib/use-cerrar-sesion.ts`, design-hardening fix
+ * P0) with the two real-user logout entry points instead of owning its own
+ * copy of the postLogout+cache-clear+navigate sequence (DRY): `postLogout`
+ * runs and its result is discarded (network/500 must not trap the user in
+ * demo), the query cache is cleared (a subsequent real login must not see
+ * cached demo data), then the app navigates to `/login`.
  */
 export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
   const [descartado, setDescartado] = useState(false);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const { cerrarSesion } = useCerrarSesion();
 
   if (!esDemo || descartado) {
     return null;
-  }
-
-  async function salirDelDemo() {
-    await postLogout();
-    queryClient.clear();
-    void navigate({ to: '/login' });
   }
 
   return (
@@ -73,7 +65,7 @@ export function DemoBanner({ esDemo }: { readonly esDemo: boolean }) {
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => void salirDelDemo()}
+          onClick={() => void cerrarSesion()}
           className="text-warning-foreground hover:bg-warning-accent hover:text-warning-foreground"
         >
           Salir del demo

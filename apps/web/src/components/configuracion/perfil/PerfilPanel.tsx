@@ -1,4 +1,7 @@
+import { LogOut } from 'lucide-react';
 import { useMe } from '@/api/use-me';
+import { useCerrarSesion } from '@/lib/use-cerrar-sesion';
+import { Button } from '@/components/ui/button';
 import { PerfilForm } from './PerfilForm';
 import { GoogleVinculoSection } from './GoogleVinculoSection';
 import type { Mensaje } from './mensajes';
@@ -32,6 +35,19 @@ import type { Mensaje } from './mensajes';
  * `_authenticated.tsx`'s `beforeLoad` already primed `['auth-me']` before
  * this route could mount (WCFG-01/03) — `me` absent is not a reachable
  * production state, only a defensive guard.
+ *
+ * Design-hardening fix P0 ("no logout"): the second logout entry point (the
+ * first is the desktop sidebar footer, `routes/_authenticated.tsx`) lives
+ * here — this is the one surface both mobile AND desktop reach (Perfil sits
+ * under `/configuracion`, in `BottomTabs` on mobile), so it covers mobile
+ * without `BottomTabs` gaining a 6th tab. Shares `useCerrarSesion`
+ * (`lib/use-cerrar-sesion.ts`) with `DemoBanner` and the sidebar control —
+ * one logout semantic, three consumers (DRY). Styled `variant="outline"`
+ * (Button, not `default`) so it reads as a secondary account action, never
+ * competing with `PerfilForm`'s primary "Guardar cambios" — and never
+ * `destructive` red, since logout is fully recoverable, not data-destroying.
+ * No `esDemo` gate: logging out of a demo session here is harmless and
+ * equivalent to `DemoBanner`'s own exit.
  */
 export function PerfilPanel({
   avisoGoogle,
@@ -41,6 +57,7 @@ export function PerfilPanel({
   readonly onAvisoGoogleChange?: (mensaje: Mensaje | undefined) => void;
 } = {}) {
   const { data: me } = useMe();
+  const { cerrarSesion, cerrando } = useCerrarSesion();
 
   if (!me) {
     return null;
@@ -79,6 +96,21 @@ export function PerfilPanel({
           avisoGoogle.lineas.map((linea, indice) => (
             <p key={indice}>{linea}</p>
           ))}
+      </div>
+      <div className="flex flex-col gap-3 border-t border-border pt-6">
+        <h2 className="text-sm font-semibold text-foreground">Sesión</h2>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={cerrando}
+            onClick={() => void cerrarSesion()}
+            className="gap-2"
+          >
+            <LogOut aria-hidden="true" className="size-4" />
+            {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
+          </Button>
+        </div>
       </div>
     </div>
   );

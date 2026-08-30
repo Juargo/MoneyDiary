@@ -8,6 +8,13 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { ListaIngestas } from './ListaIngestas';
 import { ME_QUERY_KEY } from '@/api/use-me';
@@ -184,6 +191,38 @@ function mockFetchOnce(response: {
   return fetchMock;
 }
 
+// P1 design-critique fix: `ListaIngestas`'s empty state now carries a "Subir
+// cartola" CTA (its copy already told the user to upload), which renders a
+// real `Link` — the plain `crearWrapper()` (QueryClientProvider only) can't
+// satisfy that, so this dedicated helper adds a minimal router with a
+// `/subir` sentinel, same shape as `DemoBanner.test.tsx`'s harness.
+async function renderConRouterYQuery(me: MeDto = ME_NO_DEMO) {
+  const queryClient = crearQueryClient();
+  queryClient.setQueryData(ME_QUERY_KEY, me);
+  const rootRoute = createRootRoute();
+  const homeRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <ListaIngestas />
+      </QueryClientProvider>
+    ),
+  });
+  const subirRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/subir',
+    component: () => <div>pantalla de subida</div>,
+  });
+  const routeTree = rootRoute.addChildren([homeRoute, subirRoute]);
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+  await router.load();
+  render(<RouterProvider router={router} />);
+}
+
 describe('ListaIngestas', () => {
   afterEach(() => {
     // Design-hardening change (undo grace window): `undo-manager.ts` is a
@@ -219,16 +258,20 @@ describe('ListaIngestas', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the empty state when there are no ingestas', async () => {
+  it('renders the empty state when there are no ingestas, with a "Subir cartola" CTA', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,
       json: () => Promise.resolve({ ingestas: [] }),
     });
 
-    render(<ListaIngestas />, { wrapper: crearWrapper() });
+    await renderConRouterYQuery();
 
     expect(await screen.findByText(/no hay cartolas/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Subir cartola' })).toHaveAttribute(
+      'href',
+      '/subir',
+    );
   });
 
   it('renders each ingesta row with banco, formatted fecha, and the movement count, plus its delete control', async () => {

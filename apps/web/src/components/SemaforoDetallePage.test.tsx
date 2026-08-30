@@ -301,6 +301,13 @@ describe('SemaforoDetallePage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Necesidades')).not.toBeInTheDocument();
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+    // P1 design-critique fix: sinIngreso's empty state now carries the same
+    // "Subir cartola" CTA as `SemaforoHeroCard`'s own sinDatos state — no
+    // more prose-only dead end.
+    expect(screen.getByRole('link', { name: 'Subir cartola' })).toHaveAttribute(
+      'href',
+      '/subir',
+    );
   });
 
   it('the header badge is the static SemaforoBadge (role=img, not a link), D-06', async () => {

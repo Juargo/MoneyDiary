@@ -178,8 +178,13 @@ describe('ResumenPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders exactly the empty state when sinIngreso is true, not "$0"/"0%"', () => {
-    render(
+  it('renders exactly the empty state when sinIngreso is true, not "$0"/"0%"', async () => {
+    // P1 design-critique fix: the default `<Empty>` now carries a "Subir
+    // cartola" CTA (`Link`), so this test needs a router — `renderConRouter`
+    // (T10's harness) already registers a `/subir` sentinel for exactly
+    // this. Its initial match resolves asynchronously (see this file's own
+    // `renderData` precedent), so the first assertion is a `findBy`.
+    renderConRouter(
       <ResumenPage
         query={mockQuery({ data: emptyDto })}
         periodo="2026-07"
@@ -188,10 +193,19 @@ describe('ResumenPage', () => {
         onSelectIngresos={() => {}}
       />,
     );
-    expect(screen.getByText(/cartola/i)).toBeInTheDocument();
+    // Query the exact description, not a loose /cartola/i regex: the "Subir
+    // cartola" CTA button ALSO matches "cartola" now, so a loose regex here
+    // matches two elements.
+    expect(
+      await screen.findByText('Carga una cartola para ver tu resumen del mes.'),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText('Distribución del gasto'),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Subir cartola' })).toHaveAttribute(
+      'href',
+      '/subir',
+    );
   });
 
   it('renders the data state with income, all 4 buckets, and the global semáforo', async () => {
