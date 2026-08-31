@@ -33,7 +33,7 @@ Chain strategy: feature-branch-chain
 
 **Start state**: `POST /api/categorias` creates a categoría only (no `patrones`); `crear()` is the only repository method; `apps/web/src/api/types.ts` still declares the stale ADR-008 exception.
 **Finished state**: `POST /api/categorias` optionally accepts `patrones[]`, creates it atomically with the categoría, reports per-patrón failures by index; `openapi.json`/`api-client` regenerated; T-01 proves `rowIndex` stability.
-**Verify**: `pnpm api test`, `pnpm api test:integration` (gated `ALLOW_DESTRUCTIVE_DB=1`, local Postgres), `pnpm api openapi:check`, `pnpm api-client typecheck`, `pnpm api lint:ci`.
+**Verify**: `pnpm api exec tsc --noEmit` (⚠️ there is NO `typecheck` script in `apps/api`; this is the exact command CI runs — vitest transpiles without typechecking, so a port-signature change can leave stale test doubles that only `tsc` catches), `pnpm api test`, `pnpm api test:integration` (gated `ALLOW_DESTRUCTIVE_DB=1`, local Postgres), `pnpm api openapi:check`, `pnpm api-client typecheck`, `pnpm api lint:ci`, plus `pnpm web test` (⚠️ `apps/web/src/api/catalogo-constantes.mirror.spec.ts` greps backend sources, so moving a backend constant breaks a WEB test).
 **Rollback boundary**: revert PR1 branch; field is additive/optional, no migration, no client sends it yet.
 
 ### Phase 1.1: Domain + shape validation (RED → GREEN)
@@ -89,7 +89,7 @@ Chain strategy: feature-branch-chain
 
 **Start state**: `apps/web/src/api/types.ts` hand-writes `CategoriaDto`/`PatronDto`/`CatalogoDto` behind a stale ADR-008 exception comment; `postCategoria` discards the 201 body; `useCrearCategoria` is untyped for its success value.
 **Finished state**: web types re-export the generated shapes; `postCategoria` parses and returns `CategoriaDto`; `useCrearCategoria` is `useMutation<CategoriaDto, ApiError, CategoriaInput>` and seeds `['categorias']` before invalidating. UI unaffected (`NuevaCategoriaForm` keeps working, ignores the new resolved value).
-**Verify**: `pnpm web test`, `pnpm web typecheck` (`tsr generate && tsc -b`), `pnpm web lint`.
+**Verify**: `pnpm web test`, `pnpm web typecheck` (`tsr generate && tsc -b`), `pnpm web lint`, and `pnpm api exec tsc --noEmit` if anything under `packages/api-client` moved.
 **Rollback boundary**: revert PR2 branch (retarget PR3 base back to PR1 branch if PR2 is dropped); no UI depends on the new return value yet.
 
 ### Phase 2.1: Adopt generated types (RED → GREEN)
