@@ -194,6 +194,39 @@ describe('SelectorBucket', () => {
     expect(onChangeB).not.toHaveBeenCalled();
   });
 
+  it('lays out options in an equal-width grid (2x2 on phones, one row from sm up)', () => {
+    const { container } = render(
+      <SelectorBucket
+        label="Fila 1: bucket"
+        columnLabel="Bucket"
+        value=""
+        onChange={vi.fn()}
+        buckets={['Necesidades', 'Deseos', 'Ahorro']}
+      />,
+    );
+
+    const options = container.querySelector('fieldset > div');
+    expect(options).not.toBeNull();
+    expect(options!.className).toMatch(/\bgrid\b/);
+    expect(options!.className).toMatch(/\bgrid-cols-2\b/);
+    // 2×2 at every breakpoint: a one-row `sm:auto-cols-fr` variant clipped
+    // the labels inside FilaRevision's half-row column (see docblock).
+    expect(options!.className).not.toMatch(/auto-cols-fr|grid-flow-col/);
+    // Labels are never ellipsis-clipped: full text in the DOM, no `truncate`.
+    const sinCategoria = screen.getByText('Sin categoría', { exact: true });
+    expect(sinCategoria).toHaveTextContent('Sin categoría');
+    for (const span of Array.from(options!.querySelectorAll('label span'))) {
+      expect(span.className).not.toMatch(/\btruncate\b/);
+    }
+
+    // Every option label shares the exact same class set — no per-option
+    // width differences (equal-width chips regardless of option count).
+    const labels = Array.from(options!.querySelectorAll('label'));
+    expect(labels.length).toBe(4);
+    const classSets = labels.map((l) => l.className);
+    expect(new Set(classSets).size).toBe(1);
+  });
+
   it('renders one decorative (aria-hidden) icon per chip without changing the radio names', () => {
     const { container } = render(
       <SelectorBucket

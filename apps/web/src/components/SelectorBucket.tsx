@@ -30,6 +30,27 @@ import { iconoDeBucket } from '@/lib/bucket-icons';
  * falls back to `peer-checked:bg-muted`. Color is never the only carrier of
  * selection state: `peer-checked:font-medium` plus the native `checked`
  * value both carry it too.
+ *
+ * Equal-width chips (2026-08-31, DESIGN.md "Bucket Segmented Control"): the
+ * options wrapper is a `grid`, not `flex flex-wrap` — a flex-wrap row gave
+ * every chip its own intrinsic width ("Sin categoría" wide, "Ahorro"
+ * cramped), which read as uneven and, at narrow widths, wrapped
+ * unpredictably. `grid-cols-2` (2×2) at EVERY breakpoint: this control
+ * lives in half a row from `sm` up (`FilaRevision`'s `sm:flex-1` column,
+ * the other half is the categoría select), and four equal chips in that
+ * half-row clipped to "S… / N… / G… / A…" even at 1280px — a one-row
+ * `auto-cols-fr` variant was tried and reverted on that screenshot. Two
+ * columns give every chip 150–225px, so no label is ever truncated: there
+ * is deliberately NO `truncate` on the label text, and the chip is
+ * `min-h-8` (not `h-8`) so an unexpectedly long label wraps and grows the
+ * chip instead of clipping. Each `<label>` is `block min-w-0` (grid item,
+ * no intrinsic flex-basis) and its chip `<span>` is `flex w-full
+ * justify-center` so the chip fills its grid cell. Option count is NOT
+ * fixed at 4: `agruparPorBucket` drops buckets with no categorías, so 2, 3
+ * or 4 options are all real — with an odd count the last chip spans both
+ * columns (`[&>label:last-child:nth-child(odd)]:col-span-2`) so the grid
+ * closes evenly instead of leaving an orphan half-row. `px-2` (not `px-3`)
+ * keeps "Sin categoría" + glyph on one line inside a ~140px cell at 360px.
  */
 
 const RELLENO_BUCKET: Record<string, string> = {
@@ -71,14 +92,14 @@ export function SelectorBucket({
       >
         {columnLabel}
       </span>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5 [&>label:last-child:nth-child(odd)]:col-span-2">
         {options.map((option) => {
           const relleno = RELLENO_BUCKET[option.value] ?? RELLENO_POR_DEFECTO;
           // Decorative glyph per bucket (`lib/bucket-icons.ts`): `aria-hidden`,
           // so each radio's accessible name stays exactly the option label.
           const Icono = iconoDeBucket(option.value);
           return (
-            <label key={option.value} className="cursor-pointer">
+            <label key={option.value} className="block min-w-0 cursor-pointer">
               <input
                 type="radio"
                 className="peer sr-only"
@@ -89,10 +110,10 @@ export function SelectorBucket({
                 disabled={disabled}
               />
               <span
-                className={`inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-sm text-foreground hover:bg-accent peer-checked:border-transparent peer-checked:font-medium peer-focus-visible:border-ring peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${relleno}`}
+                className={`flex min-h-8 w-full items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-sm text-foreground hover:bg-accent peer-checked:border-transparent peer-checked:font-medium peer-focus-visible:border-ring peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${relleno}`}
               >
                 <Icono aria-hidden="true" className="size-3.5 shrink-0" />
-                {option.label}
+                <span className="min-w-0">{option.label}</span>
               </span>
             </label>
           );
