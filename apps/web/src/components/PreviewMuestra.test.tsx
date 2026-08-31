@@ -173,15 +173,17 @@ describe('PreviewMuestra', () => {
     const categoriaSelect = screen.getByLabelText(/Fila 1: categoría/i);
     expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
 
-    // Fix 2: bucket select should show Deseos (derived from edited categoriaId)
-    const bucketSelect = screen.getByLabelText(/Fila 1: bucket/i);
-    expect((bucketSelect as HTMLSelectElement).value).toBe('Deseos');
+    // Fix 2: bucket control should show Deseos checked (derived from edited categoriaId)
+    const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    ).toBeChecked();
   });
 
-  // Round-9 critique P1 fix 1: per-row bucket select shows "Gustos" as label
-  // while the option value stays "Deseos" (ETIQUETA_BUCKET applied at the
-  // PreviewMuestra→FilaRevision call site now).
-  it('round-9 P1: per-row bucket select shows "Gustos" label with "Deseos" value', () => {
+  // Round-9 critique P1 fix 1: per-row bucket control shows "Gustos" as the
+  // radio name while the underlying option value stays "Deseos"
+  // (ETIQUETA_BUCKET applied inside SelectorBucket now).
+  it('round-9 P1: per-row bucket control shows "Gustos" name with "Deseos" value', () => {
     render(
       <PreviewMuestra
         banco="BancoEstado"
@@ -193,15 +195,12 @@ describe('PreviewMuestra', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(
-      /Fila 1: bucket/i,
-    ) as HTMLSelectElement;
-    const deseosOption = Array.from(bucketSelect.options).find(
-      (o) => o.value === 'Deseos',
-    );
+    const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+    const gustosRadio = within(bucketGroup).getByRole('radio', {
+      name: 'Gustos',
+    }) as HTMLInputElement;
 
-    expect(deseosOption).toBeDefined();
-    expect(deseosOption?.text).toBe('Gustos');
+    expect(gustosRadio.value).toBe('Deseos');
   });
 
   // Fix 5: catalogo.tag === 'cargando' → inline hint "Cargando catálogo…" renders
@@ -575,11 +574,11 @@ describe('PreviewMuestra', () => {
       expect(grupos[1]).toHaveAttribute('data-fecha-grupo', '2026-07-16');
       expect(grupos[2]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
       // DOM/focus order stays file order. Scoped to the top row's
-      // description span (direct child of the muted-foreground row) — the
-      // formatted cargo/abono amounts also carry `.font-medium` but live one
-      // level deeper, under the text-foreground row.
+      // description span, read through its stable `data-descripcion` hook
+      // (was a markup-coupled `.text-muted-foreground > span.font-medium`
+      // selector that broke every time the row layout moved).
       const descripciones = Array.from(
-        container.querySelectorAll('.text-muted-foreground > span.font-medium'),
+        container.querySelectorAll('[data-descripcion]'),
       ).map((el) => el.textContent);
       expect(descripciones).toEqual(['A', 'B', 'C']);
     });
@@ -1071,9 +1070,14 @@ describe('PreviewMuestra', () => {
       expect(screen.getByLabelText(/Seleccionar fila 1/i)).not.toBeChecked();
     });
 
-    // ── P2 design critique fix 2: toolbar distill (count pill + inline dismiss) ──
-    describe('toolbar distill: selection-count pill with inline dismiss', () => {
-      it('renders the selection count inside a pill that also contains the "Limpiar selección" dismiss control', async () => {
+    // ── P2 design critique fix 2: toolbar distill (count text + inline dismiss) ──
+    // Minimalist pass: the filled pill+circle combo was replaced by a plain
+    // text count next to a real icon Button — the dismiss is now a SIBLING
+    // of the count span (both inside the toolbar), not nested inside a pill
+    // container; `data-conteo-pill` stays on the count span itself as the
+    // structural hook.
+    describe('toolbar distill: selection-count text with inline dismiss', () => {
+      it('renders the selection count next to the "Limpiar selección" dismiss control', async () => {
         render(
           <PreviewMuestra
             banco="BancoEstado"
@@ -1090,9 +1094,10 @@ describe('PreviewMuestra', () => {
         const dismiss = screen.getByRole('button', {
           name: /limpiar selección/i,
         });
-        const pill = dismiss.closest('[data-conteo-pill]');
-        expect(pill).not.toBeNull();
-        expect(pill).toHaveTextContent('1 seleccionada');
+        const conteo = document.querySelector('[data-conteo-pill]');
+        expect(conteo).not.toBeNull();
+        expect(conteo).toHaveTextContent('1 seleccionada');
+        expect(conteo?.parentElement).toBe(dismiss.parentElement);
       });
 
       it('the dismiss control is a real, keyboard-reachable <button> with focus-visible styling', async () => {
@@ -1615,11 +1620,12 @@ describe('PreviewMuestra', () => {
       await userEvent.click(screen.getByLabelText(/Seleccionar fila 2/i));
       expect(screen.getByText('2 seleccionadas')).toBeInTheDocument();
 
-      // Classify row 1 (Fila 1 / rowIndex 0) via ITS OWN per-row select —
+      // Classify row 1 (Fila 1 / rowIndex 0) via ITS OWN per-row control —
       // not the bulk toolbar, not the (now-hidden) filter toggle.
-      await userEvent.selectOptions(
-        screen.getByLabelText(/Fila 1: bucket/i),
-        'Necesidades',
+      await userEvent.click(
+        within(screen.getByLabelText(/Fila 1: bucket/i)).getByRole('radio', {
+          name: 'Necesidades',
+        }),
       );
       await userEvent.selectOptions(
         screen.getByLabelText(/Fila 1: categoría/i),
@@ -1663,6 +1669,164 @@ describe('PreviewMuestra', () => {
         [0, 'cat-des-1'], // bulk apply OVERWRITES it
         [1, 'cat-des-1'], // bulk apply on the other selected row
       ]);
+    });
+  });
+
+  describe('date-group accordion (polish pass)', () => {
+    const dosGrupos = () => [
+      unaFilaPreview({
+        rowIndex: 0,
+        fecha: '2026-07-15T00:00:00.000Z',
+        descripcion: 'A',
+      }),
+      unaFilaPreview({
+        rowIndex: 1,
+        fecha: '2026-07-15T00:00:00.000Z',
+        descripcion: 'B',
+      }),
+      unaFilaPreview({
+        rowIndex: 2,
+        fecha: '2026-07-16T00:00:00.000Z',
+        descripcion: 'C',
+      }),
+    ];
+
+    function renderDosGrupos() {
+      return render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={dosGrupos()}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+    }
+
+    it('names each date heading with its row count, singular at 1', () => {
+      renderDosGrupos();
+
+      expect(
+        screen.getByRole('heading', {
+          level: 4,
+          name: /2026-07-15 · 2 movimientos/,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', {
+          level: 4,
+          name: /2026-07-16 · 1 movimiento$/,
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('starts with every group expanded — a review flow never hides work by default', () => {
+      renderDosGrupos();
+
+      const toggles = screen.getAllByRole('button', { expanded: true });
+      expect(toggles).toHaveLength(2);
+      expect(
+        screen.getByRole('checkbox', { name: /seleccionar fila 1$/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('collapsing a group hides ONLY its rows and flips aria-expanded; the other group is untouched', async () => {
+      const user = userEvent.setup();
+      renderDosGrupos();
+
+      const toggle = screen.getByRole('button', {
+        name: /2026-07-15 · 2 movimientos/,
+      });
+      await user.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      // Rows of the collapsed group leave the accessibility tree…
+      expect(
+        screen.queryByRole('checkbox', { name: /seleccionar fila 1$/i }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole('checkbox', { name: /seleccionar fila 2$/i }),
+      ).toBeNull();
+      // …but stay mounted (hidden, not removed) so per-row state survives.
+      const lista = document.getElementById(
+        toggle.getAttribute('aria-controls') ?? '',
+      );
+      expect(lista).not.toBeNull();
+      expect(lista).toHaveAttribute('hidden');
+      // The sibling group is unaffected.
+      expect(
+        screen.getByRole('checkbox', { name: /seleccionar fila 3$/i }),
+      ).toBeInTheDocument();
+
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(
+        screen.getByRole('checkbox', { name: /seleccionar fila 1$/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('the group "select all" checkbox stays outside the toggle and still works while collapsed', async () => {
+      const user = userEvent.setup();
+      renderDosGrupos();
+
+      await user.click(
+        screen.getByRole('button', { name: /2026-07-15 · 2 movimientos/ }),
+      );
+      const grupoCheckbox = screen.getByRole('checkbox', {
+        name: 'Seleccionar todas: 2026-07-15',
+      });
+      expect(grupoCheckbox.closest('button')).toBeNull();
+
+      await user.click(grupoCheckbox);
+      // Bulk toolbar reflects the 2 hidden-but-selected rows.
+      expect(screen.getByText(/^2 seleccionadas$/)).toBeInTheDocument();
+    });
+  });
+
+  describe('accordion state vs. the "Solo sin clasificar" filter', () => {
+    it('toggling the filter resets collapsed groups (group keys are index-based and the filter reindexes them)', async () => {
+      const user = userEvent.setup();
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[
+            unaFilaPreview({
+              rowIndex: 0,
+              fecha: '2026-07-15T00:00:00.000Z',
+              descripcion: 'A',
+              sugerido: null,
+            }),
+            unaFilaPreview({
+              rowIndex: 1,
+              fecha: '2026-07-16T00:00:00.000Z',
+              descripcion: 'B',
+              sugerido: null,
+            }),
+          ]}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const toggle = screen.getByRole('button', {
+        name: /2026-07-16 · 1 movimiento/,
+      });
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+      await user.click(
+        screen.getByRole('button', { name: /solo sin clasificar/i }),
+      );
+
+      expect(
+        screen.getByRole('button', { name: /2026-07-16 · 1 movimiento/ }),
+      ).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.queryAllByRole('button', { expanded: false })).toHaveLength(
+        0,
+      );
     });
   });
 });

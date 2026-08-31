@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FilaRevision } from './FilaRevision';
 import type { CatalogoEstado } from '@/api/types';
@@ -8,8 +8,13 @@ import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
 
 // FilaRevision (US-059 PR2, D-06/D-10/D-12) — presentational row component.
 // Tests verify: cell rendering (fecha, descripcion, cargo, abono via
-// formatearMontoCLP), duplicate greying + badge + disabled selects, bucket→
-// categoría cascade (D-06), accessible labels (D-10), and onEditChange payloads.
+// formatearMontoCLP), duplicate greying + badge + disabled bucket control,
+// bucket→categoría cascade (D-06), accessible labels (D-10), and
+// onEditChange payloads.
+//
+// 2026-08-30: the bucket `<select>` became `SelectorBucket` (a segmented
+// control of native radios) and the categoría `CampoSelect` is no longer
+// rendered at all while no bucket is chosen — tests migrated accordingly.
 //
 // NO network, NO state machine — pure presentational unit.
 
@@ -76,8 +81,8 @@ describe('FilaRevision', () => {
     expect(screen.getByText('$0')).toBeInTheDocument();
   });
 
-  // Duplicate row: greyed + badge + both selects disabled (D-10, product decision 1)
-  it('duplicate row: renders "Duplicado" badge and both selects are disabled', () => {
+  // Duplicate row: greyed + badge + bucket control disabled, no categoría select (D-10)
+  it('duplicate row: renders "Duplicado" badge, bucket control disabled, no categoría select', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
@@ -89,10 +94,11 @@ describe('FilaRevision', () => {
 
     expect(screen.getByText('Duplicado')).toBeInTheDocument();
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
-    expect(bucketSelect).toBeDisabled();
-    expect(categoriaSelect).toBeDisabled();
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(bucketGroup).toBeDisabled();
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
   });
 
   // Duplicate row has no data-duplicado attribute (fix 9)
@@ -112,8 +118,8 @@ describe('FilaRevision', () => {
     expect(li).not.toHaveAttribute('data-duplicado');
   });
 
-  // Non-duplicate row: selects are enabled (D-10)
-  it('non-duplicate row with loaded catalog: both selects are enabled', () => {
+  // Non-duplicate row: bucket control is enabled (D-10)
+  it('non-duplicate row with loaded catalog: bucket control is enabled', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
@@ -124,12 +130,13 @@ describe('FilaRevision', () => {
     );
 
     expect(screen.queryByText('Duplicado')).not.toBeInTheDocument();
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    expect(bucketSelect).not.toBeDisabled();
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(bucketGroup).not.toBeDisabled();
   });
 
-  // Accessible labels per D-10 — "Fila {rowIndex+1}: bucket" and "Fila {rowIndex+1}: categoría"
-  it('each select is reachable by the compound per-row label (D-10)', () => {
+  // Accessible labels per D-10 — bucket control reachable immediately;
+  // categoría control appears (and is reachable) once a bucket is chosen.
+  it('bucket control reachable by label; categoría reachable by label once a bucket is chosen (D-10)', async () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 4 })}
@@ -139,7 +146,15 @@ describe('FilaRevision', () => {
       />,
     );
 
-    expect(screen.getByLabelText(/Fila 5: bucket/i)).toBeInTheDocument();
+    const bucketGroup = screen.getByLabelText(/Fila 5: bucket/i);
+    expect(bucketGroup).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/Fila 5: categoría/i),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
     expect(screen.getByLabelText(/Fila 5: categoría/i)).toBeInTheDocument();
   });
 
@@ -154,8 +169,10 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Deseos');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    );
 
     // After selecting "Deseos", categoría select should only show Deseos categorías
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
@@ -195,8 +212,9 @@ describe('FilaRevision', () => {
 
   // Round-9 critique P1 fix 1: bucket options must show the UI label
   // ("Gustos") while the underlying option value stays the domain key
-  // ("Deseos") — ETIQUETA_BUCKET is applied at this call site now.
-  it('round-9 P1: bucket select shows "Gustos" as label but keeps "Deseos" as the option value', () => {
+  // ("Deseos") — ETIQUETA_BUCKET is applied at this call site now (inside
+  // SelectorBucket).
+  it('round-9 P1: bucket options show "Gustos" as label but keep "Deseos" as the value', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2 })}
@@ -206,18 +224,15 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(
-      /Fila 3: bucket/i,
-    ) as HTMLSelectElement;
-    const deseosOption = Array.from(bucketSelect.options).find(
-      (o) => o.value === 'Deseos',
-    );
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const gustosRadio = within(bucketGroup).getByRole('radio', {
+      name: 'Gustos',
+    }) as HTMLInputElement;
 
-    expect(deseosOption).toBeDefined();
-    expect(deseosOption?.text).toBe('Gustos');
-    expect(Array.from(bucketSelect.options).map((o) => o.text)).not.toContain(
-      'Deseos',
-    );
+    expect(gustosRadio.value).toBe('Deseos');
+    expect(
+      within(bucketGroup).queryByRole('radio', { name: 'Deseos' }),
+    ).not.toBeInTheDocument();
   });
 
   // Fix 1a: first-time bucket selection fires NO onEditChange (sparse-overlay)
@@ -233,8 +248,10 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
 
     expect(onEditChange).toHaveBeenCalledTimes(0);
   });
@@ -253,8 +270,10 @@ describe('FilaRevision', () => {
     );
 
     // First select a bucket to enable categoría select
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
@@ -278,8 +297,10 @@ describe('FilaRevision', () => {
     );
 
     // Mount already has categoriaId — changing bucket should fire onEditChange(2, null)
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Deseos');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    );
 
     expect(onEditChange).toHaveBeenCalledTimes(1);
     expect(onEditChange).toHaveBeenCalledWith(2, null);
@@ -299,8 +320,10 @@ describe('FilaRevision', () => {
     );
 
     // First select a bucket to enable categoría select
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
@@ -322,8 +345,10 @@ describe('FilaRevision', () => {
     );
 
     // Select a bucket first, then a category, then reset to "Sin categoría"
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
@@ -350,11 +375,15 @@ describe('FilaRevision', () => {
     );
 
     // categoriaId prop is 'cat-nec-1' → bucketUI seeds to 'Necesidades' (fix 2)
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    expect((bucketSelect as HTMLSelectElement).value).toBe('Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    ).toBeChecked();
 
     // Changing bucket fires onEditChange(2, null) because categoriaId is non-null
-    await userEvent.selectOptions(bucketSelect, 'Deseos');
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    );
 
     // The categoría select should now show the sentinel value (empty)
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
@@ -379,8 +408,10 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    expect((bucketSelect as HTMLSelectElement).value).toBe('Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    ).toBeChecked();
   });
 
   // Fix 2: bucketUI seeds from edited categoriaId when it conflicts with sugerido.bucket
@@ -398,9 +429,11 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
     // Should show Deseos (from edited categoriaId) not Necesidades (from sugerido)
-    expect((bucketSelect as HTMLSelectElement).value).toBe('Deseos');
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    ).toBeChecked();
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
@@ -433,8 +466,10 @@ describe('FilaRevision', () => {
     render(<Controlled />);
 
     // Step 1: select bucket — no call (categoriaId is null, fix 1a)
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
     expect(onEditChange).not.toHaveBeenCalled();
 
     // Step 2: select categoría X — fires (2, 'cat-nec-1'); prop becomes non-null on re-render
@@ -444,12 +479,14 @@ describe('FilaRevision', () => {
 
     // Step 3: change bucket again — categoriaId prop is now 'cat-nec-1' (non-null),
     // so the bucket change must fire onEditChange(2, null) to clear the prior choice
-    await userEvent.selectOptions(bucketSelect, 'Deseos');
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    );
     expect(onEditChange).toHaveBeenCalledWith(2, null);
   });
 
-  // When sugerido.bucket is NOT among groups, bucketUI starts empty, categoría disabled
-  it('bucketUI starts empty when sugerido.bucket is not among catalog groups', () => {
+  // When sugerido.bucket is NOT among groups, bucketUI starts at the sentinel
+  it('bucketUI starts at "Sin categoría" when sugerido.bucket is not among catalog groups', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({
@@ -462,12 +499,17 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    expect((bucketSelect as HTMLSelectElement).value).toBe('');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Sin categoría' }),
+    ).toBeChecked();
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
   });
 
-  // catalogo.tag === 'cargando' → selects disabled (no crash); issue 5
-  it('catalogo.tag cargando: selects are disabled (no crash)', () => {
+  // catalogo.tag === 'cargando' → bucket control disabled, no categoría (no crash); issue 5
+  it('catalogo.tag cargando: bucket control disabled, no categoría select (no crash)', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2 })}
@@ -477,17 +519,18 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
-    expect(bucketSelect).toBeDisabled();
-    expect(categoriaSelect).toBeDisabled();
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(bucketGroup).toBeDisabled();
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
   });
 
   // Gotcha fix: after a bulk apply changes the categoriaId PROP on an already
   // -mounted row, bucketUI must stop reflecting the stale mount-time seed and
   // instead derive from the catalog group that owns the new categoriaId — the
   // categoría select's own value (bound straight to the `categoriaId` prop)
-  // was never the bug; the bucket select was silently stuck.
+  // was never the bug; the bucket control was silently stuck.
   it('bulk-apply gotcha: an externally-changed categoriaId prop re-derives bucketUI (not stuck on stale local state)', () => {
     const { rerender } = render(
       <FilaRevision
@@ -498,14 +541,18 @@ describe('FilaRevision', () => {
       />,
     );
 
-    // Mount: no sugerido, no edit — bucketUI seeds empty.
+    // Mount: no sugerido, no edit — bucketUI seeds empty, no categoría select.
+    const bucketGroupInicial = screen.getByLabelText(/Fila 3: bucket/i);
     expect(
-      (screen.getByLabelText(/Fila 3: bucket/i) as HTMLSelectElement).value,
-    ).toBe('');
+      within(bucketGroupInicial).getByRole('radio', { name: 'Sin categoría' }),
+    ).toBeChecked();
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
 
     // Simulate a bulk apply: SubirCartola's edits Map updates and this row's
     // categoriaId prop flips from null to 'cat-des-1' (Deseos) WITHOUT the
-    // user ever touching this row's own bucket/categoría selects.
+    // user ever touching this row's own bucket/categoría controls.
     rerender(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2 })}
@@ -515,18 +562,18 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(
-      /Fila 3: bucket/i,
-    ) as HTMLSelectElement;
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    // Bucket control must now show "Gustos" checked — derived from the
+    // catalog group that owns 'cat-des-1', not the stale mount-time '' value.
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    ).toBeChecked();
+
+    // Categoría select is now rendered (bucket derived non-empty unlocks it)
+    // and shows the applied value.
     const categoriaSelect = screen.getByLabelText(
       /Fila 3: categoría/i,
     ) as HTMLSelectElement;
-
-    // Bucket select must now show "Deseos" — derived from the catalog group
-    // that owns 'cat-des-1', not the stale mount-time '' value.
-    expect(bucketSelect.value).toBe('Deseos');
-    // Categoría select shows the applied value and is enabled (bucket derived
-    // non-empty unlocks it).
     expect(categoriaSelect.value).toBe('cat-des-1');
     expect(categoriaSelect).not.toBeDisabled();
   });
@@ -546,15 +593,94 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Deseos');
-    expect((bucketSelect as HTMLSelectElement).value).toBe('Deseos');
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    );
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Gustos' }),
+    ).toBeChecked();
     // No onEditChange yet — categoriaId prop was null (fix 1a semantics kept).
     expect(onEditChange).not.toHaveBeenCalled();
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
     await userEvent.selectOptions(categoriaSelect, 'cat-des-1');
     expect(onEditChange).toHaveBeenCalledWith(2, 'cat-des-1');
+  });
+
+  // (a) No suggestion, no edit: default is "Sin categoría" checked, no categoría select.
+  it('(a) no suggestion, no edit: "Sin categoría" is checked and no categoría select renders', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2, sugerido: null })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Sin categoría' }),
+    ).toBeChecked();
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
+  });
+
+  // (b) With a suggestion (and its merged display value passed as categoriaId,
+  // per D-05): the suggested bucket is checked and the categoría select is
+  // visible, showing the suggested categoría.
+  it('(b) with a suggestion: SelectorBucket shows the suggested bucket checked and the categoría select shows the suggested categoría', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({
+          rowIndex: 2,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        })}
+        categoriaId="cat-nec-1"
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    ).toBeChecked();
+
+    const categoriaSelect = screen.getByLabelText(
+      /Fila 3: categoría/i,
+    ) as HTMLSelectElement;
+    expect(categoriaSelect).toBeInTheDocument();
+    expect(categoriaSelect.value).toBe('cat-nec-1');
+  });
+
+  // (c) After a categoría was set, choosing "Sin categoría" fires
+  // onEditChange(rowIndex, null) and hides the categoría select.
+  it('(c) clicking "Sin categoría" after a categoría was set fires onEditChange(rowIndex, null) and hides the categoría select', async () => {
+    const onEditChange = vi.fn();
+
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2 })}
+        categoriaId="cat-nec-1"
+        catalogo={catalogoListo}
+        onEditChange={onEditChange}
+      />,
+    );
+
+    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeInTheDocument();
+
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Sin categoría' }),
+    );
+
+    expect(onEditChange).toHaveBeenCalledWith(2, null);
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
   });
 
   // ── Selection checkbox (feature: bulk apply) ────────────────────────────
@@ -629,8 +755,8 @@ describe('FilaRevision', () => {
     ).not.toBeInTheDocument();
   });
 
-  // catalogo.tag === 'error' → selects absent or disabled (no crash)
-  it('catalogo.tag error: selects are disabled (no crash)', () => {
+  // catalogo.tag === 'error' → bucket control disabled, no categoría select (no crash)
+  it('catalogo.tag error: bucket control disabled, no categoría select (no crash)', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2 })}
@@ -640,11 +766,13 @@ describe('FilaRevision', () => {
       />,
     );
 
-    // Should not crash; selects should be disabled or absent
-    const bucketSelect = screen.queryByLabelText(/Fila 3: bucket/i);
-    const categoriaSelect = screen.queryByLabelText(/Fila 3: categoría/i);
-    if (bucketSelect) expect(bucketSelect).toBeDisabled();
-    if (categoriaSelect) expect(categoriaSelect).toBeDisabled();
+    // Should not crash; bucket control should be disabled
+    const bucketGroup = screen.queryByLabelText(/Fila 3: bucket/i);
+    expect(bucketGroup).not.toBeNull();
+    if (bucketGroup) expect(bucketGroup).toBeDisabled();
+    expect(
+      screen.queryByLabelText(/Fila 3: categoría/i),
+    ).not.toBeInTheDocument();
   });
 
   // T-18 / WEB-PRV-09 / WEB-PRV-10: structural a11y assertions for the review
@@ -658,11 +786,12 @@ describe('FilaRevision', () => {
   // sr-only label stops wrapping the select, or the label/select pairing
   // changes), getByLabelText throws and the test fails.
   //
-  // WEB-PRV-10: The cascade selects stack under row cells on narrow widths via
-  // `flex-col sm:flex-row` (T1/T2 viewport requirement). The layout class is
-  // verified structurally rather than via a JSDOM viewport simulation.
+  // WEB-PRV-10: The cascade controls stack under row cells on narrow widths
+  // via `flex-col sm:flex-row` (T1/T2 viewport requirement). The layout
+  // class is verified structurally rather than via a JSDOM viewport
+  // simulation.
   describe('T-18 a11y / WEB-PRV-09 structural assertions', () => {
-    it('each non-duplicate select is reachable by accessible label (getByLabelText)', () => {
+    it('bucket control is reachable by accessible label (getByLabelText); categoría is absent until a bucket is chosen', () => {
       render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
@@ -674,10 +803,12 @@ describe('FilaRevision', () => {
 
       // getByLabelText throws if the element is missing or the label association is broken
       expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/Fila 3: categoría/i),
+      ).not.toBeInTheDocument();
     });
 
-    it('each duplicate select is reachable by accessible label and is disabled', () => {
+    it('duplicate bucket control is reachable by accessible label and is disabled; no categoría control', () => {
       render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
@@ -688,10 +819,12 @@ describe('FilaRevision', () => {
       );
 
       expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeDisabled();
-      expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeDisabled();
+      expect(
+        screen.queryByLabelText(/Fila 3: categoría/i),
+      ).not.toBeInTheDocument();
     });
 
-    it('T-18 responsive: cascade selects container has flex-col stacking class (WEB-PRV-10 T1/T2)', () => {
+    it('T-18 responsive: cascade controls container has flex-col stacking class (WEB-PRV-10 T1/T2)', () => {
       const { container } = render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
@@ -701,8 +834,8 @@ describe('FilaRevision', () => {
         />,
       );
 
-      // The cascade selects wrapper must have the responsive stacking class so
-      // selects reflow to vertical on narrow viewports (T1=768px, T2=1024px).
+      // The cascade controls wrapper must have the responsive stacking class so
+      // they reflow to vertical on narrow viewports (T1=768px, T2=1024px).
       // This is a structural check — not a visual/viewport simulation.
       const flexContainer = container.querySelector('.flex-col.sm\\:flex-row');
       expect(flexContainer).not.toBeNull();
@@ -710,11 +843,11 @@ describe('FilaRevision', () => {
 
     // P2 design critique fix 1 — bare dropdowns with no visible column
     // identity once a value is chosen. Mobile strategy: a visible short
-    // label ("Bucket"/"Categoría") renders per-row above each select; the
+    // label ("Bucket"/"Categoría") renders per-row above each control; the
     // accessible name stays the full "Fila N: bucket/categoría" sentence
     // (WCAG 2.5.3 label-in-name — the visible word is a case-insensitive
-    // substring of the full name) via the select's own `aria-label`.
-    it('P2 fix 1: a visible short column label renders per select, and the full sentence remains the accessible name', () => {
+    // substring of the full name).
+    it('P2 fix 1: a visible short column label renders per control, and the full sentence remains the accessible name', async () => {
       render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2 })}
@@ -724,14 +857,17 @@ describe('FilaRevision', () => {
         />,
       );
 
-      // Visible short labels are present (mobile column identity).
+      // Visible short label for the bucket control is present immediately.
       expect(screen.getByText('Bucket')).toBeInTheDocument();
-      expect(screen.getByText('Categoría')).toBeInTheDocument();
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      expect(bucketGroup).toHaveAccessibleName('Fila 3: bucket');
 
-      // Accessible name is still the full per-row sentence.
-      const bucketSelect = screen.getByLabelText(/Fila 3: bucket/i);
+      // Categoría's visible label + accessible name appear once a bucket is chosen.
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+      expect(screen.getByText('Categoría')).toBeInTheDocument();
       const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
-      expect(bucketSelect).toHaveAccessibleName('Fila 3: bucket');
       expect(categoriaSelect).toHaveAccessibleName('Fila 3: categoría');
     });
 
@@ -749,7 +885,7 @@ describe('FilaRevision', () => {
       expect(visibleBucketLabel.className).toMatch(/sm:sr-only/);
     });
 
-    it('P2 fix 1: duplicate rows still carry the visible short column label alongside the disabled select', () => {
+    it('P2 fix 1: duplicate rows still carry the visible short column label alongside the disabled bucket control, and no categoría column label', () => {
       render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
@@ -760,11 +896,11 @@ describe('FilaRevision', () => {
       );
 
       expect(screen.getByText('Bucket')).toBeInTheDocument();
-      expect(screen.getByText('Categoría')).toBeInTheDocument();
+      expect(screen.queryByText('Categoría')).not.toBeInTheDocument();
       expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeDisabled();
     });
 
-    it('three-row mix (1 duplicate + 2 non-duplicate): all six selects reachable by label', () => {
+    it('three-row mix (1 duplicate + 2 non-duplicate): all three bucket controls reachable by label; no categoría rendered by default', () => {
       function ThreeRows() {
         return (
           <>
@@ -793,11 +929,49 @@ describe('FilaRevision', () => {
       render(<ThreeRows />);
 
       expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Fila 1: categoría/i)).toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/Fila 1: categoría/i),
+      ).not.toBeInTheDocument();
       expect(screen.getByLabelText(/Fila 2: bucket/i)).toBeDisabled();
-      expect(screen.getByLabelText(/Fila 2: categoría/i)).toBeDisabled();
+      expect(
+        screen.queryByLabelText(/Fila 2: categoría/i),
+      ).not.toBeInTheDocument();
       expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/Fila 3: categoría/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('amount colors (cargo red, abono green, $0 neutral)', () => {
+    it('colors a non-zero cargo and leaves the $0 abono neutral', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, cargo: '50000', abono: '0' })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText('$50.000')).toHaveClass('text-cargo-foreground');
+      expect(screen.getByText('$0')).toHaveClass('text-foreground');
+      expect(screen.getByText('$0')).not.toHaveClass('text-ingreso-foreground');
+    });
+
+    it('colors a non-zero abono and leaves the $0 cargo neutral', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, cargo: '0', abono: '596' })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText('$596')).toHaveClass('text-ingreso-foreground');
+      expect(screen.getByText('$0')).toHaveClass('text-foreground');
+      expect(screen.getByText('$0')).not.toHaveClass('text-cargo-foreground');
     });
   });
 });

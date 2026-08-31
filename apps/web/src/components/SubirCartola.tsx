@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import {
+  CircleAlert,
+  CircleCheck,
+  FileText,
+  LoaderCircle,
+  Upload,
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { InlineConfirm } from './ui/inline-confirm';
 import { DemoUploadNudge } from './DemoUploadNudge';
@@ -58,10 +65,17 @@ type EstadoSubida =
 
 // `Record<EstadoSubida, string>` keeps this type-exhaustive — a new
 // `EstadoSubida` member fails to compile without a message here.
+// `idle` is intentionally empty: the drop zone label already reads
+// "Selecciona un archivo (.xlsx o .pdf)", so a status line would just
+// repeat it. The live region stays mounted (empty) so later transitions
+// are still announced.
 const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
-  idle: 'Selecciona un archivo .xlsx o .pdf para subir.',
+  idle: '',
   previsualizando: 'Generando vista previa…',
-  'preview-listo': 'Vista previa lista. Revisa y confirma.',
+  // "Revisa y confirma" was dropped from this line (polish pass): the
+  // preview's cartola block already carries that instruction ("Revisa las
+  // filas y confirma para importar"), so the status stays a status.
+  'preview-listo': 'Vista previa lista.',
   'preview-error': 'No se pudo generar la vista previa.',
   committing: 'Subiendo transacciones…',
   exito: 'Importación completada.',
@@ -74,6 +88,31 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
 // block the user just hit.
 const MENSAJE_DEMO_COMMIT =
   'En modo demo, esta vista previa es solo para probar: la importación no se guarda.';
+
+// Detail pass (Operate surface): named once here since no shared bank-list
+// constant exists yet in the codebase (checked src/ for other consumers) —
+// a single call site doesn't earn a `lib/` extraction (YAGNI).
+const BANCOS_SOPORTADOS = 'Banco de Chile, BancoEstado, BCI y Santander';
+
+const KB = 1024;
+const MB = KB * 1024;
+
+// Detail pass: file-size readout for the selected-file row. No existing
+// helper found under `lib/` (checked for formatearTamano/bytes/KB) — kept
+// local and tiny rather than a new shared module for one caller (YAGNI).
+function formatearTamano(bytes: number): string {
+  const formateador = new Intl.NumberFormat('es-CL', {
+    maximumFractionDigits: 1,
+  });
+  if (bytes >= MB) {
+    return `${formateador.format(bytes / MB)} MB`;
+  }
+  return `${formateador.format(bytes / KB)} KB`;
+}
+
+// Detail pass: flow stepper labels, in state order. Pure UI derivation from
+// `EstadoSubida` below — no new state, no change to the state machine.
+const PASOS_SUBIDA = ['Elegir archivo', 'Revisar', 'Importar'] as const;
 
 /**
  * SubirCartola (US-059 PR3) — preview→review→commit state machine.
@@ -188,6 +227,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // see that handler's doc comment for why.
   const [confirmandoDescarteBorrador, setConfirmandoDescarteBorrador] =
     useState(false);
+  // Detail pass: drag-over visual state for the drop zone. Ephemeral UI only
+  // — never touches the file-processing path, which drop and the input's
+  // onChange both funnel through `procesarArchivoSeleccionado` below.
+  const [arrastrando, setArrastrando] = useState(false);
 
   const previewMutation = usePreviewIngesta();
   const commitMutation = useCommitIngesta();
@@ -247,6 +290,21 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     estado === 'preview-listo' ||
     estado === 'committing';
 
+  // Detail pass: pure derivation for the flow stepper — no new state, mirrors
+  // `estado` exactly like `pickerGateado` above. `committing` already sits on
+  // step 2 (Importar): the import is running, so the stepper must not keep
+  // "Revisar" lit while the button says "Subiendo…". `error` maps back to
+  // step 1 (Revisar) since the preview+edits are PRESERVED on a commit error
+  // (D-11) — the user is still reviewing, not back at file-picking.
+  const pasoActivo =
+    estado === 'idle' ||
+    estado === 'previsualizando' ||
+    estado === 'preview-error'
+      ? 0
+      : estado === 'committing' || estado === 'exito'
+        ? 2
+        : 1;
+
   // Peak-end landing: WHICH month's verdict to show is a presentation
   // decision (never money/classification math, ADR-024) — derived from the
   // just-persisted rows' fechas already in memory. `undefined` when there's
@@ -303,13 +361,16 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     });
   }, [archivo, previewMutation.data, edits]);
 
-  // D-02: handleFileChange clears both mutations + edits before firing preview.
-  // Draft resilience: a matching re-pick during `borradorRecuperando`
-  // restores `edits` from the draft instead of the usual blank Map; any
-  // other selection (including cancelling the picker) abandons the draft —
-  // the notice never survives a new file selection.
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const seleccionado = event.target.files?.[0];
+  // D-02: clears both mutations + edits before firing preview. Draft
+  // resilience: a matching re-pick during `borradorRecuperando` restores
+  // `edits` from the draft instead of the usual blank Map; any other
+  // selection (including cancelling the picker) abandons the draft — the
+  // notice never survives a new file selection.
+  //
+  // Detail pass: extracted from the input's own `onChange` handler,
+  // unchanged, so the drop zone's `onDrop` can funnel through the EXACT same
+  // path instead of a second, drifting copy of this logic.
+  function procesarArchivoSeleccionado(seleccionado: File | undefined) {
     previewMutation.reset();
     commitMutation.reset();
     isSubmittingRef.current = false;
@@ -343,6 +404,32 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(seleccionado);
     setErrorValidacion(null);
     previewMutation.mutate(seleccionado);
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    procesarArchivoSeleccionado(event.target.files?.[0]);
+  }
+
+  // Detail pass: drag & drop over the same zone the label/input already
+  // live in. No new gating rule — `pickerGateado` (unchanged above) is the
+  // single source of truth; drag/drop just reads it instead of relying on
+  // the native `disabled` attribute, which the browser doesn't consult for
+  // drop events.
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (pickerGateado) return;
+    setArrastrando(true);
+  }
+
+  function handleDragLeave() {
+    setArrastrando(false);
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setArrastrando(false);
+    if (pickerGateado) return;
+    procesarArchivoSeleccionado(event.dataTransfer.files?.[0]);
   }
 
   // D-03: edits update on every onEditChange call so FilaRevision receives the
@@ -512,8 +599,47 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   }. Se perderá el archivo seleccionado; esta acción no se puede deshacer.`;
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold text-foreground">Subir cartola</h1>
+    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4">
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        Subir cartola
+      </h1>
+
+      {/* Detail pass: flow stepper — pure derivation from `estado` via
+          `pasoActivo`, no new state. */}
+      <ol
+        aria-label="Progreso de la subida"
+        className="flex flex-wrap gap-x-6 gap-y-1 text-sm"
+      >
+        {PASOS_SUBIDA.map((paso, indice) => {
+          const activo = indice === pasoActivo;
+          const completado = indice < pasoActivo;
+          return (
+            <li
+              key={paso}
+              aria-current={activo ? 'step' : undefined}
+              className={`flex items-center gap-2 ${
+                activo
+                  ? 'font-semibold text-foreground'
+                  : completado
+                    ? 'text-foreground'
+                    : 'text-muted-foreground'
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`grid size-5 place-items-center rounded-full border text-xs ${
+                  activo || completado
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border'
+                }`}
+              >
+                {indice + 1}
+              </span>
+              {paso}
+            </li>
+          );
+        })}
+      </ol>
 
       <DemoUploadNudge esDemo={esDemo} />
 
@@ -522,7 +648,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           <div
             role="status"
             aria-label="Borrador de revisión sin terminar"
-            className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-foreground"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground"
           >
             <p>
               Encontramos una revisión sin terminar de{' '}
@@ -542,7 +668,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
                 ref={descartarBorradorTriggerRef}
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={handleAbrirConfirmacionDescarteBorrador}
               >
                 Descartar borrador
@@ -581,7 +707,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         <div
           role="status"
           aria-label="Retomando borrador de revisión"
-          className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 p-4 text-sm text-foreground"
+          className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-sm text-foreground"
         >
           <p>
             Para continuar, selecciona nuevamente{' '}
@@ -592,30 +718,101 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       )}
 
       <div className="flex flex-col gap-3">
-        <label
-          htmlFor="cartola-file"
-          className="text-sm font-medium text-muted-foreground"
+        {/* Detail pass: real drop zone — the label/input pair is unchanged
+            (same htmlFor/id association, same accessible name), just visually
+            reframed. The input becomes `sr-only`: still focusable, still
+            labelled, `userEvent.upload` still targets it directly. */}
+        <div
+          data-arrastrando={arrastrando}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`rounded-lg border border-dashed border-border bg-card px-6 py-8 text-center transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/30 data-[arrastrando=true]:border-primary data-[arrastrando=true]:bg-accent ${
+            pickerGateado ? 'opacity-50' : ''
+          }`}
         >
-          Selecciona un archivo (.xlsx o .pdf)
-        </label>
-        <input
-          key={selectorArchivoKey}
-          ref={fileInputRef}
-          id="cartola-file"
-          type="file"
-          accept=".xlsx,.pdf"
-          onChange={handleFileChange}
-          disabled={pickerGateado}
-          className="text-sm text-muted-foreground"
-        />
+          <Upload
+            aria-hidden="true"
+            className="mx-auto size-6 text-muted-foreground"
+          />
+          <label
+            htmlFor="cartola-file"
+            className="mt-2 block cursor-pointer text-sm font-medium text-foreground"
+          >
+            Selecciona un archivo (.xlsx o .pdf)
+          </label>
+          <input
+            key={selectorArchivoKey}
+            ref={fileInputRef}
+            id="cartola-file"
+            type="file"
+            accept=".xlsx,.pdf"
+            onChange={handleFileChange}
+            disabled={pickerGateado}
+            className="sr-only"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Arrastra el archivo aquí o haz clic para elegirlo.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Bancos soportados: {BANCOS_SOPORTADOS}.
+          </p>
+        </div>
+
+        {/* Detail pass: compact selected-file readout — only while there's a
+            file to show and the flow hasn't landed on the success state
+            (which has its own "N movimientos importados de {banco}" line). */}
+        {archivo && estado !== 'exito' && (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+            <FileText
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+            <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+              {archivo.name}
+            </span>
+            <span className="shrink-0 text-muted-foreground">
+              {formatearTamano(archivo.size)}
+            </span>
+          </div>
+        )}
       </div>
 
+      {/* Polish pass: the status line used to be bare muted text, visually
+          indistinguishable from the helper copy around it. It now leads with
+          a state glyph (spinner while working, check on a completed step,
+          alert on failure — all `aria-hidden`, the text is the announcement)
+          and reads at medium weight in `text-foreground` once a step lands.
+          The region itself is unchanged: same `role`/`aria-live`/`aria-label`,
+          always mounted (empty in `idle`) so the first transition announces. */}
       <div
         role="status"
         aria-live="polite"
         aria-label="Estado de la subida"
-        className="text-sm text-muted-foreground"
+        className={`flex min-h-5 items-center gap-2 text-sm ${
+          estado === 'preview-listo' || estado === 'exito'
+            ? 'font-medium text-foreground'
+            : 'text-muted-foreground'
+        }`}
       >
+        {(estado === 'previsualizando' || estado === 'committing') && (
+          <LoaderCircle
+            aria-hidden="true"
+            className="size-4 shrink-0 motion-safe:animate-spin"
+          />
+        )}
+        {(estado === 'preview-listo' || estado === 'exito') && (
+          <CircleCheck
+            aria-hidden="true"
+            className="size-4 shrink-0 text-semaforo-verde-foreground"
+          />
+        )}
+        {(estado === 'preview-error' || estado === 'error') && (
+          <CircleAlert
+            aria-hidden="true"
+            className="size-4 shrink-0 text-destructive"
+          />
+        )}
         {mensajeEstado}
       </div>
 
@@ -630,16 +827,36 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         </p>
       )}
 
+      {/* Detail pass: preview skeleton — purely visual, aria-hidden; the
+          `role="status"` line above already announces "Generando vista
+          previa…" for screen readers. No `Skeleton` component exists yet
+          under `components/ui/` (checked), so this is inline — a single
+          caller doesn't earn a new shared component (YAGNI). */}
+      {estado === 'previsualizando' && (
+        <div
+          aria-hidden="true"
+          data-skeleton-preview
+          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 motion-safe:animate-pulse"
+        >
+          <div className="h-4 w-40 rounded bg-muted" />
+          <div className="h-3 w-64 rounded bg-muted" />
+          <div className="h-10 rounded bg-muted" />
+          <div className="h-10 rounded bg-muted" />
+          <div className="h-10 rounded bg-muted" />
+          <div className="h-10 rounded bg-muted" />
+        </div>
+      )}
+
       {mostrarPreview && previewMutation.data && (
         <section
           aria-labelledby="preview-listo-heading"
-          className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
         >
           <h2
             id="preview-listo-heading"
             ref={previewHeadingRef}
             tabIndex={-1}
-            className="text-base font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Vista previa
           </h2>
@@ -695,7 +912,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             <Button
               ref={descartarTriggerRef}
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={handleAbrirConfirmacionDescarte}
               disabled={estado === 'committing'}
             >
@@ -726,14 +943,18 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       {estado === 'exito' && commitMutation.data && (
         <section
           aria-labelledby="exito-heading"
-          className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 motion-safe:animate-[exito-in_320ms_ease-out]"
+          className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 motion-safe:animate-[exito-in_320ms_ease-out]"
         >
           <h2
             id="exito-heading"
             ref={exitoRef}
             tabIndex={-1}
-            className="text-base font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
+            <CircleCheck
+              aria-hidden="true"
+              className="mr-2 inline-block size-5 align-[-3px] text-semaforo-verde-foreground"
+            />
             Importación completada
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -776,7 +997,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             <Button type="button" onClick={handleVerResumen}>
               Ver resumen del mes
             </Button>
-            <Button type="button" variant="outline" onClick={handleSubirOtra}>
+            <Button type="button" variant="ghost" onClick={handleSubirOtra}>
               Subir otra cartola
             </Button>
           </div>
