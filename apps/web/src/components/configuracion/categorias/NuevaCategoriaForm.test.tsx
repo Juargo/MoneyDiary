@@ -65,7 +65,17 @@ describe('NuevaCategoriaForm', () => {
 
   it('enviar Crear llama a POST /api/categorias con el nombre y bucket elegidos, y cierra el form en 201', async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201 });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        id: 'cat-nueva',
+        nombre: 'Streaming',
+        bucket: 'Deseos',
+        patrones: [],
+        transaccionesCount: 0,
+      }),
+    });
     vi.stubGlobal('fetch', fetchMock);
     const onCerrar = vi.fn();
 
