@@ -47,6 +47,14 @@ export type ApiError =
       // Optional and unused by every existing `'server'` producer in this
       // file, so this is additive, not a breaking widen.
       code?: string;
+      // `indice` (crear-categoria-desde-preview D-03/D-06): zero-based
+      // position of the offending entry within the `patrones[]` array
+      // submitted to `POST /api/categorias` — its single producer is
+      // `postCategoria` (`categorias.ts`), when a nested patrón fails
+      // shape validation or collides with an existing/within-batch one
+      // (`PatronEnLoteInvalidoError`, CAT038-11). Optional and unused by
+      // every other `'server'` producer.
+      indice?: number;
     }; // cualquier otro no-2xx (5xx, 404…)
 
 export type ApiResult<T> =
