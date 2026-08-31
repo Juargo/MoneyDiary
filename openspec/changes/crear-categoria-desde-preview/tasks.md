@@ -1,5 +1,23 @@
 # Tasks: Create a categoría (with patrones) from the upload preview
 
+## PR2 STATUS: DONE (2026-08-31)
+
+All PR2 tasks (2.1.1–2.5.3) complete and committed locally on branch
+`feat/web-catalogo-client-seam` (base: PR1's merged commit `acc97bad` on
+`main`; 3 commits: `47b4a6ce`, `3c2b5a33`, `6d765e58` — see
+`sdd/crear-categoria-desde-preview/apply-progress` for full detail). Web
+types re-export the generated `PatronDto`/`CategoriaDto`/`CatalogoDto`;
+`postCategoria` returns the parsed `CategoriaDto` (patrones-serialization
+included); `ApiError.server.indice?: number` added and lifted;
+`useCrearCategoria` is `useMutation<CategoriaDto, ApiError, CategoriaInput>`
+and seeds `['categorias']` before invalidating. `NuevaCategoriaForm` is
+untouched behaviorally (its test's mock updated only because
+`postCategoria` now reads the response body). Verification: `pnpm web
+test` 137/137 files, 1692/1692 tests green (full suite); `pnpm web
+typecheck` clean; `pnpm web lint` clean; `pnpm api exec tsc --noEmit` and
+`pnpm api test` untouched-green (no `apps/api`/`packages/api-client`
+changes in this slice). Next: PR3 (preview UI), base = this PR2 branch.
+
 ## Review Workload Forecast
 
 | Field | Value |
@@ -94,29 +112,29 @@ Chain strategy: feature-branch-chain
 
 ### Phase 2.1: Adopt generated types (RED → GREEN)
 
-- [ ] 2.1.1 (RED) Extend `apps/web/src/api/categorias.test.ts`: `CategoriaDto`/`PatronDto`/`CatalogoDto` still satisfy `esCategoriaDto`/`esPatronDto` guards after the type source changes (compile-level regression via existing fixtures)
-- [ ] 2.1.2 (GREEN) In `apps/web/src/api/types.ts`, re-export `PatronDto`/`CategoriaDto`/`CatalogoDto` from `@moneydiary/api-client` (matching the `export type { MeDto } from '@moneydiary/api-client'` idiom); delete the stale ADR-008 exception comment (F-6: the "openapi.json no documenta el catálogo" claim is false)
+- [x] 2.1.1 (RED) Extend `apps/web/src/api/categorias.test.ts`: `CategoriaDto`/`PatronDto`/`CatalogoDto` still satisfy `esCategoriaDto`/`esPatronDto` guards after the type source changes (compile-level regression via existing fixtures) — **deviation**: a pure type re-export with field-identical shapes cannot RED at the vitest layer (TS types are erased at runtime; no branch changes). Treated as approval-testing (existing `categorias.test.ts`, 26 tests, run as the pre-change safety net) + a genuine compile-time gate (`pnpm web typecheck`, run clean after 2.1.2) instead of a fabricated runtime failure.
+- [x] 2.1.2 (GREEN) In `apps/web/src/api/types.ts`, re-export `PatronDto`/`CategoriaDto`/`CatalogoDto` from `@moneydiary/api-client` (matching the `export type { MeDto } from '@moneydiary/api-client'` idiom); delete the stale ADR-008 exception comment (F-6: the "openapi.json no documenta el catálogo" claim is false)
 
 ### Phase 2.2: `postCategoria` returns the DTO (RED → GREEN)
 
-- [ ] 2.2.1 (RED) Extend `apps/web/src/api/categorias.test.ts`: `postCategoria` returns the parsed `CategoriaDto` on success; malformed 201 body ⇒ `{ tag: 'parse' }`; `patrones` input is serialized in the request body
-- [ ] 2.2.2 (GREEN) In `apps/web/src/api/categorias.ts`: change `postCategoria` to `(input: CategoriaInput) => Promise<ApiResult<CategoriaDto>>`, add optional `patrones` to `CategoriaInput`, parse the 201 body through the existing `esCategoriaDto` guard, amend the docblock's blanket "los bodies de éxito se DESCARTAN" claim to name this one exception
+- [x] 2.2.1 (RED) Extend `apps/web/src/api/categorias.test.ts`: `postCategoria` returns the parsed `CategoriaDto` on success; malformed 201 body ⇒ `{ tag: 'parse' }`; `patrones` input is serialized in the request body
+- [x] 2.2.2 (GREEN) In `apps/web/src/api/categorias.ts`: change `postCategoria` to `(input: CategoriaInput) => Promise<ApiResult<CategoriaDto>>`, add optional `patrones` to `CategoriaInput`, parse the 201 body through the existing `esCategoriaDto` guard, amend the docblock's blanket "los bodies de éxito se DESCARTAN" claim to name this one exception
 
 ### Phase 2.3: `ApiError.indice` (RED → GREEN)
 
-- [ ] 2.3.1 (RED) Extend `apps/web/src/api/client.ts` test coverage (or `categorias.test.ts`): a 400 response with `indice` is lifted onto `ApiError.server.indice`
-- [ ] 2.3.2 (GREEN) Add `readonly indice?: number` to `ApiError`'s `server` variant in `apps/web/src/api/client.ts`, lift it in `errorConCodigo`, with a doc comment naming its single producer (`POST /api/categorias` with `patrones[]`)
+- [x] 2.3.1 (RED) Extend `apps/web/src/api/client.ts` test coverage (or `categorias.test.ts`): a 400 response with `indice` is lifted onto `ApiError.server.indice`
+- [x] 2.3.2 (GREEN) Add `readonly indice?: number` to `ApiError`'s `server` variant in `apps/web/src/api/client.ts`, lift it in `errorConCodigo`, with a doc comment naming its single producer (`POST /api/categorias` with `patrones[]`)
 
 ### Phase 2.4: `useCrearCategoria` typed + cache seeding (RED → GREEN)
 
-- [ ] 2.4.1 (RED) Extend `apps/web/src/api/use-crear-categoria.test.tsx`: on success, `['categorias']` cache is seeded with the appended categoría BEFORE `invalidarCatalogoYDashboard` runs; existing `NuevaCategoriaForm` call shape (`mutate({…}, { onSuccess: onCerrar })`) still compiles and behaves identically
-- [ ] 2.4.2 (GREEN) In `apps/web/src/api/use-crear-categoria.ts`: type as `useMutation<CategoriaDto, ApiError, CategoriaInput>`; in `onSuccess`, `queryClient.setQueryData(['categorias'], append)` then `invalidarCatalogoYDashboard(queryClient)`
+- [x] 2.4.1 (RED) Extend `apps/web/src/api/use-crear-categoria.test.tsx`: on success, `['categorias']` cache is seeded with the appended categoría BEFORE `invalidarCatalogoYDashboard` runs; existing `NuevaCategoriaForm` call shape (`mutate({…}, { onSuccess: onCerrar })`) still compiles and behaves identically
+- [x] 2.4.2 (GREEN) In `apps/web/src/api/use-crear-categoria.ts`: type as `useMutation<CategoriaDto, ApiError, CategoriaInput>`; in `onSuccess`, `queryClient.setQueryData(['categorias'], append)` then `invalidarCatalogoYDashboard(queryClient)`
 
 ### Phase 2.5: Verification
 
-- [ ] 2.5.1 Run `pnpm web test`
-- [ ] 2.5.2 Run `pnpm web typecheck`
-- [ ] 2.5.3 Run `pnpm web lint`
+- [x] 2.5.1 Run `pnpm web test` (137 files / 1692 tests green, full suite)
+- [x] 2.5.2 Run `pnpm web typecheck`
+- [x] 2.5.3 Run `pnpm web lint`
 
 ---
 
