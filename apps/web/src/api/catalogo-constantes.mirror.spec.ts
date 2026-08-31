@@ -36,9 +36,13 @@ const BACKEND_SOURCES = {
     REPO_ROOT,
     'apps/api/src/application/use-cases/actualizar-categoria.use-case.ts',
   ),
-  crearPatron: resolve(
+  // 2026-08-31: `MATCH_TYPES` salió de `crear-patron.use-case.ts` a la
+  // función pura `validar-patron.ts`, que ahora es la fuente única que
+  // usan tanto `CrearPatronUseCase` como la creación anidada de
+  // `CrearCategoriaUseCase` (change `crear-categoria-desde-preview`, D-01).
+  validarPatron: resolve(
     REPO_ROOT,
-    'apps/api/src/application/use-cases/crear-patron.use-case.ts',
+    'apps/api/src/application/use-cases/validar-patron.ts',
   ),
   actualizarPatron: resolve(
     REPO_ROOT,
@@ -81,7 +85,7 @@ describe('catalogo-constantes drift guard', () => {
   const actualizarCategoriaSrc = readBackendSource(
     BACKEND_SOURCES.actualizarCategoria,
   );
-  const crearPatronSrc = readBackendSource(BACKEND_SOURCES.crearPatron);
+  const validarPatronSrc = readBackendSource(BACKEND_SOURCES.validarPatron);
   const actualizarPatronSrc = readBackendSource(
     BACKEND_SOURCES.actualizarPatron,
   );
@@ -97,9 +101,9 @@ describe('catalogo-constantes drift guard', () => {
     BACKEND_SOURCES.actualizarCategoria,
   );
   const backendMatchTypesCrear = bloque(
-    crearPatronSrc,
+    validarPatronSrc,
     'MATCH_TYPES',
-    BACKEND_SOURCES.crearPatron,
+    BACKEND_SOURCES.validarPatron,
   );
   const backendMatchTypesActualizar = bloque(
     actualizarPatronSrc,
@@ -115,7 +119,7 @@ describe('catalogo-constantes drift guard', () => {
     expect([...BUCKETS_ASIGNABLES]).toEqual(backendBucketsActualizar);
   });
 
-  it('web MATCH_TYPES equals crear-patron.use-case.ts, in order', () => {
+  it('web MATCH_TYPES equals validar-patron.ts, in order', () => {
     expect([...MATCH_TYPES]).toEqual(backendMatchTypesCrear);
   });
 

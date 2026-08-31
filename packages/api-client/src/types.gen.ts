@@ -570,7 +570,7 @@ export interface paths {
         readonly put?: never;
         /**
          * Create a category
-         * @description Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01). Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         * @description Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01), optionally with its classification patrones created atomically in the same call (CAT038-10/11) — when `patrones` is omitted or empty, the contract is byte-identical to the pre-existing behavior. Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
          */
         readonly post: {
             readonly parameters: {
@@ -584,11 +584,15 @@ export interface paths {
                     readonly "application/json": {
                         readonly bucket: string;
                         readonly nombre: string;
+                        readonly patrones?: readonly {
+                            readonly matchType: string;
+                            readonly patron: string;
+                        }[];
                     };
                 };
             };
             readonly responses: {
-                /** @description Category created. */
+                /** @description Category created, with its created patrones (if any) nested. */
                 readonly 201: {
                     headers: {
                         readonly [name: string]: unknown;
@@ -597,7 +601,7 @@ export interface paths {
                         readonly "application/json": components["schemas"]["CategoriaResponse"];
                     };
                 };
-                /** @description Invalid nombre/bucket, or a malformed request body. */
+                /** @description Invalid nombre/bucket, a malformed request body, or a nested patrón that failed validation (CAT038-11) — in the latter case the body carries `indice`, the zero-based position of the offending entry within the submitted `patrones` array. */
                 readonly 400: {
                     headers: {
                         readonly [name: string]: unknown;
@@ -615,7 +619,7 @@ export interface paths {
                         readonly "application/json": components["schemas"]["CatalogoErrorResponse"];
                     };
                 };
-                /** @description A category with that nombre already exists for this user (case-insensitive). */
+                /** @description A category with that nombre already exists for this user (case-insensitive), or a nested patrón collides with one already owned by the caller or with another entry in the same submitted `patrones` array (CAT038-11) — the latter case carries `indice`. */
                 readonly 409: {
                     headers: {
                         readonly [name: string]: unknown;
@@ -2076,9 +2080,10 @@ export interface components {
             readonly totalCategorias: number;
             readonly totalTransacciones: number;
         };
-        /** @description Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. */
+        /** @description Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. `indice` is present only for a nested-patrón validation failure on POST /api/categorias (CAT038-11). */
         readonly CatalogoErrorResponse: {
             readonly code: string;
+            readonly indice?: number;
             readonly message: string;
         };
         /** @description GET /api/categorias — the authenticated caller's full catalog (US-038, CAT038-02). */
