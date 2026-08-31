@@ -38,50 +38,50 @@ Chain strategy: feature-branch-chain
 
 ### Phase 1.1: Domain + shape validation (RED → GREEN)
 
-- [ ] 1.1.1 (RED) Write `apps/api/src/application/use-cases/validar-patron.spec.ts` covering length 1–200, `matchType` enum, REGEX compile, `prioridad` default/range (same checks as `crear-patron.use-case.spec.ts`)
-- [ ] 1.1.2 (GREEN) Create `apps/api/src/application/use-cases/validar-patron.ts` — pure `validarPatron()` extracted from `crear-patron.use-case.ts`
-- [ ] 1.1.3 Refactor `apps/api/src/application/use-cases/crear-patron.use-case.ts` to call `validarPatron()`; run `crear-patron.use-case.spec.ts` unchanged and green (behavior-preservation proof, no assertion edited)
-- [ ] 1.1.4 Create `apps/api/src/domain/errors/patron-en-lote-invalido.error.ts` — `PatronEnLoteInvalidoError(indice, causa)`
+- [x] 1.1.1 (RED) Write `apps/api/src/application/use-cases/validar-patron.spec.ts` covering length 1–200, `matchType` enum, REGEX compile, `prioridad` default/range (same checks as `crear-patron.use-case.spec.ts`)
+- [x] 1.1.2 (GREEN) Create `apps/api/src/application/use-cases/validar-patron.ts` — pure `validarPatron()` extracted from `crear-patron.use-case.ts`
+- [x] 1.1.3 Refactor `apps/api/src/application/use-cases/crear-patron.use-case.ts` to call `validarPatron()`; run `crear-patron.use-case.spec.ts` unchanged and green (behavior-preservation proof, no assertion edited)
+- [x] 1.1.4 Create `apps/api/src/domain/errors/patron-en-lote-invalido.error.ts` — `PatronEnLoteInvalidoError(indice, causa)`
 
 ### Phase 1.2: Use case + port (RED → GREEN)
 
-- [ ] 1.2.1 (RED) Extend `apps/api/src/application/use-cases/crear-categoria.use-case.spec.ts`: absent `patrones` byte-identical to today; `[]` same; valid list ⇒ one `crearConPatrones` call; invalid patrón at index 1 ⇒ `PatronEnLoteInvalidoError{indice:1}` and repository never called; within-batch case-insensitive duplicate ⇒ error at second occurrence; pre-existing duplicate ⇒ wrapped with index; demo gate precedes patrón inspection; nombre/bucket failures precede patrón failures
-- [ ] 1.2.2 (GREEN) Add `crearConPatrones` to `apps/api/src/application/ports/categoria-repository.port.ts`
-- [ ] 1.2.3 (GREEN) Extend `apps/api/src/application/use-cases/crear-categoria.use-case.ts`: optional `patrones` input, validation order (demo → nombre → bucket → nombre único → per-patrón `validarPatron` → `existePatron` → within-batch `Set`) → single `crearConPatrones` write
+- [x] 1.2.1 (RED) Extend `apps/api/src/application/use-cases/crear-categoria.use-case.spec.ts`: absent `patrones` byte-identical to today; `[]` same; valid list ⇒ one `crearConPatrones` call; invalid patrón at index 1 ⇒ `PatronEnLoteInvalidoError{indice:1}` and repository never called; within-batch case-insensitive duplicate ⇒ error at second occurrence; pre-existing duplicate ⇒ wrapped with index; demo gate precedes patrón inspection; nombre/bucket failures precede patrón failures
+- [x] 1.2.2 (GREEN) Add `crearConPatrones` to `apps/api/src/application/ports/categoria-repository.port.ts`
+- [x] 1.2.3 (GREEN) Extend `apps/api/src/application/use-cases/crear-categoria.use-case.ts`: optional `patrones` input, validation order (demo → nombre → bucket → nombre único → per-patrón `validarPatron` → `existePatron` → within-batch `Set`) → single `crearConPatrones` write
 
 ### Phase 1.3: Persistence (RED → GREEN)
 
-- [ ] 1.3.1 (RED) Extend `apps/api/test/catalogo-crud.int-spec.ts`: a request whose 2nd patrón duplicates an existing one leaves zero new `Categoria` and zero new `PatronClasificacion` rows (gated `ALLOW_DESTRUCTIVE_DB=1`)
-- [ ] 1.3.2 (GREEN) Implement `crearConPatrones` in `apps/api/src/infrastructure/persistence/prisma-categoria.repository.ts` as one nested `prisma.categoria.create({ data: { …, patrones: { create: [...] } }, include: categoriaInclude(userId) })`; remove `crear()` (replaced, not kept alongside)
+- [x] 1.3.1 (RED) Extend `apps/api/test/catalogo-crud.int-spec.ts`: a request whose 2nd patrón duplicates an existing one leaves zero new `Categoria` and zero new `PatronClasificacion` rows (gated `ALLOW_DESTRUCTIVE_DB=1`)
+- [x] 1.3.2 (GREEN) Implement `crearConPatrones` in `apps/api/src/infrastructure/persistence/prisma-categoria.repository.ts` as one nested `prisma.categoria.create({ data: { …, patrones: { create: [...] } }, include: categoriaInclude(userId) })`; remove `crear()` (replaced, not kept alongside)
 
 ### Phase 1.4: HTTP wiring — error plumbing + schema (RED → GREEN)
 
-- [ ] 1.4.1 (RED) Extend `apps/api/src/infrastructure/http-express/routes/catalogo-http-error.ts` spec: `PatronEnLoteInvalidoError` maps to causa's status+code plus `indice`; `_exhaustive: never` still compiles
-- [ ] 1.4.2 (GREEN) Add the recursive branch in `catalogo-http-error.ts`
-- [ ] 1.4.3 Add `readonly indice?: number` to `ErrorTraducido` and forward it in `apps/api/src/infrastructure/http-express/routes/responder-error-traducido.ts`
-- [ ] 1.4.4 Add `indice: z.number().optional()` to `apps/api/src/infrastructure/http-express/schemas/catalogo-error.schema.ts`
-- [ ] 1.4.5 (RED) Extend `apps/api/src/infrastructure/http-express/schemas/categorias.schema.spec.ts` (response/DTO sync) and add a schema test for `patronEnCategoriaCreateSchema`: `.strict()`, `.max(20)`, no `prioridad` field accepted
-- [ ] 1.4.6 (GREEN) Add `patronEnCategoriaCreateSchema` + optional `patrones` to `categoriaCreateRequestSchema` in `apps/api/src/infrastructure/http-express/schemas/categorias.schema.ts`
-- [ ] 1.4.7 (RED) Extend `apps/api/src/infrastructure/http-express/routes/categorias.routes.spec.ts`: 201 nests created patrones; 400 body carries `indice`; body without `patrones` behaves exactly as before (mobile/back-compat pin); `>20` patrones and unknown patrón keys ⇒ `BODY_INVALIDO`
-- [ ] 1.4.8 (GREEN) Pass `parsed.data.patrones` through in `apps/api/src/infrastructure/http-express/routes/categorias.routes.ts`
-- [ ] 1.4.9 Update the 400 description in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` to mention `indice`
+- [x] 1.4.1 (RED) Extend `apps/api/src/infrastructure/http-express/routes/catalogo-http-error.ts` spec: `PatronEnLoteInvalidoError` maps to causa's status+code plus `indice`; `_exhaustive: never` still compiles
+- [x] 1.4.2 (GREEN) Add the recursive branch in `catalogo-http-error.ts`
+- [x] 1.4.3 Add `readonly indice?: number` to `ErrorTraducido` and forward it in `apps/api/src/infrastructure/http-express/routes/responder-error-traducido.ts`
+- [x] 1.4.4 Add `indice: z.number().optional()` to `apps/api/src/infrastructure/http-express/schemas/catalogo-error.schema.ts`
+- [x] 1.4.5 (RED) Extend `apps/api/src/infrastructure/http-express/schemas/categorias.schema.spec.ts` (response/DTO sync) and add a schema test for `patronEnCategoriaCreateSchema`: `.strict()`, `.max(20)`, no `prioridad` field accepted
+- [x] 1.4.6 (GREEN) Add `patronEnCategoriaCreateSchema` + optional `patrones` to `categoriaCreateRequestSchema` in `apps/api/src/infrastructure/http-express/schemas/categorias.schema.ts`
+- [x] 1.4.7 (RED) Extend `apps/api/src/infrastructure/http-express/routes/categorias.routes.spec.ts`: 201 nests created patrones; 400 body carries `indice`; body without `patrones` behaves exactly as before (mobile/back-compat pin); `>20` patrones and unknown patrón keys ⇒ `BODY_INVALIDO`
+- [x] 1.4.8 (GREEN) Pass `parsed.data.patrones` through in `apps/api/src/infrastructure/http-express/routes/categorias.routes.ts`
+- [x] 1.4.9 Update the 400 description in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` to mention `indice`
 
 ### Phase 1.5: T-01 — rowIndex stability proof (blocks apply until green)
 
-- [ ] 1.5.1 (RED→GREEN, proof task) Create `apps/api/test/preview-rowindex-estable.spec.ts` (unit, stubbed readers, no DB): run `PreviewIngestaUseCase.execute` twice over the same fixture buffer with an empty catalog, assert `filas.map(f => [f.rowIndex, descripcion, cargo, abono])` deep-equal and `rowIndex === arrayPosition`; repeat with a different (non-empty) catalog on the 2nd run, assert tuples still identical while `sugerido` differs; run both assertions for `movimientos-test.xlsx` (Excel) and `bci-cartola-test.pdf` (PDF)
+- [x] 1.5.1 (RED→GREEN, proof task) Create `apps/api/test/preview-rowindex-estable.spec.ts` (unit, stubbed readers, no DB): run `PreviewIngestaUseCase.execute` twice over the same fixture buffer with an empty catalog, assert `filas.map(f => [f.rowIndex, descripcion, cargo, abono])` deep-equal and `rowIndex === arrayPosition`; repeat with a different (non-empty) catalog on the 2nd run, assert tuples still identical while `sugerido` differs; run both assertions for `movimientos-test.xlsx` (Excel) and `bci-cartola-test.pdf` (PDF)
 
 ### Phase 1.6: Contract regeneration
 
-- [ ] 1.6.1 Run `pnpm contract:sync` (= `pnpm api openapi:emit && pnpm api-client generate`) to regenerate `apps/api/openapi.json` and `packages/api-client/src/types.gen.ts`
-- [ ] 1.6.2 Verify `pnpm api openapi:check` and `pnpm api-client typecheck` pass with zero drift
-- [ ] 1.6.3 Confirm `packages/api-client/src/index.ts` already exports `CategoriaDto`/`CatalogoDto`/`PatronDto` as one-line aliases of `S['CategoriaResponse']`/`S['CatalogoResponse']`/`S['PatronResponse']` (lines 116–123, verified at task-planning time) — **no new alias needed**; design's flagged apply-time risk is resolved, record this in the PR1 description
+- [x] 1.6.1 Run `pnpm contract:sync` (= `pnpm api openapi:emit && pnpm api-client generate`) to regenerate `apps/api/openapi.json` and `packages/api-client/src/types.gen.ts`
+- [x] 1.6.2 Verify `pnpm api openapi:check` and `pnpm api-client typecheck` pass with zero drift
+- [x] 1.6.3 Confirm `packages/api-client/src/index.ts` already exports `CategoriaDto`/`CatalogoDto`/`PatronDto` as one-line aliases of `S['CategoriaResponse']`/`S['CatalogoResponse']`/`S['PatronResponse']` (lines 116–123, verified at task-planning time) — **no new alias needed**; design's flagged apply-time risk is resolved, record this in the PR1 description
 
 ### Phase 1.7: Verification
 
-- [ ] 1.7.1 Run `pnpm api test` (all unit specs green, including 1.1–1.4)
-- [ ] 1.7.2 Run `pnpm api test:integration` (1.3.1 green)
-- [ ] 1.7.3 Run `pnpm api lint:ci`
-- [ ] 1.7.4 Commit with `size:exception` note in the PR body naming `apps/api/openapi.json` + `packages/api-client/src/types.gen.ts` as generated
+- [x] 1.7.1 Run `pnpm api test` (all unit specs green, including 1.1–1.4)
+- [x] 1.7.2 Run `pnpm api test:integration` (1.3.1 green)
+- [x] 1.7.3 Run `pnpm api lint:ci`
+- [ ] 1.7.4 Commit with `size:exception` note in the PR body naming `apps/api/openapi.json` + `packages/api-client/src/types.gen.ts` as generated (commit made locally; PR body/exception note is a PR-creation step, out of this apply run's scope — not pushed/opened per instructions)
 
 ---
 
