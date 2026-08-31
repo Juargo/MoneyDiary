@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { Badge } from './ui/badge';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
-import {
-  SENTINEL_OPTION,
-  BUCKET_SENTINEL_OPTION,
-} from './catalogo-select-sentinels';
-import { formatearMontoCLP } from '@/domain/formatear-monto';
-import { construirOpcionesBucket } from '@/lib/bucket-colors';
+import { SelectorBucket } from './SelectorBucket';
+import { SENTINEL_OPTION } from './catalogo-select-sentinels';
+import { esMontoCero, formatearMontoCLP } from '@/domain/formatear-monto';
 import type { PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
 
@@ -40,24 +37,34 @@ import type { CatalogoEstado } from '@/api/types';
  * fires while the user is mid-cascade on an untouched row.
  *
  * Duplicate rows (`fila.esDuplicado`): greyed container + "Duplicado" badge +
- * both selects `disabled` — no `onEditChange` is ever wired for them (D-10).
- * They never render a selection checkbox either (never selectable for bulk).
+ * `SelectorBucket` `disabled` (no categoría select rendered, D-10) — no
+ * `onEditChange` is ever wired for them. They never render a selection
+ * checkbox either (never selectable for bulk).
  *
- * A11y: accessible per-row labels via `CampoSelect`'s `label` prop. Label
- * format: "Fila {rowIndex+1}: bucket" / "Fila {rowIndex+1}: categoría"
- * (1-based, stable, D-10). The selection checkbox uses
- * "Seleccionar fila {rowIndex+1}" (same numbering).
+ * 2026-08-30: the bucket `<select>` was replaced with `SelectorBucket`, a
+ * segmented control of native radio inputs (chips, one per bucket + a
+ * leading "Sin categoría"). The categoría `CampoSelect` is no longer
+ * rendered at all while `bucketUI === ''` — it only appears once a real
+ * bucket is chosen — instead of existing-but-`disabled`. The right-hand
+ * `sm:flex-1` wrapper stays in the tree either way so the two columns keep
+ * lining up with `PreviewMuestra`'s shared `data-columnas-header` row.
  *
- * Design critique P2 fix 1 (column identity): the selects used to be
+ * A11y: accessible per-row labels via `SelectorBucket`'s `label` prop
+ * (`aria-label` on its `<fieldset>`) and `CampoSelect`'s `label` prop for
+ * categoría. Label format: "Fila {rowIndex+1}: bucket" /
+ * "Fila {rowIndex+1}: categoría" (1-based, stable, D-10). The selection
+ * checkbox uses "Seleccionar fila {rowIndex+1}" (same numbering).
+ *
+ * Design critique P2 fix 1 (column identity): the controls used to be
  * fully `srOnly` — a sighted user scanning 50+ rows saw two bare dropdowns
- * with no visible column identity once a value was chosen. Now each select
- * uses `CampoSelect`'s `columnLabel` ("Bucket"/"Categoría"): visible above
- * the select on mobile (stacked layout), `sm:sr-only` at `sm`+ where
- * `PreviewMuestra` renders ONE shared sticky column-header row instead. The
- * full "Fila N: …" sentence never leaves the accessible name at any
- * breakpoint — it lives on the `<select>`'s own `aria-label` (see
- * `CampoSelect`). Each select is wrapped in `sm:flex-1` so both columns take
- * equal width at `sm`+, matching the shared header's own `flex-1` split.
+ * with no visible column identity once a value was chosen. Now both
+ * `SelectorBucket` and `CampoSelect` take a `columnLabel` ("Bucket"/
+ * "Categoría"): visible above the control on mobile (stacked layout),
+ * `sm:sr-only` at `sm`+ where `PreviewMuestra` renders ONE shared sticky
+ * column-header row instead. The full "Fila N: …" sentence never leaves the
+ * accessible name at any breakpoint. Each control sits in a `sm:flex-1`
+ * wrapper so both columns take equal width at `sm`+, matching the shared
+ * header's own `flex-1` split.
  *
  * ADR-024: zero business logic here — amounts formatted via `formatearMontoCLP`
  * (display-only), no re-computation, no dedup logic, no Ingreso rule.
@@ -129,18 +136,12 @@ export function FilaRevision({
   const labelCategoria = `Fila ${n}: categoría`;
   const labelSeleccionar = `Seleccionar fila ${n}`;
 
-  // Bucket options come from the catalog groups that exist (empty buckets
-  // already filtered by agruparPorBucket — D-06, verified fact §0 design.md).
-  // Leading sentinel allows the user to choose "no bucket" and makes the
-  // empty-string value a valid option (prevents jsdom/browser auto-selecting
-  // the first real option when bucketUI is '').
-  const bucketOptions =
-    catalogo.tag === 'listo'
-      ? [
-          BUCKET_SENTINEL_OPTION,
-          ...construirOpcionesBucket(catalogo.grupos.map((g) => g.bucket)),
-        ]
-      : [BUCKET_SENTINEL_OPTION];
+  // Buckets available for the segmented control come from the catalog groups
+  // that exist (empty buckets already filtered by agruparPorBucket — D-06,
+  // verified fact §0 design.md). `SelectorBucket` builds its own leading
+  // "Sin categoría" option and applies `ETIQUETA_BUCKET` internally.
+  const buckets =
+    catalogo.tag === 'listo' ? catalogo.grupos.map((g) => g.bucket) : [];
 
   // Categoría options: filter to the selected bucket's group; lead with sentinel.
   const categoriaOptions =
@@ -170,104 +171,145 @@ export function FilaRevision({
 
   const catalogoDisabled = catalogo.tag !== 'listo';
 
+  // Row header (polish pass, 2026-08-30): the old header was a single flex
+  // row with `justify-between` — checkbox+date on the left, a truncated
+  // description on the right, then a second row of "Cargo: / Abono:" pairs.
+  // On phones the description's box collided with the date (see the
+  // 390px screenshot that drove this) and the two amount pairs read as a
+  // table with no columns. Now the row is a classic list item: leading
+  // control, a `min-w-0 flex-1` text column (description as the primary
+  // line, date beneath it as meta — the date group heading already carries
+  // the date, so it's demoted, not removed: FilaRevision also renders
+  // outside that grouping in tests), and a `shrink-0` right-aligned amount
+  // column. Amounts are a `<dl>` so each figure is its own `<dd>` element
+  // (`getByText('$0')` exact match) with its label as `<dt>`. ADR-024: still
+  // display-only — nothing here decides which of cargo/abono "matters".
+  const encabezado = (
+    <div className="flex items-start gap-2">
+      {!fila.esDuplicado && (
+        // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): the checkbox
+        // glyph stays size-4 (16px) visually, but a wrapping `<label>`
+        // grows the CLICKABLE area to size-6 (24×24 CSS px) — the same
+        // floor `CLASE_BOTON_ICONO` already enforces for icon buttons.
+        // A native `<label>` around a bare `<input>` toggles it on click
+        // anywhere inside, so this alone grows the hit target with no
+        // extra handler. Duplicate rows render no checkbox: never
+        // selectable for bulk (D-10).
+        <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
+          <input
+            type="checkbox"
+            aria-label={labelSeleccionar}
+            checked={selected}
+            onChange={() => onToggleSelect(fila.rowIndex)}
+            className="size-4 shrink-0 rounded border-border accent-primary"
+          />
+        </label>
+      )}
+      <div className="min-w-0 flex-1 text-muted-foreground">
+        {/* `data-descripcion`: the stable hook `PreviewMuestra.test.tsx`'s
+            grouping suite reads row descriptions through (replaced a
+            markup-coupled `.text-muted-foreground > span.font-medium`
+            selector in this pass). */}
+        <span
+          data-descripcion
+          className="block truncate font-medium text-foreground"
+          title={fila.descripcion}
+        >
+          {fila.descripcion}
+        </span>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums">
+          <span>{fila.fecha.slice(0, 10)}</span>
+          {fila.esDuplicado && <Badge variant="outline">Duplicado</Badge>}
+        </span>
+      </div>
+      <dl className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+        <div className="flex justify-end gap-1">
+          <dt>Cargo</dt>
+          {/* Semantic amount colors (2026-08-30): cargo in `cargo-foreground`,
+              abono in `ingreso-foreground` — but a `$0` in either column
+              stays neutral. Color marks money that moved; painting the
+              empty column green/red would make every row look like both. */}
+          <dd
+            className={`font-medium ${
+              esMontoCero(fila.cargo)
+                ? 'text-foreground'
+                : 'text-cargo-foreground'
+            }`}
+          >
+            {formatearMontoCLP(fila.cargo)}
+          </dd>
+        </div>
+        <div className="flex justify-end gap-1">
+          <dt>Abono</dt>
+          <dd
+            className={`font-medium ${
+              esMontoCero(fila.abono)
+                ? 'text-foreground'
+                : 'text-ingreso-foreground'
+            }`}
+          >
+            {formatearMontoCLP(fila.abono)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+
   if (fila.esDuplicado) {
     return (
-      <li className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm opacity-50">
-        <div className="flex items-center justify-between text-muted-foreground">
-          <span>{fila.fecha.slice(0, 10)}</span>
-          <Badge variant="secondary">Duplicado</Badge>
-          <span className="font-medium">{fila.descripcion}</span>
-        </div>
-        <div className="flex items-center justify-between text-foreground">
-          <span>
-            Cargo:{' '}
-            <span className="font-medium">{formatearMontoCLP(fila.cargo)}</span>
-          </span>
-          <span>
-            Abono:{' '}
-            <span className="font-medium">{formatearMontoCLP(fila.abono)}</span>
-          </span>
-        </div>
+      <li className="flex flex-col gap-2 py-3 text-sm opacity-50">
+        {encabezado}
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="sm:flex-1">
-            <CampoSelect
+            <SelectorBucket
               label={labelBucket}
               columnLabel="Bucket"
               value=""
               onChange={() => undefined}
-              options={bucketOptions}
+              buckets={buckets}
               disabled
             />
           </div>
-          <div className="sm:flex-1">
-            <CampoSelect
-              label={labelCategoria}
-              columnLabel="Categoría"
-              value=""
-              onChange={() => undefined}
-              options={[SENTINEL_OPTION]}
-              disabled
-            />
-          </div>
+          <div className="sm:flex-1" />
         </div>
       </li>
     );
   }
 
   return (
-    <li className="flex flex-col gap-1 rounded-lg border border-border bg-muted p-2 text-sm">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <div className="flex items-center gap-2">
-          {/* Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): the checkbox
-              glyph stays size-4 (16px) visually, but a wrapping `<label>`
-              grows the CLICKABLE area to size-6 (24×24 CSS px) — the same
-              floor `CLASE_BOTON_ICONO` already enforces for icon buttons.
-              A native `<label>` around a bare `<input>` toggles it on click
-              anywhere inside, so this alone grows the hit target with no
-              extra handler. */}
-          <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
-            <input
-              type="checkbox"
-              aria-label={labelSeleccionar}
-              checked={selected}
-              onChange={() => onToggleSelect(fila.rowIndex)}
-              className="size-4 shrink-0 rounded border-border accent-primary"
-            />
-          </label>
-          <span>{fila.fecha.slice(0, 10)}</span>
-        </div>
-        <span className="font-medium">{fila.descripcion}</span>
-      </div>
-      <div className="flex items-center justify-between text-foreground">
-        <span>
-          Cargo:{' '}
-          <span className="font-medium">{formatearMontoCLP(fila.cargo)}</span>
-        </span>
-        <span>
-          Abono:{' '}
-          <span className="font-medium">{formatearMontoCLP(fila.abono)}</span>
-        </span>
-      </div>
+    <li className="flex flex-col gap-2 py-3 text-sm">
+      {encabezado}
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="sm:flex-1">
-          <CampoSelect
+          <SelectorBucket
             label={labelBucket}
             columnLabel="Bucket"
             value={bucketUI}
             onChange={handleBucketChange}
-            options={bucketOptions}
+            buckets={buckets}
             disabled={catalogoDisabled}
           />
         </div>
         <div className="sm:flex-1">
-          <CampoSelect
-            label={labelCategoria}
-            columnLabel="Categoría"
-            value={categoriaId ?? ''}
-            onChange={handleCategoriaChange}
-            options={categoriaOptions}
-            disabled={catalogoDisabled || !bucketUI}
-          />
+          {/* Keyed by `bucketUI`: switching bucket remounts the wrapper so
+              `categoria-in` (index.css) replays — a state-transition cue
+              that the options now belong to the new bucket. Not a loading
+              state: nothing is fetched here (catalog is in memory). */}
+          {bucketUI && (
+            <div
+              key={bucketUI}
+              className="motion-safe:animate-[categoria-in_200ms_ease-out]"
+            >
+              <CampoSelect
+                label={labelCategoria}
+                columnLabel="Categoría"
+                value={categoriaId ?? ''}
+                onChange={handleCategoriaChange}
+                options={categoriaOptions}
+                disabled={catalogoDisabled}
+              />
+            </div>
+          )}
         </div>
       </div>
     </li>

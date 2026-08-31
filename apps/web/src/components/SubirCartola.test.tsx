@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SubirCartola } from './SubirCartola';
 import { usePreviewIngesta } from '@/api/use-preview-ingesta';
@@ -325,6 +331,206 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(previewMutate).toHaveBeenCalledWith(archivo);
   });
 
+  // ── Detail pass: real drop zone (drag & drop) ─────────────────────────────
+  describe('detail pass: drop zone (drag & drop)', () => {
+    it('dropping a valid file on the zone triggers the same preview mutation call as choosing it via the input', () => {
+      const previewMutate = vi.fn();
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({ mutate: previewMutate }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      const zona = screen
+        .getByLabelText(/selecciona un archivo/i)
+        .closest('[data-arrastrando]') as HTMLElement;
+      const archivo = unArchivo('cartola.xlsx', 1024);
+
+      fireEvent.drop(zona, { dataTransfer: { files: [archivo] } });
+
+      expect(previewMutate).toHaveBeenCalledTimes(1);
+      expect(previewMutate).toHaveBeenCalledWith(archivo);
+    });
+
+    it('drop while the picker is gated (e.g. during committing) does nothing', () => {
+      const previewMutate = vi.fn();
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+          mutate: previewMutate,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ isPending: true, status: 'pending' }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      const zona = screen
+        .getByLabelText(/selecciona un archivo/i)
+        .closest('[data-arrastrando]') as HTMLElement;
+      const archivo = unArchivo('otra-cartola.xlsx', 1024);
+
+      fireEvent.drop(zona, { dataTransfer: { files: [archivo] } });
+
+      expect(previewMutate).not.toHaveBeenCalled();
+    });
+
+    it('shows a compact file row with the file name after selection', async () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        unArchivo('cartola.xlsx', 1024),
+      );
+
+      expect(screen.getByText('cartola.xlsx')).toBeInTheDocument();
+    });
+  });
+
+  // ── Detail pass: flow stepper ─────────────────────────────────────────────
+  describe('detail pass: flow stepper', () => {
+    it('aria-current="step" moves from "Elegir archivo" to "Revisar" after a preview succeeds, and to "Importar" after commit succeeds', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+
+      expect(screen.getByText('Elegir archivo').closest('li')).toHaveAttribute(
+        'aria-current',
+        'step',
+      );
+      expect(screen.getByText('Revisar').closest('li')).not.toHaveAttribute(
+        'aria-current',
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(screen.getByText('Revisar').closest('li')).toHaveAttribute(
+        'aria-current',
+        'step',
+      );
+      expect(
+        screen.getByText('Elegir archivo').closest('li'),
+      ).not.toHaveAttribute('aria-current');
+
+      // While the commit is in flight the import IS running: "Importar" must
+      // already be the current step (not "Revisar" glowing under a
+      // "Subiendo…" button).
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ isPending: true, status: 'pending' }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(screen.getByText('Importar').closest('li')).toHaveAttribute(
+        'aria-current',
+        'step',
+      );
+      expect(screen.getByText('Revisar').closest('li')).not.toHaveAttribute(
+        'aria-current',
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({
+          isSuccess: true,
+          status: 'success',
+          data: unCommitDtoExito(),
+        }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(screen.getByText('Importar').closest('li')).toHaveAttribute(
+        'aria-current',
+        'step',
+      );
+    });
+  });
+
+  // ── Detail pass: preview skeleton ─────────────────────────────────────────
+  describe('detail pass: preview skeleton', () => {
+    it('shows the skeleton while previsualizando and hides it once preview-listo', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({ isPending: true, status: 'pending' }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { container, rerender } = render(<SubirCartola />);
+
+      expect(container.querySelector('[data-skeleton-preview]')).not.toBeNull();
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(container.querySelector('[data-skeleton-preview]')).toBeNull();
+    });
+  });
+
   it('WEB-PRV-02: on preview success renders PreviewMuestra with banco, resumen, rows', () => {
     mockedUsePreviewIngesta.mockReturnValue(
       unaMutacion<PreviewIngestaDto>({
@@ -483,9 +689,11 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
 
-    // First pick a bucket (enables the categoría select)
-    const bucketSelect = screen.getByLabelText(/Fila 1: bucket/i);
-    await user.selectOptions(bucketSelect, 'Necesidades');
+    // First pick a bucket (reveals the categoría select)
+    const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+    await user.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
 
     // Then select a categoría
     const categoriaSelect = screen.getByLabelText(/Fila 1: categoría/i);
@@ -572,8 +780,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     rerender(<SubirCartola />);
 
     // Edit row 3 — pick bucket then categoría (userEvent for proper state flush)
-    const bucketSelect = screen.getByLabelText(/Fila 4: bucket/i);
-    await userEvent.selectOptions(bucketSelect, 'Necesidades');
+    const bucketGroup = screen.getByLabelText(/Fila 4: bucket/i);
+    await userEvent.click(
+      within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+    );
     const categoriaSelect = screen.getByLabelText(/Fila 4: categoría/i);
     await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
 
@@ -703,9 +913,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     // Classify row 4 (rowIndex 3) via the edit overlay — must count exactly
     // like a sugerido-derived classification (D-05).
     const user = userEvent.setup();
-    await user.selectOptions(
-      screen.getByLabelText(/Fila 4: bucket/i),
-      'Necesidades',
+    await user.click(
+      within(screen.getByLabelText(/Fila 4: bucket/i)).getByRole('radio', {
+        name: 'Necesidades',
+      }),
     );
     await user.selectOptions(
       screen.getByLabelText(/Fila 4: categoría/i),
@@ -1019,11 +1230,12 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
 
-    // Duplicate row selects are disabled
-    const bucketSelect = screen.getByLabelText(/Fila 1: bucket/i);
-    const categoriaSelect = screen.getByLabelText(/Fila 1: categoría/i);
-    expect(bucketSelect).toBeDisabled();
-    expect(categoriaSelect).toBeDisabled();
+    // Duplicate row: bucket control disabled, no categoría select rendered
+    const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+    expect(bucketGroup).toBeDisabled();
+    expect(
+      screen.queryByLabelText(/Fila 1: categoría/i),
+    ).not.toBeInTheDocument();
   });
 
   // ── Double-submit guard (D-02, SEC-01) ───────────────────────────────────
@@ -1750,9 +1962,11 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     );
     rerender(<SubirCartola />);
 
-    // Selects are disabled (existing D-10 assertion)
+    // Bucket control is disabled; no categoría select renders (existing D-10 assertion)
     expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeDisabled();
-    expect(screen.getByLabelText(/Fila 1: categoría/i)).toBeDisabled();
+    expect(
+      screen.queryByLabelText(/Fila 1: categoría/i),
+    ).not.toBeInTheDocument();
 
     // Click commit — edits map is empty so edits: [] is passed
     fireEvent.click(

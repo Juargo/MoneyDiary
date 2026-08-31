@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { HelpCircle, X } from 'lucide-react';
+import { ChevronDown, FileText, X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
 import { Button } from './ui/button';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
@@ -31,6 +31,9 @@ import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * - `categoriaToolbar` — the toolbar's single categoría selection (round-9
  *   P2, see below); independent from any single row's `bucketUI` in
  *   FilaRevision, which keeps its own separate bucket→categoría cascade.
+ * - `gruposColapsados` — the Set of collapsed date-group keys behind the
+ *   per-date accordion (2026-08-30 polish); empty = all open; reset on
+ *   every filter change (see `cambiarFiltro`).
  * Selection is intentionally NOT persisted anywhere upstream: it never
  * touches `edits`, only `onEditChange` calls at "Aplicar" time do — bulk
  * apply is sugar over the same sparse-overlay contract (D-03), never a new
@@ -284,6 +287,44 @@ export function PreviewMuestra({
     new Set(),
   );
   const [categoriaToolbar, setCategoriaToolbar] = useState('');
+  // Accordion state per date group (polish pass, 2026-08-30): the Set holds
+  // the keys of COLLAPSED groups, so the default (empty Set) is "everything
+  // open" — a review flow must never hide work by default; collapsing is
+  // the user's way of parking a date they're done with. Keyed by the same
+  // `${fecha}-${indiceGrupo}` string the group `key` uses, so a
+  // non-consecutive repeat of a date (see `agruparPorFecha`) collapses
+  // independently. That index is only stable for a FIXED `filasVisibles`:
+  // toggling "Solo sin clasificar" can drop or reorder groups, so the Set
+  // is reset on every filter change (`cambiarFiltro`) instead of letting a
+  // stale key silently re-expand or mis-collapse a different date — a
+  // filter toggle shows a fresh, fully expanded list. Collapsed groups stay
+  // in the DOM (`hidden`, not unmounted) so each FilaRevision keeps its
+  // mid-cascade `bucketUI`.
+  const [gruposColapsados, setGruposColapsados] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+
+  function cambiarFiltro(soloSinClasificarNuevo: boolean) {
+    setSoloSinClasificar(soloSinClasificarNuevo);
+    setGruposColapsados(new Set());
+  }
+  // Prefixes for the `aria-controls` ids of the per-group lists and the
+  // `aria-labelledby` of the Movimientos section (groups render in a map,
+  // so a static id would collide across groups).
+  const idBase = useId();
+  const idTituloMovimientos = `${idBase}-movimientos`;
+
+  function handleToggleGrupoAbierto(clave: string) {
+    setGruposColapsados((prev) => {
+      const next = new Set(prev);
+      if (next.has(clave)) {
+        next.delete(clave);
+      } else {
+        next.add(clave);
+      }
+      return next;
+    });
+  }
 
   // D-05: merged display value computed once — edits win over
   // sugerido.categoriaId (round-10 CRITICAL follow-up: extracted to
@@ -398,31 +439,73 @@ export function PreviewMuestra({
     catalogo.tag === 'listo' ? catalogo.grupos : [];
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Resumen header — WEB-PRV-02, D-08: banco from top-level field */}
-      <h3 className="text-sm font-semibold text-foreground">{banco}</h3>
-      {/* HTML5-valid dl: three <div> wrappers each with dt+dd pair (fix 3) */}
-      <dl className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm text-muted-foreground">
-        <div>
-          <dt className="font-medium">Total filas</dt>
-          <dd>{resumen.totalFilas}</dd>
+    <div className="flex flex-col gap-4">
+      {/* Cartola identity block (polish pass, 2026-08-30): the file's
+          metadata used to render as three loose text lines (banco heading,
+          meta line, "nada se ha guardado") that sat flush against the
+          review list in the same white card — nothing told the eye where
+          "the file" ended and "the rows to work on" began. It now lives on
+          its own tinted surface (`bg-muted/40` + Mist border: the same
+          quiet notice idiom `states/Empty` and `DemoUploadNudge` already
+          use in this pass — surface, not color, because it carries no
+          estado). Inside, hierarchy is typographic only: banco as the
+          block's title, the three counts as number-over-label stats
+          (no per-stat boxes), and the "nothing saved" line demoted to the
+          block's footnote. Nothing here is a control; it is reference
+          information the user reads once. */}
+      <div
+        data-resumen-cartola
+        className="flex flex-col gap-4 rounded-lg border border-border bg-muted/40 p-4"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <FileText
+              aria-hidden="true"
+              className="mt-0.5 size-5 shrink-0 text-muted-foreground"
+            />
+            <div className="flex min-w-0 flex-col gap-0.5">
+              {/* Resumen header — WEB-PRV-02, D-08: banco from top-level
+                  field. `truncate` guards long bank labels on phones. */}
+              <h3 className="truncate text-base font-semibold text-foreground">
+                {banco}
+              </h3>
+              <p className="text-xs text-muted-foreground">Cartola detectada</p>
+            </div>
+          </div>
+          {/* HTML5-valid dl: three <div> wrappers each with dt+dd pair
+              (fix 3). Number-over-label: `dt` stays first in the DOM (the
+              label is read before its value by AT), `flex-col-reverse`
+              only flips the VISUAL order so the figure sits on top.
+              `tabular-nums` keeps the three figures on one digit width. */}
+          <dl className="grid shrink-0 grid-cols-3 gap-x-6 text-sm tabular-nums">
+            <div className="flex flex-col-reverse">
+              <dt className="text-xs text-muted-foreground">Total filas</dt>
+              <dd className="text-lg leading-tight font-semibold text-foreground">
+                {resumen.totalFilas}
+              </dd>
+            </div>
+            <div className="flex flex-col-reverse">
+              <dt className="text-xs text-muted-foreground">Duplicados</dt>
+              <dd className="text-lg leading-tight font-semibold text-foreground">
+                {resumen.duplicadosDetectados}
+              </dd>
+            </div>
+            <div className="flex flex-col-reverse">
+              <dt className="text-xs text-muted-foreground">Nuevas</dt>
+              <dd className="text-lg leading-tight font-semibold text-foreground">
+                {resumen.nuevas}
+              </dd>
+            </div>
+          </dl>
         </div>
-        <div>
-          <dt className="font-medium">Duplicados</dt>
-          <dd>{resumen.duplicadosDetectados}</dd>
-        </div>
-        <div>
-          <dt className="font-medium">Nuevas</dt>
-          <dd>{resumen.nuevas}</dd>
-        </div>
-      </dl>
 
-      {/* CA-02 / WEB-PRV-02: "nothing saved yet" affordance — plain <p>, no
-          live-region role (fix 7). SubirCartola's aria-live announcer covers
-          state-entry announcements. */}
-      <p className="text-sm text-muted-foreground">
-        Nada se ha guardado aún — revisa las filas y confirma para importar.
-      </p>
+        {/* CA-02 / WEB-PRV-02: "nothing saved yet" affordance — plain <p>,
+            no live-region role (fix 7). SubirCartola's aria-live announcer
+            covers state-entry announcements. */}
+        <p className="text-xs text-muted-foreground">
+          Nada se ha guardado aún. Revisa las filas y confirma para importar.
+        </p>
+      </div>
 
       {/* D-07: non-blocking catalog loading affordance (fix 5) */}
       {catalogo.tag === 'cargando' && (
@@ -437,79 +520,119 @@ export function PreviewMuestra({
         </p>
       )}
 
-      {filas.length > 0 && (
-        // Sticky classification progress — plain visible text, no live
-        // region (SubirCartola's announcer owns state-entry announcements).
-        <div className="sticky top-0 z-10 flex flex-col gap-2 bg-card py-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              {seleccionablesVisibles.length > 0 && (
-                // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
-                // `<label>` already wraps the checkbox AND its visible text
-                // ("Seleccionar todas las visibles (N)"), so clicking the
-                // text already toggles it — the only gap is HEIGHT (14px/20px
-                // text can sit under the 24px floor). `min-h-6` raises the
-                // label's own box to 24 CSS px without touching the
-                // checkbox's size-4 visual glyph. A second, nested `<label>`
-                // around just the input was rejected: nested `<label>`
-                // elements are invalid HTML and can double-fire the toggle.
-                <label className="flex min-h-6 items-center gap-2 text-sm font-medium text-foreground">
-                  <CheckboxIndeterminado
-                    checked={todasVisiblesSeleccionadas}
-                    indeterminate={
-                      algunaVisibleSeleccionada && !todasVisiblesSeleccionadas
-                    }
-                    onChange={() => handleToggleGrupo(seleccionablesVisibles)}
-                    ariaLabel={etiquetaSeleccionarVisibles}
-                  />
-                  {etiquetaSeleccionarVisibles}
-                </label>
-              )}
-              {/* P4 distill: hidden while a selection is active — the
-                  bulk-apply toolbar's count pill already carries the live
-                  number, so this text would be a second, redundant count. */}
+      {/* Full filas list — no pagination (product decision 4, WEB-PRV-02).
+          Polish pass (2026-08-30): the whole review list is ONE full-bleed
+          <section> — `-mx-4` cancels the `p-4` of SubirCartola's preview
+          <section> (its only caller; keep the two in sync) so the block
+          runs edge to edge like a table: sticky header band on top
+          (`border-y`, `bg-muted/40` wash), inset rows in the middle, and a
+          closing `border-b` at the bottom so the action buttons rendered
+          after it by SubirCartola sit under a visible edge. The cartola
+          block above uses the same wash but as a ROUNDED INSET object;
+          shape tells them apart, the shared token keeps one vocabulary. */}
+      {filas.length === 0 ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          No hay movimientos para mostrar en este archivo.
+        </p>
+      ) : (
+        <section
+          aria-labelledby={idTituloMovimientos}
+          data-seccion-movimientos
+          className="-mx-4 flex flex-col border-b border-border"
+        >
+          {/* Sticky classification progress — plain visible text, no live
+            region (SubirCartola's announcer owns state-entry
+            announcements). Opens with the section title ("Movimientos",
+            sibling `h3` of the banco heading, above the per-date `h4`s) so
+            the stuck header still names what it controls. `bg-muted` is
+            deliberately the OPAQUE token, not the `/40` wash the cartola
+            block and the group headers use: this element sticks OVER the
+            rows, and a translucent wash let descriptions and selects bleed
+            through it (caught in the 2026-08-30 screenshot round). */}
+          <div className="sticky top-0 z-10 flex flex-col gap-2 border-y border-border bg-muted px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3
+                id={idTituloMovimientos}
+                className="text-base font-semibold text-foreground"
+              >
+                Movimientos
+              </h3>
+              {/* P2-A distill: hidden while a selection is active — see the
+                docblock's "Reconciliation with filter state" note above.
+                `soloSinClasificar` itself is untouched, so the filtered
+                view never changes and the button reappears in the same
+                pressed state once the selection clears. */}
               {seleccionados.size === 0 && (
-                <p className="text-sm font-medium text-foreground">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={soloSinClasificar}
+                  onClick={() => cambiarFiltro(!soloSinClasificar)}
+                >
+                  Solo sin clasificar
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                {seleccionablesVisibles.length > 0 && (
+                  // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
+                  // `<label>` already wraps the checkbox AND its visible text
+                  // ("Seleccionar todas las visibles (N)"), so clicking the
+                  // text already toggles it — the only gap is HEIGHT (14px/20px
+                  // text can sit under the 24px floor). `min-h-6` raises the
+                  // label's own box to 24 CSS px without touching the
+                  // checkbox's size-4 visual glyph. A second, nested `<label>`
+                  // around just the input was rejected: nested `<label>`
+                  // elements are invalid HTML and can double-fire the toggle.
+                  <label className="flex min-h-6 items-center gap-2 text-sm font-medium text-foreground">
+                    <CheckboxIndeterminado
+                      checked={todasVisiblesSeleccionadas}
+                      indeterminate={
+                        algunaVisibleSeleccionada && !todasVisiblesSeleccionadas
+                      }
+                      onChange={() => handleToggleGrupo(seleccionablesVisibles)}
+                      ariaLabel={etiquetaSeleccionarVisibles}
+                    />
+                    {etiquetaSeleccionarVisibles}
+                  </label>
+                )}
+              </div>
+              {/* P4 distill: hidden while a selection is active — the
+                bulk-apply toolbar's count pill already carries the live
+                number, so this text would be a second, redundant count.
+                Polish pass: right-aligned (`ml-auto`) so the row reads
+                "control on the left, readout on the right"; the "N de M
+                clasificadas" run stays as DIRECT text nodes of this <p> —
+                `getByText(/1 de 2 clasificadas/)` only sees an element's
+                own text nodes, so wrapping the numbers in a span would
+                break that test. */}
+              {seleccionados.size === 0 && (
+                <p className="ml-auto text-sm font-medium text-foreground tabular-nums">
                   {clasificadas} de {totalNoDuplicadas} {etiquetaClasificadas}
-                  <span className="text-muted-foreground">
+                  <span className="font-normal text-muted-foreground">
                     {' '}
                     · {duplicadosCount} {etiquetaDuplicadas}
                   </span>
                 </p>
               )}
             </div>
-            {/* P2-A distill: hidden while a selection is active — see the
-                docblock's "Reconciliation with filter state" note above.
-                `soloSinClasificar` itself is untouched, so the filtered
-                view never changes and the button reappears in the same
-                pressed state once the selection clears. */}
-            {seleccionados.size === 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-pressed={soloSinClasificar}
-                onClick={() => setSoloSinClasificar((v) => !v)}
-              >
-                Solo sin clasificar
-              </Button>
-            )}
-          </div>
-          {/* P4 distill: same collapse as the progress text above — this
+            {/* P4 distill: same collapse as the progress text above — this
               bar restates the same ratio, so it hides alongside it. */}
-          {seleccionados.size === 0 && (
-            <div
-              aria-hidden="true"
-              className="h-2 w-full overflow-hidden rounded-lg bg-muted"
-            >
+            {seleccionados.size === 0 && (
               <div
-                data-progreso-fill
-                className="h-full rounded-lg bg-primary transition-all"
-                style={{ width: `${progresoPct}%` }}
-              />
-            </div>
-          )}
-          {/* P2 design critique fix 1: ONE shared column header, sm+ only —
+                aria-hidden="true"
+                className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  data-progreso-fill
+                  className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
+                  style={{ width: `${progresoPct}%` }}
+                />
+              </div>
+            )}
+            {/* P2 design critique fix 1: ONE shared column header, sm+ only —
               at sm+ each FilaRevision hides its own per-row "Bucket"/
               "Categoría" word (sm:sr-only) since selects sit side by side
               in a row there and this header names the columns instead.
@@ -521,128 +644,174 @@ export function PreviewMuestra({
               `px-2` + `flex-1` columns mirror FilaRevision's `li` padding
               (`p-2`) and its `sm:flex-1` select wrappers so the header text
               lines up over the selects below. */}
-          <div
-            aria-hidden="true"
-            data-columnas-header
-            className="hidden gap-2 px-2 sm:flex"
-          >
-            <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Bucket
-            </span>
-            <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Categoría
-            </span>
-          </div>
-          {/* Round-10 critique P3 fix 4: inline "bucket" definition at
-              point of use — the glossary link alone made a first-timer
-              abandon the upload flow just to learn what "bucket" means
-              (see docblock). Plain muted text-xs line (craft-floor idiom:
-              no tooltip/popover library, no title/aria-describedby hint
-              mechanism) — same always-visible register as the P2-B link
-              right below it, which stays for anyone wanting the fuller
-              glossary entry. */}
-          {/* `<strong>`, deliberately NOT `<span className="font-medium">`:
-              this `<p>` carries `text-muted-foreground`, and
-              `PreviewMuestra.test.tsx:582` (grouping-by-date suite) scopes
-              via `container.querySelectorAll('.text-muted-foreground >
-              span.font-medium')` to read ONLY the row-description spans —
-              querySelectorAll matches ANY depth in the container, not just
-              this row's siblings, so a `span.font-medium` direct child here
-              would have been picked up too (confirmed: swapping this back
-              to `<span className="font-medium ...">` makes that test fail
-              with an extra "Bucket" entry prepended to the expected
-              ['A','B','C']). `<strong>` conveys the same visual weight
-              without matching that selector. */}
-          <p className="px-2 text-xs text-muted-foreground">
-            <strong className="font-medium text-foreground">Bucket</strong>: el
-            grupo 50/30/20 al que va el gasto (Necesidades, Gustos o Ahorro).
-          </p>
-          {/* P2-B contextual help: quiet, always-visible (not aria-hidden,
-              not sm+-only, not gated by selection) — see docblock. */}
-          <Link
-            to="/ayuda"
-            hash="ayuda-glosario"
-            className="inline-flex w-fit items-center gap-1 px-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            <HelpCircle aria-hidden="true" className="size-3.5" />
-            Ayuda: qué es un bucket
-          </Link>
-        </div>
-      )}
-
-      {/* Full filas list — no pagination (product decision 4, WEB-PRV-02) */}
-      {filas.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          No hay movimientos para mostrar en este archivo.
-        </p>
-      ) : soloSinClasificar && filasVisibles.length === 0 ? (
-        <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-          <p>Todas las filas están clasificadas.</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setSoloSinClasificar(false)}
-          >
-            Mostrar todas las filas
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {grupos.map((grupo, indiceGrupo) => {
-            const seleccionablesGrupo = grupo.filas
-              .filter((f) => !f.fila.esDuplicado)
-              .map((f) => f.fila.rowIndex);
-            const todasSeleccionadas =
-              seleccionablesGrupo.length > 0 &&
-              seleccionablesGrupo.every((idx) => seleccionados.has(idx));
-            const algunaSeleccionada = seleccionablesGrupo.some((idx) =>
-              seleccionados.has(idx),
-            );
-
-            return (
-              <div
-                key={`${grupo.fecha}-${indiceGrupo}`}
-                data-fecha-grupo={grupo.fecha}
-                className="flex flex-col gap-2"
+            <div
+              aria-hidden="true"
+              data-columnas-header
+              className="hidden gap-2 px-2 sm:flex"
+            >
+              <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Bucket
+              </span>
+              <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Categoría
+              </span>
+            </div>
+            {/* Round-10 critique P3 fix 4 + minimalist pass: the inline
+              "bucket" definition and the P2-B glossary link now share ONE
+              always-visible line (" · " separator) instead of two stacked
+              lines saying related things twice — the definition answers it
+              in place, the link is the depth for anyone who wants more.
+              Plain muted text-xs line (craft-floor idiom: no tooltip/popover
+              library, no title/aria-describedby hint mechanism); the icon is
+              dropped — the link's own underline already signals it's
+              interactive, so the glyph was decoration, not information. */}
+            <p className="px-2 text-xs text-muted-foreground">
+              <strong className="font-medium">Bucket</strong>: el grupo 50/30/20
+              al que va el gasto (Necesidades, Gustos o Ahorro). ·{' '}
+              <Link
+                to="/ayuda"
+                hash="ayuda-glosario"
+                className="underline underline-offset-2 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
               >
-                <div className="flex items-center gap-2">
-                  {seleccionablesGrupo.length > 0 && (
-                    // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
-                    // checkbox is bare — the sibling `<span>` (the date) is
-                    // NOT part of any label. `hitTarget` makes
-                    // `CheckboxIndeterminado` wrap ITS OWN `<input>` in the
-                    // size-6 label internally (see that component's doc
-                    // comment for why the wrapping can't live out here).
-                    <CheckboxIndeterminado
-                      checked={todasSeleccionadas}
-                      indeterminate={algunaSeleccionada && !todasSeleccionadas}
-                      onChange={() => handleToggleGrupo(seleccionablesGrupo)}
-                      ariaLabel={`Seleccionar todas: ${grupo.fecha}`}
-                      hitTarget
-                    />
-                  )}
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {grupo.fecha}
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-2">
-                  {grupo.filas.map(({ fila, categoriaMerged }) => (
-                    <FilaRevision
-                      key={fila.rowIndex}
-                      fila={fila}
-                      categoriaId={categoriaMerged}
-                      catalogo={catalogo}
-                      onEditChange={onEditChange}
-                      selected={seleccionados.has(fila.rowIndex)}
-                      onToggleSelect={handleToggleFila}
-                    />
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
+                Ayuda: qué es un bucket
+              </Link>
+            </p>
+          </div>
+
+          {soloSinClasificar && filasVisibles.length === 0 ? (
+            <div className="m-4 flex flex-col items-start gap-2 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+              <p>Todas las filas están clasificadas.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => cambiarFiltro(false)}
+              >
+                Mostrar todas las filas
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 px-4 py-3">
+              {grupos.map((grupo, indiceGrupo) => {
+                const claveGrupo = `${grupo.fecha}-${indiceGrupo}`;
+                const idListaGrupo = `${idBase}-grupo-${indiceGrupo}`;
+                const abierto = !gruposColapsados.has(claveGrupo);
+                const conteoGrupo = grupo.filas.length;
+                const seleccionablesGrupo = grupo.filas
+                  .filter((f) => !f.fila.esDuplicado)
+                  .map((f) => f.fila.rowIndex);
+                const todasSeleccionadas =
+                  seleccionablesGrupo.length > 0 &&
+                  seleccionablesGrupo.every((idx) => seleccionados.has(idx));
+                const algunaSeleccionada = seleccionablesGrupo.some((idx) =>
+                  seleccionados.has(idx),
+                );
+
+                return (
+                  <div
+                    key={claveGrupo}
+                    data-fecha-grupo={grupo.fecha}
+                    data-abierto={abierto}
+                    className="flex flex-col rounded-lg border border-border"
+                  >
+                    {/* Group header = checkbox + accordion toggle. The checkbox
+                    stays OUTSIDE the toggle button (nested interactive
+                    controls are invalid and would double-fire); the
+                    toggle takes the rest of the row so the whole date
+                    line is the hit target, chevron at the far end. The
+                    `h4` wraps the button (heading-with-button is the
+                    standard accordion header pattern) and its accessible
+                    name is "{fecha} · N movimientos" — the count is part
+                    of the heading on purpose: it's what tells the user how
+                    much work a collapsed date still holds. */}
+                    {/* Panel framing (2026-08-30): header + rows share ONE
+                        bordered frame so containment is unmistakable — the
+                        header is the frame's tinted top band, the rows sit
+                        inside it. Collapsed, the header rounds all four
+                        corners and drops its `border-b` (nothing below it to
+                        separate from); open, it squares the bottom and draws
+                        the divider. No `overflow-hidden` on the frame: it
+                        would clip the toggle's focus ring. */}
+                    <div
+                      className={`flex items-center gap-2 rounded-t-lg bg-muted/40 px-3 py-1 ${
+                        abierto ? 'border-b border-border' : 'rounded-b-lg'
+                      }`}
+                    >
+                      {seleccionablesGrupo.length > 0 && (
+                        // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
+                        // checkbox is bare — the sibling heading (the date) is
+                        // NOT part of any label. `hitTarget` makes
+                        // `CheckboxIndeterminado` wrap ITS OWN `<input>` in the
+                        // size-6 label internally (see that component's doc
+                        // comment for why the wrapping can't live out here).
+                        <CheckboxIndeterminado
+                          checked={todasSeleccionadas}
+                          indeterminate={
+                            algunaSeleccionada && !todasSeleccionadas
+                          }
+                          onChange={() =>
+                            handleToggleGrupo(seleccionablesGrupo)
+                          }
+                          ariaLabel={`Seleccionar todas: ${grupo.fecha}`}
+                          hitTarget
+                        />
+                      )}
+                      <h4 className="min-w-0 flex-1 text-sm">
+                        <button
+                          type="button"
+                          aria-expanded={abierto}
+                          aria-controls={idListaGrupo}
+                          onClick={() => handleToggleGrupoAbierto(claveGrupo)}
+                          className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-semibold text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                        >
+                          <span className="min-w-0 truncate">
+                            {grupo.fecha}{' '}
+                            <span className="font-normal text-muted-foreground">
+                              · {conteoGrupo}{' '}
+                              {conteoGrupo === 1 ? 'movimiento' : 'movimientos'}
+                            </span>
+                          </span>
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${
+                              abierto ? '' : '-rotate-90'
+                            }`}
+                          />
+                        </button>
+                      </h4>
+                    </div>
+                    {/* Collapsed = `hidden`, NOT unmounted: FilaRevision's
+                    mid-cascade `bucketUI` (bucket picked, categoría not yet)
+                    would be lost on remount. Tailwind v4's preflight makes
+                    `[hidden]` win over the `flex` utility (`!important`),
+                    and the class swap below is belt-and-braces for it. */}
+                    <ul
+                      id={idListaGrupo}
+                      hidden={!abierto}
+                      className={
+                        abierto
+                          ? 'flex flex-col gap-2 divide-y divide-border px-3'
+                          : 'hidden'
+                      }
+                    >
+                      {grupo.filas.map(({ fila, categoriaMerged }) => (
+                        <FilaRevision
+                          key={fila.rowIndex}
+                          fila={fila}
+                          categoriaId={categoriaMerged}
+                          catalogo={catalogo}
+                          onEditChange={onEditChange}
+                          selected={seleccionados.has(fila.rowIndex)}
+                          onToggleSelect={handleToggleFila}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {seleccionados.size > 0 && (
@@ -662,36 +831,26 @@ export function PreviewMuestra({
             {/* P2 design critique fix 2 (toolbar distill), round-9 P2
                 (structural distill): "Limpiar selección" used to be its own
                 button — a 6th simultaneous control at the highest-value
-                moment. It now lives INSIDE the count pill as a dismiss icon,
-                and round-9 collapsed the bucket→categoría cascade into one
-                select, so the toolbar reads as 4 zones total: count-pill
-                (with dismiss) + the one categoría select + Aplicar (plus the
-                master checkbox in the header above). The dismiss's
-                accessible name ("Limpiar selección") is unchanged, so it's
-                still reachable exactly as before via
+                moment. Minimalist pass: the pill+circle combo (a filled
+                secondary badge wrapping a nested icon button) is replaced by
+                a plain text count next to a real, WCAG-2.2-AA-sized icon
+                `Button` — one less nested interactive shape, same 4-zone
+                toolbar (count + dismiss + the one categoría select +
+                Aplicar). The dismiss's accessible name ("Limpiar selección")
+                is unchanged, so it's still reachable exactly as before via
                 getByRole('button', { name: /limpiar selección/i }). */}
-            <span
-              data-conteo-pill
-              className="inline-flex items-center gap-1.5 rounded-full bg-secondary py-1 pr-1.5 pl-3 text-sm font-medium text-secondary-foreground"
-            >
+            <span data-conteo-pill className="text-sm font-medium">
               {seleccionados.size} {etiquetaSeleccionadas}
-              {/* Polish fix: `size-6` = 24×24 CSS px, the WCAG 2.2 AA SC
-                  2.5.8 minimum hit area (same value as `CLASE_BOTON_ICONO`,
-                  `components/configuracion/estilos.ts` — not imported here
-                  since this component sits outside `configuracion/`'s
-                  ownership boundary, D-09; the value is duplicated, not the
-                  class, and stays at one call site so DRY's three-strike
-                  rule doesn't apply yet). The `X` glyph itself stays small
-                  (`size-3`) inside the larger tappable button. */}
-              <button
-                type="button"
-                onClick={handleLimpiarSeleccion}
-                aria-label="Limpiar selección"
-                className="flex size-6 items-center justify-center rounded-full text-secondary-foreground/70 outline-none hover:bg-secondary-foreground/10 hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                <X aria-hidden="true" className="size-3" />
-              </button>
             </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleLimpiarSeleccion}
+              aria-label="Limpiar selección"
+            >
+              <X aria-hidden="true" />
+            </Button>
             {/* Round-9 P2: ONE combined categoría select, grouped by bucket
                 via native <optgroup> — replaces the old bucket→categoría
                 two-select cascade (see docblock). Hand-rolled rather than

@@ -1,9 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
+  esMontoCero,
   esMontoStringValido,
   formatearMontoCLP,
   formatearMontoConSigno,
 } from './formatear-monto';
+
+describe('esMontoCero', () => {
+  it('es true solo para el cero exacto', () => {
+    expect(esMontoCero('0')).toBe(true);
+    expect(esMontoCero('-0')).toBe(true);
+    expect(esMontoCero('1')).toBe(false);
+    expect(esMontoCero('-596')).toBe(false);
+    expect(esMontoCero('9007199254740993')).toBe(false);
+  });
+
+  it('nunca lanza: un string inválido es false, no una excepción', () => {
+    expect(esMontoCero('')).toBe(false);
+    expect(esMontoCero('0.0')).toBe(false);
+    expect(esMontoCero('0x0')).toBe(false);
+  });
+});
 
 describe('formatearMontoCLP', () => {
   it('agrupa los miles con punto y antepone $', () => {

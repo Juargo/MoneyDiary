@@ -35,6 +35,17 @@ export function esMontoStringValido(montoStr: string): boolean {
   return montoStr.trim() !== '' && FORMATO_DECIMAL_VALIDO.test(montoStr);
 }
 
+/**
+ * `true` when the BigInt-safe decimal string is exactly zero. Presentation
+ * helper (ADR-024): it decides whether an amount gets its cargo/abono color
+ * or stays neutral — never how much money is shown. Exact by construction:
+ * BigInt comparison, no Number()/parseFloat. Invalid strings are `false`
+ * (the formatter is the one that throws on them, not this predicate).
+ */
+export function esMontoCero(montoStr: string): boolean {
+  return esMontoStringValido(montoStr) && BigInt(montoStr) === 0n;
+}
+
 export function formatearMontoCLP(montoStr: string): string {
   // BigInt('') === 0n (no lanza) — caso especial que hay que rechazar a mano.
   // Para el resto (decimales, no-numéricos, hex/oct/bin, signo '+', espacios),

@@ -101,6 +101,17 @@
    * the shift to #065f46 is for semantic-token consistency, not an AA fix.
    */
   --color-exito-foreground: #065f46;
+
+  /*
+   * Cargo (expense amount text) in the upload preview rows — paired with
+   * `--color-ingreso-foreground` for abono on the same row. SAME literal as
+   * `--color-semaforo-rojo-foreground` (#c70036, 5.02:1 on white, AA) but a
+   * distinct token, same discipline as `exito`: an expense figure must never
+   * silently follow the semáforo chip if that one changes. NOT `destructive`
+   * (#ba1a1a) — that token means "error / destructive action", and a $6.990
+   * purchase is neither. Zero amounts deliberately do NOT take this color.
+   */
+  --color-cargo-foreground: #c70036;
 }
 
 /*
@@ -204,6 +215,26 @@ body {
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * `categoria-in` — the categoría `<select>` in a preview row (FilaRevision)
+ * settles in when it appears or when the chosen bucket changes (the wrapper
+ * is keyed by the bucket, so a switch re-runs it). It is a state-transition
+ * cue ("the options you see now belong to THAT bucket"), NOT a loading
+ * state: the catalog is already in memory and nothing is fetched, so no
+ * spinner/skeleton — that would announce work that isn't happening.
+ * Applied via `motion-safe:animate-[categoria-in_200ms_ease-out]`.
+ */
+@keyframes categoria-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
