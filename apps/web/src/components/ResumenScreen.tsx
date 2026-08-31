@@ -1,16 +1,10 @@
-import { IngresoCard } from './IngresoCard';
 import { SemaforoHeroCard } from './SemaforoHeroCard';
 import { DistribucionPie } from './DistribucionPie';
 import { LeyendaGasto } from './LeyendaGasto';
 import { ResumenAnual } from './ResumenAnual';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 import { anioDePeriodo } from '@/domain/periodo-anual';
-import { BUCKETS_5030, BUCKETS_ANILLO } from '@/domain/distribucion-gasto';
-import { construirVeredictoSemaforo } from '@/domain/veredicto-semaforo';
-import { calcularVariacionIngreso } from '@/domain/variacion-ingreso';
-import { calcularBarrasIngreso } from '@/domain/sparkline-ingreso';
-import { useResumenAnual } from '@/api/use-resumen-anual';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { BUCKETS_ANILLO } from '@/domain/distribucion-gasto';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { cn } from '@/lib/utils';
 
@@ -57,17 +51,23 @@ import { cn } from '@/lib/utils';
  *
  * Design critique P0 fix (impeccable audit, PRODUCT.md principle 1 — "the
  * monthly verdict comes first"): the semáforo used to be a `text-xs` pill
- * (`SemaforoTag`) tucked into this chart card's header, upstaged by
- * `IngresoCard`'s big display-scale amount. `SemaforoHeroCard` is now the
- * FIRST card on the page — the verdict, not income, leads — at
- * `IngresoCard`'s own display scale. (Income-card redesign 2026-08-30:
- * `IngresoCard`'s surface itself went back to neutral — the ingreso wash now
- * lives in the trend pill and the highlighted sparkline bar, not the card
- * background — but the hero-leads-income ordering decided here is
- * unaffected.) The chart card DROPS its `SemaforoTag` entirely (redundant
- * with the hero directly above it); the `data-testid="semaforo-global"`
- * smoke anchor MOVED to the hero (`SemaforoHeroCard`), so existing tests
- * keep resolving through the single remaining instance.
+ * (`SemaforoTag`) tucked into this chart card's header. `SemaforoHeroCard`
+ * is now the FIRST card on the page. The chart card DROPS its `SemaforoTag`
+ * entirely (redundant with the hero directly above it); the
+ * `data-testid="semaforo-global"` smoke anchor MOVED to the hero
+ * (`SemaforoHeroCard`), so existing tests keep resolving through the single
+ * remaining instance.
+ *
+ * Dashboard order (2026-08-30): the sr-only `<h1>` leads, then
+ * `SemaforoHeroCard` (a single-line status row, minimalist-ui pass), then
+ * the "Distribución del gasto" chart card, then `ResumenAnual`. The
+ * `IngresoCard` that used to sit between the hero and the chart card is
+ * REMOVED (income stays reachable from the legend's "Ingresos" row →
+ * `/ingresos`, via `onSelectIngresos`) — `anio`/`anioDePeriodo` stay because
+ * `ResumenAnual` below still needs them. The hero's own verdict copy
+ * (`construirVeredictoSemaforo`) is ALSO removed from this screen (same
+ * pass): the row now only links to `/semaforo`, where the verdict lives —
+ * this screen no longer computes a `veredicto` or feeds it as a prop.
  *
  * The card BODY wraps the pie + legend in the T1 tablet grid (design D-09):
  * stacked below `md`, side-by-side at `md:grid-cols-2` — independent of the
@@ -100,36 +100,9 @@ export function ResumenScreen({
       bucket === BUCKETS_ANILLO[BUCKETS_ANILLO.length - 1],
     );
 
-  // Hero verdict copy (redesign 2026-08-30): phrased from the per-bucket
-  // estados the view model already carries verbatim (never recomputed). The
-  // UI label resolution (Deseos → 'Gustos') happens HERE so the pure domain
-  // function stays lib-free; canonical 50/30/20 order comes from
-  // `BUCKETS_5030`, and a bucket absent from the DTO degrades to estado
-  // null (the function falls back to its self-contained per-estado line).
-  const veredicto = construirVeredictoSemaforo(
-    viewModel.estadoGlobal,
-    BUCKETS_5030.map((bucket) => ({
-      nombre: ETIQUETA_BUCKET[bucket] ?? bucket,
-      estado:
-        viewModel.buckets.find((b) => b.bucket === bucket)?.estadoSemaforo ??
-        null,
-    })),
-  );
-
-  // Income card redesign (2026-08-30): the trend pill and sparkline derive
-  // from the annual payload. Same queryKey as `ResumenAnual`'s own
-  // self-contained query below (`['resumen-anual', anio]`), so TanStack
-  // dedupes this into ONE request — no prop threading into that component,
-  // no second fetch. While the query loads/errors, `meses` is empty and the
-  // pure helpers degrade the card to its base render (no pill, no bars).
+  // `anio` still feeds `ResumenAnual` below (self-contained, owns its own
+  // `useResumenAnual` query) — the income card's own derivations are gone.
   const anio = anioDePeriodo(viewModel.periodo, new Date().getUTCFullYear());
-  const anual = useResumenAnual(anio);
-  const mesesAnual = anual.data?.meses ?? [];
-  const variacionIngreso = calcularVariacionIngreso(
-    viewModel.periodo,
-    mesesAnual,
-  );
-  const barrasIngreso = calcularBarrasIngreso(viewModel.periodo, mesesAnual);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
@@ -137,13 +110,6 @@ export function ResumenScreen({
       <SemaforoHeroCard
         estadoGlobal={viewModel.estadoGlobal}
         periodo={viewModel.periodo}
-        veredicto={veredicto}
-      />
-      <IngresoCard
-        totalIngreso={viewModel.totalIngreso}
-        periodo={viewModel.periodo}
-        variacion={variacionIngreso}
-        barras={barrasIngreso}
       />
 
       {/* D-06: single column at every breakpoint — the transactions panel is
