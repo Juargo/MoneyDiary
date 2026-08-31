@@ -277,16 +277,6 @@ describe('ResumenScreen', () => {
     vi.restoreAllMocks();
   });
 
-  // `findByText` (not `getByText`): the router harness resolves its initial
-  // match asynchronously (T10's own docblock/`SemaforoTag.test.tsx`'s
-  // precedent) — the content isn't in the DOM on the synchronous first
-  // render even for a loader-free route.
-  it('renders totalIngreso formatted exactly as received (spec W1-01)', async () => {
-    mockFetchAnual();
-    renderScreen();
-    expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
-  });
-
   // A11y (ADR-018): the document must start at a page-level <h1> instead of
   // jumping straight to <h2> — a broken heading outline confuses assistive
   // technology users navigating by heading. US-053 PR3: the transactions panel
@@ -295,7 +285,7 @@ describe('ResumenScreen', () => {
   it('renders exactly one page-level <h1> heading', async () => {
     mockFetchAnual();
     renderScreen();
-    await screen.findByText('$1.000.000');
+    await screen.findByTestId('semaforo-global');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
@@ -391,7 +381,7 @@ describe('ResumenScreen', () => {
   it('drops the semáforo tag from the chart card header (redundant with the hero above it)', async () => {
     mockFetchAnual();
     renderScreen();
-    await screen.findByText('$1.000.000');
+    await screen.findByText('Distribución del gasto');
 
     const encabezadoGrafico = screen
       .getByText('Distribución del gasto')
@@ -402,19 +392,16 @@ describe('ResumenScreen', () => {
     ).not.toBeInTheDocument();
   });
 
-  // CONTRACT CHANGE (design critique P0 fix): dashboard order becomes
-  // h1 (sr-only) -> SemaforoHeroCard -> IngresoCard -> chart card ->
-  // ResumenAnual — the verdict leads, income supports (PRODUCT.md
-  // principle 1). Rewritten (new assertion, no prior equivalent existed).
-  it('renders SemaforoHeroCard first, then IngresoCard, then the chart card (verdict leads, income supports)', async () => {
+  // CONTRACT CHANGE (income card removed 2026-08-30): dashboard order becomes
+  // h1 (sr-only) -> SemaforoHeroCard -> chart card -> ResumenAnual — the
+  // verdict leads, income stays reachable from the legend's "Ingresos" row.
+  it('renders SemaforoHeroCard first, then the chart card (verdict leads)', async () => {
     mockFetchAnual();
     const { container } = renderScreen();
-    await screen.findByText('$1.000.000');
+    await screen.findByTestId('semaforo-global');
 
     const raiz = container.firstElementChild as HTMLElement;
-    const [primeraTarjeta, segundaTarjeta, terceraSeccion] = Array.from(
-      raiz.children,
-    ).slice(1);
+    const [primeraTarjeta, segundaSeccion] = Array.from(raiz.children).slice(1);
 
     // `SemaforoHeroCard`'s root IS the `semaforo-global` node (a `<Link>`
     // wrapping the whole card) — checked directly, not via `within`, since
@@ -422,10 +409,7 @@ describe('ResumenScreen', () => {
     // itself.
     expect(primeraTarjeta).toHaveAttribute('data-testid', 'semaforo-global');
     expect(
-      within(segundaTarjeta as HTMLElement).getByText('$1.000.000'),
-    ).toBeInTheDocument();
-    expect(
-      within(terceraSeccion as HTMLElement).getByText('Distribución del gasto'),
+      within(segundaSeccion as HTMLElement).getByText('Distribución del gasto'),
     ).toBeInTheDocument();
   });
 
@@ -439,7 +423,7 @@ describe('ResumenScreen', () => {
     mockFetchAnual();
     const onSelectBucket = vi.fn();
     renderScreen(viewModel, vi.fn(), onSelectBucket);
-    await screen.findByText('$1.000.000');
+    await screen.findByTestId('semaforo-global');
 
     // The legend row, disambiguated from the wedge by its content-derived
     // accessible name (D-08, T7 — a trailing space only the legend has; the
@@ -458,7 +442,7 @@ describe('ResumenScreen', () => {
     mockFetchAnual();
     const onSelectBucket = vi.fn();
     renderScreen(viewModel, vi.fn(), onSelectBucket);
-    await screen.findByText('$1.000.000');
+    await screen.findByTestId('semaforo-global');
 
     // The wedge, by its exact bare `aria-label` ("Sin categoría").
     fireEvent.click(screen.getByRole('button', { name: 'Sin categoría' }));
@@ -488,15 +472,14 @@ describe('ResumenScreen', () => {
     const { container } = renderScreen();
     // Router harness resolves its initial match asynchronously — wait for
     // any rendered content before inspecting the DOM structure.
-    await screen.findByText('$1.000.000');
+    await screen.findByTestId('semaforo-global');
 
     const paginaRaiz = container.firstElementChild as HTMLElement;
     // p-4 = 16px side margins around the whole dashboard body.
     expect(paginaRaiz.className).toMatch(/\bp-4\b/);
 
-    // Anchor on the page-level grid's own testid — the hero's decorative
-    // 3-segment scale (redesign 2026-08-30) is also a `.grid` and renders
-    // first in DOM order.
+    // Anchor on the page-level grid's own testid (the hero is a single-line
+    // row now, no `.grid` of its own to collide with this lookup).
     const seccionUnica = screen.getByTestId('dashboard-page-grid');
     expect(seccionUnica).toBeInTheDocument();
     expect(seccionUnica.className).toMatch(/\bgrid-cols-1\b/);
@@ -533,7 +516,7 @@ describe('ResumenScreen', () => {
   it('the semáforo tag and every clickable legend row including Ingresos are keyboard-focusable together (T14, WG5-12, US-054 D-05)', async () => {
     mockFetchAnual();
     renderScreen();
-    await screen.findByText('$1.000.000');
+    await screen.findByTestId('semaforo-global');
 
     const controlesEsperados = [
       screen.getByRole('link', { name: /Semáforo: Muy Saludable/ }),
@@ -590,132 +573,5 @@ describe('ResumenScreen', () => {
     expect(
       within(botonEnero).getByTestId('mes-seleccionado-marker'),
     ).toBeInTheDocument();
-  });
-
-  // Integration seam (review finding): the unit tests for
-  // `construirVeredictoSemaforo` and `SemaforoHeroCard` each exercise their
-  // own layer with hand-built inputs — neither proves that THIS screen's
-  // `BUCKETS_5030`/`ETIQUETA_BUCKET` mapping glue actually feeds the real
-  // pipeline correctly end to end. This test renders the composed screen
-  // with a realistic rojo month and asserts the verbatim copy from the
-  // matrix in `veredicto-semaforo.ts`'s `detalleRojo`.
-  it('threads a realistic rojo month through the real veredicto pipeline into the hero card copy (integration seam)', async () => {
-    mockFetchAnual();
-    const viewModelRojo: ResumenViewModel = {
-      ...viewModel,
-      estadoGlobal: 'rojo',
-      buckets: [
-        {
-          bucket: 'Necesidades',
-          total: '$600.000',
-          porcentajeLabel: '60%',
-          estadoSemaforo: 'rojo',
-        },
-        {
-          bucket: 'Deseos',
-          total: '$200.000',
-          porcentajeLabel: '20%',
-          estadoSemaforo: 'verde',
-        },
-        {
-          bucket: 'Ahorro',
-          total: '$200.000',
-          porcentajeLabel: '20%',
-          estadoSemaforo: 'verde',
-        },
-        {
-          bucket: 'SinCategoria',
-          total: '$0',
-          porcentajeLabel: '—',
-          estadoSemaforo: null,
-        },
-      ],
-    };
-    renderScreen(viewModelRojo);
-    await screen.findByText('$1.000.000');
-
-    const contenedor = screen.getByTestId('semaforo-global');
-    const veredictoParrafo = contenedor.querySelector('p');
-    expect(veredictoParrafo).not.toBeNull();
-    expect(veredictoParrafo?.textContent).toBe(
-      'Tu veredicto es En peligro. Aunque Gustos y Ahorro están en rango, Necesidades queda fuera de rango y define el estado global de este mes siguiendo la lógica de mayor riesgo.',
-    );
-  });
-
-  // Income card redesign (2026-08-30): integration test for the REAL annual
-  // pipeline — the screen's own `useResumenAnual` query (deduped with
-  // `ResumenAnual`'s by queryKey) feeds `calcularVariacionIngreso`/
-  // `calcularBarrasIngreso`, whose outputs the card renders. This pins the
-  // glue the pure-function tests bypass (prop-injected `variacion`/`barras`).
-  it('derives the trend pill and sparkline from the annual payload (integration)', async () => {
-    const fetchMock = vi.fn((url: string) => {
-      if (url.startsWith('/api/resumen/anual')) {
-        const dto: ResumenAnualDto = {
-          anio: 2026,
-          // June 1.000.000 -> July 1.120.000: exactly the mock's +12%.
-          meses: Array.from({ length: 12 }, (_, i) => {
-            const periodo = `2026-${String(i + 1).padStart(2, '0')}`;
-            if (periodo === '2026-06') {
-              return mesConDatos(periodo);
-            }
-            if (periodo === '2026-07') {
-              return { ...mesConDatos(periodo), totalIngreso: '1120000' };
-            }
-            return mesSinDatos(periodo);
-          }),
-        };
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(dto),
-        });
-      }
-      return Promise.reject(new Error(`fetch inesperado: ${url}`));
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    renderScreen();
-
-    expect(await screen.findByText('+12% vs mes anterior')).toBeInTheDocument();
-    const sparkline = await screen.findByTestId('ingreso-sparkline');
-    // Window: June + July only (earlier months are sinIngreso but still in
-    // the 7-month slice — they render as stubs), current month highlighted.
-    const barras = sparkline.querySelectorAll('[data-barra]');
-    expect(barras).toHaveLength(7);
-    expect(barras[barras.length - 1]).toHaveClass('bg-ingreso-foreground');
-
-    // FIX 1 (review): pins the TanStack queryKey dedupe between this
-    // screen's own `useResumenAnual` call and `ResumenAnual`'s internal
-    // one — both share the same queryKey (`['resumen-anual', anio]`), so
-    // exactly one network request should reach `fetch` despite two
-    // consumers mounting the query.
-    const llamadasAnual = fetchMock.mock.calls.filter(([url]) =>
-      url.startsWith('/api/resumen/anual'),
-    );
-    expect(llamadasAnual).toHaveLength(1);
-  });
-
-  // FIX 2 (review): the annual query never GATES the income card — a
-  // failed `/api/resumen/anual` fetch degrades `IngresoCard` to its base
-  // render (amount + eyebrow + period), never a spinner or a blank card.
-  // The month resumen itself is a prop here (not fetched by this screen),
-  // so "the month resumen succeeds" is represented by rendering with the
-  // default `viewModel` fixture while only the annual endpoint fails.
-  it('keeps IngresoCard on its base render when the annual fetch fails (annual never gates the income card)', async () => {
-    const fetchMock = vi.fn((url: string) => {
-      if (url.startsWith('/api/resumen/anual')) {
-        return Promise.reject(new Error('fetch anual inesperadamente falló'));
-      }
-      return Promise.reject(new Error(`fetch inesperado: ${url}`));
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    renderScreen();
-
-    expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
-    expect(screen.getByText('INGRESOS TOTALES')).toBeInTheDocument();
-    expect(screen.getByText('julio 2026')).toBeInTheDocument();
-    expect(
-      screen.queryByText(/vs mes anterior|Sin cambio/),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByTestId('ingreso-sparkline')).not.toBeInTheDocument();
   });
 });

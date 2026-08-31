@@ -3,110 +3,58 @@ import { SemaforoHeroCard } from './SemaforoHeroCard';
 import { renderConRouter } from '@/test/router-harness';
 
 /**
- * SemaforoHeroCard — mock-driven redesign (2026-08-30): neutral card, ring
- * indicator, rebranded labels (Muy Saludable / Saludable / En peligro,
- * single table in `lib/semaforo-estilos.ts`), tinted verdict box carrying
- * `construirVeredictoSemaforo`'s copy, and a decorative worst→best scale.
- * Navigation/a11y behavior is unchanged from the previous design.
+ * SemaforoHeroCard — single-line status row (2026-08-30, minimalist-ui
+ * pass): status dot, "Semáforo · {mes}" label, estado pill (the ONLY
+ * colored element), trailing chevron. The verdict copy is GONE — it now
+ * lives on `/semaforo`, which this row links to. Navigation/a11y behavior
+ * is unchanged from the previous design.
  */
 describe('SemaforoHeroCard', () => {
-  const veredictoRojo = {
-    lead: 'Tu veredicto es En peligro.',
-    detalle:
-      'Aunque Necesidades y Ahorro están en rango, Gustos queda fuera de rango y define el estado global de este mes siguiendo la lógica de mayor riesgo.',
-  };
-
   it.each([
-    ['verde', 'Semáforo: Muy Saludable'],
-    ['amarillo', 'Semáforo: Saludable'],
-    ['rojo', 'Semáforo: En peligro'],
+    ['verde', 'Muy Saludable'],
+    ['amarillo', 'Saludable'],
+    ['rojo', 'En peligro'],
   ])(
-    'renders estado "%s" with its rebranded label at display scale',
-    async (estado, titulo) => {
+    'renders estado "%s" as a link named after its rebranded label, with the label in a pastel pill',
+    async (estado, label) => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={estado}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={estado} periodo="2026-07" />,
       );
-      const encabezado = await screen.findByText(titulo);
-      expect(encabezado).toBeInTheDocument();
-      expect(encabezado.className).toMatch(/\btext-4xl\b/);
+      const link = await screen.findByRole('link', {
+        name: new RegExp(`Semáforo: ${label}`),
+      });
+      expect(link).toBeInTheDocument();
+
+      const pill = screen.getByText(label);
+      expect(pill.className).toMatch(/\brounded-full\b/);
+      expect(pill.className).toMatch(new RegExp(`\\bbg-semaforo-${estado}\\b`));
+      expect(pill.className).toMatch(
+        new RegExp(`\\btext-semaforo-${estado}-foreground\\b`),
+      );
     },
   );
 
-  it('renders the verdict box with bold lead + detail in the estado chip pair', async () => {
-    renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="rojo"
-        periodo="2026-07"
-        veredicto={veredictoRojo}
-      />,
-    );
+  it('renders as a single line: label + period + pill, no verdict copy anywhere', async () => {
+    renderConRouter(<SemaforoHeroCard estadoGlobal="rojo" periodo="2026-07" />);
 
-    const lead = await screen.findByText('Tu veredicto es En peligro.');
-    expect(lead.tagName).toBe('STRONG');
-    const caja = lead.closest('p');
-    expect(caja?.textContent).toContain('la lógica de mayor riesgo');
-    // Estado tint lives in the BOX (chip fill + AA -foreground pair), not
-    // on the card surface anymore.
-    expect(caja?.className).toMatch(/\bbg-semaforo-rojo\b/);
-    expect(caja?.className).toMatch(/\btext-semaforo-rojo-foreground\b/);
-  });
-
-  it('omits the verdict box when no veredicto is provided', async () => {
-    renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="verde"
-        periodo="2026-07"
-        veredicto={null}
-      />,
-    );
-    await screen.findByText('Semáforo: Muy Saludable');
+    const link = await screen.findByRole('link', {
+      name: /Semáforo: En peligro/,
+    });
+    expect(link.textContent).toBe('Semáforo · julio 2026En peligro');
     expect(screen.queryByText(/Tu veredicto es/)).not.toBeInTheDocument();
   });
 
-  it('keeps the card surface neutral (the estado wash moved into the verdict box)', async () => {
-    renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="rojo"
-        periodo="2026-07"
-        veredicto={veredictoRojo}
-      />,
-    );
-    const tarjeta = await screen.findByTestId('semaforo-global');
-    expect(tarjeta.className).toMatch(/\bbg-card\b/);
-    expect(tarjeta.className).not.toMatch(/\bbg-semaforo-/);
-  });
-
-  it('renders the worst→best scale as decoration (aria-hidden), filling only the active segment', async () => {
-    renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="rojo"
-        periodo="2026-07"
-        veredicto={veredictoRojo}
-      />,
-    );
-    const tarjeta = await screen.findByTestId('semaforo-global');
-    const escala = tarjeta.querySelector('[aria-hidden="true"].grid');
-    expect(escala).not.toBeNull();
-    expect(escala?.textContent).toBe('En peligroSaludableMuy Saludable');
-
-    const barras = escala?.querySelectorAll('.h-2') ?? [];
-    expect(barras).toHaveLength(3);
-    expect(barras[0].className).toMatch(/\bbg-semaforo-rojo-foreground\b/);
-    expect(barras[1].className).toMatch(/\bbg-border\b/);
-    expect(barras[2].className).toMatch(/\bbg-border\b/);
+  it('keeps the row surface flat and neutral (no colored surface, no shadow)', async () => {
+    renderConRouter(<SemaforoHeroCard estadoGlobal="rojo" periodo="2026-07" />);
+    const fila = await screen.findByTestId('semaforo-global');
+    expect(fila.className).toMatch(/\bbg-card\b/);
+    expect(fila.className).not.toMatch(/\bbg-semaforo-/);
+    expect(fila.className).not.toMatch(/\bshadow-sm\b/);
   });
 
   it('navigates to /semaforo carrying the current periodo, with an accessible name combining verdict and period (a11y)', async () => {
     renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="verde"
-        periodo="2026-07"
-        veredicto={null}
-      />,
+      <SemaforoHeroCard estadoGlobal="verde" periodo="2026-07" />,
     );
 
     const link = await screen.findByRole('link', {
@@ -118,41 +66,24 @@ describe('SemaforoHeroCard', () => {
     expect(await screen.findByTestId('semaforo-sentinel')).toBeInTheDocument();
   });
 
-  it('keeps the ring indicator decorative (aria-hidden) so the label text is the only carrier of meaning', async () => {
-    renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="rojo"
-        periodo="2026-07"
-        veredicto={null}
-      />,
-    );
-    const tarjeta = await screen.findByTestId('semaforo-global');
-    const anillo = tarjeta.querySelector('span[aria-hidden="true"]');
-    expect(anillo).not.toBeNull();
-    expect(anillo?.className).toMatch(/\bbg-semaforo-rojo\b/);
-    expect(anillo?.querySelector('.border-4')?.className).toMatch(
-      /\bborder-semaforo-rojo-foreground\b/,
-    );
+  it('keeps the status dot decorative (aria-hidden) so the pill text is the only carrier of meaning', async () => {
+    renderConRouter(<SemaforoHeroCard estadoGlobal="rojo" periodo="2026-07" />);
+    const fila = await screen.findByTestId('semaforo-global');
+    const punto = fila.querySelector('span[aria-hidden="true"]');
+    expect(punto).not.toBeNull();
+    expect(punto?.className).toMatch(/\bbg-semaforo-rojo-foreground\b/);
   });
 
   it('carries the semaforo-global testid so smoke anchors survive the redesign', async () => {
     renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="verde"
-        periodo="2026-07"
-        veredicto={null}
-      />,
+      <SemaforoHeroCard estadoGlobal="verde" periodo="2026-07" />,
     );
     expect(await screen.findByTestId('semaforo-global')).toBeInTheDocument();
   });
 
   it('is keyboard-operable with Space (WG5-12 precedent from SemaforoTag)', async () => {
     renderConRouter(
-      <SemaforoHeroCard
-        estadoGlobal="verde"
-        periodo="2026-07"
-        veredicto={null}
-      />,
+      <SemaforoHeroCard estadoGlobal="verde" periodo="2026-07" />,
     );
     const link = await screen.findByRole('link', {
       name: /Semáforo: Muy Saludable/,
@@ -173,35 +104,23 @@ describe('SemaforoHeroCard', () => {
   describe('estadoGlobal null (SIN_DATOS)', () => {
     it('renders "Sin datos" calmly instead of coercing into a known color', async () => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={null}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />,
       );
       expect(await screen.findByText('Sin datos')).toBeInTheDocument();
     });
 
     it('renders the empty-state supporting line', async () => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={null}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />,
       );
       expect(
-        await screen.findByText('Carga una cartola para conocer tu mes'),
+        await screen.findByText(/Carga una cartola para conocer tu mes/),
       ).toBeInTheDocument();
     });
 
     it('renders a real CTA button linking to /subir (fixes: empty state without CTA)', async () => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={null}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />,
       );
       const cta = await screen.findByRole('link', { name: 'Subir cartola' });
       expect(cta).toBeInTheDocument();
@@ -212,11 +131,7 @@ describe('SemaforoHeroCard', () => {
 
     it('does not render a /semaforo verdict link when there is no verdict yet', async () => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={null}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />,
       );
       await screen.findByText('Sin datos');
       expect(
@@ -224,27 +139,19 @@ describe('SemaforoHeroCard', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('keeps a neutral bg-card surface with no estado tint or scale', async () => {
+    it('keeps a flat, neutral bg-card surface with no estado tint', async () => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={null}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />,
       );
-      const tarjeta = await screen.findByTestId('semaforo-global');
-      expect(tarjeta.className).toMatch(/\bbg-card\b/);
-      expect(tarjeta.className).not.toMatch(/\bbg-semaforo-/);
-      expect(tarjeta.querySelector('.grid')).toBeNull();
+      const fila = await screen.findByTestId('semaforo-global');
+      expect(fila.className).toMatch(/\bbg-card\b/);
+      expect(fila.className).not.toMatch(/\bbg-semaforo-/);
+      expect(fila.className).not.toMatch(/\bshadow-sm\b/);
     });
 
     it('still carries the semaforo-global testid in the empty state', async () => {
       renderConRouter(
-        <SemaforoHeroCard
-          estadoGlobal={null}
-          periodo="2026-07"
-          veredicto={null}
-        />,
+        <SemaforoHeroCard estadoGlobal={null} periodo="2026-07" />,
       );
       expect(await screen.findByTestId('semaforo-global')).toBeInTheDocument();
     });

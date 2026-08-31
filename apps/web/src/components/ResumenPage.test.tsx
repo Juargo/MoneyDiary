@@ -219,8 +219,10 @@ describe('ResumenPage', () => {
       />,
     );
     // Router harness resolves its initial match asynchronously — `findBy`
-    // for the first assertion, sync `getBy` is safe after that.
-    expect(await screen.findByText('$1.000.000')).toBeInTheDocument();
+    // for the first assertion, sync `getBy` is safe after that. The income
+    // card was removed from the dashboard (2026-08-30) — anchor on the hero
+    // card's testid instead of the (now gone) rendered amount.
+    expect(await screen.findByTestId('semaforo-global')).toBeInTheDocument();
     // "Necesidades"/"Deseos"(Gustos)/"Ahorro" render twice each (pie slice +
     // legend row) — see ResumenScreen.test.tsx.
     expect(screen.getAllByText('Necesidades').length).toBeGreaterThan(0);

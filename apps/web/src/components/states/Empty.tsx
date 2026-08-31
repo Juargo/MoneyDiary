@@ -34,7 +34,7 @@ import type { NavRoute } from '@/components/app-shell/nav-items';
  * `BotonVolver.tsx`'s `Extract<NavRoute, …>`.
  *
  * Semantic wash extension (DESIGN.md "Status Families" update, 2026-08-29):
- * unlike `SemaforoHeroCard`/`BucketSemaforoCard`/`IngresoCard`, this
+ * unlike `SemaforoHeroCard`/`BucketSemaforoCard`, this
  * component has no estado to wash and no card surface of its own — it sits
  * directly on the pale-sky `--background`. Scoped instead to a soft, modest
  * `bg-muted/40` + `border-border` box (the SAME notice idiom `SubirCartola`
