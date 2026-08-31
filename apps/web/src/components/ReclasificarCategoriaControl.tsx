@@ -192,7 +192,7 @@ export function ReclasificarCategoriaControl({
         disabled={mutacion.isPending || data === undefined}
         aria-busy={catalogoCargandoInicial}
         onChange={alCambiar}
-        className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-none border border-border px-3 py-1 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         {data === undefined ? (
           // Mid-flight: the catalog hasn't loaded yet. Offer only the

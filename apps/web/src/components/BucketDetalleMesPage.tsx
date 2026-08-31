@@ -187,15 +187,15 @@ export function BucketDetalleMesPage({
           <div
             aria-hidden="true"
             data-testid="usage-bar"
-            className="relative h-1.5 w-full rounded-full bg-muted"
+            className="relative h-1.5 w-full rounded-none bg-muted"
           >
             <span
-              className="absolute top-0 h-1.5 w-0.5 rounded-full bg-foreground"
+              className="absolute top-0 h-1.5 w-0.5 rounded-none bg-foreground"
               style={{ left: `${viewModel.marcaPorcentajePct}%` }}
             />
             {viewModel.marcaMetaPct !== null && (
               <span
-                className="absolute top-0 h-1.5 w-0.5 rounded-full bg-primary"
+                className="absolute top-0 h-1.5 w-0.5 rounded-none bg-primary"
                 style={{ left: `${viewModel.marcaMetaPct}%` }}
               />
             )}

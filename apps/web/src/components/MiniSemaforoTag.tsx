@@ -40,7 +40,7 @@ export function MiniSemaforoTag({
     <Link
       to="/semaforo"
       search={{ periodo }}
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${estilo.className}`}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${estilo.className}`}
       onKeyDown={(event) => {
         // WG5-12/D-08: Space doesn't natively activate an <a href> —
         // prevent its default (page scroll) and trigger the same
