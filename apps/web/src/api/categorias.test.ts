@@ -185,7 +185,7 @@ describe('postCategoria', () => {
     vi.unstubAllGlobals();
   });
 
-  it('llama POST /api/categorias same-origin con el input como body y descarta el body de éxito', async () => {
+  it('llama POST /api/categorias same-origin con el input como body y devuelve la categoría creada (D-06)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 201,
@@ -198,12 +198,93 @@ describe('postCategoria', () => {
       bucket: 'Deseos',
     });
 
-    expect(result).toEqual({ ok: true, value: undefined });
+    expect(result).toEqual({ ok: true, value: CATEGORIA_VALIDA });
     expect(fetchMock).toHaveBeenCalledWith('/api/categorias', {
       credentials: 'same-origin',
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ nombre: 'Mascotas', bucket: 'Deseos' }),
+    });
+  });
+
+  it('serializa patrones en el body cuando se envían (CAT038-10)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => CATEGORIA_VALIDA,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await postCategoria({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones: [{ patron: 'PETCO', matchType: 'CONTAINS' }],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/categorias', {
+      credentials: 'same-origin',
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: [{ patron: 'PETCO', matchType: 'CONTAINS' }],
+      }),
+    });
+  });
+
+  it('un 201 con body malformado (sin transaccionesCount) se mapea a tag parse, nunca lanza', async () => {
+    const { transaccionesCount, ...malformado } = CATEGORIA_VALIDA;
+    void transaccionesCount;
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => malformado,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await postCategoria({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    });
+  });
+
+  it('400 con indice se levanta a ApiError.server.indice (CAT038-11)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          message: 'x',
+          code: 'PATRON_FORMATO_INVALIDO',
+          indice: 1,
+        }),
+      }),
+    );
+
+    const result = await postCategoria({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones: [
+        { patron: 'A', matchType: 'CONTAINS' },
+        { patron: '', matchType: 'CONTAINS' },
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.error).toEqual({
+      tag: 'server',
+      status: 400,
+      code: 'PATRON_FORMATO_INVALIDO',
+      indice: 1,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
     });
   });
 
