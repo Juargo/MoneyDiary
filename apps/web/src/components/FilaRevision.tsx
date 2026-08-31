@@ -3,7 +3,11 @@ import { Badge } from './ui/badge';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { SelectorBucket } from './SelectorBucket';
 import { SENTINEL_OPTION } from './catalogo-select-sentinels';
-import { esMontoCero, formatearMontoCLP } from '@/domain/formatear-monto';
+import {
+  esMontoCero,
+  formatearMontoCLP,
+  formatearMontoConSigno,
+} from '@/domain/formatear-monto';
 import type { PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
 
@@ -54,6 +58,12 @@ import type { CatalogoEstado } from '@/api/types';
  * categoría. Label format: "Fila {rowIndex+1}: bucket" /
  * "Fila {rowIndex+1}: categoría" (1-based, stable, D-10). The selection
  * checkbox uses "Seleccionar fila {rowIndex+1}" (same numbering).
+ *
+ * 2026-08-31: the description column no longer truncates (full text always
+ * in the DOM, no `title` attribute) and the header amount column shows only
+ * the non-zero, SIGNED amount(s) — `formatearMontoConSigno` with `-` for
+ * cargo / `+` for abono — instead of a Cargo/Abono pair where one side was
+ * almost always a distracting `$0`. Both zero renders a single neutral `$0`.
  *
  * Design critique P2 fix 1 (column identity): the controls used to be
  * fully `srOnly` — a sighted user scanning 50+ rows saw two bare dropdowns
@@ -171,19 +181,25 @@ export function FilaRevision({
 
   const catalogoDisabled = catalogo.tag !== 'listo';
 
-  // Row header (polish pass, 2026-08-30): the old header was a single flex
-  // row with `justify-between` — checkbox+date on the left, a truncated
-  // description on the right, then a second row of "Cargo: / Abono:" pairs.
-  // On phones the description's box collided with the date (see the
-  // 390px screenshot that drove this) and the two amount pairs read as a
-  // table with no columns. Now the row is a classic list item: leading
-  // control, a `min-w-0 flex-1` text column (description as the primary
-  // line, date beneath it as meta — the date group heading already carries
-  // the date, so it's demoted, not removed: FilaRevision also renders
-  // outside that grouping in tests), and a `shrink-0` right-aligned amount
-  // column. Amounts are a `<dl>` so each figure is its own `<dd>` element
-  // (`getByText('$0')` exact match) with its label as `<dt>`. ADR-024: still
-  // display-only — nothing here decides which of cargo/abono "matters".
+  const cargoEsCero = esMontoCero(fila.cargo);
+  const abonoEsCero = esMontoCero(fila.abono);
+  const ambosCero = cargoEsCero && abonoEsCero;
+
+  // Row header (polish pass, 2026-08-30; amount column reworked 2026-08-31):
+  // the old header was a single flex row with `justify-between` —
+  // checkbox+date on the left, a truncated description on the right, then a
+  // second row of "Cargo: / Abono:" pairs. On phones the description's box
+  // collided with the date (see the 390px screenshot that drove this) and
+  // the two amount pairs read as a table with no columns. Now the row is a
+  // classic list item: leading control, a `min-w-0 flex-1` text column
+  // (description as the primary line, wrapping in full — never truncated,
+  // no `title`; date beneath it as meta), and a `shrink-0` right-aligned
+  // amount column showing only the SIGNED non-zero amount(s) — a `$0` cargo
+  // or abono is pure noise (ADR-024: display-only, `esMontoCero` is the only
+  // decision made here). Amounts stay a `<dl>` for semantics, but each `<dt>`
+  // is `sr-only` now that sign + color carry the cargo/abono distinction for
+  // sighted users; each figure is still its own `<dd>` element (`getByText`
+  // exact match).
   const encabezado = (
     <div className="flex items-start gap-2">
       {!fila.esDuplicado && (
@@ -209,11 +225,11 @@ export function FilaRevision({
         {/* `data-descripcion`: the stable hook `PreviewMuestra.test.tsx`'s
             grouping suite reads row descriptions through (replaced a
             markup-coupled `.text-muted-foreground > span.font-medium`
-            selector in this pass). */}
+            selector in this pass). 2026-08-31: no more `truncate`/`title` —
+            the description is always shown in full, wrapping as needed. */}
         <span
           data-descripcion
-          className="block truncate font-medium text-foreground"
-          title={fila.descripcion}
+          className="block break-words font-medium text-foreground"
         >
           {fila.descripcion}
         </span>
@@ -222,35 +238,34 @@ export function FilaRevision({
           {fila.esDuplicado && <Badge variant="outline">Duplicado</Badge>}
         </span>
       </div>
-      <dl className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-        <div className="flex justify-end gap-1">
-          <dt>Cargo</dt>
-          {/* Semantic amount colors (2026-08-30): cargo in `cargo-foreground`,
-              abono in `ingreso-foreground` — but a `$0` in either column
-              stays neutral. Color marks money that moved; painting the
-              empty column green/red would make every row look like both. */}
-          <dd
-            className={`font-medium ${
-              esMontoCero(fila.cargo)
-                ? 'text-foreground'
-                : 'text-cargo-foreground'
-            }`}
-          >
-            {formatearMontoCLP(fila.cargo)}
-          </dd>
-        </div>
-        <div className="flex justify-end gap-1">
-          <dt>Abono</dt>
-          <dd
-            className={`font-medium ${
-              esMontoCero(fila.abono)
-                ? 'text-foreground'
-                : 'text-ingreso-foreground'
-            }`}
-          >
-            {formatearMontoCLP(fila.abono)}
-          </dd>
-        </div>
+      <dl className="shrink-0 text-right tabular-nums">
+        {ambosCero ? (
+          <div className="flex justify-end gap-1">
+            <dt className="sr-only">Monto</dt>
+            <dd className="text-sm font-medium text-foreground">
+              {formatearMontoCLP('0')}
+            </dd>
+          </div>
+        ) : (
+          <>
+            {!cargoEsCero && (
+              <div className="flex justify-end gap-1">
+                <dt className="sr-only">Cargo</dt>
+                <dd className="text-sm font-medium text-cargo-foreground">
+                  {formatearMontoConSigno(fila.cargo, '-')}
+                </dd>
+              </div>
+            )}
+            {!abonoEsCero && (
+              <div className="flex justify-end gap-1">
+                <dt className="sr-only">Abono</dt>
+                <dd className="text-sm font-medium text-ingreso-foreground">
+                  {formatearMontoConSigno(fila.abono, '+')}
+                </dd>
+              </div>
+            )}
+          </>
+        )}
       </dl>
     </div>
   );

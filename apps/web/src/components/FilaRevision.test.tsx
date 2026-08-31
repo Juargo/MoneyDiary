@@ -7,8 +7,9 @@ import type { CatalogoEstado } from '@/api/types';
 import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
 
 // FilaRevision (US-059 PR2, D-06/D-10/D-12) — presentational row component.
-// Tests verify: cell rendering (fecha, descripcion, cargo, abono via
-// formatearMontoCLP), duplicate greying + badge + disabled bucket control,
+// Tests verify: cell rendering (fecha, descripcion, the signed non-zero
+// amount via formatearMontoConSigno, formatearMontoCLP only for the
+// both-zero `$0`), duplicate greying + badge + disabled bucket control,
 // bucket→categoría cascade (D-06), accessible labels (D-10), and
 // onEditChange payloads.
 //
@@ -63,7 +64,7 @@ const catalogoError: CatalogoEstado = { tag: 'error' };
 
 describe('FilaRevision', () => {
   // Cell rendering
-  it('renders fecha (sliced to YYYY-MM-DD), descripcion, formatted cargo and abono', () => {
+  it('renders fecha (sliced to YYYY-MM-DD), descripcion, and the signed non-zero amount', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({ rowIndex: 2 })}
@@ -75,10 +76,32 @@ describe('FilaRevision', () => {
 
     expect(screen.getByText('2026-07-15')).toBeInTheDocument();
     expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
-    // formatearMontoCLP('50000') → '$50.000'
-    expect(screen.getByText('$50.000')).toBeInTheDocument();
-    // formatearMontoCLP('0') → '$0'
-    expect(screen.getByText('$0')).toBeInTheDocument();
+    // formatearMontoConSigno('50000', '-') → '-$50.000'; the zero abono is
+    // suppressed entirely — only the non-zero amount renders (2026-08-31).
+    expect(screen.getByText('-$50.000')).toBeInTheDocument();
+    expect(screen.queryByText('$0')).not.toBeInTheDocument();
+  });
+
+  // Description: always shown in full, never truncated (2026-08-31 — the
+  // description used to be `truncate` + `title` for overflow; both are gone
+  // so the full text is always in the accessible DOM text, not hidden
+  // behind a hover-only title.
+  it('renders the full descripcion with no truncation and no title attribute', () => {
+    const descripcionLarga =
+      'Compra en supermercado con una descripción extremadamente larga que antes se habría truncado con puntos suspensivos y un atributo title';
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 2, descripcion: descripcionLarga })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+      />,
+    );
+
+    const descripcionEl = screen.getByText(descripcionLarga);
+    expect(descripcionEl).toBeInTheDocument();
+    expect(descripcionEl).not.toHaveAttribute('title');
+    expect(descripcionEl.className).not.toMatch(/\btruncate\b/);
   });
 
   // Duplicate row: greyed + badge + bucket control disabled, no categoría select (D-10)
@@ -943,8 +966,8 @@ describe('FilaRevision', () => {
     });
   });
 
-  describe('amount colors (cargo red, abono green, $0 neutral)', () => {
-    it('colors a non-zero cargo and leaves the $0 abono neutral', () => {
+  describe('amount colors (cargo red signed "-", abono green signed "+", $0 neutral when both are zero)', () => {
+    it('renders only the signed cargo, colored, when abono is zero', () => {
       render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2, cargo: '50000', abono: '0' })}
@@ -954,12 +977,11 @@ describe('FilaRevision', () => {
         />,
       );
 
-      expect(screen.getByText('$50.000')).toHaveClass('text-cargo-foreground');
-      expect(screen.getByText('$0')).toHaveClass('text-foreground');
-      expect(screen.getByText('$0')).not.toHaveClass('text-ingreso-foreground');
+      expect(screen.getByText('-$50.000')).toHaveClass('text-cargo-foreground');
+      expect(screen.queryByText('$0')).not.toBeInTheDocument();
     });
 
-    it('colors a non-zero abono and leaves the $0 cargo neutral', () => {
+    it('renders only the signed abono, colored, when cargo is zero', () => {
       render(
         <FilaRevision
           fila={unaFilaPreview({ rowIndex: 2, cargo: '0', abono: '596' })}
@@ -969,9 +991,43 @@ describe('FilaRevision', () => {
         />,
       );
 
-      expect(screen.getByText('$596')).toHaveClass('text-ingreso-foreground');
+      expect(screen.getByText('+$596')).toHaveClass('text-ingreso-foreground');
+      expect(screen.queryByText('$0')).not.toBeInTheDocument();
+    });
+
+    it('renders a single neutral $0 when both cargo and abono are zero', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, cargo: '0', abono: '0' })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getAllByText('$0')).toHaveLength(1);
       expect(screen.getByText('$0')).toHaveClass('text-foreground');
-      expect(screen.getByText('$0')).not.toHaveClass('text-cargo-foreground');
+    });
+
+    it('renders both signed amounts, cargo first, when both cargo and abono are non-zero', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, cargo: '1000', abono: '596' })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      const cargoEl = screen.getByText('-$1.000');
+      const abonoEl = screen.getByText('+$596');
+      expect(cargoEl).toHaveClass('text-cargo-foreground');
+      expect(abonoEl).toHaveClass('text-ingreso-foreground');
+      // cargo before abono in document order
+      expect(
+        cargoEl.compareDocumentPosition(abonoEl) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     });
   });
 });
