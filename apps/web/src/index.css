@@ -137,7 +137,17 @@
  * the `.dark` class.
  */
 :root {
-  --radius: 0.5rem; /* 8px default (was 0.625rem/10px) */
+  /*
+   * 2026-08-31 — squared system: the whole radius family derives from this
+   * one token (shadcn's "radius: 0" preset). Every `rounded-sm/md/lg/xl`
+   * (and bare `rounded`) utility resolves to 0; classes stay in the markup
+   * so flipping this back to 0.5rem restores the previous look in one line.
+   * `rounded-full` is NOT derived from it: the few remaining circles are
+   * geometry, not styling (spinners in states/Loading, the donut's IDEAL
+   * ring in DistribucionPie); every pill/dot/badge/bar was moved to
+   * `rounded-none` explicitly.
+   */
+  --radius: 0rem;
   --background: #e8f0fa; /* surface — pale pastel blue */
   --foreground: #1a1c1c; /* on-surface */
   --card: #ffffff; /* surface-container-lowest */
@@ -177,8 +187,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: max(0px, calc(var(--radius) - 4px));
+  --radius-md: max(0px, calc(var(--radius) - 2px));
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }

@@ -48,7 +48,7 @@ export function SemaforoHeroCard({
       >
         <span
           aria-hidden="true"
-          className="size-2 shrink-0 rounded-full bg-muted-foreground"
+          className="size-2 shrink-0 rounded-none bg-muted-foreground"
         />
         <span className="min-w-0 truncate">
           <span className="font-semibold text-foreground">Sin datos</span>
@@ -89,7 +89,7 @@ export function SemaforoHeroCard({
       <span
         aria-hidden="true"
         className={cn(
-          'size-2 shrink-0 rounded-full',
+          'size-2 shrink-0 rounded-none',
           PUNTO_POR_ESTADO[estadoGlobal] ?? 'bg-muted-foreground',
         )}
       />
@@ -104,7 +104,7 @@ export function SemaforoHeroCard({
 
       <span
         className={cn(
-          'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
+          'shrink-0 rounded-none px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
           estilo.className,
         )}
       >

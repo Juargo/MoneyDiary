@@ -627,7 +627,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             >
               <span
                 aria-hidden="true"
-                className={`grid size-5 place-items-center rounded-full border text-xs ${
+                className={`grid size-5 place-items-center rounded-none border text-xs ${
                   activo || completado
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border'

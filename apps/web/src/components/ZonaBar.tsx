@@ -41,7 +41,7 @@ export function ZonaBar({
         data-testid="zona-bar-track"
         aria-hidden="true"
       >
-        <div className="flex h-full w-full overflow-hidden rounded-full">
+        <div className="flex h-full w-full overflow-hidden rounded-none">
           {segmentos.map((segmento) => (
             <div
               key={`${segmento.estado}-${segmento.desdePct}`}
@@ -53,7 +53,7 @@ export function ZonaBar({
         {markerPct !== null && (
           <div
             data-testid="zona-bar-marker"
-            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
+            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-none bg-foreground"
             style={{ left: `${markerPct}%` }}
           />
         )}

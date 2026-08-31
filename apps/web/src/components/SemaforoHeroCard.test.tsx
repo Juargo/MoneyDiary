@@ -26,7 +26,7 @@ describe('SemaforoHeroCard', () => {
       expect(link).toBeInTheDocument();
 
       const pill = screen.getByText(label);
-      expect(pill.className).toMatch(/\brounded-full\b/);
+      expect(pill.className).toMatch(/\brounded-none\b/);
       expect(pill.className).toMatch(new RegExp(`\\bbg-semaforo-${estado}\\b`));
       expect(pill.className).toMatch(
         new RegExp(`\\btext-semaforo-${estado}-foreground\\b`),

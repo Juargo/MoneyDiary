@@ -30,7 +30,7 @@ export function SemaforoBadge({
       role="img"
       aria-label={estilo.label}
       className={cn(
-        'inline-flex items-center justify-center rounded-full',
+        'inline-flex items-center justify-center rounded-none',
         estilo.className,
       )}
       style={{ width: size, height: size, fontSize: size * 0.5 }}

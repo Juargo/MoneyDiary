@@ -164,7 +164,7 @@ function MesCelda({
       <span
         data-testid={esSeleccionado ? 'mes-seleccionado-marker' : undefined}
         className={cn(
-          'flex h-16 w-16 items-center justify-center rounded-full',
+          'flex h-16 w-16 items-center justify-center rounded-none',
           esSeleccionado && 'border-2 border-ingreso-foreground bg-ingreso',
         )}
       >

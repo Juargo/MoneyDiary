@@ -107,8 +107,8 @@ export function GoogleVinculoSection({
   }
 
   const pillClase = me.googleVinculado
-    ? 'inline-flex items-center gap-1 rounded-full bg-vinculo-activo px-3 py-1 text-xs font-semibold text-vinculo-activo-foreground'
-    : 'rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground';
+    ? 'inline-flex items-center gap-1 rounded-none bg-vinculo-activo px-3 py-1 text-xs font-semibold text-vinculo-activo-foreground'
+    : 'rounded-none bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground';
 
   const pillTexto = me.googleVinculado
     ? me.email !== null

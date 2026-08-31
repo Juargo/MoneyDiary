@@ -132,7 +132,7 @@ function FilaClickeable({
         <span className="flex items-center gap-2">
           <span
             data-testid="leyenda-dot"
-            className="h-3 w-3 shrink-0 rounded-full"
+            className="h-3 w-3 shrink-0 rounded-none"
             style={{ backgroundColor: COLOR_BUCKET[item.bucket] ?? '#CCCCCC' }}
           />
           {/* Explicit `{' '}` text-node separators (not just `gap-*`

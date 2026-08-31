@@ -623,11 +623,11 @@ export function PreviewMuestra({
             {seleccionados.size === 0 && (
               <div
                 aria-hidden="true"
-                className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                className="h-1.5 w-full overflow-hidden rounded-none bg-muted"
               >
                 <div
                   data-progreso-fill
-                  className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
+                  className="h-full rounded-none bg-primary transition-[width] motion-reduce:transition-none"
                   style={{ width: `${progresoPct}%` }}
                 />
               </div>
@@ -727,15 +727,14 @@ export function PreviewMuestra({
                     {/* Panel framing (2026-08-30): header + rows share ONE
                         bordered frame so containment is unmistakable — the
                         header is the frame's tinted top band, the rows sit
-                        inside it. Collapsed, the header rounds all four
-                        corners and drops its `border-b` (nothing below it to
-                        separate from); open, it squares the bottom and draws
-                        the divider. No `overflow-hidden` on the frame: it
+                        inside it. Collapsed, the header drops its `border-b`
+                        (nothing below it to separate from); open, it draws
+                        the divider. (2026-08-31: the corner rounding that
+                        used to toggle here went away with the squared
+                        `--radius: 0` system.) No `overflow-hidden` on the frame: it
                         would clip the toggle's focus ring. */}
                     <div
-                      className={`flex items-center gap-2 rounded-t-lg bg-muted/40 px-3 py-1 ${
-                        abierto ? 'border-b border-border' : 'rounded-b-lg'
-                      }`}
+                      className={`flex items-center gap-2 bg-muted/40 px-3 py-1 ${abierto ? 'border-b border-border' : ''}`}
                     >
                       {seleccionablesGrupo.length > 0 && (
                         // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
