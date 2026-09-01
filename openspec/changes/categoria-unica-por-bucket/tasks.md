@@ -161,8 +161,8 @@ Note (apply-time, not in design.md): `apps/api/src/infrastructure/http-express/a
 
 ### Phase 1.5: Contract regeneration
 
-- [ ] 1.5.1 Run `pnpm contract:sync` (`pnpm api openapi:emit && pnpm --filter @moneydiary/api-client generate`)
-- [ ] 1.5.2 Verify `pnpm api openapi:check` and `pnpm api-client typecheck` — zero drift (CAT038-14)
+- [x] 1.5.1 Run `pnpm contract:sync` (`pnpm api openapi:emit && pnpm --filter @moneydiary/api-client generate`)
+- [x] 1.5.2 Verify `pnpm api openapi:check` and `pnpm api-client typecheck` — zero drift (CAT038-14)
 
 ### Phase 1.6: Docs — ADR-042 + index + stale note
 
