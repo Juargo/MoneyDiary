@@ -1,5 +1,20 @@
 # Tasks: Create a categoría (with patrones) from the upload preview
 
+## PR3 STATUS: DONE (2026-08-31)
+
+All PR3 tasks (3.0.1–3.5.3) complete on branch `feat/preview-nueva-categoria-ui`
+(base: PR2's merged commit `1f3a4dd5` on `main`). New:
+`apps/web/src/components/preview/NuevaCategoriaDesdeFilaForm.tsx` (+ test).
+Changed: `FilaRevision.tsx` (+ test), `PreviewMuestra.tsx` (+ test),
+`SubirCartola.tsx` (+ test). Verification: `pnpm web test` 138 files/1717
+tests green (full suite); `pnpm web typecheck` clean; `pnpm web lint` clean;
+`pnpm web test:e2e` 70 passed/68 skipped (pre-existing viewport skips),
+`preview-stress.e2e.ts` unaffected in both movil/escritorio projects. See
+`sdd/crear-categoria-desde-preview/apply-progress` for full detail
+(root-cause debugging session on a test-mock gap, TS narrowing fix, and a
+`react-hooks/refs` lint fix are documented there). Next: PR4
+(`previewData` hoist, re-run, diff announcement, e2e), base = this branch.
+
 ## PR2 STATUS: DONE (2026-08-31)
 
 All PR2 tasks (2.1.1–2.5.3) complete and committed locally on branch
@@ -147,33 +162,33 @@ Chain strategy: feature-branch-chain
 
 ### Phase 3.0: Apply-time assumption check
 
-- [ ] 3.0.1 Verify `crypto.randomUUID()` availability in the web's build/browser targets (check `apps/web/vite.config.ts` / `tsconfig` target and any documented supported-browsers list); if unavailable, use `useId()` per row instead — record the decision in the PR description before writing `NuevaCategoriaDesdeFilaForm.tsx`
+- [x] 3.0.1 Verify `crypto.randomUUID()` availability in the web's build/browser targets (check `apps/web/vite.config.ts` / `tsconfig` target and any documented supported-browsers list); if unavailable, use `useId()` per row instead — record the decision in the PR description before writing `NuevaCategoriaDesdeFilaForm.tsx`
 
 ### Phase 3.1: Form component (RED → GREEN)
 
-- [ ] 3.1.1 (RED) Create `apps/web/src/components/preview/NuevaCategoriaDesdeFilaForm.test.tsx`: first patrón prefilled from row description as `CONTAINS`, editable/removable; add/remove keyed rows (never by array index); zero patrones submits; REGEX hint (`role="status"`) appears and never blocks submit; submitted payload shape `{ nombre, bucket, patrones: [{patron, matchType}] }`; blank-only patrón rows dropped before submit; `indice` error renders on the named row (`role="alert"`); non-indexed error renders form-level; `Crear` disabled while `mutation.isPending` or `esDemo`; `Cancelar` always enabled; Escape closes; focus lands on `Nombre` on open; axe clean while open
-- [ ] 3.1.2 (GREEN) Create `apps/web/src/components/preview/NuevaCategoriaDesdeFilaForm.tsx` per D-08/D-09: shell `flex flex-col gap-4 rounded-md border border-border p-4`, `aria-labelledby` heading, `CampoTexto`/`CampoSelect` composition, bucket as static text via `ETIQUETA_BUCKET`, `useCrearCategoria()` owned here
+- [x] 3.1.1 (RED) Create `apps/web/src/components/preview/NuevaCategoriaDesdeFilaForm.test.tsx`: first patrón prefilled from row description as `CONTAINS`, editable/removable; add/remove keyed rows (never by array index); zero patrones submits; REGEX hint (`role="status"`) appears and never blocks submit; submitted payload shape `{ nombre, bucket, patrones: [{patron, matchType}] }`; blank-only patrón rows dropped before submit; `indice` error renders on the named row (`role="alert"`); non-indexed error renders form-level; `Crear` disabled while `mutation.isPending` or `esDemo`; `Cancelar` always enabled; Escape closes; focus lands on `Nombre` on open; axe clean while open
+- [x] 3.1.2 (GREEN) Create `apps/web/src/components/preview/NuevaCategoriaDesdeFilaForm.tsx` per D-08/D-09: shell `flex flex-col gap-4 rounded-md border border-border p-4`, `aria-labelledby` heading, `CampoTexto`/`CampoSelect` composition, bucket as static text via `ETIQUETA_BUCKET`, `useCrearCategoria()` owned here
 
 ### Phase 3.2: "+" trigger in `FilaRevision` (RED → GREEN)
 
-- [ ] 3.2.1 (RED) Extend `apps/web/src/components/FilaRevision.test.tsx`: "+" not rendered without a bucket; rendered once a bucket is chosen; never rendered for `esDuplicado` rows; disabled with `aria-describedby="demo-catalogo-nota"` in demo; focus returns to the trigger on cancel and on success; form mounts inside the row's `<li>` when `filaCreando === fila.rowIndex`
-- [ ] 3.2.2 (GREEN) Add the "+" trigger, trigger ref (for focus return), and form slot to `apps/web/src/components/FilaRevision.tsx`; accept new props `onCategoriaCreada`, `filaCreando`, `onAbrirCreacion`, `esDemo`; no business logic added (presentational only, D-10)
+- [x] 3.2.1 (RED) Extend `apps/web/src/components/FilaRevision.test.tsx`: "+" not rendered without a bucket; rendered once a bucket is chosen; never rendered for `esDuplicado` rows; disabled with `aria-describedby="demo-catalogo-nota"` in demo; focus returns to the trigger on cancel and on success; form mounts inside the row's `<li>` when `filaCreando === fila.rowIndex`
+- [x] 3.2.2 (GREEN) Add the "+" trigger, trigger ref (for focus return), and form slot to `apps/web/src/components/FilaRevision.tsx`; accept new props `onCategoriaCreada`, `filaCreando`, `onAbrirCreacion`, `esDemo`; no business logic added (presentational only, D-10)
 
 ### Phase 3.3: `filaCreando` state in `PreviewMuestra` (RED → GREEN)
 
-- [ ] 3.3.1 (RED) Extend `apps/web/src/components/PreviewMuestra.test.tsx`: at most one form open across the table; `onAbrirCreacion` toggles `filaCreando`; props pass through unchanged to `FilaRevision`
-- [ ] 3.3.2 (GREEN) Add `filaCreando: number | null` state and `onAbrirCreacion` prop pass-through to `apps/web/src/components/PreviewMuestra.tsx`
+- [x] 3.3.1 (RED) Extend `apps/web/src/components/PreviewMuestra.test.tsx`: at most one form open across the table; `onAbrirCreacion` toggles `filaCreando`; props pass through unchanged to `FilaRevision`
+- [x] 3.3.2 (GREEN) Add `filaCreando: number | null` state and `onAbrirCreacion` prop pass-through to `apps/web/src/components/PreviewMuestra.tsx`
 
 ### Phase 3.4: Minimal `SubirCartola` wiring (no re-run) (RED → GREEN)
 
-- [ ] 3.4.1 (RED) Extend `apps/web/src/components/SubirCartola.test.tsx`: on `onCategoriaCreada(rowIndex, categoria)`, the originating row's `edits` map is set to `categoria.id`; no `previewMutation.mutate` call happens yet (explicitly asserted absent, to pin PR3's scope boundary); the demo note (`MENSAJE_DEMO_CATALOGO`, `id="demo-catalogo-nota"`) renders once inside the existing `esDemo &&` block
-- [ ] 3.4.2 (GREEN) In `apps/web/src/components/SubirCartola.tsx`: add a minimal `handleCategoriaCreada(rowIndex, categoria)` that only updates `edits`; render the demo note once; pass `esDemo`, `onCategoriaCreada`, `filaCreando`/`onAbrirCreacion` through to `PreviewMuestra`
+- [x] 3.4.1 (RED) Extend `apps/web/src/components/SubirCartola.test.tsx`: on `onCategoriaCreada(rowIndex, categoria)`, the originating row's `edits` map is set to `categoria.id`; no `previewMutation.mutate` call happens yet (explicitly asserted absent, to pin PR3's scope boundary); the demo note (`MENSAJE_DEMO_CATALOGO`, `id="demo-catalogo-nota"`) renders once inside the existing `esDemo &&` block
+- [x] 3.4.2 (GREEN) In `apps/web/src/components/SubirCartola.tsx`: add a minimal `handleCategoriaCreada(rowIndex, categoria)` that only updates `edits`; render the demo note once; pass `esDemo`, `onCategoriaCreada`, `filaCreando`/`onAbrirCreacion` through to `PreviewMuestra`
 
 ### Phase 3.5: Verification
 
-- [ ] 3.5.1 Run `pnpm web test`
-- [ ] 3.5.2 Run `pnpm web typecheck`
-- [ ] 3.5.3 Run `pnpm web lint`
+- [x] 3.5.1 Run `pnpm web test`
+- [x] 3.5.2 Run `pnpm web typecheck`
+- [x] 3.5.3 Run `pnpm web lint`
 
 ---
 
