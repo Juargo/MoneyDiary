@@ -23,3 +23,17 @@
  */
 export const CLASE_BOTON_ICONO =
   'inline-flex size-6 shrink-0 items-center justify-center rounded';
+
+/**
+ * FOCUS_RING — el tratamiento de foco visible de los controles de sólo-icono
+ * de esta sección (WCAG 2.2 AA SC 2.4.7).
+ *
+ * Sube a este archivo en su TERCER uso, que es cuando la regla de tres de
+ * `dry` se cumple: `BotonVolver.tsx` lo tenía como constante local, y el
+ * lápiz de `CategoriaFila.tsx` no tenía NINGUNO — un `<Link>` de sólo icono
+ * sin indicación de foco es un hueco de a11y real, no una preferencia
+ * estética. El literal reproduce el idioma que `app-shell/NavItem.tsx` ya
+ * había fijado para el chrome de la app; no inventa un cuarto tratamiento.
+ */
+export const FOCUS_RING =
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring';
