@@ -1027,7 +1027,7 @@ describe('postReclasificarCategoria', () => {
     vi.restoreAllMocks();
   });
 
-  it('llama a PATCH /api/transacciones/:id/categoria same-origin con { categoria } en el body', async () => {
+  it('llama a PATCH /api/transacciones/:id/categoria same-origin con { categoriaId } en el body (ADR-042)', async () => {
     const fetchMock = mockFetchOnce({
       ok: true,
       status: 200,
@@ -1041,7 +1041,7 @@ describe('postReclasificarCategoria', () => {
       {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ categoria: 'Transporte' }),
+        body: JSON.stringify({ categoriaId: 'Transporte' }),
       },
     );
   });
