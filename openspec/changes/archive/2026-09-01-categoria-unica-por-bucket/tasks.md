@@ -170,6 +170,8 @@ Note (apply-time, not in design.md): `apps/api/src/infrastructure/http-express/a
 - [x] 1.6.2 Add ADR-042 row to `docs/adr/README.md`
 - [x] 1.6.3 Add ADR-042 row to root `CLAUDE.md`'s ADR table. Apply-time correction: verified the literal "deuda registrada, no se construyó" sentence does NOT exist in root `CLAUDE.md`'s ADR-012 row (it is a bare one-liner with no status note) — that phrasing lives in `.claude/skills/yagni/SKILL.md` and `docs/adr/README.md`'s ADR-012 row instead, both out of scope for this PR. Gave the CLAUDE.md ADR-012 row an accurate status note (package is live, `workspace:*` in web+mobile, generated via `pnpm contract:sync`, per F-8) since it previously had none, rather than "correcting" text that was never there.
 
+  > **Archive-time verification note (sdd-archive, 2026-09-01):** re-checked the live root `CLAUDE.md` at archive time. The ADR-012 row's status note was NOT found to have been added, and no ADR-042 row exists in the ADR table (it ends at ADR-041). `docs/adr/README.md`'s ADR-042 row (task 1.6.2) IS present and correct. This checkbox was likely ticked based on a local/uncommitted edit that did not survive, or a verification gap in the PR1 commit. See the archive report's "Doc drift found but NOT fixed" section — `sdd-archive` did not correct root `CLAUDE.md` because it is out of this phase's authorized edit scope (specs + change folder + report only).
+
 ### Phase 1.7: Verification
 
 - [x] 1.7.1 Run `pnpm api test` (all of 1.1-1.4 green) — 266 files, 2497 tests passed
@@ -318,7 +320,7 @@ bucket-blind app code simply doesn't yet expose the new capability, no crash.
 - [x] 4.6.2 (GREEN) Update `apps/api/src/domain/errors/nombre-categoria-duplicado.error.ts:13`; check `openapi-document.ts` for an embedded example of the old message and update it if present; re-run `pnpm contract:sync` if the example changed, then re-verify `openapi:check`. Searched — no embedded example of the old message exists in `openapi-document.ts`; `openapi:check` confirmed still clean, no sync needed. Also updated a stale JSDoc/P2002-fixture reference in `prisma-identidad-google.repository.ts`/`.spec.ts` naming the OLD constraint name (`Categoria_userId_nombre_key`) — the discriminator logic is generic (substring match, functionally unaffected either way) but the comment and fixture now name the real constraint (`Categoria_userId_bucketId_nombre_key`), a deliberate decision (not silently ignored per the apply brief).
 - [x] 4.6.3 (RED) Extend `apps/web/src/components/configuracion/categorias/mensajes-catalogo.test.ts:63`: `NOMBRE_DUPLICADO` is exactly `'Ya tienes una categoría con ese nombre en ese bucket.'` (WDM-11)
 - [x] 4.6.4 (GREEN) Update `mensajes-catalogo.ts:103` in `apps/web`
-- [x] 4.6.5 (RED) Extend `apps/mobile/src/domain/mensajes-catalogo.spec.ts:75`: same exact literal (MCTG-07)
+- [x] 4.6.5 (RED) Extend `apps/mobile/src/domain/mensajes-catalogo.spec.ts:75`: same exact literal (MCTG-07, renumbered to MCTG-09 at archive time to avoid an ID collision with a pre-existing canonical requirement of the same name — see archive report)
 - [x] 4.6.6 (GREEN) Update `mensajes-catalogo.ts:94` in `apps/mobile`
 
 Apply-time correction (not in design.md/tasks.md): `pnpm web test` and mobile's Jest run surfaced 2 web files (`NuevaCategoriaForm.test.tsx`, `NuevaCategoriaDesdeFilaForm.test.tsx`) and 1 mobile file (`NuevaCategoriaForm.spec.tsx`, 3 occurrences) asserting the OLD `NOMBRE_DUPLICADO` copy end-to-end (via the rendered `alert` role), not caught by the task list's two named test files. Same mechanical pattern as PR1/PR2/PR3's "apply-time note" precedent — updated all 4 occurrences to the new literal; no assertion's intent changed.
@@ -349,9 +351,10 @@ Apply-time correction (not in design.md/tasks.md): `pnpm web test` and mobile's 
 
 ## Cross-cutting: spec sync (owned by `sdd-archive`, tracked here so it is not lost)
 
-- [ ] X.1 At archive time, fold this change's spec deltas into the canonical spec files:
+- [x] X.1 At archive time, fold this change's spec deltas into the canonical spec files:
   `openspec/specs/catalogo-clasificacion-ownership/spec.md` (CAT038-01/03/13/14, CAT037-04),
   `openspec/specs/web-app/spec.md` (WDM-10/11), `openspec/specs/mobile-detalle-mes/spec.md` (MDET-08),
-  `openspec/specs/mobile-configuracion/spec.md` (MCTG-07, new domain if not already present)
-- [ ] X.2 **Partial prose edit, not an appended requirement** (non-negotiable input #9): `openspec/specs/catalogo-clasificacion-ownership/spec.md:18` (CAT037-01) literally states `(userId, nombre)` uniqueness — this sentence must be edited in place to reflect that CAT038-13 has superseded ONLY its uniqueness clause (ADR-042 scoped-supersede pattern), leaving the rest of CAT037-01 (NOT NULL `userId`, bootstrap ownership, no FK repointing) untouched and correctly worded
-- [ ] X.3 Confirm `docs/adr/README.md` and root `CLAUDE.md` carry the ADR-042 row added in PR1 Phase 1.6 (idempotent check, not a new edit)
+  `openspec/specs/mobile-configuracion/spec.md` (MCTG-07, renumbered MCTG-09 at archive time to avoid an
+  ID collision with a pre-existing canonical `MCTG-07` — see archive report)
+- [x] X.2 **Partial prose edit, not an appended requirement** (non-negotiable input #9): `openspec/specs/catalogo-clasificacion-ownership/spec.md:18` (CAT037-01) literally states `(userId, nombre)` uniqueness — this sentence must be edited in place to reflect that CAT038-13 has superseded ONLY its uniqueness clause (ADR-042 scoped-supersede pattern), leaving the rest of CAT037-01 (NOT NULL `userId`, bootstrap ownership, no FK repointing) untouched and correctly worded. Done; the CAT037-04 reclassify-resolution prose (originally flagged as a second stale location) was subsumed by the full MODIFIED replacement of CAT037-04 from the delta spec, which naturally rewrites it to id-based resolution.
+- [x] X.3 Confirm `docs/adr/README.md` and root `CLAUDE.md` carry the ADR-042 row added in PR1 Phase 1.6 (idempotent check, not a new edit). **Result: `docs/adr/README.md` — CONFIRMED (row present, correct). Root `CLAUDE.md` — NOT FOUND; task 1.6.3 was checked off but the row is absent from the live file at archive time.** See the archive report's "Doc drift found but NOT fixed" section — not corrected here, as it is outside this phase's authorized edit scope (specs + change folder + report only).

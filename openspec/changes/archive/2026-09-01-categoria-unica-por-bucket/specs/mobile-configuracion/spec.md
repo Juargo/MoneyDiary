@@ -5,6 +5,12 @@ list names `apps/mobile/src/domain/mensajes-catalogo.ts` as modified, but its Ca
 this domain — this delta closes that gap so the copy pin (settled decision 6) is testable. See `risks` in
 the sdd-spec return envelope.
 
+> **Archive-time note (sdd-archive, 2026-09-01):** this delta labeled its requirement `MCTG-07`, which
+> collided with a pre-existing, unrelated canonical requirement also named `MCTG-07` ("Dashboard refresh
+> after a bucket change", added by an earlier change). When merging into `openspec/specs/mobile-configuracion/spec.md`,
+> `sdd-archive` renumbered this requirement to `MCTG-09` to avoid the collision. No requirement content was
+> altered by the rename — see the canonical spec and the archive report for details.
+
 ## ADDED Requirements
 
 ### Requirement: MCTG-07 — NOMBRE_DUPLICADO copy is bucket-aware (ADR-042)
