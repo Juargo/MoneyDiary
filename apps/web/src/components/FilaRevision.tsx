@@ -12,6 +12,10 @@ import {
   formatearMontoCLP,
   formatearMontoConSigno,
 } from '@/domain/formatear-monto';
+import {
+  esFilaIngreso,
+  esFilaSeleccionable,
+} from '@/domain/clasificacion-preview';
 import type { CategoriaDto, PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
 
@@ -80,8 +84,23 @@ import type { CatalogoEstado } from '@/api/types';
  * wrapper so both columns take equal width at `sm`+, matching the shared
  * header's own `flex-1` split.
  *
+ * Ingreso rows (2026-08-31): a row the backend classified as `Ingreso`
+ * renders NO bucket control, NO categoría select and NO "+" trigger — just
+ * the header (with a bold green "Ingreso" marker) plus a quiet line saying
+ * the row is
+ * classified automatically. `CommitIngestaUseCase` Rule 2 already persists
+ * `{ Ingreso, null }` for these rows and silently DISCARDS any overlay entry
+ * on them, so every control this row used to show promised an edit the
+ * server was always going to throw away. Full opacity, unlike duplicates:
+ * this transaction IS being imported, it simply needs no decision. It is
+ * also not selectable for bulk apply (`esFilaSeleccionable`) — a bulk apply
+ * that silently skipped it would be the same lie in another shape. Duplicate
+ * status still wins: a duplicate income row takes the duplicate path.
+ *
  * ADR-024: zero business logic here — amounts formatted via `formatearMontoCLP`
- * (display-only), no re-computation, no dedup logic, no Ingreso rule.
+ * (display-only), no re-computation, no dedup logic, and the Ingreso RULE is
+ * never re-derived: `esFilaIngreso` only reads the bucket the server already
+ * sent in `sugerido`, never `cargo`/`abono`.
  */
 
 export function FilaRevision({
@@ -168,6 +187,10 @@ export function FilaRevision({
     }
   }
 
+  // Server verdict, never re-derived here (ADR-024) — see the docblock.
+  const esIngreso = esFilaIngreso(fila);
+  const seleccionable = esFilaSeleccionable(fila);
+
   const n = fila.rowIndex + 1; // 1-based human-friendly label index
   const labelBucket = `Fila ${n}: bucket`;
   const labelCategoria = `Fila ${n}: categoría`;
@@ -250,7 +273,7 @@ export function FilaRevision({
   // exact match).
   const encabezado = (
     <div className="flex items-start gap-2">
-      {!fila.esDuplicado && (
+      {seleccionable && (
         // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): the checkbox
         // glyph stays size-4 (16px) visually, but a wrapping `<label>`
         // grows the CLICKABLE area to size-6 (24×24 CSS px) — the same
@@ -258,7 +281,8 @@ export function FilaRevision({
         // A native `<label>` around a bare `<input>` toggles it on click
         // anywhere inside, so this alone grows the hit target with no
         // extra handler. Duplicate rows render no checkbox: never
-        // selectable for bulk (D-10).
+        // selectable for bulk (D-10) — and neither do Ingreso rows, whose
+        // classification the commit refuses to take from an overlay.
         <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
           <input
             type="checkbox"
@@ -284,6 +308,17 @@ export function FilaRevision({
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums">
           <span>{fila.fecha.slice(0, 10)}</span>
           {fila.esDuplicado && <Badge variant="outline">Duplicado</Badge>}
+          {/* Plain bold green text, deliberately NOT a `Badge`: "Duplicado"
+              is an EXCEPTION worth a chip (that row is being skipped),
+              while "Ingreso" is just what this row is. A second badge beside
+              it would give the two equal weight. Green is the same
+              `ingreso-foreground` token the abono figure uses on the right,
+              so the marker and the amount read as one statement. */}
+          {!fila.esDuplicado && esIngreso && (
+            <span className="font-semibold text-ingreso-foreground">
+              Ingreso
+            </span>
+          )}
         </span>
       </div>
       <dl className="shrink-0 text-right tabular-nums">
@@ -332,6 +367,28 @@ export function FilaRevision({
               buckets={buckets}
               disabled
             />
+          </div>
+          <div className="sm:flex-1" />
+        </div>
+      </li>
+    );
+  }
+
+  // Ingreso: no controls at all (not even disabled ones — a disabled control
+  // still reads as "something you could have chosen"). A quiet line takes
+  // their place so the absence is explained rather than merely observed,
+  // matching this screen's craft-floor idiom of visible text over
+  // hover-gated hints. It sits in the same `sm:flex-1` wrapper the bucket
+  // column uses so it lines up under PreviewMuestra's shared column header.
+  if (esIngreso) {
+    return (
+      <li className="flex flex-col gap-2 py-3 text-sm">
+        {encabezado}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="sm:flex-1">
+            <p className="text-xs text-muted-foreground">
+              Se clasifica como Ingreso automáticamente; no necesita categoría.
+            </p>
           </div>
           <div className="sm:flex-1" />
         </div>

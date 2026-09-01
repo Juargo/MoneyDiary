@@ -20,7 +20,11 @@ function crearWrapperQuery() {
   };
 }
 // Fix 8: import shared fixtures; local factory functions removed
-import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
+import {
+  unaFilaIngreso,
+  unaFilaPreview,
+  unCatalogo,
+} from '@/test-utils/preview-fixtures';
 
 // PreviewMuestra (US-059 PR2, D-12) — presentational review table shell.
 // Receives canonical `filas`/`resumen` props (not legacy muestra/estructura).
@@ -1923,6 +1927,81 @@ describe('PreviewMuestra', () => {
       });
       expect(trigger).toBeDisabled();
       expect(trigger).toHaveAttribute('aria-describedby', 'demo-catalogo-nota');
+    });
+  });
+
+  // ── Ingreso rows: settled by the server, never pending work ─────────────
+  //
+  // The backend classifies these as `{ Ingreso, null }` and the commit
+  // refuses any overlay on them. Their `categoriaMerged` is null forever, so
+  // before this the readout counted a fully-settled row as outstanding work
+  // the user could never clear, the "Solo sin clasificar" view showed rows
+  // with nothing to classify, and bulk apply offered them a categoría the
+  // commit would drop.
+  describe('filas de ingreso', () => {
+    const filasConIngreso = [
+      unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      }),
+      unaFilaPreview({ rowIndex: 1, sugerido: null }),
+      unaFilaIngreso({ rowIndex: 2 }),
+    ];
+
+    function renderConIngreso(edits = new Map<number, string | null>()) {
+      return render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filasConIngreso}
+          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          edits={edits}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+    }
+
+    it('counts an income row as classified in the progress readout', () => {
+      renderConIngreso();
+      // 3 non-duplicate rows: one with a sugerido categoría, one pending,
+      // one income (settled) => 2 de 3.
+      expect(screen.getByText(/2 de 3 clasificadas/i)).toBeInTheDocument();
+    });
+
+    it('hides income rows behind "Solo sin clasificar" — they need no work', async () => {
+      renderConIngreso();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: /solo sin clasificar/i }),
+      );
+
+      expect(
+        screen.queryByText('ABONO SUELDO EMPRESA SPA'),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    });
+
+    it('excludes income rows from "select all visible"', () => {
+      renderConIngreso();
+      // 3 rows on screen, only 2 of them selectable.
+      expect(
+        screen.getByRole('checkbox', {
+          name: /seleccionar todas las visibles \(2\)/i,
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("excludes income rows from a date group's select-all", async () => {
+      renderConIngreso();
+
+      await userEvent.click(
+        screen.getByRole('checkbox', { name: /seleccionar todas: /i }),
+      );
+
+      // Both selectable rows got picked; the income row contributes nothing.
+      expect(
+        screen.getByRole('button', { name: /aplicar a 2 seleccionadas/i }),
+      ).toBeInTheDocument();
     });
   });
 });
