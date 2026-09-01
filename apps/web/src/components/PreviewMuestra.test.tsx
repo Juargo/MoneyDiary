@@ -2,8 +2,23 @@ import { useState, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PreviewMuestra } from './PreviewMuestra';
 import type { PreviewFilaDto } from '@/api/types';
+
+// crear-categoria-desde-preview PR3: opening a row's creation form mounts
+// `NuevaCategoriaDesdeFilaForm`, which owns a `useCrearCategoria()` mutation
+// — only the tests that actually open a form need this ancestor.
+function crearWrapperQuery() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
 // Fix 8: import shared fixtures; local factory functions removed
 import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
 
@@ -1827,6 +1842,87 @@ describe('PreviewMuestra', () => {
       expect(screen.queryAllByRole('button', { expanded: false })).toHaveLength(
         0,
       );
+    });
+  });
+
+  // crear-categoria-desde-preview PR3 (D-08/D-10, WEB-PRV-12): `filaCreando`
+  // is ephemeral table UI state owned HERE (single value ⇒ "at most one
+  // form open" falls out for free). `onCategoriaCreada`/`esDemo` are pure
+  // pass-through to every `FilaRevision`.
+  describe('"+" (Nueva categoría) orchestration state (filaCreando)', () => {
+    it('at most one form is open across the table: opening a second row closes the first', async () => {
+      const user = userEvent.setup();
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[
+            unaFilaPreview({ rowIndex: 0, descripcion: 'A' }),
+            unaFilaPreview({ rowIndex: 1, descripcion: 'B' }),
+          ]}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+        { wrapper: crearWrapperQuery() },
+      );
+
+      const filaA = screen.getByText('A').closest('li');
+      const filaB = screen.getByText('B').closest('li');
+      if (!filaA || !filaB) throw new Error('rows not found');
+
+      await user.click(
+        within(filaA).getByRole('radio', { name: 'Necesidades' }),
+      );
+      await user.click(
+        within(filaB).getByRole('radio', { name: 'Necesidades' }),
+      );
+
+      await user.click(
+        within(filaA).getByRole('button', { name: /nueva categoría/i }),
+      );
+      expect(
+        within(filaA).getByRole('heading', { name: 'Nueva categoría' }),
+      ).toBeInTheDocument();
+
+      await user.click(
+        within(filaB).getByRole('button', { name: /nueva categoría/i }),
+      );
+      expect(
+        within(filaB).getByRole('heading', { name: 'Nueva categoría' }),
+      ).toBeInTheDocument();
+      expect(
+        within(filaA).queryByRole('heading', { name: 'Nueva categoría' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('esDemo and onCategoriaCreada pass through unchanged to every FilaRevision', async () => {
+      const user = userEvent.setup();
+      const onCategoriaCreada = vi.fn();
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview({ rowIndex: 0, descripcion: 'A' })]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+          esDemo
+          onCategoriaCreada={onCategoriaCreada}
+        />,
+      );
+
+      const fila = screen.getByText('A').closest('li');
+      if (!fila) throw new Error('row not found');
+      await user.click(
+        within(fila).getByRole('radio', { name: 'Necesidades' }),
+      );
+
+      const trigger = within(fila).getByRole('button', {
+        name: /nueva categoría/i,
+      });
+      expect(trigger).toBeDisabled();
+      expect(trigger).toHaveAttribute('aria-describedby', 'demo-catalogo-nota');
     });
   });
 });

@@ -31,7 +31,12 @@ import {
   guardarBorrador,
   type BorradorRevision,
 } from '@/lib/borrador-revision';
-import type { CatalogoEstado } from '@/api/types';
+import { MENSAJE_DEMO_CATALOGO } from './configuracion/categorias/mensajes-catalogo';
+import type {
+  CatalogoEstado,
+  CategoriaDto,
+  PreviewIngestaDtoConCanonicos,
+} from '@/api/types';
 
 // US-059 PR3: SubirCartola state-machine rewrite — two-phase preview→commit flow.
 // - `subiendo` renamed to `committing` (D-01).
@@ -187,6 +192,29 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // D-03: edits overlay — Map keyed by rowIndex; value is categoriaId|null.
   // Presence = "user touched this row"; absence = auto-classify server-side.
   const [edits, setEdits] = useState<Map<number, string | null>>(new Map());
+  // crear-categoria-desde-preview PR4 (D-10, design.md §7 highest-regression
+  // risk edit — landed as its own commit with the full pre-existing suite
+  // green FIRST, zero new behavior): `previewData` is hoisted OUT of
+  // `previewMutation.data` (F-9: `useMutation.mutate()` clears `.data` while
+  // pending, which would unmount the whole review table on a PR4 re-run).
+  // Written by an effect mirroring `previewMutation.isSuccess`/`.data` (see
+  // that effect below) — fires for BOTH the initial preview and re-runs; read
+  // everywhere `previewMutation.data` used to be read (`mostrarPreview`, the
+  // `<PreviewMuestra>` props, the draft write-through effect deps, the
+  // discard-confirm counts, the exito banco line); cleared in the SAME three
+  // reset paths that already clear `edits` (`procesarArchivoSeleccionado`,
+  // `handleDescartar`, `handleSubirOtra`) so it never survives past a fresh
+  // pick/discard/reset.
+  const [previewData, setPreviewData] =
+    useState<PreviewIngestaDtoConCanonicos | null>(null);
+  // crear-categoria-desde-preview PR4 (D-11/D-12): overrides the derived
+  // `MENSAJE_POR_ESTADO[estado]` status line during and after a re-run —
+  // "Actualizando la vista previa con la nueva categoría…" while it's in
+  // flight, then the D-12 diff sentence once it resolves. Cleared in the
+  // same three reset paths as `previewData`/`edits` (a fresh pick/discard/
+  // reset counts as "the next transition", D-12's own persistence rule) and
+  // on a failed re-run (falls back to the plain `preview-error` message).
+  const [mensajeOverride, setMensajeOverride] = useState<string | null>(null);
   // Peak-end landing polish: `<input type="file">` is uncontrolled by
   // design (browsers refuse a scripted non-empty `value`) — clearing
   // `archivo`/React state does NOT clear the native "no file chosen" text.
@@ -258,6 +286,12 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // "Agregar transacciones". `commitMutation.isPending`/`disabled` are stale
   // until React re-renders, which doesn't happen between two synchronous clicks.
   const isSubmittingRef = useRef(false);
+  // crear-categoria-desde-preview PR4 (D-11): set right before a re-run's
+  // `previewMutation.mutate()` call, consumed (and reset) the next time the
+  // `preview-listo` focus branch runs below — suppresses ONLY that one
+  // re-entry so a re-run never steals focus back to the preview heading,
+  // while a genuine first-time preview-listo transition still focuses it.
+  const reevaluandoRef = useRef(false);
 
   // Derived estado — mirrors the original pattern; `committing` replaces `subiendo`.
   const estado: EstadoSubida = commitMutation.isSuccess
@@ -322,11 +356,47 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     enabled: estado === 'exito' && mesDominante !== undefined,
   });
 
+  // crear-categoria-desde-preview PR4 (D-10 hoist mechanism): mirrors a
+  // successful `previewMutation` into the hoisted `previewData` state using
+  // React's documented "adjust state during render" idiom (`FilaRevision`'s
+  // own `prevCategoriaId` mirror is the precedent in this codebase) — NOT a
+  // `useEffect`. An effect-based mirror was tried first and reverted: it
+  // introduces an extra commit between "`estado` flips to `preview-listo`"
+  // and "`previewData` actually updates," and the pre-existing
+  // `previewHeadingRef` focus effect below (unmodified, keyed only on
+  // `estado`) already fired-and-found-nothing on the FIRST of those two
+  // commits — a real regression the full suite gate caught. Adjusting
+  // during render folds both changes into the SAME commit, so any consumer
+  // reading `estado` alongside `previewData` (like that focus effect) sees
+  // them agree. Also reactive on `previewMutation.data`/`.isSuccess` rather
+  // than a per-call `mutate(file, {onSuccess})` option, so it fires for both
+  // real re-runs (`handleCategoriaCreada` below) AND every pre-existing test
+  // double in this suite that injects `{isSuccess: true, data}` directly via
+  // `mockReturnValue` without ever invoking `.mutate()` itself.
+  if (
+    previewMutation.isSuccess &&
+    previewMutation.data &&
+    previewMutation.data !== previewData
+  ) {
+    setPreviewData(previewMutation.data);
+  }
+
   useEffect(() => {
     if (estado === 'preview-error' || estado === 'error') {
+      // A failed re-run also resets the flag — it must not linger and
+      // suppress a LATER, unrelated first-time preview-listo transition
+      // (e.g. the user picks a brand new file after this failure).
+      reevaluandoRef.current = false;
       errorRef.current?.focus();
     } else if (estado === 'preview-listo') {
-      previewHeadingRef.current?.focus();
+      // crear-categoria-desde-preview PR4 (D-11): a re-run re-enters
+      // `preview-listo` too — skip stealing focus back to the heading
+      // exactly once, then fall through to normal behavior again.
+      if (reevaluandoRef.current) {
+        reevaluandoRef.current = false;
+      } else {
+        previewHeadingRef.current?.focus();
+      }
     } else if (estado === 'exito') {
       exitoRef.current?.focus();
     }
@@ -352,14 +422,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // effect's own deps don't change across that transition, so it doesn't
   // re-save afterwards.
   useEffect(() => {
-    if (!archivo || !previewMutation.data) return;
+    if (!archivo || !previewData) return;
     guardarBorrador({
       archivo,
-      preview: previewMutation.data,
+      preview: previewData,
       edits,
       ahora: Date.now(),
     });
-  }, [archivo, previewMutation.data, edits]);
+  }, [archivo, previewData, edits]);
 
   // D-02: clears both mutations + edits before firing preview. Draft
   // resilience: a matching re-pick during `borradorRecuperando` restores
@@ -374,6 +444,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     previewMutation.reset();
     commitMutation.reset();
     isSubmittingRef.current = false;
+    // PR4 hoist: previewData is a THIRD reset path (same set as edits) —
+    // cleared unconditionally here so a stale prior preview never survives
+    // past a fresh pick, whether or not the new selection is valid.
+    setPreviewData(null);
+    // PR4 (D-12): a fresh pick is "the next transition" — the diff
+    // announcement must not linger past it.
+    setMensajeOverride(null);
+    reevaluandoRef.current = false;
 
     if (!seleccionado) {
       setArchivo(null);
@@ -438,6 +516,83 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setEdits((prev) => new Map(prev).set(rowIndex, categoriaId));
   }
 
+  // crear-categoria-desde-preview PR3+PR4 (D-10, WEB-PRV-15 all 3 steps):
+  // step 1 (PR3) — the originating row's edit is set to the newly created
+  // categoría's id, the SAME `edits` overlay mechanism `handleEditChange`
+  // already uses, so it's an explicit user-made override that survives
+  // exactly like any other (`resolverCategoriaMerged`, no special-casing).
+  // Step 2 (catalog invalidation) already happens inside `useCrearCategoria`
+  // itself (D-06), not here. Step 3 (PR4) — re-runs the preview with the
+  // SAME `File` so the newly-created categoría's patrones get a chance to
+  // reclassify every OTHER row too, then announces the D-12 blast-radius
+  // diff via the existing `role="status"` region.
+  //
+  // ADR-024: the diff is a pure comparison of two SERVER responses (before
+  // vs. after), never client-side pattern matching — `validarPatron`/regex
+  // logic never runs here, only reading `sugerido.categoriaId` off both DTOs.
+  function handleCategoriaCreada(rowIndex: number, categoria: CategoriaDto) {
+    handleEditChange(rowIndex, categoria.id);
+
+    // Defensive: the "+" trigger only exists while a preview (and its
+    // originating `archivo`) is on screen, so this should always be set —
+    // guarded rather than asserted so a re-run is simply skipped (the row
+    // still adopted the categoría above) if it somehow isn't.
+    if (!archivo) return;
+
+    // D-12: `editsDespues` is the edits overlay AS IT WILL BE once the
+    // `handleEditChange` call above commits — built explicitly (not read
+    // back from `edits` state, which is still the PRE-update value in this
+    // closure) so the diff below can exclude the originating row AND every
+    // prior manual override in the SAME pass.
+    const editsDespues = new Map(edits).set(rowIndex, categoria.id);
+    // Snapshot of the preview BEFORE the re-run — closure-captured now,
+    // since `previewData` itself will be replaced once the re-run resolves.
+    const previewDataAnterior = previewData;
+
+    reevaluandoRef.current = true;
+    setMensajeOverride('Actualizando la vista previa con la nueva categoría…');
+
+    previewMutation.mutate(archivo, {
+      onSuccess: (nuevo) => {
+        if (!previewDataAnterior) return;
+        // D-12: `anterior` maps rowIndex -> the PREVIOUS sugerido categoría
+        // (or null) — a Map keyed by rowIndex, never array position (rows
+        // can be filtered/reordered by neither preview run, D-07, but the
+        // rule is enforced here regardless of that guarantee).
+        const anterior = new Map(
+          previewDataAnterior.filas.map((f) => [
+            f.rowIndex,
+            f.sugerido?.categoriaId ?? null,
+          ]),
+        );
+        let filasCambiadas = 0;
+        for (const filaNueva of nuevo.filas) {
+          if (filaNueva.esDuplicado) continue;
+          // Rows with an edit (the originating row OR any prior manual
+          // override) never surface a `sugerido` change to the user — their
+          // displayed value already comes from `edits`, not `sugerido`.
+          if (editsDespues.has(filaNueva.rowIndex)) continue;
+          const categoriaAnterior = anterior.get(filaNueva.rowIndex) ?? null;
+          const categoriaNueva = filaNueva.sugerido?.categoriaId ?? null;
+          if (categoriaAnterior !== categoriaNueva) filasCambiadas++;
+        }
+        setMensajeOverride(
+          filasCambiadas > 1
+            ? `«${categoria.nombre}» se aplicó a ${filasCambiadas} filas más.`
+            : filasCambiadas === 1
+              ? `«${categoria.nombre}» se aplicó a 1 fila más.`
+              : `«${categoria.nombre}» se creó. Ninguna otra fila coincide con sus patrones.`,
+        );
+      },
+      onError: () => {
+        // D-13: falls back to the plain `MENSAJE_POR_ESTADO['preview-error']`
+        // line — the honest, specific explanation lives in the separate
+        // inline notice below (rendered only while `previewData !== null`).
+        setMensajeOverride(null);
+      },
+    });
+  }
+
   // Peak-end landing: commit success no longer auto-navigates (supersedes
   // PR3's D-05/D-01) — the exito state IS the destination now. Only
   // `onSettled` survives here to release the double-submit guard.
@@ -454,6 +609,11 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       return;
     }
     isSubmittingRef.current = true;
+    // The re-evaluation announcement belongs to the step that just ended.
+    // Without this, the status region would keep saying "«X» se aplicó a N
+    // filas más." while the commit runs and even after it lands, instead of
+    // "Subiendo transacciones…" and then "Importación completada."
+    setMensajeOverride(null);
     commitMutation.mutate(
       {
         file: archivo,
@@ -510,6 +670,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
+    setPreviewData(null);
+    setMensajeOverride(null);
+    reevaluandoRef.current = false;
     isSubmittingRef.current = false;
     previewMutation.reset();
     commitMutation.reset();
@@ -549,6 +712,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
+    setPreviewData(null);
+    setMensajeOverride(null);
+    reevaluandoRef.current = false;
     isSubmittingRef.current = false;
     previewMutation.reset();
     commitMutation.reset();
@@ -561,13 +727,22 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     previewMutation.error?.message ??
     commitMutation.error?.message ??
     null;
-  const mensajeEstado: string = MENSAJE_POR_ESTADO[estado];
+  // crear-categoria-desde-preview PR4 (D-11/D-12): `mensajeOverride` wins
+  // over the derived per-estado copy while a re-run is in flight or has just
+  // announced its diff — persists until the next transition explicitly
+  // clears it (the three reset paths above), never auto-dismisses.
+  const mensajeEstado: string = mensajeOverride ?? MENSAJE_POR_ESTADO[estado];
 
-  // Show the review section when preview succeeded and we're not in exito.
-  const mostrarPreview =
-    previewMutation.data !== undefined &&
-    estado !== 'preview-error' &&
-    estado !== 'exito';
+  // crear-categoria-desde-preview PR4 (D-11): a re-run is happening when the
+  // mutation is pending AND a table is already on screen — distinguishes it
+  // from the FIRST preview (previewData still null), which uses the
+  // skeleton instead.
+  const reevaluando = previewMutation.isPending && previewData !== null;
+
+  // D-13: `preview-error` no longer hides the table — a FAILED re-run must
+  // preserve it (and the categoría just created). Only `exito` still hides
+  // it (the review is done at that point).
+  const mostrarPreview = previewData !== null && estado !== 'exito';
 
   // Draft resilience: only relevant before a file is picked in THIS session
   // — once `archivo` is set, the notice's job is done (`handleFileChange`
@@ -584,7 +759,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // that can drift). Degrades to a plain total when nothing is classified
   // (`clasificadas === 0`) instead of a misleading "(0 ya clasificados)".
   const filasNoDuplicadasDescarte =
-    previewMutation.data?.filas.filter((f) => !f.esDuplicado) ?? [];
+    previewData?.filas.filter((f) => !f.esDuplicado) ?? [];
   const filasClasificadasDescarte = filasNoDuplicadasDescarte.filter(
     (f) => resolverCategoriaMerged(f, edits) !== null,
   ).length;
@@ -816,23 +991,37 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         {mensajeEstado}
       </div>
 
-      {(estado === 'preview-error' || estado === 'error') && mensajeError && (
-        <p
-          ref={errorRef}
-          tabIndex={-1}
-          role="alert"
-          className="text-sm text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-        >
-          {mensajeError}
-        </p>
-      )}
+      {/* D-13: the generic `preview-error` branch of this block only fires
+          when there's no table to protect (`previewData === null`) — a
+          FAILED RE-RUN (previewData already holds the last good preview)
+          gets the honest, specific inline notice below instead, and never
+          this block (which would also steal focus via `errorRef`). The
+          `error` (commit failure) branch is UNCHANGED — D-11 already
+          guarantees `previewData` is non-null whenever a commit is even
+          possible, so this always renders for a commit error exactly as
+          before. */}
+      {((estado === 'preview-error' && previewData === null) ||
+        estado === 'error') &&
+        mensajeError && (
+          <p
+            ref={errorRef}
+            tabIndex={-1}
+            role="alert"
+            className="text-sm text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            {mensajeError}
+          </p>
+        )}
 
       {/* Detail pass: preview skeleton — purely visual, aria-hidden; the
           `role="status"` line above already announces "Generando vista
           previa…" for screen readers. No `Skeleton` component exists yet
           under `components/ui/` (checked), so this is inline — a single
-          caller doesn't earn a new shared component (YAGNI). */}
-      {estado === 'previsualizando' && (
+          caller doesn't earn a new shared component (YAGNI).
+          crear-categoria-desde-preview PR4 (D-11): gated ALSO on
+          `previewData === null` — a re-run keeps the table mounted instead
+          (aria-busy on the section below), it never shows this skeleton. */}
+      {estado === 'previsualizando' && previewData === null && (
         <div
           aria-hidden="true"
           data-skeleton-preview
@@ -847,9 +1036,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         </div>
       )}
 
-      {mostrarPreview && previewMutation.data && (
+      {mostrarPreview && previewData && (
         <section
           aria-labelledby="preview-listo-heading"
+          aria-busy={reevaluando}
           className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
         >
           <h2
@@ -861,12 +1051,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             Vista previa
           </h2>
           <PreviewMuestra
-            banco={previewMutation.data.banco}
-            filas={previewMutation.data.filas}
-            resumen={previewMutation.data.resumen}
+            banco={previewData.banco}
+            filas={previewData.filas}
+            resumen={previewData.resumen}
             edits={edits}
             onEditChange={handleEditChange}
             catalogo={catalogoEstado}
+            esDemo={esDemo}
+            onCategoriaCreada={handleCategoriaCreada}
           />
           {/* Demo (RegistrarMovimientoForm's MENSAJE_DEMO_REGISTRAR idiom):
               a demo session reaches preview-listo for real now — this note
@@ -891,12 +1083,45 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               para guardar tus movimientos.
             </p>
           )}
+          {/* crear-categoria-desde-preview PR3 (D-14): renders ONCE (not per
+              row) as a sibling of the note above — every "+" trigger in
+              every row points its `aria-describedby` at this SAME id, the
+              house pattern the catalog CRUD screens already use
+              (`MENSAJE_DEMO_CATALOGO`). */}
+          {esDemo && (
+            <p
+              id="demo-catalogo-nota"
+              role="note"
+              className="text-sm text-muted-foreground"
+            >
+              {MENSAJE_DEMO_CATALOGO}
+            </p>
+          )}
+
+          {/* crear-categoria-desde-preview PR4 (D-13): a re-run that FAILS
+              never wipes the table (mostrarPreview stays true above) — this
+              honest, specific notice replaces the generic `preview-error`
+              block for exactly that case (the categoría was created for
+              real; only the preview refresh failed). Deliberately NOT a
+              second `role="status"`: the shared announcer above is already
+              a live region, and two of them announce over each other on the
+              very failure this text explains. Plain visible text, read in
+              place by anyone who reaches it. */}
+          {estado === 'preview-error' && (
+            <p className="text-sm text-muted-foreground">
+              No se pudo actualizar la vista previa. Tu categoría se creó y esta
+              fila ya la usa; las demás filas conservan su sugerencia anterior.
+            </p>
+          )}
 
           <div className="flex gap-3">
             {/* Label swaps to "Subiendo…" while committing (impeccable
                 critique P2: in-button async feedback) — matches
                 MENSAJE_POR_ESTADO.committing's own "Subiendo transacciones…"
-                wording already shown in the status region above. */}
+                wording already shown in the status region above.
+                crear-categoria-desde-preview PR4 (D-11): also disabled while
+                `reevaluando` — a re-run in flight is not a safe moment to
+                commit or discard. */}
             {/* `esDemo` stays as a belt-and-suspenders client-side gate: the
                 server rejects a demo commit with `IngestaDemoSoloLecturaError`
                 (403 DEMO_SOLO_LECTURA) — this disables the control so that
@@ -904,7 +1129,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             <Button
               type="button"
               onClick={handleConfirmar}
-              disabled={esDemo || estado === 'committing'}
+              disabled={esDemo || estado === 'committing' || reevaluando}
               aria-describedby={esDemo ? 'demo-commit-nota' : undefined}
             >
               {estado === 'committing' ? 'Subiendo…' : 'Agregar transacciones'}
@@ -914,7 +1139,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               type="button"
               variant="ghost"
               onClick={handleAbrirConfirmacionDescarte}
-              disabled={estado === 'committing'}
+              disabled={estado === 'committing' || reevaluando}
             >
               Descartar
             </Button>
@@ -959,7 +1184,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             {commitMutation.data.totalTransacciones} movimientos importados de{' '}
-            {previewMutation.data?.banco}.
+            {previewData?.banco}.
           </p>
 
           {/* The verdict never computes client-side (ADR-024) — it's the

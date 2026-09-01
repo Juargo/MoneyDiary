@@ -20,10 +20,13 @@ import type { CatalogoDto, CategoriaDto, PatronDto } from './types';
  * enlace — un fix en una no se propaga a la otra y ni tsc ni eslint lo
  * detectan. Hallazgo de judgment-day sobre PR #334 (ambos jueces).
  *
- * Los bodies de éxito de las seis mutaciones se DESCARTAN sin leerlos — el
- * estado fresco llega por la invalidación de `['categorias']`
- * (`categorias-invalidacion.ts`, PR #1c), no por este body. Solo
- * `fetchCatalogo` lee y guarda el body (design.md §1/Q2a).
+ * Los bodies de éxito de cinco de las seis mutaciones se DESCARTAN sin
+ * leerlos — el estado fresco llega por la invalidación de `['categorias']`
+ * (`categorias-invalidacion.ts`, PR #1c), no por este body. `fetchCatalogo`
+ * lee y guarda el body (design.md §1/Q2a); `postCategoria` también lo hace
+ * desde `crear-categoria-desde-preview` PR2 (D-06) — la categoría recién
+ * creada (con sus patrones anidados) se necesita para seedear el caché de
+ * `useCrearCategoria` ANTES de que la invalidación refetchee.
  *
  * **No existe una rama `409` para `deleteCategoria` y nunca la habrá**
  * (decisión 5, `CAT038-04`): el borrado siempre responde `204` para la
@@ -97,11 +100,16 @@ async function errorConCodigo(res: Response): Promise<ApiError> {
       message: 'Ocurrió un error inesperado. Intenta nuevamente.',
     };
   }
-  const code = (body as { code?: unknown } | null)?.code;
+  const parsed = body as { code?: unknown; indice?: unknown } | null;
+  const code = parsed?.code;
+  const indice = parsed?.indice;
   return {
     tag: 'server',
     status: res.status,
     code: typeof code === 'string' ? code : undefined,
+    // `indice` (CAT038-11): only POST /api/categorias with a nested
+    // `patrones[]` failure sends this — every other producer omits it.
+    indice: typeof indice === 'number' ? indice : undefined,
     message: 'Ocurrió un error inesperado. Intenta nuevamente.',
   };
 }
@@ -211,9 +219,19 @@ export async function fetchCatalogo(): Promise<ApiResult<CatalogoDto>> {
  * `400 BUCKET_NO_ASIGNABLE` en runtime. Hallazgo de judgment-day sobre PR #334,
  * confirmado por ambos jueces.
  */
+/**
+ * `patrones` (crear-categoria-desde-preview, D-04): optional nested batch
+ * created atomically with the categoría in the SAME `POST /api/categorias`
+ * call (CAT038-10). `prioridad` is never sent (design.md §1/Q9b, server
+ * default 100) — same omission discipline as `PatronInput` below.
+ */
 export type CategoriaInput = {
   readonly nombre: string;
   readonly bucket: BucketAsignable;
+  readonly patrones?: ReadonlyArray<{
+    readonly patron: string;
+    readonly matchType: MatchType;
+  }>;
 };
 
 export type CategoriaPatch = {
@@ -237,12 +255,35 @@ export type PatronPatch = {
   readonly matchType?: MatchType;
 };
 
-/** `POST /api/categorias` — CAT038-01. Body de éxito descartado (Q2a). */
+/**
+ * `POST /api/categorias` — CAT038-01/CAT038-10/11. A diferencia de las
+ * otras cinco mutaciones de este archivo, el body de éxito NO se descarta
+ * (D-06): se parsea con `esCategoriaDto` y se devuelve — un body 2xx
+ * malformado se mapea a `{ tag: 'parse' }`, nunca lanza.
+ */
 export async function postCategoria(
   input: CategoriaInput,
-): Promise<ApiResult<void>> {
+): Promise<ApiResult<CategoriaDto>> {
   const r = await enviarMutacion('/api/categorias', 'POST', input);
-  return r.ok ? { ok: true, value: undefined } : r;
+  if (!r.ok) {
+    return r;
+  }
+  let body: unknown;
+  try {
+    body = await r.value.json();
+  } catch {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+  if (!esCategoriaDto(body)) {
+    return {
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    };
+  }
+  return { ok: true, value: body };
 }
 
 /** `PATCH /api/categorias/:id` — CAT038-02. Body de éxito descartado. */
