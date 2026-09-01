@@ -8,6 +8,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SubirCartola } from './SubirCartola';
 import { usePreviewIngesta } from '@/api/use-preview-ingesta';
 import { useCommitIngesta } from '@/api/use-commit-ingesta';
@@ -41,9 +42,22 @@ vi.mock('@/api/use-preview-ingesta', () => ({
 vi.mock('@/api/use-commit-ingesta', () => ({
   useCommitIngesta: vi.fn(),
 }));
-vi.mock('@/api/use-categorias', () => ({
-  useCategorias: vi.fn(),
-}));
+// crear-categoria-desde-preview PR3: `useCrearCategoria` (real, unmocked —
+// invoked deep inside `NuevaCategoriaDesdeFilaForm`) imports
+// `CATEGORIAS_QUERY_KEY` from this SAME module. A blanket `() => ({
+// useCategorias: vi.fn() })` factory (the pre-PR3 shape) shadows that named
+// export too, so `useCrearCategoria`'s `onSuccess` throws
+// "No CATEGORIAS_QUERY_KEY export is defined" the moment a categoría is
+// created in one of these tests — `importOriginal` keeps every other real
+// export (`CATEGORIAS_QUERY_KEY`, `categoriasQueryOptions`) intact while
+// only `useCategorias` itself is replaced.
+vi.mock('@/api/use-categorias', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/use-categorias')>();
+  return {
+    ...actual,
+    useCategorias: vi.fn(),
+  };
+});
 vi.mock('@/api/use-resumen', () => ({
   useResumen: vi.fn(),
 }));
@@ -2594,6 +2608,152 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(() => rerender(<SubirCartola />)).not.toThrow();
 
       Storage.prototype.setItem = originalSetItem;
+    });
+  });
+
+  // crear-categoria-desde-preview PR3 (D-08/D-10, WEB-PRV-12..15 step 1
+  // ONLY — no preview re-run yet, that's PR4's scope): the "+" trigger opens
+  // an inline creation form (`NuevaCategoriaDesdeFilaForm`, which owns a
+  // REAL `useCrearCategoria()` mutation, unlike every other hook in this
+  // suite) — these tests wrap `render` in a `QueryClientProvider`.
+  describe('PR3: minimal handleCategoriaCreada wiring (no preview re-run)', () => {
+    function crearWrapperQuery() {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      return function Wrapper({ children }: { children: ReactNode }) {
+        return (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        );
+      };
+    }
+
+    it('on categoría creation success, the originating row adopts it as an explicit edit (visible in the next commit payload) — and previewMutation.mutate is never called', async () => {
+      const previewMutate = vi.fn();
+      const commitMutate = vi.fn();
+      const catalogoListo = unCatalogoDto();
+
+      // `archivo` state (needed for handleConfirmar to actually call
+      // commitMutation.mutate, WEB-PRV-06 precedent) only sets from a real
+      // pick through the file input — start idle, upload, THEN flip the
+      // mocks to preview-listo.
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(unaConsulta({ data: catalogoListo }));
+
+      const { rerender } = render(<SubirCartola />, {
+        wrapper: crearWrapperQuery(),
+      });
+      const archivo = unArchivo('cartola.xlsx', 1024);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          mutate: previewMutate,
+          data: {
+            ...validPreviewDto,
+            filas: [
+              unaFilaPreview({
+                rowIndex: 0,
+                descripcion: 'COMPRA PETCO',
+                esDuplicado: false,
+                sugerido: null,
+              }),
+            ],
+            resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+          },
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 201,
+          json: async () => ({
+            id: 'cat-nueva',
+            nombre: 'Mascotas',
+            bucket: 'Necesidades',
+            patrones: [],
+            transaccionesCount: 0,
+          }),
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      );
+      await userEvent.type(screen.getByLabelText('Nombre'), 'Mascotas');
+      await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+      // The form closes once the row adopted the new categoría.
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('heading', { name: 'Nueva categoría' }),
+        ).not.toBeInTheDocument(),
+      );
+
+      // PR3's explicit scope boundary: no preview re-run yet (PR4's job).
+      expect(previewMutate).not.toHaveBeenCalled();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      );
+      expect(commitMutate).toHaveBeenCalledTimes(1);
+      const [vars] = commitMutate.mock.calls[0] as [
+        { edits: Array<{ rowIndex: number; categoriaId: string | null }> },
+        unknown,
+      ];
+      expect(vars.edits).toEqual([{ rowIndex: 0, categoriaId: 'cat-nueva' }]);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('the demo note (MENSAJE_DEMO_CATALOGO, id="demo-catalogo-nota") renders exactly once inside the existing esDemo block', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: {
+            ...validPreviewDto,
+            filas: [
+              unaFilaPreview({ rowIndex: 0, esDuplicado: false }),
+              unaFilaPreview({ rowIndex: 1, esDuplicado: false }),
+            ],
+            resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+          },
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola esDemo />, { wrapper: crearWrapperQuery() });
+
+      const notas = document.querySelectorAll('#demo-catalogo-nota');
+      expect(notas).toHaveLength(1);
+      expect(notas[0]).toHaveTextContent(
+        'Crea una cuenta real para editar tus categorías.',
+      );
     });
   });
 });
