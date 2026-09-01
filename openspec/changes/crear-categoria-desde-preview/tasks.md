@@ -201,39 +201,39 @@ Chain strategy: feature-branch-chain
 
 ### Phase 4.1: `previewData` hoist — its own commit, existing suite green first
 
-- [ ] 4.1.1 (RED) Confirm `apps/web/src/components/SubirCartola.test.tsx`'s FULL existing suite (draft recovery, discard-confirm counts, exito landing, `previewMutation.data` reads) passes UNCHANGED as the regression gate before this task begins
-- [ ] 4.1.2 (GREEN) In `apps/web/src/components/SubirCartola.tsx`: add `const [previewData, setPreviewData] = useState<PreviewIngestaDtoConCanonicos | null>(null)`; write it from `onSuccess` on both the initial preview and re-runs; replace every read of `previewMutation.data` (`mostrarPreview`, `<PreviewMuestra>` props, draft write-through effect deps, discard-confirm counts, `exito` banco line) with `previewData`; clear it in the same three reset paths that already clear `edits` (`procesarArchivoSeleccionado`, `handleDescartar`, `handleSubirOtra`); run the full existing suite green with NO new behavior added in this commit
+- [x] 4.1.1 (RED) Confirm `apps/web/src/components/SubirCartola.test.tsx`'s FULL existing suite (draft recovery, discard-confirm counts, exito landing, `previewMutation.data` reads) passes UNCHANGED as the regression gate before this task begins
+- [x] 4.1.2 (GREEN) In `apps/web/src/components/SubirCartola.tsx`: add `const [previewData, setPreviewData] = useState<PreviewIngestaDtoConCanonicos | null>(null)`; write it from `onSuccess` on both the initial preview and re-runs; replace every read of `previewMutation.data` (`mostrarPreview`, `<PreviewMuestra>` props, draft write-through effect deps, discard-confirm counts, `exito` banco line) with `previewData`; clear it in the same three reset paths that already clear `edits` (`procesarArchivoSeleccionado`, `handleDescartar`, `handleSubirOtra`); run the full existing suite green with NO new behavior added in this commit
 
 ### Phase 4.2: Re-run trigger + busy state (RED → GREEN)
 
-- [ ] 4.2.1 (RED) Extend `SubirCartola.test.tsx`: `handleCategoriaCreada` calls `previewMutation.mutate(archivo, {...})` with the SAME `File` instance; the review table stays mounted during the re-run (no `[data-skeleton-preview]`); `aria-busy="true"` set on the preview `<section>`; "Agregar transacciones"/"Descartar" disabled while it runs; status message shows `'Actualizando la vista previa con la nueva categoría…'`
-- [ ] 4.2.2 (GREEN) Implement the re-run call in `handleCategoriaCreada`; add the `mensajeOverride` layer on top of `MENSAJE_POR_ESTADO`; gate skeleton rendering on `previewData === null` only
+- [x] 4.2.1 (RED) Extend `SubirCartola.test.tsx`: `handleCategoriaCreada` calls `previewMutation.mutate(archivo, {...})` with the SAME `File` instance; the review table stays mounted during the re-run (no `[data-skeleton-preview]`); `aria-busy="true"` set on the preview `<section>`; "Agregar transacciones"/"Descartar" disabled while it runs; status message shows `'Actualizando la vista previa con la nueva categoría…'`
+- [x] 4.2.2 (GREEN) Implement the re-run call in `handleCategoriaCreada`; add the `mensajeOverride` layer on top of `MENSAJE_POR_ESTADO`; gate skeleton rendering on `previewData === null` only
 
 ### Phase 4.3: Focus management on re-run (RED → GREEN)
 
-- [ ] 4.3.1 (RED) Extend `SubirCartola.test.tsx`/`FilaRevision.test.tsx`: `previewHeadingRef` is NOT focused after a re-run (only after a first preview); focus returns to the originating row's "+" trigger on both success and cancel, managed by `FilaRevision`'s trigger ref; `key={fila.rowIndex}` stability confirmed across the re-run
-- [ ] 4.3.2 (GREEN) Add the `reevaluandoRef` flag in `SubirCartola.tsx` to suppress the `preview-listo` focus effect during re-runs
+- [x] 4.3.1 (RED) Extend `SubirCartola.test.tsx`/`FilaRevision.test.tsx`: `previewHeadingRef` is NOT focused after a re-run (only after a first preview); focus returns to the originating row's "+" trigger on both success and cancel, managed by `FilaRevision`'s trigger ref; `key={fila.rowIndex}` stability confirmed across the re-run
+- [x] 4.3.2 (GREEN) Add the `reevaluandoRef` flag in `SubirCartola.tsx` to suppress the `preview-listo` focus effect during re-runs
 
 ### Phase 4.4: Diff computation + announcement (RED → GREEN)
 
-- [ ] 4.4.1 (RED) Extend `SubirCartola.test.tsx`: the status region announces `«{nombre}» se aplicó a {N} filas más.` (N>1), `«{nombre}» se aplicó a 1 fila más.` (N=1), `«{nombre}» se creó. Ninguna otra fila coincide con sus patrones.` (N=0); diff excludes the originating row and any row present in `editsDespues`; keyed by `rowIndex` via a `Map`, not array position
-- [ ] 4.4.2 (GREEN) Implement the D-12 diff in `handleCategoriaCreada`'s `onSuccess`, snapshotting `previewDataAnterior` before the re-run
+- [x] 4.4.1 (RED) Extend `SubirCartola.test.tsx`: the status region announces `«{nombre}» se aplicó a {N} filas más.` (N>1), `«{nombre}» se aplicó a 1 fila más.` (N=1), `«{nombre}» se creó. Ninguna otra fila coincide con sus patrones.` (N=0); diff excludes the originating row and any row present in `editsDespues`; keyed by `rowIndex` via a `Map`, not array position
+- [x] 4.4.2 (GREEN) Implement the D-12 diff in `handleCategoriaCreada`'s `onSuccess`, snapshotting `previewDataAnterior` before the re-run
 
 ### Phase 4.5: Failed re-run handling (RED → GREEN)
 
-- [ ] 4.5.1 (RED) Extend `SubirCartola.test.tsx`: `mostrarPreview = previewData !== null && estado !== 'exito'`; a failed re-run keeps the last good table and shows the inline notice `'No se pudo actualizar la vista previa. Tu categoría se creó y esta fila ya la usa; las demás filas conservan su sugerencia anterior.'`; the full-width `preview-error` block only renders when `previewData === null`
-- [ ] 4.5.2 (GREEN) Implement the D-13 guard change and the inline re-run-failure notice
+- [x] 4.5.1 (RED) Extend `SubirCartola.test.tsx`: `mostrarPreview = previewData !== null && estado !== 'exito'`; a failed re-run keeps the last good table and shows the inline notice `'No se pudo actualizar la vista previa. Tu categoría se creó y esta fila ya la usa; las demás filas conservan su sugerencia anterior.'`; the full-width `preview-error` block only renders when `previewData === null`
+- [x] 4.5.2 (GREEN) Implement the D-13 guard change and the inline re-run-failure notice
 
 ### Phase 4.6: e2e
 
-- [ ] 4.6.1 Create `apps/web/e2e/crear-categoria-preview.e2e.ts` (Playwright, `stubApi` doctrine, no real backend): small 6-row fixture; stub `POST /api/categorias` → 201; stub `POST /api/ingestas/preview` to return a second, different body on the second call; assert the announcement text, the new categoría shown on matching rows, and that a pre-existing manual override is untouched
+- [x] 4.6.1 Create `apps/web/e2e/crear-categoria-preview.e2e.ts` (Playwright, `stubApi` doctrine, no real backend): small 6-row fixture; stub `POST /api/categorias` → 201; stub `POST /api/ingestas/preview` to return a second, different body on the second call; assert the announcement text, the new categoría shown on matching rows, and that a pre-existing manual override is untouched
 
 ### Phase 4.7: Verification
 
-- [ ] 4.7.1 Run `pnpm web test` (full suite, including 4.1's regression gate)
-- [ ] 4.7.2 Run `pnpm web typecheck`
-- [ ] 4.7.3 Run `pnpm web lint`
-- [ ] 4.7.4 Run `pnpm web test:e2e`
+- [x] 4.7.1 Run `pnpm web test` (full suite, including 4.1's regression gate)
+- [x] 4.7.2 Run `pnpm web typecheck`
+- [x] 4.7.3 Run `pnpm web lint`
+- [x] 4.7.4 Run `pnpm web test:e2e`
 
 ---
 

@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import {
   render,
   screen,
   fireEvent,
   waitFor,
   within,
+  act,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,9 +17,14 @@ import { useCommitIngesta } from '@/api/use-commit-ingesta';
 import { useCategorias } from '@/api/use-categorias';
 import { useResumen } from '@/api/use-resumen';
 import type { ApiError } from '@/api/client';
-import type { PreviewIngestaDto, ResumenMesDto } from '@/api/types';
+import type {
+  CatalogoDto,
+  CategoriaDto,
+  PreviewIngestaDto,
+  PreviewIngestaDtoConCanonicos,
+  ResumenMesDto,
+} from '@/api/types';
 import { unaFilaPreview } from '@/test-utils/preview-fixtures';
-import type { CatalogoDto, PreviewIngestaDtoConCanonicos } from '@/api/types';
 import { cargarBorrador, guardarBorrador } from '@/lib/borrador-revision';
 
 // US-059 PR3 — SubirCartola state-machine rewrite test suite.
@@ -2616,7 +2623,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
   // an inline creation form (`NuevaCategoriaDesdeFilaForm`, which owns a
   // REAL `useCrearCategoria()` mutation, unlike every other hook in this
   // suite) — these tests wrap `render` in a `QueryClientProvider`.
-  describe('PR3: minimal handleCategoriaCreada wiring (no preview re-run)', () => {
+  describe('handleCategoriaCreada wiring (row adoption)', () => {
     function crearWrapperQuery() {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -2630,7 +2637,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       };
     }
 
-    it('on categoría creation success, the originating row adopts it as an explicit edit (visible in the next commit payload) — and previewMutation.mutate is never called', async () => {
+    it('on categoría creation success, the originating row adopts it as an explicit edit, visible in the next commit payload', async () => {
       const previewMutate = vi.fn();
       const commitMutate = vi.fn();
       const catalogoListo = unCatalogoDto();
@@ -2711,8 +2718,12 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         ).not.toBeInTheDocument(),
       );
 
-      // PR3's explicit scope boundary: no preview re-run yet (PR4's job).
-      expect(previewMutate).not.toHaveBeenCalled();
+      // PR3 pinned "no re-run yet" here; PR4 makes the re-run part of the
+      // contract (WEB-PRV-15 step 2), so that clause moved from "never
+      // called" to "called with the same File". The row-adoption assertion
+      // below is what this test has always been about and is unchanged.
+      expect(previewMutate).toHaveBeenCalledTimes(1);
+      expect(previewMutate.mock.calls[0][0]).toBe(archivo);
 
       fireEvent.click(
         screen.getByRole('button', { name: /agregar transacciones/i }),
@@ -2754,6 +2765,688 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(notas[0]).toHaveTextContent(
         'Crea una cuenta real para editar tus categorías.',
       );
+    });
+  });
+
+  // crear-categoria-desde-preview PR4 (design.md D-10..D-13, tasks.md Phase
+  // 4.2..4.5, WEB-PRV-15 steps 2/3, WEB-PRV-16/17): previewData is hoisted
+  // (task 4.1, own commit above) — these tests drive the re-run itself.
+  describe('PR4: orchestration (re-run, diff announcement, busy/failure states)', () => {
+    function crearWrapperQuery() {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      return function Wrapper({ children }: { children: ReactNode }) {
+        return (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        );
+      };
+    }
+
+    function stubFetchCrearCategoria(
+      categoria: Partial<CategoriaDto> = {},
+    ): (...args: unknown[]) => void {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'cat-nueva',
+          nombre: 'Mascotas',
+          bucket: 'Necesidades',
+          patrones: [],
+          transaccionesCount: 0,
+          ...categoria,
+        }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    }
+
+    // Drives the flow: upload -> preview-listo (1 non-duplicate row, no
+    // sugerido) -> pick bucket -> open "+" -> name it -> Crear. Leaves the
+    // mocks positioned so the caller can then simulate the re-run's pending
+    // and success/error states via further mockReturnValue + rerender calls.
+    async function llegarAPreviewYCrearCategoria({
+      previewMutate,
+      commitMutate = vi.fn(),
+      filasIniciales,
+      resumenInicial,
+    }: {
+      readonly previewMutate: Mock<(...args: unknown[]) => void>;
+      readonly commitMutate?: Mock<(...args: unknown[]) => void>;
+      readonly filasIniciales: PreviewIngestaDtoConCanonicos['filas'];
+      readonly resumenInicial: PreviewIngestaDtoConCanonicos['resumen'];
+    }) {
+      const catalogoListo = unCatalogoDto();
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(unaConsulta({ data: catalogoListo }));
+
+      const utils = render(<SubirCartola />, { wrapper: crearWrapperQuery() });
+      const archivo = unArchivo('cartola.xlsx', 1024);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          mutate: previewMutate,
+          data: {
+            ...validPreviewDto,
+            filas: filasIniciales,
+            resumen: resumenInicial,
+          },
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      utils.rerender(<SubirCartola />);
+
+      const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      );
+      await userEvent.type(screen.getByLabelText('Nombre'), 'Mascotas');
+      await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+      await waitFor(() => expect(previewMutate).toHaveBeenCalled());
+
+      return { ...utils, archivo };
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('4.2: re-runs with the SAME File, keeps the table mounted (no skeleton), sets aria-busy, disables Agregar/Descartar, and shows the busy status message', async () => {
+      const previewMutate = vi.fn();
+      stubFetchCrearCategoria();
+
+      const { container, rerender, archivo } =
+        await llegarAPreviewYCrearCategoria({
+          previewMutate,
+          filasIniciales: [
+            unaFilaPreview({
+              rowIndex: 0,
+              descripcion: 'COMPRA PETCO',
+              esDuplicado: false,
+              sugerido: null,
+            }),
+          ],
+          resumenInicial: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+        });
+
+      expect(previewMutate).toHaveBeenCalledWith(archivo, expect.anything());
+
+      // The re-run is now pending — F-9: previewMutation.data clears while
+      // pending, so this is the honest shape of an in-flight re-run.
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isPending: true,
+          status: 'pending',
+          mutate: previewMutate,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      // Table stays mounted — no skeleton, previous row still visible.
+      expect(container.querySelector('[data-skeleton-preview]')).toBeNull();
+      expect(screen.getByText('COMPRA PETCO')).toBeInTheDocument();
+
+      const section = container.querySelector(
+        'section[aria-labelledby="preview-listo-heading"]',
+      );
+      expect(section).toHaveAttribute('aria-busy', 'true');
+
+      expect(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole('button', { name: /^descartar$/i }),
+      ).toBeDisabled();
+
+      const region = screen.getByRole('status', {
+        name: /estado de la subida/i,
+      });
+      expect(region.textContent).toMatch(
+        /actualizando la vista previa con la nueva categoría/i,
+      );
+    });
+
+    it('4.3/D-13: edits survive the re-run untouched (a prior manual override AND the new one from creation)', async () => {
+      const previewMutate = vi.fn();
+      const commitMutate = vi.fn();
+      stubFetchCrearCategoria();
+      const catalogoListo = unCatalogoDto();
+
+      // Row 0 = originating row (creates the categoría). Row 1 = a row the
+      // user ALREADY manually classified before creating anything.
+      const filasIniciales = [
+        unaFilaPreview({
+          rowIndex: 0,
+          descripcion: 'COMPRA PETCO',
+          esDuplicado: false,
+          sugerido: null,
+        }),
+        unaFilaPreview({
+          rowIndex: 1,
+          descripcion: 'Fila con override previo',
+          esDuplicado: false,
+          sugerido: null,
+        }),
+      ];
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(unaConsulta({ data: catalogoListo }));
+      const { rerender } = render(<SubirCartola />, {
+        wrapper: crearWrapperQuery(),
+      });
+      const archivo = unArchivo('cartola.xlsx', 1024);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          mutate: previewMutate,
+          data: {
+            ...validPreviewDto,
+            filas: filasIniciales,
+            resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+          },
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      rerender(<SubirCartola />);
+
+      // Manually classify row 2 (rowIndex 1) FIRST — the prior override.
+      await userEvent.click(
+        within(screen.getByLabelText(/Fila 2: bucket/i)).getByRole('radio', {
+          name: 'Necesidades',
+        }),
+      );
+      await userEvent.selectOptions(
+        screen.getByLabelText(/Fila 2: categoría/i),
+        'cat-nec-1',
+      );
+
+      // Now create a categoría on row 1 (rowIndex 0).
+      await userEvent.click(
+        within(screen.getByLabelText(/Fila 1: bucket/i)).getByRole('radio', {
+          name: 'Necesidades',
+        }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Nueva categoría para fila 1' }),
+      );
+      await userEvent.type(screen.getByLabelText('Nombre'), 'Mascotas');
+      await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+      await waitFor(() => expect(previewMutate).toHaveBeenCalled());
+
+      // Re-run succeeds with a DIFFERENT (re-classified) preview — but the
+      // edits overlay must still win over whatever the server suggests now.
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          mutate: previewMutate,
+          data: {
+            ...validPreviewDto,
+            filas: [
+              unaFilaPreview({
+                rowIndex: 0,
+                descripcion: 'COMPRA PETCO',
+                esDuplicado: false,
+                sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nueva' },
+              }),
+              unaFilaPreview({
+                rowIndex: 1,
+                descripcion: 'Fila con override previo',
+                esDuplicado: false,
+                sugerido: null,
+              }),
+            ],
+            resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+          },
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      );
+
+      expect(commitMutate).toHaveBeenCalledTimes(1);
+      const [vars] = commitMutate.mock.calls[0] as [
+        {
+          edits: Array<{ rowIndex: number; categoriaId: string | null }>;
+        },
+        unknown,
+      ];
+      expect(vars.edits).toEqual(
+        expect.arrayContaining([
+          { rowIndex: 0, categoriaId: 'cat-nueva' },
+          { rowIndex: 1, categoriaId: 'cat-nec-1' },
+        ]),
+      );
+      expect(vars.edits).toHaveLength(2);
+    });
+
+    it('4.3: a successful re-run does not steal focus back to the preview heading — it stays wherever the form already returned it', async () => {
+      const previewMutate = vi.fn();
+      stubFetchCrearCategoria();
+
+      const { rerender } = await llegarAPreviewYCrearCategoria({
+        previewMutate,
+        filasIniciales: [
+          unaFilaPreview({
+            rowIndex: 0,
+            descripcion: 'COMPRA PETCO',
+            esDuplicado: false,
+            sugerido: null,
+          }),
+        ],
+        resumenInicial: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+      });
+
+      const trigger = screen.getByRole('button', { name: /nueva categoría/i });
+      await waitFor(() => expect(trigger).toHaveFocus());
+
+      // Pending, then success — the FULL transition, since the focus effect
+      // only re-fires when `estado` actually CHANGES back to preview-listo.
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isPending: true,
+          status: 'pending',
+          mutate: previewMutate,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          mutate: previewMutate,
+          data: {
+            ...validPreviewDto,
+            filas: [
+              unaFilaPreview({
+                rowIndex: 0,
+                descripcion: 'COMPRA PETCO',
+                esDuplicado: false,
+                sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nueva' },
+              }),
+            ],
+            resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+          },
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(
+        screen.getByRole('heading', { name: /vista previa/i }),
+      ).not.toHaveFocus();
+      expect(trigger).toHaveFocus();
+    });
+
+    it.each([
+      { n: 2, esperado: '«Mascotas» se aplicó a 2 filas más.' },
+      { n: 1, esperado: '«Mascotas» se aplicó a 1 fila más.' },
+      {
+        n: 0,
+        esperado:
+          '«Mascotas» se creó. Ninguna otra fila coincide con sus patrones.',
+      },
+    ])(
+      '4.4/D-12 (N=$n): status region announces the correct copy variant, excluding duplicate and edited rows',
+      // 15s, not the 5s default: this drives the longest userEvent script in
+      // the suite (two bucket picks, a categoría select, opening the form,
+      // typing the name, submitting, then awaiting the re-run). jsdom plus
+      // userEvent's per-keystroke work is what costs the time, not a hang —
+      // the announcement is asserted below and fails fast when it is wrong.
+      { timeout: 15_000 },
+      async ({ n, esperado }) => {
+        const previewMutate = vi.fn();
+        stubFetchCrearCategoria();
+
+        // Row 0 = originating. Row 1 = duplicate (must never count). Row 2 =
+        // pre-existing manual override (must never count, even though its
+        // sugerido also changes). Rows 3.. = candidates whose sugerido flips
+        // from null -> 'cat-nueva' — exactly `n` of them count.
+        const filasIniciales = [
+          unaFilaPreview({
+            rowIndex: 0,
+            descripcion: 'Originante',
+            esDuplicado: false,
+            sugerido: null,
+          }),
+          unaFilaPreview({
+            rowIndex: 1,
+            descripcion: 'Duplicada',
+            esDuplicado: true,
+            sugerido: null,
+          }),
+          unaFilaPreview({
+            rowIndex: 2,
+            descripcion: 'Override previo',
+            esDuplicado: false,
+            sugerido: null,
+          }),
+          unaFilaPreview({
+            rowIndex: 3,
+            descripcion: 'Candidata A',
+            esDuplicado: false,
+            sugerido: null,
+          }),
+          unaFilaPreview({
+            rowIndex: 4,
+            descripcion: 'Candidata B',
+            esDuplicado: false,
+            sugerido: null,
+          }),
+        ];
+        const commitMutate = vi.fn();
+        const catalogoListo = unCatalogoDto();
+        mockedUsePreviewIngesta.mockReturnValue(
+          unaMutacion<PreviewIngestaDto>({}),
+        );
+        mockedUseCommitIngesta.mockReturnValue(
+          unaMutacion({ mutate: commitMutate }),
+        );
+        mockedUseCategorias.mockReturnValue(
+          unaConsulta({ data: catalogoListo }),
+        );
+        const { rerender } = render(<SubirCartola />, {
+          wrapper: crearWrapperQuery(),
+        });
+        const archivo = unArchivo('cartola.xlsx', 1024);
+        await userEvent.upload(
+          screen.getByLabelText(/selecciona un archivo/i),
+          archivo,
+        );
+        mockedUsePreviewIngesta.mockReturnValue(
+          unaMutacion<PreviewIngestaDto>({
+            isSuccess: true,
+            status: 'success',
+            mutate: previewMutate,
+            data: {
+              ...validPreviewDto,
+              filas: filasIniciales,
+              resumen: {
+                totalFilas: filasIniciales.length,
+                duplicadosDetectados: 1,
+                nuevas: filasIniciales.length - 1,
+              },
+            },
+          }),
+        );
+        rerender(<SubirCartola />);
+
+        // Pre-existing override on row 2 (rowIndex 2), BEFORE creating.
+        await userEvent.click(
+          within(screen.getByLabelText(/Fila 3: bucket/i)).getByRole('radio', {
+            name: 'Necesidades',
+          }),
+        );
+        await userEvent.selectOptions(
+          screen.getByLabelText(/Fila 3: categoría/i),
+          'cat-nec-1',
+        );
+
+        // Create the categoría on row 0 (rowIndex 0).
+        await userEvent.click(
+          within(screen.getByLabelText(/Fila 1: bucket/i)).getByRole('radio', {
+            name: 'Necesidades',
+          }),
+        );
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Nueva categoría para fila 1' }),
+        );
+        await userEvent.type(screen.getByLabelText('Nombre'), 'Mascotas');
+        await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+        await waitFor(() => expect(previewMutate).toHaveBeenCalled());
+
+        // Build the re-run's response: rowIndex 2 (override) and the first
+        // `n` of [3, 4] flip sugerido from null -> cat-nueva; row 1
+        // (duplicate) also flips, to prove it's excluded regardless.
+        const candidatos = [3, 4];
+        const filasNuevas = filasIniciales.map((f) => {
+          if (f.rowIndex === 0) {
+            return {
+              ...f,
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nueva' },
+            };
+          }
+          if (f.rowIndex === 1) {
+            return {
+              ...f,
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nueva' },
+            };
+          }
+          if (f.rowIndex === 2) {
+            return {
+              ...f,
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nueva' },
+            };
+          }
+          if (candidatos.slice(0, n).includes(f.rowIndex)) {
+            return {
+              ...f,
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nueva' },
+            };
+          }
+          return f;
+        });
+
+        // Since the PR4 hoist, the table reads `previewData` (component
+        // state written from the mutation's own `onSuccess`), NOT
+        // `previewMutation.data`. Re-mocking the hook's `data` and
+        // re-rendering therefore does nothing: the re-run has to be
+        // completed by invoking the callback the component handed to
+        // `mutate`, which is also what TanStack Query does in production.
+        const [, opciones] = previewMutate.mock.calls[0] as [
+          File,
+          { onSuccess: (dto: PreviewIngestaDto) => void },
+        ];
+        await act(async () => {
+          opciones.onSuccess({
+            ...validPreviewDto,
+            filas: filasNuevas,
+            resumen: {
+              totalFilas: filasNuevas.length,
+              duplicadosDetectados: 1,
+              nuevas: filasNuevas.length - 1,
+            },
+          });
+        });
+
+        const region = screen.getByRole('status', {
+          name: /estado de la subida/i,
+        });
+        await waitFor(() => expect(region.textContent).toContain(esperado));
+      },
+    );
+
+    it('4.5/D-13: a failed re-run keeps the last good table, edits, and the created categoría — and shows the inline notice instead of the generic preview-error block', async () => {
+      const previewMutate = vi.fn();
+      const commitMutate = vi.fn();
+      stubFetchCrearCategoria();
+
+      const { rerender, archivo } = await llegarAPreviewYCrearCategoria({
+        previewMutate,
+        commitMutate,
+        filasIniciales: [
+          unaFilaPreview({
+            rowIndex: 0,
+            descripcion: 'COMPRA PETCO',
+            esDuplicado: false,
+            sugerido: null,
+          }),
+        ],
+        resumenInicial: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+      });
+      void archivo;
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isError: true,
+          status: 'error',
+          error: { tag: 'invalid', message: 'No se pudo re-evaluar.' },
+          mutate: previewMutate,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      // The table + row are still there.
+      expect(screen.getByText('COMPRA PETCO')).toBeInTheDocument();
+      // The honest inline notice, not the generic preview-error message.
+      expect(
+        screen.getByText(
+          'No se pudo actualizar la vista previa. Tu categoría se creó y esta fila ya la usa; las demás filas conservan su sugerencia anterior.',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('No se pudo generar la vista previa.'),
+      ).not.toBeInTheDocument();
+
+      // Commit still works, still carrying the created categoría's edit.
+      fireEvent.click(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      );
+      expect(commitMutate).toHaveBeenCalledTimes(1);
+      const [vars] = commitMutate.mock.calls[0] as [
+        { edits: Array<{ rowIndex: number; categoriaId: string | null }> },
+        unknown,
+      ];
+      expect(vars.edits).toEqual([{ rowIndex: 0, categoriaId: 'cat-nueva' }]);
+    });
+
+    // ── Fresh-review findings (PR4): two defects the PR4 suite did not cover ──
+    describe('PR4 fresh-review regressions', () => {
+      it('clears the re-evaluation announcement once the commit starts, so the status region reports the commit and not the previous categoría diff', async () => {
+        const previewMutate = vi.fn();
+        const commitMutate = vi.fn();
+        stubFetchCrearCategoria();
+
+        const { archivo } = await llegarAPreviewYCrearCategoria({
+          previewMutate,
+          commitMutate,
+          filasIniciales: [
+            unaFilaPreview({
+              rowIndex: 0,
+              descripcion: 'PETSHOP HUELLITAS',
+              esDuplicado: false,
+              sugerido: null,
+            }),
+          ],
+          resumenInicial: {
+            totalFilas: 1,
+            duplicadosDetectados: 0,
+            nuevas: 1,
+          },
+        });
+
+        // Land the re-run so the announcement is on screen.
+        const [, opciones] = previewMutate.mock.calls[0] as [
+          File,
+          { onSuccess: (dto: PreviewIngestaDto) => void },
+        ];
+        await act(async () => {
+          opciones.onSuccess({
+            ...validPreviewDto,
+            filas: [
+              unaFilaPreview({
+                rowIndex: 0,
+                descripcion: 'PETSHOP HUELLITAS',
+                esDuplicado: false,
+                sugerido: null,
+              }),
+            ],
+            resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+          });
+        });
+
+        const region = screen.getByRole('status', {
+          name: /estado de la subida/i,
+        });
+        expect(region.textContent).toContain('«Mascotas»');
+
+        fireEvent.click(
+          screen.getByRole('button', { name: /agregar transacciones/i }),
+        );
+        expect(commitMutate).toHaveBeenCalledTimes(1);
+        expect(archivo).toBeInstanceOf(File);
+
+        // The override must step aside: the commit owns the announcement now.
+        expect(region.textContent).not.toContain('«Mascotas»');
+      });
+
+      it('renders the failed-re-run notice as plain text, so it never becomes a second live region competing with the shared announcer', async () => {
+        const previewMutate = vi.fn();
+        stubFetchCrearCategoria();
+
+        await llegarAPreviewYCrearCategoria({
+          previewMutate,
+          filasIniciales: [
+            unaFilaPreview({
+              rowIndex: 0,
+              descripcion: 'PETSHOP HUELLITAS',
+              esDuplicado: false,
+              sugerido: null,
+            }),
+          ],
+          resumenInicial: {
+            totalFilas: 1,
+            duplicadosDetectados: 0,
+            nuevas: 1,
+          },
+        });
+
+        // Fail the re-run through the component's own callback.
+        const [, opciones] = previewMutate.mock.calls[0] as [
+          File,
+          { onError: () => void },
+        ];
+        mockedUsePreviewIngesta.mockReturnValue(
+          unaMutacion<PreviewIngestaDto>({
+            isError: true,
+            status: 'error',
+            mutate: previewMutate,
+            error: { tag: 'network', message: 'sin red' } as ApiError,
+          }),
+        );
+        await act(async () => {
+          opciones.onError();
+        });
+
+        expect(
+          screen.getByText(/No se pudo actualizar la vista previa\./i),
+        ).toBeInTheDocument();
+        // Exactly one live region on the page: the shared announcer.
+        expect(screen.getAllByRole('status')).toHaveLength(1);
+      });
     });
   });
 });
