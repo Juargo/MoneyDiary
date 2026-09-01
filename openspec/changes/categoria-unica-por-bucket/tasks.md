@@ -135,27 +135,29 @@ without PR2/PR3 (see Chain Strategy Note).
 
 ### Phase 1.1: Domain — `CategoriaDesconocidaError` field rename
 
-- [ ] 1.1.1 (RED) Extend `apps/api/src/domain/errors/categoria-desconocida.error.spec.ts`: asserts `readonly categoriaId` (not `nombre`), both existing assertions updated (F-15: this is the field's only reader)
-- [ ] 1.1.2 (GREEN) Rename the field in `apps/api/src/domain/errors/categoria-desconocida.error.ts`; update its docblock to describe "id that did not resolve — does not exist or is not theirs, anti-enumeration"
+- [x] 1.1.1 (RED) Extend `apps/api/src/domain/errors/categoria-desconocida.error.spec.ts`: asserts `readonly categoriaId` (not `nombre`), both existing assertions updated (F-15: this is the field's only reader)
+- [x] 1.1.2 (GREEN) Rename the field in `apps/api/src/domain/errors/categoria-desconocida.error.ts`; update its docblock to describe "id that did not resolve — does not exist or is not theirs, anti-enumeration"
 
 ### Phase 1.2: Application — port docblock + use case field rename
 
-- [ ] 1.2.1 (GREEN, no test — interface-only) Update `apps/api/src/application/ports/reclasificar-categoria.port.ts`: `reasignar(userId, transaccionId, categoriaId)`; docblock's "El writer resuelve `nombre` contra el catálogo REAL del usuario (`(userId, nombre)`)" becomes "(id, userId)"; `CategoriaDesconocidaError` clause updated per D-04
-- [ ] 1.2.2 (RED) Extend `apps/api/src/application/use-cases/reclasificar-transaccion.use-case.spec.ts`: input field is `categoriaId`, delegate call forwards it unchanged
-- [ ] 1.2.3 (GREEN) Rename `input.categoria` → `input.categoriaId` in `reclasificar-transaccion.use-case.ts`
+- [x] 1.2.1 (GREEN, no test — interface-only) Update `apps/api/src/application/ports/reclasificar-categoria.port.ts`: `reasignar(userId, transaccionId, categoriaId)`; docblock's "El writer resuelve `nombre` contra el catálogo REAL del usuario (`(userId, nombre)`)" becomes "(id, userId)"; `CategoriaDesconocidaError` clause updated per D-04
+- [x] 1.2.2 (RED) Extend `apps/api/src/application/use-cases/reclasificar-transaccion.use-case.spec.ts`: input field is `categoriaId`, delegate call forwards it unchanged
+- [x] 1.2.3 (GREEN) Rename `input.categoria` → `input.categoriaId` in `reclasificar-transaccion.use-case.ts`
 
 ### Phase 1.3: Infrastructure persistence — the load-bearing adapter fix (D-05)
 
-- [ ] 1.3.1 (RED) Extend `apps/api/src/infrastructure/persistence/prisma-reclasificar-categoria.repository.spec.ts`: the lookup is **exactly** `findFirst({ where: { id: categoriaId, userId } })` — this is the regression guard against the forbidden `findFirst({ userId, nombre })` shape (D-05) ever reappearing; `categoria` in the returned DTO is read from `categoriaRow.nombre`, never echoed from the input; `null` row → `CategoriaDesconocidaError(categoriaId)`; the write (`updateMany({ id: transaccionId, account: { userId } })`) is unchanged
-- [ ] 1.3.2 (GREEN) Implement in `prisma-reclasificar-categoria.repository.ts` per D-05/D-06
+- [x] 1.3.1 (RED) Extend `apps/api/src/infrastructure/persistence/prisma-reclasificar-categoria.repository.spec.ts`: the lookup is **exactly** `findFirst({ where: { id: categoriaId, userId } })` — this is the regression guard against the forbidden `findFirst({ userId, nombre })` shape (D-05) ever reappearing; `categoria` in the returned DTO is read from `categoriaRow.nombre`, never echoed from the input; `null` row → `CategoriaDesconocidaError(categoriaId)`; the write (`updateMany({ id: transaccionId, account: { userId } })`) is unchanged
+- [x] 1.3.2 (GREEN) Implement in `prisma-reclasificar-categoria.repository.ts` per D-05/D-06
 
 ### Phase 1.4: Infrastructure HTTP — schema, route, contract docs
 
-- [ ] 1.4.1 (RED) Extend `apps/api/src/infrastructure/http-express/schemas/transacciones-categoria.schema.spec.ts`: `{ categoriaId: string }` required; a body with `{ categoria: "x" }` (no `categoriaId`) fails validation (CAT037-04's "legacy shape rejected" scenario); docblock's field-purpose comment reversed
-- [ ] 1.4.2 (GREEN) Rewrite `transacciones-categoria.schema.ts` per D-04
-- [ ] 1.4.3 (RED) Extend `apps/api/src/infrastructure/http-express/routes/transacciones.routes.spec.ts`: non-string/missing `categoriaId` coerces to `''` → `400` via `CategoriaDesconocidaError`, no new branch/status code; valid `categoriaId` reaches the use case unchanged
-- [ ] 1.4.4 (GREEN) Update the coercion in `transacciones.routes.ts` per D-04
-- [ ] 1.4.5 (GREEN, docs-only) Update the 400 description in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` from "name does not resolve" to "id does not resolve"; update `apps/api/src/infrastructure/http/dto/reclasificar-categoria.dto.ts`'s docblock (D-04 — the "reversed decision" comment must name ADR-042 and the reason)
+- [x] 1.4.1 (RED) Extend `apps/api/src/infrastructure/http-express/schemas/transacciones-categoria.schema.spec.ts`: `{ categoriaId: string }` required; a body with `{ categoria: "x" }` (no `categoriaId`) fails validation (CAT037-04's "legacy shape rejected" scenario); docblock's field-purpose comment reversed
+- [x] 1.4.2 (GREEN) Rewrite `transacciones-categoria.schema.ts` per D-04
+- [x] 1.4.3 (RED) Extend `apps/api/src/infrastructure/http-express/routes/transacciones.routes.spec.ts`: non-string/missing `categoriaId` coerces to `''` → `400` via `CategoriaDesconocidaError`, no new branch/status code; valid `categoriaId` reaches the use case unchanged
+- [x] 1.4.4 (GREEN) Update the coercion in `transacciones.routes.ts` per D-04
+- [x] 1.4.5 (GREEN, docs-only) Update the 400 description in `apps/api/src/infrastructure/http-express/schemas/openapi-document.ts` from "name does not resolve" to "id does not resolve"; update `apps/api/src/infrastructure/http/dto/reclasificar-categoria.dto.ts`'s docblock (D-04 — the "reversed decision" comment must name ADR-042 and the reason)
+
+Note (apply-time, not in design.md): `apps/api/src/infrastructure/http-express/app.transacciones.spec.ts` also exercises this route through the full auth chain with the legacy `{ categoria }` body — updated to `{ categoriaId }` alongside 1.4.4/1.4.5 (same mechanical rename, not a new task).
 
 ### Phase 1.5: Contract regeneration
 
