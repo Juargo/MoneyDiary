@@ -234,18 +234,25 @@ identity representation.
 
 ### Phase 3.1: API wire — the ONLY gate on this edit is a test, not a type (D-08)
 
-- [ ] 3.1.1 (RED) Extend `apps/mobile/src/api/reclasificar.spec.ts` (5 tests, per proposal Affected Areas): asserts the serialized body is `{ categoriaId }`, never `{ categoria }` — this spec is the actual gate because both the positional `string → string` rename and the untyped body literal compile silently either way (design D-08 names this explicitly)
-- [ ] 3.1.2 (GREEN) Rename `reclasificarCategoria(transaccionId, categoria)` → `(transaccionId, categoriaId)` and the body literal in `apps/mobile/src/api/categorias.ts`; guard `esReclasificarDto` is unchanged (F-8)
+- [x] 3.1.1 (RED) Extend `apps/mobile/src/api/reclasificar.spec.ts` (5 tests, per proposal Affected Areas): asserts the serialized body is `{ categoriaId }`, never `{ categoria }` — this spec is the actual gate because both the positional `string → string` rename and the untyped body literal compile silently either way (design D-08 names this explicitly)
+- [x] 3.1.2 (GREEN) Rename `reclasificarCategoria(transaccionId, categoria)` → `(transaccionId, categoriaId)` and the body literal in `apps/mobile/src/api/categorias.ts`; guard `esReclasificarDto` is unchanged (F-8)
 
 ### Phase 3.2: Control identity — the concrete a11y bug (D-08, MDET-08)
 
-- [ ] 3.2.1 (RED) Extend `ReclasificarMobileControl` RNTL tests: with "Transporte" in `Necesidades` (current, id `A`) and "Transporte" in `Deseos` (id `B`), only row `A` renders "● actual" and `accessibilityState={{selected:true}}` — row `B` must NOT (this is the regression pin for today's bug); `testID` is `reclasificar-opcion-${cat.id}`; selecting row `B` and confirming sends `{ categoriaId: "B" }`
-- [ ] 3.2.2 (GREEN) Implement the four sites from D-08's table: `cat.id === categoriaActual.id`, `testID` by `cat.id`, `handleSelectCategoria(cat.id, cat.bucket)`, `commit(categoriaId, bucketNuevo?)` calling `reclasificarCategoria(tx.id, categoriaId)`. `esMismoBucket` keeps comparing bucket names (unchanged, D-08)
+- [x] 3.2.1 (RED) Extend `ReclasificarMobileControl` RNTL tests: with "Transporte" in `Necesidades` (current, id `A`) and "Transporte" in `Deseos` (id `B`), only row `A` renders "● actual" and `accessibilityState={{selected:true}}` — row `B` must NOT (this is the regression pin for today's bug); `testID` is `reclasificar-opcion-${cat.id}`; selecting row `B` and confirming sends `{ categoriaId: "B" }`
+- [x] 3.2.2 (GREEN) Implement the four sites from D-08's table: `cat.id === categoriaActual.id`, `testID` by `cat.id`, `handleSelectCategoria(cat.id, cat.bucket)`, `commit(categoriaId, bucketNuevo?)` calling `reclasificarCategoria(tx.id, categoriaId)`. `esMismoBucket` keeps comparing bucket names (unchanged, D-08)
+
+Note (apply-time, not in design.md): once `testID` moved from `cat.nombre` to `cat.id`,
+all ~10 pre-existing scenarios in `ReclasificarMobileControl.spec.tsx` that selected an
+option via `reclasificar-opcion-Entretenimiento`/`reclasificar-opcion-Comida` needed the
+mechanical id-keyed rename (`reclasificar-opcion-cat-deseos`/`reclasificar-opcion-cat-necesidades`)
+to keep passing — identical pattern to PR2's `ReclasificarCategoriaControl.test.tsx` note,
+not a new task; no assertion's intent changed.
 
 ### Phase 3.3: Verification
 
-- [ ] 3.3.1 Run `pnpm --filter @moneydiary/mobile test`
-- [ ] 3.3.2 Confirm `apps/mobile/src/domain/detalle.types.ts` was NOT touched (F-8/D-06 — record this explicitly in the PR description, since it corrects a proposal assumption a reviewer might "fix")
+- [x] 3.3.1 Run `pnpm --filter @moneydiary/mobile test`
+- [x] 3.3.2 Confirm `apps/mobile/src/domain/detalle.types.ts` was NOT touched (F-8/D-06 — record this explicitly in the PR description, since it corrects a proposal assumption a reviewer might "fix"). Verified via `git diff --stat` — zero changes to this file.
 
 ---
 
