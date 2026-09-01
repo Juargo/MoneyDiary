@@ -5,7 +5,7 @@ import { FilaRevision } from './FilaRevision';
 import { Button } from './ui/button';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
-import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
+import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
  * PreviewMuestra (US-059 PR2, D-12; UX-scale feature: progress + grouping +
@@ -270,6 +270,8 @@ export function PreviewMuestra({
   edits,
   onEditChange,
   catalogo,
+  esDemo = false,
+  onCategoriaCreada = () => undefined,
 }: {
   readonly banco: string;
   readonly filas: ReadonlyArray<PreviewFilaDto>;
@@ -281,8 +283,23 @@ export function PreviewMuestra({
   readonly edits: ReadonlyMap<number, string | null>;
   readonly onEditChange: (rowIndex: number, categoriaId: string | null) => void;
   readonly catalogo: CatalogoEstado;
+  /**
+   * crear-categoria-desde-preview PR3 (D-08/D-10) — `esDemo`/
+   * `onCategoriaCreada` are pure pass-through to every `FilaRevision`
+   * (default no-op/false so pre-existing callers/tests keep compiling
+   * unchanged). `filaCreando` — WHICH row's inline creation form is open —
+   * is owned HERE, not in `SubirCartola`: same class of ephemeral table UI
+   * state as `seleccionados`/`gruposColapsados`, and a single value gives
+   * "at most one form open across the table" for free.
+   */
+  readonly esDemo?: boolean;
+  readonly onCategoriaCreada?: (
+    rowIndex: number,
+    categoria: CategoriaDto,
+  ) => void;
 }) {
   const [soloSinClasificar, setSoloSinClasificar] = useState(false);
+  const [filaCreando, setFilaCreando] = useState<number | null>(null);
   const [seleccionados, setSeleccionados] = useState<ReadonlySet<number>>(
     new Set(),
   );
@@ -802,6 +819,10 @@ export function PreviewMuestra({
                           onEditChange={onEditChange}
                           selected={seleccionados.has(fila.rowIndex)}
                           onToggleSelect={handleToggleFila}
+                          esDemo={esDemo}
+                          onCategoriaCreada={onCategoriaCreada}
+                          filaCreando={filaCreando}
+                          onAbrirCreacion={setFilaCreando}
                         />
                       ))}
                     </ul>

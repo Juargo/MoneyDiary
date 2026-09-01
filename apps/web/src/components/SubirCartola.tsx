@@ -31,7 +31,8 @@ import {
   guardarBorrador,
   type BorradorRevision,
 } from '@/lib/borrador-revision';
-import type { CatalogoEstado } from '@/api/types';
+import { MENSAJE_DEMO_CATALOGO } from './configuracion/categorias/mensajes-catalogo';
+import type { CatalogoEstado, CategoriaDto } from '@/api/types';
 
 // US-059 PR3: SubirCartola state-machine rewrite — two-phase preview→commit flow.
 // - `subiendo` renamed to `committing` (D-01).
@@ -436,6 +437,18 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // updated categoriaId prop (un-assignment depends on this).
   function handleEditChange(rowIndex: number, categoriaId: string | null) {
     setEdits((prev) => new Map(prev).set(rowIndex, categoriaId));
+  }
+
+  // crear-categoria-desde-preview PR3 (D-10, WEB-PRV-15 step 1 ONLY): the
+  // originating row's edit is set to the newly created categoría's id — the
+  // SAME `edits` overlay mechanism `handleEditChange` already uses, so this
+  // is an explicit user-made override that survives exactly like any other
+  // (`resolverCategoriaMerged`, no special-casing). The catalog invalidation
+  // (step 2) and the preview re-run (step 3) are PR4's scope — deliberately
+  // NOT done here, so a demo evaluator or reviewer can verify this PR closes
+  // clean without them.
+  function handleCategoriaCreada(rowIndex: number, categoria: CategoriaDto) {
+    handleEditChange(rowIndex, categoria.id);
   }
 
   // Peak-end landing: commit success no longer auto-navigates (supersedes
@@ -867,6 +880,8 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             edits={edits}
             onEditChange={handleEditChange}
             catalogo={catalogoEstado}
+            esDemo={esDemo}
+            onCategoriaCreada={handleCategoriaCreada}
           />
           {/* Demo (RegistrarMovimientoForm's MENSAJE_DEMO_REGISTRAR idiom):
               a demo session reaches preview-listo for real now — this note
@@ -889,6 +904,20 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
                 Crea una cuenta real
               </a>{' '}
               para guardar tus movimientos.
+            </p>
+          )}
+          {/* crear-categoria-desde-preview PR3 (D-14): renders ONCE (not per
+              row) as a sibling of the note above — every "+" trigger in
+              every row points its `aria-describedby` at this SAME id, the
+              house pattern the catalog CRUD screens already use
+              (`MENSAJE_DEMO_CATALOGO`). */}
+          {esDemo && (
+            <p
+              id="demo-catalogo-nota"
+              role="note"
+              className="text-sm text-muted-foreground"
+            >
+              {MENSAJE_DEMO_CATALOGO}
             </p>
           )}
 

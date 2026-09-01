@@ -1,10 +1,26 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FilaRevision } from './FilaRevision';
 import type { CatalogoEstado } from '@/api/types';
 import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
+
+// crear-categoria-desde-preview PR3: FilaRevision now conditionally mounts
+// `NuevaCategoriaDesdeFilaForm`, which owns a `useCrearCategoria()` mutation
+// — tests exercising the open form need a QueryClientProvider ancestor.
+function crearWrapperQuery() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
 
 // FilaRevision (US-059 PR2, D-06/D-10/D-12) — presentational row component.
 // Tests verify: cell rendering (fecha, descripcion, the signed non-zero
@@ -963,6 +979,241 @@ describe('FilaRevision', () => {
       expect(
         screen.queryByLabelText(/Fila 3: categoría/i),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // ── "+" trigger and inline creation form (crear-categoria-desde-preview
+  // PR3, D-08/D-10, WEB-PRV-12) ────────────────────────────────────────────
+  describe('"+" (Nueva categoría) trigger', () => {
+    it('is not rendered without a bucket chosen', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', { name: /nueva categoría/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('appears once a bucket is chosen', async () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+
+      expect(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('never renders for a duplicate row, regardless of bucket state', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2, esDuplicado: true })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', { name: /nueva categoría/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('is disabled with aria-describedby="demo-catalogo-nota" in a demo session', async () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+          esDemo
+        />,
+      );
+
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+
+      const boton = screen.getByRole('button', { name: /nueva categoría/i });
+      expect(boton).toBeDisabled();
+      expect(boton).toHaveAttribute('aria-describedby', 'demo-catalogo-nota');
+    });
+
+    it('the form mounts inside the row when filaCreando === fila.rowIndex', async () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+          filaCreando={2}
+        />,
+        { wrapper: crearWrapperQuery() },
+      );
+
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+
+      expect(
+        screen.getByRole('heading', { name: 'Nueva categoría' }),
+      ).toBeInTheDocument();
+    });
+
+    it('the form does NOT mount when filaCreando points at a different row', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+          filaCreando={7}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('heading', { name: 'Nueva categoría' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('clicking "+" calls onAbrirCreacion(rowIndex)', async () => {
+      const onAbrirCreacion = vi.fn();
+      render(
+        <FilaRevision
+          fila={unaFilaPreview({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+          onAbrirCreacion={onAbrirCreacion}
+        />,
+      );
+
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      );
+
+      expect(onAbrirCreacion).toHaveBeenCalledWith(2);
+    });
+
+    it('focus returns to the "+" trigger when the form is cancelled', async () => {
+      function Wrapper() {
+        const [filaCreando, setFilaCreando] = React.useState<number | null>(
+          null,
+        );
+        return (
+          <FilaRevision
+            fila={unaFilaPreview({ rowIndex: 2 })}
+            categoriaId={null}
+            catalogo={catalogoListo}
+            onEditChange={vi.fn()}
+            filaCreando={filaCreando}
+            onAbrirCreacion={setFilaCreando}
+          />
+        );
+      }
+
+      render(<Wrapper />, { wrapper: crearWrapperQuery() });
+
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+      const trigger = screen.getByRole('button', { name: /nueva categoría/i });
+      await userEvent.click(trigger);
+
+      expect(
+        screen.getByRole('heading', { name: 'Nueva categoría' }),
+      ).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+      expect(
+        screen.queryByRole('heading', { name: 'Nueva categoría' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      ).toHaveFocus();
+    });
+
+    it('the originating row adopts the new categoría via onCategoriaCreada and focus returns to the trigger on success', async () => {
+      const onCategoriaCreada = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          id: 'cat-nueva',
+          nombre: 'Mascotas',
+          bucket: 'Necesidades',
+          patrones: [],
+          transaccionesCount: 0,
+        }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      function Wrapper() {
+        const [filaCreando, setFilaCreando] = React.useState<number | null>(
+          null,
+        );
+        return (
+          <FilaRevision
+            fila={unaFilaPreview({ rowIndex: 2 })}
+            categoriaId={null}
+            catalogo={catalogoListo}
+            onEditChange={vi.fn()}
+            filaCreando={filaCreando}
+            onAbrirCreacion={setFilaCreando}
+            onCategoriaCreada={onCategoriaCreada}
+          />
+        );
+      }
+
+      render(<Wrapper />, { wrapper: crearWrapperQuery() });
+
+      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      await userEvent.click(
+        within(bucketGroup).getByRole('radio', { name: 'Necesidades' }),
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      );
+      await userEvent.type(screen.getByLabelText('Nombre'), 'Mascotas');
+      await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+      await waitFor(() =>
+        expect(onCategoriaCreada).toHaveBeenCalledWith(
+          2,
+          expect.objectContaining({ id: 'cat-nueva' }),
+        ),
+      );
+      expect(
+        screen.queryByRole('heading', { name: 'Nueva categoría' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      ).toHaveFocus();
+
+      vi.unstubAllGlobals();
     });
   });
 
