@@ -72,7 +72,10 @@ describe('mensajeDeErrorCatalogo — 12-member CodigoCatalogo table', () => {
       'Esa categoría ya no existe. Vuelve a la lista y recarga.',
     ],
     ['PATRON_NO_ENCONTRADO', 'Ese patrón ya no existe. Vuelve y recarga.'],
-    ['NOMBRE_DUPLICADO', 'Ya tienes una categoría con ese nombre.'],
+    [
+      'NOMBRE_DUPLICADO',
+      'Ya tienes una categoría con ese nombre en ese bucket.',
+    ],
     ['PATRON_DUPLICADO', 'Ya tienes un patrón con ese texto.'],
   ])('%s → correcto copy string', (code, esperado) => {
     expect(mensajeDeErrorCatalogo(http(400, code))).toBe(esperado);

@@ -91,7 +91,7 @@ const COPY: Record<CodigoCatalogo, string> = {
   CATEGORIA_NO_ENCONTRADA:
     'Esa categoría ya no existe. Vuelve a la lista y recarga.',
   PATRON_NO_ENCONTRADO: 'Ese patrón ya no existe. Vuelve y recarga.',
-  NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre.',
+  NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre en ese bucket.',
   PATRON_DUPLICADO: 'Ya tienes un patrón con ese texto.',
 };
 
