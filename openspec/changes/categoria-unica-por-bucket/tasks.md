@@ -166,16 +166,16 @@ Note (apply-time, not in design.md): `apps/api/src/infrastructure/http-express/a
 
 ### Phase 1.6: Docs — ADR-042 + index + stale note
 
-- [ ] 1.6.1 Create `docs/adr/ADR-042-unicidad-de-categoria-por-bucket.md` per design.md D-13 (Decisión text, scoped-supersede table naming exact ADR-036/037 clauses, "Notes without amending" section)
-- [ ] 1.6.2 Add ADR-042 row to `docs/adr/README.md`
-- [ ] 1.6.3 Add ADR-042 row to root `CLAUDE.md`'s ADR table; correct the stale ADR-012 line ("deuda registrada, no se construyó" → the package is live, per F-8)
+- [x] 1.6.1 Create `docs/adr/ADR-042-unicidad-de-categoria-por-bucket.md` per design.md D-13 (Decisión text, scoped-supersede table naming exact ADR-036/037 clauses, "Notes without amending" section). Apply-time correction: ADR-036's own file text never spells out `@@unique([userId, nombre])` verbatim (that sentence lives in the `schema.prisma` model comment its migration produced) — ADR-042 names this explicitly rather than fabricating a quote that isn't in ADR-036.md.
+- [x] 1.6.2 Add ADR-042 row to `docs/adr/README.md`
+- [x] 1.6.3 Add ADR-042 row to root `CLAUDE.md`'s ADR table. Apply-time correction: verified the literal "deuda registrada, no se construyó" sentence does NOT exist in root `CLAUDE.md`'s ADR-012 row (it is a bare one-liner with no status note) — that phrasing lives in `.claude/skills/yagni/SKILL.md` and `docs/adr/README.md`'s ADR-012 row instead, both out of scope for this PR. Gave the CLAUDE.md ADR-012 row an accurate status note (package is live, `workspace:*` in web+mobile, generated via `pnpm contract:sync`, per F-8) since it previously had none, rather than "correcting" text that was never there.
 
 ### Phase 1.7: Verification
 
-- [ ] 1.7.1 Run `pnpm api test` (all of 1.1-1.4 green)
-- [ ] 1.7.2 Run `pnpm api exec tsc --noEmit`
-- [ ] 1.7.3 Run `pnpm api lint:ci`
-- [ ] 1.7.4 Commit; note in the PR description that PR1 is not independently release-safe until PR2+PR3 land (Chain Strategy Note)
+- [x] 1.7.1 Run `pnpm api test` (all of 1.1-1.4 green) — 266 files, 2497 tests passed
+- [x] 1.7.2 Run `pnpm api exec tsc --noEmit` — clean
+- [x] 1.7.3 Run `pnpm api lint:ci` — 0 errors, 3 pre-existing unrelated warnings (excel services, untouched by this PR)
+- [x] 1.7.4 Commit; note in the PR description that PR1 is not independently release-safe until PR2+PR3 land (Chain Strategy Note)
 
 ---
 
