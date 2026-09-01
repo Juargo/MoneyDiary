@@ -514,10 +514,11 @@ function EditarCategoriaCargada({
         La lectura que hace coherente al footer es que NO es el pie de este
         formulario sino la barra de acciones de la PANTALLA: guarda la
         identidad, cancela la identidad y borra la categoría entera. Por eso
-        se queda fuera de las superficies, ancho completo y separado por su
-        `border-t`. Mover `Guardar` adentro de esta card arreglaría la
-        adyacencia pero rompería el orden de tabulación documentado, y eso es
-        más caro que la molestia que resuelve.
+        es su propia superficie, hermana de esta y de Patrones, en vez de
+        estar metida acá adentro. Mover `Guardar` dentro de esta card
+        arreglaría la adyacencia, pero rompería el orden visual de los tres
+        botones que `edit-surface.e2e.ts` (E-08) fija a 1280, y eso es más
+        caro que la molestia que resuelve.
       */}
       <div className={cn('flex flex-col gap-4', SUPERFICIE_SECCION)}>
         <form
@@ -612,7 +613,32 @@ function EditarCategoriaCargada({
         layout alone can't below `md`, where the stack itself already keeps
         the red button visually last, not adjacent to `Guardar`.
       */}
-      <footer className="mt-2 flex flex-col gap-3 border-t border-border pt-4 md:flex-row-reverse md:flex-wrap md:items-center md:justify-between">
+      {/*
+        El footer va sobre la MISMA superficie que las dos secciones de
+        arriba, y no es cosmético: es alineación.
+
+        Cuando esta pantalla pasó a superficies, `Guardar` quedó afuera de la
+        card de identidad y por lo tanto 34px más ancho que el formulario que
+        guarda — `p-4` de cada lado (32) más los dos bordes de 1px. A 360px
+        eso es un botón desbordando 17px por lado al form que le corresponde.
+        No lo vio ningún test de jsdom: lo cazó `edit-surface.e2e.ts` (E-08),
+        que compara el ancho de `Guardar` contra el ancho del form porque
+        asumía que los dos eran hermanos en la misma pista.
+
+        Darle la misma superficie restablece esa premisa por CONSTRUCCIÓN:
+        misma caja, mismo padding, mismos bordes, así que las dos bandas de
+        contenido son idénticas y la diferencia es 0, no "dentro de la
+        tolerancia". El `border-t`/`pt-4` que hacía de regla se va: la card ya
+        tiene su propio borde superior y dos separadores para lo mismo es
+        redundancia. El `mt-2` también, porque el `gap-6` del contenedor ya
+        da el ritmo.
+      */}
+      <footer
+        className={cn(
+          'flex flex-col gap-3 md:flex-row-reverse md:flex-wrap md:items-center md:justify-between',
+          SUPERFICIE_SECCION,
+        )}
+      >
         <div className="flex flex-col gap-2 md:flex-row-reverse md:items-center">
           <Button
             ref={guardarRef}
