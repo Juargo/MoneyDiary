@@ -27,9 +27,20 @@ import { iconoDeBucket } from '@/lib/bucket-icons';
  * already keyed off `ETIQUETA_BUCKET`/`bg-*` tokens elsewhere (index.css
  * `@theme`). Tailwind can't see dynamic class strings, so the fill classes
  * are a literal, static map — anything not in it (there is nothing today)
- * falls back to `peer-checked:bg-muted`. Color is never the only carrier of
- * selection state: `peer-checked:font-medium` plus the native `checked`
- * value both carry it too.
+ * falls back to `peer-checked:bg-muted`.
+ *
+ * Checked emphasis (2026-08-31): the pastels are light by design (Two-Tier
+ * Color Rule), and the first version paired them with
+ * `peer-checked:border-transparent` — so the selected chip actually LOST
+ * definition and read as the weakest chip in the group. It now gains
+ * definition instead: an ink `border-foreground` outline, `shadow-sm`
+ * elevation (the house ceiling short of `shadow-md`, which is reserved for
+ * popovers) and `font-semibold`. Geometry is untouched on purpose — the
+ * chips live in a fixed 2-column grid, so scaling the checked one would
+ * shove its neighbours around on every click. Color is still never the only
+ * carrier of selection: outline, elevation, weight and the native `checked`
+ * value all carry it. Focus stays distinguishable because it adds the
+ * shared 3px `ring/50` halo on top.
  *
  * Equal-width chips (2026-08-31, DESIGN.md "Bucket Segmented Control"): the
  * options wrapper is a `grid`, not `flex flex-wrap` — a flex-wrap row gave
@@ -110,7 +121,7 @@ export function SelectorBucket({
                 disabled={disabled}
               />
               <span
-                className={`flex min-h-8 w-full items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-sm text-foreground hover:bg-accent peer-checked:border-transparent peer-checked:font-medium peer-focus-visible:border-ring peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${relleno}`}
+                className={`flex min-h-8 w-full items-center justify-center gap-1.5 rounded-md border border-input bg-card px-2 text-sm text-foreground hover:bg-accent peer-checked:border-foreground peer-checked:font-semibold peer-checked:shadow-sm peer-focus-visible:border-ring peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 ${relleno}`}
               >
                 <Icono aria-hidden="true" className="size-3.5 shrink-0" />
                 <span className="min-w-0">{option.label}</span>
