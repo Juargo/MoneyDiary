@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { CampoTexto } from '../CampoTexto';
+import { cn } from '@/lib/utils';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
+import { CLASE_DIALOGO_CONFIG } from '../estilos';
 
 /**
  * ConfirmarPasswordDialog — the `Vincular con Google`/`Desvincular`
@@ -84,7 +86,7 @@ export function ConfirmarPasswordDialog({
       error={error}
       asForm
       initialFocusRef={passwordRef}
-      className="gap-3 p-4 text-sm"
+      className={cn(CLASE_DIALOGO_CONFIG, 'border-l-primary')}
       extra={
         <CampoTexto
           ref={passwordRef}
