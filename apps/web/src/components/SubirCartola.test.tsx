@@ -3342,5 +3342,111 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       ];
       expect(vars.edits).toEqual([{ rowIndex: 0, categoriaId: 'cat-nueva' }]);
     });
+
+    // ── Fresh-review findings (PR4): two defects the PR4 suite did not cover ──
+    describe('PR4 fresh-review regressions', () => {
+      it('clears the re-evaluation announcement once the commit starts, so the status region reports the commit and not the previous categoría diff', async () => {
+        const previewMutate = vi.fn();
+        const commitMutate = vi.fn();
+        stubFetchCrearCategoria();
+
+        const { archivo } = await llegarAPreviewYCrearCategoria({
+          previewMutate,
+          commitMutate,
+          filasIniciales: [
+            unaFilaPreview({
+              rowIndex: 0,
+              descripcion: 'PETSHOP HUELLITAS',
+              esDuplicado: false,
+              sugerido: null,
+            }),
+          ],
+          resumenInicial: {
+            totalFilas: 1,
+            duplicadosDetectados: 0,
+            nuevas: 1,
+          },
+        });
+
+        // Land the re-run so the announcement is on screen.
+        const [, opciones] = previewMutate.mock.calls[0] as [
+          File,
+          { onSuccess: (dto: PreviewIngestaDto) => void },
+        ];
+        await act(async () => {
+          opciones.onSuccess({
+            ...validPreviewDto,
+            filas: [
+              unaFilaPreview({
+                rowIndex: 0,
+                descripcion: 'PETSHOP HUELLITAS',
+                esDuplicado: false,
+                sugerido: null,
+              }),
+            ],
+            resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+          });
+        });
+
+        const region = screen.getByRole('status', {
+          name: /estado de la subida/i,
+        });
+        expect(region.textContent).toContain('«Mascotas»');
+
+        fireEvent.click(
+          screen.getByRole('button', { name: /agregar transacciones/i }),
+        );
+        expect(commitMutate).toHaveBeenCalledTimes(1);
+        expect(archivo).toBeInstanceOf(File);
+
+        // The override must step aside: the commit owns the announcement now.
+        expect(region.textContent).not.toContain('«Mascotas»');
+      });
+
+      it('renders the failed-re-run notice as plain text, so it never becomes a second live region competing with the shared announcer', async () => {
+        const previewMutate = vi.fn();
+        stubFetchCrearCategoria();
+
+        await llegarAPreviewYCrearCategoria({
+          previewMutate,
+          filasIniciales: [
+            unaFilaPreview({
+              rowIndex: 0,
+              descripcion: 'PETSHOP HUELLITAS',
+              esDuplicado: false,
+              sugerido: null,
+            }),
+          ],
+          resumenInicial: {
+            totalFilas: 1,
+            duplicadosDetectados: 0,
+            nuevas: 1,
+          },
+        });
+
+        // Fail the re-run through the component's own callback.
+        const [, opciones] = previewMutate.mock.calls[0] as [
+          File,
+          { onError: () => void },
+        ];
+        mockedUsePreviewIngesta.mockReturnValue(
+          unaMutacion<PreviewIngestaDto>({
+            isError: true,
+            status: 'error',
+            mutate: previewMutate,
+            error: { tag: 'network', message: 'sin red' } as ApiError,
+          }),
+        );
+        await act(async () => {
+          opciones.onError();
+        });
+
+        expect(
+          screen.getByText(/No se pudo actualizar la vista previa\./i),
+        ).toBeInTheDocument();
+        // Exactly one live region on the page: the shared announcer.
+        expect(screen.getAllByRole('status')).toHaveLength(1);
+      });
+    });
   });
 });

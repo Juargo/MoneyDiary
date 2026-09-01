@@ -609,6 +609,11 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       return;
     }
     isSubmittingRef.current = true;
+    // The re-evaluation announcement belongs to the step that just ended.
+    // Without this, the status region would keep saying "«X» se aplicó a N
+    // filas más." while the commit runs and even after it lands, instead of
+    // "Subiendo transacciones…" and then "Importación completada."
+    setMensajeOverride(null);
     commitMutation.mutate(
       {
         file: archivo,
@@ -1097,11 +1102,13 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               never wipes the table (mostrarPreview stays true above) — this
               honest, specific notice replaces the generic `preview-error`
               block for exactly that case (the categoría was created for
-              real; only the preview refresh failed). Non-blocking `role=
-              "status"`, distinct from the shared announcer region above so
-              it doesn't compete with whatever that region last said. */}
+              real; only the preview refresh failed). Deliberately NOT a
+              second `role="status"`: the shared announcer above is already
+              a live region, and two of them announce over each other on the
+              very failure this text explains. Plain visible text, read in
+              place by anyone who reaches it. */}
           {estado === 'preview-error' && (
-            <p role="status" className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               No se pudo actualizar la vista previa. Tu categoría se creó y esta
               fila ya la usa; las demás filas conservan su sugerencia anterior.
             </p>
