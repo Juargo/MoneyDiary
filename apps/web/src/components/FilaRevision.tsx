@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { CampoSelect } from './configuracion/categorias/CampoSelect';
 import { SelectorBucket } from './SelectorBucket';
 import { SENTINEL_OPTION } from './catalogo-select-sentinels';
+import { NuevaCategoriaDesdeFilaForm } from './preview/NuevaCategoriaDesdeFilaForm';
+import { CLASE_BOTON_ICONO } from './configuracion/estilos';
+import { cn } from '@/lib/utils';
 import {
   esMontoCero,
   formatearMontoCLP,
   formatearMontoConSigno,
 } from '@/domain/formatear-monto';
-import type { PreviewFilaDto } from '@/api/types';
+import type { CategoriaDto, PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
 
 /**
@@ -87,6 +91,10 @@ export function FilaRevision({
   onEditChange,
   selected = false,
   onToggleSelect = () => undefined,
+  onCategoriaCreada = () => undefined,
+  filaCreando = null,
+  onAbrirCreacion = () => undefined,
+  esDemo = false,
 }: {
   readonly fila: PreviewFilaDto;
   readonly categoriaId: string | null;
@@ -94,6 +102,25 @@ export function FilaRevision({
   readonly onEditChange: (rowIndex: number, categoriaId: string | null) => void;
   readonly selected?: boolean;
   readonly onToggleSelect?: (rowIndex: number) => void;
+  /**
+   * crear-categoria-desde-preview PR3 (D-08/D-10/WEB-PRV-12..14) — all four
+   * optional (default no-op/false/null) so pre-existing callers/tests that
+   * don't wire the "+" flow keep compiling unchanged.
+   *
+   * `onCategoriaCreada(rowIndex, categoria)` — owned by `SubirCartola`
+   * (orchestration, D-10); fired once the row's own creation form succeeds.
+   * `filaCreando`/`onAbrirCreacion` — owned by `PreviewMuestra` (ephemeral
+   * table UI state, "at most one form open" falls out of it being one
+   * value). `esDemo` gates the trigger itself (server still enforces
+   * `DEMO_SOLO_LECTURA` independently, WEB-PRV-12).
+   */
+  readonly onCategoriaCreada?: (
+    rowIndex: number,
+    categoria: CategoriaDto,
+  ) => void;
+  readonly filaCreando?: number | null;
+  readonly onAbrirCreacion?: (rowIndex: number | null) => void;
+  readonly esDemo?: boolean;
 }) {
   // Seed bucketUI giving PRIORITY to the edited categoriaId (fix 2, D-06):
   // 1. If categoriaId prop is non-null, find the catalog group that contains
@@ -145,6 +172,27 @@ export function FilaRevision({
   const labelBucket = `Fila ${n}: bucket`;
   const labelCategoria = `Fila ${n}: categoría`;
   const labelSeleccionar = `Seleccionar fila ${n}`;
+
+  // crear-categoria-desde-preview PR3 (D-08/D-10/D-11): this component owns
+  // the "+" trigger's ref so focus can return to it when the form it opens
+  // closes (Cancelar/Escape/success) — the form itself never touches focus
+  // outside its own boundary (see that component's docblock).
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const formAbierto = filaCreando === fila.rowIndex;
+
+  function abrirCreacion() {
+    onAbrirCreacion(fila.rowIndex);
+  }
+
+  function cerrarCreacionYRestaurarFoco() {
+    onAbrirCreacion(null);
+    triggerRef.current?.focus();
+  }
+
+  function handleCreada(categoria: CategoriaDto) {
+    onCategoriaCreada(fila.rowIndex, categoria);
+    cerrarCreacionYRestaurarFoco();
+  }
 
   // Buckets available for the segmented control come from the catalog groups
   // that exist (empty buckets already filtered by agruparPorBucket — D-06,
@@ -313,20 +361,50 @@ export function FilaRevision({
           {bucketUI && (
             <div
               key={bucketUI}
-              className="motion-safe:animate-[categoria-in_200ms_ease-out]"
+              className="flex items-end gap-2 motion-safe:animate-[categoria-in_200ms_ease-out]"
             >
-              <CampoSelect
-                label={labelCategoria}
-                columnLabel="Categoría"
-                value={categoriaId ?? ''}
-                onChange={handleCategoriaChange}
-                options={categoriaOptions}
-                disabled={catalogoDisabled}
-              />
+              <div className="min-w-0 flex-1">
+                <CampoSelect
+                  label={labelCategoria}
+                  columnLabel="Categoría"
+                  value={categoriaId ?? ''}
+                  onChange={handleCategoriaChange}
+                  options={categoriaOptions}
+                  disabled={catalogoDisabled}
+                />
+              </div>
+              {/* crear-categoria-desde-preview PR3 (WEB-PRV-12): scoped to
+                  the exact same condition the categoría select above is
+                  already gated on (`bucketUI` truthy) — never rendered for
+                  duplicate rows, since this whole branch is skipped for
+                  them (early return above). Demo: proactively disabled,
+                  `aria-describedby` points at the note `SubirCartola`
+                  renders once (D-14) — the server still enforces
+                  `DEMO_SOLO_LECTURA` independently. */}
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={abrirCreacion}
+                disabled={esDemo}
+                aria-describedby={esDemo ? 'demo-catalogo-nota' : undefined}
+                aria-label={`Nueva categoría para fila ${n}`}
+                className={cn(CLASE_BOTON_ICONO, 'text-muted-foreground')}
+              >
+                <Plus aria-hidden="true" className="size-[18px]" />
+              </button>
             </div>
           )}
         </div>
       </div>
+      {formAbierto && (
+        <NuevaCategoriaDesdeFilaForm
+          bucket={bucketUI}
+          descripcionFila={fila.descripcion}
+          esDemo={esDemo}
+          onCancelar={cerrarCreacionYRestaurarFoco}
+          onCreada={handleCreada}
+        />
+      )}
     </li>
   );
 }
