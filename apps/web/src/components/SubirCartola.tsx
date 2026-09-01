@@ -32,7 +32,11 @@ import {
   type BorradorRevision,
 } from '@/lib/borrador-revision';
 import { MENSAJE_DEMO_CATALOGO } from './configuracion/categorias/mensajes-catalogo';
-import type { CatalogoEstado, CategoriaDto } from '@/api/types';
+import type {
+  CatalogoEstado,
+  CategoriaDto,
+  PreviewIngestaDtoConCanonicos,
+} from '@/api/types';
 
 // US-059 PR3: SubirCartola state-machine rewrite — two-phase preview→commit flow.
 // - `subiendo` renamed to `committing` (D-01).
@@ -188,6 +192,21 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // D-03: edits overlay — Map keyed by rowIndex; value is categoriaId|null.
   // Presence = "user touched this row"; absence = auto-classify server-side.
   const [edits, setEdits] = useState<Map<number, string | null>>(new Map());
+  // crear-categoria-desde-preview PR4 (D-10, design.md §7 highest-regression
+  // risk edit — landed as its own commit with the full pre-existing suite
+  // green FIRST, zero new behavior): `previewData` is hoisted OUT of
+  // `previewMutation.data` (F-9: `useMutation.mutate()` clears `.data` while
+  // pending, which would unmount the whole review table on a PR4 re-run).
+  // Written by an effect mirroring `previewMutation.isSuccess`/`.data` (see
+  // that effect below) — fires for BOTH the initial preview and re-runs; read
+  // everywhere `previewMutation.data` used to be read (`mostrarPreview`, the
+  // `<PreviewMuestra>` props, the draft write-through effect deps, the
+  // discard-confirm counts, the exito banco line); cleared in the SAME three
+  // reset paths that already clear `edits` (`procesarArchivoSeleccionado`,
+  // `handleDescartar`, `handleSubirOtra`) so it never survives past a fresh
+  // pick/discard/reset.
+  const [previewData, setPreviewData] =
+    useState<PreviewIngestaDtoConCanonicos | null>(null);
   // Peak-end landing polish: `<input type="file">` is uncontrolled by
   // design (browsers refuse a scripted non-empty `value`) — clearing
   // `archivo`/React state does NOT clear the native "no file chosen" text.
@@ -323,6 +342,31 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     enabled: estado === 'exito' && mesDominante !== undefined,
   });
 
+  // crear-categoria-desde-preview PR4 (D-10 hoist mechanism): mirrors a
+  // successful `previewMutation` into the hoisted `previewData` state using
+  // React's documented "adjust state during render" idiom (`FilaRevision`'s
+  // own `prevCategoriaId` mirror is the precedent in this codebase) — NOT a
+  // `useEffect`. An effect-based mirror was tried first and reverted: it
+  // introduces an extra commit between "`estado` flips to `preview-listo`"
+  // and "`previewData` actually updates," and the pre-existing
+  // `previewHeadingRef` focus effect below (unmodified, keyed only on
+  // `estado`) already fired-and-found-nothing on the FIRST of those two
+  // commits — a real regression the full suite gate caught. Adjusting
+  // during render folds both changes into the SAME commit, so any consumer
+  // reading `estado` alongside `previewData` (like that focus effect) sees
+  // them agree. Also reactive on `previewMutation.data`/`.isSuccess` rather
+  // than a per-call `mutate(file, {onSuccess})` option, so it fires for both
+  // real re-runs (`handleCategoriaCreada` below) AND every pre-existing test
+  // double in this suite that injects `{isSuccess: true, data}` directly via
+  // `mockReturnValue` without ever invoking `.mutate()` itself.
+  if (
+    previewMutation.isSuccess &&
+    previewMutation.data &&
+    previewMutation.data !== previewData
+  ) {
+    setPreviewData(previewMutation.data);
+  }
+
   useEffect(() => {
     if (estado === 'preview-error' || estado === 'error') {
       errorRef.current?.focus();
@@ -353,14 +397,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // effect's own deps don't change across that transition, so it doesn't
   // re-save afterwards.
   useEffect(() => {
-    if (!archivo || !previewMutation.data) return;
+    if (!archivo || !previewData) return;
     guardarBorrador({
       archivo,
-      preview: previewMutation.data,
+      preview: previewData,
       edits,
       ahora: Date.now(),
     });
-  }, [archivo, previewMutation.data, edits]);
+  }, [archivo, previewData, edits]);
 
   // D-02: clears both mutations + edits before firing preview. Draft
   // resilience: a matching re-pick during `borradorRecuperando` restores
@@ -375,6 +419,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     previewMutation.reset();
     commitMutation.reset();
     isSubmittingRef.current = false;
+    // PR4 hoist: previewData is a THIRD reset path (same set as edits) —
+    // cleared unconditionally here so a stale prior preview never survives
+    // past a fresh pick, whether or not the new selection is valid.
+    setPreviewData(null);
 
     if (!seleccionado) {
       setArchivo(null);
@@ -523,6 +571,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
+    setPreviewData(null);
     isSubmittingRef.current = false;
     previewMutation.reset();
     commitMutation.reset();
@@ -562,6 +611,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
+    setPreviewData(null);
     isSubmittingRef.current = false;
     previewMutation.reset();
     commitMutation.reset();
@@ -578,9 +628,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
   // Show the review section when preview succeeded and we're not in exito.
   const mostrarPreview =
-    previewMutation.data !== undefined &&
-    estado !== 'preview-error' &&
-    estado !== 'exito';
+    previewData !== null && estado !== 'preview-error' && estado !== 'exito';
 
   // Draft resilience: only relevant before a file is picked in THIS session
   // — once `archivo` is set, the notice's job is done (`handleFileChange`
@@ -597,7 +645,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // that can drift). Degrades to a plain total when nothing is classified
   // (`clasificadas === 0`) instead of a misleading "(0 ya clasificados)".
   const filasNoDuplicadasDescarte =
-    previewMutation.data?.filas.filter((f) => !f.esDuplicado) ?? [];
+    previewData?.filas.filter((f) => !f.esDuplicado) ?? [];
   const filasClasificadasDescarte = filasNoDuplicadasDescarte.filter(
     (f) => resolverCategoriaMerged(f, edits) !== null,
   ).length;
@@ -860,7 +908,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         </div>
       )}
 
-      {mostrarPreview && previewMutation.data && (
+      {mostrarPreview && previewData && (
         <section
           aria-labelledby="preview-listo-heading"
           className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
@@ -874,9 +922,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             Vista previa
           </h2>
           <PreviewMuestra
-            banco={previewMutation.data.banco}
-            filas={previewMutation.data.filas}
-            resumen={previewMutation.data.resumen}
+            banco={previewData.banco}
+            filas={previewData.filas}
+            resumen={previewData.resumen}
             edits={edits}
             onEditChange={handleEditChange}
             catalogo={catalogoEstado}
@@ -988,7 +1036,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           </h2>
           <p className="text-sm text-muted-foreground">
             {commitMutation.data.totalTransacciones} movimientos importados de{' '}
-            {previewMutation.data?.banco}.
+            {previewData?.banco}.
           </p>
 
           {/* The verdict never computes client-side (ADR-024) — it's the
