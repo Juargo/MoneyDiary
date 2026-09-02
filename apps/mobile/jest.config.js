@@ -24,6 +24,17 @@
 module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Jest's 5s default is not enough for the FIRST test in a spec file on slow
+  // CI runners. That test pays the one-off warm-up of the jest-expo preset and
+  // the first React Native render; every later test in the same file reuses it.
+  // Measured in ReclasificarMobileControl.spec.tsx: first test 618ms locally
+  // vs ~15ms for each of the other twelve. On GitHub-hosted runners the same
+  // warm-up crossed 5s and failed the suite deterministically (three runs:
+  // 5.881s, 5.881s, 6.132s) while passing locally. The cost is per file, so
+  // all 73 spec files carry the same risk, not just that one — hence a global
+  // timeout rather than a per-test override. This buys headroom for the
+  // warm-up; it does not mask slow assertions, which still fail on their own.
+  testTimeout: 15000,
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.spec.{ts,tsx}'],
   moduleNameMapper: {
     // `app/_layout.tsx` imports `../global.css` (NativeWind) — only Metro
