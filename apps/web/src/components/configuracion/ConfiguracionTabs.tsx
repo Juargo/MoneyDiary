@@ -1,9 +1,65 @@
 import { Link } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
+import { FOCUS_RING } from './estilos';
 
-const TAB_BASE =
-  'block rounded-md px-3 py-2 text-center text-sm text-muted-foreground transition-colors hover:bg-accent md:text-left';
-const TAB_ACTIVE = 'bg-accent font-semibold text-primary';
+/**
+ * Active-state contrast (fixed 2026-09-01).
+ *
+ * `TAB_ACTIVE` was `bg-accent font-semibold text-primary` — `NavItem`'s fill
+ * copied over WITHOUT the rail that carries it there. On white (the sidebar)
+ * the `--accent` grey #eeeeee still reads; these tabs sit on `--background`
+ * #e8f0fa, where that same grey measures **1.07:1** against the ground. Not
+ * "low contrast" — indistinguishable. `--accent` is defined as
+ * "surface-container" for WHITE surfaces, and this is not one.
+ *
+ * The fix reuses `NavItem`'s full idiom instead of half of it:
+ *
+ * | Signal | Value | Contrast on #e8f0fa |
+ * |---|---|---|
+ * | rail | `border-primary` #2260b2, 4px | **5.36:1** (SC 1.4.11 needs 3:1 for non-text) |
+ * | fill | `bg-card` #ffffff | 1.16:1 — weak alone, deliberately |
+ * | text | `text-primary` #2260b2 on white | 6.21:1 |
+ *
+ * The rail carries the contrast; the white fill is NOT there for contrast but
+ * for meaning — the selected tab takes the same white as the content cards to
+ * its right, so it reads as "this tab owns that panel". `bg-accent` could
+ * never do that job even if it were visible, because the grey is not the
+ * surface colour of anything on this screen.
+ *
+ * **Why the rail is on the LEFT here and on the right in the sidebar.** The
+ * sidebar uses `border-r-4` because its right edge IS the boundary with the
+ * content. This list has no such boundary: a right rail would float in the
+ * middle of the blue gutter, pointing at nothing. It goes on the item's
+ * leading edge, where the eye enters the row. Same device, different
+ * placement, for a reason.
+ *
+ * **Below `md` the rail goes on the BOTTOM, not the left.** There the list is
+ * a horizontal row (D-01/WCTM-02), and a vertical bar beside a pill in a
+ * horizontal row does not read as "selected", it reads as broken.
+ * `border-b-4` below `md`, `border-l-4` from `md` up — the base state's
+ * `border-transparent` reserves the space in both orientations, so activating
+ * a tab shifts nothing.
+ *
+ * Two further drifts against `NavItem` that this closes:
+ * - inactive moves from `text-muted-foreground` (#44474e, neutral grey) to
+ *   `text-secondary` (#61597f, the strong lavanda) — the SAME colour the
+ *   sidebar uses for a non-active nav link. They were two different answers
+ *   to one question. 5.59:1 on the blue ground, AA.
+ * - these tabs had NO focus ring at all while `NavItem` has one. A nav link
+ *   with no visible focus indication is a real a11y gap (SC 2.4.7), not a
+ *   stylistic preference.
+ *
+ * `hover` changes too: `hover:bg-accent` was the same invisible grey. It is
+ * now `hover:bg-card` plus a text darkening, so the change is perceivable
+ * through two channels instead of none.
+ */
+const TAB_BASE = cn(
+  'block border-b-4 border-transparent px-3 py-2 text-center text-sm font-medium text-secondary transition-colors',
+  'hover:bg-card hover:text-foreground',
+  'md:border-b-0 md:border-l-4 md:text-left',
+  FOCUS_RING,
+);
+const TAB_ACTIVE = 'border-primary bg-card font-semibold text-primary';
 
 /**
  * ConfiguracionTabs — the section-tab list, now shared chrome rendered once
