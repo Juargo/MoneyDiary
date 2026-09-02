@@ -5,7 +5,7 @@ import type { ReclasificarCategoriaDto } from './types';
 
 export interface ReclasificarCategoriaInput {
   readonly transaccionId: string;
-  readonly categoria: string;
+  readonly categoriaId: string;
 }
 
 /**
@@ -51,8 +51,11 @@ export function useReclasificarCategoria(
     ApiError,
     ReclasificarCategoriaInput
   >({
-    mutationFn: async ({ transaccionId, categoria }) => {
-      const result = await postReclasificarCategoria(transaccionId, categoria);
+    mutationFn: async ({ transaccionId, categoriaId }) => {
+      const result = await postReclasificarCategoria(
+        transaccionId,
+        categoriaId,
+      );
       if (!result.ok) {
         throw result.error;
       }

@@ -138,7 +138,7 @@ describe('NuevaCategoriaForm', () => {
     await user.click(screen.getByRole('button', { name: 'Crear' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ya tienes una categoría con ese nombre.',
+      'Ya tienes una categoría con ese nombre en ese bucket.',
     );
     expect(
       screen.queryByText(/a duplicate category name error/),

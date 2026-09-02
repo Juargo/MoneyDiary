@@ -309,7 +309,7 @@ describe('NuevaCategoriaDesdeFilaForm', () => {
     const alertas = await screen.findAllByRole('alert');
     expect(alertas).toHaveLength(1);
     expect(alertas[0]).toHaveTextContent(
-      'Ya tienes una categoría con ese nombre.',
+      'Ya tienes una categoría con ese nombre en ese bucket.',
     );
   });
 
