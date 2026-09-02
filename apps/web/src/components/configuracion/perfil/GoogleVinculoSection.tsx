@@ -52,6 +52,19 @@ const DESCRIPCION_DESVINCULAR =
  * reutiliza `MENSAJE_DEMO_SOLO_LECTURA` (la MISMA constante que
  * `PerfilForm`, `dry`) — defensivo: si igual se dispara un submit, el 403
  * `DEMO_SOLO_LECTURA` cae en la misma tabla de `mensajeDeApiError`.
+ *
+ * **Surface pass (2026-09-01).** El `<h2>Cuenta de Google</h2>` que este
+ * componente renderizaba ya NO vive acá: lo posee el `SeccionConfig` que lo
+ * envuelve en `PerfilPanel`. El nombre accesible y el nivel del heading no
+ * cambian — cambia quién lo emite, para que ninguna sección pueda elegir su
+ * propio peso visual (el defecto que se estaba arreglando: tres `h2`
+ * hermanos renderizados a dos tamaños distintos). Este componente vuelve a
+ * ser solo el control de vínculo.
+ *
+ * La fila pill+botón gana `flex-wrap`: el pill incluye el email del usuario
+ * (`Vinculada: {email}`), así que a 360px un email largo y el botón
+ * `Desvincular` no entran juntos en una línea — sin `flex-wrap` el botón se
+ * comprimía en vez de bajar de renglón.
  */
 export function GoogleVinculoSection({
   me,
@@ -127,15 +140,12 @@ export function GoogleVinculoSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-foreground">
-        Cuenta de Google
-      </h2>
       {me.esDemo && (
         <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_SOLO_LECTURA}
         </p>
       )}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className={pillClase}>
           {me.googleVinculado && (
             <Check aria-hidden="true" className="size-3.5" />
