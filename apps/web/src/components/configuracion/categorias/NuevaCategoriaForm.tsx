@@ -4,7 +4,9 @@ import { useCrearCategoria } from '@/api/use-crear-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
 import { construirOpcionesBucket } from '@/lib/bucket-colors';
+import { cn } from '@/lib/utils';
 import { CampoTexto } from '../CampoTexto';
+import { SUPERFICIE_SECCION } from '../SeccionConfig';
 import { CampoSelect } from './CampoSelect';
 import {
   MENSAJE_DEMO_CATALOGO,
@@ -64,7 +66,12 @@ export function NuevaCategoriaForm({
   return (
     <form
       onSubmit={enviar}
-      className="flex flex-col gap-4 rounded-md border border-border p-4"
+      // Misma superficie que los grupos de bucket entre los que se abre: sin
+      // `bg-card` el form quedaba transparente sobre el fondo azul mientras
+      // las tarjetas de alrededor eran blancas, y `rounded-md`/`rounded-lg`
+      // resuelven los dos a `0` con `--radius: 0rem` — o sea, la diferencia
+      // era ruido inerte, no una decisión.
+      className={cn('flex flex-col gap-4', SUPERFICIE_SECCION)}
     >
       {/*
        * US-063 PR #4 (post-task-25 maintainer extension, NOT WCTM-05 —

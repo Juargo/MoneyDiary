@@ -39,6 +39,26 @@ function renderDialog(
 }
 
 describe('ConfirmarPasswordDialog', () => {
+  /**
+   * Same contrast regression as `ConfirmarImpactoDialog`'s rail scenario:
+   * `GoogleVinculoSection` now renders this dialog inside a `SeccionConfig`
+   * surface, so `bg-card` sits on `bg-card` and only the 1px `--border`
+   * (1.72:1) separates them, under SC 1.4.11's 3:1.
+   *
+   * The rail is `--primary` (6.3:1), NOT `--destructive`: linking or
+   * unlinking a Google account is a confirmation, not a destruction. The
+   * colour states which of the two this is.
+   */
+  it('lleva el riel primario — confirma, no destruye, y eso lo dice el color', () => {
+    renderDialog();
+
+    const dialogo = screen.getByRole('alertdialog');
+    expect(dialogo).toHaveClass('border-l-4', 'border-l-primary');
+    expect(dialogo.className.split(' ')).not.toContain('border-l-destructive');
+    // Mismo guard de composición twMerge que el otro diálogo.
+    expect(dialogo).toHaveClass('border', 'border-border');
+  });
+
   it('renderiza role=alertdialog con aria-modal=false explícito', () => {
     renderDialog();
     const dialogo = screen.getByRole('alertdialog');
