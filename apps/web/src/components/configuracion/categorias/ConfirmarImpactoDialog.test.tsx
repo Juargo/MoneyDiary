@@ -39,6 +39,45 @@ function renderDialog(
 }
 
 describe('ConfirmarImpactoDialog', () => {
+  /**
+   * Contrast regression guard. `InlineConfirm` paints itself on `bg-card`,
+   * which read fine while these dialogs floated on the blue page ground. Once
+   * configuración's sections moved onto `bg-card` surfaces (same branch),
+   * this one ended up INSIDE a white card — `CategoriaFila` renders it within
+   * the `<li>` of a bucket group — so card-on-card, separated only by the 1px
+   * `--border` at 1.72:1, under SC 1.4.11's 3:1 for a component boundary.
+   *
+   * No fill can fix that in this palette (`--card` on `--card` is 1.0:1), so
+   * the 4px `--destructive` rail carries it at 5.9:1. Destructive because
+   * this dialog always is: it deletes a categoría or moves its bucket.
+   *
+   * jsdom resolves no CSS variables, so the ratio itself is not assertable —
+   * the class literal that produces it is.
+   */
+  it('lleva el riel destructivo, que es lo que lo separa de la tarjeta blanca que lo contiene', () => {
+    renderDialog();
+
+    expect(screen.getByRole('alertdialog')).toHaveClass(
+      'border-l-4',
+      'border-l-destructive',
+    );
+  });
+
+  /**
+   * `cn` is `twMerge`, and `InlineConfirm`'s base already carries `border
+   * border-border`. That a caller's `border-l-4` composes WITH that base
+   * instead of replacing it is not obvious from either file, and if twMerge
+   * ever collapsed them the dialog would silently lose its outline on three
+   * sides. Pinned here rather than trusted.
+   */
+  it('el riel se suma al borde de 1px de InlineConfirm en vez de pisarlo (composición twMerge)', () => {
+    renderDialog();
+
+    const dialogo = screen.getByRole('alertdialog');
+    expect(dialogo).toHaveClass('border', 'border-border');
+    expect(dialogo).toHaveClass('border-l-4');
+  });
+
   // Pins a fix that came along with the shared InlineConfirm shell (a11y
   // round, part 1): when no `ariaLabel` override is passed (this is the
   // single-instance edit-screen case — `renderDialog()` never passes one),

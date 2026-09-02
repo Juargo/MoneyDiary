@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import type { CategoriaDto } from '@/api/types';
 import { useEliminarCategoria } from '@/api/use-eliminar-categoria';
 import { etiquetaPatrones } from './plural';
-import { CLASE_BOTON_ICONO } from '../estilos';
+import { CLASE_BOTON_ICONO, FOCUS_RING } from '../estilos';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
 import { fraseDeImpacto, mensajeDeErrorCatalogo } from './mensajes-catalogo';
 
@@ -145,7 +145,11 @@ export function CategoriaFila({
         to="/configuracion/categorias/$categoriaId"
         params={{ categoriaId: categoria.id }}
         aria-label={`Editar categoría ${categoria.nombre}`}
-        className={CLASE_BOTON_ICONO}
+        className={cn(
+          CLASE_BOTON_ICONO,
+          FOCUS_RING,
+          'text-muted-foreground transition-colors hover:text-foreground',
+        )}
       >
         <Pencil aria-hidden="true" className="size-[18px]" />
       </Link>
@@ -157,8 +161,16 @@ export function CategoriaFila({
         aria-label={etiquetaEliminar}
         className={cn(
           CLASE_BOTON_ICONO,
+          FOCUS_RING,
           'hidden md:inline-flex',
-          'text-destructive disabled:cursor-not-allowed disabled:opacity-50',
+          // El rojo se GANA en hover/foco, no viene de fábrica: con quince
+          // categorías en pantalla eran quince marcas rojas compitiendo por
+          // atención con el contenido, y el color destructivo deja de
+          // significar "cuidado" cuando está siempre encendido. El icono
+          // `Trash2` ya dice qué hace la acción; el color refuerza cuando el
+          // usuario apunta.
+          'text-muted-foreground transition-colors hover:text-destructive focus-visible:text-destructive',
+          'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-muted-foreground',
         )}
       >
         <Trash2 aria-hidden="true" className="size-[18px]" />

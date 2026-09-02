@@ -166,6 +166,24 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Cargando…');
   });
 
+  /**
+   * El estado pendiente era un `<p role="status">Cargando…</p>` sin una sola
+   * clase: texto negro de 16px arriba a la izquierda sobre el fondo azul, sin
+   * spinner ni centrado, mientras `CategoriasPanel` — la pantalla de al lado,
+   * dentro de la misma sección — ya usaba el `Loading` compartido para el
+   * mismo momento. El spinner es la parte observable de esa unificación; el
+   * `role`/string los sigue fijando el escenario de arriba, sin cambios.
+   */
+  it('el estado pendiente usa el Loading compartido de la app, no un <p> pelado', async () => {
+    renderEditar({
+      me: ME_NO_DEMO,
+      fetchMock: vi.fn(() => new Promise(() => {})),
+    });
+
+    await screen.findByRole('status');
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+  });
+
   it('si la query falla, renderiza mensajeDeErrorCatalogo en role="alert" + link Volver a Categorías', async () => {
     renderEditar({
       me: ME_NO_DEMO,
