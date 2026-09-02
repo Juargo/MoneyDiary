@@ -190,24 +190,36 @@ Note (apply-time, not in design.md): `apps/api/src/infrastructure/http-express/a
 
 ### Phase 2.1: API seam — the compile trigger (D-07)
 
-- [ ] 2.1.1 (RED) Extend `apps/web/src/api/use-reclasificar-categoria.test.ts` (or equivalent): `ReclasificarCategoriaInput.categoriaId` (not `categoria`); `postReclasificarCategoria` serializes `{ categoriaId }`
-- [ ] 2.1.2 (GREEN) Rename `ReclasificarCategoriaInput.categoria` → `categoriaId` in `use-reclasificar-categoria.ts`; update `postReclasificarCategoria(transaccionId, categoriaId)` and its docblock in `client.ts` (D-07 — this rename is what turns the control's old call site into a compile error)
+- [x] 2.1.1 (RED) Extend `apps/web/src/api/use-reclasificar-categoria.test.ts` (or equivalent): `ReclasificarCategoriaInput.categoriaId` (not `categoria`); `postReclasificarCategoria` serializes `{ categoriaId }`
+- [x] 2.1.2 (GREEN) Rename `ReclasificarCategoriaInput.categoria` → `categoriaId` in `use-reclasificar-categoria.ts`; update `postReclasificarCategoria(transaccionId, categoriaId)` and its docblock in `client.ts` (D-07 — this rename is what turns the control's old call site into a compile error)
 
 ### Phase 2.2: Control identity (D-07, WDM-10)
 
-- [ ] 2.2.1 (RED) Extend `ReclasificarCategoriaControl.test.tsx`: prop is `categoriaActual: { id: string; nombre: string } | null`; two same-named categorías in different buckets each get a distinct `<option>` key/value (their own id); selecting the `Deseos` duplicate shows the `Deseos` confirmation and sends `{ categoriaId: <Deseos id> }` (WDM-10 both scenarios); `pendiente` no longer carries a `nombre` field
-- [ ] 2.2.2 (GREEN) Implement all five sites from design.md's D-07 table: prop shape, `valor` state (holds id), `categoriaPorId` lookup replacing `bucketDe(nombre)`, `<option key/value>` by id, the mid-flight fallback `<option>`; shrink `pendiente` to `{ categoriaId, bucketNuevo }`; the three reset paths (`onError`, unresolved-defensive branch, `cancelar`) use `categoriaActual?.id ?? ''`
+- [x] 2.2.1 (RED) Extend `ReclasificarCategoriaControl.test.tsx`: prop is `categoriaActual: { id: string; nombre: string } | null`; two same-named categorías in different buckets each get a distinct `<option>` key/value (their own id); selecting the `Deseos` duplicate shows the `Deseos` confirmation and sends `{ categoriaId: <Deseos id> }` (WDM-10 both scenarios); `pendiente` no longer carries a `nombre` field
+- [x] 2.2.2 (GREEN) Implement all five sites from design.md's D-07 table: prop shape, `valor` state (holds id), `categoriaPorId` lookup replacing `bucketDe(nombre)`, `<option key/value>` by id, the mid-flight fallback `<option>`; shrink `pendiente` to `{ categoriaId, bucketNuevo }`; the three reset paths (`onError`, unresolved-defensive branch, `cancelar`) use `categoriaActual?.id ?? ''`
 
 ### Phase 2.3: Caller wiring
 
-- [ ] 2.3.1 (RED) Extend `GrupoMovimientos.test.tsx`: passes `categoriaActual={grupo.categoriaId === null ? null : { id: grupo.categoriaId, nombre: grupo.nombre }}`
-- [ ] 2.3.2 (GREEN) Update the call site in `GrupoMovimientos.tsx`
+- [x] 2.3.1 (RED) Extend `GrupoMovimientos.test.tsx`: passes `categoriaActual={grupo.categoriaId === null ? null : { id: grupo.categoriaId, nombre: grupo.nombre }}`
+- [x] 2.3.2 (GREEN) Update the call site in `GrupoMovimientos.tsx`
+
+Note (apply-time, not in design.md): `apps/web/src/api/client.test.ts`'s
+`postReclasificarCategoria` describe block also exercises the request body
+directly with the stale `{ categoria }` key/test title — updated to
+`{ categoriaId }` alongside 2.1.2 (same mechanical rename as PR1's
+`app.transacciones.spec.ts` note, not a new task). Similarly, every
+pre-existing `categoriaActual="<nombre>"` string prop and `select.value`/body
+assertion across `ReclasificarCategoriaControl.test.tsx`'s other ~20
+scenarios needed the mechanical `{ id, nombre }` migration once the prop
+shape changed (D-07's own stated intent — the shape change is the compile/
+behavior trigger); none of the assertions' intent changed, only the
+identity representation.
 
 ### Phase 2.4: Verification
 
-- [ ] 2.4.1 Run `pnpm web test`
-- [ ] 2.4.2 Run `pnpm web typecheck`
-- [ ] 2.4.3 Run `pnpm web lint`
+- [x] 2.4.1 Run `pnpm web test` — 138 files, 1729 tests passed
+- [x] 2.4.2 Run `pnpm web typecheck` — clean
+- [x] 2.4.3 Run `pnpm web lint` — 0 errors
 
 ---
 

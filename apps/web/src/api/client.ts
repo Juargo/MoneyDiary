@@ -759,16 +759,16 @@ function esReclasificarCategoriaDto(
  * `client.ts`: same-origin (el proxy server-side inyecta `x-api-key`), toda
  * falla mapeada a un `ApiError` tipado, nunca lanza.
  *
- * El request SOLO envía `{ categoria: nombre }` — nunca un bucket (design.md
- * §4.1/§7.3): el bucket destino se DERIVA server-side de la categoría
- * elegida, el cliente no puede inyectarlo. `400` = categoría desconocida;
- * `404` (no existe / no es del usuario, anti-enumeration) cae en la rama
- * genérica `!res.ok` → `{tag: 'server', status: 404}`, igual que cualquier
- * otro no-2xx no distinguido explícitamente aquí.
+ * El request SOLO envía `{ categoriaId }` (ADR-042) — nunca un bucket
+ * (design.md §4.1/§7.3): el bucket destino se DERIVA server-side de la
+ * categoría elegida, el cliente no puede inyectarlo. `400` = categoría
+ * desconocida; `404` (no existe / no es del usuario, anti-enumeration) cae
+ * en la rama genérica `!res.ok` → `{tag: 'server', status: 404}`, igual que
+ * cualquier otro no-2xx no distinguido explícitamente aquí.
  */
 export async function postReclasificarCategoria(
   transaccionId: string,
-  categoria: string,
+  categoriaId: string,
 ): Promise<ApiResult<ReclasificarCategoriaDto>> {
   const url = `/api/transacciones/${encodeURIComponent(transaccionId)}/categoria`;
 
@@ -777,7 +777,7 @@ export async function postReclasificarCategoria(
     res = await fetch(url, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ categoria }),
+      body: JSON.stringify({ categoriaId }),
     });
   } catch {
     return {
