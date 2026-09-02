@@ -1,15 +1,17 @@
 import { useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useCategorias } from '@/api/use-categorias';
 import { useMe } from '@/api/use-me';
 import {
   agruparPorBucket,
   type GrupoCategoriaPorBucket,
 } from '@/domain/agrupar-categorias-por-bucket';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { COLOR_BUCKET, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { Loading } from '../../states/Loading';
 import { ErrorState } from '../../states/Error';
 import { Empty } from '../../states/Empty';
 import { EtiquetaResponsiva } from '../EtiquetaResponsiva';
+import { SUPERFICIE_SECCION } from '../SeccionConfig';
 import { CategoriaFila } from './CategoriaFila';
 import { NuevaCategoriaForm } from './NuevaCategoriaForm';
 import {
@@ -265,10 +267,38 @@ export function CategoriasPanel() {
             description="Crea tu primera categoría para empezar a clasificar tus movimientos."
           />
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
+            {/*
+              Una superficie POR BUCKET, no una sola para toda la lista ni
+              ninguna (que es lo que había). Los buckets son EL concepto del
+              producto — el 50/30/20 que el usuario ya vio en el donut del
+              dashboard — así que darle a cada uno su propio contenedor
+              refuerza el modelo mental en vez de aplanarlo en una lista
+              corrida. Son 3-4 grupos como máximo, no veinte: el costo de
+              tener varias superficies está acotado por el dominio.
+
+              El swatch de color reusa el idioma EXACTO de `LeyendaGasto.tsx:133-137`
+              (`h-3 w-3 rounded-none` + `COLOR_BUCKET` inline, con el mismo
+              fallback `#CCCCCC`). No es un puntito decorativo: es el mismo
+              código de color que el donut y la leyenda del dashboard ya le
+              enseñaron al usuario, y acá es lo único que conecta esta
+              pantalla con esa lectura. Los pasteles de `COLOR_BUCKET` son
+              rellenos, nunca texto (ver el docstring de `bucket-colors.ts`),
+              así que el nombre del bucket sigue en `text-foreground`.
+            */}
             {grupos.map((grupo) => (
-              <section key={grupo.bucket}>
-                <h3 className="mb-2 text-sm font-semibold text-foreground">
+              <section
+                key={grupo.bucket}
+                className={cn('flex flex-col', SUPERFICIE_SECCION)}
+              >
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <span
+                    aria-hidden="true"
+                    className="h-3 w-3 shrink-0 rounded-none"
+                    style={{
+                      backgroundColor: COLOR_BUCKET[grupo.bucket] ?? '#CCCCCC',
+                    }}
+                  />
                   {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
                 </h3>
                 <ul>

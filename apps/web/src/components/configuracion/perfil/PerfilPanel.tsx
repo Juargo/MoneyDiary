@@ -2,6 +2,7 @@ import { LogOut } from 'lucide-react';
 import { useMe } from '@/api/use-me';
 import { useCerrarSesion } from '@/lib/use-cerrar-sesion';
 import { Button } from '@/components/ui/button';
+import { SeccionConfig } from '../SeccionConfig';
 import { PerfilForm } from './PerfilForm';
 import { GoogleVinculoSection } from './GoogleVinculoSection';
 import type { Mensaje } from './mensajes';
@@ -38,16 +39,47 @@ import type { Mensaje } from './mensajes';
  *
  * Design-hardening fix P0 ("no logout"): the second logout entry point (the
  * first is the desktop sidebar footer, `routes/_authenticated.tsx`) lives
- * here — this is the one surface both mobile AND desktop reach (Perfil sits
- * under `/configuracion`, in `BottomTabs` on mobile), so it covers mobile
- * without `BottomTabs` gaining a 6th tab. Shares `useCerrarSesion`
- * (`lib/use-cerrar-sesion.ts`) with `DemoBanner` and the sidebar control —
- * one logout semantic, three consumers (DRY). Styled `variant="outline"`
- * (Button, not `default`) so it reads as a secondary account action, never
- * competing with `PerfilForm`'s primary "Guardar cambios" — and never
- * `destructive` red, since logout is fully recoverable, not data-destroying.
- * No `esDemo` gate: logging out of a demo session here is harmless and
- * equivalent to `DemoBanner`'s own exit.
+ * here, in its own section — mobile has no sidebar, so without this there is
+ * no way out of the session on a phone at all.
+ *
+ * ---
+ *
+ * **Surface pass (2026-09-01).** Three changes, each fixing a defect that
+ * only a browser could show (jsdom does no layout — see `PerfilForm`'s own
+ * `mb-4`-on-the-legend note for the same class of bug):
+ *
+ * 1. **Containment.** The three concerns are three `SeccionConfig` surfaces
+ *    now, not naked blocks stacked in one flat column. Identity, Google
+ *    linking and session termination carry different risk and are not the
+ *    same thing; a flat column said they were. Every other screen in this app
+ *    already contains its content on that surface (`ListaIngestas.tsx:293`,
+ *    `SubirCartola.tsx:885`, `GrupoMovimientos.tsx:99`) — Configuración was
+ *    the outlier, which is why it read as a different product.
+ *
+ * 2. **Heading parity.** The three sibling `h2`s used to render at two
+ *    different sizes (`Editar perfil` at `text-xl`, the other two at
+ *    `text-sm`), so the screen-reader outline said "three peers" while the
+ *    visual outline said "one title and two sub-labels". Only one of those
+ *    could be right. `SeccionConfig` owns the heading now, so a section can
+ *    no longer choose its own weight. The STRING `Editar perfil` is
+ *    deliberately preserved: `e2e/mobile-header.e2e.ts:191` and
+ *    `test/configuracion-google-aviso.test.tsx` anchor on that accessible
+ *    name, and renaming it would spend real risk on a cosmetic redundancy.
+ *
+ * 3. **~64px of dead space, removed.** The two aviso regions MUST stay
+ *    mounted while empty — a live region inserted at the same moment as its
+ *    content is not announced, which is what this file's "monta las dos
+ *    regiones … vacías" scenario protects. But they were two free-standing
+ *    children of a `gap-8` column, and an empty flex item still consumes its
+ *    gap: two 32px gaps of nothing, on every render, between the form and
+ *    `Sesión`. They now sit INSIDE the Google section in a single `gap-1`
+ *    wrapper, adjacent to the control whose outcome they report. Still
+ *    mounted, still empty, no longer 64px.
+ *
+ * The error region also moves off the raw `text-red-600` (#dc2626) onto the
+ * `text-destructive` token (#ba1a1a): `PerfilForm` already used the token for
+ * the identical semantic, so the screen was rendering two different reds for
+ * "this failed".
  */
 export function PerfilPanel({
   avisoGoogle,
@@ -64,41 +96,50 @@ export function PerfilPanel({
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <h2 className="text-xl font-semibold text-foreground">Editar perfil</h2>
-      <PerfilForm me={me} />
-      <GoogleVinculoSection
-        me={me}
-        onAbrirDialogo={() => onAvisoGoogleChange?.(undefined)}
-        onDesvinculado={() =>
-          onAvisoGoogleChange?.({
-            tono: 'ok',
-            lineas: ['Desvinculaste tu cuenta de Google.'],
-          })
-        }
-      />
-      <div
-        aria-live="polite"
-        data-testid="aviso-google"
-        className="text-sm text-exito-foreground"
+    <div className="flex flex-col gap-6">
+      <SeccionConfig titulo="Editar perfil">
+        <PerfilForm me={me} />
+      </SeccionConfig>
+
+      <SeccionConfig titulo="Cuenta de Google">
+        <GoogleVinculoSection
+          me={me}
+          onAbrirDialogo={() => onAvisoGoogleChange?.(undefined)}
+          onDesvinculado={() =>
+            onAvisoGoogleChange?.({
+              tono: 'ok',
+              lineas: ['Desvinculaste tu cuenta de Google.'],
+            })
+          }
+        />
+        <div className="flex flex-col gap-1">
+          <div
+            aria-live="polite"
+            data-testid="aviso-google"
+            className="text-sm text-exito-foreground"
+          >
+            {avisoGoogle?.tono === 'ok' &&
+              avisoGoogle.lineas.map((linea, indice) => (
+                <p key={indice}>{linea}</p>
+              ))}
+          </div>
+          <div
+            role="alert"
+            data-testid="aviso-google-error"
+            className="text-sm text-destructive"
+          >
+            {avisoGoogle?.tono === 'error' &&
+              avisoGoogle.lineas.map((linea, indice) => (
+                <p key={indice}>{linea}</p>
+              ))}
+          </div>
+        </div>
+      </SeccionConfig>
+
+      <SeccionConfig
+        titulo="Sesión"
+        descripcion="Cierra la sesión en este dispositivo. Tus datos no se borran."
       >
-        {avisoGoogle?.tono === 'ok' &&
-          avisoGoogle.lineas.map((linea, indice) => (
-            <p key={indice}>{linea}</p>
-          ))}
-      </div>
-      <div
-        role="alert"
-        data-testid="aviso-google-error"
-        className="text-sm text-red-600"
-      >
-        {avisoGoogle?.tono === 'error' &&
-          avisoGoogle.lineas.map((linea, indice) => (
-            <p key={indice}>{linea}</p>
-          ))}
-      </div>
-      <div className="flex flex-col gap-3 border-t border-border pt-6">
-        <h2 className="text-sm font-semibold text-foreground">Sesión</h2>
         <div>
           <Button
             type="button"
@@ -111,7 +152,7 @@ export function PerfilPanel({
             {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
           </Button>
         </div>
-      </div>
+      </SeccionConfig>
     </div>
   );
 }

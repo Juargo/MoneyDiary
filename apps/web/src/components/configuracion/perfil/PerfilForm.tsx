@@ -112,6 +112,16 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
         layout, así que ninguna aserción de este repo puede ver un problema de
         espaciado. Si tocás este bloque, verificalo en un browser.
       */}
+      {/*
+        Identidad y credenciales viven en la MISMA card a propósito: hay UN
+        solo `Guardar cambios` para las dos, porque `Password actual` es lo
+        que autoriza el cambio de email (Q1c). Partirlas en dos cards con un
+        botón compartido dejaría al usuario sin saber qué guarda ese botón.
+
+        El `<legend>` más el `gap-6` del form alcanzan como separación: la
+        card ya es una capa de contención, y meterle un `border-t` adentro
+        sería una segunda capa para lo mismo.
+      */}
       <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
         <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
           Cambiar password
@@ -139,18 +149,47 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
           {MENSAJE_DEMO_SOLO_LECTURA}
         </p>
       )}
-      <div className="flex justify-end">
-        <Button type="submit" disabled={mutation.isPending || me.esDemo}>
+      {/*
+        Pie del formulario: mensaje a la izquierda, acción a la derecha, en
+        UNA fila.
+
+        Las dos regiones tienen que seguir MONTADAS aunque estén vacías — una
+        región `aria-live` insertada en el mismo momento que su contenido no
+        se anuncia, y ese es justamente el contrato que prueban los escenarios
+        de `PerfilForm.test.tsx`. Pero como hijas sueltas del `gap-6` del
+        `<form>` costaban dos gaps de 24px de nada en cada render, debajo del
+        botón. Metidas en un solo wrapper dentro de la fila de acción siguen
+        montadas, siguen vacías, y ya no cuestan nada.
+
+        Y el feedback aparece donde el ojo ya está — al lado del botón que
+        acaba de apretar — en vez de 48px más abajo.
+
+        `min-w-0` en el wrapper: sin eso un mensaje largo (`mensajeDeResultado`
+        emite varias líneas) empuja al botón fuera de la fila en vez de
+        envolver. `flex-wrap` cubre el caso en que igual no entren juntos.
+      */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+          <div aria-live="polite" className="text-exito-foreground">
+            {mensaje?.tono === 'ok' &&
+              mensaje.lineas.map((linea, indice) => (
+                <p key={indice}>{linea}</p>
+              ))}
+          </div>
+          <div role="alert" className="text-destructive">
+            {mensaje?.tono === 'error' &&
+              mensaje.lineas.map((linea, indice) => (
+                <p key={indice}>{linea}</p>
+              ))}
+          </div>
+        </div>
+        <Button
+          type="submit"
+          disabled={mutation.isPending || me.esDemo}
+          className="shrink-0"
+        >
           {mutation.isPending ? 'Guardando…' : 'Guardar cambios'}
         </Button>
-      </div>
-      <div aria-live="polite" className="text-sm text-exito-foreground">
-        {mensaje?.tono === 'ok' &&
-          mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
-      </div>
-      <div role="alert" className="text-sm text-destructive">
-        {mensaje?.tono === 'error' &&
-          mensaje.lineas.map((linea, indice) => <p key={indice}>{linea}</p>)}
       </div>
     </form>
   );

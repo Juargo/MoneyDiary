@@ -10,11 +10,15 @@ import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import type { BucketAsignable } from '@/api/catalogo-constantes';
 import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
+import { cn } from '@/lib/utils';
 import { construirOpcionesBucket } from '@/lib/bucket-colors';
 import { BotonVolver } from '../BotonVolver';
+import { FOCUS_RING } from '../estilos';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
+import { Loading } from '../../states/Loading';
+import { SUPERFICIE_SECCION } from '../SeccionConfig';
 import { PatronesSection } from './PatronesSection';
 import {
   fraseDeImpacto,
@@ -136,13 +140,29 @@ export function EditarCategoria({
   }
 
   if (query.isPending) {
-    return <p role="status">Cargando…</p>;
+    // Era un `<p role="status">Cargando…</p>` PELADO: texto negro de 16px
+    // arriba a la izquierda sobre el fondo azul, sin centrar, sin spinner,
+    // sin nada. `CategoriasPanel` ya usaba el `Loading` compartido para el
+    // mismo estado en la pantalla de al lado — eran dos tratamientos
+    // distintos del mismo momento dentro de la misma sección.
+    //
+    // El string y el `role` NO cambian: `Loading` monta su `role="status"`
+    // con el mensaje adentro, así que `findByRole('status')` +
+    // `toHaveTextContent('Cargando…')` sigue valiendo.
+    return <Loading message="Cargando…" />;
   }
 
   if (query.isError) {
     return (
-      <div>
-        <p role="alert">{mensajeDeErrorCatalogo(query.error)}</p>
+      <div
+        className={cn(
+          'mx-auto flex max-w-sm flex-col items-center gap-4 text-center',
+          SUPERFICIE_SECCION,
+        )}
+      >
+        <p role="alert" className="text-sm text-destructive">
+          {mensajeDeErrorCatalogo(query.error)}
+        </p>
         {/*
           SC 2.5.8 fix (US-063 PR #4, product defect found by the harness on
           PR #1): this `<Link>` used to be bare text, a standalone back
@@ -164,8 +184,15 @@ export function EditarCategoria({
 
   if (!categoria) {
     return (
-      <div>
-        <p role="status">Esa categoría ya no existe.</p>
+      <div
+        className={cn(
+          'mx-auto flex max-w-sm flex-col items-center gap-4 text-center',
+          SUPERFICIE_SECCION,
+        )}
+      >
+        <p role="status" className="text-sm text-muted-foreground">
+          Esa categoría ya no existe.
+        </p>
         <Button asChild variant="outline">
           <Link to="/configuracion/categorias">Volver a Categorías</Link>
         </Button>
@@ -414,18 +441,57 @@ function EditarCategoriaCargada({
           label="Volver a Categorías"
         />
       </div>
+      {/*
+        Los dos `<Link>` de la breadcrumb no llevaban NINGUNA clase. El
+        preflight de Tailwind pone `a { color: inherit; text-decoration:
+        inherit }`, así que se renderizaban como texto negro plano —
+        visualmente idénticos a los separadores `/` y al nombre de la
+        categoría actual, que NO son navegables. Un breadcrumb en el que no
+        se distingue qué es link no es un breadcrumb.
+
+        `text-secondary` es el mismo color que la sidebar y las tabs usan
+        para un link de navegación no activo (5.59:1 sobre el fondo azul,
+        AA), y el subrayado en hover da un segundo canal además del color.
+        El crumb actual se queda en `text-foreground` sin subrayado: es la
+        página donde estás, no un destino.
+
+        Los separadores bajan a `text-muted-foreground` para que dejen de
+        competir en peso con lo que separan.
+      */}
       <nav aria-label="Ruta de navegación" className="hidden md:block">
         <ol className="flex flex-wrap items-center gap-1 text-sm">
           <li>
-            <Link to="/configuracion">Configuración</Link>
+            <Link
+              to="/configuracion"
+              className={cn(
+                'text-secondary transition-colors hover:text-primary hover:underline',
+                FOCUS_RING,
+              )}
+            >
+              Configuración
+            </Link>
           </li>
-          <li aria-hidden="true">/</li>
-          <li>
-            <Link to="/configuracion/categorias">Categorías</Link>
+          <li aria-hidden="true" className="text-muted-foreground">
+            /
           </li>
-          <li aria-hidden="true">/</li>
           <li>
-            <span aria-current="page">{categoria.nombre}</span>
+            <Link
+              to="/configuracion/categorias"
+              className={cn(
+                'text-secondary transition-colors hover:text-primary hover:underline',
+                FOCUS_RING,
+              )}
+            >
+              Categorías
+            </Link>
+          </li>
+          <li aria-hidden="true" className="text-muted-foreground">
+            /
+          </li>
+          <li>
+            <span aria-current="page" className="font-medium text-foreground">
+              {categoria.nombre}
+            </span>
           </li>
         </ol>
       </nav>
@@ -433,12 +499,34 @@ function EditarCategoriaCargada({
         Editar categoría
       </h1>
 
-      <form
-        id="form-identidad"
-        onSubmit={guardarIdentidad}
-        className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[1fr_220px]"
-      >
-        {/*
+      {/*
+        Identidad sobre superficie, igual que el resto de Configuración.
+
+        Nota honesta sobre una tensión que la contención hace MÁS visible en
+        vez de tapar: el `Guardar` de esta identidad vive en el `<footer>` de
+        más abajo, con la sección de Patrones en el medio. Eso no es un
+        descuido de este cambio — es la consecuencia de Q3b (PatronesSection
+        tiene que estar FUERA de `#form-identidad`, porque los patrones
+        commitean por fila, independientes de Guardar/Cancelar) más D-09/D-10
+        (el orden del DOM `[Guardar, Cancelar] → Eliminar` sostiene el orden
+        de tabulación y está fijado por WCTM-05).
+
+        La lectura que hace coherente al footer es que NO es el pie de este
+        formulario sino la barra de acciones de la PANTALLA: guarda la
+        identidad, cancela la identidad y borra la categoría entera. Por eso
+        es su propia superficie, hermana de esta y de Patrones, en vez de
+        estar metida acá adentro. Mover `Guardar` dentro de esta card
+        arreglaría la adyacencia, pero rompería el orden visual de los tres
+        botones que `edit-surface.e2e.ts` (E-08) fija a 1280, y eso es más
+        caro que la molestia que resuelve.
+      */}
+      <div className={cn('flex flex-col gap-4', SUPERFICIE_SECCION)}>
+        <form
+          id="form-identidad"
+          onSubmit={guardarIdentidad}
+          className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[1fr_220px]"
+        >
+          {/*
           `dialogo !== null` (judgment-day round 2): while EITHER
           confirmation dialog is open, the identity draft must not be able
           to move — `Bucket` changing underneath the bucket-change dialog is
@@ -446,48 +534,49 @@ function EditarCategoriaCargada({
           (above) also defends against; disabling here is the first,
           user-facing layer of that same fix.
         */}
-        {/*
+          {/*
           `actualizacion.isPending` (judgment-day round 4): `dialogo !== null`
           alone covers only the two DIALOG-gated paths. A bucket-clean
           (rename-only) `Guardar` mutates directly, with no dialog, so
           `dialogo` stays `null` for the whole in-flight window — leaving
           these fields editable while their own values are mid-`PATCH`.
         */}
-        <CampoTexto
-          label="Nombre"
-          value={nombre}
-          onChange={setNombre}
-          required
-          disabled={esDemo || dialogo !== null || actualizacion.isPending}
-        />
-        <CampoSelect
-          label="Bucket (obligatorio)"
-          value={bucket}
-          onChange={setBucket}
-          options={OPCIONES_BUCKET}
-          required
-          disabled={esDemo || dialogo !== null || actualizacion.isPending}
-        />
-      </form>
+          <CampoTexto
+            label="Nombre"
+            value={nombre}
+            onChange={setNombre}
+            required
+            disabled={esDemo || dialogo !== null || actualizacion.isPending}
+          />
+          <CampoSelect
+            label="Bucket (obligatorio)"
+            value={bucket}
+            onChange={setBucket}
+            options={OPCIONES_BUCKET}
+            required
+            disabled={esDemo || dialogo !== null || actualizacion.isPending}
+          />
+        </form>
 
-      {esDemo && (
-        <p role="note" className="text-sm text-muted-foreground">
-          {MENSAJE_DEMO_CATALOGO}
-        </p>
-      )}
+        {esDemo && (
+          <p role="note" className="text-sm text-muted-foreground">
+            {MENSAJE_DEMO_CATALOGO}
+          </p>
+        )}
 
-      {/*
+        {/*
         `dialogo === null`: `actualizacion` is the SAME mutation for both the
         direct (bucket-clean) save and the dialog-gated (bucket-dirty)
         confirm — while ITS dialog is open, the dialog's OWN inline `error`
         prop already renders this exact message; showing both here too
         would duplicate the alert on a failed bucket-change confirm.
       */}
-      {actualizacion.isError && dialogo === null && (
-        <p role="alert" className="text-sm text-destructive">
-          {mensajeDeErrorCatalogo(actualizacion.error)}
-        </p>
-      )}
+        {actualizacion.isError && dialogo === null && (
+          <p role="alert" className="text-sm text-destructive">
+            {mensajeDeErrorCatalogo(actualizacion.error)}
+          </p>
+        )}
+      </div>
 
       {/*
         PatronesSection lives OUTSIDE `#form-identidad` (§1/Q3b's DOM
@@ -524,7 +613,32 @@ function EditarCategoriaCargada({
         layout alone can't below `md`, where the stack itself already keeps
         the red button visually last, not adjacent to `Guardar`.
       */}
-      <footer className="mt-2 flex flex-col gap-3 border-t border-border pt-4 md:flex-row-reverse md:flex-wrap md:items-center md:justify-between">
+      {/*
+        El footer va sobre la MISMA superficie que las dos secciones de
+        arriba, y no es cosmético: es alineación.
+
+        Cuando esta pantalla pasó a superficies, `Guardar` quedó afuera de la
+        card de identidad y por lo tanto 34px más ancho que el formulario que
+        guarda — `p-4` de cada lado (32) más los dos bordes de 1px. A 360px
+        eso es un botón desbordando 17px por lado al form que le corresponde.
+        No lo vio ningún test de jsdom: lo cazó `edit-surface.e2e.ts` (E-08),
+        que compara el ancho de `Guardar` contra el ancho del form porque
+        asumía que los dos eran hermanos en la misma pista.
+
+        Darle la misma superficie restablece esa premisa por CONSTRUCCIÓN:
+        misma caja, mismo padding, mismos bordes, así que las dos bandas de
+        contenido son idénticas y la diferencia es 0, no "dentro de la
+        tolerancia". El `border-t`/`pt-4` que hacía de regla se va: la card ya
+        tiene su propio borde superior y dos separadores para lo mismo es
+        redundancia. El `mt-2` también, porque el `gap-6` del contenedor ya
+        da el ritmo.
+      */}
+      <footer
+        className={cn(
+          'flex flex-col gap-3 md:flex-row-reverse md:flex-wrap md:items-center md:justify-between',
+          SUPERFICIE_SECCION,
+        )}
+      >
         <div className="flex flex-col gap-2 md:flex-row-reverse md:items-center">
           <Button
             ref={guardarRef}
