@@ -55,6 +55,58 @@ async function renderTabs(
 }
 
 describe('ConfiguracionTabs', () => {
+  /**
+   * The active tab's contrast lives in the 4px `border-primary` rail, not in
+   * the fill. The fill it used to rely on (`bg-accent` #eeeeee) measures
+   * 1.07:1 against this screen's `--background` #e8f0fa — the defect these
+   * scenarios exist to stop from coming back.
+   *
+   * jsdom resolves no CSS variables and computes no contrast, so the ratio
+   * itself is NOT assertable here; the class literal that produces it is.
+   * That is the same "mechanism, not geometry" split the `flex-row` scenario
+   * above already uses, and the same one `estilos.test.ts` documents for
+   * `size-6`. The real contrast check is a browser pass.
+   */
+  it('la tab activa lleva el riel border-primary — la señal que carga el contraste sobre el fondo azul', async () => {
+    await renderTabs('/configuracion');
+
+    const perfil = await screen.findByRole('link', { name: 'Perfil' });
+    expect(perfil).toHaveClass('border-primary');
+    expect(perfil).toHaveClass('bg-card');
+  });
+
+  it('la tab activa NO vuelve a bg-accent, el gris que da 1.07:1 sobre --background', async () => {
+    await renderTabs('/configuracion');
+
+    const perfil = await screen.findByRole('link', { name: 'Perfil' });
+    expect(perfil.className.split(' ')).not.toContain('bg-accent');
+    expect(perfil.className.split(' ')).not.toContain('hover:bg-accent');
+  });
+
+  it('el riel reserva su espacio en las tabs inactivas (border-transparent), así que activar una no corre a las demás', async () => {
+    await renderTabs('/configuracion');
+
+    const categorias = await screen.findByRole('link', { name: 'Categorías' });
+    expect(categorias).toHaveClass('border-transparent');
+    // Abajo de `md` la lista es una fila horizontal: riel abajo. De `md` para
+    // arriba es una columna: riel a la izquierda.
+    expect(categorias).toHaveClass('border-b-4');
+    expect(categorias).toHaveClass('md:border-b-0');
+    expect(categorias).toHaveClass('md:border-l-4');
+  });
+
+  it('cada tab tiene anillo de foco visible — SC 2.4.7, el hueco que tenían contra app-shell/NavItem', async () => {
+    await renderTabs('/configuracion');
+
+    for (const nombre of ['Perfil', 'Categorías', 'Ayuda']) {
+      expect(await screen.findByRole('link', { name: nombre })).toHaveClass(
+        'focus-visible:outline',
+        'focus-visible:outline-2',
+        'focus-visible:outline-ring',
+      );
+    }
+  });
+
   it('el <ul> lleva flex-row (mecanismo, no geometría — US-063 D-01/WCTM-02: la fila horizontal bajo md se verifica en Playwright, e2e/mobile-header.e2e.ts)', async () => {
     await renderTabs('/configuracion');
 

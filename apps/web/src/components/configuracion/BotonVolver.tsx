@@ -2,10 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NavRoute } from '../app-shell/nav-items';
-import { CLASE_BOTON_ICONO } from './estilos';
-
-const FOCUS_RING =
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring';
+import { CLASE_BOTON_ICONO, FOCUS_RING } from './estilos';
 
 /**
  * BotonVolver (US-063 D-05/D-06, WCTM-04) — the shared back-icon control
