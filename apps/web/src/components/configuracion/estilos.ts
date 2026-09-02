@@ -37,3 +37,34 @@ export const CLASE_BOTON_ICONO =
  */
 export const FOCUS_RING =
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring';
+
+/**
+ * CLASE_DIALOGO_CONFIG — la parte compartida del `className` que los dos
+ * diálogos de confirmación de esta sección le pasan a `ui/inline-confirm`.
+ *
+ * El `border-l-4` es lo nuevo, y es un arreglo de contraste, no adorno.
+ * `InlineConfirm` se dibuja sobre `bg-card`, lo cual funcionaba mientras los
+ * diálogos flotaban sobre el fondo azul. Al meter las secciones de
+ * Configuración en superficies `bg-card` (este mismo branch), dos de ellos
+ * quedaron ADENTRO de una tarjeta blanca: blanco sobre blanco, con sólo el
+ * borde de 1px `--border` separándolos, que da **1.72:1** — por debajo del
+ * 3:1 que SC 1.4.11 pide para el límite de un componente.
+ *
+ * En esta paleta ningún RELLENO puede resolverlo: `--card` contra `--card` es
+ * 1.0:1, y hasta la superficie de warning (#fffbeb) contra blanco da 1.04:1.
+ * Sólo una línea saturada llega: el riel de 4px lo hace con
+ * `--destructive` (5.9:1) o `--primary` (6.3:1), según el diálogo. Es el
+ * mismo dispositivo que resolvió las tabs de esta sección, por la misma razón
+ * — sobre fondos pálidos el contraste lo cargan las líneas, no las áreas.
+ *
+ * El color del riel lo elige cada call site, porque significa algo distinto
+ * en cada uno: destructivo para el diálogo de impacto (borrar categoría,
+ * cambiar bucket), primario para el de password (vincular/desvincular Google,
+ * que confirma pero no destruye).
+ *
+ * OJO al componer: `cn` es `twMerge`, y `InlineConfirm` ya trae `border
+ * border-border` en su base. Que `border-l-4` conviva con ese `border` en vez
+ * de pisarlo NO es obvio — está fijado por test en los dos archivos que usan
+ * esta constante.
+ */
+export const CLASE_DIALOGO_CONFIG = 'gap-3 p-4 text-sm border-l-4';
