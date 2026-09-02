@@ -201,7 +201,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
       // so the accessibilityRole="alert" + accessibilityLiveRegion="polite" are implicitly pinned:
       // if the Text node loses those props, getByRole('alert') fails before toHaveTextContent.
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre.',
+        'Ya tienes una categoría con ese nombre en ese bucket.',
       );
     });
 
@@ -237,7 +237,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     // Wait for first error to appear — via the alert role element
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre.',
+        'Ya tienes una categoría con ese nombre en ese bucket.',
       );
     });
 
@@ -249,7 +249,9 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     // fail because the stale error text remains visible while the second call is pending.
     await waitFor(() => {
       expect(
-        screen.queryByText('Ya tienes una categoría con ese nombre.'),
+        screen.queryByText(
+          'Ya tienes una categoría con ese nombre en ese bucket.',
+        ),
       ).toBeNull();
     });
 
