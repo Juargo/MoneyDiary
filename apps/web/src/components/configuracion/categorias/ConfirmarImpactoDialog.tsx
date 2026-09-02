@@ -1,4 +1,6 @@
+import { cn } from '@/lib/utils';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
+import { CLASE_DIALOGO_CONFIG } from '../estilos';
 
 /**
  * ConfirmarImpactoDialog (US-043 PR #3b, design.md §1/Q6a, task 28) — the
@@ -106,7 +108,7 @@ export function ConfirmarImpactoDialog({
       pending={pendiente}
       cancelDisabled={pendiente}
       error={error}
-      className="gap-3 p-4 text-sm"
+      className={cn(CLASE_DIALOGO_CONFIG, 'border-l-destructive')}
     >
       {lineas.map((linea, indice) => (
         <p key={indice}>{linea}</p>

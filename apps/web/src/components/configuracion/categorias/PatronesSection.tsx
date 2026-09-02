@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import type { PatronDto } from '@/api/types';
 import { EtiquetaResponsiva } from '../EtiquetaResponsiva';
+import { SUPERFICIE_SECCION } from '../SeccionConfig';
 import { PatronFila } from './PatronFila';
 import { Button } from '@/components/ui/button';
 
@@ -114,7 +116,14 @@ export function PatronesSection({
   }
 
   return (
-    <section aria-labelledby="titulo-patrones" className="flex flex-col gap-3">
+    <section
+      aria-labelledby="titulo-patrones"
+      // Misma superficie que la card de identidad de arriba. Esta sección
+      // conserva su propio `<h2 id="titulo-patrones">` en vez de pasar por
+      // `SeccionConfig`: el `aria-labelledby` que la nombra apunta a ESE id,
+      // y delegar el heading duplicaría el título o rompería la referencia.
+      className={cn('flex flex-col gap-3', SUPERFICIE_SECCION)}
+    >
       <h2
         id="titulo-patrones"
         aria-label="Patrones de auto-categorización"

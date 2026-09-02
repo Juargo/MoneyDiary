@@ -10,7 +10,7 @@ import type { MatchType } from '@/api/catalogo-constantes';
 import type { PatronDto } from '@/api/types';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
-import { CLASE_BOTON_ICONO } from '../estilos';
+import { CLASE_BOTON_ICONO, FOCUS_RING } from '../estilos';
 import {
   ETIQUETA_MATCH_TYPE,
   mensajeDeErrorCatalogo,
@@ -549,7 +549,13 @@ export function PatronFila({
         }
         className={cn(
           CLASE_BOTON_ICONO,
-          'mt-1 text-destructive disabled:cursor-not-allowed disabled:opacity-50',
+          FOCUS_RING,
+          'mt-1',
+          // Mismo criterio que `CategoriaFila`: el rojo se gana en hover y
+          // foco, no viene encendido de fábrica. Una categoría con ocho
+          // patrones mostraba ocho papeleras rojas fijas.
+          'text-muted-foreground transition-colors hover:text-destructive focus-visible:text-destructive',
+          'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-muted-foreground',
         )}
       >
         <Trash2 aria-hidden="true" className="size-[18px]" />
@@ -564,7 +570,11 @@ export function PatronFila({
         </p>
       )}
       {errorMutacion && (
-        <p id={idError} role="alert" className="w-full text-xs text-red-600">
+        <p
+          id={idError}
+          role="alert"
+          className="w-full text-xs text-destructive"
+        >
           {mensajeDeErrorCatalogo(errorMutacion)}
         </p>
       )}
