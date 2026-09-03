@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.3.0...mobile-v0.4.0) (2026-09-03)
+
+
+### Features
+
+* **api:** categoría names are unique per bucket, not per user (ADR-042) ([dd9d428](https://github.com/Juargo/MoneyDiary/commit/dd9d4283cba05e192005ee71854a8b439fd4820a))
+* **api:** project origen onto the gasto detail wire (D-02) ([b5d3ecd](https://github.com/Juargo/MoneyDiary/commit/b5d3ecd1e2610b63b9dd95d545208315177472e0))
+* bucket-aware NOMBRE_DUPLICADO copy across api, web, and mobile ([07fc667](https://github.com/Juargo/MoneyDiary/commit/07fc66720e59f2b88c86c28f8ff7092e2761fc71))
+* ingreso card redesign with trend pill and sparkline ([4721bec](https://github.com/Juargo/MoneyDiary/commit/4721bece430fe0cf56432a75a2e8d56df79d3356))
+* **mobile:** rebrand semaforo estados and add hero card ([63d899e](https://github.com/Juargo/MoneyDiary/commit/63d899e1c22f94d00b69b2c3c0aa8da062ea38bb))
+* **mobile:** reclassify wire sends categoriaId, not categoria (ADR-042) ([4fe1f43](https://github.com/Juargo/MoneyDiary/commit/4fe1f43fd46b9f49c0629af87b01ffc6bd2355a5))
+* **mobile:** redesign ingreso card with trend pill and sparkline ([94ed0a3](https://github.com/Juargo/MoneyDiary/commit/94ed0a316ce4d0f11982e99b0b871c48a0859b97))
+* semaforo hero redesign and estado vocabulary rebrand ([5517dee](https://github.com/Juargo/MoneyDiary/commit/5517dee744ab69aa7373188ccb0773d189557ac8))
+
+
+### Bug Fixes
+
+* **api:** sync gasto origen field into mobile fixtures and e2e assertion ([8b45df2](https://github.com/Juargo/MoneyDiary/commit/8b45df2572dd76eee78e4f43944c495d139667ca))
+* **mobile:** identify reclassify categorías by id (MDET-08) ([abec6ec](https://github.com/Juargo/MoneyDiary/commit/abec6ecc9dfa950b869ef10d54208be662590ca2))
+* **mobile:** identify reclassify control categorías by id (MDET-08) ([e19601a](https://github.com/Juargo/MoneyDiary/commit/e19601aaea7a2de0bec7599e0592e7cbc8f6aa5f))
+
+
+### Documentation
+
+* **openspec:** archive categoria-unica-por-bucket ([cf1e555](https://github.com/Juargo/MoneyDiary/commit/cf1e55566b3f6fdda108a0174f7bcb41223cbf40))
+
 ## [0.3.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.2.0...mobile-v0.3.0) (2026-08-25)
 
 
