@@ -1,5 +1,88 @@
 # Changelog
 
+## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.4.0...web-v0.5.0) (2026-09-03)
+
+
+### Features
+
+* **api:** categoría names are unique per bucket, not per user (ADR-042) ([dd9d428](https://github.com/Juargo/MoneyDiary/commit/dd9d4283cba05e192005ee71854a8b439fd4820a))
+* **api:** crear categoría con patrones en una sola transacción (PR1/4) ([acc97ba](https://github.com/Juargo/MoneyDiary/commit/acc97badca0a4c506874a2e05309f591a7bd916b))
+* **api:** project origen onto the gasto detail wire (D-02) ([b5d3ecd](https://github.com/Juargo/MoneyDiary/commit/b5d3ecd1e2610b63b9dd95d545208315177472e0))
+* **api:** project origen onto the gasto detail wire (D-02) ([8d209ae](https://github.com/Juargo/MoneyDiary/commit/8d209aea41645a1399ddf0599ebf6b5ad9834e0d))
+* bucket-aware NOMBRE_DUPLICADO copy across api, web, and mobile ([07fc667](https://github.com/Juargo/MoneyDiary/commit/07fc66720e59f2b88c86c28f8ff7092e2761fc71))
+* ingreso card redesign with trend pill and sparkline ([4721bec](https://github.com/Juargo/MoneyDiary/commit/4721bece430fe0cf56432a75a2e8d56df79d3356))
+* semaforo hero redesign and estado vocabulary rebrand ([5517dee](https://github.com/Juargo/MoneyDiary/commit/5517dee744ab69aa7373188ccb0773d189557ac8))
+* **web,api:** crear categoría con patrones desde la vista previa (tracker) ([404e6a8](https://github.com/Juargo/MoneyDiary/commit/404e6a85560fe17fc3a4daa5d2c5cce90da578d5))
+* **web:** "+" trigger opens the creation form inside FilaRevision ([5528416](https://github.com/Juargo/MoneyDiary/commit/5528416c52e1e6848192ded319804244e4f0872f))
+* **web:** add logout for real users ([2fc1cf7](https://github.com/Juargo/MoneyDiary/commit/2fc1cf7d7c925874c00b975a0584e57606eb698d))
+* **web:** add undo grace window for destructive deletes ([1986bb3](https://github.com/Juargo/MoneyDiary/commit/1986bb37880afcca0fabe90d565e07fc25507203))
+* **web:** add upload CTA to first-run empty states ([22683a9](https://github.com/Juargo/MoneyDiary/commit/22683a9b94b6cc0c18f74ba8e24554f11832a350))
+* **web:** adopt a newly created categoría on its originating row ([c700974](https://github.com/Juargo/MoneyDiary/commit/c700974369ac7ae31ddb13ab4a705ccbb672f061))
+* **web:** bulk-apply toolbar collapses the cascade into one grouped select ([75b6ef7](https://github.com/Juargo/MoneyDiary/commit/75b6ef7a18c08811726140ab6f139827cc0c7b9a))
+* **web:** crear una categoría desde una fila de la vista previa (PR3/4) ([2d5d675](https://github.com/Juargo/MoneyDiary/commit/2d5d6756f5e96759fb2dc03be7d9d27fc8ea637c))
+* **web:** critique round — verdict wash, demo preview, Input primitive ([6a292c8](https://github.com/Juargo/MoneyDiary/commit/6a292c8776f67981699d56e585d1e58110213a4f))
+* **web:** delete control for manual movements and truthful permanence copy ([a63cd06](https://github.com/Juargo/MoneyDiary/commit/a63cd06f57bd87dc6756f9216751ec0e321a3151))
+* **web:** delete control for manual movements and truthful permanence copy ([d86d3e0](https://github.com/Juargo/MoneyDiary/commit/d86d3e0af724b20e2c42bdb61cc1082bba47b9d6))
+* **web:** el cliente del catálogo devuelve la categoría creada (PR2/4) ([1f3a4dd](https://github.com/Juargo/MoneyDiary/commit/1f3a4dd5ac718b9c8be1856d64d871eef9dfedc3))
+* **web:** emphasise the selected bucket chip ([5bd2e89](https://github.com/Juargo/MoneyDiary/commit/5bd2e89f3e4c8e07c78205c731b588a44fb42be6))
+* **web:** extend estado wash to bucket and ingreso cards ([1c44d4f](https://github.com/Juargo/MoneyDiary/commit/1c44d4f1b22e5320ce500ff03289aff93c9f2c7d))
+* **web:** filaCreando orchestration state in PreviewMuestra ([f617e8d](https://github.com/Juargo/MoneyDiary/commit/f617e8d039e7edcca138462412e207429f8d8e17))
+* **web:** identify reclassify categorías by id (WDM-10) ([4a2a8e4](https://github.com/Juargo/MoneyDiary/commit/4a2a8e48e29a17e7fe53cfc00c78550555f31d61))
+* **web:** identify reclassify control categorías by id (WDM-10) ([d4267cb](https://github.com/Juargo/MoneyDiary/commit/d4267cb41bcd82ae9c5ecb3e6e80b84f0fce2eae))
+* **web:** inline categoría creation form for the preview row ([3ebc822](https://github.com/Juargo/MoneyDiary/commit/3ebc8225d1edf491036dee5378d9d25aced9d8ac))
+* **web:** let demo sessions preview and classify cartolas ([5ed7a51](https://github.com/Juargo/MoneyDiary/commit/5ed7a51edce51dcbc7396ef1c22aa89c300cf7ef))
+* **web:** logout for real users + upload CTA on empty states ([66fef92](https://github.com/Juargo/MoneyDiary/commit/66fef922f5a7543673e5212345553a2290200930))
+* **web:** minimalist polish pass on the cartola upload preview ([0e3e468](https://github.com/Juargo/MoneyDiary/commit/0e3e4685c9e8c348af0e0fb5c12853909db04e0f))
+* **web:** minimalist polish pass on the cartola upload preview ([12ce0b1](https://github.com/Juargo/MoneyDiary/commit/12ce0b13c527e0194f81d68e5cbb86c8a3fdd818))
+* **web:** postCategoria returns the created categoría (D-06) ([3c2b5a3](https://github.com/Juargo/MoneyDiary/commit/3c2b5a336953ef807e1f3d0f1ce87f59a2a9aa8f))
+* **web:** re-evaluar la vista previa al crear una categoría (PR4/4) ([e4a786b](https://github.com/Juargo/MoneyDiary/commit/e4a786b5304db05a61516a8d654ad4381f39a5a6))
+* **web:** re-evaluate the preview after creating a categoría ([bc6b568](https://github.com/Juargo/MoneyDiary/commit/bc6b568f85880046fad524f36f9ff85adaa824ad))
+* **web:** rebrand semaforo estados and redesign hero card ([65062a1](https://github.com/Juargo/MoneyDiary/commit/65062a18b8a5be0e060a981665f06b162d5dc3e9))
+* **web:** reclassify wire sends categoriaId, not categoria (ADR-042) ([57273e6](https://github.com/Juargo/MoneyDiary/commit/57273e6fd743475991e7a259e5af3f4afa36f914))
+* **web:** redesign ingreso card with trend pill and sparkline ([663379b](https://github.com/Juargo/MoneyDiary/commit/663379bd68c1e97927353fdee865f24894332365))
+* **web:** signed single amount, full description and equal bucket chips in preview rows ([2c30691](https://github.com/Juargo/MoneyDiary/commit/2c30691bf8b89c819f6c95ea99d3eed6278b48ad))
+* **web:** signed single amount, full description and equal bucket chips in preview rows ([f7f7567](https://github.com/Juargo/MoneyDiary/commit/f7f756714212752874581b405499a55d4f8bca51))
+* **web:** single-line semáforo row and drop the income card from the dashboard ([d04f6af](https://github.com/Juargo/MoneyDiary/commit/d04f6afafa5e820b2ee90fdc246c8acdd06b721c))
+* **web:** single-line semáforo row and drop the income card from the dashboard ([f737855](https://github.com/Juargo/MoneyDiary/commit/f7378554eba14e25e0b8402fb914865a8461ad7d))
+* **web:** squared shape system (radius 0 across the app) ([39b9748](https://github.com/Juargo/MoneyDiary/commit/39b97486c6c57865ee6ab3205087e6aa9513b402))
+* **web:** squared shape system (radius 0 across the app) ([610bc84](https://github.com/Juargo/MoneyDiary/commit/610bc84c66b3c1120cb305c855dc1cbc18beecee))
+* **web:** tint semaforo hero card surface by estado ([937d1e9](https://github.com/Juargo/MoneyDiary/commit/937d1e94671c1f3145f92d64b41206c19ad7eea3))
+* **web:** undo grace window for destructive deletes ([e82fec1](https://github.com/Juargo/MoneyDiary/commit/e82fec19862bb3f3272597bea3aa1794f627847d))
+* **web:** useCrearCategoria seeds the categorias cache before invalidating ([6d765e5](https://github.com/Juargo/MoneyDiary/commit/6d765e5889c4981b17d6d31b97c5f4e55bddc768))
+* **web:** wire GrupoMovimientos to the id-keyed reclassify control ([83b4dca](https://github.com/Juargo/MoneyDiary/commit/83b4dca8ad03f1a434323d5a3dbee70dfd20cce0))
+
+
+### Bug Fixes
+
+* **web:** align the edit screen's action bar with the cards above it ([e865a9e](https://github.com/Juargo/MoneyDiary/commit/e865a9ebff37308e098ef6b770e453b17069a4b4))
+* **web:** contain perfil and categorías, and restore the tab's active state ([2f4b075](https://github.com/Juargo/MoneyDiary/commit/2f4b075de67ccd2b7667716eabf8a525547e5340))
+* **web:** disable cartola upload controls in demo mode ([c12c17e](https://github.com/Juargo/MoneyDiary/commit/c12c17e75543040df388f5c4d7d81186f7512ecf))
+* **web:** give the categoría edit screen its states, surface and breadcrumb ([3c021fd](https://github.com/Juargo/MoneyDiary/commit/3c021fd055b8215c69e8a660f0b547990f9022d3))
+* **web:** give the edit screen its states and separate the dialogs from their cards ([74eac61](https://github.com/Juargo/MoneyDiary/commit/74eac612fdb9cb864047d442439a4c01308a33bb))
+* **web:** let the categoría row's destructive red be earned, not permanent ([5c8dd87](https://github.com/Juargo/MoneyDiary/commit/5c8dd8782e5b73edd1e4e10e69f6a5a0b5589193))
+* **web:** lock classification on income preview rows ([635bd91](https://github.com/Juargo/MoneyDiary/commit/635bd9105ee11863bfc755362f616efe1d272b7c))
+* **web:** lock classification on income preview rows ([d5cfac8](https://github.com/Juargo/MoneyDiary/commit/d5cfac856889dbcc3421735a16ec695d7bc28a9c))
+* **web:** restore the configuración tab's active state on the blue ground ([cdc6601](https://github.com/Juargo/MoneyDiary/commit/cdc6601a1ff4e75ad57b3fd8ddfb48d1e0fa9ef7))
+* **web:** round-10 harden — discard gates, cell overlap, copy distill ([62c4ba4](https://github.com/Juargo/MoneyDiary/commit/62c4ba453231ab82c4e0875dc6cda81cf38375ce))
+* **web:** round-10 harden — discard gates, cell overlap, copy distill ([6a39047](https://github.com/Juargo/MoneyDiary/commit/6a39047f555d1320bf5d2f56e5d30bf744acd5c1))
+* **web:** separate the confirmation dialogs from the cards containing them ([b47a7d5](https://github.com/Juargo/MoneyDiary/commit/b47a7d51c3019e01fe381ff13514cfe7f2022e71))
+* **web:** shared primitives for the configuración surface pass ([a4f336e](https://github.com/Juargo/MoneyDiary/commit/a4f336e5344f3c084d40eaadc52b45408e9aa024))
+* **web:** stop the patrón row from shipping a third red ([5b34ec7](https://github.com/Juargo/MoneyDiary/commit/5b34ec753bee01cf047796aa9e631a960b5f923b))
+* **web:** stop the re-evaluation notice from outliving its moment ([d7d7c92](https://github.com/Juargo/MoneyDiary/commit/d7d7c920a8ea26ecbd13e9ab28adfde559557498))
+
+
+### Refactors
+
+* **web:** adopt generated catalog DTO types from api-client ([47b4a6c](https://github.com/Juargo/MoneyDiary/commit/47b4a6ce4fe50ffdcc09627b78780098b9c6ccd3))
+* **web:** extract shared Input primitive from CampoTexto ([42112bf](https://github.com/Juargo/MoneyDiary/commit/42112bf108cc1008eb6c34f331ac9818c6b2435e))
+* **web:** hoist previewData out of previewMutation.data ([cfe303b](https://github.com/Juargo/MoneyDiary/commit/cfe303b8048292d1798d9f70216cfcd68e5e694c))
+* **web:** share the focus ring across configuración's icon controls ([6b7bc15](https://github.com/Juargo/MoneyDiary/commit/6b7bc1575f7aae45fa1336e09abf87c1d5f3257e))
+
+
+### Documentation
+
+* **openspec:** archive categoria-unica-por-bucket ([cf1e555](https://github.com/Juargo/MoneyDiary/commit/cf1e55566b3f6fdda108a0174f7bcb41223cbf40))
+
 ## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.3.0...web-v0.4.0) (2026-08-29)
 
 
