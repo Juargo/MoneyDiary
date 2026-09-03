@@ -71,7 +71,7 @@ describe('DistribucionPie', () => {
     const fills = screen
       .getAllByTestId('pie-slice')
       .map((el) => el.getAttribute('fill'));
-    // Serene Finance palette: azul→Necesidades, lavanda→Gustos, amarillo→Ahorro,
+    // Bucket pastel palette: azul→Necesidades, lavanda→Gustos, amarillo→Ahorro,
     // deliberate neutral grey→Sin categoría (never the #CCCCCC unstyled fallback).
     expect(fills).toEqual(['#8FA7D1', '#B1A7D1', '#E6D194', '#AEB4C4']);
     expect(fills).not.toContain('#CCCCCC');
@@ -110,21 +110,53 @@ describe('DistribucionPie', () => {
   // WDS-07 (WCAG 1.4.11 non-text contrast): adjacent pastel slices can be
   // under 1.2:1 apart, so wedges need a visible separator between them.
   // Reliability follow-up (post-PR4): reverted from the `stroke-card` token
-  // class back to a theme-immune literal — same rationale as the label fill
-  // above (`--card` flips in dark mode, the permanent pastel fills don't).
-  it('renders a theme-immune white stroke separator on each slice for WCAG 1.4.11 adjacency contrast, never a theme-flipping token', () => {
+  // class back to a theme-immune literal — a token cannot track this stroke's
+  // backdrop (the mini pie alone sits on `bg-card` OR on `bg-ingreso` when its
+  // month is selected). That constraint is PERMANENT and this test still
+  // guards it.
+  //
+  // Tecno-Analítico (2026-09-02): only the literal's VALUE changed, white →
+  // #0d0f15. White was always the weaker separator against the pastel fills
+  // (Ahorro 1.51:1, Necesidades 2.44:1 — knowingly shipped under the old
+  // floor) and, once the app sat on a matte-dark ground, its outer perimeter
+  // drew a bright halo around the whole donut (18.55:1 against the card). The
+  // dark neutral separates from the pastels at 7.86-12.69:1 AND disappears
+  // into every surface a pie can sit on (1.03:1 card, 1.03:1 background,
+  // 1.24:1 the selected-month ingreso tint).
+  it('renders a theme-immune dark stroke separator on each slice for WCAG 1.4.11 adjacency contrast, never a theme-flipping token', () => {
     renderPie();
     for (const slice of screen.getAllByTestId('pie-slice')) {
-      expect(slice).toHaveAttribute('stroke', '#ffffff');
+      expect(slice).toHaveAttribute('stroke', '#0d0f15');
       expect(slice).not.toHaveClass('stroke-card');
       expect(slice).toHaveAttribute('stroke-width', '2');
     }
     // The nested IDEAL reference pie shares the same pastel fills and the
     // same adjacency problem — its wedges need the same separator.
     for (const slice of screen.getAllByTestId('pie-ideal-slice')) {
-      expect(slice).toHaveAttribute('stroke', '#ffffff');
+      expect(slice).toHaveAttribute('stroke', '#0d0f15');
       expect(slice).not.toHaveClass('stroke-card');
       expect(slice).toHaveAttribute('stroke-width', '2');
+    }
+  });
+
+  // TWO-TONE focus indicator (2026-09-03). `--ring` is cyan under the
+  // Tecno-Analítico identity: 12.80:1 on `bg-card`, but only 1.04-1.68:1 on
+  // the pastel wedge fills the outline's bounding box cuts across — under the
+  // WCAG 2.2 SC 1.4.11 3:1 floor. No single opaque colour clears both (the
+  // luminance interval is empty; derivation at the call site), so the wedge's
+  // own dark stroke thickens on focus to carry the indicator over the pastel
+  // stretches while `outline-ring` carries it over the dark ones.
+  //
+  // Asserted as classes, not geometry: jsdom resolves no CSS variables and
+  // paints nothing, so the ratio itself is not checkable here — same
+  // "mechanism, not geometry" split the stroke/label assertions above use.
+  // This exists so a future "simplify the focus ring" pass cannot drop half
+  // the indicator and leave the pastel stretches under the floor.
+  it('gives focused wedges a two-tone indicator: the cyan ring AND a thickened dark stroke', () => {
+    renderPie();
+    for (const slice of screen.getAllByTestId('pie-slice')) {
+      expect(slice).toHaveClass('focus-visible:outline-ring');
+      expect(slice).toHaveClass('focus-visible:[stroke-width:4]');
     }
   });
 
