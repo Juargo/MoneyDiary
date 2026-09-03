@@ -25,7 +25,12 @@ import { Button } from '@/components/ui/button';
  * `rounded-full bg-slate-800` retry pill is retired in favor of the shared
  * `<Button>` (default variant — the only action on this screen, same
  * weight as a primary "Confirmar"). Contrast (index.css hexes):
- * `--destructive` (#ba1a1a) on `--background` (#e8f0fa) ≈ 5.62:1 (AA).
+ * `--destructive` (#e11d48) on `--background` (#090a0f) ≈ 4.21:1 (AA) — was
+ * 5.62:1 as #ba1a1a on the retired light palette's #e8f0fa. The token value
+ * changed with the Tecno-Analítico restyle (2026-09-03) and is CONSTRAINED:
+ * shadcn's stock `button.tsx`/`badge.tsx` hardcode `text-white` on
+ * `bg-destructive`, so it must also keep white text above 4.5:1 (it is
+ * 4.70:1). See the note on `--destructive` in `index.css` before retinting.
  */
 export function ErrorState({
   error,

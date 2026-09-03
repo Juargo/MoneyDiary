@@ -18,7 +18,7 @@ import { CampoTexto } from '@/components/configuracion/CampoTexto';
  * discipline, AUTH-02).
  *
  * Width/padding/surface (max-w-sm, card padding) are NOT this component's
- * concern — `routes/login.tsx` wraps it in the Serene Finance card shell, so
+ * concern — `routes/login.tsx` wraps it in the shared card shell, so
  * this form only fills whatever container it is given (impeccable critique
  * round 7, P1).
  */

@@ -5,7 +5,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
 import { QUERY_CLIENT_DEFAULTS } from './api/query-client-defaults';
 import { esErrorPermanente } from './api/retry-policy';
-// Self-hosted Inter Variable (Serene Finance typography) — same-origin,
+// Self-hosted Inter Variable (the app's body/label face) — same-origin,
 // bundled font file, no render-blocking Google Fonts CDN. Referenced by
 // --font-sans in index.css. Explicit `/index.css` path (not the bare package
 // specifier) so `vite/client`'s ambient `*.css` module declaration applies —

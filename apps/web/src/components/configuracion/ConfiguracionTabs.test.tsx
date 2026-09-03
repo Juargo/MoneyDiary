@@ -57,9 +57,15 @@ async function renderTabs(
 describe('ConfiguracionTabs', () => {
   /**
    * The active tab's contrast lives in the 4px `border-primary` rail, not in
-   * the fill. The fill it used to rely on (`bg-accent` #eeeeee) measures
-   * 1.07:1 against this screen's `--background` #e8f0fa — the defect these
-   * scenarios exist to stop from coming back.
+   * the fill. The fill it used to rely on (`bg-accent`) measures 1.07:1
+   * against this screen's `--background` — the defect these scenarios exist
+   * to stop from coming back.
+   *
+   * That 1.07:1 held under the light identity (#eeeeee on #e8f0fa) and STILL
+   * holds under Tecno-Analítico (#1b1f2a on #090a0f): the mechanism is
+   * token-relative, so the restyle did not weaken or invalidate these
+   * scenarios. Only the hexes and the "fondo azul" in the names below are
+   * historical — the ground is #090a0f now.
    *
    * jsdom resolves no CSS variables and computes no contrast, so the ratio
    * itself is NOT assertable here; the class literal that produces it is.
@@ -67,7 +73,7 @@ describe('ConfiguracionTabs', () => {
    * above already uses, and the same one `estilos.test.ts` documents for
    * `size-6`. The real contrast check is a browser pass.
    */
-  it('la tab activa lleva el riel border-primary — la señal que carga el contraste sobre el fondo azul', async () => {
+  it('la tab activa lleva el riel border-primary — la señal que carga el contraste sobre el fondo de la app', async () => {
     await renderTabs('/configuracion');
 
     const perfil = await screen.findByRole('link', { name: 'Perfil' });

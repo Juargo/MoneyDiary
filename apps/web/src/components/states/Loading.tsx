@@ -15,11 +15,13 @@
  * copy without duplicating this component (DRY) — the resumen screen keeps
  * the default, unchanged.
  *
- * Design-system hardening round 2 (P1): reskinned off raw `slate-*` onto
- * the Serene Finance semantic tokens (`--border`/`--foreground`) — this
- * renders on every fetch lifecycle, so it must look native, not like a
- * leftover from the shadcn `slate` base color. Contrast (index.css hexes):
- * `--muted-foreground` (#44474e) on `--background` (#e8f0fa) ≈ 8.13:1 (AA).
+ * Design-system hardening round 2 (P1): reskinned off raw `slate-*` onto the
+ * semantic tokens (`--border`/`--foreground`) — this renders on every fetch
+ * lifecycle, so it must look native, not like a leftover from the shadcn
+ * `slate` base color. Because it is token-based it followed the
+ * Tecno-Analítico restyle (2026-09-03) with no edit; only the measurement
+ * moved: `--muted-foreground` (#949cad) on `--background` (#090a0f) ≈ 7.17:1
+ * (AA) — was 8.13:1 with the retired light palette's #44474e on #e8f0fa.
  *
  * `compact` (peak-end landing, `SubirCartola` exito state): the default
  * `min-h-[60vh]` wrapper centers this for a WHOLE PAGE — correct for
