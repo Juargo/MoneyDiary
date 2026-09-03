@@ -3,7 +3,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { BUCKETS_ASIGNABLES, MATCH_TYPES } from './catalogo-constantes';
+import {
+  BUCKET_INGRESO,
+  BUCKETS_ASIGNABLES,
+  MATCH_TYPES,
+} from './catalogo-constantes';
 
 /**
  * catalogo-constantes.mirror.spec.ts — drift guard del vocabulario de wire
@@ -48,6 +52,9 @@ const BACKEND_SOURCES = {
     REPO_ROOT,
     'apps/api/src/application/use-cases/actualizar-patron.use-case.ts',
   ),
+  // `BUCKET_INGRESO` no es un bucket asignable: vive en el enum de dominio,
+  // no en los arrays `BUCKETS_ASIGNABLES` de los use cases de catálogo.
+  bucketEnum: resolve(REPO_ROOT, 'apps/api/src/domain/value-objects/bucket.ts'),
 } as const;
 
 function readBackendSource(path: string): string {
@@ -133,5 +140,22 @@ describe('catalogo-constantes drift guard', () => {
 
   it('the two backend MATCH_TYPES copies equal each other', () => {
     expect(backendMatchTypesCrear).toEqual(backendMatchTypesActualizar);
+  });
+
+  // `BUCKET_INGRESO` es la ÚNICA palabra del wire que decide si el web
+  // bloquea la clasificación de una fila (`esFilaIngreso`). Si el enum del
+  // backend renombra ese miembro, la UI vuelve a ofrecer ediciones que el
+  // commit descarta — en silencio, sin que ningún test de componente falle.
+  it('web BUCKET_INGRESO equals the Bucket enum member in bucket.ts', () => {
+    const bucketEnumSrc = readBackendSource(BACKEND_SOURCES.bucketEnum);
+    const miembro = bucketEnumSrc.match(
+      new RegExp(`\\b${BUCKET_INGRESO}\\s*=\\s*['"]([^'"]+)['"]`),
+    );
+    expect(
+      miembro,
+      `No se encontró el miembro "${BUCKET_INGRESO}" del enum Bucket en ` +
+        `"${BACKEND_SOURCES.bucketEnum}".`,
+    ).not.toBeNull();
+    expect(miembro![1]).toBe(BUCKET_INGRESO);
   });
 });

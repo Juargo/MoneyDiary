@@ -24,7 +24,7 @@ import type {
   PreviewIngestaDtoConCanonicos,
   ResumenMesDto,
 } from '@/api/types';
-import { unaFilaPreview } from '@/test-utils/preview-fixtures';
+import { unaFilaIngreso, unaFilaPreview } from '@/test-utils/preview-fixtures';
 import { cargarBorrador, guardarBorrador } from '@/lib/borrador-revision';
 
 // US-059 PR3 — SubirCartola state-machine rewrite test suite.
@@ -952,6 +952,39 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(
       screen.getByText(
         'Se descartará la revisión de 3 movimientos (2 ya clasificados). Se perderá el archivo seleccionado; esta acción no se puede deshacer.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // An Ingreso row is settled by the backend and can never take a categoría,
+  // so the discard confirm must count it among the "ya clasificados" — the
+  // same `estaClasificada` rule PreviewMuestra's readout uses, not a second
+  // copy that drifts (which is exactly how this count went dishonest before).
+  it('counts an Ingreso row as already classified in the discard confirm', () => {
+    mockedUsePreviewIngesta.mockReturnValue(
+      unaMutacion<PreviewIngestaDto>({
+        isSuccess: true,
+        status: 'success',
+        data: {
+          ...validPreviewDto,
+          filas: [
+            unaFilaPreview({ rowIndex: 0, sugerido: null }),
+            unaFilaIngreso({ rowIndex: 1 }),
+          ],
+          resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+        },
+      }),
+    );
+    mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+    mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
+
+    render(<SubirCartola />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+
+    expect(
+      screen.getByText(
+        'Se descartará la revisión de 2 movimientos (1 ya clasificado). Se perderá el archivo seleccionado; esta acción no se puede deshacer.',
       ),
     ).toBeInTheDocument();
   });

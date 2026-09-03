@@ -21,6 +21,25 @@ export function unaFilaPreview(
 }
 
 /**
+ * An income row exactly as the backend sends it: the classifier's Ingreso
+ * rule (`abono > 0 && cargo === 0`) yields `{ bucket: 'Ingreso',
+ * categoriaId: null }`, and `CommitIngestaUseCase` Rule 2 makes that
+ * immutable. Amounts are set to match so the fixture never contradicts the
+ * `sugerido` it carries.
+ */
+export function unaFilaIngreso(
+  overrides: Partial<PreviewFilaDto> = {},
+): PreviewFilaDto {
+  return unaFilaPreview({
+    descripcion: 'ABONO SUELDO EMPRESA SPA',
+    cargo: '0',
+    abono: '900000',
+    sugerido: { bucket: 'Ingreso', categoriaId: null },
+    ...overrides,
+  });
+}
+
+/**
  * Returns a default `CatalogoEstado` in the `listo` state with two groups
  * (Necesidades + Deseos) and one category each.
  *

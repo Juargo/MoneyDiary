@@ -227,6 +227,31 @@ describe('SelectorBucket', () => {
     expect(new Set(classSets).size).toBe(1);
   });
 
+  it('gives the checked chip visible emphasis beyond its pastel fill (outline, elevation, weight)', () => {
+    const { container } = render(
+      <SelectorBucket
+        label="Fila 1: bucket"
+        columnLabel="Bucket"
+        value="Deseos"
+        onChange={vi.fn()}
+        buckets={['Necesidades', 'Deseos', 'Ahorro']}
+      />,
+    );
+
+    const chip = container.querySelector('label > span');
+    expect(chip).not.toBeNull();
+    // The bucket pastels are light: on their own they read as barely-selected
+    // (the checked chip even LOST its border to `border-transparent`, so it
+    // was less defined than its unchecked neighbours). The checked chip now
+    // keeps an ink outline, gains `shadow-sm` elevation and heavier text.
+    expect(chip!.className).not.toMatch(/peer-checked:border-transparent/);
+    expect(chip!.className).toMatch(/peer-checked:border-foreground/);
+    expect(chip!.className).toMatch(/peer-checked:shadow-sm/);
+    expect(chip!.className).toMatch(/peer-checked:font-semibold/);
+    // Elevation stays under the house ceiling (shadow-md is for popovers).
+    expect(chip!.className).not.toMatch(/shadow-(md|lg|xl)/);
+  });
+
   it('renders one decorative (aria-hidden) icon per chip without changing the radio names', () => {
     const { container } = render(
       <SelectorBucket

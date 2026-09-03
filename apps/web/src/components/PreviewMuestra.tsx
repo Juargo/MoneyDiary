@@ -5,6 +5,10 @@ import { FilaRevision } from './FilaRevision';
 import { Button } from './ui/button';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
+import {
+  esFilaSeleccionable,
+  estaClasificada,
+} from '@/domain/clasificacion-preview';
 import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -26,7 +30,11 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * list navigable instead of reaching for pagination.
  *
  * Local state (all ephemeral UI, none of it NETWORK/business state):
- * - `soloSinClasificar` — "Solo sin clasificar" filter toggle.
+ * - `soloSinClasificar` — "Solo sin clasificar" filter toggle. "Sin
+ *   clasificar" means `!estaClasificada` (`domain/clasificacion-preview`),
+ *   which is NOT `categoriaMerged === null`: an Ingreso row's categoría is
+ *   permanently null yet the row is settled by the backend, so it counts as
+ *   classified, hides under this filter, and never enters a selection.
  * - `seleccionados` — the Set<rowIndex> backing the bulk-apply toolbar.
  * - `categoriaToolbar` — the toolbar's single categoría selection (round-9
  *   P2, see below); independent from any single row's `bucketUI` in
@@ -172,6 +180,15 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
 interface FilaConMerged {
   readonly fila: PreviewFilaDto;
   readonly categoriaMerged: string | null;
+  /**
+   * "Needs no further work from the user" — NOT the same as
+   * `categoriaMerged !== null`. An Ingreso row is settled by the backend with
+   * a permanently null categoría, so the two answers diverge exactly there;
+   * conflating them made income rows count as outstanding work that could
+   * never be cleared. `estaClasificada` owns the distinction (D-05 merge rule
+   * plus the Ingreso case) for this component AND `SubirCartola`.
+   */
+  readonly clasificada: boolean;
 }
 
 interface GrupoPorFecha {
@@ -352,12 +369,11 @@ export function PreviewMuestra({
   const filasConMerged: FilaConMerged[] = filas.map((fila) => ({
     fila,
     categoriaMerged: resolverCategoriaMerged(fila, edits),
+    clasificada: estaClasificada(fila, edits),
   }));
 
   const noDuplicadas = filasConMerged.filter((f) => !f.fila.esDuplicado);
-  const clasificadas = noDuplicadas.filter(
-    (f) => f.categoriaMerged !== null,
-  ).length;
+  const clasificadas = noDuplicadas.filter((f) => f.clasificada).length;
   const totalNoDuplicadas = noDuplicadas.length;
   const duplicadosCount = filasConMerged.length - totalNoDuplicadas;
   const progresoPct =
@@ -373,9 +389,7 @@ export function PreviewMuestra({
   const etiquetaDuplicadas = duplicadosCount === 1 ? 'duplicada' : 'duplicadas';
 
   const filasVisibles = soloSinClasificar
-    ? filasConMerged.filter(
-        (f) => !f.fila.esDuplicado && f.categoriaMerged === null,
-      )
+    ? filasConMerged.filter((f) => !f.fila.esDuplicado && !f.clasificada)
     : filasConMerged;
 
   const grupos = agruparPorFecha(filasVisibles);
@@ -387,7 +401,7 @@ export function PreviewMuestra({
   // clasificar" automatically recomputes N and the checked/indeterminate
   // state — no extra effect needed.
   const seleccionablesVisibles = filasVisibles
-    .filter((f) => !f.fila.esDuplicado)
+    .filter((f) => esFilaSeleccionable(f.fila))
     .map((f) => f.fila.rowIndex);
   const todasVisiblesSeleccionadas =
     seleccionablesVisibles.length > 0 &&
@@ -715,7 +729,7 @@ export function PreviewMuestra({
                 const abierto = !gruposColapsados.has(claveGrupo);
                 const conteoGrupo = grupo.filas.length;
                 const seleccionablesGrupo = grupo.filas
-                  .filter((f) => !f.fila.esDuplicado)
+                  .filter((f) => esFilaSeleccionable(f.fila))
                   .map((f) => f.fila.rowIndex);
                 const todasSeleccionadas =
                   seleccionablesGrupo.length > 0 &&

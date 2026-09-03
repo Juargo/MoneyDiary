@@ -6,7 +6,11 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FilaRevision } from './FilaRevision';
 import type { CatalogoEstado } from '@/api/types';
-import { unaFilaPreview, unCatalogo } from '@/test-utils/preview-fixtures';
+import {
+  unaFilaIngreso,
+  unaFilaPreview,
+  unCatalogo,
+} from '@/test-utils/preview-fixtures';
 
 // crear-categoria-desde-preview PR3: FilaRevision now conditionally mounts
 // `NuevaCategoriaDesdeFilaForm`, which owns a `useCrearCategoria()` mutation
@@ -524,13 +528,17 @@ describe('FilaRevision', () => {
     expect(onEditChange).toHaveBeenCalledWith(2, null);
   });
 
-  // When sugerido.bucket is NOT among groups, bucketUI starts at the sentinel
+  // When sugerido.bucket is NOT among groups, bucketUI starts at the sentinel.
+  // Fixture note: this case used to use 'Ingreso' as its stand-in for an
+  // unknown bucket. Ingreso now has its own locked, control-less path (see
+  // the Ingreso block below), so the stand-in moved to a genuinely unknown
+  // bucket — the case under test (unknown bucket -> sentinel) is unchanged.
   it('bucketUI starts at "Sin categoría" when sugerido.bucket is not among catalog groups', () => {
     render(
       <FilaRevision
         fila={unaFilaPreview({
           rowIndex: 2,
-          sugerido: { bucket: 'Ingreso', categoriaId: null },
+          sugerido: { bucket: 'Otros', categoriaId: null },
         })}
         categoriaId={null}
         catalogo={catalogoListo}
@@ -1279,6 +1287,122 @@ describe('FilaRevision', () => {
         cargoEl.compareDocumentPosition(abonoEl) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+    });
+  });
+
+  // --- Ingreso rows: locked classification (backend Rule 2 is authoritative) ---
+  //
+  // `CommitIngestaUseCase` Rule 2 persists { Ingreso, null } for these rows
+  // and silently DISCARDS any overlay entry on them. Offering a bucket or
+  // categoría control here promised the user an edit the server was always
+  // going to throw away, so the controls are gone — the row still renders in
+  // full as a recognised transaction, just without an editable classification.
+  describe('fila de ingreso (sugerido.bucket === "Ingreso")', () => {
+    it('renders no bucket control, no categoría select and no "nueva categoría" trigger', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaIngreso({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByLabelText(/Fila 3: bucket/i),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/Fila 3: categoría/i),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /nueva categoría/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    });
+
+    it('still renders as a recognised transaction: description, date, signed amount and a bold green "Ingreso" marker', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaIngreso({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText('ABONO SUELDO EMPRESA SPA')).toBeInTheDocument();
+      expect(screen.getByText('2026-07-15')).toBeInTheDocument();
+      expect(screen.getByText('+$900.000')).toBeInTheDocument();
+      // Plain bold green text, NOT a Badge: the row needs a quiet marker,
+      // not a chip competing with the "Duplicado" badge's weight. Green is
+      // the same `ingreso-foreground` token the abono amount beside it uses.
+      const marcaIngreso = screen.getByText('Ingreso');
+      expect(marcaIngreso.tagName).toBe('SPAN');
+      expect(marcaIngreso).not.toHaveAttribute('data-slot', 'badge');
+      expect(marcaIngreso.className).toMatch(/text-ingreso-foreground/);
+      expect(marcaIngreso.className).toMatch(/font-semibold/);
+      // Not greyed out like a duplicate — it IS being imported.
+      expect(screen.getByRole('listitem').className).not.toMatch(/opacity-50/);
+    });
+
+    it('explains in plain text why there is nothing to choose', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaIngreso({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText(/se clasifica.*autom[áa]tic/i),
+      ).toBeInTheDocument();
+    });
+
+    it('is not selectable for bulk apply (no row checkbox)', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaIngreso({ rowIndex: 2 })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+          onToggleSelect={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByLabelText(/Seleccionar fila 3/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('never calls onEditChange, even when a categoriaId prop arrives from a stale bulk apply', () => {
+      const onEditChange = vi.fn();
+      render(
+        <FilaRevision
+          fila={unaFilaIngreso({ rowIndex: 2 })}
+          categoriaId={'cat-nec-1'}
+          catalogo={catalogoListo}
+          onEditChange={onEditChange}
+        />,
+      );
+
+      expect(onEditChange).not.toHaveBeenCalled();
+      expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+    });
+
+    it('a DUPLICATE income row still takes the duplicate path (greyed + Duplicado badge)', () => {
+      render(
+        <FilaRevision
+          fila={unaFilaIngreso({ rowIndex: 2, esDuplicado: true })}
+          categoriaId={null}
+          catalogo={catalogoListo}
+          onEditChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText('Duplicado')).toBeInTheDocument();
+      expect(screen.getByRole('listitem').className).toMatch(/opacity-50/);
     });
   });
 });

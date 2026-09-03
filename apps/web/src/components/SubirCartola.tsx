@@ -21,7 +21,7 @@ import { useResumen } from '@/api/use-resumen';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
 import { validarArchivoWeb } from '@/domain/validar-archivo';
 import { derivarMesDominante } from '@/domain/derivar-mes-dominante';
-import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
+import { estaClasificada } from '@/domain/clasificacion-preview';
 import { resolverEstiloSemaforo } from '@/lib/semaforo-estilos';
 import { pluralizar } from '@/lib/pluralizar';
 import {
@@ -754,14 +754,17 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // wrongly including duplicate AND unclassified rows under the label
   // "clasificados". Honest version: `total` counts only non-duplicate rows;
   // `clasificadas` counts only rows with an EFFECTIVE categoría right now
-  // (D-05 merge rule via `resolverCategoriaMerged`, the SAME function
-  // `PreviewMuestra` uses for its own progress readout — one rule, not two
-  // that can drift). Degrades to a plain total when nothing is classified
+  // (via `estaClasificada`, the SAME function `PreviewMuestra` uses for its
+  // own progress readout — one rule, not two that can drift). Degrades to a plain total when nothing is classified
   // (`clasificadas === 0`) instead of a misleading "(0 ya clasificados)".
   const filasNoDuplicadasDescarte =
     previewData?.filas.filter((f) => !f.esDuplicado) ?? [];
-  const filasClasificadasDescarte = filasNoDuplicadasDescarte.filter(
-    (f) => resolverCategoriaMerged(f, edits) !== null,
+  // `estaClasificada`, not `resolverCategoriaMerged(...) !== null`: an
+  // Ingreso row's categoría is permanently null yet the row is settled by
+  // the backend, so counting it as pending would under-report what the user
+  // is about to throw away. Same rule PreviewMuestra's readout uses.
+  const filasClasificadasDescarte = filasNoDuplicadasDescarte.filter((f) =>
+    estaClasificada(f, edits),
   ).length;
   const textoConfirmacionDescarte = `Se descartará la revisión de ${pluralizar(
     filasNoDuplicadasDescarte.length,
