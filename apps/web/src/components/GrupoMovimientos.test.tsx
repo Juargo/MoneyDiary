@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -154,6 +154,51 @@ describe('GrupoMovimientos', () => {
       screen.queryByRole('button', {
         name: /Eliminar movimiento Compra en Líder/i,
       }),
+    ).not.toBeInTheDocument();
+  });
+
+  // Display-consistency follow-up named BY NAME in `domain/fecha.ts`'s
+  // `aFechaCorta` docblock: "el raw-ISO de la página gemela US-053
+  // (GrupoMovimientos.tsx:69) es un follow-up de consistencia de display
+  // (renderiza aFechaCorta, NO byte-idéntico)". Until now the visible date
+  // column rendered `tx.fecha` verbatim, so a backend UTC timestamp showed as
+  // "2026-07-05T00:00:00.000Z" in the row while the delete control beside it
+  // — already routed through `aFechaCorta` — said "2026-07-05". One row, two
+  // spellings of one date.
+  //
+  // Scoped with `within` to the row's own listitem on purpose: asserting on
+  // the whole screen would also see the delete button's accessible name,
+  // which has always carried the short form and so cannot fail.
+  it('renders the visible date column via aFechaCorta, never the raw ISO timestamp (fecha.ts follow-up)', async () => {
+    mockFetch();
+    const grupoConIso: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      transacciones: [
+        {
+          id: 'tx-iso',
+          fecha: '2026-07-05T00:00:00.000Z',
+          descripcion: 'Bono manual',
+          origen: 'Manual',
+          montoLabel: '$20.000',
+        },
+      ],
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConIso}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const fila = await screen.findByRole('listitem');
+    expect(within(fila).getByText('2026-07-05')).toBeInTheDocument();
+    expect(
+      within(fila).queryByText('2026-07-05T00:00:00.000Z'),
     ).not.toBeInTheDocument();
   });
 

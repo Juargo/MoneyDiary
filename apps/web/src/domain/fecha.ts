@@ -50,9 +50,14 @@ export function esFechaValida(fecha: string): boolean {
  * en vez de un vago "después": los 3 sitios legacy — `PreviewMuestra.tsx:87`,
  * `SubirCartola.tsx:333`, `ListaIngestas.tsx:114` — refactorizan a este helper
  * en su próximo touch (trigger por archivo, salida byte-idéntica, fuera de
- * alcance acá); el raw-ISO de la página gemela US-053
- * (`GrupoMovimientos.tsx:69`) es un follow-up de consistencia de display
- * (renderiza `aFechaCorta`, NO byte-idéntico).
+ * alcance acá).
+ *
+ * ✅ CERRADO 2026-09-03: el follow-up de consistencia de display del raw-ISO
+ * en la página gemela US-053 (`GrupoMovimientos`). Su columna de fecha visible
+ * imprimía el timestamp completo mientras el control de eliminar de la MISMA
+ * fila ya usaba este helper — una fila, dos grafías de una fecha. Ahora ambos
+ * consumidores pasan por acá. Test: "renders the visible date column via
+ * aFechaCorta, never the raw ISO timestamp" en `GrupoMovimientos.test.tsx`.
  */
 export function aFechaCorta(fechaIso: string): string {
   return fechaIso.slice(0, 10);

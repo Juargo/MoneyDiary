@@ -143,11 +143,11 @@ function FilaClickeable({
               visual one (`gap-2` only affects layout). */}
           <span className="text-sm text-foreground">{etiqueta}</span>{' '}
           {item.kind === 'gasto' ? (
-            <span className="text-sm font-semibold text-foreground">
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
               {item.porcentaje}%
             </span>
           ) : (
-            <span className="text-sm font-semibold text-foreground">
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
               {/* CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018): "tx" is a
                   visual abbreviation an AT user shouldn't have to guess at.
                   The visible "N tx" stays on screen but is pulled OUT of the
@@ -165,7 +165,11 @@ function FilaClickeable({
           )}
         </span>{' '}
         <span className="flex items-center gap-1">
-          <span className="text-sm font-semibold text-foreground">
+          {/* Mono + tabular-nums (DESIGN.md): this is the dashboard's money
+              column — the amounts sit one under the other in the legend, so
+              fixed-width figures let them be compared as a column instead of
+              read one by one. */}
+          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
             {item.montoLabel}
           </span>
           <ChevronRight
@@ -215,7 +219,11 @@ function FilaIngreso({
           <span className="text-sm text-foreground">Ingresos</span>
         </span>{' '}
         <span className="flex items-center gap-1">
-          <span className="text-sm font-semibold text-foreground">
+          {/* Mono + tabular-nums (DESIGN.md): this is the dashboard's money
+              column — the amounts sit one under the other in the legend, so
+              fixed-width figures let them be compared as a column instead of
+              read one by one. */}
+          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
             {item.montoLabel}
           </span>
           <ChevronRight

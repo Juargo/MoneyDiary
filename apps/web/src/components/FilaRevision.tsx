@@ -306,7 +306,9 @@ export function FilaRevision({
           {fila.descripcion}
         </span>
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums">
-          <span>{fila.fecha.slice(0, 10)}</span>
+          {/* `font-mono` on the date only, not on the whole meta line: the
+              "Duplicado" badge beside it is a word, not a figure. */}
+          <span className="font-mono">{fila.fecha.slice(0, 10)}</span>
           {fila.esDuplicado && <Badge variant="outline">Duplicado</Badge>}
           {/* Plain bold green text, deliberately NOT a `Badge`: "Duplicado"
               is an EXCEPTION worth a chip (that row is being skipped),
@@ -321,7 +323,13 @@ export function FilaRevision({
           )}
         </span>
       </div>
-      <dl className="shrink-0 text-right tabular-nums">
+      {/* `font-mono` added at the <dl> so every <dd> inherits it — the column
+          was already `text-right tabular-nums`, this only swaps the face.
+          The <dl>/<dt sr-only>/<dd> structure is deliberately UNTOUCHED:
+          those "Cargo"/"Abono"/"Monto" terms are the only thing telling a
+          screen-reader user which figure is which, now that sign and color
+          carry that distinction visually. */}
+      <dl className="shrink-0 text-right font-mono tabular-nums">
         {ambosCero ? (
           <div className="flex justify-end gap-1">
             <dt className="sr-only">Monto</dt>
