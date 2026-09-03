@@ -120,9 +120,13 @@ export function SemaforoHeroCard({
 }
 
 /**
- * Estado → status-dot fill, deep `-foreground` tones (AA on white/card) —
- * the SAME deep tones the pill's text already uses, so the dot and the pill
- * read as one color family per estado. Deliberately separate from
+ * Estado → status-dot fill: the `-foreground` tone of each estado — the SAME
+ * tone the pill's text already uses, so the dot and the pill read as one
+ * colour family per estado. (These were the DEEP tones under the retired
+ * light identity; since the Tecno-Analítico restyle they are the NEON ones,
+ * 7.35-11.85:1 as fills on the app background. The pairing rule is what
+ * matters here, not which end of the ramp it lands on.) Deliberately separate
+ * from
  * `resolverEstiloSemaforo`'s chip pair — that table pairs fill+text for the
  * pill; this one is a single decorative fill for the dot.
  */

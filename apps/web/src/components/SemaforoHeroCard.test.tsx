@@ -15,7 +15,7 @@ describe('SemaforoHeroCard', () => {
     ['amarillo', 'Saludable'],
     ['rojo', 'En peligro'],
   ])(
-    'renders estado "%s" as a link named after its rebranded label, with the label in a pastel pill',
+    'renders estado "%s" as a link named after its rebranded label, with the label in a translucent pill',
     async (estado, label) => {
       renderConRouter(
         <SemaforoHeroCard estadoGlobal={estado} periodo="2026-07" />,
@@ -27,9 +27,25 @@ describe('SemaforoHeroCard', () => {
 
       const pill = screen.getByText(label);
       expect(pill.className).toMatch(/\brounded-none\b/);
-      expect(pill.className).toMatch(new RegExp(`\\bbg-semaforo-${estado}\\b`));
       expect(pill.className).toMatch(
         new RegExp(`\\btext-semaforo-${estado}-foreground\\b`),
+      );
+
+      // Tecno-Analítico (2026-09-02): the pill's surface is a 15% wash of its
+      // OWN neon tone plus a hairline of the same tone — not the solid
+      // `bg-semaforo-{estado}` tint it used under the light identity.
+      //
+      // Asserted as a full class string on purpose. The previous
+      // `\bbg-semaforo-${estado}\b` regex still MATCHES the new value by
+      // accident (the `\b` after "verde" is satisfied by the `-` in
+      // `bg-semaforo-verde-foreground/15`), so it would have gone green
+      // without ever checking the thing it claims to check.
+      expect(pill.className).toContain(`bg-semaforo-${estado}-foreground/15`);
+      expect(pill.className).toContain(
+        `border-semaforo-${estado}-foreground/40`,
+      );
+      expect(pill.className).not.toMatch(
+        new RegExp(`\\bbg-semaforo-${estado}(?!-foreground)\\b`),
       );
     },
   );
