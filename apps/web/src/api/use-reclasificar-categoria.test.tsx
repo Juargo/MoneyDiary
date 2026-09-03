@@ -25,7 +25,7 @@ describe('useReclasificarCategoria', () => {
     vi.restoreAllMocks();
   });
 
-  it('llama a PATCH /api/transacciones/:id/categoria con el nombre elegido', async () => {
+  it('llama a PATCH /api/transacciones/:id/categoria con el categoriaId elegido', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -44,7 +44,10 @@ describe('useReclasificarCategoria', () => {
     );
 
     act(() => {
-      result.current.mutate({ transaccionId: 'tx-1', categoria: 'Transporte' });
+      result.current.mutate({
+        transaccionId: 'tx-1',
+        categoriaId: 'categoria-transporte',
+      });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -52,7 +55,7 @@ describe('useReclasificarCategoria', () => {
       '/api/transacciones/tx-1/categoria',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ categoria: 'Transporte' }),
+        body: JSON.stringify({ categoriaId: 'categoria-transporte' }),
       }),
     );
   });
@@ -77,7 +80,10 @@ describe('useReclasificarCategoria', () => {
     );
 
     act(() => {
-      result.current.mutate({ transaccionId: 'tx-1', categoria: 'Transporte' });
+      result.current.mutate({
+        transaccionId: 'tx-1',
+        categoriaId: 'categoria-transporte',
+      });
     });
 
     await waitFor(() => expect(result.current.isPending).toBe(true));
@@ -110,7 +116,10 @@ describe('useReclasificarCategoria', () => {
     );
 
     act(() => {
-      result.current.mutate({ transaccionId: 'tx-1', categoria: 'Transporte' });
+      result.current.mutate({
+        transaccionId: 'tx-1',
+        categoriaId: 'categoria-transporte',
+      });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -146,7 +155,10 @@ describe('useReclasificarCategoria', () => {
     );
 
     act(() => {
-      result.current.mutate({ transaccionId: 'tx-1', categoria: 'Transporte' });
+      result.current.mutate({
+        transaccionId: 'tx-1',
+        categoriaId: 'categoria-transporte',
+      });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -183,7 +195,10 @@ describe('useReclasificarCategoria', () => {
     );
 
     act(() => {
-      result.current.mutate({ transaccionId: 'tx-1', categoria: 'NoExiste' });
+      result.current.mutate({
+        transaccionId: 'tx-1',
+        categoriaId: 'categoria-no-existe',
+      });
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));

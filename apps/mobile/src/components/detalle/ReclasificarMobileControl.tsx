@@ -9,8 +9,10 @@
  *
  * 2. Modal: body is a ScrollView of BUCKETS_ASIGNABLES-filtered agruparPorBucket
  *    sections. Section headers are ETIQUETA_BUCKET display labels ("Gustos" not
- *    "Deseos"). Each categoria row testID="reclasificar-opcion-{categoria.nombre}".
- *    Current categoria is marked (accessibilityState={{ selected: true }}).
+ *    "Deseos"). Each categoria row testID="reclasificar-opcion-{categoria.id}".
+ *    Current categoria is marked (accessibilityState={{ selected: true }}) by
+ *    id, never by nombre (categoria-unica-por-bucket ADR-042/D-08 — a nombre
+ *    can legally repeat across buckets, so it no longer identifies a row).
  *    «Cancelar» closes with no mutation (cancel path).
  *
  * 3. Selection logic: derive bucketNuevo.
@@ -21,7 +23,7 @@
  *    mostrandoAlerta useRef; set true BEFORE Alert.alert; cleared in EVERY onPress
  *    (both Cancelar and Confirmar); { cancelable: false } for Android backdrop.
  *
- * 5. commit(nombre, bucketNuevo?): call reclasificarCategoria(tx.id, nombre).
+ * 5. commit(categoriaId, bucketNuevo?): call reclasificarCategoria(tx.id, categoriaId).
  *    On ok: close modal → onReclasificado() → solicitarRecargaResumen()
  *           → if cross-bucket: onMovida(ETIQUETA_BUCKET[bucketNuevo]).
  *    The control NEVER calls AccessibilityInfo — onMovida is the screen's handler.
@@ -131,12 +133,12 @@ export function ReclasificarMobileControl({
   }
 
   /**
-   * commit(nombre, bucketNuevo?) — calls the PATCH and handles the settled ok/error path.
+   * commit(categoriaId, bucketNuevo?) — calls the PATCH and handles the settled ok/error path.
    * bucketNuevo is defined only for cross-bucket moves.
    */
-  async function commit(nombre: string, bucketNuevo?: string) {
+  async function commit(categoriaId: string, bucketNuevo?: string) {
     setErrorMensaje(null);
-    const resultado = await reclasificarCategoria(tx.id, nombre);
+    const resultado = await reclasificarCategoria(tx.id, categoriaId);
 
     if (!resultado.ok) {
       setErrorMensaje(mensajeDeErrorReclasificar(resultado.error));
@@ -157,12 +159,12 @@ export function ReclasificarMobileControl({
     }
   }
 
-  function handleSelectCategoria(nombre: string, bucketCategoria: string) {
+  function handleSelectCategoria(categoriaId: string, bucketCategoria: string) {
     const esMismoBucket = bucketCategoria === categoriaActual.bucket;
 
     if (esMismoBucket) {
       // Same-bucket: commit directly, no Alert.
-      void commit(nombre);
+      void commit(categoriaId);
       return;
     }
 
@@ -190,7 +192,7 @@ export function ReclasificarMobileControl({
           style: 'destructive',
           onPress: () => {
             mostrandoAlerta.current = false;
-            void commit(nombre, bucketCategoria);
+            void commit(categoriaId, bucketCategoria);
           },
         },
       ],
@@ -308,17 +310,16 @@ export function ReclasificarMobileControl({
                     </Text>
 
                     {grupo.categorias.map((cat) => {
-                      const esCategoriaActual =
-                        cat.nombre === categoriaActual.nombre;
+                      const esCategoriaActual = cat.id === categoriaActual.id;
 
                       return (
                         <Pressable
                           key={cat.id}
                           accessibilityRole="button"
                           accessibilityState={{ selected: esCategoriaActual }}
-                          testID={`reclasificar-opcion-${cat.nombre}`}
+                          testID={`reclasificar-opcion-${cat.id}`}
                           onPress={() =>
-                            handleSelectCategoria(cat.nombre, cat.bucket)
+                            handleSelectCategoria(cat.id, cat.bucket)
                           }
                           style={{
                             flexDirection: 'row',

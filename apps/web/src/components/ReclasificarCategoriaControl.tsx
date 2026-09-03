@@ -80,15 +80,15 @@ export function ReclasificarCategoriaControl({
   readonly descripcion: string;
   readonly montoLabel: string;
   readonly bucketActual: string;
-  readonly categoriaActual: string | null;
+  readonly categoriaActual: { id: string; nombre: string } | null;
   readonly periodo: string | undefined;
   readonly onMovida: (bucketLabel: string) => void;
 }) {
   const selectId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
-  const [valor, setValor] = useState(categoriaActual ?? '');
+  const [valor, setValor] = useState(categoriaActual?.id ?? '');
   const [pendiente, setPendiente] = useState<{
-    nombre: string;
+    categoriaId: string;
     bucketNuevo: string;
   } | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
@@ -106,40 +106,40 @@ export function ReclasificarCategoriaControl({
   const grupos = agruparPorBucket(data?.categorias ?? []).filter((g) =>
     (BUCKETS_ASIGNABLES as ReadonlyArray<string>).includes(g.bucket),
   );
-  const bucketDe = (nombre: string): string | undefined =>
-    data?.categorias.find((c) => c.nombre === nombre)?.bucket;
+  const categoriaPorId = (id: string): string | undefined =>
+    data?.categorias.find((c) => c.id === id)?.bucket;
 
   // Cross-bucket commits need to fire onMovida only after the mutation
   // settles successfully. We capture the pending bucket label at confirm
   // time and thread it into the mutation's onSuccess callback so a
   // failed PATCH never triggers the announcement.
-  function commit(nombre: string, onSuccess?: () => void) {
+  function commit(categoriaId: string, onSuccess?: () => void) {
     setErrorMensaje(null);
     mutacion.mutate(
-      { transaccionId, categoria: nombre },
+      { transaccionId, categoriaId },
       {
         onSuccess: () => {
           onSuccess?.();
         },
         onError: (error) => {
           setErrorMensaje(error.message);
-          setValor(categoriaActual ?? '');
+          setValor(categoriaActual?.id ?? '');
         },
       },
     );
   }
 
   function alCambiar(event: React.ChangeEvent<HTMLSelectElement>) {
-    const nombre = event.target.value;
+    const categoriaId = event.target.value;
     // Clear any stale pending confirmation FIRST: a new selection always
     // supersedes a previous, unconfirmed cross-bucket dialog — otherwise the
     // old dialog stays on screen referencing a categoría the user no longer
     // has selected, and confirming it fires a PATCH for the wrong value
     // (network race between "pick B" and "confirm A").
     setPendiente(null);
-    setValor(nombre);
+    setValor(categoriaId);
     setErrorMensaje(null);
-    const bucketNuevo = bucketDe(nombre);
+    const bucketNuevo = categoriaPorId(categoriaId);
     if (bucketNuevo === undefined) {
       // Defensive, not reachable via the rendered `<option>`s today (they
       // and this lookup read the same `data` snapshot) — but "unresolved"
@@ -150,14 +150,14 @@ export function ReclasificarCategoriaControl({
       setErrorMensaje(
         'La categoría elegida ya no está disponible. Elige otra.',
       );
-      setValor(categoriaActual ?? '');
+      setValor(categoriaActual?.id ?? '');
       return;
     }
     if (bucketNuevo === bucketActual) {
-      commit(nombre);
+      commit(categoriaId);
       return;
     }
-    setPendiente({ nombre, bucketNuevo });
+    setPendiente({ categoriaId, bucketNuevo });
   }
 
   function confirmar() {
@@ -168,7 +168,7 @@ export function ReclasificarCategoriaControl({
     // onMovida fires only when the PATCH succeeds — a failed mutation
     // must not announce a move that never happened (D-07).
     const bucketLabel = etiqueta(pendiente.bucketNuevo);
-    commit(pendiente.nombre, () => {
+    commit(pendiente.categoriaId, () => {
       onMovida(bucketLabel);
     });
     setPendiente(null);
@@ -176,7 +176,7 @@ export function ReclasificarCategoriaControl({
 
   function cancelar() {
     setPendiente(null);
-    setValor(categoriaActual ?? '');
+    setValor(categoriaActual?.id ?? '');
     selectRef.current?.focus();
   }
 
@@ -203,7 +203,7 @@ export function ReclasificarCategoriaControl({
               Sin categoría
             </option>
           ) : (
-            <option value={categoriaActual}>{categoriaActual}</option>
+            <option value={categoriaActual.id}>{categoriaActual.nombre}</option>
           )
         ) : (
           <>
@@ -215,7 +215,7 @@ export function ReclasificarCategoriaControl({
             {grupos.map((grupo) => (
               <optgroup key={grupo.bucket} label={etiqueta(grupo.bucket)}>
                 {grupo.categorias.map((categoria) => (
-                  <option key={categoria.nombre} value={categoria.nombre}>
+                  <option key={categoria.id} value={categoria.id}>
                     {categoria.nombre}
                   </option>
                 ))}

@@ -44,8 +44,8 @@ const mockFetchCatalogo = jest.fn<Promise<ApiResult<CatalogoDto>>, []>();
 // the first was dead (the second override always wins). Collapsed into one.
 jest.mock('../../api/categorias', () => ({
   ...jest.requireActual('../../api/categorias'),
-  reclasificarCategoria: (txId: string, categoria: string) =>
-    mockReclasificarCategoria(txId, categoria),
+  reclasificarCategoria: (txId: string, categoriaId: string) =>
+    mockReclasificarCategoria(txId, categoriaId),
   fetchCatalogo: () => mockFetchCatalogo(),
 }));
 
@@ -113,6 +113,32 @@ function makeReclasificarDto(
     id: 'tx-1',
     bucket,
     categoria: { id: 'cat-deseos', nombre },
+  };
+}
+
+/**
+ * MDET-08 fixture (categoria-unica-por-bucket, ADR-042/D-08): the SAME
+ * nombre ("Transporte") in two different buckets — legal once uniqueness
+ * becomes bucket-scoped. Identity MUST resolve by `id`, never by `nombre`.
+ */
+function makeCatalogoConNombreDuplicado(): CatalogoDto {
+  return {
+    categorias: [
+      {
+        id: 'cat-transporte-necesidades',
+        nombre: 'Transporte',
+        bucket: 'Necesidades',
+        transaccionesCount: 4,
+        patrones: [],
+      },
+      {
+        id: 'cat-transporte-deseos',
+        nombre: 'Transporte',
+        bucket: 'Deseos',
+        transaccionesCount: 1,
+        patrones: [],
+      },
+    ],
   };
 }
 
@@ -241,9 +267,7 @@ describe('ReclasificarMobileControl', () => {
 
     // Press the same-bucket option (Entretenimiento is in Deseos)
     await act(async () => {
-      fireEvent.press(
-        screen.getByTestId('reclasificar-opcion-Entretenimiento'),
-      );
+      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
     });
 
     await waitFor(() => {
@@ -274,7 +298,9 @@ describe('ReclasificarMobileControl', () => {
 
     // Press a cross-bucket option (Comida is in Necesidades)
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
 
     // Alert.alert must have been called with the exact message
@@ -310,7 +336,9 @@ describe('ReclasificarMobileControl', () => {
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
 
     // Confirm the alert
@@ -361,7 +389,9 @@ describe('ReclasificarMobileControl', () => {
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
 
     await act(async () => {
@@ -407,9 +437,7 @@ describe('ReclasificarMobileControl', () => {
 
     // Press the same-bucket option (Entretenimiento is in Deseos — same bucket)
     await act(async () => {
-      fireEvent.press(
-        screen.getByTestId('reclasificar-opcion-Entretenimiento'),
-      );
+      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
     });
 
     await waitFor(() => {
@@ -450,7 +478,9 @@ describe('ReclasificarMobileControl', () => {
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
 
     await act(async () => {
@@ -501,9 +531,7 @@ describe('ReclasificarMobileControl', () => {
 
     // Same-bucket failure path (no Alert needed)
     await act(async () => {
-      fireEvent.press(
-        screen.getByTestId('reclasificar-opcion-Entretenimiento'),
-      );
+      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
     });
 
     await waitFor(() => {
@@ -534,7 +562,9 @@ describe('ReclasificarMobileControl', () => {
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
 
     // Alert should have been called
@@ -572,13 +602,117 @@ describe('ReclasificarMobileControl', () => {
 
     // Press a cross-bucket option twice rapidly
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-Comida'));
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+      );
     });
 
     // Only ONE Alert should have been shown (guard blocks the second)
     expect(alertSpy).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Case 11 (MDET-08, categoria-unica-por-bucket D-08): with two categorías
+   * sharing the nombre "Transporte" across buckets, EXACTLY ONE row must
+   * render as the current selection — the one matching by id, not by nombre.
+   * A `cat.nombre === categoriaActual.nombre` comparison would mark BOTH
+   * rows selected (the a11y defect this task closes: two elements reporting
+   * accessibilityState={{ selected: true }} to VoiceOver/TalkBack at once).
+   */
+  it('MDET-08: exactly one row shows the "actual" selection when two categorías share a nombre', async () => {
+    mockFetchCatalogo.mockResolvedValue({
+      ok: true,
+      value: makeCatalogoConNombreDuplicado(),
+    });
+
+    const props = defaultProps({
+      categoriaActual: {
+        id: 'cat-transporte-necesidades',
+        nombre: 'Transporte',
+        bucket: 'Necesidades',
+      },
+    });
+    await render(<ReclasificarMobileControl {...props} />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+    });
+
+    const filaActual = screen.getByTestId(
+      'reclasificar-opcion-cat-transporte-necesidades',
+    );
+    const filaDuplicada = screen.getByTestId(
+      'reclasificar-opcion-cat-transporte-deseos',
+    );
+
+    expect(filaActual.props.accessibilityState).toEqual({ selected: true });
+    expect(filaDuplicada.props.accessibilityState).toEqual({
+      selected: false,
+    });
+  });
+
+  /**
+   * Case 12 (MDET-08): selecting the duplicate-named row in the OTHER bucket
+   * and confirming the cross-bucket Alert sends its exact id — never the
+   * shared nombre, which would be ambiguous under ADR-042.
+   */
+  it('MDET-08: selecting the duplicate-named row in the other bucket sends its exact id', async () => {
+    mockFetchCatalogo.mockResolvedValue({
+      ok: true,
+      value: makeCatalogoConNombreDuplicado(),
+    });
+    mockReclasificarCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: makeReclasificarDto('Deseos', 'Transporte'),
+    });
+
+    const props = defaultProps({
+      categoriaActual: {
+        id: 'cat-transporte-necesidades',
+        nombre: 'Transporte',
+        bucket: 'Necesidades',
+      },
+    });
+    await render(<ReclasificarMobileControl {...props} />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('reclasificar-opcion-cat-transporte-deseos'),
+      );
+    });
+
+    // Confirm the cross-bucket Alert
+    await act(async () => {
+      const confirmButton = capturedAlertButtons.find(
+        (b) => b.text !== 'Cancelar',
+      );
+      confirmButton?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockReclasificarCategoria).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockReclasificarCategoria).toHaveBeenCalledWith(
+      'tx-1',
+      'cat-transporte-deseos',
+    );
   });
 });

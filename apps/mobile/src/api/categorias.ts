@@ -254,17 +254,22 @@ function esReclasificarDto(value: unknown): value is ReclasificarCategoriaDto {
  * (this is the ONE mutation whose success body IS consumed — the bucket echo
  * drives the cross-bucket announcement label, D-17).
  *
- * Body sends ONLY `{ categoria }` — never a `bucket` field (the backend
- * derives the destination bucket; web client.ts:752-753 precedent).
+ * Body sends ONLY `{ categoriaId }` — never `{ categoria }` and never a
+ * `bucket` field (the backend derives the destination bucket; web
+ * client.ts precedent). Reversed by ADR-042/categoria-unica-por-bucket D-08:
+ * a `nombre` stopped identifying a categoria once names became unique only
+ * within a bucket, so the caller's own categoria ROW ID is what identifies
+ * the target, resolved against the caller's own catalog by the backend
+ * (`CategoriaDesconocidaError` if it does not resolve or is not theirs).
  */
 export async function reclasificarCategoria(
   transaccionId: string,
-  categoria: string,
+  categoriaId: string,
 ): Promise<ApiResult<ReclasificarCategoriaDto>> {
   const r = await enviarMutacion(
     `/api/transacciones/${encodeURIComponent(transaccionId)}/categoria`,
     'PATCH',
-    { categoria },
+    { categoriaId },
   );
   if (!r.ok) {
     return r;

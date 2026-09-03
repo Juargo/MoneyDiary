@@ -128,10 +128,148 @@ const dtoDestino: ReclasificarCategoriaDto = {
   bucket: 'Necesidades',
 };
 
+// Two categorías named "Transporte" in different buckets — the fixture the
+// decisive WDM-10 tests below need. Kept separate from CATALOGO_FIXTURE so
+// the pre-existing scenarios (unique names) are unaffected.
+const CATALOGO_DUPLICADO: CatalogoDto = {
+  categorias: [
+    {
+      id: 'cat-transporte-necesidades',
+      nombre: 'Transporte',
+      bucket: 'Necesidades',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+    {
+      id: 'cat-transporte-deseos',
+      nombre: 'Transporte',
+      bucket: 'Deseos',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+    {
+      id: 'cat-ahorro',
+      nombre: 'Ahorro',
+      bucket: 'Ahorro',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+  ],
+};
+
 describe('ReclasificarCategoriaControl', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  // ── WDM-10: identity is id-keyed end-to-end, disambiguating duplicate names ──
+
+  it('renders each duplicate-named categoría as a distinct option keyed and valued by its own id, grouped under its own bucket (WDM-10)', async () => {
+    mockFetch(
+      { ok: true, status: 200, json: () => Promise.resolve(dtoDestino) },
+      CATALOGO_DUPLICADO,
+    );
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber"
+        montoLabel="$5.000"
+        bucketActual="Necesidades"
+        categoriaActual={{
+          id: 'cat-transporte-necesidades',
+          nombre: 'Transporte',
+        }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Uber',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    const opciones = screen.getAllByRole('option', {
+      name: 'Transporte',
+    }) as HTMLOptionElement[];
+    expect(opciones).toHaveLength(2);
+    const valores = opciones.map((o) => o.value).sort();
+    expect(valores).toEqual(
+      ['cat-transporte-deseos', 'cat-transporte-necesidades'].sort(),
+    );
+
+    const grupoNecesidades = screen.getByRole('group', {
+      name: 'Necesidades',
+    }) as HTMLOptGroupElement;
+    const grupoGustos = screen.getByRole('group', {
+      name: 'Gustos',
+    }) as HTMLOptGroupElement;
+    const opcionNecesidades = opciones.find(
+      (o) => o.value === 'cat-transporte-necesidades',
+    )!;
+    const opcionDeseos = opciones.find(
+      (o) => o.value === 'cat-transporte-deseos',
+    )!;
+    expect(grupoNecesidades).toContainElement(opcionNecesidades);
+    expect(grupoGustos).toContainElement(opcionDeseos);
+    // Neither label gets a bucket suffix — the optgroup stays the sole
+    // disambiguator (WDM-10).
+    expect(opcionNecesidades.textContent).toBe('Transporte');
+    expect(opcionDeseos.textContent).toBe('Transporte');
+  });
+
+  it('selecting the duplicate-named categoría in a different bucket sends its exact id and shows the correct cross-bucket confirmation (WDM-10)', async () => {
+    const fetchMock = mockFetch(
+      { ok: true, status: 200, json: () => Promise.resolve(dtoDestino) },
+      CATALOGO_DUPLICADO,
+    );
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber"
+        montoLabel="$5.000"
+        bucketActual="Necesidades"
+        categoriaActual={{
+          id: 'cat-transporte-necesidades',
+          nombre: 'Transporte',
+        }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Uber',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // Selects the "Deseos" duplicate by its own id — not by the shared name.
+    await user.selectOptions(select, 'cat-transporte-deseos');
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent(
+      'Esto mueve $5.000 de Necesidades a Gustos',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    // Exact body string equality — never the Necesidades duplicate's id,
+    // and never a `nombre` field alongside it (an extra key would produce a
+    // different JSON string and fail this assertion).
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/transacciones/tx-1/categoria',
+        expect.objectContaining({
+          body: JSON.stringify({ categoriaId: 'cat-transporte-deseos' }),
+        }),
+      ),
+    );
   });
 
   it('renders a select with an accessible label naming the transaction (WCAT-05)', () => {
@@ -147,7 +285,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -177,7 +315,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -194,7 +332,7 @@ describe('ReclasificarCategoriaControl', () => {
     // the loading render.
     expect(select).toBeDisabled();
     expect(screen.getAllByRole('option')).toHaveLength(1);
-    expect(select.value).toBe('Supermercado');
+    expect(select.value).toBe('cat-supermercado');
 
     resolverCatalogo(respuestaCatalogo(CATALOGO_FIXTURE));
 
@@ -226,7 +364,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -251,7 +389,7 @@ describe('ReclasificarCategoriaControl', () => {
       screen.queryByRole('option', { name: 'Sueldo' }),
     ).not.toBeInTheDocument();
     // Current categoría preselected.
-    expect(select.value).toBe('Supermercado');
+    expect(select.value).toBe('cat-supermercado');
   });
 
   it('a SinCategoria row starts with no categoría selected (placeholder)', async () => {
@@ -296,7 +434,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -315,7 +453,7 @@ describe('ReclasificarCategoriaControl', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/transacciones/tx-1/categoria',
         expect.objectContaining({
-          body: JSON.stringify({ categoria: 'Transporte' }),
+          body: JSON.stringify({ categoriaId: 'cat-transporte' }),
         }),
       ),
     );
@@ -335,7 +473,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -374,7 +512,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={onMovida}
       />,
@@ -394,7 +532,7 @@ describe('ReclasificarCategoriaControl', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/transacciones/tx-1/categoria',
         expect.objectContaining({
-          body: JSON.stringify({ categoria: 'Transporte' }),
+          body: JSON.stringify({ categoriaId: 'cat-transporte' }),
         }),
       ),
     );
@@ -419,7 +557,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={onMovida}
       />,
@@ -457,7 +595,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -495,7 +633,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -537,7 +675,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -554,7 +692,7 @@ describe('ReclasificarCategoriaControl', () => {
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(select.value).toBe('Delivery');
+    expect(select.value).toBe('cat-delivery');
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
@@ -582,7 +720,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -619,7 +757,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -658,7 +796,7 @@ describe('ReclasificarCategoriaControl', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
       expect.objectContaining({
-        body: JSON.stringify({ categoria: 'Combustible' }),
+        body: JSON.stringify({ categoriaId: 'cat-combustible' }),
       }),
     );
   });
@@ -707,7 +845,7 @@ describe('ReclasificarCategoriaControl', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/transacciones/tx-2/categoria',
         expect.objectContaining({
-          body: JSON.stringify({ categoria: 'Transporte' }),
+          body: JSON.stringify({ categoriaId: 'cat-transporte' }),
         }),
       ),
     );
@@ -735,7 +873,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -755,7 +893,7 @@ describe('ReclasificarCategoriaControl', () => {
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(select.value).toBe('Delivery');
+    expect(select.value).toBe('cat-delivery');
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
@@ -774,7 +912,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -789,7 +927,7 @@ describe('ReclasificarCategoriaControl', () => {
     await user.selectOptions(select, 'Transporte');
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(select.value).toBe('Supermercado');
+    expect(select.value).toBe('cat-supermercado');
   });
 
   it('a just-created categoría is offered by the dropdown immediately, sourced from the live catalog with no code change (WCAT-04 delta)', async () => {
@@ -816,7 +954,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -847,7 +985,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -878,7 +1016,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Movimiento"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Transporte"
+        categoriaActual={{ id: 'cat-transporte', nombre: 'Transporte' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -921,7 +1059,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -965,7 +1103,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Uber Eats"
         montoLabel="$15.000"
         bucketActual="Deseos"
-        categoriaActual="Delivery"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
         periodo="2026-07"
         onMovida={onMovida}
       />,
@@ -987,7 +1125,7 @@ describe('ReclasificarCategoriaControl', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(onMovida).not.toHaveBeenCalled();
     // The select reverts to the original categoría (existing error path behavior).
-    expect(select.value).toBe('Delivery');
+    expect(select.value).toBe('cat-delivery');
   });
 
   it('an unresolved categoría (not found in the live catalog) is rejected as an error, never auto-committed as if same-bucket (ADR-015 fail-safe direction)', async () => {
@@ -1003,7 +1141,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -1029,7 +1167,7 @@ describe('ReclasificarCategoriaControl', () => {
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    expect(select.value).toBe('Supermercado');
+    expect(select.value).toBe('cat-supermercado');
     expect(
       fetchMock.mock.calls.filter(
         ([url]) => url === '/api/transacciones/tx-1/categoria',
@@ -1055,7 +1193,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,
@@ -1106,7 +1244,7 @@ describe('ReclasificarCategoriaControl', () => {
         descripcion="Supermercado Líder"
         montoLabel="$10.000"
         bucketActual="Necesidades"
-        categoriaActual="Supermercado"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
         periodo="2026-07"
         onMovida={vi.fn()}
       />,

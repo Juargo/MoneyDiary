@@ -274,4 +274,56 @@ describe('GrupoMovimientos', () => {
     await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
     expect(onMovida).toHaveBeenCalledWith('Gustos');
   });
+
+  it('passes categoriaActual as { id, nombre } — id from grupo.categoriaId, nombre from grupo.nombre (D-07)', async () => {
+    // Forces the mid-flight fallback branch inside
+    // ReclasificarCategoriaControl (catalog not loaded yet), which renders
+    // exactly one <option> sourced straight from the `categoriaActual` prop
+    // — the direct, unambiguous way to prove this caller passes an
+    // `{ id, nombre }` object, not the bare `grupo.nombre` string a
+    // fallback-to-first-option quirk could otherwise mask post-load.
+    let resolverCatalogo: (value: unknown) => void = () => {};
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        return new Promise((resolve) => {
+          resolverCatalogo = resolve;
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(RECLASIFICAR_DTO),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Cambiar categoría de Compra en Líder',
+    ) as HTMLSelectElement;
+
+    // GRUPO_FIXTURE.categoriaId is 'cat-supermercado' — the sole mid-flight
+    // <option>'s value must be that exact id, sourced from
+    // `categoriaActual.id`, not the group's bare `nombre` string.
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(select.value).toBe('cat-supermercado');
+    expect(select).toHaveTextContent('Supermercado');
+
+    resolverCatalogo({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+    await waitFor(() => expect(select).not.toBeDisabled());
+  });
 });

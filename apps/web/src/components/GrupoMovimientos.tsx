@@ -114,7 +114,9 @@ export function GrupoMovimientos({
                 montoLabel={tx.montoLabel}
                 bucketActual={bucketActual}
                 categoriaActual={
-                  grupo.categoriaId === null ? null : grupo.nombre
+                  grupo.categoriaId === null
+                    ? null
+                    : { id: grupo.categoriaId, nombre: grupo.nombre }
                 }
                 periodo={periodo}
                 onMovida={onMovida}
