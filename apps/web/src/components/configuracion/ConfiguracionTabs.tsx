@@ -6,25 +6,30 @@ import { FOCUS_RING } from './estilos';
  * Active-state contrast (fixed 2026-09-01).
  *
  * `TAB_ACTIVE` was `bg-accent font-semibold text-primary` — `NavItem`'s fill
- * copied over WITHOUT the rail that carries it there. On white (the sidebar)
- * the `--accent` grey #eeeeee still reads; these tabs sit on `--background`
- * #e8f0fa, where that same grey measures **1.07:1** against the ground. Not
- * "low contrast" — indistinguishable. `--accent` is defined as
- * "surface-container" for WHITE surfaces, and this is not one.
+ * copied over WITHOUT the rail that carries it there. The `--accent` surface
+ * reads against the sidebar's own ground; these tabs sit on `--background`,
+ * where that same value measured **1.07:1**. Not "low contrast" —
+ * indistinguishable. `--accent` is defined as "surface-container", and this
+ * ground is not one.
  *
- * The fix reuses `NavItem`'s full idiom instead of half of it:
+ * The fix reuses `NavItem`'s full idiom instead of half of it. Every signal
+ * below is a TOKEN, so the mechanism survived the Tecno-Analítico restyle
+ * (2026-09-02) untouched — only the measurements moved, and every one of them
+ * improved:
  *
- * | Signal | Value | Contrast on #e8f0fa |
- * |---|---|---|
- * | rail | `border-primary` #2260b2, 4px | **5.36:1** (SC 1.4.11 needs 3:1 for non-text) |
- * | fill | `bg-card` #ffffff | 1.16:1 — weak alone, deliberately |
- * | text | `text-primary` #2260b2 on white | 6.21:1 |
+ * | Signal | Value | On `--background` #090a0f | was (light) |
+ * |---|---|---|---|
+ * | rail | `border-primary` #22d3ee, 4px | **10.94:1** (SC 1.4.11 needs 3:1 for non-text) | 5.36:1 |
+ * | fill | `bg-card` #11131a | 1.07:1 — weak alone, deliberately | 1.16:1 |
+ * | text | `text-primary` #22d3ee on card | 10.27:1 | 6.21:1 |
  *
- * The rail carries the contrast; the white fill is NOT there for contrast but
- * for meaning — the selected tab takes the same white as the content cards to
- * its right, so it reads as "this tab owns that panel". `bg-accent` could
- * never do that job even if it were visible, because the grey is not the
- * surface colour of anything on this screen.
+ * The rail carries the contrast; the card fill is NOT there for contrast but
+ * for meaning — the selected tab takes the same surface as the content cards
+ * to its right, so it reads as "this tab owns that panel". That the fill is
+ * nearly invisible against the ground is the DESIGN, not a regression: do not
+ * "fix" the 1.07:1 by darkening or lightening it. `bg-accent` could never do
+ * that job even if it were visible, because it is not the surface colour of
+ * anything on this screen.
  *
  * **Why the rail is on the LEFT here and on the right in the sidebar.** The
  * sidebar uses `border-r-4` because its right edge IS the boundary with the
@@ -41,10 +46,10 @@ import { FOCUS_RING } from './estilos';
  * a tab shifts nothing.
  *
  * Two further drifts against `NavItem` that this closes:
- * - inactive moves from `text-muted-foreground` (#44474e, neutral grey) to
- *   `text-secondary` (#61597f, the strong lavanda) — the SAME colour the
- *   sidebar uses for a non-active nav link. They were two different answers
- *   to one question. 5.59:1 on the blue ground, AA.
+ * - inactive moves from `text-muted-foreground` (neutral grey) to
+ *   `text-secondary` — the SAME colour the sidebar uses for a non-active nav
+ *   link. They were two different answers to one question. 9.92:1 on the dark
+ *   ground, AA (was 5.59:1 on the blue one).
  * - these tabs had NO focus ring at all while `NavItem` has one. A nav link
  *   with no visible focus indication is a real a11y gap (SC 2.4.7), not a
  *   stylistic preference.

@@ -21,8 +21,13 @@ import type { BucketSemaforoViewModel } from '@/domain/semaforo-detalle-view-mod
  * appended via `cn()` here only (`DASHBOARD_CARD_CLASS` itself untouched).
  * A `null`/unknown `estadoSemaforo` (sin datos) is not in the map, so the
  * card keeps the neutral `bg-card` shell from `DASHBOARD_CARD_CLASS`. Text
- * stays on `text-foreground`/`text-muted-foreground` — already proven ≥7.7:1
- * against all three washes for `SemaforoHeroCard`, same tokens here.
+ * stays on `text-foreground`/`text-muted-foreground`. The ≥7.7:1 figure this
+ * comment used to quote was measured against the LIGHT washes; the
+ * Tecno-Analítico inversion (2026-09-02) flipped those tokens to near-black
+ * tints, so the pairs were re-measured rather than assumed: foreground
+ * 12.65:1 (verde) / 13.08:1 (amarillo) / 14.47:1 (rojo), muted-foreground
+ * 5.58:1 / 5.77:1 / 6.38:1 — every combination clears AA by more than the
+ * light identity did.
  */
 export function BucketSemaforoCard({
   viewModel,

@@ -19,21 +19,27 @@ describe('MiniDistribucionPie', () => {
     const fills = screen
       .getAllByTestId('mini-pie-slice')
       .map((el) => el.getAttribute('fill'));
-    // Serene Finance palette: azul→Necesidades, lavanda→Gustos, amarillo→Ahorro.
+    // Bucket pastel palette: azul→Necesidades, lavanda→Gustos, amarillo→Ahorro.
     expect(fills).toEqual(['#8FA7D1', '#B1A7D1', '#E6D194']);
   });
 
   // WDS-07 (WCAG 1.4.11 non-text contrast): same adjacency problem as the
   // main pie's pastel wedges — a separator stroke between slices.
   // Reliability follow-up (post-PR4): reverted from the `stroke-card` token
-  // class back to a theme-immune literal — `COLOR_BUCKET`'s pastel fills are
-  // PERMANENT literal hex that don't flip with `.dark`, but `--card` DOES
-  // flip (dark in dark mode), which would silently reintroduce this exact
-  // contrast failure once dark mode is wired up.
-  it('renders a theme-immune white stroke separator on each slice for WCAG 1.4.11 adjacency contrast, never a theme-flipping token', () => {
+  // class back to a theme-immune literal. THIS component is the sharpest
+  // reason that revert has to stand: its pie renders inside a cell that is
+  // `bg-card` normally but `bg-ingreso` when the month is selected
+  // (`ResumenAnual`), so no single surface token could ever describe the
+  // stroke's backdrop.
+  //
+  // Tecno-Analítico (2026-09-02): only the literal's VALUE changed, white →
+  // #0d0f15 — separation from the permanent pastel fills went from
+  // 1.51-2.44:1 to 7.86-12.69:1, and the stroke stopped drawing a bright
+  // halo on the dark ground (1.03:1 on card, 1.24:1 on the ingreso tint).
+  it('renders a theme-immune dark stroke separator on each slice for WCAG 1.4.11 adjacency contrast, never a theme-flipping token', () => {
     render(<MiniDistribucionPie tajadas={tajadas} />);
     for (const slice of screen.getAllByTestId('mini-pie-slice')) {
-      expect(slice).toHaveAttribute('stroke', '#ffffff');
+      expect(slice).toHaveAttribute('stroke', '#0d0f15');
       expect(slice).not.toHaveClass('stroke-card');
     }
   });

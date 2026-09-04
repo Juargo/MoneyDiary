@@ -29,9 +29,14 @@ import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-
  * view-model (WDM-03 — unlike `IngresosMesViewModel`'s pre-formatted
  * `fechaLabel`), so the ISO-to-label conversion happens HERE, at the call
  * site, via `aFechaCorta` — mirroring how `ingresos-mes-view-model.ts`
- * already does the same slice, just one layer up the stack. Success/failure
- * is not announced here; the parent page owns the `role="status"` region
- * (`onEliminado` bubbles up to it, same as `onMovida`).
+ * already does the same slice, just one layer up the stack. BOTH consumers
+ * of the date go through that helper now: the visible date column and the
+ * delete control's label. The column used to print the raw timestamp while
+ * the control beside it printed the short form — the display-consistency
+ * follow-up `domain/fecha.ts` predicted for this file, closed 2026-09-03.
+ * Success/failure is not announced here; the parent page owns the
+ * `role="status"` region (`onEliminado` bubbles up to it, same as
+ * `onMovida`).
  *
  * Undo grace window (design-hardening change, resolves critique P1):
  * `EliminarMovimientoControl` schedules a delayed commit and closes its
@@ -88,26 +93,63 @@ export function GrupoMovimientos({
           : 'flex flex-col gap-3'
       }
     >
+      {/* The subtotal and the count are figures, so they take mono while the
+          category name stays in the sans face. The heading's ACCESSIBLE NAME
+          is unchanged (the wrapping spans add no text), but its `getNodeText`
+          is NOT: Testing Library joins only an element's direct text-node
+          children, so a `getByText('Ñoquis · $… · 1 movimiento')` stops
+          matching once the figures move into child spans. Query this heading
+          by role/name, not by text. */}
       <h2 id={idTitulo} className="text-sm font-semibold text-secondary">
-        {grupo.nombre} · {grupo.subtotalLabel} · {grupo.conteo}{' '}
+        {grupo.nombre} ·{' '}
+        <span className="font-mono tabular-nums">{grupo.subtotalLabel}</span> ·{' '}
+        <span className="font-mono tabular-nums">{grupo.conteo}</span>{' '}
         {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
       </h2>
-      <ul id={idLista} className="flex flex-col gap-3">
+      {/* Tecno-Analítico (2026-09-02): the rows stop being individual cards
+          (`rounded-lg border bg-card p-3 shadow-sm` each, separated by
+          `gap-3`) and become a flat ledger — one `divide-y divide-border`
+          stack of grid rows. Fifty movements used to render as fifty
+          floating boxes, each with its own frame competing with the group's
+          own frame; now the only horizontal lines on screen are the ones
+          that actually separate two records.
+
+          `grid-cols-[auto_1fr_auto]` is what makes it a ledger rather than
+          three spans in a `justify-between` flex: fecha and monto are
+          content-width columns that align down the whole list, and the
+          description takes the slack. Under the old flex the three fields
+          landed at a different x on every row — it read like a table with
+          no columns. `items-baseline` sits the mono figures on the same
+          baseline as the description's sans text. */}
+      <ul id={idLista} className="divide-y divide-border">
         {visibles.map((tx) => (
           <li
             key={tx.id}
-            className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm"
+            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 gap-y-2 py-2.5 text-sm"
           >
-            <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-              <span>{tx.fecha}</span>
-              <span className="font-medium text-foreground">
-                {tx.descripcion}
-              </span>
-              <span className="font-medium text-foreground">
-                {tx.montoLabel}
-              </span>
-            </div>
-            <div className="flex items-center justify-end gap-2">
+            {/* Mono + tabular-nums so dates form a rigid column (DESIGN.md:
+                mono is mandatory for every figure, date and amount).
+
+                `aFechaCorta`, not `tx.fecha` verbatim: this view-model carries
+                a RAW ISO timestamp (see the docstring above), so the column
+                used to print "2026-07-05T00:00:00.000Z" while the delete
+                control on the same row — already routed through the same
+                helper — said "2026-07-05". This is the display-consistency
+                follow-up that `domain/fecha.ts`'s own `aFechaCorta` docblock
+                names for this exact line. */}
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {aFechaCorta(tx.fecha)}
+            </span>
+            <span className="min-w-0 break-words text-foreground">
+              {tx.descripcion}
+            </span>
+            {/* `text-right` + `tabular-nums` on a content-width column: the
+                digits line up across rows, so magnitudes are comparable by
+                eye without reading a single number. */}
+            <span className="text-right font-mono font-medium tabular-nums text-foreground">
+              {tx.montoLabel}
+            </span>
+            <div className="col-span-3 flex items-center justify-end gap-2">
               <ReclasificarCategoriaControl
                 transaccionId={tx.id}
                 descripcion={tx.descripcion}

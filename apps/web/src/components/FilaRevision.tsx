@@ -87,15 +87,27 @@ import type { CatalogoEstado } from '@/api/types';
  * Ingreso rows (2026-08-31): a row the backend classified as `Ingreso`
  * renders NO bucket control, NO categoría select and NO "+" trigger — just
  * the header (with a bold green "Ingreso" marker) plus a quiet line saying
- * the row is
- * classified automatically. `CommitIngestaUseCase` Rule 2 already persists
- * `{ Ingreso, null }` for these rows and silently DISCARDS any overlay entry
- * on them, so every control this row used to show promised an edit the
- * server was always going to throw away. Full opacity, unlike duplicates:
- * this transaction IS being imported, it simply needs no decision. It is
- * also not selectable for bulk apply (`esFilaSeleccionable`) — a bulk apply
- * that silently skipped it would be the same lie in another shape. Duplicate
- * status still wins: a duplicate income row takes the duplicate path.
+ * the row is classified automatically. `CommitIngestaUseCase` Rule 2 already
+ * persists `{ Ingreso, null }` for these rows and silently DISCARDS any
+ * overlay entry on them, so every control this row used to show promised an
+ * edit the server was always going to throw away. Full opacity, unlike
+ * duplicates: this transaction IS being imported, it simply needs no
+ * decision. It is also not selectable for bulk apply (`esFilaSeleccionable`)
+ * — a bulk apply that silently skipped it would be the same lie in another
+ * shape — while still COUNTING as classified in the progress readout
+ * (`domain/clasificacion-preview.ts`); it needs no decision, so it must not
+ * inflate the "pending" number. Duplicate status still wins: a duplicate
+ * income row takes the duplicate path.
+ *
+ * One choice inside that rule that is easy to "fix" backwards, migrated here
+ * 2026-09-03 from the `Bucket Segmented Control` section of `DESIGN.md` (that
+ * file became a short north star and no longer catalogues components): the
+ * row renders NO control at all rather than a DISABLED one. A disabled
+ * control still reads as a choice you could have made and are being denied,
+ * and there is no choice here to deny. The rest of that paragraph did NOT
+ * need moving — the plain-text-not-a-`Badge` reasoning already lives inline
+ * at the marker itself (below), and `SelectorBucket`'s own docblock covers
+ * the chip treatment in more detail than DESIGN.md ever did.
  *
  * ADR-024: zero business logic here — amounts formatted via `formatearMontoCLP`
  * (display-only), no re-computation, no dedup logic, and the Ingreso RULE is
@@ -306,7 +318,9 @@ export function FilaRevision({
           {fila.descripcion}
         </span>
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums">
-          <span>{fila.fecha.slice(0, 10)}</span>
+          {/* `font-mono` on the date only, not on the whole meta line: the
+              "Duplicado" badge beside it is a word, not a figure. */}
+          <span className="font-mono">{fila.fecha.slice(0, 10)}</span>
           {fila.esDuplicado && <Badge variant="outline">Duplicado</Badge>}
           {/* Plain bold green text, deliberately NOT a `Badge`: "Duplicado"
               is an EXCEPTION worth a chip (that row is being skipped),
@@ -321,7 +335,13 @@ export function FilaRevision({
           )}
         </span>
       </div>
-      <dl className="shrink-0 text-right tabular-nums">
+      {/* `font-mono` added at the <dl> so every <dd> inherits it — the column
+          was already `text-right tabular-nums`, this only swaps the face.
+          The <dl>/<dt sr-only>/<dd> structure is deliberately UNTOUCHED:
+          those "Cargo"/"Abono"/"Monto" terms are the only thing telling a
+          screen-reader user which figure is which, now that sign and color
+          carry that distinction visually. */}
+      <dl className="shrink-0 text-right font-mono tabular-nums">
         {ambosCero ? (
           <div className="flex justify-end gap-1">
             <dt className="sr-only">Monto</dt>

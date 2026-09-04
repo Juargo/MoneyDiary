@@ -65,7 +65,26 @@ export function NavItem({
   return (
     <Link
       to={item.to}
-      activeOptions={{ exact: true }}
+      // Two defects fixed here 2026-09-03, both measured in the browser and
+      // both invisible to a suite of bare, flat, search-less routes:
+      //
+      // `includeSearch: false` — router-core DEFAULTS IT TO TRUE, meaning a
+      // link is active only if the URL's search params inclusively match the
+      // link's own `search` prop. Nav items declare no `search`, so every
+      // screen carrying query state lost its active item: `/` lit "Resumen",
+      // `/?periodo=2026-07` lit NOTHING. That is the dashboard, the app's
+      // most-visited screen. A section link answers "where am I", not "what
+      // is this screen showing" — the period belongs to the second question.
+      //
+      // `exact` only for the index — NOT a blanket true, and NOT a blanket
+      // false. With `exact: true` everywhere, drilling into a section put the
+      // sidebar back to no active item (`/configuracion/categorias` lit
+      // nothing). With `exact: false` everywhere, `to: '/'` is a PREFIX of
+      // every path in the app, so "Resumen" would claim to be the current
+      // page on every screen — trading no active item for a permanently
+      // WRONG one. The index is the one route that needs the exact match; a
+      // section wants its children to keep it lit.
+      activeOptions={{ exact: item.to === '/', includeSearch: false }}
       activeProps={{ className: styles.active, 'aria-current': 'page' }}
       className={styles.base}
     >

@@ -16,10 +16,13 @@ import type { NavRoute } from '@/components/app-shell/nav-items';
  * context-appropriate copy without duplicating this component (DRY) — the
  * resumen screen keeps the defaults, unchanged.
  *
- * Design-system hardening round 2 (P1): reskinned off raw `slate-*` onto
- * the Serene Finance semantic tokens. Contrast (index.css hexes): title
- * `--foreground` (#1a1c1c) on `--background` (#e8f0fa) ≈ 14.9:1; description
- * `--muted-foreground` (#44474e) on `--background` ≈ 8.13:1 (both AA).
+ * Design-system hardening round 2 (P1): reskinned off raw `slate-*` onto the
+ * semantic tokens, which is why it followed the Tecno-Analítico restyle
+ * (2026-09-03) with no edit — only the measurements moved. Contrast
+ * (index.css hexes): title `--foreground` (#e6e9ef) on `--background`
+ * (#090a0f) ≈ 16.26:1; description `--muted-foreground` (#949cad) on
+ * `--background` ≈ 7.17:1 (both AA). Under the retired light palette these
+ * were 14.9:1 and 8.13:1.
  *
  * Design critique P1 fix ("empty state without a CTA"): `accion` is OPT-IN
  * — this component never assumes "upload a cartola" is every caller's true

@@ -135,13 +135,34 @@ function Pie({
             tabIndex={0}
             aria-label={ETIQUETA_BUCKET[slice.bucket] ?? slice.bucket}
             stroke={PIE_WEDGE_STROKE}
-            // Round-9 critique P3: converged to the shared --ring token
-            // (#1a1c1c) from the old slate-800 (#1e293b) "do NOT re-tint"
-            // literal — contrast against every bucket pastel wedge fill can
-            // only improve. See the canonical ratio table in
-            // `lib/bucket-colors.ts` (above `construirOpcionesBucket`'s
-            // "Focus-ring contrast" comment) for the verified numbers.
-            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            // TWO-TONE focus indicator (2026-09-03) — required here, and only
+            // here, because the outline crosses two opposite backgrounds.
+            //
+            // Round 9 pointed every focus state at the shared `--ring` token
+            // and noted contrast "can only improve": true while `--ring` was
+            // #1a1c1c, a dark ring on light pastels (7.02-11.34:1). The
+            // Tecno-Analítico restyle moved `--ring` to cyan #67e8f9, which is
+            // right for the other ~40 focusable things in the app (12.80:1 on
+            // `bg-card`) but WRONG here: `outline` on an SVG path draws around
+            // the path's BOUNDING BOX, and a wedge's bbox rectangle cuts
+            // straight across neighbouring pastel fills, where cyan measures
+            // 1.04-1.68:1 — under the WCAG 2.2 SC 1.4.11 3:1 floor.
+            //
+            // No single opaque colour fixes it: clearing 3:1 against the
+            // lightest pastel (#e6d194) caps relative luminance at 0.093,
+            // while clearing 3:1 against `--background` needs at least 0.113.
+            // The interval is EMPTY. So the indicator carries two tones, each
+            // covering where the other fails:
+            //   - the cyan `outline-ring` bbox rectangle, for the stretches
+            //     that fall on the dark card/background (12.80:1);
+            //   - the wedge's OWN stroke, which on focus goes dark and
+            //     thickens to 4px, for the stretches that fall on pastel
+            //     (7.86-12.69:1, the `PIE_WEDGE_STROKE` table in
+            //     `lib/pie-colors.ts`). It also traces the wedge's real shape
+            //     rather than a rectangle, so it reads as "this slice".
+            // Do not collapse this back to a single ring without re-deriving
+            // the interval above.
+            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:[stroke-width:4]"
             onClick={() => onSelectSlice(slice.bucket)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
@@ -171,7 +192,7 @@ function Pie({
               x={x}
               y={y}
               // WDS-07 (WCAG 2.2 AA): white (#FFFFFF) FAILS contrast on all 4
-              // Serene Finance pastel fills (1.52-2.49:1, under the 3:1
+              // bucket pastel fills (1.52-2.49:1, under the 3:1
               // large-text floor). Theme-immune literal — see
               // `lib/pie-colors.ts` for why this must NOT be a
               // `--foreground` token class (it flips in dark mode, the
@@ -308,7 +329,14 @@ export function DistribucionPie({
 
       {/* IDEAL reference inset — bottom-right, matching the mockup. */}
       <div className="absolute right-1 bottom-0 flex flex-col items-center">
-        <div className="flex items-center justify-center rounded-full border-2 border-white bg-white p-[3px]">
+        {/* Cut-out ring that lifts the IDEAL inset off the main donut behind
+            it. `bg-card`/`border-card` TOKENS here, not a `pie-colors`
+            literal: the literal rule exists because SVG `fill`/`stroke`
+            attributes cannot take Tailwind classes — this is a plain <div>
+            on a known surface, so it should follow that surface. It was
+            `border-white bg-white`, which under the dark identity punched a
+            bright white disc into the chart. */}
+        <div className="flex items-center justify-center rounded-full border-2 border-card bg-card p-[3px]">
           <svg
             width={idealSize}
             height={idealSize}

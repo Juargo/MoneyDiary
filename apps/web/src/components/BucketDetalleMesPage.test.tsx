@@ -477,8 +477,18 @@ describe('BucketDetalleMesPage', () => {
     );
 
     await screen.findByText('Total $9.007.199.254.740.993 · 1 movimiento');
+    // Queried by ROLE, not by text: the Tecno-Analítico pass (2026-09-02)
+    // wraps the group heading's figures in `font-mono tabular-nums` spans, and
+    // `getByText` reads `getNodeText`, which joins only an element's DIRECT
+    // text-node children — a figure inside a child <span> becomes invisible to
+    // it. A heading's ACCESSIBLE NAME concatenates across descendants, so this
+    // still asserts exactly what it always did (the BigInt-exact CLP label
+    // rendered verbatim, WCAT-02) and no longer depends on the heading being
+    // one flat text node.
     expect(
-      screen.getByText('Ñoquis · $9.007.199.254.740.993 · 1 movimiento'),
+      screen.getByRole('heading', {
+        name: 'Ñoquis · $9.007.199.254.740.993 · 1 movimiento',
+      }),
     ).toBeInTheDocument();
   });
 

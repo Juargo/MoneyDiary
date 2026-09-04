@@ -1,5 +1,13 @@
 @import 'tailwindcss';
 
+/*
+ * `.dark` is never applied by anything: the Tecno-Analítico restyle
+ * (2026-09-02) makes dark the ONLY theme, so the dark values live directly in
+ * `:root` and there is no theme toggle — same single-system decision the
+ * previous light identity made, only inverted. This variant stays declared
+ * because shadcn's stock `button.tsx` / `badge.tsx` still ship `dark:`
+ * utility classes that need it to compile.
+ */
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -9,14 +17,45 @@
   --font-sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
 
   /*
-   * "Distribución del gasto" pie/legend bucket colors — Serene Finance
-   * palette (WEB ONLY; diverges from `apps/mobile/src/theme/colors.ts` by
-   * product decision). Registered as Tailwind 4 `@theme` tokens so they
-   * double as utility classes (`bg-necesidades`, `fill-gustos`, ...) AND as
-   * CSS vars (`var(--color-ahorro)`) for SVG `fill` attributes, which don't
-   * accept Tailwind classes directly. Keep in sync with
+   * Monospace family for the "Precisión de Terminal" north star: every
+   * figure, date and amount is set in mono (DESIGN.md). Geist Mono and
+   * JetBrains Mono are named FIRST but are NOT installed as dependencies —
+   * the token resolves to the platform mono stack today, and adding
+   * `@fontsource-variable/geist-mono` later starts using it with no CSS
+   * change. Pair `font-mono` with `tabular-nums` at the call site: the token
+   * only picks the family, it does not force figure alignment on its own.
+   */
+  --font-mono:
+    'Geist Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular,
+    'SF Mono', Menlo, Consolas, monospace;
+
+  /*
+   * "Distribución del gasto" pie/legend bucket colors (WEB ONLY; diverges
+   * from `apps/mobile/src/theme/colors.ts` by product decision). Registered
+   * as Tailwind 4 `@theme` tokens so they double as utility classes
+   * (`bg-necesidades`, `fill-gustos`, ...) AND as CSS vars
+   * (`var(--color-ahorro)`) for SVG `fill` attributes, which don't accept
+   * Tailwind classes directly. Keep in sync with
    * `apps/web/src/lib/bucket-colors.ts`. THESE ARE FILLS ONLY, never text —
    * see the two-tier color rule below.
+   *
+   * DELIBERATELY UNCHANGED by the Tecno-Analítico restyle (2026-09-02): the
+   * pastels were chosen against a LIGHT surface but they are mid-tone, so on
+   * the new `#090A0F` ground they still read as fills. Measured against that
+   * background, one line per token declared below so no one has to guess
+   * which number belongs to which:
+   *
+   *   --color-necesidades   #8fa7d1    8.11:1
+   *   --color-gustos        #b1a7d1    8.77:1
+   *   --color-ahorro        #e6d194   13.10:1
+   *   --color-exceso        #e88a8a    7.94:1
+   *   --color-sin-categoria #aeb4c4    9.53:1
+   *
+   * All far past the 3:1 non-text floor, and the donut's dark on-wedge label
+   * (`PIE_LABEL_FILL` #1a1c1c) still clears 7.02:1 on the darkest of them.
+   * Re-tinting them is a separate decision with a `bucket-colors.ts` sync and
+   * a pie-contrast re-verification attached; it is not required for AA and
+   * was not part of this change.
    */
   --color-necesidades: #8fa7d1; /* soft blue — Necesidades */
   --color-gustos: #b1a7d1; /* lavanda — Deseos/Gustos */
@@ -26,146 +65,190 @@
 
   /*
    * Income card fill+text PAIR (DCR-01/03). Unlike the bucket fills above
-   * (fills only, never text), income is a self-contained mint+green pair —
+   * (fills only, never text), income is a self-contained pair —
    * `--color-ingreso` is the card background, `--color-ingreso-foreground`
    * is the ONLY text token in this block, following shadcn's `-foreground`
-   * convention. Contrast: 6.78:1 (AA) — see spec DCR-06.
+   * convention.
+   *
+   * Tecno-Analítico inversion: the light system paired a MINT fill with dark
+   * emerald text; on a matte-dark ground that reads as a glowing white block,
+   * so the pair inverts to a deep green tint carrying terminal-green text.
+   * The fill/text ROLES are unchanged, only their lightness swapped.
+   * Contrast: 8.83:1 (AA) — was 6.78:1 under the light identity.
    */
-  --color-ingreso: #d1fae5; /* mint — income card fill */
-  --color-ingreso-foreground: #065f46; /* emerald — income card text */
+  --color-ingreso: #0c2a1d; /* deep green tint — income card fill */
+  --color-ingreso-foreground: #4ade80; /* terminal green — income card text */
 
   /*
-   * Estado de vínculo de identidad externa (US-042). MISMOS valores verificados
-   * del par `ingreso` (6.78:1, AA — DCR-06): no se introduce un color nuevo, se
-   * le da NOMBRE al segundo concepto que lo usa. Los valores están literales, NO
-   * como `var(--color-ingreso)`: un alias por referencia haría de la tarjeta de
-   * ingresos la fuente de verdad del color de un estado de seguridad. Si mañana
-   * cambia el color de ingresos, este par NO debe seguirlo.
+   * Estado de vínculo de identidad externa (US-042). MISMOS valores del par
+   * `ingreso` (8.83:1, AA): no se introduce un color nuevo, se le da NOMBRE
+   * al segundo concepto que lo usa. Los valores están literales, NO como
+   * `var(--color-ingreso)`: un alias por referencia haría de la tarjeta de
+   * ingresos la fuente de verdad del color de un estado de seguridad. Si
+   * mañana cambia el color de ingresos, este par NO debe seguirlo.
    */
-  --color-vinculo-activo: #d1fae5; /* mint — same verified pair, 6.78:1 AA */
-  --color-vinculo-activo-foreground: #065f46; /* emerald */
+  --color-vinculo-activo: #0c2a1d; /* deep green tint — same verified pair, 8.83:1 AA */
+  --color-vinculo-activo-foreground: #4ade80; /* terminal green */
 
   /*
-   * Semáforo estado chip PAIRS (design-token debt burn-down, 2026-08-27) —
-   * replace the ad-hoc `bg-emerald-100 text-emerald-700` / `bg-amber-100
-   * text-amber-700` / `bg-rose-100 text-rose-700` literals in
-   * `lib/semaforo-estilos.ts`. Exact Tailwind v4 default-palette hexes
-   * (verified via oklch→sRGB conversion of `node_modules/tailwindcss/
-   * theme.css` — v4's palette shifted from v3's, so the old hex memory is
-   * wrong). Each pair follows the `ingreso`/`vinculo-activo` precedent:
-   * literal values, no aliasing, so a future edit to one semáforo color
-   * never silently drags the others. Contrast verified AA (4.5:1 floor):
-   * verde 4.72:1, amarillo 4.52:1 (amber-700 fg — passes, but the closest
-   * margin of the three; re-check if the fill ever changes), rojo 5.02:1.
+   * Semáforo estado chip PAIRS. Each pair follows the
+   * `ingreso`/`vinculo-activo` precedent: literal values, no aliasing, so a
+   * future edit to one semáforo color never silently drags the others.
+   *
+   * Tecno-Analítico inversion: the light system used Tailwind's `*-100` fills
+   * with `*-700` text; both halves swap roles — a near-black tint of the same
+   * hue carries the neon `*-400` tone as text. Contrast verified AA (4.5:1
+   * floor), and every pair now clears it by a WIDER margin than the light
+   * identity did: verde 8.83:1 (was 4.72:1), amarillo 9.53:1 (was 4.52:1 —
+   * the tightest of the old three, no longer a concern), rojo 6.54:1 (was
+   * 5.02:1).
    */
-  --color-semaforo-verde: #d0fae5; /* emerald-100 */
-  --color-semaforo-verde-foreground: #007a55; /* emerald-700 — 4.72:1 AA */
-  --color-semaforo-amarillo: #fef3c6; /* amber-100 */
-  --color-semaforo-amarillo-foreground: #bb4d00; /* amber-700 — 4.52:1 AA */
-  --color-semaforo-rojo: #ffe4e6; /* rose-100 */
-  --color-semaforo-rojo-foreground: #c70036; /* rose-700 — 5.02:1 AA */
+  --color-semaforo-verde: #0c2a1d; /* deep green tint */
+  --color-semaforo-verde-foreground: #4ade80; /* terminal green — 8.83:1 AA */
+  --color-semaforo-amarillo: #2a2109; /* deep amber tint */
+  --color-semaforo-amarillo-foreground: #fbbf24; /* amber-400 — 9.53:1 AA */
+  --color-semaforo-rojo: #2c1017; /* deep rose tint */
+  --color-semaforo-rojo-foreground: #fb7185; /* rose-400 — 6.54:1 AA */
 
   /*
-   * Semáforo ZONE BAND fills (`ZonaBar.tsx`) — replace `bg-emerald-300` /
-   * `bg-amber-300` / `bg-rose-300`. Fills only, never text (two-tier color
-   * rule), so no `-foreground` pair is needed here — separate token family
-   * from the chip pairs above (a band fill and a chip fill are different
-   * intents even though both key off the same estado).
+   * Semáforo ZONE BAND fills (`ZonaBar.tsx`). Fills only, never text
+   * (two-tier color rule), so no `-foreground` pair is needed here —
+   * separate token family from the chip pairs above (a band fill and a chip
+   * fill are different intents even though both key off the same estado).
+   *
+   * On the dark ground these take the NEON tone directly rather than a tint:
+   * a band is read as a saturated mark against `#090A0F`, not as a surface
+   * that holds text. Against the background: verde 10.29:1, amarillo
+   * 11.85:1, rojo 7.35:1 — all far past the 3:1 non-text floor.
    */
-  --color-semaforo-verde-band: #5ee9b5; /* emerald-300 */
-  --color-semaforo-amarillo-band: #ffd230; /* amber-300 */
-  --color-semaforo-rojo-band: #ffa1ad; /* rose-300 */
+  --color-semaforo-verde-band: #34d399; /* emerald-400 */
+  --color-semaforo-amarillo-band: #fbbf24; /* amber-400 */
+  --color-semaforo-rojo-band: #fb7185; /* rose-400 */
 
   /*
-   * Warning surface family — replaces the ad-hoc amber-50/100/200/800/900
-   * literals scattered across `DemoBanner.tsx`, `DemoUploadNudge.tsx`,
-   * `SemaforoDetallePage.tsx`'s "sin categoría" notice, and
-   * `PatronFila.tsx`'s REGEX hint. `-foreground` unifies what used to be a
-   * mix of `text-amber-800`/`text-amber-900` (no visible reason for two
-   * shades of the same "notice" text) AND fixes `PatronFila`'s
-   * `text-amber-600` on white, which measured ~3.2:1 — FAILS AA (a11y fix,
-   * not just a token rename).
+   * Warning surface family (`DemoBanner.tsx`, `DemoUploadNudge.tsx`,
+   * `SemaforoDetallePage.tsx`'s "sin categoría" notice, `PatronFila.tsx`'s
+   * REGEX hint). Same inversion as the semáforo chips: a deep amber tint
+   * surface carrying amber-400 notice text.
    */
-  --color-warning: #fffbeb; /* amber-50 — notice surface */
-  --color-warning-border: #fee685; /* amber-200 */
-  --color-warning-foreground: #973c00; /* amber-800 — 6.84:1 on warning, 7.09:1 on white */
-  --color-warning-accent: #fef3c6; /* amber-100 — hover wash */
+  --color-warning: #241d0b; /* deep amber tint — notice surface */
+  --color-warning-border: #8a701e; /* amber stroke — 4.16:1 on background, 3.52:1 on the warning fill */
+  --color-warning-foreground: #fbbf24; /* amber-400 — 10.02:1 on warning, 11.11:1 on card */
+  --color-warning-accent: #2e2510; /* one step up — hover wash (9.06:1 with the foreground) */
 
   /*
    * Success feedback TEXT (perfil/registro-movimiento "guardado" messages).
-   * SAME literal as `--color-ingreso-foreground` (#065f46, ~7.7:1 on white,
-   * 6.78:1 on the mint fill) — deliberately NOT aliased, same reasoning as
+   * SAME literal as `--color-ingreso-foreground` (#4ade80, 10.65:1 on card,
+   * 11.35:1 on the background) — deliberately NOT aliased, same reasoning as
    * `vinculo-activo` above: this is a distinct intent (generic success copy,
    * not income money) and must not silently follow the income card if that
-   * ever changes. Call sites previously used `text-emerald-700` (AA-passing);
-   * the shift to #065f46 is for semantic-token consistency, not an AA fix.
+   * ever changes.
    */
-  --color-exito-foreground: #065f46;
+  --color-exito-foreground: #4ade80;
 
   /*
    * Cargo (expense amount text) in the upload preview rows — paired with
    * `--color-ingreso-foreground` for abono on the same row. SAME literal as
-   * `--color-semaforo-rojo-foreground` (#c70036, 5.02:1 on white, AA) but a
-   * distinct token, same discipline as `exito`: an expense figure must never
-   * silently follow the semáforo chip if that one changes. NOT `destructive`
-   * (#ba1a1a) — that token means "error / destructive action", and a $6.990
-   * purchase is neither. Zero amounts deliberately do NOT take this color.
+   * `--color-semaforo-rojo-foreground` (#fb7185, 6.89:1 on card, 7.35:1 on
+   * the background, AA) but a distinct token, same discipline as `exito`: an
+   * expense figure must never silently follow the semáforo chip if that one
+   * changes. NOT `destructive` — that token means "error / destructive
+   * action", and a $6.990 purchase is neither, AND under this identity the
+   * two are no longer even the same red (see `--destructive` below). Zero
+   * amounts deliberately do NOT take this color.
    */
-  --color-cargo-foreground: #c70036;
+  --color-cargo-foreground: #fb7185;
 }
 
 /*
  * shadcn/ui design tokens (style: new-york, base color: slate — see
- * components.json), remapped to the Serene Finance identity. Same variable
- * *names* as before (consumers like `bg-card`/`text-muted-foreground`/
- * `bg-primary` keep working) — only the resolved colors shift, per the
- * "normalize to shadcn convention" decision (design.md §1) so the app never
- * runs two parallel token systems. Only the tokens actually consumed by the
- * components installed so far (card, badge) are wired below — no chart or
- * sidebar tokens (YAGNI, add when a component needs them).
+ * components.json), remapped to the Tecno-Analítico identity
+ * ("Precisión de Terminal", DESIGN.md). Same variable *names* as before
+ * (consumers like `bg-card`/`text-muted-foreground`/`bg-primary` keep
+ * working) — only the resolved colors shift, so the app never runs two
+ * parallel token systems.
  *
- * Two-tier color rule (drives contrast): pastels (`--color-necesidades` /
- * `--color-gustos` / `--color-ahorro` / `--color-exceso` above) are
- * backgrounds/SVG-fills/dots ONLY — never text, never a button background
- * with light text. Strong tones below (`--primary`/`--secondary`/
- * `--foreground`) are for all text and any control needing a light
- * foreground. Dark mode is unimplemented by decision (no theme toggle) —
- * the `.dark` override block was deleted (design-token debt burn-down,
- * 2026-08-27); `@custom-variant dark` above stays only because shadcn's
- * stock `button.tsx`/`badge.tsx` ship `dark:` utility classes that still
- * need the variant defined to compile, even though nothing ever applies
- * the `.dark` class.
+ * Two-tier color rule (drives contrast): the bucket pastels
+ * (`--color-necesidades` / `--color-gustos` / `--color-ahorro` /
+ * `--color-exceso` above) are backgrounds/SVG-fills/dots ONLY — never text.
+ * The tones below are for all text and any control needing a contrasting
+ * foreground.
+ *
+ * Restyle note (2026-09-02): this REPLACES the light "Serene Finance"
+ * identity rather than sitting beside it — dark is the only theme, there is
+ * no toggle and no `.dark` block.
+ *
+ * ⚠️ REVERTING IS NOT A ONE-FILE OPERATION. Restoring the light identity
+ * means reverting THIS file AND re-deriving `PIE_WEDGE_STROKE` in
+ * `lib/pie-colors.ts`. That constant is a hand-picked literal (it cannot be a
+ * token — see its own docstring), and its current value #0d0f15 was chosen to
+ * disappear into the DARK surfaces below. Revert `index.css` alone and
+ * `--card` goes back to white while the donut keeps a near-black stroke:
+ * exactly the halo defect this restyle removed, pointing the other way. No
+ * test catches that — the pie specs assert the literal, not its contrast
+ * against whatever `--card` currently resolves to, so a half-revert ships
+ * green. `git show HEAD~:apps/web/src/index.css` and
+ * `git show HEAD~:apps/web/src/lib/pie-colors.ts` have both sets of values.
  */
 :root {
   /*
-   * 2026-08-31 — squared system: the whole radius family derives from this
-   * one token (shadcn's "radius: 0" preset). Every `rounded-sm/md/lg/xl`
-   * (and bare `rounded`) utility resolves to 0; classes stay in the markup
-   * so flipping this back to 0.5rem restores the previous look in one line.
-   * `rounded-full` is NOT derived from it: the few remaining circles are
-   * geometry, not styling (spinners in states/Loading, the donut's IDEAL
-   * ring in DistribucionPie); every pill/dot/badge/bar was moved to
-   * `rounded-none` explicitly.
+   * Squared system, unchanged by the restyle: the whole radius family derives
+   * from this one token (shadcn's "radius: 0" preset). Every
+   * `rounded-sm/md/lg/xl` (and bare `rounded`) utility resolves to 0; classes
+   * stay in the markup so flipping this back to 0.5rem restores a soft look
+   * in one line. `rounded-full` is NOT derived from it: the few remaining
+   * circles are geometry, not styling (spinners in states/Loading, the
+   * donut's IDEAL ring in DistribucionPie).
+   *
+   * DESIGN.md allows "0 o 2px" — 0 is kept ON PURPOSE. `--radius-xl` below
+   * is `calc(var(--radius) + 4px)`, so setting 2px would silently move every
+   * `rounded-xl` surface to 6px while `rounded-sm` stayed pinned at 0 by its
+   * `max(0px, ...)` clamp: a token nudge that lands as an inconsistent
+   * corner set, not as a uniform 2px.
    */
+  /*
+   * On :root, NOT on `body`. `color-scheme` inherits, so a value on `body`
+   * does reach the controls — but the UA reads the ROOT element's used value
+   * to theme the viewport canvas and its native widgets. With it only on
+   * `body` the root computed to `normal` (verified in-browser), which is how
+   * you end up with a correctly-dark `<select>` whose UA-painted face is
+   * still light. Keep it here.
+   */
+  color-scheme: dark;
   --radius: 0rem;
-  --background: #e8f0fa; /* surface — pale pastel blue */
-  --foreground: #1a1c1c; /* on-surface */
-  --card: #ffffff; /* surface-container-lowest */
-  --card-foreground: #1a1c1c;
-  --popover: #ffffff;
-  --popover-foreground: #1a1c1c;
-  --primary: #2260b2; /* strong blue — buttons/heading TEXT (6.21:1 on white) */
-  --primary-foreground: #ffffff;
-  --secondary: #61597f; /* strong lavanda — section subheads TEXT (~6.5:1) */
-  --secondary-foreground: #ffffff;
-  --muted: #f3f3f3; /* surface-container-low */
-  --muted-foreground: #44474e; /* on-surface-variant — sub-labels (~8.9:1) */
-  --accent: #eeeeee; /* surface-container */
-  --accent-foreground: #1a1c1c;
-  --destructive: #ba1a1a; /* error */
-  --border: #c4c6cf; /* outline-variant */
-  --input: #c4c6cf;
-  --ring: #1a1c1c; /* focus ring — dark, >=3:1 on any surface */
+  --background: #090a0f; /* matte dark ground (DESIGN.md) */
+  --foreground: #e6e9ef; /* on-surface — 16.26:1 on background, 15.25:1 on card */
+  --card: #11131a; /* surface-container: one step up from the ground */
+  --card-foreground: #e6e9ef;
+  --popover: #11131a;
+  --popover-foreground: #e6e9ef;
+  --primary: #22d3ee; /* electric cyan — the accent layer (10.27:1 as text on card) */
+  --primary-foreground: #090a0f; /* ground ink on the cyan face — 10.94:1 */
+  --secondary: #a5b4fc; /* indigo — section subheads (9.31:1 on card) */
+  --secondary-foreground: #090a0f; /* 9.92:1 */
+  --muted: #171a23; /* surface-container-low */
+  --muted-foreground: #949cad; /* sub-labels — 6.73:1 on card, 7.17:1 on background */
+  --accent: #1b1f2a; /* hover wash */
+  --accent-foreground: #e6e9ef; /* 13.53:1 */
+  /*
+   * Crimson red. NOT the brighter #f43f5e the neon family uses elsewhere:
+   * shadcn's stock `button.tsx` and `badge.tsx` hardcode `text-white` on
+   * `bg-destructive`, and white on #f43f5e measures 3.67:1 — BELOW the 4.5:1
+   * AA floor. #e11d48 (rose-600) is the point where white clears AA (4.70:1)
+   * while the fill still separates from the ground (4.21:1). Changing this
+   * value means re-checking white-on-fill, not just the fill itself.
+   */
+  --destructive: #e11d48;
+  --border: #1e222d; /* 1px crisp stroke (DESIGN.md) — surface separation, decorative */
+  /*
+   * Input stroke is NOT `--border`. A field's border is what makes the
+   * control identifiable, so WCAG 2.2 AA (1.4.11 non-text contrast) puts a
+   * 3:1 floor on it — and #1e222d measures 1.24:1 against the ground. #5d6a8e
+   * is the same cool-slate hue walked up until it clears: 3.69:1 on
+   * background, 3.46:1 on card, 3.24:1 on muted.
+   */
+  --input: #5d6a8e;
+  --ring: #67e8f9; /* focus ring — light cyan, 13.64:1 on background, 12.80:1 on card */
 }
 
 @theme inline {
@@ -202,7 +285,11 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans);
-  color-scheme: light dark;
+  /* `color-scheme` lives on :root (see the note there) — declaring it again
+     here would be redundant, and having it ONLY here is the bug that note
+     describes. */
+  background-color: var(--background);
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -210,6 +297,28 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /*
+   * Native `<select>` painted EXPLICITLY rather than left to the UA.
+   * `color-scheme: dark` on :root is necessary but not sufficient: the app's
+   * two native selects (`CampoSelect`, `ReclasificarCategoriaControl`) set
+   * `text-foreground` and a border but no background, so the face fell
+   * through to the UA's own widget theme — which stayed light even with the
+   * root scheme computing to `dark` (verified in-browser: root `dark`,
+   * element `dark`, face still light). A control whose face the design does
+   * not own is a control that leaks the platform's theme, so it is set here,
+   * once, instead of adding a `bg-*` class to each call site and to every
+   * future one.
+   *
+   * `option` is listed separately on purpose: the popup list is painted by
+   * the OS in its own layer and does not inherit the closed control's
+   * background on every platform.
+   */
+  select,
+  option {
+    background-color: var(--card);
+    color: var(--foreground);
   }
 }
 

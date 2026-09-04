@@ -77,9 +77,11 @@ import type { Mensaje } from './mensajes';
  *    mounted, still empty, no longer 64px.
  *
  * The error region also moves off the raw `text-red-600` (#dc2626) onto the
- * `text-destructive` token (#ba1a1a): `PerfilForm` already used the token for
- * the identical semantic, so the screen was rendering two different reds for
- * "this failed".
+ * `text-destructive` token: `PerfilForm` already used the token for the
+ * identical semantic, so the screen was rendering two different reds for
+ * "this failed". Going through the token is why this survived the
+ * Tecno-Analítico restyle untouched when `--destructive` moved from #ba1a1a
+ * to #e11d48 (2026-09-03) — the raw literal would not have.
  */
 export function PerfilPanel({
   avisoGoogle,
