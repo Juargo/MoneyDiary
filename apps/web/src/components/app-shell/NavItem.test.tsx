@@ -20,7 +20,7 @@ import type { NavItemModel } from './nav-items';
  */
 async function renderNavItem(
   item: NavItemModel,
-  initialPath: '/' | '/otra' = '/',
+  initialPath: string = '/',
   variant?: 'sidebar' | 'bottom-tab',
 ) {
   const rootRoute = createRootRoute({
@@ -41,7 +41,30 @@ async function renderNavItem(
     path: '/otra',
     component: () => null,
   });
-  const routeTree = rootRoute.addChildren([indexRoute, otraRoute]);
+  // A parent SECTION route with a child, mirroring the real
+  // `/configuracion` → `/configuracion/categorias` shape. The synthetic tree
+  // used to be two flat leaves, which is exactly why the nested-route defect
+  // below could never surface here.
+  const seccionRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/configuracion',
+    component: () => <Outlet />,
+  });
+  const seccionIndexRoute = createRoute({
+    getParentRoute: () => seccionRoute,
+    path: '/',
+    component: () => null,
+  });
+  const seccionHijaRoute = createRoute({
+    getParentRoute: () => seccionRoute,
+    path: 'categorias',
+    component: () => null,
+  });
+  const routeTree = rootRoute.addChildren([
+    indexRoute,
+    otraRoute,
+    seccionRoute.addChildren([seccionIndexRoute, seccionHijaRoute]),
+  ]);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [initialPath] }),
@@ -55,6 +78,13 @@ const FUNCTIONAL_ITEM: NavItemModel = {
   kind: 'link',
   label: 'Resumen',
   to: '/',
+  icon: LayoutDashboard,
+};
+
+const SECTION_ITEM: NavItemModel = {
+  kind: 'link',
+  label: 'Configuración',
+  to: '/configuracion',
   icon: LayoutDashboard,
 };
 
@@ -76,6 +106,47 @@ describe('NavItem', () => {
 
   it('has no aria-current when the route does not match', async () => {
     await renderNavItem(FUNCTIONAL_ITEM, '/otra');
+
+    const link = screen.getByRole('link', { name: 'Resumen' });
+    expect(link).not.toHaveAttribute('aria-current');
+  });
+
+  // ── Two defects found in the browser, 2026-09-03 ────────────────────────
+  // Both were invisible to the original suite because it exercised bare,
+  // search-less, flat routes — the two shapes the real app almost never has.
+
+  // `activeOptions.includeSearch` DEFAULTS TO TRUE in router-core: a link is
+  // active only if the current URL's search params inclusively match the
+  // link's own `search` prop. Nav items declare no `search`, so every screen
+  // carrying query state (the dashboard is `/?periodo=YYYY-MM`, and it is the
+  // most-visited one) silently lost its active item — measured in-browser:
+  // `/` lit "Resumen", `/?periodo=2026-07` lit nothing at all.
+  //
+  // A section link is about WHERE you are, not about the state of the screen.
+  it('stays active when the current route carries search params (includeSearch)', async () => {
+    await renderNavItem(FUNCTIONAL_ITEM, '/?periodo=2026-07');
+
+    const link = screen.getByRole('link', { name: 'Resumen' });
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
+  // `exact: true` means "no children routes", so a nav item pointing at a
+  // section never lit up once the user drilled into it: `/configuracion` lit
+  // "Configuración", `/configuracion/categorias` lit nothing in the sidebar.
+  it('stays active on a child of its section route', async () => {
+    await renderNavItem(SECTION_ITEM, '/configuracion/categorias');
+
+    const link = screen.getByRole('link', { name: 'Configuración' });
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
+  // The counterweight to the test above, and the reason `exact` cannot simply
+  // be dropped for every item: `to: '/'` is a PREFIX of every path in the
+  // app, so a non-exact index link would report itself as the current page on
+  // every single screen — replacing "no active item" with "always the wrong
+  // active item", which is worse.
+  it('the index item does NOT stay active on other routes', async () => {
+    await renderNavItem(FUNCTIONAL_ITEM, '/configuracion/categorias');
 
     const link = screen.getByRole('link', { name: 'Resumen' });
     expect(link).not.toHaveAttribute('aria-current');
