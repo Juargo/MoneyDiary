@@ -21,6 +21,24 @@ import { iconoDeBucket } from '@/lib/bucket-icons';
  * one per `buckets` entry via `construirOpcionesBucket` (so the UI label is
  * "Gustos" while the option value stays the domain key "Deseos").
  *
+ * Glyphs: each chip leads with a 14px lucide icon resolved by
+ * `iconoDeBucket` (`lib/bucket-icons.ts`) — `House` Necesidades, `Sparkles`
+ * Gustos, `PiggyBank` Ahorro, `CircleDashed` Sin categoría. They are
+ * `aria-hidden` on purpose: the radio's accessible name must stay the label
+ * text alone, so a screen reader announces "Ahorro", not a decorative glyph
+ * plus "Ahorro".
+ *
+ * WHO RENDERS THIS, and who deliberately does not: the upload preview rows
+ * (`FilaRevision`) — EXCEPT rows the backend classified as `Ingreso`, which
+ * render no bucket control at all. The reasoning for that exception lives in
+ * `FilaRevision`'s own docblock, not here: this component is presentational
+ * and knows nothing about rows, ingresos or the catalog (see the contract
+ * above), and encoding a caller's decision in it would be the first crack in
+ * that. Noted only so the next reader does not go looking for a `disabled`
+ * or `hidden` prop that does not exist — the caller simply does not mount it.
+ * (Migrated 2026-09-03 from the `Bucket Segmented Control` section of
+ * `DESIGN.md`, retired when that file became a short north star.)
+ *
  * Chip fill (DESIGN.md shape lock: 6px radius/`rounded-md`, 32px height/`h-8`,
  * 14px text/`text-sm`): unselected chips are a plain bordered card; the
  * `peer-checked:` variant paints the SAME bucket pastel `FilaRevision`
