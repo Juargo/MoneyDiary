@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/app-shell/NavItem.tsx"
+        ],
+        "createdAt": "2026-08-27T23:59:34.721Z",
+        "reason": "Sanctioned incumbent: sidebar active rail accent (border-r-4 cobalt), documented in DESIGN.md Components/Navigation; survived 6 critique rounds"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/IngresoCard.test.tsx"
+        ],
+        "createdAt": "2026-08-30T02:48:02.716Z",
+        "reason": "false positive: line 26 is a negative Vitest assertion expect(card).not.toHaveClass('border-l-4') in spec DCR-02 asserting the anti-pattern is ABSENT; confirmed twice by detector triage"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/configuracion/ConfiguracionTabs.tsx"
+        ],
+        "createdAt": "2026-09-02T23:32:59.278Z",
+        "reason": "Repo decision dated 2026-09-01, documented in this file's own docstring with the contrast table. The 4px rail is the load-bearing WCAG 1.4.11 signal for the active tab at 10.94:1 on the ground, precisely because the bg-card fill is deliberately near-invisible at 1.07:1. Removing or softening it reintroduces the indistinguishable-active-tab defect that change fixed. It also reuses NavItem's existing border-r-4 idiom and is orientation-aware: border-b-4 below md, border-l-4 from md up. Not user confirmed in-session; suppressed on in-repo evidence."
+      }
+    ]
+  }
+}
