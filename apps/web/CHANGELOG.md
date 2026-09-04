@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.5.0...web-v0.6.0) (2026-09-04)
+
+
+### Features
+
+* **web:** badges de semaforo con lavado translucido y hairline ([274ec25](https://github.com/Juargo/MoneyDiary/commit/274ec2596aae4a4e25cf5274ca8e1184d0c7cf39))
+* **web:** ledger plano de movimientos y cifras en mono ([a118dd3](https://github.com/Juargo/MoneyDiary/commit/a118dd36ed8cde9369c4df4decf240e4b558a4f4))
+* **web:** rediseño Tecno-Analítico — identidad oscura para apps/web ([780a48d](https://github.com/Juargo/MoneyDiary/commit/780a48d56fed67a73230b5c84e55b3bae47cabc2))
+* **web:** reemplazar los tokens por la identidad Tecno-Analitico ([0e647b3](https://github.com/Juargo/MoneyDiary/commit/0e647b312616fabf9ffc90b423ee8bb0443e326b))
+
+
+### Bug Fixes
+
+* **web:** el grafico pintaba blanco y perdia el foco sobre los pasteles ([5858410](https://github.com/Juargo/MoneyDiary/commit/58584108124968beca8f94bfee7936cbcd303228))
+* **web:** el sidebar no marcaba el item activo en la mitad de las rutas ([620bd1d](https://github.com/Juargo/MoneyDiary/commit/620bd1d4373d10e3ced2514a9d2a7428f3087747))
+
+
+### Documentation
+
+* **web:** actualizar los comentarios de contraste a la identidad oscura ([1047c4f](https://github.com/Juargo/MoneyDiary/commit/1047c4fd3b553b18d1321908fc389c0c6bc149a7))
+* **web:** rescatar del DESIGN.md retirado la razon de diseno huerfana ([56ee1a8](https://github.com/Juargo/MoneyDiary/commit/56ee1a830ce761dc55bc1ffcc5a2577fcac5f50a))
+
 ## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.4.0...web-v0.5.0) (2026-09-03)
 
 
