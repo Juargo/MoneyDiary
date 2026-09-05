@@ -7,6 +7,15 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
 
+    /* Type safety — declared explicitly rather than inherited from the
+       compiler default: TS 5.x defaults `strict` to false while TS 6 defaults
+       it to true, so any tool bundling TS 5.x (an editor bundling its own
+       tsserver, for instance) typechecks this project non-strictly and reports
+       errors `tsc -b` never sees — notably TanStack Router's `createRouter`
+       guard, which degrades its `options` parameter to a string literal when
+       `strictNullChecks` is off. */
+    "strict": true,
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
