@@ -93,6 +93,22 @@ pero su premisa cambió: el gate no estaba vacío por falta de tráfico, sino po
 una malfunción tragada por `continue-on-error`. Se añade un guard que distingue
 `Runtime Error` (scanner roto, operación sin escanear) de un hallazgo real.
 
-Único pendiente de trabajo, además de 5.2: **promover el job `dast` de advisory
-a bloqueante** — la decisión que este mismo archivo dejó flagged en la tarea 4.1
-y que no se puede tomar hasta ver corridas limpias con el pin aplicado.
+~~Único pendiente de trabajo, además de 5.2: promover el job `dast` de advisory
+a bloqueante.~~ **HECHO el 2026-09-04.** La decisión flagged en la tarea 4.1 se
+tomó con evidencia: tres corridas consecutivas en `main` con el pin de
+`jsonschema-rs` aplicado, todas idénticas y limpias — `✅ Fuzzing`, 15/35
+operaciones seleccionadas, 825 casos generados y pasados, 0 Runtime Errors; ZAP
+con `FAIL-NEW: 0 · WARN-NEW: 4 · PASS: 115`.
+
+La promoción separa severidad en vez de prender un interruptor:
+
+- **Bloquean**: exit≠0 de Schemathesis (5xx / schema-conformance), malfunción
+  del scanner (`Runtime Error`), no-op de cualquiera de los dos (`Selected: 0/`,
+  reporte de ZAP vacío) y alertas **High** de ZAP.
+- **Advierten**: los WARN de ZAP (hoy 4, todos de headers). ADR-021 es explícito
+  en que moderate/low no bloquean.
+
+El step de ZAP conserva `fail_action: false` a propósito —la acción falla ante
+WARN igual que ante FAIL— y la severidad se gatea en un step aparte que lee
+`zap-report.json`. Sin ese step, ZAP no podría fallar nunca y su aporte al gate
+sería decorativo.
