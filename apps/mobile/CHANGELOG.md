@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.4.0...mobile-v0.5.0) (2026-09-12)
+
+
+### Features
+
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([fe11b73](https://github.com/Juargo/MoneyDiary/commit/fe11b737e386b2f077a37482687e6d82d15df464))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([8bd9173](https://github.com/Juargo/MoneyDiary/commit/8bd9173c8da95d38397b875477df543d55431247))
+
 ## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.3.0...mobile-v0.4.0) (2026-09-03)
 
 
