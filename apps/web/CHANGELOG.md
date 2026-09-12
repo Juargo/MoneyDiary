@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.7.0...web-v0.8.0) (2026-09-12)
+
+
+### Features
+
+* **api:** cero movimientos es error explícito, no éxito silencioso (Slice 4) ([3f35974](https://github.com/Juargo/MoneyDiary/commit/3f35974fef5a9327ebe5e5627633c2cdb54c05f8))
+* **api:** parsear la 2ª variante de cartola BCI + fin del fallo silencioso (plan) ([18fd9de](https://github.com/Juargo/MoneyDiary/commit/18fd9de0af53edb4b9eda7a94159204c804b6dc4))
+* ingesta de cartolas PDF protegidas con contraseña ([b3f8749](https://github.com/Juargo/MoneyDiary/commit/b3f8749c6536c688c231433b51a2880cea89c60a))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([fe11b73](https://github.com/Juargo/MoneyDiary/commit/fe11b737e386b2f077a37482687e6d82d15df464))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([8bd9173](https://github.com/Juargo/MoneyDiary/commit/8bd9173c8da95d38397b875477df543d55431247))
+* **web:** client.ts reenvía password opcional y expone code en ApiError ([0548c87](https://github.com/Juargo/MoneyDiary/commit/0548c87ad90e0a9a5e0d9fc1a2d9e837288bfe8a))
+* **web:** pide la contraseña del PDF solo cuando el archivo está protegido ([5f6c037](https://github.com/Juargo/MoneyDiary/commit/5f6c0372cb631e08616d9c4ac38419a0b2b9ea4f))
+* **web:** revela el campo de contraseña de forma reactiva en la subida ([b472442](https://github.com/Juargo/MoneyDiary/commit/b472442ec3ec4d954ccb069eae831ecde459b7c8))
+* **web:** usePreviewIngesta/useCommitIngesta reenvían password opcional ([667e1d5](https://github.com/Juargo/MoneyDiary/commit/667e1d5233bb05e2da9b13a320c260b9d020b806))
+
+
+### Bug Fixes
+
+* **web:** cancelar el diálogo de bucket aborta también el patrón pendiente ([3dba8fe](https://github.com/Juargo/MoneyDiary/commit/3dba8fe9a3e0aac5a7cc8f73b89d35c99718c509))
+* **web:** el botón Guardar confirma los patrones nuevos pendientes ([e25bfc5](https://github.com/Juargo/MoneyDiary/commit/e25bfc5f865ac3928466b837243955813b30cdae))
+* **web:** Guardar confirma los patrones nuevos pendientes ([0d249c9](https://github.com/Juargo/MoneyDiary/commit/0d249c915fd412bcae884751e24c2a6af9ece343))
+* **web:** un patrón nuevo no se podía guardar sin adivinar la tecla Enter ([ac9f998](https://github.com/Juargo/MoneyDiary/commit/ac9f9985a94c7a3207fe43271c9b9d8116aa12f9))
+* **web:** un patrón nuevo no se podía guardar sin adivinar la tecla Enter ([8bf1493](https://github.com/Juargo/MoneyDiary/commit/8bf14934c6378911ede3b1a93fa7924189743776)), closes [#600](https://github.com/Juargo/MoneyDiary/issues/600)
+
 ## [0.7.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.6.0...web-v0.7.0) (2026-09-07)
 
 
