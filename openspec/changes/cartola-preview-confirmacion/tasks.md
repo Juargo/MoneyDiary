@@ -56,12 +56,12 @@ classification, or process-integration boundary in this change.
 
 ## Phase 1: Docs (PR1, base: tracker/main)
 
-- [ ] 1.1 Create `docs/adr/ADR-044-mobile-clasificacion-precommit.md` (owner-accepted; supersedes
+- [x] 1.1 Create `docs/adr/ADR-044-mobile-clasificacion-precommit.md` (owner-accepted; supersedes
       only ADR-038 rule 2's mobile-reclassification exclusion; records that US-056 already shipped
       mobile reclassification and that pre-commit classification is part of ingest per ADR-026).
-- [ ] 1.2 Add the ADR-044 row to `docs/adr/README.md`.
-- [ ] 1.3 Add the ADR-044 summary row to the root `CLAUDE.md` ADR table.
-- [ ] 1.4 Correct the stale "mobile not implemented" note in
+- [x] 1.2 Add the ADR-044 row to `docs/adr/README.md`.
+- [x] 1.3 Add the ADR-044 summary row to the root `CLAUDE.md` ADR table.
+- [x] 1.4 Correct the stale "mobile not implemented" note in
       `openspec/specs/ingesta-preview-commit/spec.md` Client Consumers section (prose carry-over
       from the delta — flag at archive time for manual sync into the canonical spec).
 - Verify: `pnpm exec prettier --check docs/adr/ADR-044-*.md CLAUDE.md` (or equivalent lint-staged
