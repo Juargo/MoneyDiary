@@ -84,20 +84,24 @@ classification, or process-integration boundary in this change.
 
 ## Phase 3: `commit-ingesta.ts` + as-is commit (PR3, base: PR2)
 
-- [ ] 3.0 First commit, standalone: `git mv apps/mobile/src/api/post-ingesta.ts
+- [x] 3.0 First commit, standalone: `git mv apps/mobile/src/api/post-ingesta.ts
       apps/mobile/src/api/commit-ingesta.ts` and `git mv apps/mobile/src/api/post-ingesta.spec.ts
       apps/mobile/src/api/commit-ingesta.spec.ts` (no content edits in this commit, to maximize
       rename-detection similarity).
-- [ ] 3.1 [RED] Rewrite `apps/mobile/src/api/commit-ingesta.spec.ts`: multipart `edits: []` and a
+- [x] 3.1 [RED] Rewrite `apps/mobile/src/api/commit-ingesta.spec.ts`: multipart `edits: []` and a
       sparse overlay, 400/401/network/parse failure cases (MOB-PRV-04, MOB-PRV-10).
-- [ ] 3.2 [GREEN] Rewrite `apps/mobile/src/api/commit-ingesta.ts` per design's `commitIngesta`
+- [x] 3.2 [GREEN] Rewrite `apps/mobile/src/api/commit-ingesta.ts` per design's `commitIngesta`
       contract: `EdicionFila` local type, `CommitIngestaDto` alias from `@moneydiary/api-client`
       (MAC-01), guard on `ingestaId`/`totalTransacciones`/`duplicadosOmitidos`.
-- [ ] 3.3 [RED] In `apps/mobile/app/subir.spec.tsx`, add a failing case: Confirmar calls
+- [x] 3.3 [RED] In `apps/mobile/app/subir.spec.tsx`, add a failing case: Confirmar calls
       `commitIngesta(archivo, [])` and success shows `duplicadosOmitidos` (MOB-PRV-04).
-- [ ] 3.4 [GREEN] Wire `apps/mobile/app/subir.tsx` Confirmar action to `commitIngesta`.
-- [ ] 3.5 [REFACTOR] Fix stale `post-ingesta` references in `apps/mobile/src/api/client.ts`,
+- [x] 3.4 [GREEN] Wire `apps/mobile/app/subir.tsx` Confirmar action to `commitIngesta`.
+- [x] 3.5 [REFACTOR] Fix stale `post-ingesta` references in `apps/mobile/src/api/client.ts`,
       `src/domain/api-error.ts`, `src/api/resumen-refresh.ts` comments.
+      **Delivered as a single PR under owner-approved `size:exception` (~653 changed lines).** The
+      `git mv` rename credit did not survive the content rewrite (measured similarity 38%, below
+      the 50% threshold `git diff -M` and GitHub use), and the 3a/3b fallback below also exceeded
+      400 lines once the fully-tested `commit-ingesta.spec.ts` was counted.
 - Verify: `pnpm --filter @moneydiary/mobile test`; `pnpm --filter @moneydiary/mobile exec tsc --noEmit`;
   `rg post-ingesta apps/mobile/src apps/mobile/app` returns no import (only this task's own rename).
 - Fallback: if rename similarity <50%, split into 3a (add `commit-ingesta.ts`, tasks 3.1-3.2) and
