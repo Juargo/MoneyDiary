@@ -204,6 +204,17 @@ classification, or process-integration boundary in this change.
       `eslint-disable-next-line` precedent `ReclasificarMobileControl` already uses; remaining
       findings were prettier, auto-fixed. 0 errors after, same 1 pre-existing unrelated warning as
       PR3–PR6 (`BucketDetalleScreen.spec.tsx`).
+- **Scoped correction (owner-approved, same PR7, no new tasks)**: removed the open-only reset
+  `useEffect` and its two `eslint-disable-next-line` suppressions (syncing state from props in an
+  effect with suppressed deps risks reading stale props). Split `HojaClasificacion` into the outer
+  `Modal`-driven component and an inner `HojaClasificacionContenido`, rendered only while
+  `visible` and `key`ed by `fila.rowIndex`, so it mounts fresh per opening; the selection state now
+  initializes with lazy `useState(() => ...)` derived from `grupos`/`categoriaActualId` at mount,
+  no effect involved. Also dropped the `grupoActual?.bucket as BucketAsignable` cast via a
+  `esBucketAsignable` type predicate that narrows `gruposAsignables` directly. Props contract
+  unchanged; all 10 existing tests pass unmodified (10/10), full mobile suite 858/858, `tsc
+  --noEmit` clean, lint 0 errors/0 `eslint-disable` in the file (same 1 pre-existing unrelated
+  warning). Commit `refactor(mobile): inicializa la selección de HojaClasificacion sin efecto`.
 - Verify: `pnpm --filter @moneydiary/mobile test -- HojaClasificacion`.
 
 ## Phase 8: Sheet wiring + overlay commit + failure preservation (PR8, base: PR7)

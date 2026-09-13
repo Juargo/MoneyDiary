@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import type { PreviewFilaDto } from '@moneydiary/api-client';
 import type { EdicionFila } from '../../api/commit-ingesta';
@@ -52,34 +52,61 @@ export function HojaClasificacion({
   onConfirmar,
   onCancelar,
 }: HojaClasificacionProps) {
+  return (
+    <Modal
+      testID="hoja-clasificacion"
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onCancelar}
+    >
+      {/* Rendered ONLY while `visible`, and `key`ed by the row, so the
+          selection state below initializes fresh on every opening instead
+          of being synced from an effect — no stale-props risk, no
+          `react-hooks/*` suppressions. */}
+      {visible ? (
+        <HojaClasificacionContenido
+          key={fila.rowIndex}
+          fila={fila}
+          categoriaActualId={categoriaActualId}
+          grupos={grupos}
+          onConfirmar={onConfirmar}
+          onCancelar={onCancelar}
+        />
+      ) : null}
+    </Modal>
+  );
+}
+
+type ContenidoProps = Omit<HojaClasificacionProps, 'visible'>;
+
+function esBucketAsignable(bucket: string): bucket is BucketAsignable {
+  return (BUCKETS_ASIGNABLES as readonly string[]).includes(bucket);
+}
+
+function HojaClasificacionContenido({
+  fila,
+  categoriaActualId,
+  grupos,
+  onConfirmar,
+  onCancelar,
+}: ContenidoProps) {
+  const gruposAsignables = grupos.filter(
+    (g): g is GrupoCategoriaPorBucket & { bucket: BucketAsignable } =>
+      esBucketAsignable(g.bucket),
+  );
+  const grupoActual = gruposAsignables.find((g) =>
+    g.categorias.some((c) => c.id === categoriaActualId),
+  );
+
   const [bucketSeleccionado, setBucketSeleccionado] = useState<
     BucketAsignable | ''
-  >('');
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('');
-
-  // Re-derive the initial selection only when the sheet OPENS (visible
-  // false→true) — never on every re-render while it stays open, which
-  // would clobber an in-progress selection if the caller re-renders with a
-  // new `grupos`/`categoriaActualId` reference for an unrelated reason.
-  // The sheet only ever opens for one row at a time (RN Modal is a
-  // full-screen overlay, see design.md), so keying on `visible` alone is
-  // sufficient — `grupos`/`categoriaActualId`/`fila` are read fresh from
-  // the closure at the moment `visible` flips.
-  useEffect(() => {
-    if (!visible) return;
-    const grupoActual = grupos.find((g) =>
-      g.categorias.some((c) => c.id === categoriaActualId),
-    );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBucketSeleccionado((grupoActual?.bucket as BucketAsignable) ?? '');
-    setCategoriaSeleccionada(categoriaActualId ?? '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
-  const gruposAsignables = grupos.filter((g) =>
-    (BUCKETS_ASIGNABLES as readonly string[]).includes(g.bucket),
+  >(() => grupoActual?.bucket ?? '');
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(
+    () => categoriaActualId ?? '',
   );
-  const buckets = gruposAsignables.map((g) => g.bucket as BucketAsignable);
+
+  const buckets = gruposAsignables.map((g) => g.bucket);
   const categoriasDelBucket =
     gruposAsignables.find((g) => g.bucket === bucketSeleccionado)?.categorias ??
     [];
@@ -101,112 +128,104 @@ export function HojaClasificacion({
   const puedeConfirmar = categoriaSeleccionada !== '';
 
   return (
-    <Modal
-      testID="hoja-clasificacion"
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onCancelar}
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+      }}
     >
       <View
         style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'flex-end',
+          backgroundColor: '#fff',
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          maxHeight: '80%',
+          padding: 16,
+          gap: 16,
         }}
       >
         <View
           style={{
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            maxHeight: '80%',
-            padding: 16,
-            gap: 16,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <View>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: COLORS.heading,
-                }}
-              >
-                Clasificar movimiento
-              </Text>
-              <Text style={{ fontSize: 13, color: COLORS.muted }}>
-                {formateada.descripcion}
-              </Text>
-              <Text style={{ fontSize: 12, color: COLORS.muted }}>
-                {formateada.fecha}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cancelar"
-              testID="hoja-cancelar"
-              onPress={onCancelar}
-            >
-              <Text style={{ fontSize: 14, color: COLORS.ingreso }}>
-                Cancelar
-              </Text>
-            </Pressable>
-          </View>
-
-          <SelectorChips
-            testID="hoja-bucket"
-            label="Bucket"
-            options={buckets}
-            value={bucketSeleccionado as BucketAsignable}
-            getOptionLabel={(b) => ETIQUETA_BUCKET[b] ?? b}
-            onChange={handleSelectBucket}
-          />
-
-          <SelectorChips
-            testID="hoja-categoria"
-            label="Categoría"
-            options={categoriasDelBucket.map((c) => c.id)}
-            value={categoriaSeleccionada}
-            getOptionLabel={(id) =>
-              categoriasDelBucket.find((c) => c.id === id)?.nombre ?? id
-            }
-            onChange={setCategoriaSeleccionada}
-          />
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Confirmar"
-            accessibilityState={{ disabled: !puedeConfirmar }}
-            disabled={!puedeConfirmar}
-            testID="hoja-confirmar"
-            onPress={handleConfirmar}
-            style={{
-              borderRadius: 12,
-              paddingVertical: 12,
-              alignItems: 'center',
-              backgroundColor: puedeConfirmar ? COLORS.ingreso : COLORS.canvas,
-            }}
-          >
+          <View>
             <Text
               style={{
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: '600',
-                color: puedeConfirmar ? '#ffffff' : COLORS.muted,
+                color: COLORS.heading,
               }}
             >
-              Confirmar
+              Clasificar movimiento
+            </Text>
+            <Text style={{ fontSize: 13, color: COLORS.muted }}>
+              {formateada.descripcion}
+            </Text>
+            <Text style={{ fontSize: 12, color: COLORS.muted }}>
+              {formateada.fecha}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar"
+            testID="hoja-cancelar"
+            onPress={onCancelar}
+          >
+            <Text style={{ fontSize: 14, color: COLORS.ingreso }}>
+              Cancelar
             </Text>
           </Pressable>
         </View>
+
+        <SelectorChips
+          testID="hoja-bucket"
+          label="Bucket"
+          options={buckets}
+          value={bucketSeleccionado as BucketAsignable}
+          getOptionLabel={(b) => ETIQUETA_BUCKET[b] ?? b}
+          onChange={handleSelectBucket}
+        />
+
+        <SelectorChips
+          testID="hoja-categoria"
+          label="Categoría"
+          options={categoriasDelBucket.map((c) => c.id)}
+          value={categoriaSeleccionada}
+          getOptionLabel={(id) =>
+            categoriasDelBucket.find((c) => c.id === id)?.nombre ?? id
+          }
+          onChange={setCategoriaSeleccionada}
+        />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Confirmar"
+          accessibilityState={{ disabled: !puedeConfirmar }}
+          disabled={!puedeConfirmar}
+          testID="hoja-confirmar"
+          onPress={handleConfirmar}
+          style={{
+            borderRadius: 12,
+            paddingVertical: 12,
+            alignItems: 'center',
+            backgroundColor: puedeConfirmar ? COLORS.ingreso : COLORS.canvas,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: puedeConfirmar ? '#ffffff' : COLORS.muted,
+            }}
+          >
+            Confirmar
+          </Text>
+        </Pressable>
       </View>
-    </Modal>
+    </View>
   );
 }
