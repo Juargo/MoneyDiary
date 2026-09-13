@@ -215,4 +215,60 @@ describe('LeyendaGasto', () => {
     );
     expect(onSelectBucket).toHaveBeenCalledWith('Deseos');
   });
+
+  // The amount's sign is already decided by the view model
+  // (`formatearMontoConSigno`: '-' for spend, '+' for income, no sign for a
+  // zero amount), so the color reads it straight from `montoLabel` — no money
+  // parsing. Zero stays neutral, per the `--color-cargo-foreground` docstring.
+  it('colors negative amounts with the expense ink, positive amounts with the income ink, and leaves a zero amount neutral', () => {
+    renderLeyenda({
+      complemento: [
+        { kind: 'ingreso', montoLabel: '+$1.500.000' },
+        {
+          kind: 'sinCategoria',
+          bucket: 'SinCategoria',
+          montoLabel: '$0',
+          cantidadLabel: '0 tx',
+        },
+      ],
+    });
+    expect(screen.getByText('-$624.500')).toHaveClass('text-cargo-foreground');
+    expect(screen.getByText('-$300.000')).toHaveClass('text-cargo-foreground');
+    expect(screen.getByText('+$1.500.000')).toHaveClass(
+      'text-ingreso-foreground',
+    );
+    const cero = screen.getByText('$0');
+    expect(cero).toHaveClass('text-foreground');
+    expect(cero).not.toHaveClass('text-cargo-foreground');
+    expect(cero).not.toHaveClass('text-ingreso-foreground');
+  });
+
+  it('shows a minimal decorative alert icon next to Sin categoría when there are uncategorized transactions, without changing the accessible name', () => {
+    renderLeyenda();
+    const alerta = screen.getByTestId('leyenda-alerta-sin-categoria');
+    expect(alerta).toHaveAttribute('aria-hidden', 'true');
+    expect(alerta).toHaveClass('text-warning-foreground');
+    expect(
+      screen.getByRole('button', {
+        name: 'Sin categoría 7 transacciones sin categorizar -$45.000',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('omits the Sin categoría alert icon when there are no uncategorized transactions', () => {
+    renderLeyenda({
+      complemento: [
+        { kind: 'ingreso', montoLabel: '+$1.500.000' },
+        {
+          kind: 'sinCategoria',
+          bucket: 'SinCategoria',
+          montoLabel: '$0',
+          cantidadLabel: '0 tx',
+        },
+      ],
+    });
+    expect(
+      screen.queryByTestId('leyenda-alerta-sin-categoria'),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, CircleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { claseFondoBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { ItemLeyenda } from '@/domain/resumen-view-model';
@@ -66,6 +66,29 @@ export function LeyendaGasto({
       </ul>
     </div>
   );
+}
+
+/**
+ * Amount ink by sign. The sign is already decided by the view model
+ * (`formatearMontoConSigno`: '-' for spend, '+' for income, none for a zero
+ * amount), so this only reads `montoLabel`'s first character — no money
+ * parsing. Zero stays neutral on purpose (`--color-cargo-foreground`
+ * docstring). Both inks are measured AA on the card in both themes
+ * (`palette-measurements.md`).
+ */
+function claseColorMonto(montoLabel: string): string {
+  if (montoLabel.startsWith('-')) {
+    return 'text-cargo-foreground';
+  }
+  if (montoLabel.startsWith('+')) {
+    return 'text-ingreso-foreground';
+  }
+  return 'text-foreground';
+}
+
+/** `cantidadLabel` is always `'N tx'` (view model); any N other than 0 needs attention. */
+function tieneSinCategorizar(cantidadLabel: string): boolean {
+  return !/^0\s/.test(cantidadLabel);
 }
 
 /**
@@ -144,6 +167,17 @@ function FilaClickeable({
               the single word "Necesidades42%" — a real accname bug, not a
               visual one (`gap-2` only affects layout). */}
           <span className="text-sm text-foreground">{etiqueta}</span>{' '}
+          {/* Minimal "needs attention" cue for uncategorized movements.
+              Decorative (`aria-hidden`): the accessible name already says
+              "N transacciones sin categorizar" via the sr-only expansion. */}
+          {item.kind === 'sinCategoria' &&
+            tieneSinCategorizar(item.cantidadLabel) && (
+              <CircleAlert
+                data-testid="leyenda-alerta-sin-categoria"
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0 text-warning-foreground"
+              />
+            )}
           {item.kind === 'gasto' ? (
             <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
               {item.porcentaje}%
@@ -171,7 +205,12 @@ function FilaClickeable({
               column — the amounts sit one under the other in the legend, so
               fixed-width figures let them be compared as a column instead of
               read one by one. */}
-          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+          <span
+            className={cn(
+              'font-mono text-sm font-semibold tabular-nums',
+              claseColorMonto(item.montoLabel),
+            )}
+          >
             {item.montoLabel}
           </span>
           <ChevronRight
@@ -225,7 +264,12 @@ function FilaIngreso({
               column — the amounts sit one under the other in the legend, so
               fixed-width figures let them be compared as a column instead of
               read one by one. */}
-          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+          <span
+            className={cn(
+              'font-mono text-sm font-semibold tabular-nums',
+              claseColorMonto(item.montoLabel),
+            )}
+          >
             {item.montoLabel}
           </span>
           <ChevronRight
