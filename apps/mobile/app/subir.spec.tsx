@@ -6,7 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
-import type { PostIngestaResult } from '../src/api/post-ingesta';
+import type { CommitIngestaResult } from '../src/api/commit-ingesta';
 import type { PreviewIngestaResult } from '../src/api/preview-ingesta';
 
 // Import after jest.mock is registered.
@@ -14,7 +14,7 @@ import Subir from './subir';
 
 // RED-first (US-003 Slice 3, design.md §10.1/§10.3): greenfield two-phase
 // preview-then-confirm state machine. The document picker and both
-// transport layers (`previewIngesta`, `postIngesta` — both already GREEN)
+// transport layers (`previewIngesta`, `commitIngesta` — both already GREEN)
 // are mocked at the module boundary so only this screen's own `useState`
 // machine + wiring is under test, mirroring the pre-US-003 spec's style.
 const mockGetDocumentAsync = jest.fn();
@@ -27,9 +27,13 @@ jest.mock('../src/api/preview-ingesta', () => ({
   previewIngesta: (asset: unknown) => mockPreviewIngesta(asset),
 }));
 
-const mockPostIngesta = jest.fn<Promise<PostIngestaResult>, [unknown]>();
-jest.mock('../src/api/post-ingesta', () => ({
-  postIngesta: (asset: unknown) => mockPostIngesta(asset),
+const mockCommitIngesta = jest.fn<
+  Promise<CommitIngestaResult>,
+  [unknown, unknown]
+>();
+jest.mock('../src/api/commit-ingesta', () => ({
+  commitIngesta: (asset: unknown, edits: unknown) =>
+    mockCommitIngesta(asset, edits),
 }));
 
 const mockSolicitarRecargaResumen = jest.fn();
@@ -122,16 +126,24 @@ function previewExitoso(filas = [filaPreview()], totalFilas = filas.length) {
   };
 }
 
-const ingestaExitosa = {
-  ingestaId: 'ing-1',
-  banco: 'BancoEstado',
-  tipoCuenta: 'CuentaRUT',
-  numeroCuenta: '123456789',
-  archivo: { nombre: 'cartola.xlsx', extension: 'xlsx', tamanoBytes: 20480 },
-  totalTransacciones: 12,
-  duplicadosOmitidos: 0,
-  transacciones: [],
-};
+// MOB-PRV-04: `CommitIngestaDto` (unlike the removed `IngestaResponseDto`)
+// carries no `banco`/`numeroCuenta` — only the commit-time counts. The as-is
+// commit success state renders `totalTransacciones` and `duplicadosOmitidos`
+// only.
+function commitExitoso(
+  overrides: Partial<{
+    totalTransacciones: number;
+    duplicadosOmitidos: number;
+  }> = {},
+) {
+  return {
+    ingestaId: 'ing-1',
+    totalTransacciones: 12,
+    duplicadosOmitidos: 0,
+    transacciones: [],
+    ...overrides,
+  };
+}
 
 // Deferred promise so an in-flight state is observable before resolution.
 function deferred<T>() {
@@ -166,7 +178,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
   beforeEach(() => {
     mockGetDocumentAsync.mockReset();
     mockPreviewIngesta.mockReset();
-    mockPostIngesta.mockReset();
+    mockCommitIngesta.mockReset();
     mockSolicitarRecargaResumen.mockReset();
     mockBack.mockReset();
     announceSpy = jest
@@ -264,9 +276,12 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(screen.queryByRole('radio')).not.toBeOnTheScreen();
   });
 
-  it('CA-03: Confirmar re-uploads the same held file asset via postIngesta and shows the final summary', async () => {
+  it('CA-03/MOB-PRV-04: Confirmar calls commitIngesta(archivo, []) and success shows totalTransacciones + duplicadosOmitidos', async () => {
     await seleccionarYPrevisualizar();
-    mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+    mockCommitIngesta.mockResolvedValue({
+      ok: true,
+      value: commitExitoso({ totalTransacciones: 12, duplicadosOmitidos: 3 }),
+    });
 
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
@@ -275,9 +290,10 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
     );
-    expect(mockPostIngesta).toHaveBeenCalledTimes(1);
-    const [archivo] = mockPostIngesta.mock.calls[0] as [
+    expect(mockCommitIngesta).toHaveBeenCalledTimes(1);
+    const [archivo, edits] = mockCommitIngesta.mock.calls[0] as [
       { uri: string; name: string },
+      unknown,
     ];
     expect(archivo).toEqual(
       expect.objectContaining({
@@ -285,14 +301,18 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
         name: 'cartola.xlsx',
       }),
     );
+    // As-is commit — the user never reached the row list, so the overlay is
+    // always empty (MOB-PRV-04).
+    expect(edits).toEqual([]);
     expect(screen.getByText('12')).toBeOnTheScreen();
+    expect(screen.getByText('3')).toBeOnTheScreen();
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
   });
 
   it('shows a busy "subiendo" indicator while Confirmar is in-flight', async () => {
     await seleccionarYPrevisualizar();
-    const d = deferred<PostIngestaResult>();
-    mockPostIngesta.mockReturnValue(d.promise);
+    const d = deferred<CommitIngestaResult>();
+    mockCommitIngesta.mockReturnValue(d.promise);
 
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
@@ -302,7 +322,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
 
     await act(async () => {
-      d.resolve({ ok: true, value: ingestaExitosa });
+      d.resolve({ ok: true, value: commitExitoso() });
       await d.promise;
     });
     await waitFor(() =>
@@ -310,7 +330,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     );
   });
 
-  it('CA-04/CU-12: Cancelar returns to idle and never calls postIngesta', async () => {
+  it('CA-04/CU-12: Cancelar returns to idle and never calls commitIngesta', async () => {
     await seleccionarYPrevisualizar();
 
     await act(async () => {
@@ -321,7 +341,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       screen.getByRole('button', { name: /seleccionar archivo/i }),
     ).toBeOnTheScreen();
     expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
-    expect(mockPostIngesta).not.toHaveBeenCalled();
+    expect(mockCommitIngesta).not.toHaveBeenCalled();
   });
 
   it('after Cancelar, picking a new file re-opens the picker and calls previewIngesta again', async () => {
@@ -334,7 +354,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await waitFor(() => expect(mockPreviewIngesta).toHaveBeenCalledTimes(2));
   });
 
-  it('CU-11/PREV-03: a failed preview (400) shows the scrubbed message and allows re-picking (never calls postIngesta)', async () => {
+  it('CU-11/PREV-03: a failed preview (400) shows the scrubbed message and allows re-picking (never calls commitIngesta)', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
     mockPreviewIngesta.mockResolvedValue({
       ok: false,
@@ -350,7 +370,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(
       screen.getByRole('button', { name: /seleccionar archivo/i }),
     ).toBeOnTheScreen();
-    expect(mockPostIngesta).not.toHaveBeenCalled();
+    expect(mockCommitIngesta).not.toHaveBeenCalled();
   });
 
   it('a network failure during preview shows a retry message and re-enables the trigger', async () => {
@@ -377,7 +397,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
   it('a backend error on Confirmar returns to a retryable error state (never stuck "subiendo")', async () => {
     await seleccionarYPrevisualizar();
-    mockPostIngesta.mockResolvedValue({
+    mockCommitIngesta.mockResolvedValue({
       ok: false,
       error: { tag: 'http', status: 500 },
     });
@@ -419,7 +439,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
   it('CU-12: locks the ADR-026 ingesta-only write scope — no edit/delete affordance renders anywhere', async () => {
     await seleccionarYPrevisualizar();
-    mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+    mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
 
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
@@ -448,7 +468,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
     it('announces a non-empty message via AccessibilityInfo on éxito', async () => {
       await seleccionarYPrevisualizar();
-      mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+      mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
 
       await act(async () => {
         await fireEvent.press(
@@ -494,7 +514,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
   describe('"Volver al resumen" back affordance', () => {
     it('is visible on the éxito view and navigates back when pressed', async () => {
       await seleccionarYPrevisualizar();
-      mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+      mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
 
       await act(async () => {
         await fireEvent.press(
@@ -553,7 +573,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
   it('after a successful upload, "Seleccionar archivo" re-enters the preview flow for a NEW file (no dead-end)', async () => {
     await seleccionarYPrevisualizar();
-    mockPostIngesta.mockResolvedValue({ ok: true, value: ingestaExitosa });
+    mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
 
     await act(async () => {
       await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
@@ -608,7 +628,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
         ),
       ).toBeOnTheScreen(),
     );
-    expect(mockPostIngesta).not.toHaveBeenCalled();
+    expect(mockCommitIngesta).not.toHaveBeenCalled();
 
     mockPreviewIngesta.mockResolvedValueOnce(previewExitoso());
     await seleccionarArchivo();
@@ -632,7 +652,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await waitFor(() =>
       expect(screen.getByText('Banco no reconocido.')).toBeOnTheScreen(),
     );
-    expect(mockPostIngesta).not.toHaveBeenCalled();
+    expect(mockCommitIngesta).not.toHaveBeenCalled();
 
     mockPreviewIngesta.mockResolvedValueOnce(previewExitoso());
     await seleccionarArchivo();
