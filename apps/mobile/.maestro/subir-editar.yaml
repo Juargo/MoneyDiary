@@ -1,0 +1,67 @@
+# Flujo E2E (Maestro · ADR-017) — Revisar y editar: sheet de clasificación +
+# commit con overlay de ediciones (US-003 Slice 3 → Phase 8, design.md
+# MOB-PRV-06/07/08).
+#
+# Verifica en dispositivo real que, tras ver el paso de decisión, tocar
+# "Revisar y editar" abre la lista de revisión, tocar una fila editable abre
+# la hoja de clasificación (bucket → categoría, MOB-PRV-07), confirmar la
+# hoja actualiza la fila en la lista, y "Subir" desde la revisión persiste
+# la cartola CON el overlay de ediciones acumulado — recién acá se llama al
+# endpoint real (POST /api/ingestas/commit). Complementa `subir.yaml`
+# (camino "Subir tal cual") y `subir-cancelar.yaml` (descarte). Mismos
+# prerrequisitos: sesión iniciada + fixture accesible desde el picker nativo
+# + el usuario de prueba debe tener AL MENOS una categoría propia en algún
+# bucket asignable (Necesidades/Deseos/Ahorro) para que la hoja tenga algo
+# que ofrecer (docs/mobile-upload-gate-runbook.md).
+appId: cl.moneydiary.app
+---
+- launchApp:
+    clearState: true
+- runFlow: login.yaml
+- tapOn:
+    id: "subir-cartola-button"
+- tapOn:
+    id: "subir-archivo-trigger"
+# --- PASO DEPENDIENTE DE DISPOSITIVO (ajustar antes de correr) ---
+# Cambiar por el nombre del fixture .xlsx/.pdf realmente precargado — usar
+# uno con AL MENOS una fila no duplicada y no clasificada como Ingreso, para
+# que exista una fila tocable.
+- tapOn: "cartola-test.xlsx"
+- extendedWaitUntil:
+    visible:
+      id: "preview-resultado"
+    timeout: 40000
+# --- FASE 1: ENTRAR A REVISIÓN (MOB-PRV-05) ---
+- tapOn:
+    id: "decision-revisar"
+- assertVisible:
+    id: "revision-lista"
+# --- FASE 2: ABRIR LA HOJA DE CLASIFICACIÓN PARA LA PRIMERA FILA EDITABLE ---
+# --- PASO DEPENDIENTE DE DISPOSITIVO (ajustar antes de correr) ---
+# El índice de la primera fila NO duplicada/NO Ingreso depende del fixture
+# usado — ajustar `revision-fila-0` si la fila 0 no es editable en tu fixture.
+- tapOn:
+    id: "revision-fila-0"
+- assertVisible:
+    id: "hoja-clasificacion"
+# --- PASO DEPENDIENTE DE DISPOSITIVO (ajustar antes de correr) ---
+# El bucket/categoría visibles dependen del catálogo real del usuario de
+# prueba — cada chip tiene testID `hoja-bucket-<bucket>`/`hoja-categoria-
+# <id>` (SelectorChips), pero el id de categoría no es legible a simple
+# vista: tocar por el TEXTO del chip es más práctico acá. Cambiar
+# "Necesidades"/"Arriendo" por un bucket y una categoría que existan en la
+# cuenta de prueba.
+- tapOn: "Necesidades"
+- tapOn: "Arriendo"
+- tapOn:
+    id: "hoja-confirmar"
+- assertNotVisible:
+    id: "hoja-clasificacion"
+# --- FASE 3: SUBIR CON EL OVERLAY DE EDICIONES (MOB-PRV-08) ---
+- tapOn:
+    id: "revision-subir"
+- extendedWaitUntil:
+    visible: "Cartola subida"
+    timeout: 40000
+- assertVisible:
+    id: "subir-resultado"
