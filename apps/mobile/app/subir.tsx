@@ -30,10 +30,11 @@ import { COLORS } from '../src/theme/colors';
  * fires `previewIngesta` (read-only, PREV-02: persists nothing); on success
  * the screen holds BOTH the `PreviewIngestaDto` and the original
  * `DocumentPickerAsset` in the `preview` state. **Confirmar** re-uploads
- * that SAME held asset via the existing `postIngesta` — the "same file"
- * guarantee is structural here: the picker is not re-opened until
- * **Cancelar**, which discards everything back to `idle` and never calls
- * `postIngesta` (CA-04 at the UI layer).
+ * that SAME held asset via `commitIngesta` with an empty edits overlay
+ * (MOB-PRV-04, "Subir tal cual") — the "same file" guarantee is structural
+ * here: the picker is not re-opened until **Cancelar**, which discards
+ * everything back to `idle` and never calls `commitIngesta` (CA-04 at the UI
+ * layer).
  *
  * The preview guard now requires the canonical `filas`/`resumen` fields
  * (MOB-PRV-02); the deprecated `muestra`/`estructura` 10/25/50 selector is

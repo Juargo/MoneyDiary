@@ -27,8 +27,8 @@ export type ApiResult<T> =
  * copiaPorApiError — the shared Spanish copy per `ApiError` tag (review
  * readability fix #7, DRY): both `src/components/states/Error.tsx` (the
  * resumen screen's error state) and `app/subir.tsx` (the upload screen's
- * error state, whose `PostIngestaError` is a structural superset of
- * `ApiError` — see `post-ingesta.ts`) rendered the exact same four strings
+ * error state, whose `CommitIngestaError` is a structural superset of
+ * `ApiError` — see `commit-ingesta.ts`) rendered the exact same four strings
  * independently. `subir.tsx` wraps this to add its one extra case: the
  * backend's scrubbed `message` on a 400.
  */
