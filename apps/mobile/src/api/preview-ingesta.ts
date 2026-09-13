@@ -1,6 +1,7 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import type {
+  PreviewFilaDto,
   PreviewIngestaDto,
   PreviewTransaccionDto,
 } from '@moneydiary/api-client';
@@ -19,6 +20,23 @@ import { construirHeadersSesion } from './client';
 export type { PreviewIngestaDto, PreviewTransaccionDto };
 
 /**
+ * `PreviewIngestaDtoConCanonicos` — intersection alias that narrows
+ * `PreviewIngestaDto`'s optional `filas`/`resumen` to required (no-`!`
+ * downstream), mirroring the web sibling
+ * (`apps/web/src/api/types.ts`, US-059 D-08). Produced by the hardened
+ * `esPreviewIngestaDto` guard below — once the guard passes, `filas` and
+ * `resumen` are always non-undefined through the rest of the type chain
+ * (MOB-PRV-02).
+ */
+export type PreviewIngestaDtoConCanonicos = Omit<
+  PreviewIngestaDto,
+  'filas' | 'resumen'
+> & {
+  readonly filas: readonly PreviewFilaDto[];
+  readonly resumen: NonNullable<PreviewIngestaDto['resumen']>;
+};
+
+/**
  * PreviewIngestaError — same shape as `PostIngestaError` (post-ingesta.ts):
  * a small, LOCAL extension of the shared `ApiError` union, scoped to this
  * function's return type only (design.md Decision 4, YAGNI). The `http`
@@ -33,42 +51,81 @@ export type PreviewIngestaError =
   | { tag: 'http'; status: number; message?: string };
 
 export type PreviewIngestaResult =
-  | { ok: true; value: PreviewIngestaDto }
+  | { ok: true; value: PreviewIngestaDtoConCanonicos }
   | { ok: false; error: PreviewIngestaError };
 
+/** Validates one `filas[]` row's shape (MOB-PRV-02): the fields the review
+ * list and the future classification sheet read (design.md, mirrors the web
+ * guard's `esPreviewFilaDto`). */
+function esPreviewFilaDto(value: unknown): value is PreviewFilaDto {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const fila = value as Record<string, unknown>;
+  return (
+    typeof fila.rowIndex === 'number' &&
+    typeof fila.fecha === 'string' &&
+    typeof fila.descripcion === 'string' &&
+    typeof fila.cargo === 'string' &&
+    typeof fila.abono === 'string' &&
+    typeof fila.esDuplicado === 'boolean' &&
+    esPreviewFilaSugerido(fila.sugerido)
+  );
+}
+
+function esPreviewFilaSugerido(
+  value: unknown,
+): value is { bucket: string; categoriaId: string | null } | null {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  const sugerido = value as Record<string, unknown>;
+  return (
+    typeof sugerido.bucket === 'string' &&
+    (typeof sugerido.categoriaId === 'string' || sugerido.categoriaId === null)
+  );
+}
+
+/** Validates the `resumen` sub-object's row counts (MOB-PRV-02). */
+function esResumenPreviewDto(
+  value: unknown,
+): value is NonNullable<PreviewIngestaDto['resumen']> {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const resumen = value as Record<string, unknown>;
+  return (
+    typeof resumen.totalFilas === 'number' &&
+    typeof resumen.duplicadosDetectados === 'number' &&
+    typeof resumen.nuevas === 'number'
+  );
+}
+
 /**
- * Shape guard covering everything the preview UI renders: `banco`,
- * `estructura.totalFilasDatos`, and — unlike `post-ingesta.ts`'s
- * `esIngestaResponseDto`, which skips `transacciones` — every `muestra` row's
- * `cargo`/`abono` as strings (mobile renders per-row money now, design.md
- * §10.2).
+ * Shape guard hardened for `PreviewIngestaDtoConCanonicos` (MOB-PRV-02):
+ * requires BOTH canonical fields — `filas` (array, every row validated by
+ * `esPreviewFilaDto`) and `resumen` (row-count object) — in addition to
+ * `banco`. A response carrying only the deprecated legacy shape
+ * (`estructura`/`muestra`, no `filas`/`resumen`) fails this guard, even
+ * though those legacy fields keep being validated as absent-or-present on
+ * the wire (the server always emits both, US-057). Mirrors the web guard
+ * (`apps/web/src/api/client.ts`'s `esPreviewIngestaDto`, US-059).
  */
-function esPreviewIngestaDto(value: unknown): value is PreviewIngestaDto {
+function esPreviewIngestaDto(
+  value: unknown,
+): value is PreviewIngestaDtoConCanonicos {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const candidato = value as Partial<PreviewIngestaDto>;
-  if (typeof candidato.banco !== 'string') {
-    return false;
-  }
-  if (
-    typeof candidato.estructura !== 'object' ||
-    candidato.estructura === null
-  ) {
-    return false;
-  }
-  if (typeof candidato.estructura.totalFilasDatos !== 'number') {
-    return false;
-  }
-  if (!Array.isArray(candidato.muestra)) {
-    return false;
-  }
-  return candidato.muestra.every(
-    (fila) =>
-      typeof fila === 'object' &&
-      fila !== null &&
-      typeof (fila as Partial<PreviewTransaccionDto>).cargo === 'string' &&
-      typeof (fila as Partial<PreviewTransaccionDto>).abono === 'string',
+  return (
+    typeof candidato.banco === 'string' &&
+    Array.isArray(candidato.filas) &&
+    candidato.filas.every(esPreviewFilaDto) &&
+    esResumenPreviewDto(candidato.resumen)
   );
 }
 

@@ -69,17 +69,17 @@ classification, or process-integration boundary in this change.
 
 ## Phase 2: Mobile canonical preview guard + drop selector (PR2, base: PR1)
 
-- [ ] 2.1 [RED] In `apps/mobile/src/api/preview-ingesta.spec.ts`, add failing cases: guard rejects
+- [x] 2.1 [RED] In `apps/mobile/src/api/preview-ingesta.spec.ts`, add failing cases: guard rejects
       a response with only legacy `estructura`/`muestra` (MOB-PRV-02), accepts `filas[]` +
       `resumen.{totalFilas,duplicadosDetectados,nuevas}`.
-- [ ] 2.2 [GREEN] Update `apps/mobile/src/api/preview-ingesta.ts` guard to require both `filas` and
+- [x] 2.2 [GREEN] Update `apps/mobile/src/api/preview-ingesta.ts` guard to require both `filas` and
       `resumen`; export `PreviewIngestaDtoConCanonicos`.
-- [ ] 2.3 [RED] In `apps/mobile/app/subir.spec.tsx`, replace legacy `muestra`/`estructura`
+- [x] 2.3 [RED] In `apps/mobile/app/subir.spec.tsx`, replace legacy `muestra`/`estructura`
       fixtures with canonical `filas`/`resumen`; add a failing assertion that no 10/25/50
       row-count control renders (MOB-PRV-05).
-- [ ] 2.4 [GREEN] In `apps/mobile/app/subir.tsx`, remove the 10/25/50 selector and its supporting
+- [x] 2.4 [GREEN] In `apps/mobile/app/subir.tsx`, remove the 10/25/50 selector and its supporting
       code; render the full `filas` list (interim, pre-redesign).
-- [ ] 2.5 [REFACTOR] Update `apps/mobile/.maestro/subir.yaml` to drop the selector step.
+- [x] 2.5 [REFACTOR] Update `apps/mobile/.maestro/subir.yaml` to drop the selector step.
 - Verify: `pnpm --filter @moneydiary/mobile test`; `pnpm --filter @moneydiary/mobile exec tsc --noEmit`.
 
 ## Phase 3: `commit-ingesta.ts` + as-is commit (PR3, base: PR2)

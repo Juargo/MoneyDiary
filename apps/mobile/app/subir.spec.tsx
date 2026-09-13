@@ -70,28 +70,54 @@ function resultadoPicker(
 
 const resultadoCancelado = { canceled: true as const, assets: null };
 
-function filaPreview(overrides: Partial<Record<string, string>> = {}) {
+function filaPreview(
+  overrides: Partial<{
+    rowIndex: number;
+    fecha: string;
+    descripcion: string;
+    cargo: string;
+    abono: string;
+    esDuplicado: boolean;
+    sugerido: { bucket: string; categoriaId: string | null } | null;
+  }> = {},
+) {
   return {
+    rowIndex: 0,
     fecha: '2026-07-01T00:00:00.000Z',
     descripcion: 'Compra supermercado',
     cargo: '5000',
     abono: '0',
+    esDuplicado: false,
+    sugerido: null,
     ...overrides,
   };
 }
 
-function previewExitoso(
-  muestra = [filaPreview()],
-  totalFilasDatos = muestra.length,
-) {
+// MOB-PRV-02: the server always emits BOTH the canonical (`filas`/`resumen`)
+// and the deprecated legacy (`estructura`/`muestra`) shapes on the wire —
+// `estructura`/`muestra` are kept here only so the fixture stays assignable
+// to `PreviewIngestaDtoConCanonicos` (still required at the type level);
+// `Subir` itself reads exclusively `filas`/`resumen` since this change.
+function previewExitoso(filas = [filaPreview()], totalFilas = filas.length) {
   return {
     ok: true as const,
     value: {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '123456789',
-      estructura: { totalFilasDatos },
-      muestra,
+      estructura: { totalFilasDatos: totalFilas },
+      muestra: filas.map(({ fecha, descripcion, cargo, abono }) => ({
+        fecha,
+        descripcion,
+        cargo,
+        abono,
+      })),
+      filas,
+      resumen: {
+        totalFilas,
+        duplicadosDetectados: filas.filter((f) => f.esDuplicado).length,
+        nuevas: filas.filter((f) => !f.esDuplicado).length,
+      },
     },
   };
 }
@@ -219,73 +245,23 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(screen.getByText('2026-07-01')).toBeOnTheScreen();
   });
 
-  it('CA-01: exposes a 10/25/50 selector with 10 selected by default', async () => {
-    await seleccionarYPrevisualizar();
-
-    const opcion10 = screen.getByRole('radio', { name: /mostrar 10 filas/i });
-    const opcion25 = screen.getByRole('radio', { name: /mostrar 25 filas/i });
-    const opcion50 = screen.getByRole('radio', { name: /mostrar 50 filas/i });
-
-    expect(opcion10).toHaveProp(
-      'accessibilityState',
-      expect.objectContaining({ checked: true }),
-    );
-    expect(opcion25).toHaveProp(
-      'accessibilityState',
-      expect.objectContaining({ checked: false }),
-    );
-    expect(opcion50).toHaveProp(
-      'accessibilityState',
-      expect.objectContaining({ checked: false }),
-    );
-  });
-
-  it('PREV-06/CA-01: changing the selector re-slices the same in-memory muestra with no new HTTP call', async () => {
-    const muestra = Array.from({ length: 50 }, (_, i) =>
-      filaPreview({ descripcion: `Movimiento ${i + 1}` }),
+  it('MOB-PRV-05: shows every filas row with no 10/25/50 row-count selector', async () => {
+    const filas = Array.from({ length: 12 }, (_, i) =>
+      filaPreview({ rowIndex: i, descripcion: `Movimiento ${i + 1}` }),
     );
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPreviewIngesta.mockResolvedValue(previewExitoso(muestra, 50));
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 12));
 
     await render(<Subir />);
     await seleccionarArchivo();
     await waitFor(() =>
       expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
     );
-
-    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(10);
-
-    await act(async () => {
-      fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
-    });
-    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(25);
-
-    await act(async () => {
-      fireEvent.press(screen.getByRole('radio', { name: /mostrar 50 filas/i }));
-    });
-    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(50);
-
-    expect(mockPreviewIngesta).toHaveBeenCalledTimes(1);
-  });
-
-  it('PREV-06 boundary: selecting 25 on a 12-row sample shows all 12 rows, no padding or error', async () => {
-    const muestra = Array.from({ length: 12 }, (_, i) =>
-      filaPreview({ descripcion: `Movimiento ${i + 1}` }),
-    );
-    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
-    mockPreviewIngesta.mockResolvedValue(previewExitoso(muestra, 12));
-
-    await render(<Subir />);
-    await seleccionarArchivo();
-    await waitFor(() =>
-      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
-    );
-
-    await act(async () => {
-      fireEvent.press(screen.getByRole('radio', { name: /mostrar 25 filas/i }));
-    });
 
     expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(12);
+    expect(screen.queryByTestId('preview-selector')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('radiogroup')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('radio')).not.toBeOnTheScreen();
   });
 
   it('CA-03: Confirmar re-uploads the same held file asset via postIngesta and shows the final summary', async () => {
@@ -513,40 +489,6 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
         'polite',
       );
     });
-
-    it('the preview-selector radiogroup exposes radio children with accessibilityState.checked', async () => {
-      await seleccionarYPrevisualizar();
-
-      expect(screen.getByTestId('preview-selector')).toHaveProp(
-        'accessibilityRole',
-        'radiogroup',
-      );
-
-      await act(async () => {
-        fireEvent.press(
-          screen.getByRole('radio', { name: /mostrar 25 filas/i }),
-        );
-      });
-
-      expect(
-        screen.getByRole('radio', { name: /mostrar 25 filas/i }),
-      ).toHaveProp(
-        'accessibilityState',
-        expect.objectContaining({ checked: true }),
-      );
-      expect(
-        screen.getByRole('radio', { name: /mostrar 10 filas/i }),
-      ).toHaveProp(
-        'accessibilityState',
-        expect.objectContaining({ checked: false }),
-      );
-      expect(
-        screen.getByRole('radio', { name: /mostrar 50 filas/i }),
-      ).toHaveProp(
-        'accessibilityState',
-        expect.objectContaining({ checked: false }),
-      );
-    });
   });
 
   describe('"Volver al resumen" back affordance', () => {
@@ -595,7 +537,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     });
   });
 
-  it('renders a totalFilasDatos: 0 preview result without crashing', async () => {
+  it('renders a resumen.totalFilas: 0 preview result without crashing', async () => {
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
     mockPreviewIngesta.mockResolvedValue(previewExitoso([], 0));
 
@@ -647,11 +589,6 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
     );
     expect(screen.getByText('Otro movimiento')).toBeOnTheScreen();
-    // cantidad resets to the default (10) for the new preview.
-    expect(screen.getByRole('radio', { name: /mostrar 10 filas/i })).toHaveProp(
-      'accessibilityState',
-      expect.objectContaining({ checked: true }),
-    );
   });
 
   it('retrying after a previewIngesta network failure recovers once the retry succeeds', async () => {
