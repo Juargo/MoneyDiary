@@ -14,42 +14,54 @@ import type {
   PreviewIngestaDtoConCanonicos,
   PreviewIngestaError,
 } from '../src/api/preview-ingesta';
-import { formatearFilaPreview } from '../src/domain/preview-cartola';
+import { ResumenDecision } from '../src/components/subir/ResumenDecision';
+import { ListaRevision } from '../src/components/subir/ListaRevision';
 import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 import { copiaPorApiError } from '../src/api/client';
 import { COLORS } from '../src/theme/colors';
 
 /**
  * The mobile upload route (Expo Router `app/subir.tsx`, US-033, ADR-026),
- * upgraded to a two-phase preview-then-confirm flow (US-003 Slice 3,
- * design.md §10.1). Greenfield: mobile had no per-row preview before this
- * change.
+ * evolved into the explicit two-action decision flow (design.md Phase 6):
+ * after a successful preview, the user chooses "Subir tal cual" (commits
+ * immediately with an empty edits overlay, MOB-PRV-04) or "Revisar y editar"
+ * (opens the full virtualized row list, MOB-PRV-05 — read-only in this PR,
+ * the tap-row classification sheet arrives in Phase 7/8).
  *
- * State machine (design.md §10.1): `idle → previsualizando → preview
- * ↔(Confirmar)→ subiendo → exito` / `error`. Picking a file immediately
- * fires `previewIngesta` (read-only, PREV-02: persists nothing); on success
- * the screen holds BOTH the `PreviewIngestaDto` and the original
- * `DocumentPickerAsset` in the `preview` state. **Confirmar** re-uploads
- * that SAME held asset via `commitIngesta` with an empty edits overlay
- * (MOB-PRV-04, "Subir tal cual") — the "same file" guarantee is structural
- * here: the picker is not re-opened until **Cancelar**, which discards
- * everything back to `idle` and never calls `commitIngesta` (CA-04 at the UI
- * layer).
- *
- * The preview guard now requires the canonical `filas`/`resumen` fields
- * (MOB-PRV-02); the deprecated `muestra`/`estructura` 10/25/50 selector is
- * gone — the full `filas` list renders unpaginated (MOB-PRV-05, interim
- * ahead of the virtualized `ListaRevision`/review-sheet redesign).
+ * State machine (design.md Data Flow — mobile):
+ *   idle → previsualizando → decidiendo{dto,archivo,error?}
+ *   decidiendo → subiendo{origen:'decidiendo'} → exito
+ *   decidiendo → revisando{dto,archivo,error?} → subiendo{origen:'revisando'} → exito
+ *   decidiendo | revisando → idle (Descartar/Cancelar, no commit, MOB-PRV-09)
+ * A commit failure returns to the phase it started from (`origen`),
+ * preserving the held file and — for `revisando` — the row list intact
+ * (MOB-PRV-10), never a dead-end standalone error screen. Only a PREVIEW
+ * failure uses the standalone `error` fase (returns to file selection).
+ * Setting `subiendo` happens synchronously before the request starts, which
+ * unmounts the decision/review actions immediately — there is no render in
+ * which a second tap could reach `commitIngesta` again.
  */
 type Estado =
   | { fase: 'idle' }
   | { fase: 'previsualizando' }
   | {
-      fase: 'preview';
+      fase: 'decidiendo';
+      dto: PreviewIngestaDtoConCanonicos;
+      archivo: DocumentPickerAsset;
+      error?: string;
+    }
+  | {
+      fase: 'revisando';
+      dto: PreviewIngestaDtoConCanonicos;
+      archivo: DocumentPickerAsset;
+      error?: string;
+    }
+  | {
+      fase: 'subiendo';
+      origen: 'decidiendo' | 'revisando';
       dto: PreviewIngestaDtoConCanonicos;
       archivo: DocumentPickerAsset;
     }
-  | { fase: 'subiendo' }
   | { fase: 'exito'; dto: CommitIngestaDto }
   | { fase: 'error'; mensaje: string };
 
@@ -84,7 +96,7 @@ function mensajeDeExito(dto: CommitIngestaDto): string {
   return `Cartola subida. ${dto.totalTransacciones} transacciones, ${dto.duplicadosOmitidos} duplicados omitidos.`;
 }
 
-/** Spanish summary announced when the preview is ready (design.md §10.3). */
+/** Spanish message announced when the preview is ready and `decidiendo` renders. */
 function mensajeDePreviewListo(dto: PreviewIngestaDtoConCanonicos): string {
   return `Vista previa lista. Banco ${dto.banco}, ${dto.resumen.totalFilas} movimientos. Revisa y confirma.`;
 }
@@ -92,6 +104,21 @@ function mensajeDePreviewListo(dto: PreviewIngestaDtoConCanonicos): string {
 /** Spanish message shown/announced when the picker itself fails to open. */
 const MENSAJE_ERROR_PICKER =
   'No se pudo abrir el selector de archivos. Intenta de nuevo.';
+
+/**
+ * No pending edit exists yet at this state (Phase 6, read-only review) —
+ * every row's effective categoría name stays unknown until the
+ * classification sheet and catalog fetch land in Phase 7/8 (design.md D-06).
+ * A module-level empty `Map` keeps a stable reference across renders.
+ */
+const CATEGORIA_NOMBRE_POR_FILA_VACIA: ReadonlyMap<number, string | null> =
+  new Map();
+
+/**
+ * Row taps are not wired to a classification sheet yet — `revisando` is
+ * read-only in this PR (Phase 7/8, design.md D-06).
+ */
+function noAbrirFilaAun(): void {}
 
 export default function Subir() {
   const router = useRouter();
@@ -122,20 +149,25 @@ export default function Subir() {
       return;
     }
 
-    setEstado({ fase: 'preview', dto: preview.value, archivo });
+    setEstado({ fase: 'decidiendo', dto: preview.value, archivo });
   }, []);
 
-  const confirmar = useCallback(async () => {
-    if (estado.fase !== 'preview') {
+  const confirmarTalCual = useCallback(async () => {
+    if (estado.fase !== 'decidiendo') {
       return;
     }
-    const { archivo } = estado;
-    setEstado({ fase: 'subiendo' });
+    const { archivo, dto } = estado;
+    setEstado({ fase: 'subiendo', origen: 'decidiendo', dto, archivo });
     // As-is commit — the user never reached the row list, so the overlay is
     // always empty (MOB-PRV-04).
     const subida = await commitIngesta(archivo, []);
     if (!subida.ok) {
-      setEstado({ fase: 'error', mensaje: mensajeDeError(subida.error) });
+      setEstado({
+        fase: 'decidiendo',
+        dto,
+        archivo,
+        error: mensajeDeError(subida.error),
+      });
       return;
     }
 
@@ -143,18 +175,53 @@ export default function Subir() {
     solicitarRecargaResumen();
   }, [estado]);
 
-  const cancelar = useCallback(() => {
+  const revisar = useCallback(() => {
+    if (estado.fase !== 'decidiendo') {
+      return;
+    }
+    setEstado({ fase: 'revisando', dto: estado.dto, archivo: estado.archivo });
+  }, [estado]);
+
+  const confirmarRevision = useCallback(async () => {
+    if (estado.fase !== 'revisando') {
+      return;
+    }
+    const { archivo, dto } = estado;
+    setEstado({ fase: 'subiendo', origen: 'revisando', dto, archivo });
+    // Read-only review in this PR (Phase 6) — the classification overlay
+    // wiring arrives in Phase 8, so the review commit also sends `[]`.
+    const subida = await commitIngesta(archivo, []);
+    if (!subida.ok) {
+      setEstado({
+        fase: 'revisando',
+        dto,
+        archivo,
+        error: mensajeDeError(subida.error),
+      });
+      return;
+    }
+
+    setEstado({ fase: 'exito', dto: subida.value });
+    solicitarRecargaResumen();
+  }, [estado]);
+
+  const descartar = useCallback(() => {
     setEstado({ fase: 'idle' });
   }, []);
 
-  // Announces preview-ready/éxito/error transitions to screen readers
-  // (WCAG 2.2 AA SC 4.1.3, design.md §10.3) — mirrors the pre-US-003
-  // announcement pattern, extended with the new `preview` phase.
+  // Announces decidiendo/éxito/error transitions to screen readers (WCAG
+  // 2.2 AA SC 4.1.3, design.md). A commit failure keeps the same fase
+  // (`decidiendo`/`revisando`) with an embedded `error`, so it is announced
+  // explicitly instead of re-announcing the preview-ready message.
   useEffect(() => {
-    if (estado.fase === 'preview') {
-      AccessibilityInfo.announceForAccessibility(
-        mensajeDePreviewListo(estado.dto),
-      );
+    if (estado.fase === 'decidiendo' || estado.fase === 'revisando') {
+      if (estado.error) {
+        AccessibilityInfo.announceForAccessibility(estado.error);
+      } else if (estado.fase === 'decidiendo') {
+        AccessibilityInfo.announceForAccessibility(
+          mensajeDePreviewListo(estado.dto),
+        );
+      }
     } else if (estado.fase === 'exito') {
       AccessibilityInfo.announceForAccessibility(mensajeDeExito(estado.dto));
     } else if (estado.fase === 'error') {
@@ -164,8 +231,7 @@ export default function Subir() {
 
   // The trigger is only offered before a preview starts and again once the
   // whole flow has settled (éxito or error) — it stays gated for the
-  // duration of the active preview/confirm window (design.md §10.1/§10.2
-  // "same file" guarantee).
+  // duration of the active decision/review/confirm window.
   const mostrarTrigger =
     estado.fase === 'idle' ||
     estado.fase === 'error' ||
@@ -218,12 +284,78 @@ export default function Subir() {
           </Text>
         )}
 
-        {estado.fase === 'preview' && (
-          <PreviewCartola
-            dto={estado.dto}
-            onConfirmar={() => void confirmar()}
-            onCancelar={cancelar}
-          />
+        {estado.fase === 'decidiendo' && (
+          <View
+            testID="preview-resultado"
+            accessibilityRole="summary"
+            accessibilityLabel={`Vista previa lista. Banco ${estado.dto.banco}, ${estado.dto.resumen.totalFilas} movimientos.`}
+            accessibilityLiveRegion="polite"
+            className="gap-3"
+          >
+            <View className="flex-row justify-between rounded-xl border border-hairline bg-white p-4">
+              <Text className="text-sm text-muted">Banco</Text>
+              <Text className="text-sm font-medium text-heading">
+                {estado.dto.banco}
+              </Text>
+            </View>
+            <ResumenDecision
+              resumen={estado.dto.resumen}
+              onSubirTalCual={() => void confirmarTalCual()}
+              onRevisar={revisar}
+              onDescartar={descartar}
+            />
+            {estado.error && (
+              <Text
+                testID="subir-error"
+                accessibilityRole="alert"
+                accessibilityLabel={`Error al subir: ${estado.error}`}
+                accessibilityLiveRegion="polite"
+                className="text-center text-sm text-red-600"
+              >
+                {estado.error}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {estado.fase === 'revisando' && (
+          <View className="flex-1 gap-3">
+            <ListaRevision
+              filas={estado.dto.filas}
+              categoriaNombrePorFila={CATEGORIA_NOMBRE_POR_FILA_VACIA}
+              onAbrirFila={noAbrirFilaAun}
+            />
+            {estado.error && (
+              <Text
+                testID="subir-error"
+                accessibilityRole="alert"
+                accessibilityLabel={`Error al subir: ${estado.error}`}
+                accessibilityLiveRegion="polite"
+                className="text-center text-sm text-red-600"
+              >
+                {estado.error}
+              </Text>
+            )}
+            <Pressable
+              testID="revision-subir"
+              accessibilityRole="button"
+              accessibilityLabel="Subir"
+              onPress={() => void confirmarRevision()}
+              className="items-center rounded-full py-3"
+              style={{ backgroundColor: COLORS.ingreso }}
+            >
+              <Text className="font-semibold text-white">Subir</Text>
+            </Pressable>
+            <Pressable
+              testID="revision-cancelar"
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+              onPress={descartar}
+              className="items-center py-3"
+            >
+              <Text className="text-sm font-semibold text-muted">Cancelar</Text>
+            </Pressable>
+          </View>
         )}
 
         {estado.fase === 'error' && (
@@ -271,105 +403,6 @@ export default function Subir() {
         )}
       </View>
     </SafeAreaView>
-  );
-}
-
-/**
- * PreviewCartola — the per-row preview panel + Confirmar/Cancelar (US-003
- * Slice 3, design.md §10.2/§10.3). Kept as a local component (not a separate
- * file) per design.md's explicit "inline or a small component" allowance —
- * SRP is still honored: this component only renders, all state lives in the
- * parent `Subir` screen. Renders every row in the canonical `filas` list
- * unpaginated — no 10/25/50 selector (MOB-PRV-05, interim ahead of the
- * virtualized `ListaRevision` redesign, Phase 5).
- */
-function PreviewCartola({
-  dto,
-  onConfirmar,
-  onCancelar,
-}: {
-  readonly dto: PreviewIngestaDtoConCanonicos;
-  readonly onConfirmar: () => void;
-  readonly onCancelar: () => void;
-}) {
-  return (
-    <>
-      <View
-        testID="preview-resultado"
-        accessibilityRole="summary"
-        accessibilityLabel={`Vista previa lista. Banco ${dto.banco}, ${dto.resumen.totalFilas} movimientos.`}
-        accessibilityLiveRegion="polite"
-        className="gap-3 rounded-xl border border-hairline bg-white p-4"
-      >
-        <Text className="text-base font-semibold text-heading">
-          Vista previa
-        </Text>
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted">Banco</Text>
-          <Text className="text-sm font-medium text-heading">{dto.banco}</Text>
-        </View>
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted">Movimientos en total</Text>
-          <Text className="text-sm font-medium text-heading">
-            {dto.resumen.totalFilas}
-          </Text>
-        </View>
-
-        <View
-          testID="preview-lista"
-          accessibilityLabel="Muestra de movimientos"
-          accessibilityLiveRegion="polite"
-          className="gap-2"
-        >
-          {dto.filas.map((fila, indice) => {
-            const formateada = formatearFilaPreview(fila);
-            return (
-              <View
-                key={`${fila.rowIndex}-${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}`}
-                testID={`preview-fila-${indice}`}
-                accessibilityLabel={`${formateada.fecha}, ${formateada.descripcion}, cargo ${formateada.cargo}, abono ${formateada.abono}`}
-                className="gap-1 rounded-lg bg-canvas p-2"
-              >
-                <View className="flex-row justify-between">
-                  <Text className="text-xs text-muted">{formateada.fecha}</Text>
-                  <Text className="text-xs font-medium text-heading">
-                    {formateada.descripcion}
-                  </Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-xs text-muted">
-                    Cargo: {formateada.cargo}
-                  </Text>
-                  <Text className="text-xs text-muted">
-                    Abono: {formateada.abono}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-
-      <Pressable
-        testID="preview-confirmar"
-        accessibilityRole="button"
-        accessibilityLabel="Confirmar carga"
-        onPress={onConfirmar}
-        className="items-center rounded-full py-3"
-        style={{ backgroundColor: COLORS.ingreso }}
-      >
-        <Text className="font-semibold text-white">Confirmar</Text>
-      </Pressable>
-      <Pressable
-        testID="preview-cancelar"
-        accessibilityRole="button"
-        accessibilityLabel="Cancelar vista previa"
-        onPress={onCancelar}
-        className="items-center py-3"
-      >
-        <Text className="text-sm font-semibold text-muted">Cancelar</Text>
-      </Pressable>
-    </>
   );
 }
 
