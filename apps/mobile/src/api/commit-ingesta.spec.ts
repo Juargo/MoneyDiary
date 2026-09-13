@@ -1,17 +1,15 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
 
+// Mirrors `preview-ingesta.spec.ts` exactly (design.md D-03: no shared
+// multipart helper, transport doctrine copied per call site):
 // `expo-file-system`'s `File` implements `Blob` over a `file://` URI (US-033
-// fix: RN's new architecture rejects the legacy `{uri,name,type}` FormData
-// part). Its native module is unavailable under jest, so mock it as a real
-// `Blob` subclass that records the `uri` — enough for `FormData.append` to
-// accept it and for the transport assertions below.
+// fix). Its native module is unavailable under jest, so mock it as a real
+// `Blob` subclass that records the `uri`.
 jest.mock('expo-file-system', () => ({
   File: class MockFile extends Blob {
     readonly uri: string;
     constructor(uri: string) {
       super([]);
-      // Sentinel used by one test to simulate the native `validatePath()`
-      // throwing (e.g. a revoked content:// grant or an expired temp URI).
       if (uri === 'throw://construct-fails') {
         throw new Error('validatePath failed');
       }
@@ -20,12 +18,8 @@ jest.mock('expo-file-system', () => ({
   },
 }));
 
-const validIngestaResponse = {
+const validCommitResponse = {
   ingestaId: 'ing-1',
-  banco: 'BancoEstado',
-  tipoCuenta: 'CuentaRUT',
-  numeroCuenta: '123456789',
-  archivo: { nombre: 'cartola.xlsx', extension: 'xlsx', tamanoBytes: 20480 },
   totalTransacciones: 2,
   duplicadosOmitidos: 0,
   transacciones: [
@@ -34,12 +28,16 @@ const validIngestaResponse = {
       descripcion: 'Compra',
       cargo: '5000',
       abono: '0',
+      bucket: 'Necesidades',
+      categoriaId: null,
     },
     {
       fecha: '2026-07-02T00:00:00.000Z',
       descripcion: 'Sueldo',
       cargo: '0',
       abono: '500000',
+      bucket: 'Ingreso',
+      categoriaId: null,
     },
   ],
 };
@@ -68,9 +66,8 @@ function mockFetchOnce(response: {
   return fetchMock;
 }
 
-// `construirHeadersSesion` is mocked at the module boundary so the transport
-// under test (multipart body shape) is what's exercised, never a real
-// SecureStore/session-store call (mirrors client.spec.ts's `leerToken` style).
+// `construirHeadersSesion` is mocked at the module boundary, mirroring
+// `preview-ingesta.spec.ts`.
 const mockConstruirHeadersSesion = jest.fn<
   Promise<Record<string, string>>,
   []
@@ -79,16 +76,11 @@ jest.mock('./client', () => ({
   construirHeadersSesion: () => mockConstruirHeadersSesion(),
 }));
 
-/**
- * `post-ingesta.ts` reads `config.ts` at module-load time (same as
- * `client.ts`), so each test that needs a specific env must reset the module
- * registry and re-require it (mirrors `client.spec.ts`'s `requireClient`).
- */
-function requirePostIngesta(): typeof import('./post-ingesta') {
-  return jest.requireActual('./post-ingesta');
+function requireCommitIngesta(): typeof import('./commit-ingesta') {
+  return jest.requireActual('./commit-ingesta');
 }
 
-describe('postIngesta', () => {
+describe('commitIngesta', () => {
   const ORIGINAL_ENV = process.env;
   const HEADERS_SESION = {
     'x-api-key': 'test-api-key',
@@ -110,26 +102,23 @@ describe('postIngesta', () => {
     jest.restoreAllMocks();
   });
 
-  it('POSTs the file as a Blob FormData part to {base}/api/ingestas under field "file" with the original filename', async () => {
+  it('POSTs the file as a Blob FormData part to {base}/api/ingestas/commit under field "file" with the original filename', async () => {
     const appendSpy = jest.spyOn(FormData.prototype, 'append');
     const fetchMock = mockFetchOnce({
       ok: true,
-      status: 200,
-      json: () => Promise.resolve(validIngestaResponse),
+      status: 201,
+      json: () => Promise.resolve(validCommitResponse),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    await postIngesta(archivoSeleccionado());
+    await commitIngesta(archivoSeleccionado(), []);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.example.com/api/ingestas',
+      'https://api.example.com/api/ingestas/commit',
       expect.objectContaining({ method: 'POST' }),
     );
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(options.body).toBeInstanceOf(FormData);
-    // The part is a real Blob (the mocked expo-file-system `File`) built over
-    // the picker URI, appended under "file" with the original filename so the
-    // backend keeps the extension as its authority (design.md Decision 3).
     const [campo, valor, filename] = appendSpy.mock.calls[0] as [
       string,
       Blob & { uri?: string },
@@ -141,15 +130,58 @@ describe('postIngesta', () => {
     expect(filename).toBe('cartola.xlsx');
   });
 
-  it("never sets a Content-Type header manually — only construirHeadersSesion()'s headers are sent (Decision 3)", async () => {
+  it('MOB-PRV-04: always sends the edits field as a JSON string, even for an empty overlay ([])', async () => {
+    const appendSpy = jest.spyOn(FormData.prototype, 'append');
+    mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(validCommitResponse),
+    });
+    const { commitIngesta } = requireCommitIngesta();
+
+    await commitIngesta(archivoSeleccionado(), []);
+
+    const llamadaEdits = appendSpy.mock.calls.find(
+      ([campo]) => campo === 'edits',
+    ) as [string, string] | undefined;
+    expect(llamadaEdits).toBeDefined();
+    expect(llamadaEdits?.[1]).toBe('[]');
+  });
+
+  it('sends a sparse edits overlay as a JSON-stringified array of {rowIndex, categoriaId}', async () => {
+    const appendSpy = jest.spyOn(FormData.prototype, 'append');
+    mockFetchOnce({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(validCommitResponse),
+    });
+    const { commitIngesta } = requireCommitIngesta();
+
+    await commitIngesta(archivoSeleccionado(), [
+      { rowIndex: 3, categoriaId: 'cat-ahorro' },
+      { rowIndex: 7, categoriaId: 'cat-ocio' },
+    ]);
+
+    const llamadaEdits = appendSpy.mock.calls.find(
+      ([campo]) => campo === 'edits',
+    ) as [string, string] | undefined;
+    expect(llamadaEdits?.[1]).toBe(
+      JSON.stringify([
+        { rowIndex: 3, categoriaId: 'cat-ahorro' },
+        { rowIndex: 7, categoriaId: 'cat-ocio' },
+      ]),
+    );
+  });
+
+  it("never sets a Content-Type header manually — only construirHeadersSesion()'s headers are sent", async () => {
     const fetchMock = mockFetchOnce({
       ok: true,
-      status: 200,
-      json: () => Promise.resolve(validIngestaResponse),
+      status: 201,
+      json: () => Promise.resolve(validCommitResponse),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    await postIngesta(archivoSeleccionado());
+    await commitIngesta(archivoSeleccionado(), []);
 
     const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = options.headers as Record<string, string>;
@@ -161,42 +193,46 @@ describe('postIngesta', () => {
   it('reuses construirHeadersSesion() verbatim for auth headers (x-api-key + Bearer)', async () => {
     mockFetchOnce({
       ok: true,
-      status: 200,
-      json: () => Promise.resolve(validIngestaResponse),
+      status: 201,
+      json: () => Promise.resolve(validCommitResponse),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    await postIngesta(archivoSeleccionado());
+    await commitIngesta(archivoSeleccionado(), []);
 
     expect(mockConstruirHeadersSesion).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves {ok: true, value} on a well-formed 2xx body', async () => {
+  it('resolves {ok: true, value} on a well-formed 201 body', async () => {
     mockFetchOnce({
       ok: true,
-      status: 200,
-      json: () => Promise.resolve(validIngestaResponse),
+      status: 201,
+      json: () => Promise.resolve(validCommitResponse),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
-    expect(result).toEqual({ ok: true, value: validIngestaResponse });
+    expect(result).toEqual({ ok: true, value: validCommitResponse });
   });
 
-  it('maps a 400 to {tag:"http", status:400, message} carrying the backend body.message (Decision 4, CU-11)', async () => {
+  it('MOB-PRV-10: maps a 400 to {tag:"http", status:400, message} carrying the backend body.message', async () => {
     mockFetchOnce({
       ok: false,
       status: 400,
-      json: () => Promise.resolve({ message: 'Banco no reconocido.' }),
+      json: () => Promise.resolve({ message: 'El campo edits es inválido.' }),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({
       ok: false,
-      error: { tag: 'http', status: 400, message: 'Banco no reconocido.' },
+      error: {
+        tag: 'http',
+        status: 400,
+        message: 'El campo edits es inválido.',
+      },
     });
   });
 
@@ -206,25 +242,9 @@ describe('postIngesta', () => {
       status: 400,
       json: () => Promise.reject(new Error('invalid json')),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
-
-    expect(result).toEqual({
-      ok: false,
-      error: { tag: 'http', status: 400, message: undefined },
-    });
-  });
-
-  it('maps a 400 with a readable body but no usable string message to {tag:"http", status:400, message: undefined}', async () => {
-    mockFetchOnce({
-      ok: false,
-      status: 400,
-      json: () => Promise.resolve({ message: 123 }),
-    });
-    const { postIngesta } = requirePostIngesta();
-
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({
       ok: false,
@@ -232,66 +252,71 @@ describe('postIngesta', () => {
     });
   });
 
-  it('maps res.status === 401 to {tag: "unauthorized"}', async () => {
+  it('MOB-PRV-10: maps res.status === 401 to {tag: "unauthorized"}', async () => {
     mockFetchOnce({ ok: false, status: 401 });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({ ok: false, error: { tag: 'unauthorized' } });
   });
 
   it('maps other non-2xx statuses to {tag: "http", status}', async () => {
     mockFetchOnce({ ok: false, status: 500 });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({ ok: false, error: { tag: 'http', status: 500 } });
   });
 
-  it('maps a synchronous File-construction failure to {tag: "network"} without fetching (never-throws contract, CU-11)', async () => {
-    const fetchMock = mockFetchOnce({ ok: true, status: 200 });
-    const { postIngesta } = requirePostIngesta();
+  it('MOB-PRV-10: maps a synchronous File-construction failure to {tag: "network"} without fetching (never-throws contract)', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 201 });
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(
+    const result = await commitIngesta(
       archivoSeleccionado({ uri: 'throw://construct-fails' }),
+      [],
     );
 
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('maps a fetch rejection to {tag: "network"} (CU-11 — never hangs)', async () => {
+  it('MOB-PRV-10: maps a fetch rejection to {tag: "network"} (never hangs)', async () => {
     (global as unknown as { fetch: typeof fetch }).fetch = jest
       .fn()
       .mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
   });
 
-  it('maps a 2xx body that fails the shape guard to {tag: "parse"}', async () => {
+  it('maps a 2xx body that fails the shape guard (missing duplicadosOmitidos) to {tag: "parse"}', async () => {
     mockFetchOnce({
       ok: true,
-      status: 200,
-      json: () => Promise.resolve({ nonsense: true }),
+      status: 201,
+      json: () =>
+        Promise.resolve({
+          ...validCommitResponse,
+          duplicadosOmitidos: undefined,
+        }),
     });
-    const { postIngesta } = requirePostIngesta();
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
   });
 
   it('returns {tag: "network"} without fetching when API_BASE_URL is missing', async () => {
     process.env.EXPO_PUBLIC_API_BASE_URL = '';
-    const fetchMock = mockFetchOnce({ ok: true, status: 200 });
-    const { postIngesta } = requirePostIngesta();
+    const fetchMock = mockFetchOnce({ ok: true, status: 201 });
+    const { commitIngesta } = requireCommitIngesta();
 
-    const result = await postIngesta(archivoSeleccionado());
+    const result = await commitIngesta(archivoSeleccionado(), []);
 
     expect(result).toEqual({ ok: false, error: { tag: 'network' } });
     expect(fetchMock).not.toHaveBeenCalled();

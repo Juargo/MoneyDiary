@@ -1,60 +1,65 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import type {
-  IngestaResponseDto,
-  TransaccionResponseDto,
-} from '@moneydiary/api-client';
+import type { CommitIngestaDto } from '@moneydiary/api-client';
 import { API_BASE_URL } from './config';
 import { construirHeadersSesion } from './client';
 
 /**
- * `TransaccionResponseDto`/`IngestaResponseDto` — mirror of
- * `POST /api/ingestas`'s success body, now aliases over
- * `@moneydiary/api-client`'s generated types (ADR-012 slice). Money fields
- * stay as decimal strings, never parsed to `number` here. `IngestaResponseDto`
- * gains a required `duplicadosOmitidos` field from the package; mobile never
- * renders it.
+ * `CommitIngestaDto` — mirror of `POST /api/ingestas/commit`'s success body
+ * (US-057, design.md's `commitIngesta` contract, MAC-01), aliased over
+ * `@moneydiary/api-client`'s generated type. Money fields stay as decimal
+ * strings, never parsed to `number` here.
  */
-export type { IngestaResponseDto, TransaccionResponseDto };
+export type { CommitIngestaDto };
 
 /**
- * PostIngestaError — a small, LOCAL extension of the shared `ApiError` union
- * (client.ts), scoped to this function's return type only (design.md
- * Decision 4, YAGNI: do not widen `ApiError` for every mobile call). The
- * only difference is the `http` variant optionally carries the backend's
- * already-scrubbed Spanish `message` for the 400 case (CU-04/CU-11), since
- * every ingesta validation error (banco no reconocido, estructura inválida,
- * PDF sin texto, tamaño/extensión) is a 400 and structurally
- * indistinguishable beyond that message.
+ * `EdicionFila` — one sparse classification override, `{rowIndex,
+ * categoriaId}` (design.md's `commitIngesta` contract). The generated
+ * OpenAPI schema types the wire `edits` field as a JSON string (no element
+ * type to alias, MAC-01 Open Question), so this local type is unavoidable —
+ * same precedent as the web client (`postCommitIngesta`, US-059).
  */
-export type PostIngestaError =
+export type EdicionFila = {
+  readonly rowIndex: number;
+  readonly categoriaId: string;
+};
+
+/**
+ * CommitIngestaError — same shape as `PreviewIngestaError`
+ * (preview-ingesta.ts): a small, LOCAL extension of the shared `ApiError`
+ * union, scoped to this function's return type only (design.md Decision 4,
+ * YAGNI). The `http` variant optionally carries the backend's already-
+ * scrubbed Spanish `message` for the 400 case (MOB-PRV-10).
+ */
+export type CommitIngestaError =
   | { tag: 'unauthorized' }
   | { tag: 'network' }
   | { tag: 'parse' }
   | { tag: 'http'; status: number; message?: string };
 
-export type PostIngestaResult =
-  | { ok: true; value: IngestaResponseDto }
-  | { ok: false; error: PostIngestaError };
+export type CommitIngestaResult =
+  | { ok: true; value: CommitIngestaDto }
+  | { ok: false; error: CommitIngestaError };
 
 /**
  * Light shape guard — enough to catch a malformed/unexpected 2xx body.
- * Deliberately validates only the fields the mobile UI consumes
- * (`ingestaId`, `banco`, `totalTransacciones`) — the result screen shows
- * banco/cuenta/count only, never per-transaction money — mirroring
- * `esResumenMesDto` in `client.ts` ("validate only what flows to
- * render/money"). `transacciones` is intentionally not validated here
- * (YAGNI: mobile never renders it).
+ * Deliberately validates only the root-level fields the mobile UI consumes
+ * (`ingestaId`, `totalTransacciones`, `duplicadosOmitidos`) — the as-is
+ * commit result screen shows only those counts, never per-transaction money
+ * (mirrors `esIngestaResponseDto` in the renamed `post-ingesta.ts`:
+ * "validate only what flows to render/money"). `transacciones` is
+ * intentionally not validated here (YAGNI: mobile never renders it in this
+ * PR — the future review overlay reads it, Phase 5+).
  */
-function esIngestaResponseDto(value: unknown): value is IngestaResponseDto {
+function esCommitIngestaDto(value: unknown): value is CommitIngestaDto {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const candidato = value as Partial<IngestaResponseDto>;
+  const candidato = value as Partial<CommitIngestaDto>;
   return (
     typeof candidato.ingestaId === 'string' &&
-    typeof candidato.banco === 'string' &&
-    typeof candidato.totalTransacciones === 'number'
+    typeof candidato.totalTransacciones === 'number' &&
+    typeof candidato.duplicadosOmitidos === 'number'
   );
 }
 
@@ -67,43 +72,36 @@ function mensajeDe400(body: unknown): string | undefined {
 }
 
 /**
- * postIngesta — POST {base}/api/ingestas with the picked file as RN
- * `FormData` (US-033, ADR-026: mobile's only write capability). Reuses
- * `construirHeadersSesion()` verbatim for `x-api-key` + `Authorization:
- * Bearer` — never throws (CU-11: a backend error or network failure always
- * resolves to a typed result, never leaves the caller hanging).
+ * commitIngesta — POST {base}/api/ingestas/commit with the picked file and
+ * the classification overlay as RN `FormData` (US-057, design.md D-02/D-03).
+ * A faithful transport mirror of `previewIngesta`: same `Blob` file-part via
+ * `expo-file-system` `File` (US-033), same `construirHeadersSesion()` reuse,
+ * same never-throws discipline (D-03: no shared multipart helper — extract
+ * when a 3rd multipart endpoint appears, YAGNI rule of three). `edits` is
+ * ALWAYS sent as a JSON string, even when empty (`[]` — an as-is commit is a
+ * valid pure auto-classify commit, MOB-PRV-04).
  */
-export async function postIngesta(
+export async function commitIngesta(
   pickerResult: DocumentPickerAsset,
-): Promise<PostIngestaResult> {
+  edits: readonly EdicionFila[],
+): Promise<CommitIngestaResult> {
   if (!API_BASE_URL) {
     return { ok: false, error: { tag: 'network' } };
   }
 
-  const url = `${API_BASE_URL}/api/ingestas`;
+  const url = `${API_BASE_URL}/api/ingestas/commit`;
 
   let res: Response;
   try {
     const formData = new FormData();
-    // A real `Blob` file-part, NOT the legacy `{uri,name,type}` object: React
-    // Native's new architecture (Fabric/bridgeless, RN 0.86) rejects that shape
-    // with "Unsupported FormDataPart implementation" (device gate, US-033). The
-    // `expo-file-system` `File` class implements `Blob` over a `file://` URI, so
-    // it streams natively. The third `append` arg sets the multipart filename;
-    // the backend remains the extension authority (design.md Decision 3).
-    //
-    // `new File()` validates the path synchronously and can throw (e.g. a temp
-    // URI expired, or a content:// grant was revoked between pick and upload),
-    // so it stays INSIDE this try: any such throw resolves to {tag:'network'}
-    // like a fetch failure, preserving the never-throws contract (CU-11) — the
-    // caller (subir.tsx) has no try/catch and would otherwise hang on 'subiendo'.
+    // See `preview-ingesta.ts` for the full rationale (US-033): a real
+    // `Blob` file-part, not the legacy `{uri,name,type}` object.
     const archivoBlob = new File(pickerResult.uri) as Blob;
     formData.append('file', archivoBlob, pickerResult.name);
+    formData.append('edits', JSON.stringify(edits));
 
     res = await fetch(url, {
       method: 'POST',
-      // No manual Content-Type — RN generates the multipart boundary itself;
-      // setting it here would drop that boundary (design.md Decision 3).
       headers: await construirHeadersSesion(),
       body: formData,
     });
@@ -142,7 +140,7 @@ export async function postIngesta(
     return { ok: false, error: { tag: 'parse' } };
   }
 
-  if (!esIngestaResponseDto(body)) {
+  if (!esCommitIngestaDto(body)) {
     return { ok: false, error: { tag: 'parse' } };
   }
 
