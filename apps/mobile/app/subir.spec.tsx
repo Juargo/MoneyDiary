@@ -8,18 +8,24 @@ import {
 import { AccessibilityInfo } from 'react-native';
 import type { CommitIngestaResult } from '../src/api/commit-ingesta';
 import type { PreviewIngestaResult } from '../src/api/preview-ingesta';
+import type { CatalogoDto } from '../src/domain/catalogo.types';
+import type { ApiResult } from '../src/domain/api-error';
 
 // Import after jest.mock is registered.
 import Subir from './subir';
 
-// RED-first (US-003 Slice 3 → Phase 6, design.md Data Flow): the screen now
-// evolves the two-phase preview into an explicit decision step —
-// `decidiendo` (resumen + "Subir tal cual"/"Revisar y editar"/"Descartar",
-// MOB-PRV-03) — and, when the user chooses to review, a read-only
-// `revisando` row list (MOB-PRV-05/06) with no classification sheet yet
-// (Phase 7/8). The document picker and both transport layers
-// (`previewIngesta`, `commitIngesta`) are mocked at the module boundary so
-// only this screen's own state machine + wiring is under test.
+// RED-first (US-003 Slice 3 → Phase 8a, design.md Data Flow): the screen now
+// wires the tap-row classification sheet into the read-only `revisando` list
+// PR6/PR7 built — the catalog is fetched once on entering `revisando`
+// (design.md's data-flow annotation), an editable row opens
+// `HojaClasificacion` (MOB-PRV-06/07), and confirming it records a pending
+// edit (`edits: ReadonlyMap<rowIndex, categoriaId>`) shown as the row's
+// effective categoría. Assembling the edits into the commit overlay
+// (`aOverlayEdits`, MOB-PRV-08) and the D-09 double-submit guard land in the
+// follow-up PR (8b). The document picker and all three transport layers
+// (`previewIngesta`, `commitIngesta`, `fetchCatalogo`) are mocked at the
+// module boundary so only this screen's own state machine + wiring is under
+// test.
 const mockGetDocumentAsync = jest.fn();
 jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
@@ -37,6 +43,11 @@ const mockCommitIngesta = jest.fn<
 jest.mock('../src/api/commit-ingesta', () => ({
   commitIngesta: (asset: unknown, edits: unknown) =>
     mockCommitIngesta(asset, edits),
+}));
+
+const mockFetchCatalogo = jest.fn<Promise<ApiResult<CatalogoDto>>, []>();
+jest.mock('../src/api/categorias', () => ({
+  fetchCatalogo: () => mockFetchCatalogo(),
 }));
 
 const mockSolicitarRecargaResumen = jest.fn();
@@ -148,6 +159,35 @@ function commitExitoso(
   };
 }
 
+// A single categoría in bucket "Necesidades" — matches HojaClasificacion.spec's
+// radio-name convention (bucket labels come from `ETIQUETA_BUCKET`,
+// 'Necesidades' maps to itself, avoiding the 'Deseos'→'Gustos' label detour).
+function categoriaFixture(
+  overrides: Partial<{
+    id: string;
+    nombre: string;
+    bucket: string;
+    transaccionesCount: number;
+  }> = {},
+) {
+  return {
+    id: 'cat-arriendo',
+    nombre: 'Arriendo',
+    bucket: 'Necesidades',
+    transaccionesCount: 0,
+    patrones: [],
+    ...overrides,
+  };
+}
+
+function catalogoDto(
+  categorias: readonly ReturnType<typeof categoriaFixture>[] = [
+    categoriaFixture(),
+  ],
+): CatalogoDto {
+  return { categorias } as CatalogoDto;
+}
+
 // Deferred promise so an in-flight state is observable before resolution.
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -179,6 +219,12 @@ async function revisarYEditar() {
   await act(async () => {
     fireEvent.press(screen.getByRole('button', { name: 'Revisar y editar' }));
   });
+  // The catalog fetch fires as part of this transition (design.md's
+  // "+catalog fetch once" annotation) — wait for it to settle (loaded OR
+  // failed) before returning, so callers can reliably tap a row next.
+  await waitFor(() =>
+    expect(screen.queryByTestId('catalogo-cargando')).not.toBeOnTheScreen(),
+  );
 }
 
 describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
@@ -188,6 +234,8 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     mockGetDocumentAsync.mockReset();
     mockPreviewIngesta.mockReset();
     mockCommitIngesta.mockReset();
+    mockFetchCatalogo.mockReset();
+    mockFetchCatalogo.mockResolvedValue({ ok: true, value: catalogoDto() });
     mockSolicitarRecargaResumen.mockReset();
     mockBack.mockReset();
     announceSpy = jest
@@ -316,7 +364,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(screen.queryByRole('radio')).not.toBeOnTheScreen();
   });
 
-  it('MOB-PRV-05/06/09: "Revisar y editar" opens a read-only revisando step — row taps are a no-op and Subir/Cancelar are present', async () => {
+  it('MOB-PRV-06/07: tapping an editable row opens the classification sheet; a duplicate row stays a no-op', async () => {
     const filas = [
       filaPreview({ rowIndex: 0 }),
       filaPreview({ rowIndex: 1, esDuplicado: true }),
@@ -334,14 +382,72 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
 
     expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
     expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
-
-    // Read-only in this PR: tapping an editable row is a no-op — no sheet
-    // exists yet (Phase 7/8, design.md D-06).
-    fireEvent.press(screen.getByTestId('revision-fila-0'));
-    expect(screen.queryByRole('dialog')).not.toBeOnTheScreen();
-
     expect(screen.getByRole('button', { name: 'Subir' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeOnTheScreen();
+
+    // Duplicate row: still a no-op, no sheet opens (MOB-PRV-06).
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-1'));
+    });
+    expect(screen.queryByTestId('hoja-clasificacion')).not.toBeOnTheScreen();
+
+    // Editable row: opens the classification sheet (MOB-PRV-06/07).
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    expect(screen.getByTestId('hoja-clasificacion')).toBeOnTheScreen();
+  });
+
+  it('MOB-PRV-06: an Ingreso row (sugerido.bucket === "Ingreso") stays a no-op even when not a duplicate', async () => {
+    const filas = [
+      filaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Ingreso', categoriaId: null },
+      }),
+    ];
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 1));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+    await revisarYEditar();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    expect(screen.queryByTestId('hoja-clasificacion')).not.toBeOnTheScreen();
+  });
+
+  it('MOB-PRV-07: confirming the sheet records the pending edit and the row reflects the chosen categoría', async () => {
+    const filas = [filaPreview({ rowIndex: 0 })];
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 1));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+    await revisarYEditar();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Necesidades' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Arriendo' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('hoja-confirmar'));
+    });
+
+    expect(screen.queryByTestId('hoja-clasificacion')).not.toBeOnTheScreen();
+    expect(screen.getByText('Arriendo')).toBeOnTheScreen();
   });
 
   it('CA-03/MOB-PRV-04: "Subir tal cual" calls commitIngesta(archivo, []) and success shows totalTransacciones + duplicadosOmitidos', async () => {
@@ -379,7 +485,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
   });
 
-  it('MOB-PRV-08 (interim): "Subir" from revisando calls commitIngesta(archivo, []) — the edits overlay wiring arrives in Phase 8', async () => {
+  it('MOB-PRV-08 (interim): "Subir" from revisando calls commitIngesta(archivo, []) — the edits overlay wiring arrives in PR8b', async () => {
     await seleccionarYPrevisualizar();
     await revisarYEditar();
     mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
@@ -393,6 +499,58 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     );
     expect(mockCommitIngesta).toHaveBeenCalledWith(expect.anything(), []);
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
+  });
+
+  it('entering revisando fetches the catalog exactly once; a commit failure returning to revisando does not refetch it', async () => {
+    await seleccionarYPrevisualizar();
+    await revisarYEditar();
+    expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+
+    mockCommitIngesta.mockResolvedValue({
+      ok: false,
+      error: { tag: 'http', status: 500 },
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: 'Subir' }));
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Error del servidor (código 500).'),
+      ).toBeOnTheScreen(),
+    );
+    expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a catalog fetch failure shows a retryable message, keeps the list visible, and disables opening the sheet', async () => {
+    await seleccionarYPrevisualizar();
+    mockFetchCatalogo.mockResolvedValue({
+      ok: false,
+      error: { tag: 'network' },
+    });
+
+    await revisarYEditar();
+
+    expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
+    expect(screen.getByTestId('catalogo-error')).toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    expect(screen.queryByTestId('hoja-clasificacion')).not.toBeOnTheScreen();
+
+    mockFetchCatalogo.mockResolvedValue({ ok: true, value: catalogoDto() });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('catalogo-reintentar'));
+    });
+    await waitFor(() =>
+      expect(screen.queryByTestId('catalogo-error')).not.toBeOnTheScreen(),
+    );
+    expect(mockFetchCatalogo).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    expect(screen.getByTestId('hoja-clasificacion')).toBeOnTheScreen();
   });
 
   it('shows a busy "subiendo" indicator while "Subir tal cual" is in-flight and hides the decision actions (no double-submit window)', async () => {

@@ -32,6 +32,12 @@ export function ListaRevision({
     <FlatList
       testID="revision-lista"
       data={filas}
+      // Phase 8: `categoriaNombrePorFila`/`onAbrirFila` change identity when
+      // the catalog settles (e.g. `revisando` mounts before the fetch
+      // resolves, or a failed fetch is retried) without `filas` itself
+      // changing — `FlatList`'s cell memoization would otherwise keep
+      // already-rendered rows bound to the stale (pre-catalog) closure.
+      extraData={{ categoriaNombrePorFila, onAbrirFila }}
       keyExtractor={(fila) => String(fila.rowIndex)}
       contentContainerStyle={{ gap: 8 }}
       renderItem={({ item }) => (

@@ -4,34 +4,48 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
+import type { PreviewFilaDto } from '@moneydiary/api-client';
 import { commitIngesta } from '../src/api/commit-ingesta';
 import type {
   CommitIngestaDto,
   CommitIngestaError,
+  EdicionFila,
 } from '../src/api/commit-ingesta';
 import { previewIngesta } from '../src/api/preview-ingesta';
 import type {
   PreviewIngestaDtoConCanonicos,
   PreviewIngestaError,
 } from '../src/api/preview-ingesta';
+import { fetchCatalogo } from '../src/api/categorias';
+import { agruparPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
+import type { GrupoCategoriaPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
+import { categoriaEfectiva } from '../src/domain/preview-cartola';
+import { mensajeDeErrorCatalogo } from '../src/domain/mensajes-catalogo';
 import { ResumenDecision } from '../src/components/subir/ResumenDecision';
 import { ListaRevision } from '../src/components/subir/ListaRevision';
+import { HojaClasificacion } from '../src/components/subir/HojaClasificacion';
 import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 import { copiaPorApiError } from '../src/api/client';
 import { COLORS } from '../src/theme/colors';
 
 /**
  * The mobile upload route (Expo Router `app/subir.tsx`, US-033, ADR-026),
- * evolved into the explicit two-action decision flow (design.md Phase 6):
- * after a successful preview, the user chooses "Subir tal cual" (commits
- * immediately with an empty edits overlay, MOB-PRV-04) or "Revisar y editar"
- * (opens the full virtualized row list, MOB-PRV-05 — read-only in this PR,
- * the tap-row classification sheet arrives in Phase 7/8).
+ * evolved into the explicit two-action decision flow (design.md Phase 6)
+ * plus the tap-row classification sheet (Phase 8a): after a successful
+ * preview, the user chooses "Subir tal cual" (commits immediately with an
+ * empty edits overlay, MOB-PRV-04) or "Revisar y editar" (opens the full
+ * virtualized row list, MOB-PRV-05). In review, tapping an editable row
+ * opens `HojaClasificacion` (MOB-PRV-06/07); confirming it records a
+ * pending edit in `edits: ReadonlyMap<rowIndex, categoriaId>`, shown as the
+ * row's effective categoría (MOB-PRV-07). The review commit still sends an
+ * empty overlay this PR — assembling `aOverlayEdits` into the commit and
+ * the D-09 double-submit guard land in the follow-up PR (8b).
  *
  * State machine (design.md Data Flow — mobile):
  *   idle → previsualizando → decidiendo{dto,archivo,error?}
  *   decidiendo → subiendo{origen:'decidiendo'} → exito
- *   decidiendo → revisando{dto,archivo,error?} → subiendo{origen:'revisando'} → exito
+ *   decidiendo → revisando{dto,archivo,edits,filaAbierta,error?} (+catalog
+ *     fetch once) → subiendo{origen:'revisando'} → exito
  *   decidiendo | revisando → idle (Descartar/Cancelar, no commit, MOB-PRV-09)
  * A commit failure returns to the phase it started from (`origen`),
  * preserving the held file and — for `revisando` — the row list intact
@@ -39,7 +53,18 @@ import { COLORS } from '../src/theme/colors';
  * failure uses the standalone `error` fase (returns to file selection).
  * Setting `subiendo` happens synchronously before the request starts, which
  * unmounts the decision/review actions immediately — there is no render in
- * which a second tap could reach `commitIngesta` again.
+ * which a second tap could reach `commitIngesta` again (structural
+ * single-fire protection; the synchronous ref guard for two taps within the
+ * SAME render arrives in PR8b).
+ *
+ * Catalog fetch ownership (design.md's data-flow annotation): fetched
+ * exactly once per `decidiendo → revisando` transition (the `revisar`
+ * callback below) — never re-fetched on re-render, on opening/closing the
+ * sheet, or when a commit failure returns to the same `revisando` review.
+ * Loading/failure behavior is a spec gap MOB-PRV-06/07/10 do not cover
+ * directly: this screen keeps the row list visible, disables opening the
+ * sheet (`abrirFila` gates on `catalogo.fase === 'listo'`), and shows a
+ * retryable inline message (`catalogo-error`/`catalogo-reintentar`).
  */
 type Estado =
   | { fase: 'idle' }
@@ -54,6 +79,8 @@ type Estado =
       fase: 'revisando';
       dto: PreviewIngestaDtoConCanonicos;
       archivo: DocumentPickerAsset;
+      edits: ReadonlyMap<number, string>;
+      filaAbierta: number | null;
       error?: string;
     }
   | {
@@ -64,6 +91,22 @@ type Estado =
     }
   | { fase: 'exito'; dto: CommitIngestaDto }
   | { fase: 'error'; mensaje: string };
+
+/**
+ * The catalog fetch lifecycle for `revisando` (design.md's "+catalog fetch
+ * once" annotation) — kept as its own `useState`, orthogonal to `Estado`,
+ * since the review row list already renders from `estado.dto.filas` the
+ * instant `revisando` is entered; the catalog only gates the sheet.
+ */
+type EstadoCatalogo =
+  | { fase: 'inactivo' }
+  | { fase: 'cargando' }
+  | { fase: 'error'; mensaje: string }
+  | {
+      fase: 'listo';
+      grupos: readonly GrupoCategoriaPorBucket[];
+      nombrePorId: ReadonlyMap<string, string>;
+    };
 
 const TIPOS_ACEPTADOS = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -106,23 +149,19 @@ const MENSAJE_ERROR_PICKER =
   'No se pudo abrir el selector de archivos. Intenta de nuevo.';
 
 /**
- * No pending edit exists yet at this state (Phase 6, read-only review) —
- * every row's effective categoría name stays unknown until the
- * classification sheet and catalog fetch land in Phase 7/8 (design.md D-06).
- * A module-level empty `Map` keeps a stable reference across renders.
+ * Stable empty-map reference for `ListaRevision.categoriaNombrePorFila`
+ * while the catalog has not resolved yet (loading or failed) — avoids a
+ * fresh object identity every render.
  */
 const CATEGORIA_NOMBRE_POR_FILA_VACIA: ReadonlyMap<number, string | null> =
   new Map();
 
-/**
- * Row taps are not wired to a classification sheet yet — `revisando` is
- * read-only in this PR (Phase 7/8, design.md D-06).
- */
-function noAbrirFilaAun(): void {}
-
 export default function Subir() {
   const router = useRouter();
   const [estado, setEstado] = useState<Estado>({ fase: 'idle' });
+  const [catalogo, setCatalogo] = useState<EstadoCatalogo>({
+    fase: 'inactivo',
+  });
 
   const seleccionarArchivo = useCallback(async () => {
     let resultado: DocumentPicker.DocumentPickerResult;
@@ -175,27 +214,94 @@ export default function Subir() {
     solicitarRecargaResumen();
   }, [estado]);
 
+  /**
+   * cargarCatalogo — fetches the user's own catalog (`fetchCatalogo`) and
+   * groups it (`agruparPorBucket`) for `HojaClasificacion`; also builds a
+   * flat id→nombre lookup for `ListaRevision`'s row display (D-04: names
+   * are resolved from the catalog, never stored in `edits`). Called once
+   * on entering `revisando` (`revisar` below) and again from the inline
+   * "Reintentar" affordance on a failure.
+   */
+  const cargarCatalogo = useCallback(async () => {
+    setCatalogo({ fase: 'cargando' });
+    const resultado = await fetchCatalogo();
+    if (!resultado.ok) {
+      setCatalogo({
+        fase: 'error',
+        mensaje: mensajeDeErrorCatalogo(resultado.error),
+      });
+      return;
+    }
+    setCatalogo({
+      fase: 'listo',
+      grupos: agruparPorBucket(resultado.value.categorias),
+      nombrePorId: new Map(
+        resultado.value.categorias.map((c) => [c.id, c.nombre]),
+      ),
+    });
+  }, []);
+
   const revisar = useCallback(() => {
     if (estado.fase !== 'decidiendo') {
       return;
     }
-    setEstado({ fase: 'revisando', dto: estado.dto, archivo: estado.archivo });
+    setEstado({
+      fase: 'revisando',
+      dto: estado.dto,
+      archivo: estado.archivo,
+      edits: new Map(),
+      filaAbierta: null,
+    });
+    void cargarCatalogo();
+  }, [estado, cargarCatalogo]);
+
+  /** Gated on the catalog being ready — see the file docblock's spec-gap note. */
+  const abrirFila = useCallback(
+    (rowIndex: number) => {
+      if (estado.fase !== 'revisando' || catalogo.fase !== 'listo') {
+        return;
+      }
+      setEstado({ ...estado, filaAbierta: rowIndex });
+    },
+    [estado, catalogo],
+  );
+
+  const confirmarEdicionSheet = useCallback(
+    (edicion: EdicionFila) => {
+      if (estado.fase !== 'revisando') {
+        return;
+      }
+      const edits = new Map(estado.edits);
+      edits.set(edicion.rowIndex, edicion.categoriaId);
+      setEstado({ ...estado, edits, filaAbierta: null });
+    },
+    [estado],
+  );
+
+  const cerrarSheet = useCallback(() => {
+    if (estado.fase !== 'revisando') {
+      return;
+    }
+    setEstado({ ...estado, filaAbierta: null });
   }, [estado]);
 
   const confirmarRevision = useCallback(async () => {
     if (estado.fase !== 'revisando') {
       return;
     }
-    const { archivo, dto } = estado;
+    const { archivo, dto, edits } = estado;
     setEstado({ fase: 'subiendo', origen: 'revisando', dto, archivo });
-    // Read-only review in this PR (Phase 6) — the classification overlay
-    // wiring arrives in Phase 8, so the review commit also sends `[]`.
+    // Interim (PR8a): the classification overlay assembly (`aOverlayEdits`)
+    // arrives in PR8b, so the review commit still sends `[]` regardless of
+    // any pending edits, matching PR6's precedent for the read-only review.
     const subida = await commitIngesta(archivo, []);
     if (!subida.ok) {
       setEstado({
         fase: 'revisando',
         dto,
         archivo,
+        edits,
+        filaAbierta: null,
         error: mensajeDeError(subida.error),
       });
       return;
@@ -207,6 +313,7 @@ export default function Subir() {
 
   const descartar = useCallback(() => {
     setEstado({ fase: 'idle' });
+    setCatalogo({ fase: 'inactivo' });
   }, []);
 
   // Announces decidiendo/éxito/error transitions to screen readers (WCAG
@@ -237,6 +344,44 @@ export default function Subir() {
     estado.fase === 'error' ||
     estado.fase === 'exito';
   const previsualizando = estado.fase === 'previsualizando';
+
+  // Narrowed once here (not repeated per JSX conditional) so the revisando
+  // block below can read `revisando.edits`/`revisando.filaAbierta` typed,
+  // without re-checking `estado.fase === 'revisando'` at every usage site.
+  const revisando = estado.fase === 'revisando' ? estado : null;
+  const categoriaNombrePorFila: ReadonlyMap<number, string | null> =
+    revisando && catalogo.fase === 'listo'
+      ? new Map(
+          revisando.dto.filas.map((fila) => {
+            const categoriaId = categoriaEfectiva(fila, revisando.edits);
+            return [
+              fila.rowIndex,
+              categoriaId
+                ? (catalogo.nombrePorId.get(categoriaId) ?? null)
+                : null,
+            ];
+          }),
+        )
+      : CATEGORIA_NOMBRE_POR_FILA_VACIA;
+  // Computed together (not two separate lookups) so the JSX below never
+  // needs to re-narrow `estado`/`revisando` to read `edits` for the prop.
+  const sheetAbierto: {
+    fila: PreviewFilaDto;
+    categoriaActualId: string | null;
+  } | null =
+    revisando && revisando.filaAbierta !== null
+      ? (() => {
+          const fila = revisando.dto.filas.find(
+            (f) => f.rowIndex === revisando.filaAbierta,
+          );
+          return fila
+            ? {
+                fila,
+                categoriaActualId: categoriaEfectiva(fila, revisando.edits),
+              }
+            : null;
+        })()
+      : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
@@ -318,22 +463,56 @@ export default function Subir() {
           </View>
         )}
 
-        {estado.fase === 'revisando' && (
+        {revisando && (
           <View className="flex-1 gap-3">
+            {catalogo.fase === 'cargando' && (
+              <Text
+                testID="catalogo-cargando"
+                accessibilityRole="progressbar"
+                accessibilityLabel="Cargando catálogo"
+                accessibilityLiveRegion="polite"
+                className="text-center text-xs text-muted"
+              >
+                Cargando catálogo…
+              </Text>
+            )}
+            {catalogo.fase === 'error' && (
+              <View className="items-center gap-1">
+                <Text
+                  testID="catalogo-error"
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  className="text-center text-xs text-red-600"
+                >
+                  {catalogo.mensaje}
+                </Text>
+                <Pressable
+                  testID="catalogo-reintentar"
+                  accessibilityRole="button"
+                  accessibilityLabel="Reintentar cargar catálogo"
+                  onPress={() => void cargarCatalogo()}
+                  className="py-1"
+                >
+                  <Text className="text-xs font-semibold text-muted">
+                    Reintentar
+                  </Text>
+                </Pressable>
+              </View>
+            )}
             <ListaRevision
-              filas={estado.dto.filas}
-              categoriaNombrePorFila={CATEGORIA_NOMBRE_POR_FILA_VACIA}
-              onAbrirFila={noAbrirFilaAun}
+              filas={revisando.dto.filas}
+              categoriaNombrePorFila={categoriaNombrePorFila}
+              onAbrirFila={abrirFila}
             />
-            {estado.error && (
+            {revisando.error && (
               <Text
                 testID="subir-error"
                 accessibilityRole="alert"
-                accessibilityLabel={`Error al subir: ${estado.error}`}
+                accessibilityLabel={`Error al subir: ${revisando.error}`}
                 accessibilityLiveRegion="polite"
                 className="text-center text-sm text-red-600"
               >
-                {estado.error}
+                {revisando.error}
               </Text>
             )}
             <Pressable
@@ -356,6 +535,17 @@ export default function Subir() {
               <Text className="text-sm font-semibold text-muted">Cancelar</Text>
             </Pressable>
           </View>
+        )}
+
+        {sheetAbierto && catalogo.fase === 'listo' && (
+          <HojaClasificacion
+            visible
+            fila={sheetAbierto.fila}
+            categoriaActualId={sheetAbierto.categoriaActualId}
+            grupos={catalogo.grupos}
+            onConfirmar={confirmarEdicionSheet}
+            onCancelar={cerrarSheet}
+          />
         )}
 
         {estado.fase === 'error' && (
