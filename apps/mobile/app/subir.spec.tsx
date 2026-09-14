@@ -16,15 +16,18 @@ import Subir from './subir';
 
 // RED-first (US-003 Slice 3 → Phase 8, design.md Data Flow): the screen now
 // wires the tap-row classification sheet into the read-only `revisando` list
-// PR6/PR7 built — the catalog is fetched once on entering `revisando`
-// (design.md's data-flow annotation), an editable row opens
-// `HojaClasificacion` (MOB-PRV-06/07), confirming it records a pending edit
+// PR6/PR7 built — an editable row opens `HojaClasificacion` (MOB-PRV-06/07),
+// confirming it records a pending edit
 // (`edits: ReadonlyMap<rowIndex, categoriaId>`), and the review commit sends
 // the assembled overlay (`aOverlayEdits`, MOB-PRV-08) — a commit failure
-// preserves both the row list AND the pending edits (MOB-PRV-10). The
-// document picker and all three transport layers (`previewIngesta`,
-// `commitIngesta`, `fetchCatalogo`) are mocked at the module boundary so
-// only this screen's own state machine + wiring is under test.
+// preserves both the row list AND the pending edits (MOB-PRV-10).
+// cartola-decision-agrupada: the catalog is now fetched exactly once per
+// flow, starting as soon as `decidiendo` is entered (not deferred until
+// "Revisar y editar" is tapped) — see `app/subir.tsx`'s "Catalog fetch
+// ownership" docblock. The document picker and all three transport layers
+// (`previewIngesta`, `commitIngesta`, `fetchCatalogo`) are mocked at the
+// module boundary so only this screen's own state machine + wiring is under
+// test.
 const mockGetDocumentAsync = jest.fn();
 jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
@@ -218,9 +221,9 @@ async function revisarYEditar() {
   await act(async () => {
     fireEvent.press(screen.getByRole('button', { name: 'Revisar y editar' }));
   });
-  // The catalog fetch fires as part of this transition (design.md's
-  // "+catalog fetch once" annotation) — wait for it to settle (loaded OR
-  // failed) before returning, so callers can reliably tap a row next.
+  // cartola-decision-agrupada: the catalog fetch actually fires earlier, on
+  // entering `decidiendo` — wait for it to settle (loaded OR failed) before
+  // returning, so callers can reliably tap a row next.
   await waitFor(() =>
     expect(screen.queryByTestId('catalogo-cargando')).not.toBeOnTheScreen(),
   );
@@ -343,6 +346,73 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(screen.queryByTestId('revision-lista')).not.toBeOnTheScreen();
     expect(screen.queryByTestId(/^revision-fila-/)).not.toBeOnTheScreen();
     expect(screen.queryByRole('combobox')).not.toBeOnTheScreen();
+  });
+
+  it('cartola-decision-agrupada: the decision summary shows real categoría names once the catalog resolves (fetched at decidiendo, not deferred to Revisar y editar)', async () => {
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    const filas = [
+      filaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-arriendo' },
+      }),
+    ];
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 1));
+    mockFetchCatalogo.mockResolvedValue({ ok: true, value: catalogoDto() });
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+
+    // Previously the catalog wasn't fetched until "Revisar y editar" was
+    // tapped, so this group could only ever read "Categoría no disponible"
+    // at this step.
+    await waitFor(() =>
+      expect(screen.getByText('Necesidades · Arriendo')).toBeOnTheScreen(),
+    );
+    expect(
+      screen.queryByText('Necesidades · Categoría no disponible'),
+    ).not.toBeOnTheScreen();
+  });
+
+  it('cartola-decision-agrupada: the decision actions stay usable while the catalog is loading, and after it fails', async () => {
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso());
+    const d = deferred<ApiResult<CatalogoDto>>();
+    mockFetchCatalogo.mockReturnValue(d.promise);
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+
+    // Catalog fetch is in flight (deferred, not yet resolved) — the three
+    // decision actions are present and pressing one still works.
+    expect(
+      screen.getByRole('button', { name: 'Subir tal cual' }),
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Descartar' })).toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Revisar y editar' }));
+    });
+    expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
+    // The sheet stays gated on the catalog, but the list itself is usable.
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    expect(screen.queryByTestId('hoja-clasificacion')).not.toBeOnTheScreen();
+
+    // Catalog now fails — the list stays visible with a retryable message,
+    // and "Subir" is still present and pressable.
+    await act(async () => {
+      d.resolve({ ok: false, error: { tag: 'network' } });
+      await d.promise;
+    });
+    expect(screen.getByTestId('catalogo-error')).toBeOnTheScreen();
+    expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Subir' })).toBeOnTheScreen();
   });
 
   it('MOB-PRV-05: "Revisar y editar" shows every filas row via the virtualized list, no page-size selector', async () => {
@@ -549,7 +619,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     ]);
   });
 
-  it('entering revisando fetches the catalog exactly once; a commit failure returning to revisando does not refetch it', async () => {
+  it('the catalog fetches exactly once for the whole flow — entering revisando and a commit failure returning to revisando do not refetch it', async () => {
     await seleccionarYPrevisualizar();
     await revisarYEditar();
     expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
@@ -571,11 +641,16 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
   });
 
   it('a catalog fetch failure shows a retryable message, keeps the list visible, and disables opening the sheet', async () => {
-    await seleccionarYPrevisualizar();
+    // cartola-decision-agrupada: the fetch now starts as soon as decidiendo
+    // is entered, so the failing mock must be set BEFORE that transition —
+    // configuring it afterwards would be too late to affect the one fetch
+    // this flow makes.
     mockFetchCatalogo.mockResolvedValue({
       ok: false,
       error: { tag: 'network' },
     });
+    await seleccionarYPrevisualizar();
+    expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
 
     await revisarYEditar();
 

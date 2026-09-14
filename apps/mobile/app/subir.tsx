@@ -44,10 +44,12 @@ import { COLORS } from '../src/theme/colors';
  * review commit sends the assembled overlay (`aOverlayEdits`, MOB-PRV-08).
  *
  * State machine (design.md Data Flow — mobile):
- *   idle → previsualizando → decidiendo{dto,archivo,error?}
+ *   idle → previsualizando → decidiendo{dto,archivo,error?} (+catalog fetch
+ *     starts here, cartola-decision-agrupada — see "Catalog fetch ownership"
+ *     below)
  *   decidiendo → subiendo{origen:'decidiendo'} → exito
- *   decidiendo → revisando{dto,archivo,edits,filaAbierta,error?} (+catalog
- *     fetch once) → subiendo{origen:'revisando'} → exito
+ *   decidiendo → revisando{dto,archivo,edits,filaAbierta,error?} →
+ *     subiendo{origen:'revisando'} → exito
  *   decidiendo | revisando → idle (Descartar/Cancelar, no commit, MOB-PRV-09)
  * A commit failure returns to the phase it started from (`origen`),
  * preserving the held file and — for `revisando` — the row list AND the
@@ -62,14 +64,26 @@ import { COLORS } from '../src/theme/colors';
  * commit actions by moving to `subiendo`/`exito`, so nothing can reach them
  * again regardless of the ref).
  *
- * Catalog fetch ownership (design.md's data-flow annotation): fetched
- * exactly once per `decidiendo → revisando` transition (the `revisar`
- * callback below) — never re-fetched on re-render, on opening/closing the
- * sheet, or when a commit failure returns to the same `revisando` review.
- * Loading/failure behavior is a spec gap MOB-PRV-06/07/10 do not cover
- * directly: this screen keeps the row list visible, disables opening the
- * sheet (`abrirFila` gates on `catalogo.fase === 'listo'`), and shows a
- * retryable inline message (`catalogo-error`/`catalogo-reintentar`).
+ * Catalog fetch ownership (cartola-decision-agrupada, MOB-PRV-03/13):
+ * fetched exactly once per FLOW, starting as soon as `decidiendo` is
+ * entered (a `useEffect` below, guarded on `catalogo.fase === 'inactivo'`)
+ * — NOT deferred until "Revisar y editar" is tapped anymore, so
+ * `MuestraAgrupadaMobile`'s grouped summary at the decision step gets real
+ * categoría names instead of permanently reading "Categoría no disponible".
+ * Never re-fetched on re-render, on entering `revisando`, on opening/closing
+ * the sheet, or when a commit failure returns to either `decidiendo` or
+ * `revisando` — the `inactivo` guard makes every one of those a no-op once
+ * the fetch has started. `descartar` resets `catalogo` back to `inactivo`
+ * so a NEW flow (new file picked) fetches again. The "Reintentar" affordance
+ * (`catalogo-error`/`catalogo-reintentar`, surfaced inside `revisando`) is
+ * the only other caller of `cargarCatalogo`, and stays unconditional (a
+ * deliberate manual retry, not gated on `inactivo`).
+ *
+ * Loading/failure never blocks the decision actions (MOB-PRV-03): "Subir tal
+ * cual"/"Revisar y editar"/"Descartar" are usable regardless of
+ * `catalogo.fase` — only the review sheet gates on `catalogo.fase ===
+ * 'listo'` (`abrirFila`), and the row list stays visible with a retryable
+ * inline message (`catalogo-error`/`catalogo-reintentar`) while `revisando`.
  */
 type Estado =
   | { fase: 'idle' }
@@ -98,10 +112,12 @@ type Estado =
   | { fase: 'error'; mensaje: string };
 
 /**
- * The catalog fetch lifecycle for `revisando` (design.md's "+catalog fetch
- * once" annotation) — kept as its own `useState`, orthogonal to `Estado`,
- * since the review row list already renders from `estado.dto.filas` the
- * instant `revisando` is entered; the catalog only gates the sheet.
+ * The catalog fetch lifecycle (cartola-decision-agrupada: now starts at
+ * `decidiendo`, not only `revisando`) — kept as its own `useState`,
+ * orthogonal to `Estado`, since both the decision summary
+ * (`MuestraAgrupadaMobile`) and the review row list render independently of
+ * whether the catalog has resolved; it only gates categoría name resolution
+ * and (in `revisando`) the classification sheet.
  */
 type EstadoCatalogo =
   | { fase: 'inactivo' }
@@ -228,10 +244,12 @@ export default function Subir() {
   /**
    * cargarCatalogo — fetches the user's own catalog (`fetchCatalogo`) and
    * groups it (`agruparPorBucket`) for `HojaClasificacion`; also builds a
-   * flat id→nombre lookup for `ListaRevision`'s row display (D-04: names
-   * are resolved from the catalog, never stored in `edits`). Called once
-   * on entering `revisando` (`revisar` below) and again from the inline
-   * "Reintentar" affordance on a failure.
+   * flat id→nombre lookup for `MuestraAgrupadaMobile`'s decision-step
+   * summary AND `ListaRevision`'s row display (D-04: names are resolved
+   * from the catalog, never stored in `edits`). Called once by the
+   * `decidiendo`-entry effect below, and again from the inline
+   * "Reintentar" affordance on a failure (unconditional — a deliberate
+   * manual retry).
    */
   const cargarCatalogo = useCallback(async () => {
     setCatalogo({ fase: 'cargando' });
@@ -252,6 +270,28 @@ export default function Subir() {
     });
   }, []);
 
+  // cartola-decision-agrupada (MOB-PRV-03/13): starts the catalog fetch as
+  // soon as the flow enters `decidiendo` (previewIngesta succeeded), so
+  // MuestraAgrupadaMobile's grouped summary can show real categoría names
+  // by the time the user reads it, instead of only once "Revisar y editar"
+  // is tapped. Guarded on `catalogo.fase === 'inactivo'` — the "fetched
+  // exactly once per flow" invariant the file docblock describes: a
+  // re-render, entering `revisando`, opening/closing the sheet, or a commit
+  // failure returning to either `decidiendo` or `revisando` all leave
+  // `catalogo.fase` at `cargando`/`listo`/`error`, so this effect no-ops.
+  // `descartar` resets `catalogo` to `inactivo`, so picking a NEW file
+  // fetches again for that new flow.
+  useEffect(() => {
+    if (estado.fase === 'decidiendo' && catalogo.fase === 'inactivo') {
+      // cargarCatalogo() sets `cargando` synchronously by design (same
+      // precedent as app/index.tsx's `cargar()`) — the `inactivo` guard
+      // above is what keeps this a one-shot fetch per flow, not a
+      // cascading-render smell.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void cargarCatalogo();
+    }
+  }, [estado.fase, catalogo.fase, cargarCatalogo]);
+
   const revisar = useCallback(() => {
     if (estado.fase !== 'decidiendo') {
       return;
@@ -263,8 +303,7 @@ export default function Subir() {
       edits: new Map(),
       filaAbierta: null,
     });
-    void cargarCatalogo();
-  }, [estado, cargarCatalogo]);
+  }, [estado]);
 
   /** Gated on the catalog being ready — see the file docblock's spec-gap note. */
   const abrirFila = useCallback(
@@ -366,11 +405,12 @@ export default function Subir() {
   // `decidiendo` step needs only a flat id→nombre lookup, not the full
   // `EstadoCatalogo`/`grupos` shape `HojaClasificacion` uses — derived here
   // so `ResumenDecision` stays decoupled from this screen's catalog fetch
-  // lifecycle. At `decidiendo` the catalog is normally still `inactivo`
-  // (`cargarCatalogo` only runs once "Revisar y editar" is tapped, this
-  // file's own docblock) — `MuestraAgrupadaMobile` degrades gracefully for
-  // that case (groups by bucket, "Categoría no disponible" per row), never
-  // blocking the decision actions.
+  // lifecycle. The `decidiendo`-entry effect above starts the fetch
+  // immediately, so `catalogo.fase` is usually `cargando`/`listo` by the
+  // time this renders — but while it is still `inactivo`/`cargando`/`error`,
+  // `MuestraAgrupadaMobile` degrades gracefully (groups by bucket,
+  // "Categoría no disponible" per row) rather than blocking the decision
+  // actions.
   const catalogoNombres: CatalogoNombresEstado =
     catalogo.fase === 'listo'
       ? { tag: 'listo', nombrePorId: catalogo.nombrePorId }

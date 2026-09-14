@@ -11,11 +11,11 @@ import type { PreviewFilaDto } from '@moneydiary/api-client';
  * cross-app sharing — this is a parallel port, same shape as
  * `agrupar-categorias-por-bucket.ts`/`formatear-monto.ts`), with ONE
  * adaptation: `decidiendo` never has the full grouped-by-bucket catalog
- * loaded (`app/subir.tsx`'s `cargarCatalogo` only runs once "Revisar y
- * editar" is tapped — "+catalog fetch once" in that file's docblock), so
- * `CatalogoNombresEstado` below is the simpler shape mobile already builds
- * for `ListaRevision` (a flat id→nombre map), not `EstadoCatalogo`'s full
- * `listo.grupos`.
+ * `HojaClasificacion` uses — `app/subir.tsx` fetches the catalog once per
+ * flow (starting as soon as `decidiendo` is entered, MOB-PRV-13), but this
+ * module only needs a flat id→nombre lookup, so `CatalogoNombresEstado`
+ * below is the simpler shape mobile already builds for `ListaRevision`, not
+ * `EstadoCatalogo`'s full `listo.grupos`.
  *
  * Five group shapes (discriminated by `tipo`) — see the web module's
  * docblock for the full per-shape rationale, identical here:
