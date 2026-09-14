@@ -24,6 +24,7 @@ import {
   categoriaEfectiva,
 } from '../src/domain/preview-cartola';
 import { mensajeDeErrorCatalogo } from '../src/domain/mensajes-catalogo';
+import type { CatalogoNombresEstado } from '../src/domain/agrupar-preview-por-categoria';
 import { ResumenDecision } from '../src/components/subir/ResumenDecision';
 import { ListaRevision } from '../src/components/subir/ListaRevision';
 import { HojaClasificacion } from '../src/components/subir/HojaClasificacion';
@@ -361,6 +362,19 @@ export default function Subir() {
   // block below can read `revisando.edits`/`revisando.filaAbierta` typed,
   // without re-checking `estado.fase === 'revisando'` at every usage site.
   const revisando = estado.fase === 'revisando' ? estado : null;
+  // cartola-decision-agrupada (MOB-PRV-03): `MuestraAgrupadaMobile` at the
+  // `decidiendo` step needs only a flat id→nombre lookup, not the full
+  // `EstadoCatalogo`/`grupos` shape `HojaClasificacion` uses — derived here
+  // so `ResumenDecision` stays decoupled from this screen's catalog fetch
+  // lifecycle. At `decidiendo` the catalog is normally still `inactivo`
+  // (`cargarCatalogo` only runs once "Revisar y editar" is tapped, this
+  // file's own docblock) — `MuestraAgrupadaMobile` degrades gracefully for
+  // that case (groups by bucket, "Categoría no disponible" per row), never
+  // blocking the decision actions.
+  const catalogoNombres: CatalogoNombresEstado =
+    catalogo.fase === 'listo'
+      ? { tag: 'listo', nombrePorId: catalogo.nombrePorId }
+      : { tag: 'no-listo' };
   const categoriaNombrePorFila: ReadonlyMap<number, string | null> =
     revisando && catalogo.fase === 'listo'
       ? new Map(
@@ -457,6 +471,8 @@ export default function Subir() {
             </View>
             <ResumenDecision
               resumen={estado.dto.resumen}
+              filas={estado.dto.filas}
+              catalogo={catalogoNombres}
               onSubirTalCual={() => void confirmarTalCual()}
               onRevisar={revisar}
               onDescartar={descartar}

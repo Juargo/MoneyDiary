@@ -12,9 +12,11 @@ import { formatearMontoCLP } from './formatear-monto';
 /**
  * The bucket the backend uses to mark an income row (`sugerido.bucket`).
  * ADR-024: read-only — the client never re-derives this from `abono`/`cargo`,
- * it only compares against the value the backend already computed.
+ * it only compares against the value the backend already computed. Exported
+ * (cartola-decision-agrupada) so `agrupar-preview-por-categoria.ts` reads the
+ * exact same constant instead of a second `'Ingreso'` literal (`dry`).
  */
-const BUCKET_INGRESO = 'Ingreso';
+export const BUCKET_INGRESO = 'Ingreso';
 
 export interface FilaPreviewFormateada {
   readonly fecha: string;

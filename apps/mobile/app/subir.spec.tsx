@@ -303,7 +303,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     });
   });
 
-  it('CA-02: a successful preview renders banco and resumen counts, no row list yet', async () => {
+  it('CA-02: a successful preview renders banco and resumen counts, no EDITABLE row list yet', async () => {
     await seleccionarYPrevisualizar();
 
     expect(screen.getByText('BancoEstado')).toBeOnTheScreen();
@@ -312,7 +312,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(screen.queryByTestId('revision-lista')).not.toBeOnTheScreen();
   });
 
-  it('MOB-PRV-03: decidiendo renders the resumen counts and all three actions, no row list', async () => {
+  it('MOB-PRV-03: decidiendo renders the resumen counts, all three actions, and the read-only grouped summary — never the editable row list', async () => {
     const filas = [
       filaPreview({ rowIndex: 0 }),
       filaPreview({ rowIndex: 1, esDuplicado: true }),
@@ -337,8 +337,12 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
       screen.getByRole('button', { name: 'Revisar y editar' }),
     ).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Descartar' })).toBeOnTheScreen();
+    // cartola-decision-agrupada: the read-only grouped accordion is present
+    // (collapsed by default), but the EDITABLE review list is still absent.
+    expect(screen.getByText('Movimientos por categoría')).toBeOnTheScreen();
     expect(screen.queryByTestId('revision-lista')).not.toBeOnTheScreen();
     expect(screen.queryByTestId(/^revision-fila-/)).not.toBeOnTheScreen();
+    expect(screen.queryByRole('combobox')).not.toBeOnTheScreen();
   });
 
   it('MOB-PRV-05: "Revisar y editar" shows every filas row via the virtualized list, no page-size selector', async () => {
