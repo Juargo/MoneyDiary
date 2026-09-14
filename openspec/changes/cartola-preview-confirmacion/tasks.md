@@ -179,12 +179,42 @@ classification, or process-integration boundary in this change.
 
 ## Phase 7: `HojaClasificacion` (PR7, base: PR6)
 
-- [ ] 7.1 [RED] Create `apps/mobile/src/components/subir/HojaClasificacion.test.tsx`: bucket
-      radiogroup (`BUCKETS_ASIGNABLES` with categorías) filters the categoría radiogroup
-      (MOB-PRV-07); Confirmar emits `{rowIndex, categoriaId}`; Cancelar closes without emitting.
-- [ ] 7.2 [GREEN] Create `apps/mobile/src/components/subir/HojaClasificacion.tsx` reusing the
-      `ReclasificarMobileControl` `Modal` pattern, `fetchCatalogo` + `agruparPorBucket`.
-- [ ] 7.3 [REFACTOR] `pnpm --filter @moneydiary/mobile lint`.
+- [x] 7.1 [RED] Create `apps/mobile/src/components/subir/HojaClasificacion.spec.tsx` (naming
+      deviation from `.test.tsx`, same as PR4/PR5 — this repo's mobile tests use `*.spec.tsx`):
+      bucket radiogroup (`BUCKETS_ASIGNABLES` with categorías) filters the categoría radiogroup
+      (MOB-PRV-07); Confirmar emits `{rowIndex, categoriaId}`; Cancelar closes without emitting;
+      plus Confirmar-disabled, preselection from the current categoría, and reopening-for-a-
+      different-row (no stale selection leak) as triangulation. Confirmed RED: module not found.
+- [x] 7.2 [GREEN] Create `apps/mobile/src/components/subir/HojaClasificacion.tsx`. **Design
+      conflict resolved in favor of design.md** (recorded here per the launch instruction): the
+      sheet does **not** call `fetchCatalogo` itself — it is presentational, receiving `grupos`
+      (already `agruparPorBucket`-shaped), the target `fila`, `categoriaActualId`, `visible`,
+      `onConfirmar(edicion)`, `onCancelar`. design.md's data-flow diagram annotates the catalog
+      fetch on `revisando` entry (the SCREEN), and task 8.2 explicitly assigns "fetch the catalog
+      once on entering `revisando`" to Phase 8 — this task's own `fetchCatalogo` wording is the
+      stale one. **DRY**: reuses `SelectorChips` (`configuracion/`, US-044) for both radiogroups
+      instead of `ReclasificarMobileControl`'s `Modal` pattern — `SelectorChips` is already the
+      generic bucket/categoría radiogroup primitive (backs `NuevaCategoriaForm`, `EditarCategoria`,
+      `PatronFila`) and matches MOB-PRV-07's real shape (bucket selection filters categoría
+      options), whereas `ReclasificarMobileControl` shows every bucket's categorías at once with
+      no selection step and is entangled with its own PATCH/Alert commit flow this sheet doesn't
+      need. `ReclasificarMobileControl` itself is untouched.
+- [x] 7.3 [REFACTOR] `pnpm --filter @moneydiary/mobile lint`: 1 real error
+      (`react-hooks/set-state-in-effect` on the open-only reset effect), fixed with the same
+      `eslint-disable-next-line` precedent `ReclasificarMobileControl` already uses; remaining
+      findings were prettier, auto-fixed. 0 errors after, same 1 pre-existing unrelated warning as
+      PR3–PR6 (`BucketDetalleScreen.spec.tsx`).
+- **Scoped correction (owner-approved, same PR7, no new tasks)**: removed the open-only reset
+  `useEffect` and its two `eslint-disable-next-line` suppressions (syncing state from props in an
+  effect with suppressed deps risks reading stale props). Split `HojaClasificacion` into the outer
+  `Modal`-driven component and an inner `HojaClasificacionContenido`, rendered only while
+  `visible` and `key`ed by `fila.rowIndex`, so it mounts fresh per opening; the selection state now
+  initializes with lazy `useState(() => ...)` derived from `grupos`/`categoriaActualId` at mount,
+  no effect involved. Also dropped the `grupoActual?.bucket as BucketAsignable` cast via a
+  `esBucketAsignable` type predicate that narrows `gruposAsignables` directly. Props contract
+  unchanged; all 10 existing tests pass unmodified (10/10), full mobile suite 858/858, `tsc
+  --noEmit` clean, lint 0 errors/0 `eslint-disable` in the file (same 1 pre-existing unrelated
+  warning). Commit `refactor(mobile): inicializa la selección de HojaClasificacion sin efecto`.
 - Verify: `pnpm --filter @moneydiary/mobile test -- HojaClasificacion`.
 
 ## Phase 8: Sheet wiring + overlay commit + failure preservation (PR8, base: PR7)
