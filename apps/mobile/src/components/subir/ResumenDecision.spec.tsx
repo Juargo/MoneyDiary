@@ -10,7 +10,9 @@
  */
 
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import type { PreviewFilaDto } from '@moneydiary/api-client';
 import { ResumenDecision } from './ResumenDecision';
+import type { CatalogoNombresEstado } from '../../domain/agrupar-preview-por-categoria';
 
 const RESUMEN = { totalFilas: 40, duplicadosDetectados: 5, nuevas: 35 };
 
@@ -47,6 +49,56 @@ describe('ResumenDecision', () => {
       screen.getByRole('button', { name: 'Revisar y editar' }),
     ).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Descartar' })).toBeOnTheScreen();
+  });
+
+  it('cartola-decision-agrupada: with no filas passed, renders no grouped summary heading (default empty array)', async () => {
+    await render(
+      <ResumenDecision
+        resumen={RESUMEN}
+        onSubirTalCual={jest.fn()}
+        onRevisar={jest.fn()}
+        onDescartar={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText('Movimientos por categoría'),
+    ).not.toBeOnTheScreen();
+  });
+
+  it('cartola-decision-agrupada: renders the grouped summary (collapsed) when filas/catalogo are passed, with no editing control', async () => {
+    const filas: readonly PreviewFilaDto[] = [
+      {
+        rowIndex: 0,
+        fecha: '2026-07-15T00:00:00.000Z',
+        descripcion: 'Supermercado Líder',
+        cargo: '50000',
+        abono: '0',
+        esDuplicado: false,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      },
+    ];
+    const catalogo: CatalogoNombresEstado = {
+      tag: 'listo',
+      nombrePorId: new Map([['cat-nec-1', 'Supermercado']]),
+    };
+
+    await render(
+      <ResumenDecision
+        resumen={RESUMEN}
+        filas={filas}
+        catalogo={catalogo}
+        onSubirTalCual={jest.fn()}
+        onRevisar={jest.fn()}
+        onDescartar={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Movimientos por categoría')).toBeOnTheScreen();
+    expect(screen.getByText('Necesidades · Supermercado')).toBeOnTheScreen();
+    // Collapsed by default — the row itself is not mounted.
+    expect(screen.queryByText('Supermercado Líder')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('combobox')).not.toBeOnTheScreen();
   });
 
   it('calls onSubirTalCual when "Subir tal cual" is tapped', async () => {

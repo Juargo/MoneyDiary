@@ -591,7 +591,38 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
   // binary choice between "Subir tal cual" and "Revisar y editar" that now
   // sits between a successful preview and the editable table ────────────────
   describe('decision step (decidiendo, WEB-PRV-02/06/07/19)', () => {
-    it('WEB-PRV-02/WEB-PRV-19: renders the resumen and the three decision actions, with no table', () => {
+    it('keeps the default "Vista previa lista." announced but visually hidden, and never boxes the preview, at both preview states', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      const region = screen.getByRole('status', {
+        name: /estado de la subida/i,
+      });
+      const esperarSinRecuadro = () => {
+        expect(region).toHaveTextContent(/vista previa lista/i);
+        expect(region).toHaveClass('sr-only');
+        const seccion = screen.getByRole('region', { name: 'Vista previa' });
+        expect(seccion).not.toHaveClass('border');
+        expect(seccion).not.toHaveClass('bg-card');
+      };
+
+      esperarSinRecuadro();
+      elegirRevisarYEditar();
+      esperarSinRecuadro();
+    });
+
+    it('WEB-PRV-02/WEB-PRV-19: renders the resumen, the grouped summary (collapsed), and the three decision actions — no editable table', () => {
       mockedUsePreviewIngesta.mockReturnValue(
         unaMutacion<PreviewIngestaDto>({
           isSuccess: true,
@@ -617,11 +648,23 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(
         screen.getByRole('button', { name: /^descartar$/i }),
       ).toBeInTheDocument();
-      // No table yet.
-      expect(screen.queryByText('Supermercado Líder')).not.toBeInTheDocument();
+      // cartola-decision-agrupada: MuestraAgrupada renders a read-only
+      // grouped accordion of the SAME filas, collapsed by default — the row
+      // exists in the DOM (inside its "Sin clasificar" group) but is not
+      // VISIBLE until that group is expanded. The editable review table
+      // (FilaRevision's controls) is still absent entirely.
+      expect(
+        screen.getByRole('heading', { name: 'Movimientos por categoría' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^Sin clasificar/ }),
+      ).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByText('Supermercado Líder')).not.toBeVisible();
       expect(
         screen.queryByRole('button', { name: /agregar transacciones/i }),
       ).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     });
 
     it('WEB-PRV-06: "Subir tal cual" commits directly with edits: [] — the user never reaches the table', async () => {

@@ -1,15 +1,25 @@
 import { Pressable, Text, View } from 'react-native';
+import type { PreviewFilaDto } from '@moneydiary/api-client';
 import { COLORS } from '../../theme/colors';
+import { MuestraAgrupadaMobile } from './MuestraAgrupadaMobile';
+import type { CatalogoNombresEstado } from '../../domain/agrupar-preview-por-categoria';
 
 /**
  * ResumenDecision — the resumen summary plus the explicit two-action
- * decision step (Phase 5, design.md; MOB-PRV-03/09/11). No consumer yet —
- * `subir.tsx`'s `decidiendo` state wires this in Phase 6.
+ * decision step (Phase 5, design.md; MOB-PRV-03/09/11). `subir.tsx`'s
+ * `decidiendo` state wires this in.
  *
  * Purely presentational: no API calls, no state. The caller supplies the
- * already-computed resumen counts and the three action callbacks. No row
- * list is rendered here (MOB-PRV-03) — `ListaRevision` only mounts after
- * "Revisar y editar".
+ * already-computed resumen counts and the three action callbacks.
+ *
+ * cartola-decision-agrupada added a READ-ONLY grouped accordion summary of
+ * `filas` (`MuestraAgrupadaMobile`, MOB-PRV-03) between the resumen box and
+ * the action buttons — collapsed by default, no editing control. `filas`/
+ * `catalogo` default to empty/`no-listo` so pre-existing callers (this
+ * component's own spec) keep compiling unchanged; with no filas the summary
+ * renders nothing. `ListaRevision`/`FilaRevisionMobile` (the EDITABLE row
+ * list) still only mount after "Revisar y editar" — this summary never
+ * exposes a classification control.
  */
 export interface ResumenDecisionResumen {
   readonly totalFilas: number;
@@ -19,13 +29,19 @@ export interface ResumenDecisionResumen {
 
 export interface ResumenDecisionProps {
   readonly resumen: ResumenDecisionResumen;
+  readonly filas?: readonly PreviewFilaDto[];
+  readonly catalogo?: CatalogoNombresEstado;
   readonly onSubirTalCual: () => void;
   readonly onRevisar: () => void;
   readonly onDescartar: () => void;
 }
 
+const CATALOGO_NO_LISTO: CatalogoNombresEstado = { tag: 'no-listo' };
+
 export function ResumenDecision({
   resumen,
+  filas = [],
+  catalogo = CATALOGO_NO_LISTO,
   onSubirTalCual,
   onRevisar,
   onDescartar,
@@ -55,6 +71,8 @@ export function ResumenDecision({
           </Text>
         </View>
       </View>
+
+      <MuestraAgrupadaMobile filas={filas} catalogo={catalogo} />
 
       <Pressable
         testID="decision-subir-tal-cual"
