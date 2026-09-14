@@ -150,6 +150,9 @@ test.describe('crear una categoría desde la vista previa', () => {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       buffer: Buffer.from('stub'),
     });
+    // cartola-preview-confirmacion PR10 (D-07, WEB-PRV-19): "Revisar y
+    // editar" is now the only path into the editable table.
+    await page.getByRole('button', { name: 'Revisar y editar' }).click();
     await expect(page.getByLabel('Fila 1: bucket')).toBeVisible();
 
     // Manual override on row 2 (fila 3) BEFORE creating: it must survive the
