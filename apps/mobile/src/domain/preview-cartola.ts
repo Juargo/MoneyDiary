@@ -1,30 +1,20 @@
-import type { PreviewTransaccionDto } from '../api/preview-ingesta';
+import type { PreviewFilaDto } from '@moneydiary/api-client';
+import type { EdicionFila } from '../api/commit-ingesta';
 import { formatearMontoCLP } from './formatear-monto';
 
 /**
- * preview-cartola — pure view-model for the mobile preview list (US-003
- * Slice 3, design.md §10.2). No RN import, no ports: mirrors the SOLID
- * skill's note that mobile domain logic is pure functions (formatting,
- * slicing), same shape as the web sibling `PreviewMuestra.tsx`.
+ * preview-cartola — pure view-model + classification helpers for the mobile
+ * review flow (design.md D-04/D-05). No RN import, no ports: mirrors the
+ * SOLID skill's note that mobile domain logic is pure functions, same shape
+ * as the web sibling (`resolverCategoriaMerged`/`clasificacion-preview.ts`).
  */
-
-/** CA-01 selector options, same three values as the web preview panel. */
-export const OPCIONES_CANTIDAD_PREVIEW = [10, 25, 50] as const;
-export type CantidadPreview = (typeof OPCIONES_CANTIDAD_PREVIEW)[number];
-export const CANTIDAD_PREVIEW_DEFECTO: CantidadPreview = 10;
 
 /**
- * sliceMuestra — client-side row-count selector (PREV-06, CA-01): slices the
- * already-fetched `muestra` array, never issues a new request. Selecting a
- * `cantidad` larger than `muestra.length` returns every available row with
- * no padding (`Array.prototype.slice` handles this natively).
+ * The bucket the backend uses to mark an income row (`sugerido.bucket`).
+ * ADR-024: read-only — the client never re-derives this from `abono`/`cargo`,
+ * it only compares against the value the backend already computed.
  */
-export function sliceMuestra(
-  muestra: readonly PreviewTransaccionDto[],
-  cantidad: CantidadPreview,
-): readonly PreviewTransaccionDto[] {
-  return muestra.slice(0, cantidad);
-}
+const BUCKET_INGRESO = 'Ingreso';
 
 export interface FilaPreviewFormateada {
   readonly fecha: string;
@@ -40,7 +30,7 @@ export interface FilaPreviewFormateada {
  * portion (`YYYY-MM-DD`, mirroring the web `PreviewMuestra.tsx` convention).
  */
 export function formatearFilaPreview(
-  fila: PreviewTransaccionDto,
+  fila: Pick<PreviewFilaDto, 'fecha' | 'descripcion' | 'cargo' | 'abono'>,
 ): FilaPreviewFormateada {
   return {
     fecha: fila.fecha.slice(0, 10),
@@ -48,4 +38,59 @@ export function formatearFilaPreview(
     cargo: formatearMontoCLP(fila.cargo),
     abono: formatearMontoCLP(fila.abono),
   };
+}
+
+/**
+ * esFilaEditable (MOB-PRV-06) — a row may be tapped to open the
+ * classification sheet only when it is neither a duplicate nor income. This
+ * mirrors `CommitIngestaUseCase` Rule 2 (backend), which always persists an
+ * Ingreso row as `{ Ingreso, null }` and silently discards any overlay entry
+ * targeting it — offering an edit control for it would promise a change the
+ * server never applies (design.md D-05).
+ */
+export function esFilaEditable(
+  fila: Pick<PreviewFilaDto, 'esDuplicado' | 'sugerido'>,
+): boolean {
+  return !fila.esDuplicado && fila.sugerido?.bucket !== BUCKET_INGRESO;
+}
+
+/**
+ * categoriaEfectiva (design.md D-04) — the merge rule: a pending edit (from
+ * the classification sheet, MOB-PRV-07) wins over the backend's `sugerido`.
+ * `edits` presence (not its value) means "the user assigned a categoría to
+ * this row" — a missing entry falls back to `sugerido?.categoriaId`. Mirrors
+ * the web `resolverCategoriaMerged`, adapted to mobile's non-nullable
+ * `ReadonlyMap<rowIndex, categoriaId>` (there is no "unassign" affordance in
+ * the mobile sheet).
+ */
+export function categoriaEfectiva(
+  fila: Pick<PreviewFilaDto, 'rowIndex' | 'sugerido'>,
+  edits: ReadonlyMap<number, string>,
+): string | null {
+  return edits.has(fila.rowIndex)
+    ? (edits.get(fila.rowIndex) ?? null)
+    : (fila.sugerido?.categoriaId ?? null);
+}
+
+/**
+ * aOverlayEdits (MOB-PRV-08) — assembles the `commitIngesta` overlay from
+ * the accumulated pending edits: only rows with a pending edit that are
+ * still editable (`esFilaEditable`) are included. Duplicate and Ingreso rows
+ * are excluded even defensively — the sheet never opens for them in the
+ * first place (MOB-PRV-06/07), but the overlay assembly must not include
+ * them regardless of how a pending edit could have ended up in the map.
+ */
+export function aOverlayEdits(
+  filas: readonly Pick<
+    PreviewFilaDto,
+    'rowIndex' | 'esDuplicado' | 'sugerido'
+  >[],
+  edits: ReadonlyMap<number, string>,
+): readonly EdicionFila[] {
+  return filas
+    .filter((fila) => edits.has(fila.rowIndex) && esFilaEditable(fila))
+    .map((fila) => ({
+      rowIndex: fila.rowIndex,
+      categoriaId: edits.get(fila.rowIndex) as string,
+    }));
 }
