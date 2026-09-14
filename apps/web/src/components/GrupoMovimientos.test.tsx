@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -104,6 +110,16 @@ const GRUPO_FIXTURE: GrupoDetalleMesViewModel = {
   ],
 };
 
+// Accordion helper (bucket-detalle-acordeon): every group renders collapsed
+// unless `destacar` is true, so a test that queries a row/control directly
+// must expand the group's own heading trigger first. Every test in this
+// suite renders exactly one group, so the sole heading button is
+// unambiguous.
+function expandirGrupo() {
+  const heading = screen.getByRole('heading', { level: 2 });
+  fireEvent.click(within(heading).getByRole('button'));
+}
+
 describe('GrupoMovimientos', () => {
   afterEach(() => {
     // Design-hardening change (undo grace window): `undo-manager.ts` is a
@@ -143,6 +159,7 @@ describe('GrupoMovimientos', () => {
       { wrapper: crearWrapper() },
     );
 
+    expandirGrupo();
     await screen.findByLabelText('Cambiar categoría de Compra en Líder');
 
     expect(
@@ -195,6 +212,7 @@ describe('GrupoMovimientos', () => {
       { wrapper: crearWrapper() },
     );
 
+    expandirGrupo();
     const fila = await screen.findByRole('listitem');
     expect(within(fila).getByText('2026-07-05')).toBeInTheDocument();
     expect(
@@ -241,6 +259,7 @@ describe('GrupoMovimientos', () => {
       { wrapper: crearWrapper() },
     );
 
+    expandirGrupo();
     await user.click(
       await screen.findByRole('button', {
         name: /Eliminar movimiento Bono manual/i,
@@ -279,6 +298,7 @@ describe('GrupoMovimientos', () => {
       { wrapper: crearWrapper() },
     );
 
+    expandirGrupo();
     expect(
       await screen.findByRole('button', {
         name: /Eliminar movimiento Bono manual/i,
@@ -302,6 +322,7 @@ describe('GrupoMovimientos', () => {
       { wrapper: crearWrapper() },
     );
 
+    expandirGrupo();
     // Wait for the catalog to load and the select to be enabled.
     const select = await screen.findByLabelText(
       'Cambiar categoría de Compra en Líder',
@@ -353,6 +374,7 @@ describe('GrupoMovimientos', () => {
       { wrapper: crearWrapper() },
     );
 
+    expandirGrupo();
     const select = screen.getByLabelText(
       'Cambiar categoría de Compra en Líder',
     ) as HTMLSelectElement;

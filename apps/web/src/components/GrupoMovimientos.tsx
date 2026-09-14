@@ -1,19 +1,10 @@
 import { useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
 import { EliminarMovimientoControl } from './EliminarMovimientoControl';
 import { aFechaCorta } from '@/domain/fecha';
 import { usePendingIds } from '@/lib/undo-manager';
 import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
-
-/**
- * How many rows a group shows before the "ver N más…" toggle appears. Raised
- * from 3 to 10 (2026-09-09): three rows made the toggle the RULE rather than
- * the exception — almost every category in a real month has more than three
- * movements, so the page opened as a wall of truncated groups and reading a
- * month meant clicking every one of them open. Ten rows shows the typical
- * category whole and keeps the toggle for the genuinely long ones.
- */
-export const FILAS_VISIBLES_POR_DEFECTO = 10;
 
 /**
  * GrupoMovimientos — one grouped-category section of the bucket detail page
@@ -26,12 +17,18 @@ export const FILAS_VISIBLES_POR_DEFECTO = 10;
  * view-model never touches Number()/parseFloat(), WCAT-02) — this component
  * only renders `subtotalLabel` verbatim.
  *
- * Rows collapse to FILAS_VISIBLES_POR_DEFECTO with a "ver N más…" toggle
- * (WDM-03/1, per group — each instance owns its own `expandido` state; the
- * slice is a render-time decision, the hidden rows are NOT in the DOM at
- * all, not merely CSS-hidden). The toggle wires `aria-expanded` +
- * `aria-controls` to its own list (unique id via `useId`, since groups
- * render in a `map`). Groups with ≤10 rows render no toggle.
+ * Collapsed-by-default accordion (bucket-detalle-acordeon, WDM-03): the
+ * heading itself IS the trigger — same idiom `PreviewMuestra`'s per-date
+ * accordion and `MuestraAgrupada`'s per-category accordion already use
+ * (heading wraps a `button` with `aria-expanded`/`aria-controls`, a
+ * `ChevronDown` that rotates, the panel kept `hidden` — not unmounted —
+ * while collapsed; each instance owns its own `expandido` state, since
+ * groups render in a `map`). Activating the trigger shows ALL rows of the
+ * group — the old FILAS_VISIBLES_POR_DEFECTO 10-row slice with its
+ * "ver N más…" toggle is retired: an always-open accordion body has nothing
+ * left to truncate, and the heading itself now carries the only
+ * expand/collapse affordance. The `destacar` group (deep-link highlight)
+ * starts EXPANDED — everyone else starts collapsed.
  *
  * Delete affordance (SDD `correccion-movimientos-manuales` PR 3, WEB-DEL-01,
  * D-03): `EliminarMovimientoControl` renders only for rows with
@@ -52,11 +49,11 @@ export const FILAS_VISIBLES_POR_DEFECTO = 10;
  * `EliminarMovimientoControl` schedules a delayed commit and closes its
  * dialog immediately instead of removing anything itself — THIS component
  * hides the row, filtering `grupo.transacciones` by `usePendingIds()`
- * (`lib/undo-manager.ts`) BEFORE the "ver N más…" slice, so the visible
- * count and the collapsed/expanded toggle stay consistent with what's
- * actually on screen. `grupo.subtotalLabel`/`conteo` (the group heading)
- * are untouched — those are computed server-side and recompute only after
- * the real DELETE commits (ADR-024).
+ * (`lib/undo-manager.ts`) before rendering the row list, so what's visible
+ * behind the accordion stays consistent with what's actually pending.
+ * `grupo.subtotalLabel`/`conteo` (the group heading) are untouched — those
+ * are computed server-side and recompute only after the real DELETE
+ * commits (ADR-024).
  */
 export function GrupoMovimientos({
   grupo,
@@ -75,7 +72,12 @@ export function GrupoMovimientos({
   readonly onEliminado?: () => void;
   readonly esDemo?: boolean;
 }) {
-  const [expandido, setExpandido] = useState(false);
+  // Initial state comes from `destacar`, not a hardcoded `false`: the
+  // highlighted deep-link target starts open, every other group starts
+  // closed (WDM-03/WDM-04). `useState` only reads this once — a LATER
+  // `destacar` flip (there isn't one on this page today) would not reopen
+  // an already-mounted group, same as any other lazy-init state.
+  const [expandido, setExpandido] = useState(destacar);
   const idLista = useId();
   const idTitulo = useId();
   const pendientes = usePendingIds();
@@ -83,11 +85,6 @@ export function GrupoMovimientos({
   const transaccionesVisibles = grupo.transacciones.filter(
     (tx) => !pendientes.has(tx.id),
   );
-  const visibles = expandido
-    ? transaccionesVisibles
-    : transaccionesVisibles.slice(0, FILAS_VISIBLES_POR_DEFECTO);
-  const ocultas = transaccionesVisibles.length - FILAS_VISIBLES_POR_DEFECTO;
-  const hayMas = ocultas > 0;
 
   return (
     <section
@@ -107,12 +104,36 @@ export function GrupoMovimientos({
           is NOT: Testing Library joins only an element's direct text-node
           children, so a `getByText('Ñoquis · $… · 1 movimiento')` stops
           matching once the figures move into child spans. Query this heading
-          by role/name, not by text. */}
+          by role/name, not by text.
+
+          The heading now wraps the accordion trigger button (whole-row hit
+          target, WCAG 2.2 SC 2.5.8 — `min-h-8` clears the 24px floor), same
+          idiom as `PreviewMuestra`'s date groups / `MuestraAgrupada`'s
+          category groups: `aria-expanded`/`aria-controls`, a rotating
+          `ChevronDown` (`aria-hidden`, `motion-reduce:transition-none`). */}
       <h2 id={idTitulo} className="text-sm font-semibold text-secondary">
-        {grupo.nombre} ·{' '}
-        <span className="font-mono tabular-nums">{grupo.subtotalLabel}</span> ·{' '}
-        <span className="font-mono tabular-nums">{grupo.conteo}</span>{' '}
-        {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
+        <button
+          type="button"
+          aria-expanded={expandido}
+          aria-controls={idLista}
+          onClick={() => setExpandido((v) => !v)}
+          className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <span className="min-w-0">
+            {grupo.nombre} ·{' '}
+            <span className="font-mono tabular-nums">
+              {grupo.subtotalLabel}
+            </span>{' '}
+            · <span className="font-mono tabular-nums">{grupo.conteo}</span>{' '}
+            {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${
+              expandido ? '' : '-rotate-90'
+            }`}
+          />
+        </button>
       </h2>
       {/* Tecno-Analítico (2026-09-02): the rows stop being individual cards
           (`rounded-lg border bg-card p-3 shadow-sm` each, separated by
@@ -129,8 +150,18 @@ export function GrupoMovimientos({
           landed at a different x on every row — it read like a table with
           no columns. `items-baseline` sits the mono figures on the same
           baseline as the description's sans text. */}
-      <ul id={idLista} className="divide-y divide-border">
-        {visibles.map((tx) => (
+      {/* Collapsed = `hidden`, NOT unmounted: a row's mid-cascade control
+          state (`ReclasificarCategoriaControl`'s open confirm dialog,
+          `EliminarMovimientoControl`'s pending state) would be lost on
+          remount. Tailwind v4's preflight makes `[hidden]` win over the
+          `flex`/`divide-y` utilities (`!important`), and the class swap
+          below is belt-and-braces for it (PreviewMuestra precedent). */}
+      <ul
+        id={idLista}
+        hidden={!expandido}
+        className={expandido ? 'divide-y divide-border' : 'hidden'}
+      >
+        {transaccionesVisibles.map((tx) => (
           <li
             key={tx.id}
             className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 gap-y-2 py-2.5 text-sm"
@@ -185,17 +216,6 @@ export function GrupoMovimientos({
           </li>
         ))}
       </ul>
-      {hayMas && (
-        <button
-          type="button"
-          aria-expanded={expandido}
-          aria-controls={idLista}
-          onClick={() => setExpandido((v) => !v)}
-          className="self-start text-sm font-semibold text-primary underline-offset-4 hover:underline"
-        >
-          {expandido ? 'Ver menos' : `ver ${ocultas} más…`}
-        </button>
-      )}
     </section>
   );
 }
