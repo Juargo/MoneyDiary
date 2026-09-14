@@ -17,7 +17,7 @@ import type { PreviewFilaDto } from '@moneydiary/api-client';
  * for `ListaRevision` (a flat id→nombre map), not `EstadoCatalogo`'s full
  * `listo.grupos`.
  *
- * Six group shapes (discriminated by `tipo`) — see the web module's
+ * Five group shapes (discriminated by `tipo`) — see the web module's
  * docblock for the full per-shape rationale, identical here:
  * - `categoria`: classified, non-duplicate, `categoriaId` resolvable →
  *   keyed by `(bucket, categoriaId)`.
@@ -26,20 +26,19 @@ import type { PreviewFilaDto } from '@moneydiary/api-client';
  *   suffix — these rows need no categoría (mirrors `FilaRevisionMobile`'s
  *   own "Ingreso" marker instead of a categoría name).
  * - `categoria-no-disponible`: `categoriaId` present but NOT resolvable —
- *   either the catalog isn't `listo` yet (the common case at `decidiendo`,
- *   since it hasn't been fetched) or a stale id missing from a loaded
- *   catalog. Kept separate from `sin-categoria` so "catalog not loaded yet"
- *   never reads as "no categoría assigned".
- * - `sin-categoria`: `categoriaId === null` for a bucket other than
- *   Ingreso — unreachable through today's classifier, kept for the same
- *   forward-compatibility reason as the web module.
- * - `sin-clasificar`: `sugerido === null`. Single group.
+ *   either the catalog is still loading/inactive/failed, or a stale id
+ *   missing from a loaded catalog. Kept separate from `sin-clasificar` so
+ *   "catalog not available yet" never reads as "no categoría assigned".
+ * - `sin-clasificar`: `sugerido === null`, OR `sugerido` present with a null
+ *   `categoriaId` on a bucket OTHER than Ingreso (unreachable through
+ *   today's classifier — YAGNI, no speculative group shape for it). Single
+ *   group.
  * - `duplicadas`: `esDuplicado`, checked first. Single group, always last.
  *
  * Order: `BUCKETS_ASIGNABLES` (Necesidades, Deseos, Ahorro), then `ingreso`,
  * then `sin-clasificar`, then `duplicadas`. Within a bucket: `categoria`
- * subgroups sorted by nombre (`localeCompare('es')`), then `sin-categoria`,
- * then `categoria-no-disponible` sorted by id. Rows keep file order.
+ * subgroups sorted by nombre (`localeCompare('es')`), then
+ * `categoria-no-disponible` sorted by id. Rows keep file order.
  */
 
 /**
@@ -71,12 +70,6 @@ export type GrupoPreviewPorCategoria =
     }
   | {
       readonly tipo: 'ingreso';
-      readonly clave: string;
-      readonly bucket: string;
-      readonly filas: readonly PreviewFilaDto[];
-    }
-  | {
-      readonly tipo: 'sin-categoria';
       readonly clave: string;
       readonly bucket: string;
       readonly filas: readonly PreviewFilaDto[];
@@ -137,7 +130,10 @@ export function agruparPreviewPorCategoria(
     }
     const { bucket, categoriaId } = fila.sugerido;
     if (categoriaId === null) {
-      agregar(`sin-categoria::${bucket}`, fila);
+      // Unreachable through today's classifier for a non-Ingreso bucket —
+      // falls into "Sin clasificar" rather than a speculative shape of its
+      // own (YAGNI, see the docblock's `sin-clasificar` entry).
+      agregar('sin-clasificar', fila);
       continue;
     }
     const nombre = resolverNombreCategoria(catalogo, categoriaId);
@@ -159,14 +155,6 @@ export function agruparPreviewPorCategoria(
         tipo: 'ingreso',
         clave,
         bucket: BUCKET_INGRESO,
-        filas: filasGrupo,
-      });
-    } else if (clave.startsWith('sin-categoria::')) {
-      const [, bucket] = clave.split('::');
-      grupos.push({
-        tipo: 'sin-categoria',
-        clave,
-        bucket: bucket ?? '',
         filas: filasGrupo,
       });
     } else if (clave.startsWith('categoria-no-disponible::')) {
@@ -218,11 +206,6 @@ export function agruparPreviewPorCategoria(
     ) {
       return a.categoriaId.localeCompare(b.categoriaId, 'es');
     }
-    const rangoSubtipo: Record<string, number> = {
-      categoria: 0,
-      'sin-categoria': 1,
-      'categoria-no-disponible': 2,
-    };
-    return (rangoSubtipo[a.tipo] ?? 3) - (rangoSubtipo[b.tipo] ?? 3);
+    return a.tipo === 'categoria' ? -1 : 1;
   });
 }

@@ -90,7 +90,7 @@ describe('agruparPreviewPorCategoria', () => {
     ]);
   });
 
-  it('un categoriaId null para un bucket que NO es Ingreso cae en "Sin categoría" (hoy inalcanzable, docblock rule sin-categoria)', () => {
+  it('un categoriaId null para un bucket que NO es Ingreso cae en "Sin clasificar" (hoy inalcanzable, YAGNI: sin forma especulativa propia)', () => {
     const fila = filaDePreview({
       sugerido: { bucket: 'Necesidades', categoriaId: null },
     });
@@ -98,12 +98,7 @@ describe('agruparPreviewPorCategoria', () => {
     const grupos = agruparPreviewPorCategoria([fila], catalogoListo);
 
     expect(grupos).toEqual([
-      {
-        tipo: 'sin-categoria',
-        clave: 'sin-categoria::Necesidades',
-        bucket: 'Necesidades',
-        filas: [fila],
-      },
+      { tipo: 'sin-clasificar', clave: 'sin-clasificar', filas: [fila] },
     ]);
   });
 
