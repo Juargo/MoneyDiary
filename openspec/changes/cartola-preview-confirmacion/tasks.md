@@ -253,12 +253,18 @@ are all merged — mobile only ships on that tag, and a partial mid-chain state 
 
 ## Phase 9: Web — extract `ResumenCartola` (PR9, base: PR8 or PR1, zero behavior change)
 
-- [ ] 9.1 [RED] Create `apps/web/src/components/ResumenCartola.test.tsx` asserting the
+- [x] 9.1 [RED] Create `apps/web/src/components/ResumenCartola.test.tsx` asserting the
       `data-resumen-cartola` block's current rendered output (resumen counts) unchanged.
-- [ ] 9.2 [GREEN] Create `apps/web/src/components/ResumenCartola.tsx` (extracted from
+- [x] 9.2 [GREEN] Create `apps/web/src/components/ResumenCartola.tsx` (extracted from
       `PreviewMuestra.tsx`'s `data-resumen-cartola` block, D-08); update `PreviewMuestra.tsx` to
       consume it with no visual change.
-- [ ] 9.3 [REFACTOR] `pnpm web lint`.
+- [x] 9.3 [REFACTOR] `pnpm web lint`.
+      **Delivered as PR9** (base PR8b `feat/cartola-mobile-edicion-commit`, branch
+      `feat/cartola-web-resumen-cartola`). 215 changed lines (148 insertions + 67 deletions),
+      comfortably under budget. Zero behavior change confirmed: no existing test file
+      (`PreviewMuestra.test.tsx`, `SubirCartola.test.tsx`, e2e) was modified — only the new
+      `ResumenCartola.test.tsx` was added, and it asserts the exact same rendered output the
+      pre-existing `PreviewMuestra.test.tsx` cases already covered for that block.
 - Verify: `pnpm web test -- ResumenCartola PreviewMuestra`; `pnpm web typecheck`.
 
 ## Phase 10: Web — decision step + e2e (PR10, base: PR9)
