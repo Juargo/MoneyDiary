@@ -242,11 +242,13 @@ as list visible, sheet disabled until the catalog is ready, inline retryable err
 - [x] 8.3 [REFACTOR] Create `apps/mobile/.maestro/subir-editar.yaml`; update
       `docs/mobile-upload-gate-runbook.md` for the review/edit flow.
 - Verify: `pnpm --filter @moneydiary/mobile test -- subir`; `pnpm --filter @moneydiary/mobile exec tsc --noEmit`.
-- [ ] **PENDING (owner, manual):** Manual verification (not CI): run `apps/mobile/.maestro/subir.yaml`, `subir-cancelar.yaml`,
-  `subir-editar.yaml` on device via `pnpm --filter @moneydiary/mobile e2e`; VoiceOver (iOS) and
-  TalkBack (Android) pass over decision actions, row list, and sheet controls (ADR-018,
-  MOB-PRV-11 — decision actions and sheet controls expose accessible labels; MOB-PRV-06 —
-  non-interactive rows expose no button role).
+**Pre-release gate — PENDING (owner, manual, NOT yet run):** moved out of the implementation
+checklist by owner decision (2026-09-13) so code verification can proceed; it still blocks the
+first `mobile-v*` tag. Run `apps/mobile/.maestro/subir.yaml`, `subir-cancelar.yaml`,
+`subir-editar.yaml` on device via `pnpm --filter @moneydiary/mobile e2e`; VoiceOver (iOS) and
+TalkBack (Android) pass over decision actions, row list, and sheet controls (ADR-018,
+MOB-PRV-11 — decision actions and sheet controls expose accessible labels; MOB-PRV-06 —
+non-interactive rows expose no button role).
 
 **Reminder:** do not cut a `mobile-v*` release tag until PR2 through PR8b (the overlay-commit PR)
 are all merged — mobile only ships on that tag, and a partial mid-chain state must never reach it.
