@@ -12,11 +12,14 @@ import type { PreviewIngestaResult } from '../src/api/preview-ingesta';
 // Import after jest.mock is registered.
 import Subir from './subir';
 
-// RED-first (US-003 Slice 3, design.md §10.1/§10.3): greenfield two-phase
-// preview-then-confirm state machine. The document picker and both
-// transport layers (`previewIngesta`, `commitIngesta` — both already GREEN)
-// are mocked at the module boundary so only this screen's own `useState`
-// machine + wiring is under test, mirroring the pre-US-003 spec's style.
+// RED-first (US-003 Slice 3 → Phase 6, design.md Data Flow): the screen now
+// evolves the two-phase preview into an explicit decision step —
+// `decidiendo` (resumen + "Subir tal cual"/"Revisar y editar"/"Descartar",
+// MOB-PRV-03) — and, when the user chooses to review, a read-only
+// `revisando` row list (MOB-PRV-05/06) with no classification sheet yet
+// (Phase 7/8). The document picker and both transport layers
+// (`previewIngesta`, `commitIngesta`) are mocked at the module boundary so
+// only this screen's own state machine + wiring is under test.
 const mockGetDocumentAsync = jest.fn();
 jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
@@ -172,7 +175,13 @@ async function seleccionarYPrevisualizar() {
   );
 }
 
-describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
+async function revisarYEditar() {
+  await act(async () => {
+    fireEvent.press(screen.getByRole('button', { name: 'Revisar y editar' }));
+  });
+}
+
+describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
   let announceSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -247,17 +256,45 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     });
   });
 
-  it('CA-02: a successful preview renders banco, total, and the sample rows formatted as CLP', async () => {
+  it('CA-02: a successful preview renders banco and resumen counts, no row list yet', async () => {
     await seleccionarYPrevisualizar();
 
     expect(screen.getByText('BancoEstado')).toBeOnTheScreen();
-    expect(screen.getByText('1')).toBeOnTheScreen(); // totalFilasDatos
-    expect(screen.getByText('Compra supermercado')).toBeOnTheScreen();
-    expect(screen.getByText(/\$5\.000/)).toBeOnTheScreen();
-    expect(screen.getByText('2026-07-01')).toBeOnTheScreen();
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0); // resumen.totalFilas
+    expect(screen.queryByTestId(/^preview-fila-/)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('revision-lista')).not.toBeOnTheScreen();
   });
 
-  it('MOB-PRV-05: shows every filas row with no 10/25/50 row-count selector', async () => {
+  it('MOB-PRV-03: decidiendo renders the resumen counts and all three actions, no row list', async () => {
+    const filas = [
+      filaPreview({ rowIndex: 0 }),
+      filaPreview({ rowIndex: 1, esDuplicado: true }),
+      filaPreview({ rowIndex: 2 }),
+    ];
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 3));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+
+    expect(screen.getByText('3')).toBeOnTheScreen(); // totalFilas
+    expect(screen.getByText('1')).toBeOnTheScreen(); // duplicadosDetectados
+    expect(screen.getByText('2')).toBeOnTheScreen(); // nuevas
+    expect(
+      screen.getByRole('button', { name: 'Subir tal cual' }),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Revisar y editar' }),
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Descartar' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('revision-lista')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(/^revision-fila-/)).not.toBeOnTheScreen();
+  });
+
+  it('MOB-PRV-05: "Revisar y editar" shows every filas row via the virtualized list, no page-size selector', async () => {
     const filas = Array.from({ length: 12 }, (_, i) =>
       filaPreview({ rowIndex: i, descripcion: `Movimiento ${i + 1}` }),
     );
@@ -270,13 +307,44 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
     );
 
-    expect(screen.getAllByTestId(/^preview-fila-/)).toHaveLength(12);
+    await revisarYEditar();
+
+    const lista = screen.getByTestId('revision-lista');
+    expect(lista.props.data).toHaveLength(12);
     expect(screen.queryByTestId('preview-selector')).not.toBeOnTheScreen();
     expect(screen.queryByRole('radiogroup')).not.toBeOnTheScreen();
     expect(screen.queryByRole('radio')).not.toBeOnTheScreen();
   });
 
-  it('CA-03/MOB-PRV-04: Confirmar calls commitIngesta(archivo, []) and success shows totalTransacciones + duplicadosOmitidos', async () => {
+  it('MOB-PRV-05/06/09: "Revisar y editar" opens a read-only revisando step — row taps are a no-op and Subir/Cancelar are present', async () => {
+    const filas = [
+      filaPreview({ rowIndex: 0 }),
+      filaPreview({ rowIndex: 1, esDuplicado: true }),
+    ];
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 2));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+
+    await revisarYEditar();
+
+    expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
+    expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
+
+    // Read-only in this PR: tapping an editable row is a no-op — no sheet
+    // exists yet (Phase 7/8, design.md D-06).
+    fireEvent.press(screen.getByTestId('revision-fila-0'));
+    expect(screen.queryByRole('dialog')).not.toBeOnTheScreen();
+
+    expect(screen.getByRole('button', { name: 'Subir' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeOnTheScreen();
+  });
+
+  it('CA-03/MOB-PRV-04: "Subir tal cual" calls commitIngesta(archivo, []) and success shows totalTransacciones + duplicadosOmitidos', async () => {
     await seleccionarYPrevisualizar();
     mockCommitIngesta.mockResolvedValue({
       ok: true,
@@ -284,7 +352,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     });
 
     await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Subir tal cual' }),
+      );
     });
 
     await waitFor(() =>
@@ -309,17 +379,39 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a busy "subiendo" indicator while Confirmar is in-flight', async () => {
+  it('MOB-PRV-08 (interim): "Subir" from revisando calls commitIngesta(archivo, []) — the edits overlay wiring arrives in Phase 8', async () => {
+    await seleccionarYPrevisualizar();
+    await revisarYEditar();
+    mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
+
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: 'Subir' }));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
+    expect(mockCommitIngesta).toHaveBeenCalledWith(expect.anything(), []);
+    expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a busy "subiendo" indicator while "Subir tal cual" is in-flight and hides the decision actions (no double-submit window)', async () => {
     await seleccionarYPrevisualizar();
     const d = deferred<CommitIngestaResult>();
     mockCommitIngesta.mockReturnValue(d.promise);
 
     await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Subir tal cual' }),
+      );
     });
 
     expect(screen.getByTestId('subir-cargando')).toBeOnTheScreen();
     expect(screen.queryByTestId('preview-resultado')).not.toBeOnTheScreen();
+    expect(
+      screen.queryByRole('button', { name: 'Subir tal cual' }),
+    ).not.toBeOnTheScreen();
+    expect(mockCommitIngesta).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       d.resolve({ ok: true, value: commitExitoso() });
@@ -330,11 +422,11 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     );
   });
 
-  it('CA-04/CU-12: Cancelar returns to idle and never calls commitIngesta', async () => {
+  it('MOB-PRV-09: "Descartar" from decidiendo returns to idle and never calls commitIngesta', async () => {
     await seleccionarYPrevisualizar();
 
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /cancelar/i }));
+      fireEvent.press(screen.getByRole('button', { name: 'Descartar' }));
     });
 
     expect(
@@ -344,10 +436,25 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     expect(mockCommitIngesta).not.toHaveBeenCalled();
   });
 
-  it('after Cancelar, picking a new file re-opens the picker and calls previewIngesta again', async () => {
+  it('MOB-PRV-09: "Cancelar" from revisando returns to idle and never calls commitIngesta', async () => {
+    await seleccionarYPrevisualizar();
+    await revisarYEditar();
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
+    });
+
+    expect(
+      screen.getByRole('button', { name: /seleccionar archivo/i }),
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId('revision-lista')).not.toBeOnTheScreen();
+    expect(mockCommitIngesta).not.toHaveBeenCalled();
+  });
+
+  it('after Descartar, picking a new file re-opens the picker and calls previewIngesta again', async () => {
     await seleccionarYPrevisualizar();
     await act(async () => {
-      fireEvent.press(screen.getByRole('button', { name: /cancelar/i }));
+      fireEvent.press(screen.getByRole('button', { name: 'Descartar' }));
     });
 
     await seleccionarArchivo();
@@ -395,7 +502,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     ).toBeOnTheScreen();
   });
 
-  it('a backend error on Confirmar returns to a retryable error state (never stuck "subiendo")', async () => {
+  it('MOB-PRV-10: a commit failure from decidiendo keeps the decision step visible with a retryable error', async () => {
     await seleccionarYPrevisualizar();
     mockCommitIngesta.mockResolvedValue({
       ok: false,
@@ -403,7 +510,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     });
 
     await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Subir tal cual' }),
+      );
     });
 
     await waitFor(() =>
@@ -411,6 +520,40 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
         screen.getByText('Error del servidor (código 500).'),
       ).toBeOnTheScreen(),
     );
+    expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Subir tal cual' }),
+    ).toBeOnTheScreen();
+    expect(mockSolicitarRecargaResumen).not.toHaveBeenCalled();
+  });
+
+  it('MOB-PRV-10: a commit failure from revisando keeps the row list visible with a retryable error', async () => {
+    const filas = [filaPreview({ rowIndex: 0 }), filaPreview({ rowIndex: 1 })];
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 2));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+    await revisarYEditar();
+
+    mockCommitIngesta.mockResolvedValue({
+      ok: false,
+      error: { tag: 'http', status: 500 },
+    });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: 'Subir' }));
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Error del servidor (código 500).'),
+      ).toBeOnTheScreen(),
+    );
+    expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
+    expect(screen.getByTestId('revision-lista').props.data).toHaveLength(2);
     expect(mockSolicitarRecargaResumen).not.toHaveBeenCalled();
   });
 
@@ -442,7 +585,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
 
     await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Subir tal cual' }),
+      );
     });
     await waitFor(() =>
       expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
@@ -456,7 +601,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
   });
 
   describe('a11y: perceivable state changes (WCAG 2.2 AA SC 4.1.3)', () => {
-    it('announces the preview-ready message on entering preview (design.md §10.3)', async () => {
+    it('announces the preview-ready message on entering decidiendo (design.md §10.3)', async () => {
       await seleccionarYPrevisualizar();
 
       await waitFor(() =>
@@ -472,7 +617,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
       await act(async () => {
         await fireEvent.press(
-          screen.getByRole('button', { name: /confirmar/i }),
+          screen.getByRole('button', { name: 'Subir tal cual' }),
         );
       });
 
@@ -501,10 +646,31 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
       );
     });
 
-    it('the sample list container carries a polite live region', async () => {
+    it('announces a commit failure from decidiendo instead of re-announcing the preview-ready message', async () => {
+      await seleccionarYPrevisualizar();
+      announceSpy.mockClear();
+      mockCommitIngesta.mockResolvedValue({
+        ok: false,
+        error: { tag: 'http', status: 500 },
+      });
+
+      await act(async () => {
+        await fireEvent.press(
+          screen.getByRole('button', { name: 'Subir tal cual' }),
+        );
+      });
+
+      await waitFor(() =>
+        expect(announceSpy).toHaveBeenCalledWith(
+          'Error del servidor (código 500).',
+        ),
+      );
+    });
+
+    it('the decision step container carries a polite live region', async () => {
       await seleccionarYPrevisualizar();
 
-      expect(screen.getByTestId('preview-lista')).toHaveProp(
+      expect(screen.getByTestId('preview-resultado')).toHaveProp(
         'accessibilityLiveRegion',
         'polite',
       );
@@ -518,7 +684,7 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
 
       await act(async () => {
         await fireEvent.press(
-          screen.getByRole('button', { name: /confirmar/i }),
+          screen.getByRole('button', { name: 'Subir tal cual' }),
         );
       });
       await waitFor(() =>
@@ -567,8 +733,10 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
     );
-    expect(screen.getByText('0')).toBeOnTheScreen();
-    expect(screen.queryAllByTestId(/^preview-fila-/)).toHaveLength(0);
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole('button', { name: 'Subir tal cual' }),
+    ).toBeOnTheScreen();
   });
 
   it('after a successful upload, "Seleccionar archivo" re-enters the preview flow for a NEW file (no dead-end)', async () => {
@@ -576,7 +744,9 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
 
     await act(async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /confirmar/i }));
+      await fireEvent.press(
+        screen.getByRole('button', { name: 'Subir tal cual' }),
+      );
     });
     await waitFor(() =>
       expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
@@ -608,7 +778,6 @@ describe('Subir (mobile two-phase preview screen, US-003 Slice 3)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
     );
-    expect(screen.getByText('Otro movimiento')).toBeOnTheScreen();
   });
 
   it('retrying after a previewIngesta network failure recovers once the retry succeeds', async () => {

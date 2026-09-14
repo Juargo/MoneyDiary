@@ -151,16 +151,29 @@ classification, or process-integration boundary in this change.
 
 ## Phase 6: Screen swap — `decidiendo` + read-only `revisando` (PR6, base: PR5)
 
-- [ ] 6.1 [RED] Evolve `apps/mobile/app/subir.spec.tsx` in place: `decidiendo` renders
+- [x] 6.1 [RED] Evolve `apps/mobile/app/subir.spec.tsx` in place: `decidiendo` renders
       `ResumenDecision` with no row list (MOB-PRV-03); "Revisar y editar" renders `ListaRevision`
       read-only (no sheet yet); "Descartar"/"Cancelar" return to `idle` without committing
       (MOB-PRV-09).
-- [ ] 6.2 [GREEN] Rewrite the `subir.tsx` state machine per design's data-flow diagram:
+- [x] 6.2 [GREEN] Rewrite the `subir.tsx` state machine per design's data-flow diagram:
       `idle → previsualizando → decidiendo → revisando | subiendo → exito | error`; delete any
       now-superseded `PreviewCartola` presentational leftovers.
-- [ ] 6.3 [REFACTOR] Update stable/new testIDs in `subir.tsx`
+- [x] 6.3 [REFACTOR] Update stable/new testIDs in `subir.tsx`
       (`decision-*`, `revision-lista`) and `apps/mobile/.maestro/subir.yaml`,
       `subir-cancelar.yaml` to match.
+      **Delivered as PR6** (base PR5 `feat/cartola-mobile-lista-resumen`, branch
+      `feat/cartola-mobile-decision-revision`). `decidiendo{dto,archivo,error?}` and
+      `revisando{dto,archivo,error?}` carry an embedded `error` so a commit failure returns to the
+      originating phase with the held file/list intact (MOB-PRV-10), instead of the design's bare
+      "back to origen + error" note; only a preview failure still uses the standalone `error` fase.
+      `revisando` is read-only this PR (`ListaRevision`'s `categoriaNombrePorFila` is an empty
+      `Map`, `onAbrirFila` is a no-op) — the classification sheet, catalog fetch, and D-09's
+      synchronous `useRef` double-submit guard are Phase 7/8's explicit tasks (7.1-7.2, 8.2); PR6
+      already gets structural single-fire protection since `setEstado({fase:'subiendo', ...})` runs
+      synchronously before `commitIngesta`, unmounting the decision/review actions before any
+      second tap could reach them (asserted by a dedicated test). Banco renders as its own row
+      inside the `preview-resultado` container (not added to `ResumenDecision`'s props, keeping
+      PR5's component contract unchanged) per that component's own PR5 deviation note.
 - Verify: `pnpm --filter @moneydiary/mobile test -- subir`; `pnpm --filter @moneydiary/mobile exec tsc --noEmit`.
 - Manual (deferred to Phase 8's gate): Maestro `subir.yaml`/`subir-cancelar.yaml` on device.
 
