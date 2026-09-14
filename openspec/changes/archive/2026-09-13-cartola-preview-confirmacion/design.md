@@ -97,6 +97,6 @@ This resolves the proposal's over-budget slices. The **708-line spec is never re
 
 ## Open Questions
 
-- [ ] **Blocking for tasks:** amend MOB-PRV-06/08 so Ingreso rows are also non-editable (D-05).
+- [x] **Blocking for tasks:** amend MOB-PRV-06/08 so Ingreso rows are also non-editable (D-05). **Resolved:** The `mobile-import-preview` spec amendment is recorded in the synced canonical spec and implementation matches it.
 - [ ] Non-blocking: the delta WEB-PRV-06 (and the canonical spec) say "navigate to `/`, no success panel", but the shipped code has the peak-end exito landing. This design keeps the shipped behavior. Correct the delta text.
 - [ ] Non-blocking: MAC-01 wording vs `EdicionFila`. The schema types `edits` as a string, so a local element type is unavoidable (web precedent).
