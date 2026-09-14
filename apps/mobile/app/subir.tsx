@@ -11,16 +11,10 @@ import type {
 } from '../src/api/post-ingesta';
 import { previewIngesta } from '../src/api/preview-ingesta';
 import type {
-  PreviewIngestaDto,
+  PreviewIngestaDtoConCanonicos,
   PreviewIngestaError,
 } from '../src/api/preview-ingesta';
-import {
-  CANTIDAD_PREVIEW_DEFECTO,
-  OPCIONES_CANTIDAD_PREVIEW,
-  formatearFilaPreview,
-  sliceMuestra,
-} from '../src/domain/preview-cartola';
-import type { CantidadPreview } from '../src/domain/preview-cartola';
+import { formatearFilaPreview } from '../src/domain/preview-cartola';
 import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 import { copiaPorApiError } from '../src/api/client';
 import { COLORS } from '../src/theme/colors';
@@ -41,14 +35,19 @@ import { COLORS } from '../src/theme/colors';
  * **Cancelar**, which discards everything back to `idle` and never calls
  * `postIngesta` (CA-04 at the UI layer).
  *
- * The 10/25/50 row-count selector (`cantidad`, CA-01) is local UI state,
- * independent of `Estado` — it only re-slices the already-fetched `muestra`
- * in memory (`sliceMuestra`, PREV-06), never triggers a new request.
+ * The preview guard now requires the canonical `filas`/`resumen` fields
+ * (MOB-PRV-02); the deprecated `muestra`/`estructura` 10/25/50 selector is
+ * gone — the full `filas` list renders unpaginated (MOB-PRV-05, interim
+ * ahead of the virtualized `ListaRevision`/review-sheet redesign).
  */
 type Estado =
   | { fase: 'idle' }
   | { fase: 'previsualizando' }
-  | { fase: 'preview'; dto: PreviewIngestaDto; archivo: DocumentPickerAsset }
+  | {
+      fase: 'preview';
+      dto: PreviewIngestaDtoConCanonicos;
+      archivo: DocumentPickerAsset;
+    }
   | { fase: 'subiendo' }
   | { fase: 'exito'; dto: IngestaResponseDto }
   | { fase: 'error'; mensaje: string };
@@ -79,8 +78,8 @@ function mensajeDeExito(dto: IngestaResponseDto): string {
 }
 
 /** Spanish summary announced when the preview is ready (design.md §10.3). */
-function mensajeDePreviewListo(dto: PreviewIngestaDto): string {
-  return `Vista previa lista. Banco ${dto.banco}, ${dto.estructura.totalFilasDatos} movimientos. Revisa y confirma.`;
+function mensajeDePreviewListo(dto: PreviewIngestaDtoConCanonicos): string {
+  return `Vista previa lista. Banco ${dto.banco}, ${dto.resumen.totalFilas} movimientos. Revisa y confirma.`;
 }
 
 /** Spanish message shown/announced when the picker itself fails to open. */
@@ -90,9 +89,6 @@ const MENSAJE_ERROR_PICKER =
 export default function Subir() {
   const router = useRouter();
   const [estado, setEstado] = useState<Estado>({ fase: 'idle' });
-  const [cantidad, setCantidad] = useState<CantidadPreview>(
-    CANTIDAD_PREVIEW_DEFECTO,
-  );
 
   const seleccionarArchivo = useCallback(async () => {
     let resultado: DocumentPicker.DocumentPickerResult;
@@ -119,7 +115,6 @@ export default function Subir() {
       return;
     }
 
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
     setEstado({ fase: 'preview', dto: preview.value, archivo });
   }, []);
 
@@ -141,7 +136,6 @@ export default function Subir() {
 
   const cancelar = useCallback(() => {
     setEstado({ fase: 'idle' });
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
   }, []);
 
   // Announces preview-ready/éxito/error transitions to screen readers
@@ -218,8 +212,6 @@ export default function Subir() {
         {estado.fase === 'preview' && (
           <PreviewCartola
             dto={estado.dto}
-            cantidad={cantidad}
-            onCantidadChange={setCantidad}
             onConfirmar={() => void confirmar()}
             onCancelar={cancelar}
           />
@@ -280,33 +272,29 @@ export default function Subir() {
 }
 
 /**
- * PreviewCartola — the per-row preview panel + 10/25/50 selector +
- * Confirmar/Cancelar (US-003 Slice 3, design.md §10.2/§10.3). Kept as a
- * local component (not a separate file) per design.md's explicit "inline or
- * a small component" allowance — SRP is still honored: this component only
- * renders, all state lives in the parent `Subir` screen.
+ * PreviewCartola — the per-row preview panel + Confirmar/Cancelar (US-003
+ * Slice 3, design.md §10.2/§10.3). Kept as a local component (not a separate
+ * file) per design.md's explicit "inline or a small component" allowance —
+ * SRP is still honored: this component only renders, all state lives in the
+ * parent `Subir` screen. Renders every row in the canonical `filas` list
+ * unpaginated — no 10/25/50 selector (MOB-PRV-05, interim ahead of the
+ * virtualized `ListaRevision` redesign, Phase 5).
  */
 function PreviewCartola({
   dto,
-  cantidad,
-  onCantidadChange,
   onConfirmar,
   onCancelar,
 }: {
-  readonly dto: PreviewIngestaDto;
-  readonly cantidad: CantidadPreview;
-  readonly onCantidadChange: (cantidad: CantidadPreview) => void;
+  readonly dto: PreviewIngestaDtoConCanonicos;
   readonly onConfirmar: () => void;
   readonly onCancelar: () => void;
 }) {
-  const filas = sliceMuestra(dto.muestra, cantidad);
-
   return (
     <>
       <View
         testID="preview-resultado"
         accessibilityRole="summary"
-        accessibilityLabel={`Vista previa lista. Banco ${dto.banco}, ${dto.estructura.totalFilasDatos} movimientos.`}
+        accessibilityLabel={`Vista previa lista. Banco ${dto.banco}, ${dto.resumen.totalFilas} movimientos.`}
         accessibilityLiveRegion="polite"
         className="gap-3 rounded-xl border border-hairline bg-white p-4"
       >
@@ -320,43 +308,8 @@ function PreviewCartola({
         <View className="flex-row justify-between">
           <Text className="text-sm text-muted">Movimientos en total</Text>
           <Text className="text-sm font-medium text-heading">
-            {dto.estructura.totalFilasDatos}
+            {dto.resumen.totalFilas}
           </Text>
-        </View>
-
-        <View
-          testID="preview-selector"
-          accessibilityRole="radiogroup"
-          accessibilityLabel="Cantidad de filas a mostrar"
-          className="flex-row gap-2"
-        >
-          {OPCIONES_CANTIDAD_PREVIEW.map((opcion) => {
-            const seleccionada = cantidad === opcion;
-            return (
-              <Pressable
-                key={opcion}
-                testID={`preview-cantidad-${opcion}`}
-                accessibilityRole="radio"
-                accessibilityLabel={`Mostrar ${opcion} filas`}
-                accessibilityState={{ checked: seleccionada }}
-                onPress={() => onCantidadChange(opcion)}
-                className="rounded-full border px-3 py-1"
-                style={{
-                  backgroundColor: seleccionada
-                    ? COLORS.ingreso
-                    : COLORS.canvas,
-                  borderColor: COLORS.hairline,
-                }}
-              >
-                <Text
-                  className="text-sm font-medium"
-                  style={{ color: seleccionada ? '#ffffff' : undefined }}
-                >
-                  {opcion}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
 
         <View
@@ -365,11 +318,11 @@ function PreviewCartola({
           accessibilityLiveRegion="polite"
           className="gap-2"
         >
-          {filas.map((fila, indice) => {
+          {dto.filas.map((fila, indice) => {
             const formateada = formatearFilaPreview(fila);
             return (
               <View
-                key={`${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}-${indice}`}
+                key={`${fila.rowIndex}-${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}`}
                 testID={`preview-fila-${indice}`}
                 accessibilityLabel={`${formateada.fecha}, ${formateada.descripcion}, cargo ${formateada.cargo}, abono ${formateada.abono}`}
                 className="gap-1 rounded-lg bg-canvas p-2"

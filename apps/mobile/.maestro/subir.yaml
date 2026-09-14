@@ -45,15 +45,12 @@ appId: cl.moneydiary.app
     visible:
       id: "preview-resultado"
     timeout: 40000
-# CA-02: la muestra de movimientos se renderiza (encabezados canónicos +
-# al menos la primera fila).
+# MOB-PRV-05: la lista completa de `filas` se renderiza sin selector de
+# cantidad (encabezados canónicos + al menos la primera fila).
 - assertVisible:
     id: "preview-lista"
 - assertVisible:
     id: "preview-fila-0"
-# CA-01: el selector de cantidad (10/25/50) rebana la muestra en el cliente.
-- tapOn:
-    id: "preview-cantidad-25"
 # --- FASE 2: CONFIRMAR (US-003 CA-03) ---
 # Confirmar re-sube el mismo archivo al endpoint de ingesta real
 # (POST /api/ingestas) — recién acá se persiste.

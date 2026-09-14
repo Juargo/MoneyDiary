@@ -21,6 +21,10 @@ const validPreviewResponse = {
   banco: 'BancoEstado',
   tipoCuenta: 'CuentaRUT',
   numeroCuenta: '123456789',
+  // Legacy fields — the server always emits both shapes (US-057
+  // backward-compatible schema); kept here so the fixture still exercises
+  // the real wire response, even though the guard no longer reads them
+  // (MOB-PRV-02).
   estructura: { totalFilasDatos: 2 },
   muestra: [
     {
@@ -36,6 +40,28 @@ const validPreviewResponse = {
       abono: '500000',
     },
   ],
+  // Canonical fields (MOB-PRV-02) — required by the hardened guard.
+  filas: [
+    {
+      rowIndex: 0,
+      fecha: '2026-07-01T00:00:00.000Z',
+      descripcion: 'Compra',
+      cargo: '5000',
+      abono: '0',
+      esDuplicado: false,
+      sugerido: { bucket: 'Necesidades', categoriaId: null },
+    },
+    {
+      rowIndex: 1,
+      fecha: '2026-07-02T00:00:00.000Z',
+      descripcion: 'Sueldo',
+      cargo: '0',
+      abono: '500000',
+      esDuplicado: false,
+      sugerido: { bucket: 'Ingreso', categoriaId: null },
+    },
+  ],
+  resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
 };
 
 function archivoSeleccionado(
@@ -256,11 +282,15 @@ describe('previewIngesta', () => {
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
   });
 
-  it('maps a 2xx body that fails the shape guard (missing estructura.totalFilasDatos) to {tag: "parse"}', async () => {
+  it('MOB-PRV-02: maps a 2xx body that fails the shape guard (missing resumen.totalFilas) to {tag: "parse"}', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ ...validPreviewResponse, estructura: {} }),
+      json: () =>
+        Promise.resolve({
+          ...validPreviewResponse,
+          resumen: { duplicadosDetectados: 0, nuevas: 2 },
+        }),
     });
     const { previewIngesta } = requirePreviewIngesta();
 
@@ -269,19 +299,22 @@ describe('previewIngesta', () => {
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
   });
 
-  it('maps a 2xx body whose muestra rows carry non-string cargo/abono to {tag: "parse"} (mobile renders per-row money)', async () => {
+  it('MOB-PRV-02: maps a 2xx body whose filas rows carry non-string cargo/abono to {tag: "parse"} (mobile renders per-row money)', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,
       json: () =>
         Promise.resolve({
           ...validPreviewResponse,
-          muestra: [
+          filas: [
             {
+              rowIndex: 0,
               fecha: '2026-07-01T00:00:00.000Z',
               descripcion: 'Compra',
               cargo: 5000,
               abono: 0,
+              esDuplicado: false,
+              sugerido: null,
             },
           ],
         }),
@@ -291,6 +324,41 @@ describe('previewIngesta', () => {
     const result = await previewIngesta(archivoSeleccionado());
 
     expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  it('MOB-PRV-02: rejects a 2xx body carrying only the legacy estructura/muestra shape (no filas/resumen) as {tag: "parse"}', async () => {
+    const { filas, resumen, ...soloLegacy } = validPreviewResponse;
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(soloLegacy),
+    });
+    const { previewIngesta } = requirePreviewIngesta();
+
+    const result = await previewIngesta(archivoSeleccionado());
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
+
+  it('MOB-PRV-02: accepts a 2xx body carrying canonical filas[] + resumen.{totalFilas,duplicadosDetectados,nuevas}', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validPreviewResponse),
+    });
+    const { previewIngesta } = requirePreviewIngesta();
+
+    const result = await previewIngesta(archivoSeleccionado());
+
+    expect(result).toEqual({ ok: true, value: validPreviewResponse });
+    if (result.ok) {
+      expect(result.value.filas).toHaveLength(2);
+      expect(result.value.resumen).toEqual({
+        totalFilas: 2,
+        duplicadosDetectados: 0,
+        nuevas: 2,
+      });
+    }
   });
 
   it('accepts a well-formed 2xx body with an empty muestra array', async () => {
