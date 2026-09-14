@@ -269,19 +269,25 @@ are all merged — mobile only ships on that tag, and a partial mid-chain state 
 
 ## Phase 10: Web — decision step + e2e (PR10, base: PR9)
 
-- [ ] 10.1 [RED] Extend `apps/web/src/components/SubirCartola.test.tsx`: preview success renders
+- [x] 10.1 [RED] Extend `apps/web/src/components/SubirCartola.test.tsx`: preview success renders
       `decidiendo` (resumen + "Subir tal cual"/"Revisar y editar"/"Descartar", no table,
       WEB-PRV-02); "Subir tal cual" sends `edits: []` and lands on `exito` (WEB-PRV-06); "Revisar
       y editar" reaches the existing editable table (WEB-PRV-19); "Descartar" from `decidiendo`
       resets to `idle` and navigates to `/` (WEB-PRV-07); a restored `sessionStorage` draft skips
       `decidiendo` straight to the table (WEB-PRV-02); no draft is written while `decidiendo`.
-- [ ] 10.2 [GREEN] Add `revisando: boolean` state to `SubirCartola.tsx`; derive `estado` with the
+- [x] 10.2 [GREEN] Add `revisando: boolean` state to `SubirCartola.tsx`; derive `estado` with the
       new `'decidiendo'` value (D-07); reuse `ResumenCartola` (PR9) at the decision step.
-- [ ] 10.3 [REFACTOR] Add an `elegirRevisarYEditar()` test helper and apply it to the ~25 existing
+- [x] 10.3 [REFACTOR] Add an `elegirRevisarYEditar()` test helper and apply it to the existing
       `SubirCartola` tests that assumed the table rendered directly.
-- [ ] 10.4 Update `apps/web/e2e/preview-stress.e2e.ts` and `apps/web/e2e/crear-categoria-preview.e2e.ts`
+      **Delivered as PR10**, branch `feat/cartola-web-paso-decision` (base PR9
+      `feat/cartola-web-resumen-cartola`). Measured 24 existing tests needed the helper (the
+      forecast's "~25" estimate held) — one call each, prepended at the point each test first
+      reaches `preview-listo`/the table. Also extracted the discard `InlineConfirm` into one shared
+      `confirmarDescarteDialog` element reused by both the decision step and the review table
+      (DRY) since only one of the two ever mounts at a time.
+- [x] 10.4 Update `apps/web/e2e/preview-stress.e2e.ts` and `apps/web/e2e/crear-categoria-preview.e2e.ts`
       to click "Revisar y editar" before reaching the table.
-- [ ] 10.5 Create `apps/web/e2e/subir-tal-cual.e2e.ts`: stubbed commit body contains `edits: []`
+- [x] 10.5 Create `apps/web/e2e/subir-tal-cual.e2e.ts`: stubbed commit body contains `edits: []`
       and the flow lands on `exito`.
 - Verify: `pnpm web test`; `pnpm web typecheck`;
   `pnpm --filter @moneydiary/web exec playwright test e2e/subir-tal-cual.e2e.ts
