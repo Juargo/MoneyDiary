@@ -24,15 +24,13 @@ import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
  *   (catalog `cargando`/`error`, or a stale id no longer in a `listo`
  *   catalog — e.g. the categoría was deleted after the row was classified).
  *   Kept as its own group keyed by `(bucket, categoriaId)` rather than
- *   folded into `ingreso`/a generic "sin categoría" bucket, so a temporary
- *   catalog outage never silently misreports real categorías as absent.
- * - `sin-categoria`: `categoriaId === null` for a bucket OTHER than Ingreso
- *   — unreachable through today's classifier (only the Ingreso rule yields a
- *   null categoriaId), but kept as its own shape rather than folded into
- *   `categoria-no-disponible` so a future bucket that can be "classified
- *   without a categoría" the way Ingreso is would list correctly instead of
- *   silently reading as a catalog outage.
- * - `sin-clasificar`: `sugerido === null`. Single group.
+ *   folded into `ingreso`/`sin-clasificar`, so a temporary catalog outage
+ *   never silently misreports real categorías as absent.
+ * - `sin-clasificar`: `sugerido === null`, OR `sugerido` present with a null
+ *   `categoriaId` on a bucket OTHER than Ingreso (unreachable through
+ *   today's classifier — only the Ingreso rule yields a null categoriaId —
+ *   but if it ever arrived, this is the least-surprising existing group for
+ *   it rather than a speculative shape of its own, YAGNI). Single group.
  * - `duplicadas`: `esDuplicado`, checked FIRST (wins over every other rule)
  *   — these rows are never committed, so their `sugerido` is irrelevant
  *   here. Single group, always last.
@@ -63,12 +61,6 @@ export type GrupoPreviewPorCategoria =
     }
   | {
       readonly tipo: 'ingreso';
-      readonly clave: string;
-      readonly bucket: string;
-      readonly filas: ReadonlyArray<PreviewFilaDto>;
-    }
-  | {
-      readonly tipo: 'sin-categoria';
       readonly clave: string;
       readonly bucket: string;
       readonly filas: ReadonlyArray<PreviewFilaDto>;
@@ -136,10 +128,11 @@ export function agruparPreviewPorCategoria(
     }
     const { bucket, categoriaId } = fila.sugerido;
     if (categoriaId === null) {
-      // Reachable only by a future bucket whose rows can be classified
-      // without a categoría the way Ingreso is (see `sin-categoria` in the
-      // docblock above) — never silently dropped.
-      agregar(`sin-categoria::${bucket}`, fila);
+      // Unreachable through today's classifier for a non-Ingreso bucket
+      // (only the Ingreso rule yields a null categoriaId) — falls into
+      // "Sin clasificar" rather than a speculative shape of its own
+      // (YAGNI, see the docblock's `sin-clasificar` entry).
+      agregar('sin-clasificar', fila);
       continue;
     }
     const nombre = resolverNombreCategoria(catalogo, categoriaId);
@@ -161,14 +154,6 @@ export function agruparPreviewPorCategoria(
         tipo: 'ingreso',
         clave,
         bucket: BUCKET_INGRESO,
-        filas: filasGrupo,
-      });
-    } else if (clave.startsWith('sin-categoria::')) {
-      const [, bucket] = clave.split('::');
-      grupos.push({
-        tipo: 'sin-categoria',
-        clave,
-        bucket: bucket ?? '',
         filas: filasGrupo,
       });
     } else if (clave.startsWith('categoria-no-disponible::')) {
@@ -217,9 +202,8 @@ export function agruparPreviewPorCategoria(
       return a.tipo === 'sin-clasificar' ? -1 : 1;
     }
     // Same bucket, different subgroup types: named categorías (sorted by
-    // nombre) first, then `sin-categoria`, then `categoria-no-disponible`
-    // (sorted by categoriaId) — `ingreso` never shares a bucket-order slot
-    // with another tipo.
+    // nombre) before `categoria-no-disponible` (sorted by categoriaId) —
+    // `ingreso` never shares a bucket-order slot with another tipo.
     if (a.tipo === 'categoria' && b.tipo === 'categoria') {
       return a.categoriaNombre.localeCompare(b.categoriaNombre, 'es');
     }
@@ -229,11 +213,6 @@ export function agruparPreviewPorCategoria(
     ) {
       return a.categoriaId.localeCompare(b.categoriaId, 'es');
     }
-    const rangoSubtipo: Record<string, number> = {
-      categoria: 0,
-      'sin-categoria': 1,
-      'categoria-no-disponible': 2,
-    };
-    return (rangoSubtipo[a.tipo] ?? 3) - (rangoSubtipo[b.tipo] ?? 3);
+    return a.tipo === 'categoria' ? -1 : 1;
   });
 }

@@ -45,8 +45,6 @@ function tituloGrupo(grupo: GrupoPreviewPorCategoria): string {
   switch (grupo.tipo) {
     case 'categoria':
       return `${etiquetaBucket(grupo.bucket)} · ${grupo.categoriaNombre}`;
-    case 'sin-categoria':
-      return `${etiquetaBucket(grupo.bucket)} · Sin categoría`;
     case 'categoria-no-disponible':
       return `${etiquetaBucket(grupo.bucket)} · Categoría no disponible`;
     case 'ingreso':

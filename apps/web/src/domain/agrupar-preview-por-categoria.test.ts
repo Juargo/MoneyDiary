@@ -18,7 +18,10 @@ import type { CatalogoEstado } from '@/api/types';
  *    verdict) → their own group, keyed by bucket alone — no "· Sin
  *    categoría" suffix (these rows need no categoría at all, see
  *    `FilaRevision`'s own copy).
- * 3. `sugerido === null` → single "Sin clasificar" group.
+ * 3. `sugerido === null` → single "Sin clasificar" group. A `categoriaId ===
+ *    null` on a bucket OTHER than Ingreso (unreachable through today's
+ *    classifier) falls into this SAME group rather than a speculative shape
+ *    of its own (YAGNI) — the least-surprising existing group for it.
  * 4. `categoriaId` present but not resolvable in the catalog (loading,
  *    error, or stale/deleted categoría) → its own group keyed by
  *    `(bucket, categoriaId)`, headline "Categoría no disponible" — kept
@@ -83,7 +86,7 @@ describe('agruparPreviewPorCategoria', () => {
     ]);
   });
 
-  it('un categoriaId null para un bucket que NO es Ingreso cae en "Sin categoría" (hoy inalcanzable, docblock rule sin-categoria)', () => {
+  it('un categoriaId null para un bucket que NO es Ingreso cae en "Sin clasificar" (hoy inalcanzable, YAGNI: sin forma especulativa propia)', () => {
     const fila = unaFilaPreview({
       sugerido: { bucket: 'Necesidades', categoriaId: null },
     });
@@ -92,9 +95,8 @@ describe('agruparPreviewPorCategoria', () => {
 
     expect(grupos).toEqual([
       {
-        tipo: 'sin-categoria',
-        clave: 'sin-categoria::Necesidades',
-        bucket: 'Necesidades',
+        tipo: 'sin-clasificar',
+        clave: 'sin-clasificar',
         filas: [fila],
       },
     ]);
