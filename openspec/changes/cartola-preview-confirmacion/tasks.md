@@ -219,27 +219,37 @@ classification, or process-integration boundary in this change.
 
 ## Phase 8: Sheet wiring + overlay commit + failure preservation (PR8, base: PR7)
 
-- [ ] 8.1 [RED] Extend `apps/mobile/app/subir.spec.tsx`: tapping an editable row opens
+**Delivered as two chained PRs (chain now 12 PRs):** PR8a `feat/cartola-mobile-edicion-hoja`
+(base PR7; catalog fetch once on entering `revisando` with loading + retryable failure, sheet
+open/confirm/cancel, `edits` map, `ListaRevision` `extraData` fix; commit from review still sends
+`[]`) — 442 changed lines under owner-approved `size:exception`; PR8b
+`feat/cartola-mobile-edicion-commit` (base PR8a; `aOverlayEdits` commit, failure preserves edits,
+synchronous `useRef` double-submit guard on both commit actions, `subir-editar.yaml`, runbook) —
+303 changed lines. Spec gap: MOB-PRV-06/07/10 are silent on catalog loading/failure UX; resolved
+as list visible, sheet disabled until the catalog is ready, inline retryable error — sync into
+`mobile-import-preview` at archive.
+
+- [x] 8.1 [RED] Extend `apps/mobile/app/subir.spec.tsx`: tapping an editable row opens
       `HojaClasificacion`; duplicate/Ingreso rows do not open it (MOB-PRV-06); confirming the
       sheet updates the row's pending edit and the list reflects it (MOB-PRV-07); "Subir" from
       `revisando` calls `commitIngesta(archivo, aOverlayEdits(edits))` (MOB-PRV-08); a commit
       failure from `revisando` preserves the list and pending edits (MOB-PRV-10); a second tap on
       the commit action before the first resolves is a no-op (D-09 double-submit guard, SEC-01
       precedent).
-- [ ] 8.2 [GREEN] Wire `HojaClasificacion` into `subir.tsx`: fetch the catalog once on entering
+- [x] 8.2 [GREEN] Wire `HojaClasificacion` into `subir.tsx`: fetch the catalog once on entering
       `revisando`; maintain the `edits: ReadonlyMap<rowIndex, categoriaId>`; add the synchronous
       `useRef` double-submit guard on the commit action.
-- [ ] 8.3 [REFACTOR] Create `apps/mobile/.maestro/subir-editar.yaml`; update
+- [x] 8.3 [REFACTOR] Create `apps/mobile/.maestro/subir-editar.yaml`; update
       `docs/mobile-upload-gate-runbook.md` for the review/edit flow.
 - Verify: `pnpm --filter @moneydiary/mobile test -- subir`; `pnpm --filter @moneydiary/mobile exec tsc --noEmit`.
-- Manual verification (not CI): run `apps/mobile/.maestro/subir.yaml`, `subir-cancelar.yaml`,
+- [ ] **PENDING (owner, manual):** Manual verification (not CI): run `apps/mobile/.maestro/subir.yaml`, `subir-cancelar.yaml`,
   `subir-editar.yaml` on device via `pnpm --filter @moneydiary/mobile e2e`; VoiceOver (iOS) and
   TalkBack (Android) pass over decision actions, row list, and sheet controls (ADR-018,
   MOB-PRV-11 — decision actions and sheet controls expose accessible labels; MOB-PRV-06 —
   non-interactive rows expose no button role).
 
-**Reminder:** do not cut a `mobile-v*` release tag until PR2 through PR8 (the sheet-wiring PR) are
-all merged — mobile only ships on that tag, and a partial mid-chain state must never reach it.
+**Reminder:** do not cut a `mobile-v*` release tag until PR2 through PR8b (the overlay-commit PR)
+are all merged — mobile only ships on that tag, and a partial mid-chain state must never reach it.
 
 ## Phase 9: Web — extract `ResumenCartola` (PR9, base: PR8 or PR1, zero behavior change)
 

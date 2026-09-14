@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,7 +19,10 @@ import type {
 import { fetchCatalogo } from '../src/api/categorias';
 import { agruparPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
 import type { GrupoCategoriaPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
-import { categoriaEfectiva } from '../src/domain/preview-cartola';
+import {
+  aOverlayEdits,
+  categoriaEfectiva,
+} from '../src/domain/preview-cartola';
 import { mensajeDeErrorCatalogo } from '../src/domain/mensajes-catalogo';
 import { ResumenDecision } from '../src/components/subir/ResumenDecision';
 import { ListaRevision } from '../src/components/subir/ListaRevision';
@@ -31,15 +34,13 @@ import { COLORS } from '../src/theme/colors';
 /**
  * The mobile upload route (Expo Router `app/subir.tsx`, US-033, ADR-026),
  * evolved into the explicit two-action decision flow (design.md Phase 6)
- * plus the tap-row classification sheet (Phase 8a): after a successful
+ * plus the tap-row classification sheet (Phase 8): after a successful
  * preview, the user chooses "Subir tal cual" (commits immediately with an
  * empty edits overlay, MOB-PRV-04) or "Revisar y editar" (opens the full
  * virtualized row list, MOB-PRV-05). In review, tapping an editable row
  * opens `HojaClasificacion` (MOB-PRV-06/07); confirming it records a
- * pending edit in `edits: ReadonlyMap<rowIndex, categoriaId>`, shown as the
- * row's effective categoría (MOB-PRV-07). The review commit still sends an
- * empty overlay this PR — assembling `aOverlayEdits` into the commit and
- * the D-09 double-submit guard land in the follow-up PR (8b).
+ * pending edit in `edits: ReadonlyMap<rowIndex, categoriaId>`, and the
+ * review commit sends the assembled overlay (`aOverlayEdits`, MOB-PRV-08).
  *
  * State machine (design.md Data Flow — mobile):
  *   idle → previsualizando → decidiendo{dto,archivo,error?}
@@ -48,14 +49,17 @@ import { COLORS } from '../src/theme/colors';
  *     fetch once) → subiendo{origen:'revisando'} → exito
  *   decidiendo | revisando → idle (Descartar/Cancelar, no commit, MOB-PRV-09)
  * A commit failure returns to the phase it started from (`origen`),
- * preserving the held file and — for `revisando` — the row list intact
- * (MOB-PRV-10), never a dead-end standalone error screen. Only a PREVIEW
- * failure uses the standalone `error` fase (returns to file selection).
- * Setting `subiendo` happens synchronously before the request starts, which
- * unmounts the decision/review actions immediately — there is no render in
- * which a second tap could reach `commitIngesta` again (structural
- * single-fire protection; the synchronous ref guard for two taps within the
- * SAME render arrives in PR8b).
+ * preserving the held file and — for `revisando` — the row list AND the
+ * pending edits intact (MOB-PRV-10), never a dead-end standalone error
+ * screen. Only a PREVIEW failure uses the standalone `error` fase (returns
+ * to file selection).
+ *
+ * Double-submit guard (D-09, SEC-01 precedent): `envioEnCursoRef` gates
+ * BOTH commit actions synchronously — `estado`/`disabled` are stale until
+ * React re-renders, which does not happen between two synchronous taps on
+ * the same closure. Released only on failure (a success unmounts the
+ * commit actions by moving to `subiendo`/`exito`, so nothing can reach them
+ * again regardless of the ref).
  *
  * Catalog fetch ownership (design.md's data-flow annotation): fetched
  * exactly once per `decidiendo → revisando` transition (the `revisar`
@@ -162,6 +166,10 @@ export default function Subir() {
   const [catalogo, setCatalogo] = useState<EstadoCatalogo>({
     fase: 'inactivo',
   });
+  // Synchronous double-submit guard shared by both commit actions (D-09) —
+  // only one of `decidiendo`/`revisando` can be active at a time, so one
+  // ref suffices for both `confirmarTalCual` and `confirmarRevision`.
+  const envioEnCursoRef = useRef(false);
 
   const seleccionarArchivo = useCallback(async () => {
     let resultado: DocumentPicker.DocumentPickerResult;
@@ -192,15 +200,17 @@ export default function Subir() {
   }, []);
 
   const confirmarTalCual = useCallback(async () => {
-    if (estado.fase !== 'decidiendo') {
+    if (estado.fase !== 'decidiendo' || envioEnCursoRef.current) {
       return;
     }
+    envioEnCursoRef.current = true;
     const { archivo, dto } = estado;
     setEstado({ fase: 'subiendo', origen: 'decidiendo', dto, archivo });
     // As-is commit — the user never reached the row list, so the overlay is
     // always empty (MOB-PRV-04).
     const subida = await commitIngesta(archivo, []);
     if (!subida.ok) {
+      envioEnCursoRef.current = false;
       setEstado({
         fase: 'decidiendo',
         dto,
@@ -286,16 +296,18 @@ export default function Subir() {
   }, [estado]);
 
   const confirmarRevision = useCallback(async () => {
-    if (estado.fase !== 'revisando') {
+    if (estado.fase !== 'revisando' || envioEnCursoRef.current) {
       return;
     }
+    envioEnCursoRef.current = true;
     const { archivo, dto, edits } = estado;
     setEstado({ fase: 'subiendo', origen: 'revisando', dto, archivo });
-    // Interim (PR8a): the classification overlay assembly (`aOverlayEdits`)
-    // arrives in PR8b, so the review commit still sends `[]` regardless of
-    // any pending edits, matching PR6's precedent for the read-only review.
-    const subida = await commitIngesta(archivo, []);
+    // MOB-PRV-08: only rows the user assigned a categoría in the sheet are
+    // included, defensively excluding duplicate/Ingreso rows (`aOverlayEdits`).
+    const overlay = aOverlayEdits(dto.filas, edits);
+    const subida = await commitIngesta(archivo, overlay);
     if (!subida.ok) {
+      envioEnCursoRef.current = false;
       setEstado({
         fase: 'revisando',
         dto,

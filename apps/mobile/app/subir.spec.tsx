@@ -14,18 +14,17 @@ import type { ApiResult } from '../src/domain/api-error';
 // Import after jest.mock is registered.
 import Subir from './subir';
 
-// RED-first (US-003 Slice 3 → Phase 8a, design.md Data Flow): the screen now
+// RED-first (US-003 Slice 3 → Phase 8, design.md Data Flow): the screen now
 // wires the tap-row classification sheet into the read-only `revisando` list
 // PR6/PR7 built — the catalog is fetched once on entering `revisando`
 // (design.md's data-flow annotation), an editable row opens
-// `HojaClasificacion` (MOB-PRV-06/07), and confirming it records a pending
-// edit (`edits: ReadonlyMap<rowIndex, categoriaId>`) shown as the row's
-// effective categoría. Assembling the edits into the commit overlay
-// (`aOverlayEdits`, MOB-PRV-08) and the D-09 double-submit guard land in the
-// follow-up PR (8b). The document picker and all three transport layers
-// (`previewIngesta`, `commitIngesta`, `fetchCatalogo`) are mocked at the
-// module boundary so only this screen's own state machine + wiring is under
-// test.
+// `HojaClasificacion` (MOB-PRV-06/07), confirming it records a pending edit
+// (`edits: ReadonlyMap<rowIndex, categoriaId>`), and the review commit sends
+// the assembled overlay (`aOverlayEdits`, MOB-PRV-08) — a commit failure
+// preserves both the row list AND the pending edits (MOB-PRV-10). The
+// document picker and all three transport layers (`previewIngesta`,
+// `commitIngesta`, `fetchCatalogo`) are mocked at the module boundary so
+// only this screen's own state machine + wiring is under test.
 const mockGetDocumentAsync = jest.fn();
 jest.mock('expo-document-picker', () => ({
   getDocumentAsync: (...args: unknown[]) => mockGetDocumentAsync(...args),
@@ -485,7 +484,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
   });
 
-  it('MOB-PRV-08 (interim): "Subir" from revisando calls commitIngesta(archivo, []) — the edits overlay wiring arrives in PR8b', async () => {
+  it('MOB-PRV-08: "Subir" from revisando with no pending edits calls commitIngesta(archivo, [])', async () => {
     await seleccionarYPrevisualizar();
     await revisarYEditar();
     mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
@@ -499,6 +498,51 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     );
     expect(mockCommitIngesta).toHaveBeenCalledWith(expect.anything(), []);
     expect(mockSolicitarRecargaResumen).toHaveBeenCalledTimes(1);
+  });
+
+  it('MOB-PRV-08: "Subir" from revisando sends only the sheet-edited rows, excluding duplicate and Ingreso rows', async () => {
+    const filas = [
+      filaPreview({ rowIndex: 0 }),
+      filaPreview({ rowIndex: 1, esDuplicado: true }),
+      filaPreview({
+        rowIndex: 2,
+        sugerido: { bucket: 'Ingreso', categoriaId: null },
+      }),
+    ];
+    mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
+    mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 3));
+
+    await render(<Subir />);
+    await seleccionarArchivo();
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
+    );
+    await revisarYEditar();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Necesidades' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Arriendo' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('hoja-confirmar'));
+    });
+
+    mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: 'Subir' }));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
+    expect(mockCommitIngesta).toHaveBeenCalledWith(expect.anything(), [
+      { rowIndex: 0, categoriaId: 'cat-arriendo' },
+    ]);
   });
 
   it('entering revisando fetches the catalog exactly once; a commit failure returning to revisando does not refetch it', async () => {
@@ -551,6 +595,64 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
       fireEvent.press(screen.getByTestId('revision-fila-0'));
     });
     expect(screen.getByTestId('hoja-clasificacion')).toBeOnTheScreen();
+  });
+
+  it('D-09/SEC-01: a second tap on "Subir tal cual" before the first resolves calls commitIngesta only once', async () => {
+    await seleccionarYPrevisualizar();
+    const d = deferred<CommitIngestaResult>();
+    mockCommitIngesta.mockReturnValue(d.promise);
+
+    const boton = screen.getByRole('button', { name: 'Subir tal cual' });
+    await act(async () => {
+      fireEvent.press(boton);
+      fireEvent.press(boton);
+      fireEvent.press(boton);
+    });
+
+    expect(mockCommitIngesta).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      d.resolve({ ok: true, value: commitExitoso() });
+      await d.promise;
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
+  });
+
+  it('D-09/SEC-01: a second tap on "Subir" (revisando) before the first resolves calls commitIngesta only once, and the guard releases on failure so a retry works', async () => {
+    await seleccionarYPrevisualizar();
+    await revisarYEditar();
+    const d = deferred<CommitIngestaResult>();
+    mockCommitIngesta.mockReturnValue(d.promise);
+
+    const boton = screen.getByRole('button', { name: 'Subir' });
+    await act(async () => {
+      fireEvent.press(boton);
+      fireEvent.press(boton);
+    });
+
+    expect(mockCommitIngesta).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      d.resolve({ ok: false, error: { tag: 'http', status: 500 } });
+      await d.promise;
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByText('Error del servidor (código 500).'),
+      ).toBeOnTheScreen(),
+    );
+
+    // Guard released on failure — a retry reaches commitIngesta again.
+    mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: 'Subir' }));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
+    expect(mockCommitIngesta).toHaveBeenCalledTimes(2);
   });
 
   it('shows a busy "subiendo" indicator while "Subir tal cual" is in-flight and hides the decision actions (no double-submit window)', async () => {
@@ -685,7 +787,7 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(mockSolicitarRecargaResumen).not.toHaveBeenCalled();
   });
 
-  it('MOB-PRV-10: a commit failure from revisando keeps the row list visible with a retryable error', async () => {
+  it('MOB-PRV-10: a commit failure from revisando keeps the row list AND the pending edits intact, and a retry resends the same overlay', async () => {
     const filas = [filaPreview({ rowIndex: 0 }), filaPreview({ rowIndex: 1 })];
     mockGetDocumentAsync.mockResolvedValue(resultadoPicker());
     mockPreviewIngesta.mockResolvedValue(previewExitoso(filas, 2));
@@ -696,6 +798,19 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
       expect(screen.getByTestId('preview-resultado')).toBeOnTheScreen(),
     );
     await revisarYEditar();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('revision-fila-0'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Necesidades' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Arriendo' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('hoja-confirmar'));
+    });
 
     mockCommitIngesta.mockResolvedValue({
       ok: false,
@@ -712,7 +827,20 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     );
     expect(screen.getByTestId('revision-lista')).toBeOnTheScreen();
     expect(screen.getByTestId('revision-lista').props.data).toHaveLength(2);
+    // The pending edit survives the failure — row 0 still shows "Arriendo".
+    expect(screen.getByText('Arriendo')).toBeOnTheScreen();
     expect(mockSolicitarRecargaResumen).not.toHaveBeenCalled();
+
+    mockCommitIngesta.mockResolvedValue({ ok: true, value: commitExitoso() });
+    await act(async () => {
+      await fireEvent.press(screen.getByRole('button', { name: 'Subir' }));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('subir-resultado')).toBeOnTheScreen(),
+    );
+    expect(mockCommitIngesta).toHaveBeenLastCalledWith(expect.anything(), [
+      { rowIndex: 0, categoriaId: 'cat-arriendo' },
+    ]);
   });
 
   it('retrying after a picker failure works once the picker succeeds', async () => {
