@@ -1149,6 +1149,15 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           estado === 'preview-listo' || estado === 'exito'
             ? 'font-medium text-foreground'
             : 'text-muted-foreground'
+        } ${
+          // The default "Vista previa lista." only restates what the preview
+          // heading already shows, so it stays announced but visually hidden.
+          // An override (e.g. "«X» se aplicó a N filas más.") is real
+          // feedback and stays visible.
+          mensajeOverride === null &&
+          (estado === 'decidiendo' || estado === 'preview-listo')
+            ? 'sr-only'
+            : ''
         }`}
       >
         {(estado === 'previsualizando' || estado === 'committing') && (
@@ -1291,7 +1300,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       {mostrarDecision && previewData && (
         <section
           aria-labelledby="decision-heading"
-          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+          className="flex flex-col gap-3"
         >
           <h2
             id="decision-heading"
@@ -1362,7 +1371,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         <section
           aria-labelledby="preview-listo-heading"
           aria-busy={reevaluando}
-          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+          className="flex flex-col gap-3"
         >
           <h2
             id="preview-listo-heading"

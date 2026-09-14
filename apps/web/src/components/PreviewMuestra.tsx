@@ -493,10 +493,10 @@ export function PreviewMuestra({
       )}
 
       {/* Full filas list — no pagination (product decision 4, WEB-PRV-02).
-          Polish pass (2026-08-30): the whole review list is ONE full-bleed
-          <section> — `-mx-4` cancels the `p-4` of SubirCartola's preview
-          <section> (its only caller; keep the two in sync) so the block
-          runs edge to edge like a table: sticky header band on top
+          Polish pass (2026-08-30): the whole review list is ONE <section>
+          that runs edge to edge like a table (SubirCartola's preview
+          <section> is unboxed and unpadded, so no negative margin is
+          needed): sticky header band on top
           (`border-y`, `bg-muted/40` wash), inset rows in the middle, and a
           closing `border-b` at the bottom so the action buttons rendered
           after it by SubirCartola sit under a visible edge. The cartola
@@ -510,7 +510,7 @@ export function PreviewMuestra({
         <section
           aria-labelledby={idTituloMovimientos}
           data-seccion-movimientos
-          className="-mx-4 flex flex-col border-b border-border"
+          className="flex flex-col border-b border-border"
         >
           {/* Sticky classification progress — plain visible text, no live
             region (SubirCartola's announcer owns state-entry

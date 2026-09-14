@@ -591,6 +591,37 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
   // binary choice between "Subir tal cual" and "Revisar y editar" that now
   // sits between a successful preview and the editable table ────────────────
   describe('decision step (decidiendo, WEB-PRV-02/06/07/19)', () => {
+    it('keeps the default "Vista previa lista." announced but visually hidden, and never boxes the preview, at both preview states', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      const region = screen.getByRole('status', {
+        name: /estado de la subida/i,
+      });
+      const esperarSinRecuadro = () => {
+        expect(region).toHaveTextContent(/vista previa lista/i);
+        expect(region).toHaveClass('sr-only');
+        const seccion = screen.getByRole('region', { name: 'Vista previa' });
+        expect(seccion).not.toHaveClass('border');
+        expect(seccion).not.toHaveClass('bg-card');
+      };
+
+      esperarSinRecuadro();
+      elegirRevisarYEditar();
+      esperarSinRecuadro();
+    });
+
     it('WEB-PRV-02/WEB-PRV-19: renders the resumen, the grouped summary (collapsed), and the three decision actions — no editable table', () => {
       mockedUsePreviewIngesta.mockReturnValue(
         unaMutacion<PreviewIngestaDto>({
