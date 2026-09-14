@@ -110,17 +110,26 @@ classification, or process-integration boundary in this change.
 
 ## Phase 4: `FilaRevisionMobile` + domain helpers (PR4, base: PR3)
 
-- [ ] 4.1 [RED] Rewrite `apps/mobile/src/domain/preview-cartola.spec.ts`: remove selector tests;
+- [x] 4.1 [RED] Rewrite `apps/mobile/src/domain/preview-cartola.spec.ts`: remove selector tests;
       add failing cases for `esFilaEditable` (false for `esDuplicado` and
       `sugerido.bucket === 'Ingreso'`, MOB-PRV-06), `categoriaEfectiva`, `aOverlayEdits` (excludes
       duplicate and Ingreso rows, MOB-PRV-08).
-- [ ] 4.2 [GREEN] Rewrite `apps/mobile/src/domain/preview-cartola.ts`: drop the selector, add
+- [x] 4.2 [GREEN] Rewrite `apps/mobile/src/domain/preview-cartola.ts`: drop the selector, add
       `esFilaEditable`, `categoriaEfectiva`, `aOverlayEdits`.
-- [ ] 4.3 [RED] Create `apps/mobile/src/components/subir/FilaRevisionMobile.test.tsx`: duplicate
-      and Ingreso rows render non-Pressable with no accessible button role (MOB-PRV-06); editable
-      rows are Pressable and open on tap.
-- [ ] 4.4 [GREEN] Create `apps/mobile/src/components/subir/FilaRevisionMobile.tsx`.
-- [ ] 4.5 [REFACTOR] `pnpm --filter @moneydiary/mobile lint`.
+- [x] 4.3 [RED] Create `apps/mobile/src/components/subir/FilaRevisionMobile.spec.tsx` (naming
+      deviation from the `.test.tsx` name below: this repo's mobile tests use `*.spec.tsx`, matching
+      every existing file under `src/components/`): duplicate and Ingreso rows render non-Pressable
+      with no accessible button role (MOB-PRV-06); editable rows are Pressable and open on tap.
+- [x] 4.4 [GREEN] Create `apps/mobile/src/components/subir/FilaRevisionMobile.tsx`.
+- [x] 4.5 [REFACTOR] `pnpm --filter @moneydiary/mobile lint`.
+      **Delivered as two chained PRs (4a/4b), same fallback shape as Phase 3's 3a/3b:** the combined
+      diff measured 519 changed lines (`git diff -M --shortstat` against PR3's head), over the
+      400-line budget, and — unlike Phase 3 — a cohesive split brings BOTH slices under budget with
+      no `size:exception` needed. **PR4a** (tasks 4.1-4.2, domain helpers only): 245 changed lines,
+      branch `feat/cartola-mobile-preview-cartola-helpers`, base `feat/cartola-mobile-commit-ingesta`.
+      **PR4b** (tasks 4.3-4.5, `FilaRevisionMobile` only): 274 changed lines, branch
+      `feat/cartola-mobile-fila-revision`, base `feat/cartola-mobile-preview-cartola-helpers`
+      (feature-branch-chain).
 - Verify: `pnpm --filter @moneydiary/mobile test -- preview-cartola FilaRevisionMobile`;
   `pnpm --filter @moneydiary/mobile exec tsc --noEmit`.
 
