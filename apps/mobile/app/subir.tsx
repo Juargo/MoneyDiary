@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
-import { postIngesta } from '../src/api/post-ingesta';
+import { commitIngesta } from '../src/api/commit-ingesta';
 import type {
-  IngestaResponseDto,
-  PostIngestaError,
-} from '../src/api/post-ingesta';
+  CommitIngestaDto,
+  CommitIngestaError,
+} from '../src/api/commit-ingesta';
 import { previewIngesta } from '../src/api/preview-ingesta';
 import type {
   PreviewIngestaDtoConCanonicos,
@@ -30,10 +30,11 @@ import { COLORS } from '../src/theme/colors';
  * fires `previewIngesta` (read-only, PREV-02: persists nothing); on success
  * the screen holds BOTH the `PreviewIngestaDto` and the original
  * `DocumentPickerAsset` in the `preview` state. **Confirmar** re-uploads
- * that SAME held asset via the existing `postIngesta` — the "same file"
- * guarantee is structural here: the picker is not re-opened until
- * **Cancelar**, which discards everything back to `idle` and never calls
- * `postIngesta` (CA-04 at the UI layer).
+ * that SAME held asset via `commitIngesta` with an empty edits overlay
+ * (MOB-PRV-04, "Subir tal cual") — the "same file" guarantee is structural
+ * here: the picker is not re-opened until **Cancelar**, which discards
+ * everything back to `idle` and never calls `commitIngesta` (CA-04 at the UI
+ * layer).
  *
  * The preview guard now requires the canonical `filas`/`resumen` fields
  * (MOB-PRV-02); the deprecated `muestra`/`estructura` 10/25/50 selector is
@@ -49,7 +50,7 @@ type Estado =
       archivo: DocumentPickerAsset;
     }
   | { fase: 'subiendo' }
-  | { fase: 'exito'; dto: IngestaResponseDto }
+  | { fase: 'exito'; dto: CommitIngestaDto }
   | { fase: 'error'; mensaje: string };
 
 const TIPOS_ACEPTADOS = [
@@ -61,20 +62,26 @@ const TIPOS_ACEPTADOS = [
  * mensajeDeError — wraps the shared `copiaPorApiError` (client.ts) to add
  * this screen's one extra case: on a 400, prefer the backend's already-
  * scrubbed Spanish `message` when present. Accepts either error union since
- * `PostIngestaError` and `PreviewIngestaError` share the exact same shape
+ * `CommitIngestaError` and `PreviewIngestaError` share the exact same shape
  * (both mirror `ApiError` plus the optional 400 message, PREV-03) — kept as
  * one explicit union rather than relying on structural coincidence.
  */
-function mensajeDeError(error: PostIngestaError | PreviewIngestaError): string {
+function mensajeDeError(
+  error: CommitIngestaError | PreviewIngestaError,
+): string {
   if (error.tag === 'http' && error.message) {
     return error.message;
   }
   return copiaPorApiError(error);
 }
 
-/** Spanish summary announced to screen readers on a successful upload. */
-function mensajeDeExito(dto: IngestaResponseDto): string {
-  return `Cartola subida. Banco ${dto.banco}, cuenta ${dto.numeroCuenta}, ${dto.totalTransacciones} transacciones.`;
+/**
+ * Spanish summary announced to screen readers on a successful as-is commit
+ * (MOB-PRV-04). `CommitIngestaDto` carries no `banco`/`numeroCuenta` — only
+ * the commit-time counts.
+ */
+function mensajeDeExito(dto: CommitIngestaDto): string {
+  return `Cartola subida. ${dto.totalTransacciones} transacciones, ${dto.duplicadosOmitidos} duplicados omitidos.`;
 }
 
 /** Spanish summary announced when the preview is ready (design.md §10.3). */
@@ -124,7 +131,9 @@ export default function Subir() {
     }
     const { archivo } = estado;
     setEstado({ fase: 'subiendo' });
-    const subida = await postIngesta(archivo);
+    // As-is commit — the user never reached the row list, so the overlay is
+    // always empty (MOB-PRV-04).
+    const subida = await commitIngesta(archivo, []);
     if (!subida.ok) {
       setEstado({ fase: 'error', mensaje: mensajeDeError(subida.error) });
       return;
@@ -245,21 +254,15 @@ export default function Subir() {
                 Cartola subida
               </Text>
               <View className="flex-row justify-between">
-                <Text className="text-sm text-muted">Banco</Text>
-                <Text className="text-sm font-medium text-heading">
-                  {estado.dto.banco}
-                </Text>
-              </View>
-              <View className="flex-row justify-between">
-                <Text className="text-sm text-muted">Cuenta</Text>
-                <Text className="text-sm font-medium text-heading">
-                  {estado.dto.numeroCuenta}
-                </Text>
-              </View>
-              <View className="flex-row justify-between">
                 <Text className="text-sm text-muted">Transacciones</Text>
                 <Text className="text-sm font-medium text-heading">
                   {estado.dto.totalTransacciones}
+                </Text>
+              </View>
+              <View className="flex-row justify-between">
+                <Text className="text-sm text-muted">Duplicados omitidos</Text>
+                <Text className="text-sm font-medium text-heading">
+                  {estado.dto.duplicadosOmitidos}
                 </Text>
               </View>
             </View>
