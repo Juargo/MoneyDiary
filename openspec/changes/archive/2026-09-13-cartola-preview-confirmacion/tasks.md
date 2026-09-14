@@ -18,9 +18,9 @@ pre-commit classification write scope, amending ADR-038 rule 2.
 | 9 | Web: extract `ResumenCartola` (zero behavior change) | ~120 | Low |
 | 10 | Web: decision step + tests + e2e | ~340 | Med |
 
-Decision needed before apply: Yes
+Decision needed before apply: No (delivered)
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: Feature-branch-chain, 12 PRs (#655–#666), all merged to main at PR #667 (2026-09-14)
 400-line budget risk: High
 
 `chain_strategy` is not yet chosen — the orchestrator asks the owner after this forecast. Every
