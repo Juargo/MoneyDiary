@@ -135,15 +135,18 @@ classification, or process-integration boundary in this change.
 
 ## Phase 5: `ListaRevision` + `ResumenDecision` (PR5, base: PR4)
 
-- [ ] 5.1 [RED] Create `apps/mobile/src/components/subir/ListaRevision.test.tsx`: asserts
+- [x] 5.1 [RED] Create `apps/mobile/src/components/subir/ListaRevision.test.tsx`: asserts
       `FlatList` `props.data.length` equals the full `filas.length` (MOB-PRV-05; jest renders only
       ~10 rows, so assert the prop, not rendered DOM nodes).
-- [ ] 5.2 [GREEN] Create `apps/mobile/src/components/subir/ListaRevision.tsx`.
-- [ ] 5.3 [RED] Create `apps/mobile/src/components/subir/ResumenDecision.test.tsx`: resumen values
+      **Naming deviation** (same as PR4's `FilaRevisionMobile.spec.tsx`): created as
+      `ListaRevision.spec.tsx`, matching every existing file under `src/components/`.
+- [x] 5.2 [GREEN] Create `apps/mobile/src/components/subir/ListaRevision.tsx`.
+- [x] 5.3 [RED] Create `apps/mobile/src/components/subir/ResumenDecision.test.tsx`: resumen values
       render, "Subir tal cual"/"Revisar y editar"/"Descartar" all present and accessibly labeled
       (MOB-PRV-03, MOB-PRV-11).
-- [ ] 5.4 [GREEN] Create `apps/mobile/src/components/subir/ResumenDecision.tsx`.
-- [ ] 5.5 [REFACTOR] `pnpm --filter @moneydiary/mobile lint`.
+      **Naming deviation** (same as above): created as `ResumenDecision.spec.tsx`.
+- [x] 5.4 [GREEN] Create `apps/mobile/src/components/subir/ResumenDecision.tsx`.
+- [x] 5.5 [REFACTOR] `pnpm --filter @moneydiary/mobile lint`.
 - Verify: `pnpm --filter @moneydiary/mobile test -- ListaRevision ResumenDecision`.
 
 ## Phase 6: Screen swap — `decidiendo` + read-only `revisando` (PR6, base: PR5)
