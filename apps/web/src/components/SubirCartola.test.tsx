@@ -257,6 +257,16 @@ function idleHooks() {
   mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 }
 
+// cartola-preview-confirmacion PR10 (D-07, task 10.3): every pre-existing
+// test below this point that reaches `preview-listo` (the FULL review table)
+// now lands on the new `decidiendo` decision step first — "Revisar y editar"
+// is the only path to the table (WEB-PRV-19). This helper clicks it, so the
+// rest of an existing test body can keep asserting table/row content exactly
+// as before, unmodified.
+function elegirRevisarYEditar() {
+  fireEvent.click(screen.getByRole('button', { name: /^revisar y editar$/i }));
+}
+
 describe('SubirCartola (US-059 PR3 — commit flow)', () => {
   beforeEach(() => {
     // SubirCartola calls `useResumen` unconditionally every render
@@ -551,7 +561,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     });
   });
 
-  it('WEB-PRV-02: on preview success renders PreviewMuestra with banco, resumen, rows', () => {
+  it('WEB-PRV-02: on preview success, "Revisar y editar" reaches PreviewMuestra with banco, resumen, rows', () => {
     mockedUsePreviewIngesta.mockReturnValue(
       unaMutacion<PreviewIngestaDto>({
         isSuccess: true,
@@ -563,6 +573,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola />);
+    elegirRevisarYEditar();
 
     expect(screen.getByText('BancoEstado')).toBeInTheDocument();
     expect(screen.getByText(/nada se ha guardado aún/i)).toBeInTheDocument();
@@ -574,6 +585,194 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     expect(
       screen.getByRole('button', { name: /descartar/i }),
     ).toBeInTheDocument();
+  });
+
+  // ── PR10 (design.md D-07): the decision step ("decidiendo") — an explicit
+  // binary choice between "Subir tal cual" and "Revisar y editar" that now
+  // sits between a successful preview and the editable table ────────────────
+  describe('decision step (decidiendo, WEB-PRV-02/06/07/19)', () => {
+    it('WEB-PRV-02/WEB-PRV-19: renders the resumen and the three decision actions, with no table', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+
+      expect(screen.getByText('BancoEstado')).toBeInTheDocument();
+      expect(screen.getByText(/nada se ha guardado aún/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^subir tal cual$/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^revisar y editar$/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^descartar$/i }),
+      ).toBeInTheDocument();
+      // No table yet.
+      expect(screen.queryByText('Supermercado Líder')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /agregar transacciones/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('WEB-PRV-06: "Subir tal cual" commits directly with edits: [] — the user never reaches the table', async () => {
+      const commitMutate = vi.fn();
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      const archivo = unArchivo('cartola.xlsx', 1024);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /^subir tal cual$/i }),
+      );
+
+      expect(commitMutate).toHaveBeenCalledTimes(1);
+      const [vars] = commitMutate.mock.calls[0] as [
+        { file: File; edits: Array<{ rowIndex: number }> },
+        unknown,
+      ];
+      expect(vars.file).toBe(archivo);
+      expect(vars.edits).toEqual([]);
+    });
+
+    it('WEB-PRV-19: "Revisar y editar" is the only path that reaches the editable table', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+      elegirRevisarYEditar();
+
+      expect(screen.getByText('Supermercado Líder')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^subir tal cual$/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^revisar y editar$/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('WEB-PRV-07: "Descartar" from the decision step resets to idle and navigates to /, with no commit', () => {
+      const commitMutate = vi.fn();
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(
+        unaMutacion({ mutate: commitMutate }),
+      );
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola />);
+      fireEvent.click(screen.getByRole('button', { name: /^descartar$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+
+      expect(commitMutate).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
+    });
+
+    it('esDemo disables "Subir tal cual" at the decision step, with adjacent honest copy', () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      render(<SubirCartola esDemo />);
+
+      expect(
+        screen.getByRole('button', { name: /^subir tal cual$/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getByText(/vista previa es solo para probar/i),
+      ).toBeInTheDocument();
+      // "Revisar y editar" itself stays usable — only the commit-path actions
+      // are gated (WEB-PRV-06 precedent, "Agregar transacciones" case).
+      expect(
+        screen.getByRole('button', { name: /^revisar y editar$/i }),
+      ).toBeEnabled();
+    });
+
+    it('does not write a draft to sessionStorage while at the decision step (write-through only starts once revisando)', async () => {
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      const archivo = unArchivo('cartola.xlsx', 1024);
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        archivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: validPreviewDto,
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(cargarBorrador(Date.now())).toBeNull();
+    });
   });
 
   it('gates the file picker during preview-listo', () => {
@@ -638,6 +837,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola esDemo />);
+    elegirRevisarYEditar();
 
     // Preview flow itself is fully usable in demo — the row and its bank are
     // rendered like any other session.
@@ -672,6 +872,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola esDemo />);
+    elegirRevisarYEditar();
 
     fireEvent.click(
       screen.getByRole('button', { name: /agregar transacciones/i }),
@@ -708,6 +909,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: catalogoListo }));
 
     render(<SubirCartola />);
+    elegirRevisarYEditar();
 
     // First pick a bucket (reveals the categoría select)
     const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
@@ -796,6 +998,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       unaMutacion({ mutate: commitMutate }),
     );
     rerender(<SubirCartola />);
+    elegirRevisarYEditar();
 
     // Edit row 3 — pick bucket then categoría (userEvent for proper state flush)
     const bucketGroup = screen.getByLabelText(/Fila 4: bucket/i);
@@ -851,6 +1054,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       }),
     );
     rerender(<SubirCartola />);
+    elegirRevisarYEditar();
 
     fireEvent.click(
       screen.getByRole('button', { name: /agregar transacciones/i }),
@@ -925,6 +1129,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: catalogoListo }));
 
     render(<SubirCartola />);
+    elegirRevisarYEditar();
 
     // Classify row 4 (rowIndex 3) via the edit overlay — must count exactly
     // like a sugerido-derived classification (D-05).
@@ -1061,6 +1266,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola />);
+    elegirRevisarYEditar();
 
     const trigger = screen.getByRole('button', { name: /^descartar$/i });
     fireEvent.click(trigger);
@@ -1188,6 +1394,12 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola />);
+    // The decision step's own "Revisar y editar" stays enabled even while a
+    // commit is failing (only "Subir tal cual"/"Descartar" gate on
+    // `committing`, never `error`) — this test is specifically about the
+    // review-table retry path (D-11), reached the same way a real user would
+    // have gotten there before the commit ever failed.
+    elegirRevisarYEditar();
 
     // Error message in role="alert"
     expect(
@@ -1306,6 +1518,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola />);
+    elegirRevisarYEditar();
 
     // Duplicate row: bucket control disabled, no categoría select rendered
     const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
@@ -1343,6 +1556,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       }),
     );
     rerender(<SubirCartola />);
+    elegirRevisarYEditar();
 
     const btn = screen.getByRole('button', { name: /agregar transacciones/i });
     fireEvent.click(btn);
@@ -1931,6 +2145,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       }),
     );
     rerender(<SubirCartola />);
+    elegirRevisarYEditar();
 
     const btn = screen.getByRole('button', { name: /agregar transacciones/i });
     fireEvent.click(btn);
@@ -2038,6 +2253,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       unaMutacion({ mutate: commitMutate }),
     );
     rerender(<SubirCartola />);
+    elegirRevisarYEditar();
 
     // Bucket control is disabled; no categoría select renders (existing D-10 assertion)
     expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeDisabled();
@@ -2081,6 +2297,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     mockedUseCategorias.mockReturnValue(unaConsulta({ data: unCatalogoDto() }));
 
     render(<SubirCartola />);
+    elegirRevisarYEditar();
 
     expect(
       screen.getByRole('button', { name: /agregar transacciones/i }),
@@ -2444,6 +2661,67 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(vars.edits).toEqual([{ rowIndex: 1, categoriaId: 'cat-nec-1' }]);
     });
 
+    // cartola-preview-confirmacion PR10 (design.md D-07): "the user already
+    // chose to review" — a matched draft restore sets `revisando = true`, so
+    // the decision step never reappears for a review already in progress.
+    it('WEB-PRV-02: a restored draft skips the decision step and renders the table directly', async () => {
+      const identidad = { nombre: 'cartola.xlsx', tamano: 1024, mod: 42 };
+      guardarBorrador({
+        archivo: unArchivoIdentidad(
+          identidad.nombre,
+          identidad.tamano,
+          identidad.mod,
+        ),
+        preview: unaPreviewCanonica({
+          filas: [unaFilaPreview({ rowIndex: 0, descripcion: 'Fila A' })],
+        }),
+        edits: new Map([[0, 'cat-nec-1']]),
+        ahora: Date.now(),
+      });
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({}),
+      );
+      mockedUseCommitIngesta.mockReturnValue(unaMutacion({}));
+      mockedUseCategorias.mockReturnValue(
+        unaConsulta({ data: unCatalogoDto() }),
+      );
+
+      const { rerender } = render(<SubirCartola />);
+      await userEvent.click(
+        screen.getByRole('button', { name: /continuar revisión/i }),
+      );
+
+      const mismoArchivo = unArchivoIdentidad(
+        identidad.nombre,
+        identidad.tamano,
+        identidad.mod,
+      );
+      await userEvent.upload(
+        screen.getByLabelText(/selecciona un archivo/i),
+        mismoArchivo,
+      );
+
+      mockedUsePreviewIngesta.mockReturnValue(
+        unaMutacion<PreviewIngestaDto>({
+          isSuccess: true,
+          status: 'success',
+          data: unaPreviewCanonica({
+            filas: [unaFilaPreview({ rowIndex: 0, descripcion: 'Fila A' })],
+          }),
+        }),
+      );
+      rerender(<SubirCartola />);
+
+      expect(screen.getByText('Fila A')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^subir tal cual$/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /agregar transacciones/i }),
+      ).toBeInTheDocument();
+    });
+
     it('picking a DIFFERENT file after "Continuar revisión" does not restore edits and clears the draft notice', async () => {
       guardarBorrador({
         archivo: unArchivoIdentidad('cartola.xlsx', 1024, 1),
@@ -2502,6 +2780,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         }),
       );
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       const guardado = cargarBorrador(Date.now());
       expect(guardado?.archivo).toEqual({
@@ -2541,6 +2820,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         }),
       );
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       expect(cargarBorrador(Date.now())).not.toBeNull();
 
@@ -2608,6 +2888,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       );
       mockedUseResumen.mockReturnValue(unaResumenConsulta({}));
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       fireEvent.click(
         screen.getByRole('button', { name: /agregar transacciones/i }),
@@ -2756,6 +3037,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         }),
       );
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
@@ -2816,6 +3098,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       );
 
       render(<SubirCartola esDemo />, { wrapper: crearWrapperQuery() });
+      elegirRevisarYEditar();
 
       const notas = document.querySelectorAll('#demo-catalogo-nota');
       expect(notas).toHaveLength(1);
@@ -2908,6 +3191,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         unaMutacion({ mutate: commitMutate }),
       );
       utils.rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
@@ -3037,6 +3321,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         unaMutacion({ mutate: commitMutate }),
       );
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       // Manually classify row 2 (rowIndex 1) FIRST — the prior override.
       await userEvent.selectOptions(
@@ -3259,6 +3544,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
           }),
         );
         rerender(<SubirCartola />);
+        elegirRevisarYEditar();
 
         // Pre-existing override on row 2 (rowIndex 2), BEFORE creating.
         await userEvent.selectOptions(
@@ -3729,6 +4015,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         }),
       );
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       fireEvent.click(
         screen.getByRole('button', { name: /agregar transacciones/i }),
@@ -3843,6 +4130,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         }),
       );
       rerender(<SubirCartola />);
+      elegirRevisarYEditar();
 
       await waitFor(() => {
         const crudo = sessionStorage.getItem('md:borrador-revision:v1');

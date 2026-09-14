@@ -80,6 +80,9 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
     await page.goto('/subir');
 
     // --- 1. Initial render: file pick -> 300-row table fully interactive ---
+    // cartola-preview-confirmacion PR10 (D-07): a real user now clicks
+    // through the "decidiendo" decision step before reaching the table —
+    // the click is inside the measured span since that's the real flow.
     const t0Render = performance.now();
     await page.locator('#cartola-file').setInputFiles({
       name: 'cartola-stress.xlsx',
@@ -87,6 +90,9 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       buffer: Buffer.from('dummy-stress-fixture-content'),
     });
+    await page
+      .getByRole('button', { name: 'Revisar y editar' })
+      .click({ timeout: 15_000 });
     // The LAST row's bucket <select> is the strongest "fully rendered AND
     // interactive" signal available — it only exists once React has mapped
     // all 300 `filas` to `<FilaRevision>` (`PreviewMuestra` maps in file
