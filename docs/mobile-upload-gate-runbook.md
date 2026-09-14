@@ -6,6 +6,14 @@ multipart de la subida de cartola desde mobile. jest-expo NO puede validarlo
 CI (ADR-017). Este gate es el **único bloqueante** para mergear los PRs #76
 (transporte) y #77 (pantalla) de la cadena `upload-cartola-ui`.
 
+**Actualizado (cartola-preview-confirmacion, Phase 8):** el flujo ganó un paso
+de decisión ("Subir tal cual" / "Revisar y editar" / "Descartar") y, dentro de
+la revisión, una hoja de clasificación por fila (bucket → categoría) que
+acumula un overlay de ediciones antes de confirmar la subida (MOB-PRV-03/06/
+07/08). `subir.yaml` cubre "Subir tal cual"; `subir-cancelar.yaml` cubre
+"Descartar"/"Cancelar"; `subir-editar.yaml` (nuevo) cubre "Revisar y
+editar" → abrir la hoja → clasificar una fila → "Subir" con el overlay.
+
 ## Por qué requiere un build NATIVO nuevo (no Expo Go, no OTA)
 
 La pantalla usa `expo-document-picker` (`~57.0.1`), un **módulo nativo** que se
@@ -28,6 +36,11 @@ autolinkea en el prebuild. Consecuencia:
    Downloads en Android). Podés usar cualquiera de:
    `apps/api/test/fixtures/*.xlsx` o `apps/api/test/fixtures/pdf/*.pdf`.
    Anotá el **nombre exacto** del archivo tal como aparece en el picker.
+   Para `subir-editar.yaml`, además, el fixture debe tener al menos una fila
+   NO duplicada y NO clasificada como Ingreso (para que exista una fila
+   tocable), y el usuario de prueba debe tener al menos una categoría propia
+   en algún bucket asignable (Necesidades/Deseos/Ahorro) — sin eso, la hoja
+   de clasificación no tiene nada que ofrecer.
 4. **Maestro instalado** (`curl -Ls "https://get.maestro.mobile.dev" | bash`)
    y un simulador/dispositivo corriendo.
 5. `.env` de `apps/mobile` con `EXPO_PUBLIC_API_BASE_URL` (y `EXPO_PUBLIC_API_KEY`
@@ -106,7 +119,12 @@ maestro test \
 ```
 
 `subir.yaml` encadena `login.yaml` (creado para este gate) → navega al detalle
-→ abre el picker → selecciona el fixture → espera el resultado.
+→ abre el picker → selecciona el fixture → espera el resultado ("Subir tal
+cual"). Corré `subir-cancelar.yaml` igual para el camino "Descartar"/
+"Cancelar", y `subir-editar.yaml` para "Revisar y editar" → hoja de
+clasificación → "Subir" con el overlay de ediciones — este último requiere
+ajustar el bucket/categoría de ejemplo en el YAML (marcado "PASO DEPENDIENTE
+DE DISPOSITIVO") a valores que existan en el catálogo del usuario de prueba.
 
 > Nota: el toque sobre el nombre del archivo en el picker del SO no es
 > determinístico entre plataformas/versiones. Si Maestro no logra tocarlo,
@@ -127,6 +145,18 @@ maestro test \
 **NO PASA** si la app crashea, la subida cuelga en "Subiendo…", el multipart
 llega corrupto al backend (400 de estructura sobre un archivo que sí es válido),
 o el picker no abre tras agregar el plugin y recompilar.
+
+**Adicional para `subir-editar.yaml` (MOB-PRV-06/07/08/11):**
+
+- Tocar una fila duplicada o clasificada como Ingreso NO abre la hoja.
+- Tocar una fila editable abre la hoja; elegir bucket → categoría y confirmar
+  actualiza esa fila en la lista con la categoría elegida.
+- "Subir" desde la revisión persiste la cartola con el overlay de ediciones
+  (no vacío cuando hubo al menos una edición).
+- VoiceOver (iOS) / TalkBack (Android): el control de bucket y el de
+  categoría dentro de la hoja anuncian un nombre accesible identificando el
+  campo; las filas no interactivas (duplicado/Ingreso) NO anuncian rol de
+  botón.
 
 ## Post-gate (una vez que PASA)
 

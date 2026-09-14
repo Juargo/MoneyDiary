@@ -13,6 +13,7 @@ import { InlineConfirm } from './ui/inline-confirm';
 import { CampoTexto } from './configuracion/CampoTexto';
 import { DemoUploadNudge } from './DemoUploadNudge';
 import { PreviewMuestra } from './PreviewMuestra';
+import { ResumenCartola } from './ResumenCartola';
 import { SemaforoBadge } from './SemaforoBadge';
 import { Loading } from './states/Loading';
 import { usePreviewIngesta } from '@/api/use-preview-ingesta';
@@ -63,6 +64,12 @@ import type {
 type EstadoSubida =
   | 'idle'
   | 'previsualizando'
+  // cartola-preview-confirmacion PR10 (design.md D-07): the explicit
+  // decision step between a successful preview and the editable table —
+  // `revisando` (below) is false. `preview-listo` now means the user
+  // already chose "Revisar y editar" (`revisando` true) and the table is
+  // showing.
+  | 'decidiendo'
   | 'preview-listo'
   | 'preview-error'
   // ingesta-pdf-password Slice 4 (design.md D-10): a distinct member, not a
@@ -87,6 +94,10 @@ const MENSAJE_POR_ESTADO: Record<EstadoSubida, string> = {
   // "Revisa y confirma" was dropped from this line (polish pass): the
   // preview's cartola block already carries that instruction ("Revisa las
   // filas y confirma para importar"), so the status stays a status.
+  // PR10 (D-07): `decidiendo` and `preview-listo` share the exact same
+  // announcement — both mean "the preview is ready", the only difference is
+  // whether the user already chose to review row-by-row.
+  decidiendo: 'Vista previa lista.',
   'preview-listo': 'Vista previa lista.',
   'preview-error': 'No se pudo generar la vista previa.',
   'preview-protegido': 'Se requiere una contraseña para continuar.',
@@ -209,6 +220,14 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // D-03: edits overlay — Map keyed by rowIndex; value is categoriaId|null.
   // Presence = "user touched this row"; absence = auto-classify server-side.
   const [edits, setEdits] = useState<Map<number, string | null>>(new Map());
+  // cartola-preview-confirmacion PR10 (design.md D-07): whether the user has
+  // chosen "Revisar y editar" for the CURRENT preview. `false` renders the
+  // `decidiendo` decision step (ResumenCartola + the three actions, no
+  // table); `true` renders the pre-existing editable table (`preview-listo`)
+  // unchanged. Reset alongside `edits` in every reset path (fresh pick,
+  // discard, "Subir otra cartola"); a matched draft restore sets it `true`
+  // directly (the user already chose to review before the interruption).
+  const [revisando, setRevisando] = useState(false);
   // crear-categoria-desde-preview PR4 (D-10, design.md §7 highest-regression
   // risk edit — landed as its own commit with the full pre-existing suite
   // green FIRST, zero new behavior): `previewData` is hoisted OUT of
@@ -328,6 +347,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         : null;
 
   // Derived estado — mirrors the original pattern; `committing` replaces `subiendo`.
+  // PR10 (D-07): a successful preview lands on `decidiendo` UNLESS the user
+  // already chose to review (`revisando`, set by "Revisar y editar" or a
+  // matched draft restore) — then it's `preview-listo`, unchanged.
   const estado: EstadoSubida = commitMutation.isSuccess
     ? 'exito'
     : commitMutation.isPending
@@ -335,7 +357,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       : commitMutation.isError
         ? 'error'
         : previewMutation.isSuccess
-          ? 'preview-listo'
+          ? revisando
+            ? 'preview-listo'
+            : 'decidiendo'
           : previewMutation.isPending
             ? 'previsualizando'
             : previewMutation.isError && motivoPassword !== null
@@ -357,6 +381,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // proactively disabled so that 403 is never actually hit.
   const pickerGateado =
     estado === 'previsualizando' ||
+    estado === 'decidiendo' ||
     estado === 'preview-listo' ||
     estado === 'committing';
 
@@ -425,10 +450,12 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       // (e.g. the user picks a brand new file after this failure).
       reevaluandoRef.current = false;
       errorRef.current?.focus();
-    } else if (estado === 'preview-listo') {
+    } else if (estado === 'preview-listo' || estado === 'decidiendo') {
       // crear-categoria-desde-preview PR4 (D-11): a re-run re-enters
       // `preview-listo` too — skip stealing focus back to the heading
       // exactly once, then fall through to normal behavior again.
+      // PR10 (D-07): `decidiendo` shares the same heading ref/focus idiom —
+      // it's the FIRST landing of a fresh preview when `!revisando`.
       if (reevaluandoRef.current) {
         reevaluandoRef.current = false;
       } else {
@@ -463,15 +490,18 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // Stops mattering once `exito` clears the draft explicitly (below) — this
   // effect's own deps don't change across that transition, so it doesn't
   // re-save afterwards.
+  // PR10 (D-07): "no draft is written while deciding" — the write-through
+  // only runs once the user chose to review (`revisando`); the decision step
+  // itself never has anything to save (`edits` is always empty there).
   useEffect(() => {
-    if (!archivo || !previewData) return;
+    if (!archivo || !previewData || !revisando) return;
     guardarBorrador({
       archivo,
       preview: previewData,
       edits,
       ahora: Date.now(),
     });
-  }, [archivo, previewData, edits]);
+  }, [archivo, previewData, edits, revisando]);
 
   // D-02: clears both mutations + edits before firing preview. Draft
   // resilience: a matching re-pick during `borradorRecuperando` restores
@@ -505,18 +535,26 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       setArchivo(null);
       setErrorValidacion(null);
       setEdits(new Map());
+      setRevisando(false);
       return;
     }
 
+    // PR10 (D-07): a MATCHED draft restore sets `revisando = true` directly
+    // — the user already chose "Revisar y editar" before the interruption,
+    // so the decision step must not reappear. Any other pick (fresh, or a
+    // non-matching re-pick) starts a brand new decision at `decidiendo`.
     let edicionesRestauradas = new Map<number, string | null>();
+    let coincideBorrador = false;
     if (
       borradorRecuperando &&
       borrador !== null &&
       archivoCoincideConIdentidad(seleccionado, borrador.archivo)
     ) {
       edicionesRestauradas = new Map(borrador.edits);
+      coincideBorrador = true;
     }
     setEdits(edicionesRestauradas);
+    setRevisando(coincideBorrador);
     setBorrador(null);
     setBorradorRecuperando(false);
 
@@ -659,6 +697,43 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     );
   }
 
+  // cartola-preview-confirmacion PR10 (WEB-PRV-06, WEB-PRV-19): "Subir tal
+  // cual", clicked directly from the decision step — commits with an
+  // explicit EMPTY edits overlay. The user never reached the row-level
+  // cascade selects, so there is nothing to read off `edits` state (D-03);
+  // sending `[]` verbatim is the honest contract regardless. Mirrors
+  // `handleConfirmar`'s guard/double-submit/reset shape exactly.
+  function handleSubirTalCual() {
+    if (
+      esDemo ||
+      !archivo ||
+      commitMutation.isPending ||
+      isSubmittingRef.current
+    ) {
+      return;
+    }
+    isSubmittingRef.current = true;
+    setMensajeOverride(null);
+    commitMutation.mutate(
+      { file: archivo, edits: [], password },
+      {
+        onSuccess: () => {
+          borrarBorrador();
+        },
+        onSettled: () => {
+          isSubmittingRef.current = false;
+        },
+      },
+    );
+  }
+
+  // PR10 (D-07): "Revisar y editar" — the ONLY transition into the editable
+  // table (WEB-PRV-19). No reset here: `edits` is still empty at this point
+  // (nothing to clear), and `archivo`/`previewData` carry over unchanged.
+  function handleRevisarYEditar() {
+    setRevisando(true);
+  }
+
   // Peak-end landing: commit success no longer auto-navigates (supersedes
   // PR3's D-05/D-01) — the exito state IS the destination now. Only
   // `onSettled` survives here to release the double-submit guard.
@@ -741,6 +816,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
+    setRevisando(false);
     setPreviewData(null);
     setMensajeOverride(null);
     reevaluandoRef.current = false;
@@ -784,6 +860,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
     setArchivo(null);
     setErrorValidacion(null);
     setEdits(new Map());
+    setRevisando(false);
     setPreviewData(null);
     setMensajeOverride(null);
     reevaluandoRef.current = false;
@@ -815,7 +892,17 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
   // D-13: `preview-error` no longer hides the table — a FAILED re-run must
   // preserve it (and the categoría just created). Only `exito` still hides
   // it (the review is done at that point).
-  const mostrarPreview = previewData !== null && estado !== 'exito';
+  //
+  // PR10 (D-07): the two sections are mutually exclusive on `revisando` —
+  // `mostrarDecision` covers `decidiendo` itself AND a commit triggered from
+  // there (`committing`/`error` while `!revisando`, WEB-PRV-06's "Subir tal
+  // cual" error keeps the decision step visible" scenario); `mostrarPreview`
+  // covers the table (`preview-listo`) AND a commit triggered from the
+  // review ("Agregar transacciones"), unchanged from before this PR.
+  const mostrarDecision =
+    previewData !== null && !revisando && estado !== 'exito';
+  const mostrarPreview =
+    previewData !== null && revisando && estado !== 'exito';
 
   // Draft resilience: only relevant before a file is picked in THIS session
   // — once `archivo` is set, the notice's job is done (`handleFileChange`
@@ -848,6 +935,23 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
       ? ` (${pluralizar(filasClasificadasDescarte, 'ya clasificado', 'ya clasificados')})`
       : ''
   }. Se perderá el archivo seleccionado; esta acción no se puede deshacer.`;
+
+  // PR10 (D-07, DRY): the discard confirm is now reachable from BOTH the
+  // decision step and the review table — a single element reference shared
+  // between them (only one of the two sections ever mounts at a time, so
+  // reusing it is safe) instead of duplicating the same InlineConfirm JSX.
+  const confirmarDescarteDialog = confirmandoDescarte && (
+    <InlineConfirm
+      title="Confirmar descarte"
+      confirmLabel="Confirmar"
+      destructive
+      onConfirm={handleDescartar}
+      onCancel={handleCancelarConfirmacionDescarte}
+      className="gap-2 p-3 text-sm"
+    >
+      <p>{textoConfirmacionDescarte}</p>
+    </InlineConfirm>
+  );
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4">
@@ -1171,6 +1275,81 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         </div>
       )}
 
+      {/* cartola-preview-confirmacion PR10 (design.md D-07, WEB-PRV-02/19):
+          the decision step — resumen + "nothing saved yet" affordance
+          (ResumenCartola, extracted verbatim in PR9) plus the two commit-path
+          actions and "Descartar". No table here; "Revisar y editar" is the
+          ONLY transition into it (WEB-PRV-19). Also covers a commit
+          triggered directly from here ("Subir tal cual" pending/failed,
+          `estado` `committing`/`error` while `!revisando`) — the decision
+          step stays visible for retry instead of the review table
+          reappearing, per that scenario's spec text. */}
+      {mostrarDecision && previewData && (
+        <section
+          aria-labelledby="decision-heading"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+        >
+          <h2
+            id="decision-heading"
+            ref={previewHeadingRef}
+            tabIndex={-1}
+            className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            Vista previa
+          </h2>
+          <ResumenCartola
+            banco={previewData.banco}
+            resumen={previewData.resumen}
+          />
+          {esDemo && (
+            <p
+              id="demo-commit-nota"
+              role="note"
+              className="text-sm text-muted-foreground"
+            >
+              {MENSAJE_DEMO_COMMIT}{' '}
+              <a
+                href="https://moneydiary.cl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                Crea una cuenta real
+              </a>{' '}
+              para guardar tus movimientos.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              onClick={handleSubirTalCual}
+              disabled={esDemo || estado === 'committing'}
+              aria-describedby={esDemo ? 'demo-commit-nota' : undefined}
+            >
+              {estado === 'committing' ? 'Subiendo…' : 'Subir tal cual'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRevisarYEditar}
+              disabled={estado === 'committing'}
+            >
+              Revisar y editar
+            </Button>
+            <Button
+              ref={descartarTriggerRef}
+              type="button"
+              variant="ghost"
+              onClick={handleAbrirConfirmacionDescarte}
+              disabled={estado === 'committing'}
+            >
+              Descartar
+            </Button>
+          </div>
+          {confirmarDescarteDialog}
+        </section>
+      )}
+
       {mostrarPreview && previewData && (
         <section
           aria-labelledby="preview-listo-heading"
@@ -1280,19 +1459,9 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             </Button>
           </div>
           {/* Round-10 critique P1: destructive InlineConfirm gate — see the
-              component docblock for why this gates unconditionally. */}
-          {confirmandoDescarte && (
-            <InlineConfirm
-              title="Confirmar descarte"
-              confirmLabel="Confirmar"
-              destructive
-              onConfirm={handleDescartar}
-              onCancel={handleCancelarConfirmacionDescarte}
-              className="gap-2 p-3 text-sm"
-            >
-              <p>{textoConfirmacionDescarte}</p>
-            </InlineConfirm>
-          )}
+              component docblock for why this gates unconditionally.
+              PR10 (D-07, DRY): shared with the decision step, see above. */}
+          {confirmarDescarteDialog}
         </section>
       )}
 

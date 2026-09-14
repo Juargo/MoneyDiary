@@ -134,7 +134,7 @@ function esLoginResponseDto(value: unknown): value is LoginResponseDto {
  * out of the cold-start session gate. `nombre`, `esDemo`, and
  * `googleVinculado` are newly REQUIRED (tightening) to match the DTO in
  * full. `esDemo` is validated as the discriminator that makes `email: null`
- * legitimate here — the one deliberate exception to `post-ingesta.ts`'s
+ * legitimate here — the one deliberate exception to `commit-ingesta.ts`'s
  * "validate only what flows to render" rule: `email` itself is never
  * rendered by the session gate, but its nullability is load-bearing for
  * telling a demo account apart from a malformed body.
@@ -157,7 +157,8 @@ function esMeDto(value: unknown): value is MeDto {
  * Builds the auth headers for a session-aware call: `x-api-key` always,
  * `Authorization: Bearer <token>` only when a token is actually stored
  * (MOB-02). Used by every authenticated call except `postLogin`, which has
- * no session yet. Exported so `post-ingesta.ts` (Sprint 8, US-033) reuses it
+ * no session yet. Exported so `commit-ingesta.ts` (Sprint 8, US-033; renamed
+ * from `post-ingesta.ts`, US-057) and `preview-ingesta.ts` reuse it
  * verbatim instead of duplicating the header-building rule (DRY) — it
  * intentionally never sets `Content-Type`, which is correct for both JSON
  * callers (who set it themselves) and multipart callers (who must let the

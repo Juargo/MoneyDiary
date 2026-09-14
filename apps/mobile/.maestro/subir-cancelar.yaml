@@ -1,10 +1,12 @@
-# Flujo E2E (Maestro · ADR-017) — Cancelar la vista previa (US-003 CA-04).
+# Flujo E2E (Maestro · ADR-017) — Descartar desde el paso de decisión
+# (US-003 CA-04 / MOB-PRV-09, design.md Phase 6).
 #
-# Verifica en dispositivo real que, tras ver la vista previa, tocar "Cancelar"
-# descarta la muestra y vuelve al selector de archivo SIN persistir nada
-# (no se llama al endpoint de ingesta). Complementa `subir.yaml` (camino de
-# confirmar). Mismos prerrequisitos: sesión iniciada + fixture accesible desde
-# el picker nativo (docs/mobile-upload-gate-runbook.md).
+# Verifica en dispositivo real que, tras ver el paso de decisión, tocar
+# "Descartar" descarta la muestra y vuelve al selector de archivo SIN
+# persistir nada (no se llama al endpoint de ingesta). Complementa
+# `subir.yaml` (camino de "Subir tal cual"). Mismos prerrequisitos: sesión
+# iniciada + fixture accesible desde el picker nativo
+# (docs/mobile-upload-gate-runbook.md).
 appId: cl.moneydiary.app
 ---
 - launchApp:
@@ -17,15 +19,16 @@ appId: cl.moneydiary.app
 # --- PASO DEPENDIENTE DE DISPOSITIVO (ajustar antes de correr) ---
 # Cambiar por el nombre del fixture .xlsx/.pdf realmente precargado.
 - tapOn: "cartola-test.xlsx"
-# Espera el panel de vista previa (parse sin persistir).
+# Espera el panel de decisión (parse sin persistir, MOB-PRV-03).
 - extendedWaitUntil:
     visible:
       id: "preview-resultado"
     timeout: 40000
-# CA-04: cancelar descarta y vuelve al selector de archivo — el trigger de
-# subida vuelve a estar visible y NO aparece el resultado de una ingesta.
+# MOB-PRV-09: "Descartar" desde el paso de decisión descarta y vuelve al
+# selector de archivo — el trigger de subida vuelve a estar visible y NO
+# aparece el resultado de una ingesta.
 - tapOn:
-    id: "preview-cancelar"
+    id: "decision-descartar"
 - assertVisible:
     id: "subir-archivo-trigger"
 - assertNotVisible:

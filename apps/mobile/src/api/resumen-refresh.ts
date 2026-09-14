@@ -6,7 +6,7 @@
  * router and never receive props from a parent route.
  *
  * `app/index.tsx` registers its own `cargar()` on mount; `app/subir.tsx`
- * calls `solicitarRecargaResumen()` right after a successful `postIngesta`.
+ * calls `solicitarRecargaResumen()` right after a successful `commitIngesta`.
  *
  * US-050 (D-13): promoted from a single-listener slot to a `Set<() => void>`
  * — `ResumenAnual` is a second subscriber this module's original docstring

@@ -1,11 +1,12 @@
 # Flujo E2E (Maestro · ADR-017) — Subir cartola desde mobile con vista previa
-# de dos fases (US-033/ADR-026 + US-003).
+# de dos fases + paso de decisión (US-033/ADR-026 + US-003, design.md Phase 6).
 #
 # Camino crítico: el usuario autenticado abre "Subir cartola" desde la
 # pantalla de resumen, selecciona un archivo .xlsx/.pdf real vía el picker
-# nativo del SO, VE LA VISTA PREVIA (muestra de filas, sin persistir nada —
-# US-003 CA-02), confirma, y ve el resumen del resultado
-# (banco/cuenta/totalTransacciones). Este es el gate REQUERIDO en dispositivo
+# nativo del SO, VE EL PASO DE DECISIÓN (resumen + tres acciones, sin
+# persistir nada — MOB-PRV-03), toca "Subir tal cual", y ve el resumen del
+# resultado (totalTransacciones/duplicadosOmitidos). Este es el gate REQUERIDO
+# en dispositivo
 # real para el boundary multipart + el flujo de dos fases que jest-expo NO
 # puede validar (design.md, riesgo HIGH). Debe correrse en un
 # dispositivo/simulador real, no en CI. Pasos y prerrequisitos completos:
@@ -36,29 +37,28 @@ appId: cl.moneydiary.app
 # por el del fixture .xlsx/.pdf realmente precargado en el dispositivo de
 # prueba (ver runbook). Sin un fixture accesible, el gate no puede completar.
 - tapOn: "cartola-test.xlsx"
-# --- FASE 1: VISTA PREVIA (US-003) ---
+# --- FASE 1: VISTA PREVIA + DECISIÓN (US-003 + MOB-PRV-03) ---
 # El parse corre en el backend (POST /api/ingestas/preview) y devuelve la
-# muestra SIN persistir nada. Esperar la aparición del panel de preview con
+# muestra SIN persistir nada. Esperar la aparición del panel de decisión con
 # margen generoso (red real + cold-start del backend gratuito, mismo criterio
 # que resumen-semaforo.yaml).
 - extendedWaitUntil:
     visible:
       id: "preview-resultado"
     timeout: 40000
-# CA-02: la muestra de movimientos se renderiza (encabezados canónicos +
-# al menos la primera fila).
+# MOB-PRV-03: el paso de decisión muestra el resumen y las tres acciones, sin
+# lista de filas todavía (esa solo aparece tras "Revisar y editar").
 - assertVisible:
-    id: "preview-lista"
+    id: "decision-subir-tal-cual"
 - assertVisible:
-    id: "preview-fila-0"
-# CA-01: el selector de cantidad (10/25/50) rebana la muestra en el cliente.
+    id: "decision-revisar"
+- assertVisible:
+    id: "decision-descartar"
+# --- FASE 2: SUBIR TAL CUAL (US-003 CA-03 / MOB-PRV-04) ---
+# "Subir tal cual" re-sube el mismo archivo al endpoint de ingesta real
+# (POST /api/ingestas/commit) con `edits: []` — recién acá se persiste.
 - tapOn:
-    id: "preview-cantidad-25"
-# --- FASE 2: CONFIRMAR (US-003 CA-03) ---
-# Confirmar re-sube el mismo archivo al endpoint de ingesta real
-# (POST /api/ingestas) — recién acá se persiste.
-- tapOn:
-    id: "preview-confirmar"
+    id: "decision-subir-tal-cual"
 # El estado "subiendo" deshabilita los controles mientras la subida está en
 # curso (CU-09) — esperar el resultado con el mismo margen.
 - extendedWaitUntil:

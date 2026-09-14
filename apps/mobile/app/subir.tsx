@@ -1,57 +1,116 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
-import { postIngesta } from '../src/api/post-ingesta';
+import type { PreviewFilaDto } from '@moneydiary/api-client';
+import { commitIngesta } from '../src/api/commit-ingesta';
 import type {
-  IngestaResponseDto,
-  PostIngestaError,
-} from '../src/api/post-ingesta';
+  CommitIngestaDto,
+  CommitIngestaError,
+  EdicionFila,
+} from '../src/api/commit-ingesta';
 import { previewIngesta } from '../src/api/preview-ingesta';
 import type {
-  PreviewIngestaDto,
+  PreviewIngestaDtoConCanonicos,
   PreviewIngestaError,
 } from '../src/api/preview-ingesta';
+import { fetchCatalogo } from '../src/api/categorias';
+import { agruparPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
+import type { GrupoCategoriaPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
 import {
-  CANTIDAD_PREVIEW_DEFECTO,
-  OPCIONES_CANTIDAD_PREVIEW,
-  formatearFilaPreview,
-  sliceMuestra,
+  aOverlayEdits,
+  categoriaEfectiva,
 } from '../src/domain/preview-cartola';
-import type { CantidadPreview } from '../src/domain/preview-cartola';
+import { mensajeDeErrorCatalogo } from '../src/domain/mensajes-catalogo';
+import { ResumenDecision } from '../src/components/subir/ResumenDecision';
+import { ListaRevision } from '../src/components/subir/ListaRevision';
+import { HojaClasificacion } from '../src/components/subir/HojaClasificacion';
 import { solicitarRecargaResumen } from '../src/api/resumen-refresh';
 import { copiaPorApiError } from '../src/api/client';
 import { COLORS } from '../src/theme/colors';
 
 /**
  * The mobile upload route (Expo Router `app/subir.tsx`, US-033, ADR-026),
- * upgraded to a two-phase preview-then-confirm flow (US-003 Slice 3,
- * design.md §10.1). Greenfield: mobile had no per-row preview before this
- * change.
+ * evolved into the explicit two-action decision flow (design.md Phase 6)
+ * plus the tap-row classification sheet (Phase 8): after a successful
+ * preview, the user chooses "Subir tal cual" (commits immediately with an
+ * empty edits overlay, MOB-PRV-04) or "Revisar y editar" (opens the full
+ * virtualized row list, MOB-PRV-05). In review, tapping an editable row
+ * opens `HojaClasificacion` (MOB-PRV-06/07); confirming it records a
+ * pending edit in `edits: ReadonlyMap<rowIndex, categoriaId>`, and the
+ * review commit sends the assembled overlay (`aOverlayEdits`, MOB-PRV-08).
  *
- * State machine (design.md §10.1): `idle → previsualizando → preview
- * ↔(Confirmar)→ subiendo → exito` / `error`. Picking a file immediately
- * fires `previewIngesta` (read-only, PREV-02: persists nothing); on success
- * the screen holds BOTH the `PreviewIngestaDto` and the original
- * `DocumentPickerAsset` in the `preview` state. **Confirmar** re-uploads
- * that SAME held asset via the existing `postIngesta` — the "same file"
- * guarantee is structural here: the picker is not re-opened until
- * **Cancelar**, which discards everything back to `idle` and never calls
- * `postIngesta` (CA-04 at the UI layer).
+ * State machine (design.md Data Flow — mobile):
+ *   idle → previsualizando → decidiendo{dto,archivo,error?}
+ *   decidiendo → subiendo{origen:'decidiendo'} → exito
+ *   decidiendo → revisando{dto,archivo,edits,filaAbierta,error?} (+catalog
+ *     fetch once) → subiendo{origen:'revisando'} → exito
+ *   decidiendo | revisando → idle (Descartar/Cancelar, no commit, MOB-PRV-09)
+ * A commit failure returns to the phase it started from (`origen`),
+ * preserving the held file and — for `revisando` — the row list AND the
+ * pending edits intact (MOB-PRV-10), never a dead-end standalone error
+ * screen. Only a PREVIEW failure uses the standalone `error` fase (returns
+ * to file selection).
  *
- * The 10/25/50 row-count selector (`cantidad`, CA-01) is local UI state,
- * independent of `Estado` — it only re-slices the already-fetched `muestra`
- * in memory (`sliceMuestra`, PREV-06), never triggers a new request.
+ * Double-submit guard (D-09, SEC-01 precedent): `envioEnCursoRef` gates
+ * BOTH commit actions synchronously — `estado`/`disabled` are stale until
+ * React re-renders, which does not happen between two synchronous taps on
+ * the same closure. Released only on failure (a success unmounts the
+ * commit actions by moving to `subiendo`/`exito`, so nothing can reach them
+ * again regardless of the ref).
+ *
+ * Catalog fetch ownership (design.md's data-flow annotation): fetched
+ * exactly once per `decidiendo → revisando` transition (the `revisar`
+ * callback below) — never re-fetched on re-render, on opening/closing the
+ * sheet, or when a commit failure returns to the same `revisando` review.
+ * Loading/failure behavior is a spec gap MOB-PRV-06/07/10 do not cover
+ * directly: this screen keeps the row list visible, disables opening the
+ * sheet (`abrirFila` gates on `catalogo.fase === 'listo'`), and shows a
+ * retryable inline message (`catalogo-error`/`catalogo-reintentar`).
  */
 type Estado =
   | { fase: 'idle' }
   | { fase: 'previsualizando' }
-  | { fase: 'preview'; dto: PreviewIngestaDto; archivo: DocumentPickerAsset }
-  | { fase: 'subiendo' }
-  | { fase: 'exito'; dto: IngestaResponseDto }
+  | {
+      fase: 'decidiendo';
+      dto: PreviewIngestaDtoConCanonicos;
+      archivo: DocumentPickerAsset;
+      error?: string;
+    }
+  | {
+      fase: 'revisando';
+      dto: PreviewIngestaDtoConCanonicos;
+      archivo: DocumentPickerAsset;
+      edits: ReadonlyMap<number, string>;
+      filaAbierta: number | null;
+      error?: string;
+    }
+  | {
+      fase: 'subiendo';
+      origen: 'decidiendo' | 'revisando';
+      dto: PreviewIngestaDtoConCanonicos;
+      archivo: DocumentPickerAsset;
+    }
+  | { fase: 'exito'; dto: CommitIngestaDto }
   | { fase: 'error'; mensaje: string };
+
+/**
+ * The catalog fetch lifecycle for `revisando` (design.md's "+catalog fetch
+ * once" annotation) — kept as its own `useState`, orthogonal to `Estado`,
+ * since the review row list already renders from `estado.dto.filas` the
+ * instant `revisando` is entered; the catalog only gates the sheet.
+ */
+type EstadoCatalogo =
+  | { fase: 'inactivo' }
+  | { fase: 'cargando' }
+  | { fase: 'error'; mensaje: string }
+  | {
+      fase: 'listo';
+      grupos: readonly GrupoCategoriaPorBucket[];
+      nombrePorId: ReadonlyMap<string, string>;
+    };
 
 const TIPOS_ACEPTADOS = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -62,37 +121,55 @@ const TIPOS_ACEPTADOS = [
  * mensajeDeError — wraps the shared `copiaPorApiError` (client.ts) to add
  * this screen's one extra case: on a 400, prefer the backend's already-
  * scrubbed Spanish `message` when present. Accepts either error union since
- * `PostIngestaError` and `PreviewIngestaError` share the exact same shape
+ * `CommitIngestaError` and `PreviewIngestaError` share the exact same shape
  * (both mirror `ApiError` plus the optional 400 message, PREV-03) — kept as
  * one explicit union rather than relying on structural coincidence.
  */
-function mensajeDeError(error: PostIngestaError | PreviewIngestaError): string {
+function mensajeDeError(
+  error: CommitIngestaError | PreviewIngestaError,
+): string {
   if (error.tag === 'http' && error.message) {
     return error.message;
   }
   return copiaPorApiError(error);
 }
 
-/** Spanish summary announced to screen readers on a successful upload. */
-function mensajeDeExito(dto: IngestaResponseDto): string {
-  return `Cartola subida. Banco ${dto.banco}, cuenta ${dto.numeroCuenta}, ${dto.totalTransacciones} transacciones.`;
+/**
+ * Spanish summary announced to screen readers on a successful as-is commit
+ * (MOB-PRV-04). `CommitIngestaDto` carries no `banco`/`numeroCuenta` — only
+ * the commit-time counts.
+ */
+function mensajeDeExito(dto: CommitIngestaDto): string {
+  return `Cartola subida. ${dto.totalTransacciones} transacciones, ${dto.duplicadosOmitidos} duplicados omitidos.`;
 }
 
-/** Spanish summary announced when the preview is ready (design.md §10.3). */
-function mensajeDePreviewListo(dto: PreviewIngestaDto): string {
-  return `Vista previa lista. Banco ${dto.banco}, ${dto.estructura.totalFilasDatos} movimientos. Revisa y confirma.`;
+/** Spanish message announced when the preview is ready and `decidiendo` renders. */
+function mensajeDePreviewListo(dto: PreviewIngestaDtoConCanonicos): string {
+  return `Vista previa lista. Banco ${dto.banco}, ${dto.resumen.totalFilas} movimientos. Revisa y confirma.`;
 }
 
 /** Spanish message shown/announced when the picker itself fails to open. */
 const MENSAJE_ERROR_PICKER =
   'No se pudo abrir el selector de archivos. Intenta de nuevo.';
 
+/**
+ * Stable empty-map reference for `ListaRevision.categoriaNombrePorFila`
+ * while the catalog has not resolved yet (loading or failed) — avoids a
+ * fresh object identity every render.
+ */
+const CATEGORIA_NOMBRE_POR_FILA_VACIA: ReadonlyMap<number, string | null> =
+  new Map();
+
 export default function Subir() {
   const router = useRouter();
   const [estado, setEstado] = useState<Estado>({ fase: 'idle' });
-  const [cantidad, setCantidad] = useState<CantidadPreview>(
-    CANTIDAD_PREVIEW_DEFECTO,
-  );
+  const [catalogo, setCatalogo] = useState<EstadoCatalogo>({
+    fase: 'inactivo',
+  });
+  // Synchronous double-submit guard shared by both commit actions (D-09) —
+  // only one of `decidiendo`/`revisando` can be active at a time, so one
+  // ref suffices for both `confirmarTalCual` and `confirmarRevision`.
+  const envioEnCursoRef = useRef(false);
 
   const seleccionarArchivo = useCallback(async () => {
     let resultado: DocumentPicker.DocumentPickerResult;
@@ -119,19 +196,27 @@ export default function Subir() {
       return;
     }
 
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
-    setEstado({ fase: 'preview', dto: preview.value, archivo });
+    setEstado({ fase: 'decidiendo', dto: preview.value, archivo });
   }, []);
 
-  const confirmar = useCallback(async () => {
-    if (estado.fase !== 'preview') {
+  const confirmarTalCual = useCallback(async () => {
+    if (estado.fase !== 'decidiendo' || envioEnCursoRef.current) {
       return;
     }
-    const { archivo } = estado;
-    setEstado({ fase: 'subiendo' });
-    const subida = await postIngesta(archivo);
+    envioEnCursoRef.current = true;
+    const { archivo, dto } = estado;
+    setEstado({ fase: 'subiendo', origen: 'decidiendo', dto, archivo });
+    // As-is commit — the user never reached the row list, so the overlay is
+    // always empty (MOB-PRV-04).
+    const subida = await commitIngesta(archivo, []);
     if (!subida.ok) {
-      setEstado({ fase: 'error', mensaje: mensajeDeError(subida.error) });
+      envioEnCursoRef.current = false;
+      setEstado({
+        fase: 'decidiendo',
+        dto,
+        archivo,
+        error: mensajeDeError(subida.error),
+      });
       return;
     }
 
@@ -139,19 +224,123 @@ export default function Subir() {
     solicitarRecargaResumen();
   }, [estado]);
 
-  const cancelar = useCallback(() => {
-    setEstado({ fase: 'idle' });
-    setCantidad(CANTIDAD_PREVIEW_DEFECTO);
+  /**
+   * cargarCatalogo — fetches the user's own catalog (`fetchCatalogo`) and
+   * groups it (`agruparPorBucket`) for `HojaClasificacion`; also builds a
+   * flat id→nombre lookup for `ListaRevision`'s row display (D-04: names
+   * are resolved from the catalog, never stored in `edits`). Called once
+   * on entering `revisando` (`revisar` below) and again from the inline
+   * "Reintentar" affordance on a failure.
+   */
+  const cargarCatalogo = useCallback(async () => {
+    setCatalogo({ fase: 'cargando' });
+    const resultado = await fetchCatalogo();
+    if (!resultado.ok) {
+      setCatalogo({
+        fase: 'error',
+        mensaje: mensajeDeErrorCatalogo(resultado.error),
+      });
+      return;
+    }
+    setCatalogo({
+      fase: 'listo',
+      grupos: agruparPorBucket(resultado.value.categorias),
+      nombrePorId: new Map(
+        resultado.value.categorias.map((c) => [c.id, c.nombre]),
+      ),
+    });
   }, []);
 
-  // Announces preview-ready/éxito/error transitions to screen readers
-  // (WCAG 2.2 AA SC 4.1.3, design.md §10.3) — mirrors the pre-US-003
-  // announcement pattern, extended with the new `preview` phase.
+  const revisar = useCallback(() => {
+    if (estado.fase !== 'decidiendo') {
+      return;
+    }
+    setEstado({
+      fase: 'revisando',
+      dto: estado.dto,
+      archivo: estado.archivo,
+      edits: new Map(),
+      filaAbierta: null,
+    });
+    void cargarCatalogo();
+  }, [estado, cargarCatalogo]);
+
+  /** Gated on the catalog being ready — see the file docblock's spec-gap note. */
+  const abrirFila = useCallback(
+    (rowIndex: number) => {
+      if (estado.fase !== 'revisando' || catalogo.fase !== 'listo') {
+        return;
+      }
+      setEstado({ ...estado, filaAbierta: rowIndex });
+    },
+    [estado, catalogo],
+  );
+
+  const confirmarEdicionSheet = useCallback(
+    (edicion: EdicionFila) => {
+      if (estado.fase !== 'revisando') {
+        return;
+      }
+      const edits = new Map(estado.edits);
+      edits.set(edicion.rowIndex, edicion.categoriaId);
+      setEstado({ ...estado, edits, filaAbierta: null });
+    },
+    [estado],
+  );
+
+  const cerrarSheet = useCallback(() => {
+    if (estado.fase !== 'revisando') {
+      return;
+    }
+    setEstado({ ...estado, filaAbierta: null });
+  }, [estado]);
+
+  const confirmarRevision = useCallback(async () => {
+    if (estado.fase !== 'revisando' || envioEnCursoRef.current) {
+      return;
+    }
+    envioEnCursoRef.current = true;
+    const { archivo, dto, edits } = estado;
+    setEstado({ fase: 'subiendo', origen: 'revisando', dto, archivo });
+    // MOB-PRV-08: only rows the user assigned a categoría in the sheet are
+    // included, defensively excluding duplicate/Ingreso rows (`aOverlayEdits`).
+    const overlay = aOverlayEdits(dto.filas, edits);
+    const subida = await commitIngesta(archivo, overlay);
+    if (!subida.ok) {
+      envioEnCursoRef.current = false;
+      setEstado({
+        fase: 'revisando',
+        dto,
+        archivo,
+        edits,
+        filaAbierta: null,
+        error: mensajeDeError(subida.error),
+      });
+      return;
+    }
+
+    setEstado({ fase: 'exito', dto: subida.value });
+    solicitarRecargaResumen();
+  }, [estado]);
+
+  const descartar = useCallback(() => {
+    setEstado({ fase: 'idle' });
+    setCatalogo({ fase: 'inactivo' });
+  }, []);
+
+  // Announces decidiendo/éxito/error transitions to screen readers (WCAG
+  // 2.2 AA SC 4.1.3, design.md). A commit failure keeps the same fase
+  // (`decidiendo`/`revisando`) with an embedded `error`, so it is announced
+  // explicitly instead of re-announcing the preview-ready message.
   useEffect(() => {
-    if (estado.fase === 'preview') {
-      AccessibilityInfo.announceForAccessibility(
-        mensajeDePreviewListo(estado.dto),
-      );
+    if (estado.fase === 'decidiendo' || estado.fase === 'revisando') {
+      if (estado.error) {
+        AccessibilityInfo.announceForAccessibility(estado.error);
+      } else if (estado.fase === 'decidiendo') {
+        AccessibilityInfo.announceForAccessibility(
+          mensajeDePreviewListo(estado.dto),
+        );
+      }
     } else if (estado.fase === 'exito') {
       AccessibilityInfo.announceForAccessibility(mensajeDeExito(estado.dto));
     } else if (estado.fase === 'error') {
@@ -161,13 +350,50 @@ export default function Subir() {
 
   // The trigger is only offered before a preview starts and again once the
   // whole flow has settled (éxito or error) — it stays gated for the
-  // duration of the active preview/confirm window (design.md §10.1/§10.2
-  // "same file" guarantee).
+  // duration of the active decision/review/confirm window.
   const mostrarTrigger =
     estado.fase === 'idle' ||
     estado.fase === 'error' ||
     estado.fase === 'exito';
   const previsualizando = estado.fase === 'previsualizando';
+
+  // Narrowed once here (not repeated per JSX conditional) so the revisando
+  // block below can read `revisando.edits`/`revisando.filaAbierta` typed,
+  // without re-checking `estado.fase === 'revisando'` at every usage site.
+  const revisando = estado.fase === 'revisando' ? estado : null;
+  const categoriaNombrePorFila: ReadonlyMap<number, string | null> =
+    revisando && catalogo.fase === 'listo'
+      ? new Map(
+          revisando.dto.filas.map((fila) => {
+            const categoriaId = categoriaEfectiva(fila, revisando.edits);
+            return [
+              fila.rowIndex,
+              categoriaId
+                ? (catalogo.nombrePorId.get(categoriaId) ?? null)
+                : null,
+            ];
+          }),
+        )
+      : CATEGORIA_NOMBRE_POR_FILA_VACIA;
+  // Computed together (not two separate lookups) so the JSX below never
+  // needs to re-narrow `estado`/`revisando` to read `edits` for the prop.
+  const sheetAbierto: {
+    fila: PreviewFilaDto;
+    categoriaActualId: string | null;
+  } | null =
+    revisando && revisando.filaAbierta !== null
+      ? (() => {
+          const fila = revisando.dto.filas.find(
+            (f) => f.rowIndex === revisando.filaAbierta,
+          );
+          return fila
+            ? {
+                fila,
+                categoriaActualId: categoriaEfectiva(fila, revisando.edits),
+              }
+            : null;
+        })()
+      : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
@@ -215,13 +441,122 @@ export default function Subir() {
           </Text>
         )}
 
-        {estado.fase === 'preview' && (
-          <PreviewCartola
-            dto={estado.dto}
-            cantidad={cantidad}
-            onCantidadChange={setCantidad}
-            onConfirmar={() => void confirmar()}
-            onCancelar={cancelar}
+        {estado.fase === 'decidiendo' && (
+          <View
+            testID="preview-resultado"
+            accessibilityRole="summary"
+            accessibilityLabel={`Vista previa lista. Banco ${estado.dto.banco}, ${estado.dto.resumen.totalFilas} movimientos.`}
+            accessibilityLiveRegion="polite"
+            className="gap-3"
+          >
+            <View className="flex-row justify-between rounded-xl border border-hairline bg-white p-4">
+              <Text className="text-sm text-muted">Banco</Text>
+              <Text className="text-sm font-medium text-heading">
+                {estado.dto.banco}
+              </Text>
+            </View>
+            <ResumenDecision
+              resumen={estado.dto.resumen}
+              onSubirTalCual={() => void confirmarTalCual()}
+              onRevisar={revisar}
+              onDescartar={descartar}
+            />
+            {estado.error && (
+              <Text
+                testID="subir-error"
+                accessibilityRole="alert"
+                accessibilityLabel={`Error al subir: ${estado.error}`}
+                accessibilityLiveRegion="polite"
+                className="text-center text-sm text-red-600"
+              >
+                {estado.error}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {revisando && (
+          <View className="flex-1 gap-3">
+            {catalogo.fase === 'cargando' && (
+              <Text
+                testID="catalogo-cargando"
+                accessibilityRole="progressbar"
+                accessibilityLabel="Cargando catálogo"
+                accessibilityLiveRegion="polite"
+                className="text-center text-xs text-muted"
+              >
+                Cargando catálogo…
+              </Text>
+            )}
+            {catalogo.fase === 'error' && (
+              <View className="items-center gap-1">
+                <Text
+                  testID="catalogo-error"
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  className="text-center text-xs text-red-600"
+                >
+                  {catalogo.mensaje}
+                </Text>
+                <Pressable
+                  testID="catalogo-reintentar"
+                  accessibilityRole="button"
+                  accessibilityLabel="Reintentar cargar catálogo"
+                  onPress={() => void cargarCatalogo()}
+                  className="py-1"
+                >
+                  <Text className="text-xs font-semibold text-muted">
+                    Reintentar
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+            <ListaRevision
+              filas={revisando.dto.filas}
+              categoriaNombrePorFila={categoriaNombrePorFila}
+              onAbrirFila={abrirFila}
+            />
+            {revisando.error && (
+              <Text
+                testID="subir-error"
+                accessibilityRole="alert"
+                accessibilityLabel={`Error al subir: ${revisando.error}`}
+                accessibilityLiveRegion="polite"
+                className="text-center text-sm text-red-600"
+              >
+                {revisando.error}
+              </Text>
+            )}
+            <Pressable
+              testID="revision-subir"
+              accessibilityRole="button"
+              accessibilityLabel="Subir"
+              onPress={() => void confirmarRevision()}
+              className="items-center rounded-full py-3"
+              style={{ backgroundColor: COLORS.ingreso }}
+            >
+              <Text className="font-semibold text-white">Subir</Text>
+            </Pressable>
+            <Pressable
+              testID="revision-cancelar"
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+              onPress={descartar}
+              className="items-center py-3"
+            >
+              <Text className="text-sm font-semibold text-muted">Cancelar</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {sheetAbierto && catalogo.fase === 'listo' && (
+          <HojaClasificacion
+            visible
+            fila={sheetAbierto.fila}
+            categoriaActualId={sheetAbierto.categoriaActualId}
+            grupos={catalogo.grupos}
+            onConfirmar={confirmarEdicionSheet}
+            onCancelar={cerrarSheet}
           />
         )}
 
@@ -253,21 +588,15 @@ export default function Subir() {
                 Cartola subida
               </Text>
               <View className="flex-row justify-between">
-                <Text className="text-sm text-muted">Banco</Text>
-                <Text className="text-sm font-medium text-heading">
-                  {estado.dto.banco}
-                </Text>
-              </View>
-              <View className="flex-row justify-between">
-                <Text className="text-sm text-muted">Cuenta</Text>
-                <Text className="text-sm font-medium text-heading">
-                  {estado.dto.numeroCuenta}
-                </Text>
-              </View>
-              <View className="flex-row justify-between">
                 <Text className="text-sm text-muted">Transacciones</Text>
                 <Text className="text-sm font-medium text-heading">
                   {estado.dto.totalTransacciones}
+                </Text>
+              </View>
+              <View className="flex-row justify-between">
+                <Text className="text-sm text-muted">Duplicados omitidos</Text>
+                <Text className="text-sm font-medium text-heading">
+                  {estado.dto.duplicadosOmitidos}
                 </Text>
               </View>
             </View>
@@ -276,144 +605,6 @@ export default function Subir() {
         )}
       </View>
     </SafeAreaView>
-  );
-}
-
-/**
- * PreviewCartola — the per-row preview panel + 10/25/50 selector +
- * Confirmar/Cancelar (US-003 Slice 3, design.md §10.2/§10.3). Kept as a
- * local component (not a separate file) per design.md's explicit "inline or
- * a small component" allowance — SRP is still honored: this component only
- * renders, all state lives in the parent `Subir` screen.
- */
-function PreviewCartola({
-  dto,
-  cantidad,
-  onCantidadChange,
-  onConfirmar,
-  onCancelar,
-}: {
-  readonly dto: PreviewIngestaDto;
-  readonly cantidad: CantidadPreview;
-  readonly onCantidadChange: (cantidad: CantidadPreview) => void;
-  readonly onConfirmar: () => void;
-  readonly onCancelar: () => void;
-}) {
-  const filas = sliceMuestra(dto.muestra, cantidad);
-
-  return (
-    <>
-      <View
-        testID="preview-resultado"
-        accessibilityRole="summary"
-        accessibilityLabel={`Vista previa lista. Banco ${dto.banco}, ${dto.estructura.totalFilasDatos} movimientos.`}
-        accessibilityLiveRegion="polite"
-        className="gap-3 rounded-xl border border-hairline bg-white p-4"
-      >
-        <Text className="text-base font-semibold text-heading">
-          Vista previa
-        </Text>
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted">Banco</Text>
-          <Text className="text-sm font-medium text-heading">{dto.banco}</Text>
-        </View>
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted">Movimientos en total</Text>
-          <Text className="text-sm font-medium text-heading">
-            {dto.estructura.totalFilasDatos}
-          </Text>
-        </View>
-
-        <View
-          testID="preview-selector"
-          accessibilityRole="radiogroup"
-          accessibilityLabel="Cantidad de filas a mostrar"
-          className="flex-row gap-2"
-        >
-          {OPCIONES_CANTIDAD_PREVIEW.map((opcion) => {
-            const seleccionada = cantidad === opcion;
-            return (
-              <Pressable
-                key={opcion}
-                testID={`preview-cantidad-${opcion}`}
-                accessibilityRole="radio"
-                accessibilityLabel={`Mostrar ${opcion} filas`}
-                accessibilityState={{ checked: seleccionada }}
-                onPress={() => onCantidadChange(opcion)}
-                className="rounded-full border px-3 py-1"
-                style={{
-                  backgroundColor: seleccionada
-                    ? COLORS.ingreso
-                    : COLORS.canvas,
-                  borderColor: COLORS.hairline,
-                }}
-              >
-                <Text
-                  className="text-sm font-medium"
-                  style={{ color: seleccionada ? '#ffffff' : undefined }}
-                >
-                  {opcion}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View
-          testID="preview-lista"
-          accessibilityLabel="Muestra de movimientos"
-          accessibilityLiveRegion="polite"
-          className="gap-2"
-        >
-          {filas.map((fila, indice) => {
-            const formateada = formatearFilaPreview(fila);
-            return (
-              <View
-                key={`${fila.fecha}-${fila.descripcion}-${fila.cargo}-${fila.abono}-${indice}`}
-                testID={`preview-fila-${indice}`}
-                accessibilityLabel={`${formateada.fecha}, ${formateada.descripcion}, cargo ${formateada.cargo}, abono ${formateada.abono}`}
-                className="gap-1 rounded-lg bg-canvas p-2"
-              >
-                <View className="flex-row justify-between">
-                  <Text className="text-xs text-muted">{formateada.fecha}</Text>
-                  <Text className="text-xs font-medium text-heading">
-                    {formateada.descripcion}
-                  </Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-xs text-muted">
-                    Cargo: {formateada.cargo}
-                  </Text>
-                  <Text className="text-xs text-muted">
-                    Abono: {formateada.abono}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-
-      <Pressable
-        testID="preview-confirmar"
-        accessibilityRole="button"
-        accessibilityLabel="Confirmar carga"
-        onPress={onConfirmar}
-        className="items-center rounded-full py-3"
-        style={{ backgroundColor: COLORS.ingreso }}
-      >
-        <Text className="font-semibold text-white">Confirmar</Text>
-      </Pressable>
-      <Pressable
-        testID="preview-cancelar"
-        accessibilityRole="button"
-        accessibilityLabel="Cancelar vista previa"
-        onPress={onCancelar}
-        className="items-center py-3"
-      >
-        <Text className="text-sm font-semibold text-muted">Cancelar</Text>
-      </Pressable>
-    </>
   );
 }
 

@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ChevronDown, FileText, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
+import { ResumenCartola } from './ResumenCartola';
 import { Button } from './ui/button';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
@@ -471,72 +472,12 @@ export function PreviewMuestra({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Cartola identity block (polish pass, 2026-08-30): the file's
-          metadata used to render as three loose text lines (banco heading,
-          meta line, "nada se ha guardado") that sat flush against the
-          review list in the same white card — nothing told the eye where
-          "the file" ended and "the rows to work on" began. It now lives on
-          its own tinted surface (`bg-muted/40` + Mist border: the same
-          quiet notice idiom `states/Empty` and `DemoUploadNudge` already
-          use in this pass — surface, not color, because it carries no
-          estado). Inside, hierarchy is typographic only: banco as the
-          block's title, the three counts as number-over-label stats
-          (no per-stat boxes), and the "nothing saved" line demoted to the
-          block's footnote. Nothing here is a control; it is reference
-          information the user reads once. */}
-      <div
-        data-resumen-cartola
-        className="flex flex-col gap-4 rounded-lg border border-border bg-muted/40 p-4"
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div className="flex min-w-0 items-start gap-3">
-            <FileText
-              aria-hidden="true"
-              className="mt-0.5 size-5 shrink-0 text-muted-foreground"
-            />
-            <div className="flex min-w-0 flex-col gap-0.5">
-              {/* Resumen header — WEB-PRV-02, D-08: banco from top-level
-                  field. `truncate` guards long bank labels on phones. */}
-              <h3 className="truncate text-base font-semibold text-foreground">
-                {banco}
-              </h3>
-              <p className="text-xs text-muted-foreground">Cartola detectada</p>
-            </div>
-          </div>
-          {/* HTML5-valid dl: three <div> wrappers each with dt+dd pair
-              (fix 3). Number-over-label: `dt` stays first in the DOM (the
-              label is read before its value by AT), `flex-col-reverse`
-              only flips the VISUAL order so the figure sits on top.
-              `tabular-nums` keeps the three figures on one digit width. */}
-          <dl className="grid shrink-0 grid-cols-3 gap-x-6 text-sm tabular-nums">
-            <div className="flex flex-col-reverse">
-              <dt className="text-xs text-muted-foreground">Total filas</dt>
-              <dd className="text-lg leading-tight font-semibold text-foreground">
-                {resumen.totalFilas}
-              </dd>
-            </div>
-            <div className="flex flex-col-reverse">
-              <dt className="text-xs text-muted-foreground">Duplicados</dt>
-              <dd className="text-lg leading-tight font-semibold text-foreground">
-                {resumen.duplicadosDetectados}
-              </dd>
-            </div>
-            <div className="flex flex-col-reverse">
-              <dt className="text-xs text-muted-foreground">Nuevas</dt>
-              <dd className="text-lg leading-tight font-semibold text-foreground">
-                {resumen.nuevas}
-              </dd>
-            </div>
-          </dl>
-        </div>
-
-        {/* CA-02 / WEB-PRV-02: "nothing saved yet" affordance — plain <p>,
-            no live-region role (fix 7). SubirCartola's aria-live announcer
-            covers state-entry announcements. */}
-        <p className="text-xs text-muted-foreground">
-          Nada se ha guardado aún. Revisa las filas y confirma para importar.
-        </p>
-      </div>
+      {/* Cartola identity block — extracted to `ResumenCartola`
+          (cartola-preview-confirmacion PR9, D-08); PR10 reuses it at the
+          `decidiendo` decision step. See that component's docblock for the
+          design history (polish pass 2026-08-30: tinted surface, typographic
+          hierarchy, number-over-label stats). */}
+      <ResumenCartola banco={banco} resumen={resumen} />
 
       {/* D-07: non-blocking catalog loading affordance (fix 5) */}
       {catalogo.tag === 'cargando' && (
