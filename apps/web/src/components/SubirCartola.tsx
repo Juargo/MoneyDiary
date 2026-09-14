@@ -12,6 +12,7 @@ import { Button } from './ui/button';
 import { InlineConfirm } from './ui/inline-confirm';
 import { CampoTexto } from './configuracion/CampoTexto';
 import { DemoUploadNudge } from './DemoUploadNudge';
+import { MuestraAgrupada } from './MuestraAgrupada';
 import { PreviewMuestra } from './PreviewMuestra';
 import { ResumenCartola } from './ResumenCartola';
 import { SemaforoBadge } from './SemaforoBadge';
@@ -1275,15 +1276,18 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         </div>
       )}
 
-      {/* cartola-preview-confirmacion PR10 (design.md D-07, WEB-PRV-02/19):
-          the decision step — resumen + "nothing saved yet" affordance
-          (ResumenCartola, extracted verbatim in PR9) plus the two commit-path
-          actions and "Descartar". No table here; "Revisar y editar" is the
-          ONLY transition into it (WEB-PRV-19). Also covers a commit
-          triggered directly from here ("Subir tal cual" pending/failed,
-          `estado` `committing`/`error` while `!revisando`) — the decision
-          step stays visible for retry instead of the review table
-          reappearing, per that scenario's spec text. */}
+      {/* cartola-preview-confirmacion PR10 (design.md D-07, WEB-PRV-02/19);
+          cartola-decision-agrupada added the grouped accordion below: the
+          decision step — resumen + "nothing saved yet" affordance
+          (ResumenCartola, extracted verbatim in PR9), a READ-ONLY grouped
+          summary of the same filas (MuestraAgrupada — no editing control,
+          "Revisar y editar" stays the ONLY transition into the editable
+          table, WEB-PRV-19), plus the two commit-path actions and
+          "Descartar". Also covers a commit triggered directly from here
+          ("Subir tal cual" pending/failed, `estado` `committing`/`error`
+          while `!revisando`) — the decision step stays visible for retry
+          instead of the review table reappearing, per that scenario's spec
+          text. */}
       {mostrarDecision && previewData && (
         <section
           aria-labelledby="decision-heading"
@@ -1300,6 +1304,10 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
           <ResumenCartola
             banco={previewData.banco}
             resumen={previewData.resumen}
+          />
+          <MuestraAgrupada
+            filas={previewData.filas}
+            catalogo={catalogoEstado}
           />
           {esDemo && (
             <p

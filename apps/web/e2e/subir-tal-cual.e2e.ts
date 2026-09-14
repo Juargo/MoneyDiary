@@ -100,7 +100,9 @@ test.describe('"Subir tal cual" desde el paso de decisión', () => {
       buffer: Buffer.from('stub'),
     });
 
-    // WEB-PRV-02/19: the decision step renders with no table.
+    // WEB-PRV-02/19: the decision step renders a read-only grouped summary
+    // (MuestraAgrupada), never the editable table — no "Fila N: bucket"
+    // control exists until "Revisar y editar" is clicked.
     const subirTalCual = page.getByRole('button', {
       name: 'Subir tal cual',
     });
