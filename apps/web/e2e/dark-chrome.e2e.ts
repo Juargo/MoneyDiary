@@ -79,6 +79,12 @@ test.describe('chrome oscuro', () => {
     });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/buckets/Deseos?periodo=2026-07');
+
+    // bucket-detalle-acordeon: groups collapse by default, so the row
+    // holding the <select> is hidden until its heading trigger expands it.
+    const primerGrupo = page.getByRole('heading', { level: 2 }).first();
+    await primerGrupo.getByRole('button').click();
+
     const select = page.locator('select').first();
     await select.waitFor();
 
