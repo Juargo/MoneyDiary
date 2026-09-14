@@ -9,9 +9,10 @@ import { stubApi } from './fixtures/api-stubs';
  *
  * Five cases, each scoped to the project that owns its claim:
  * 1. deep link `?periodo=2026-07` — the WDM-01 header (breadcrumb, back
- *    link, %/meta tag, usage bar, totals line) + the WDM-03 groups verbatim
- *    (Paseos 12 rows → the `ver 2 más…` slice; "Sin categoría" 2 rows → no
- *    toggle). Escritorio.
+ *    link, %/meta tag, usage bar, totals line) + the WDM-03 groups verbatim,
+ *    both collapsed by default (bucket-detalle-acordeon): Paseos's 12 rows
+ *    stay hidden until its heading trigger is activated, then all 12 show
+ *    (no truncation, no "ver N más…" control anywhere). Escritorio.
  * 2. tablet T1 header geometry (WDM-01 Playwright scenario) — breadcrumb
  *    and back control share one row at ≥768px (the "back control below md"
  *    rule only stacks them below the `md` breakpoint); the `h1` sits on its
@@ -62,24 +63,30 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       page.getByText('Total $650.000 · 14 movimientos'),
     ).toBeVisible();
 
-    // WDM-03 — groups render the fixture verbatim (server order), with the
-    // 12-row group collapsed behind its slice toggle and the 2-row group
-    // rendering no toggle at all.
-    await expect(
-      page.getByRole('heading', {
-        name: 'Paseos · $600.000 · 12 movimientos',
-      }),
-    ).toBeVisible();
+    // WDM-03 — groups render the fixture verbatim (server order), both
+    // collapsed by default: their headings are visible, their row lists are
+    // not.
+    const tituloPaseos = page.getByRole('heading', {
+      name: 'Paseos · $600.000 · 12 movimientos',
+    });
+    await expect(tituloPaseos).toBeVisible();
     await expect(
       page.getByRole('heading', {
         name: 'Sin categoría · $50.000 · 2 movimientos',
       }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'ver 2 más…' }),
-    ).toBeVisible();
+    const triggerPaseos = tituloPaseos.getByRole('button');
+    await expect(triggerPaseos).toHaveAttribute('aria-expanded', 'false');
+    const filaUber = page.getByText('Uber', { exact: true });
+    await expect(filaUber).not.toBeVisible();
+
+    // Activating the trigger reveals ALL 12 rows — no truncation, no
+    // "ver N más…" control anywhere on the page.
+    await triggerPaseos.click();
+    await expect(triggerPaseos).toHaveAttribute('aria-expanded', 'true');
+    await expect(filaUber).toBeVisible();
     await expect(page.getByRole('button', { name: /ver .* más…/ })).toHaveCount(
-      1,
+      0,
     );
   });
 
@@ -168,6 +175,11 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       .getByTestId('grupo-movimientos')
       .filter({ hasText: 'Sin categoría' });
     await expect(grupoSinCategoria).toHaveAttribute('data-destacado', 'true');
+    // bucket-detalle-acordeon: the destacado group starts EXPANDED — the
+    // sole exception to WDM-03's collapsed-by-default accordion.
+    await expect(
+      grupoSinCategoria.getByRole('button', { expanded: true }),
+    ).toBeVisible();
     // WDM-04/MBD-03: SinCategoria arrives with null `porcentajeBp`/`metaBp`,
     // so the page renders no %/meta tag and no usage bar (D-02).
     await expect(page.getByTestId('usage-bar')).toHaveCount(0);
@@ -186,8 +198,13 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // row is a cross-bucket move (Necesidades → Deseos), which announces
     // ETIQUETA_BUCKET['Deseos'] = 'Gustos'.
     await page.goto('/buckets/Necesidades?periodo=2026-07');
-    // Wait for first group heading to confirm the page has settled.
-    await expect(page.getByRole('heading', { name: /Paseos/ })).toBeVisible();
+    // Wait for first group heading to confirm the page has settled, then
+    // expand it — Paseos starts collapsed (bucket-detalle-acordeon, no
+    // `destacar` on this arrival), and its rows/controls are inert while
+    // hidden.
+    const tituloPaseos = page.getByRole('heading', { name: /Paseos/ });
+    await expect(tituloPaseos).toBeVisible();
+    await tituloPaseos.getByRole('button').click();
 
     // The catalog must load before the select enables — wait for it.
     // The first visible row in the Paseos group is 'Uber' (tx-p1).
