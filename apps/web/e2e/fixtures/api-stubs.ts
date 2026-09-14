@@ -177,10 +177,10 @@ function detalleBucketFixture(bucket: string) {
  * US-053 T-20) — a literal `DetalleBucketMesDto` instance
  * (`src/api/types.ts`) for `bucket-detalle-mes.e2e.ts`: bucket `Deseos`
  * echoing the requested segment, 2 groups — Paseos with 12 transactions
- * (above `FILAS_VISIBLES_POR_DEFECTO`, so it exercises the WDM-03
- * `ver 2 más…` slice) and "Sin categoría" with 2 (below it, so it renders
- * no toggle at all; `categoriaId: null`, so the WDM-04 `destacar` highlight
- * has a target) — and non-null `porcentajeBp`/`metaBp` so the WDM-01 header
+ * (exercises the WDM-03 accordion showing every row on expand, well past
+ * the old 10-row slice) and "Sin categoría" with 2 (`categoriaId: null`, so
+ * the WDM-04 `destacar` highlight has a target and starts that group
+ * expanded) — and non-null `porcentajeBp`/`metaBp` so the WDM-01 header
  * renders its %/meta tag and usage bar. The route handler echoes the requested
  * `bucket`/`periodo` and zeroes `porcentajeBp`/`metaBp` for
  * `/buckets/SinCategoria` (MBD-03/WDM-04).

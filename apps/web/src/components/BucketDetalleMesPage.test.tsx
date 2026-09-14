@@ -152,12 +152,11 @@ const dtoCompleto: DetalleBucketMesDto = {
 };
 
 /**
- * A group longer than `FILAS_VISIBLES_POR_DEFECTO` (12 rows > 10), so the
- * WDM-03 slice has something to hide: the collapse/expand assertions below
- * need a group ABOVE the threshold, while `dtoCompleto` (max 5 rows/group)
- * deliberately stays BELOW it and is what pins "no toggle for short groups".
- * 12 rows keeps the hidden count at 2, so the control still reads
- * "ver 2 más…" exactly as the spec scenario spells it.
+ * A group with more than 10 rows, so the accordion assertions below have
+ * something meaningful to prove ALL rows render on expand (no truncation
+ * survives) — while `dtoCompleto` (max 5 rows/group) stays short and pins
+ * "collapsed regardless of size" for a group that never needed a "ver N
+ * más…" control even under the old truncation rule.
  */
 const dtoGrupoLargo: DetalleBucketMesDto = {
   ...dtoCompleto,
@@ -299,6 +298,18 @@ function renderData(ui: React.ReactElement) {
 // and the 'Ñoquis de la abuela' row description (multiple-match retry loop).
 async function verPrimerGrupo() {
   return screen.findByRole('heading', { level: 2, name: /Ñoquis/ });
+}
+
+// Accordion helper: groups collapse by default (WDM-03), so any test that
+// queries or interacts with a row/control must expand the owning group
+// first — clicking the heading trigger reveals its `hidden` row list.
+async function expandirGrupo(nombreExpr: RegExp) {
+  const heading = await screen.findByRole('heading', {
+    level: 2,
+    name: nombreExpr,
+  });
+  fireEvent.click(within(heading).getByRole('button'));
+  return heading;
 }
 
 describe('BucketDetalleMesPage', () => {
@@ -519,7 +530,7 @@ describe('BucketDetalleMesPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('collapses groups to 10 rows and expands via "ver N más…" / "Ver menos" (WDM-03/1)', async () => {
+  it('a category group is collapsed by default; activating its heading trigger reveals ALL rows, with no truncation control anywhere (WDM-03/1)', async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -535,19 +546,32 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
-    await screen.findByText('Zapatos 10');
-    // Collapsed: the 11th row is NOT rendered at all (slice, not CSS).
-    expect(screen.queryByText('Zapatos 11')).not.toBeInTheDocument();
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: /Zapatería/,
+    });
+    const trigger = within(heading).getByRole('button');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    // Collapsed: the rows stay mounted (D-04, undo-grace precedent) but are
+    // NOT visible — `hidden` on the panel, asserted via `toBeVisible`, not
+    // `toBeInTheDocument` (which only checks DOM presence).
+    expect(screen.getByText('Zapatos 1')).not.toBeVisible();
+    expect(screen.getByText('Zapatos 12')).not.toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: /ver 2 más/ }));
+    fireEvent.click(trigger);
 
-    expect(await screen.findByText('Zapatos 12')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Ver menos' }),
-    ).toBeInTheDocument();
+    // Expanded: ALL 12 rows show — no 10-row slice, no "ver N más…" control.
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('Zapatos 1')).toBeVisible();
+    expect(screen.getByText('Zapatos 12')).toBeVisible();
+    expect(screen.queryByText(/ver \d+ más/i)).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Zapatos 1')).not.toBeVisible();
   });
 
-  it('renders no expand control for groups with ≤10 rows', async () => {
+  it('a short group (≤10 rows) is ALSO collapsed by default — the accordion applies regardless of size', async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -564,14 +588,19 @@ describe('BucketDetalleMesPage', () => {
     );
 
     await verPrimerGrupo();
-    // Every `dtoCompleto` group sits under the threshold — Ñoquis (3),
-    // Zapatería (5) and Sin categoría (1) — so no control renders anywhere.
+    // Every `dtoCompleto` group sits under the old 10-row threshold — Ñoquis
+    // (3), Zapatería (5) and Sin categoría (1) — but none of their rows are
+    // VISIBLE before the group is expanded (they stay mounted, D-04).
+    expect(screen.getByText('Ñoquis de la abuela')).not.toBeVisible();
+    expect(screen.getByText('Zapatos nuevos')).not.toBeVisible();
+    expect(screen.getByText('Algo sin categorizar')).not.toBeVisible();
+    // No leftover "ver N más…"/"Ver menos" control exists anywhere.
     expect(
       screen.queryAllByRole('button', { name: /más|Ver menos/ }),
     ).toHaveLength(0);
   });
 
-  it('wires aria-expanded and aria-controls on the expand toggle', async () => {
+  it("wires aria-expanded and aria-controls on the heading trigger, pointing at the group's row list", async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -590,19 +619,23 @@ describe('BucketDetalleMesPage', () => {
     const grupoZapateria = (
       await screen.findAllByTestId('grupo-movimientos')
     )[0];
-    const toggle = within(grupoZapateria).getByRole('button', {
-      name: /ver 2 más/,
-    });
-    const lista = within(grupoZapateria).getByRole('list');
+    const heading = within(grupoZapateria).getByRole('heading', { level: 2 });
+    const toggle = within(heading).getByRole('button');
+    // The row list stays in the DOM (hidden), so it is queryable directly —
+    // role-based queries exclude it, `querySelector` does not (D-04).
+    const lista = grupoZapateria.querySelector(
+      `#${toggle.getAttribute('aria-controls')}`,
+    );
+    expect(lista).not.toBeNull();
+    expect(lista).toHaveAttribute('hidden');
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle).toHaveAttribute('aria-controls', lista.id);
+    expect(toggle).toHaveAttribute('aria-controls', lista?.id);
 
     fireEvent.click(toggle);
     await waitFor(() =>
-      expect(
-        within(grupoZapateria).getByRole('button', { name: 'Ver menos' }),
-      ).toHaveAttribute('aria-expanded', 'true'),
+      expect(toggle).toHaveAttribute('aria-expanded', 'true'),
     );
+    expect(lista).not.toHaveAttribute('hidden');
   });
 
   it('highlights the Sin categoría group only when destacar is true (WDM-04/1)', async () => {
@@ -621,7 +654,7 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
-    await screen.findByText('Algo sin categorizar');
+    await verPrimerGrupo();
     const gruposSinDestacar = screen.getAllByTestId('grupo-movimientos');
     expect(
       gruposSinDestacar.every(
@@ -632,6 +665,9 @@ describe('BucketDetalleMesPage', () => {
     expect(
       gruposSinDestacar.every((g) => g.getAttribute('aria-current') !== 'true'),
     ).toBe(true);
+    // Without `destacar`, every group starts collapsed — including Sin
+    // categoría (accordion default applies uniformly, WDM-03).
+    expect(screen.getByText('Algo sin categorizar')).not.toBeVisible();
 
     rerenderConRouter(
       <BucketDetalleMesPage
@@ -664,6 +700,46 @@ describe('BucketDetalleMesPage', () => {
     });
   });
 
+  it('a fresh arrival with destacar starts the Sin categoría group EXPANDED while the others stay collapsed (WDM-03/WDM-04)', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    // A real `?destacar=` arrival is a FRESH page mount (deep link), not a
+    // live prop flip on an already-mounted group — `GrupoMovimientos`
+    // reads `destacar` only once, as its `expandido` initial state.
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar
+      />,
+    );
+
+    const tituloSinCategoria = await screen.findByRole('heading', {
+      level: 2,
+      name: /Sin categoría/,
+    });
+    expect(within(tituloSinCategoria).getByRole('button')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByText('Algo sin categorizar')).toBeVisible();
+
+    const tituloNoquis = screen.getByRole('heading', {
+      level: 2,
+      name: /Ñoquis/,
+    });
+    expect(within(tituloNoquis).getByRole('button')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByText('Ñoquis de la abuela')).not.toBeVisible();
+  });
+
   it('wires a reclassify control per visible row (WCAT-04)', async () => {
     stubFetch({
       ok: true,
@@ -680,8 +756,12 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
-    // Nothing is collapsed here: every group is under the 10-row threshold,
-    // so Ñoquis 3 + Zapatería 5 + Sin categoría 1 = 9 visible rows.
+    // Every group starts collapsed (WDM-03) — expand all three so their
+    // rows (Ñoquis 3 + Zapatería 5 + Sin categoría 1 = 9) become queryable.
+    await expandirGrupo(/Ñoquis/);
+    await expandirGrupo(/Zapatería/);
+    await expandirGrupo(/Sin categoría/);
+
     await waitFor(() =>
       expect(screen.getAllByRole('combobox')).toHaveLength(9),
     );
@@ -869,6 +949,10 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
+    // Groups collapse by default (WDM-03) — expand Ñoquis so its rows are
+    // queryable/interactable.
+    await expandirGrupo(/Ñoquis/);
+
     // Wait for catalog to settle — the select must be enabled before we
     // can interact with it (all selects share the ['categorias'] query).
     const selects = await screen.findAllByRole('combobox');
@@ -915,6 +999,10 @@ describe('BucketDetalleMesPage', () => {
         destacar={false}
       />,
     );
+
+    // Both selects used below (rows tx-1 and tx-2) belong to the Ñoquis
+    // group — expand it once (WDM-03 accordion default is collapsed).
+    await expandirGrupo(/Ñoquis/);
 
     const selects = await screen.findAllByRole('combobox');
     const primerSelect = selects[0] as HTMLSelectElement;
@@ -967,6 +1055,8 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
+    await expandirGrupo(/Ñoquis/);
+
     const selects = await screen.findAllByRole('combobox');
     const primerSelect = selects[0] as HTMLSelectElement;
     await waitFor(() => expect(primerSelect).not.toBeDisabled());
@@ -1014,6 +1104,10 @@ describe('BucketDetalleMesPage', () => {
         />,
       );
 
+      // Sin categoría starts collapsed (destacar is false here) — expand it
+      // to reach the delete control on tx-9.
+      await expandirGrupo(/Sin categoría/);
+
       await user.click(
         await screen.findByRole('button', {
           name: /Eliminar movimiento Algo sin categorizar/i,
@@ -1041,6 +1135,9 @@ describe('BucketDetalleMesPage', () => {
         />,
       );
 
+      await expandirGrupo(/Sin categoría/);
+      await expandirGrupo(/Ñoquis/);
+
       await screen.findByRole('button', {
         name: /Eliminar movimiento Algo sin categorizar/i,
       });
@@ -1064,6 +1161,7 @@ describe('BucketDetalleMesPage', () => {
         />,
       );
 
+      await expandirGrupo(/Sin categoría/);
       expect(
         await screen.findByRole('button', {
           name: /Eliminar movimiento Algo sin categorizar/i,
@@ -1093,6 +1191,7 @@ describe('BucketDetalleMesPage', () => {
         />,
       );
 
+      await expandirGrupo(/Sin categoría/);
       await screen.findByRole('button', {
         name: /Eliminar movimiento Algo sin categorizar/i,
       });
