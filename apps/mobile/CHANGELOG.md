@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.4.0...mobile-v0.5.0) (2026-09-15)
+
+
+### Features
+
+* el selector de reclasificación muestra bucket y categoría ([720d275](https://github.com/Juargo/MoneyDiary/commit/720d275e44e271f0f243b06a6168b4c83c767df2))
+* listado agrupado por bucket y categoría en el paso de decisión de la cartola ([2318dcb](https://github.com/Juargo/MoneyDiary/commit/2318dcb276fb069fa79b18f5224559e453ddaea4))
+* **mobile:** agrega el paso de decisión y la revisión de solo lectura ([4a74d10](https://github.com/Juargo/MoneyDiary/commit/4a74d10d8d1e87ea2f554df36a01c9676e063399))
+* **mobile:** agrega esFilaEditable/categoriaEfectiva/aOverlayEdits ([8f8a65e](https://github.com/Juargo/MoneyDiary/commit/8f8a65eb9981be99c050b4a8501563c28438903b))
+* **mobile:** agrega esFilaEditable/categoriaEfectiva/aOverlayEdits ([44f28df](https://github.com/Juargo/MoneyDiary/commit/44f28df41c59c2e20d4797de9d6f4c259664becc))
+* **mobile:** agrega FilaRevisionMobile ([18e1627](https://github.com/Juargo/MoneyDiary/commit/18e16276c0f5755527b871fefeeacc57175a39de))
+* **mobile:** agrega FilaRevisionMobile (fila de revision) ([a05fe42](https://github.com/Juargo/MoneyDiary/commit/a05fe42f2bdfe5c8622fc0386054bc31d5bb4261))
+* **mobile:** agrega HojaClasificacion (hoja de clasificación por fila) ([d8ca65e](https://github.com/Juargo/MoneyDiary/commit/d8ca65e8a8e9aed74f567d2f72ee35167bf457ac))
+* **mobile:** agrega HojaClasificacion para elegir categoría por fila ([5d8f7a8](https://github.com/Juargo/MoneyDiary/commit/5d8f7a8fa54f39abe5701f34eb5d7b5fac4f08c3))
+* **mobile:** agrega ListaRevision (lista virtualizada de revision) ([87af83f](https://github.com/Juargo/MoneyDiary/commit/87af83fb9b0dbfcd1535b89e184805076cd93eb8))
+* **mobile:** agrega ListaRevision + ResumenDecision (PR5 de 11) ([488cea0](https://github.com/Juargo/MoneyDiary/commit/488cea0cfeb7f10b8796dab6dc8da6edb134a3de))
+* **mobile:** agrega paso de decision y revision de solo lectura ([27db497](https://github.com/Juargo/MoneyDiary/commit/27db49779ca4b22a6b65231a55ffbee674529d6f))
+* **mobile:** agrega ResumenDecision (paso de decision post-preview) ([c2545b4](https://github.com/Juargo/MoneyDiary/commit/c2545b411502ec5e1693148ba9529b0d8c4f483d))
+* **mobile:** conecta la hoja de clasificacion al catalogo de revision ([7b8e39a](https://github.com/Juargo/MoneyDiary/commit/7b8e39ab8daa2161196f4d308beacf7d918e74fa)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** conecta la hoja de clasificación y el catálogo a la revisión ([418b56f](https://github.com/Juargo/MoneyDiary/commit/418b56f4b160d3e95d4547a6ac12c4f13788b107))
+* **mobile:** confirma la subida de cartola vía /api/ingestas/commit ([83cf29d](https://github.com/Juargo/MoneyDiary/commit/83cf29d59a6b5955fc57f554b6bff1da14da8c5a))
+* **mobile:** confirmar sube via commitIngesta(archivo, []) ([8d846a3](https://github.com/Juargo/MoneyDiary/commit/8d846a3ac7bc8f2a745de5b61f72694239ccf9e3)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** envia el overlay de edicion y protege el doble envio ([62766c9](https://github.com/Juargo/MoneyDiary/commit/62766c9e487b2d453029fab206b807d03f9e5ace)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** envía las ediciones al confirmar y evita el doble envío ([edffbe2](https://github.com/Juargo/MoneyDiary/commit/edffbe26d4fb2f53db886e45c757b60f45e388d3))
+* **mobile:** reescribe commit-ingesta.ts al contrato de POST /commit ([8b26fcd](https://github.com/Juargo/MoneyDiary/commit/8b26fcd17c260cc2b477dac1f4dd304882121e79)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** rename reclassify copy to name bucket and categoría ([1e7064b](https://github.com/Juargo/MoneyDiary/commit/1e7064bad60de01a3b711b4b0e58df30dfa447d6))
+* **mobile:** show grouped accordion summary at the cartola decision step ([f4eace3](https://github.com/Juargo/MoneyDiary/commit/f4eace39b330a1cc1092be4931c021ea36e423bb))
+* **mobile:** usa el preview canónico y quita el selector de filas ([4398b2b](https://github.com/Juargo/MoneyDiary/commit/4398b2b32956c954ea3430ea8fd56478869a24d9))
+* **mobile:** usa el preview canónico y quita el selector de filas ([a0ea577](https://github.com/Juargo/MoneyDiary/commit/a0ea577a87388155637ed250ef75a2e5d34bddb6))
+* resumen y decisión antes de subir la cartola en web y mobile ([4e01134](https://github.com/Juargo/MoneyDiary/commit/4e011342c00959e8d77a0d193db5ff0cbb8a30fb))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([fe11b73](https://github.com/Juargo/MoneyDiary/commit/fe11b737e386b2f077a37482687e6d82d15df464))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([8bd9173](https://github.com/Juargo/MoneyDiary/commit/8bd9173c8da95d38397b875477df543d55431247))
+
+
+### Bug Fixes
+
+* **mobile:** fetch the catalog on entering the decision step, not review ([485ec3d](https://github.com/Juargo/MoneyDiary/commit/485ec3deea3e6b5038571d7b658dfab2c6a72d15))
+
+
+### Refactors
+
+* **mobile:** actualiza comentarios que aun citaban post-ingesta ([b86ebb6](https://github.com/Juargo/MoneyDiary/commit/b86ebb62713fb8130f5a2c1ddca3b6bb77f4842b)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** inicializa la selección de HojaClasificacion sin efecto ([2bb1e45](https://github.com/Juargo/MoneyDiary/commit/2bb1e45101c5663c5c14825dfbfc7aaa8f2a906b))
+* **mobile:** remove speculative sin-categoria group shape (YAGNI) ([205e123](https://github.com/Juargo/MoneyDiary/commit/205e1234bfea3da8783e045e47968890e78e993d))
+* **mobile:** renombra post-ingesta a commit-ingesta ([1e19299](https://github.com/Juargo/MoneyDiary/commit/1e19299103467556a52bb830834e686890c27461)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+
 ## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.3.0...mobile-v0.4.0) (2026-09-03)
 
 
