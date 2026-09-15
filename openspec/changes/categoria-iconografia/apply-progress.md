@@ -346,3 +346,12 @@ Recommend `sdd-verify` for Phase 2 (PR1+PR2+PR2b), then `sdd-apply` again for Ph
 - Fixed test-first in `c2c6cdcf` (`fix(api): keep categoria icono out of the flat bucket detalle contract`): explicit `{ id, nombre }` projection + `toStrictEqual` test in `detalle-bucket.dto.spec.ts` (RED observed, then GREEN).
 - Verification after fix: `pnpm api test` 2708 passed; `tsc --noEmit` clean; `lint:ci` 0 errors. PR2b diff vs PR2: 13 files, 224+/16-.
 - Attempt settled `complete`.
+
+### PR2b CI remediation (orchestrator)
+
+- **Primary failure:** CI job "Integration & e2e (api, ephemeral DB)" failed on `test/detalle-bucket.int-spec.ts` CAT037-06 (expected `categoria` `{ id, nombre }`; repository row now also carries `icono`). The PR2b batch had run only `catalogo-isolation.int-spec.ts` locally, not the full integration suite.
+- **Verification consequence:** PR2b was not green until fixed.
+- **Fix:** `173830b6` (`test(api): expect categoria icono in detalle bucket repository rows`) — expectation now includes the template default `icono: tv`. Spec passes locally 4/4.
+- **Local environment note:** a full local `pnpm api test:integration` run also showed failures in `seed.int-spec.ts` (260 vs 20 PatronClasificacion rows) and order-dependent auth/demo specs caused by accumulated state in the persistent `moneydiary-test-db` container; those files pass in CI on a fresh DB with the same code.
+- **Attempt settlement:** remediation attempt settled `complete`.
+- **Next batches:** run the FULL integration suite (CI is the fresh-DB authority) whenever a shared repository row shape changes.
