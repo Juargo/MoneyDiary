@@ -355,3 +355,15 @@ Recommend `sdd-verify` for Phase 2 (PR1+PR2+PR2b), then `sdd-apply` again for Ph
 - **Local environment note:** a full local `pnpm api test:integration` run also showed failures in `seed.int-spec.ts` (260 vs 20 PatronClasificacion rows) and order-dependent auth/demo specs caused by accumulated state in the persistent `moneydiary-test-db` container; those files pass in CI on a fresh DB with the same code.
 - **Attempt settlement:** remediation attempt settled `complete`.
 - **Next batches:** run the FULL integration suite (CI is the fresh-DB authority) whenever a shared repository row shape changes.
+
+## PR3a — HTTP contract + api-client regen (tasks 3a.1–3a.6)
+
+- Branch `feat/categoria-iconografia-pr3a` → PR #683 (base `feat/categoria-iconografia-pr2b`).
+- Commits: `331b7adb` `feat(api): thread categoria icono through the HTTP contract` (12 files, 349 authored lines); `170c920b` `chore(contract): regenerate openapi.json and api-client for categoria icono` (44 generated lines).
+- Request schemas: `icono: z.string().nullable().optional()` on create/update, transport-only; PATCH refine counts `icono !== undefined`.
+- Routes pass `icono` from the parsed body; absent stays distinct from `null` because downstream gates on `!== undefined`.
+- Response `categoriaResponseSchema.icono` and detalle group `icono` are `.nullable().optional()` (D-11); `aCategoriaDto` and `aDetalleBucketMesDto` always emit the key; route tests assert key presence even when `null` (POST, PATCH, GET detalle) and `400 ICONO_INVALIDO` for POST/PATCH.
+- 3a.5 verified only (done in PR2). Flat `detalle-bucket.dto.ts` untouched (still `{ id, nombre }`).
+- Generated `types.gen.ts`: 4× `icono?: string | null`.
+- Verification: `pnpm api test` 2734 passed; `tsc` clean; `lint:ci` 0 errors; `openapi:check` clean; `contract:sync` + `api-client typecheck` clean with no drift; `pnpm web test` 2145 passed and mobile 888 passed with zero client changes (D-11 confirmed); scoped int-specs 22/23 files pass locally, the 3 failures are `seed.int-spec.ts` local-DB-state noise.
+- Validator: PASS (no findings). Attempt settled `complete`.
