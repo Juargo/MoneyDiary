@@ -988,7 +988,8 @@ describe('PreviewMuestra', () => {
         (o) => o.value === 'cat-des-1',
       );
       expect(deseosOption).toBeDefined();
-      expect(deseosOption?.text).toBe('Restaurantes');
+      // Option text now carries the bucket prefix too (reclasificar-bucket-y-categoria).
+      expect(deseosOption?.text).toBe('Gustos · Restaurantes');
       const deseosGroup = deseosOption?.closest(
         'optgroup',
       ) as HTMLOptGroupElement | null;
@@ -1055,7 +1056,7 @@ describe('PreviewMuestra', () => {
       expect(categoriaToolbar.value).toBe('');
       expect(categoriaToolbar.options[0].value).toBe('');
       expect(categoriaToolbar.options[0].text).toMatch(
-        /selecciona una categoría/i,
+        /selecciona bucket y categoría/i,
       );
 
       expect(

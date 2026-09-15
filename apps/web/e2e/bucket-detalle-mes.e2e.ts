@@ -208,11 +208,12 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
 
     // The catalog must load before the select enables — wait for it.
     // The first visible row in the Paseos group is 'Uber' (tx-p1).
-    const select = page.getByLabel('Cambiar categoría de Uber');
+    const select = page.getByLabel('Bucket y categoría de Uber');
     await expect(select).toBeEnabled({ timeout: 5000 });
 
-    // Pick Streaming (Deseos) — cross-bucket from Necesidades.
-    await select.selectOption({ label: 'Streaming' });
+    // Pick Streaming (Deseos) — cross-bucket from Necesidades. The option
+    // label now carries the bucket prefix (reclasificar-bucket-y-categoria).
+    await select.selectOption({ label: 'Gustos · Streaming' });
 
     // Confirm the alertdialog that appears for a cross-bucket move.
     const dialog = page.getByRole('alertdialog');

@@ -165,7 +165,7 @@ describe('ReclasificarCategoriaControl', () => {
 
   // ── WDM-10: identity is id-keyed end-to-end, disambiguating duplicate names ──
 
-  it('renders each duplicate-named categoría as a distinct option keyed and valued by its own id, grouped under its own bucket (WDM-10)', async () => {
+  it('renders each duplicate-named categoría as a distinct option keyed and valued by its own id, with the bucket visible in BOTH the option text and the optgroup (WDM-10, amended for bucket-visible options)', async () => {
     mockFetch(
       { ok: true, status: 200, json: () => Promise.resolve(dtoDestino) },
       CATALOGO_DUPLICADO,
@@ -188,37 +188,34 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber',
+      'Bucket y categoría de Uber',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    const opciones = screen.getAllByRole('option', {
-      name: 'Transporte',
-    }) as HTMLOptionElement[];
-    expect(opciones).toHaveLength(2);
-    const valores = opciones.map((o) => o.value).sort();
-    expect(valores).toEqual(
-      ['cat-transporte-deseos', 'cat-transporte-necesidades'].sort(),
-    );
+    // WDM-10 amendment (reclasificar-bucket-y-categoria): the bucket prefix
+    // in the option TEXT is now the primary disambiguator for a homonym
+    // pair — each option's own text is already distinct ("Necesidades ·
+    // Transporte" vs "Gustos · Transporte"), so `getByRole('option', {
+    // name })` resolves each one uniquely without a shared-name lookup.
+    const opcionNecesidades = screen.getByRole('option', {
+      name: 'Necesidades · Transporte',
+    }) as HTMLOptionElement;
+    const opcionDeseos = screen.getByRole('option', {
+      name: 'Gustos · Transporte',
+    }) as HTMLOptionElement;
+    expect(opcionNecesidades.value).toBe('cat-transporte-necesidades');
+    expect(opcionDeseos.value).toBe('cat-transporte-deseos');
 
+    // The <optgroup> grouping is preserved alongside the text prefix — both
+    // mechanisms now make the bucket visible, not just one.
     const grupoNecesidades = screen.getByRole('group', {
       name: 'Necesidades',
     }) as HTMLOptGroupElement;
     const grupoGustos = screen.getByRole('group', {
       name: 'Gustos',
     }) as HTMLOptGroupElement;
-    const opcionNecesidades = opciones.find(
-      (o) => o.value === 'cat-transporte-necesidades',
-    )!;
-    const opcionDeseos = opciones.find(
-      (o) => o.value === 'cat-transporte-deseos',
-    )!;
     expect(grupoNecesidades).toContainElement(opcionNecesidades);
     expect(grupoGustos).toContainElement(opcionDeseos);
-    // Neither label gets a bucket suffix — the optgroup stays the sole
-    // disambiguator (WDM-10).
-    expect(opcionNecesidades.textContent).toBe('Transporte');
-    expect(opcionDeseos.textContent).toBe('Transporte');
   });
 
   it('selecting the duplicate-named categoría in a different bucket sends its exact id and shows the correct cross-bucket confirmation (WDM-10)', async () => {
@@ -245,7 +242,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber',
+      'Bucket y categoría de Uber',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -272,7 +269,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('renders a select with an accessible label naming the transaction (WCAT-05)', () => {
+  it('renders a select with an accessible label naming the transaction, prefixed by a VISIBLE "Bucket y categoría" label (WCAT-05, Label in Name)', () => {
     mockFetch({
       ok: true,
       status: 200,
@@ -293,8 +290,13 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     expect(
-      screen.getByLabelText('Cambiar categoría de Supermercado Líder'),
+      screen.getByLabelText('Bucket y categoría de Supermercado Líder'),
     ).toBeInTheDocument();
+    // WCAG 2.5.3 Label in Name: the visible text is a literal prefix of the
+    // full accessible name, and it is genuinely visible (not sr-only).
+    const etiquetaVisible = screen.getByText('Bucket y categoría');
+    expect(etiquetaVisible).toBeVisible();
+    expect(etiquetaVisible).not.toHaveClass('sr-only');
   });
 
   it('while the catalog is loading, the select renders disabled offering only the current categoría — never empty (WCAT-04 delta)', async () => {
@@ -323,7 +325,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
 
     // Mid-flight, genuinely: the catalog fetch is a deferred promise that
@@ -333,6 +335,12 @@ describe('ReclasificarCategoriaControl', () => {
     expect(select).toBeDisabled();
     expect(screen.getAllByRole('option')).toHaveLength(1);
     expect(select.value).toBe('cat-supermercado');
+    // The single loading-state option shows the bucket prefix too (from
+    // `bucketActual`) — never a bucket-less label, even before the catalog
+    // resolves (reclasificar-bucket-y-categoria).
+    expect(screen.getByRole('option')).toHaveTextContent(
+      'Necesidades · Supermercado',
+    );
 
     resolverCatalogo(respuestaCatalogo(CATALOGO_FIXTURE));
 
@@ -372,7 +380,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -390,6 +398,71 @@ describe('ReclasificarCategoriaControl', () => {
     ).not.toBeInTheDocument();
     // Current categoría preselected.
     expect(select.value).toBe('cat-supermercado');
+  });
+
+  it('the selected option text shown on the CLOSED select includes the bucket label, not just the categoría name (reclasificar-bucket-y-categoria)', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Bucket y categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // The browser renders the SELECTED option's own text when the <select>
+    // is closed — asserting the selected option's textContent is the jsdom
+    // equivalent of "what a closed select shows".
+    const opcionSeleccionada = select.options[select.selectedIndex];
+    expect(opcionSeleccionada.textContent).toBe('Necesidades · Supermercado');
+  });
+
+  it('option text for the Deseos bucket uses the "Gustos" UI label, never the raw "Deseos" domain key', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Bucket y categoría de Supermercado Líder',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    expect(
+      screen.getByRole('option', { name: 'Gustos · Delivery' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Deseos · Delivery' }),
+    ).not.toBeInTheDocument();
   });
 
   it('a SinCategoria row starts with no categoría selected (placeholder)', async () => {
@@ -413,7 +486,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Transferencia recibida',
+      'Bucket y categoría de Transferencia recibida',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -442,11 +515,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await waitFor(() =>
@@ -481,16 +554,21 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
 
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(
       'Esto mueve $15.000 de Gustos a Necesidades',
     );
+    // The confirmation's accessible name is now "Confirmar cambio de
+    // bucket" — the money-move copy body stays untouched (reclasificar-
+    // bucket-y-categoria: only this dialog's title changes, since it only
+    // ever appears on a cross-bucket move).
+    expect(dialog).toHaveAccessibleName('Confirmar cambio de bucket');
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
@@ -520,11 +598,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 
@@ -565,12 +643,12 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
     // Same-bucket reclassify: Necesidades → Transporte (still Necesidades)
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
     await waitFor(() =>
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
     );
@@ -603,10 +681,10 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
     await screen.findByRole('alertdialog');
 
     expect(screen.getByRole('button', { name: 'Confirmar' })).toHaveAttribute(
@@ -641,10 +719,10 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
 
     const dialog = await screen.findByRole('alertdialog');
     const describedById = dialog.getAttribute('aria-describedby');
@@ -683,11 +761,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
 
@@ -728,11 +806,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
 
     await waitFor(() => expect(select).toBeDisabled());
     resolverFetch({
@@ -765,12 +843,12 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
     // Opens a cross-bucket confirmation for "Delivery" (Gustos), without confirming/cancelling.
-    await user.selectOptions(select, 'Delivery');
+    await user.selectOptions(select, 'Gustos · Delivery');
     await screen.findByRole('alertdialog');
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
@@ -778,7 +856,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     // Then picks a same-bucket categoría ("Combustible", still Necesidades).
-    await user.selectOptions(select, 'Combustible');
+    await user.selectOptions(select, 'Necesidades · Combustible');
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     // Re-scoped by URL (not a bare `fetchMock` call count) because
@@ -824,11 +902,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Transferencia recibida',
+      'Bucket y categoría de Transferencia recibida',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
 
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(
@@ -881,11 +959,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
     await screen.findByRole('alertdialog');
 
     // Focus moves to "Confirmar" when the dialog opens (WCAT-05); pressing
@@ -920,11 +998,11 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(select.value).toBe('cat-supermercado');
@@ -961,7 +1039,9 @@ describe('ReclasificarCategoriaControl', () => {
       { wrapper: crearWrapper() },
     );
 
-    const mascotas = await screen.findByRole('option', { name: 'Mascotas' });
+    const mascotas = await screen.findByRole('option', {
+      name: 'Gustos · Mascotas',
+    });
     const gustos = screen.getByRole('group', {
       name: 'Gustos',
     }) as HTMLOptGroupElement;
@@ -992,9 +1072,9 @@ describe('ReclasificarCategoriaControl', () => {
       { wrapper: crearWrapper() },
     );
 
-    await screen.findByRole('option', { name: 'Ahorro' });
+    await screen.findByRole('option', { name: 'Ahorro · Ahorro' });
     expect(
-      screen.queryByRole('option', { name: 'Delivery' }),
+      screen.queryByRole('option', { name: 'Gustos · Delivery' }),
     ).not.toBeInTheDocument();
   });
 
@@ -1024,7 +1104,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Movimiento',
+      'Bucket y categoría de Movimiento',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -1032,7 +1112,7 @@ describe('ReclasificarCategoriaControl', () => {
     // resolved to Necesidades — the same bucket as this transaction — so
     // this pick would have committed immediately with no confirmation, the
     // exact defect this slice closes. Its live bucket is now Deseos.
-    await user.selectOptions(select, 'Supermercado');
+    await user.selectOptions(select, 'Gustos · Supermercado');
 
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(
@@ -1067,7 +1147,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
 
     // The catalog genuinely never loads (no cached data, the fetch fails),
@@ -1111,12 +1191,12 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Uber Eats',
+      'Bucket y categoría de Uber Eats',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
     // Cross-bucket: Deseos → Necesidades opens the confirmation dialog.
-    await user.selectOptions(select, 'Transporte');
+    await user.selectOptions(select, 'Necesidades · Transporte');
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 
@@ -1149,7 +1229,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -1201,7 +1281,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
 
     expect(select).toHaveAttribute('aria-busy', 'true');
@@ -1252,7 +1332,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Cambiar categoría de Supermercado Líder',
+      'Bucket y categoría de Supermercado Líder',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
     expect(screen.getAllByRole('option')).toHaveLength(8);

@@ -962,7 +962,7 @@ describe('BucketDetalleMesPage', () => {
     await waitFor(() => expect(primerSelect).not.toBeDisabled());
 
     // Cross-bucket: Necesidades row → Paseos (Deseos) triggers the dialog.
-    await user.selectOptions(primerSelect, 'Paseos');
+    await user.selectOptions(primerSelect, 'Gustos · Paseos');
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toBeInTheDocument();
 
@@ -1009,7 +1009,7 @@ describe('BucketDetalleMesPage', () => {
     await waitFor(() => expect(primerSelect).not.toBeDisabled());
 
     // First cross-bucket move: Necesidades → Deseos → "Movida a Gustos."
-    await user.selectOptions(primerSelect, 'Paseos');
+    await user.selectOptions(primerSelect, 'Gustos · Paseos');
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 
@@ -1029,7 +1029,7 @@ describe('BucketDetalleMesPage', () => {
     const segundoSelect = selectsDopo[1] as HTMLSelectElement;
     await waitFor(() => expect(segundoSelect).not.toBeDisabled());
 
-    await user.selectOptions(segundoSelect, 'Ahorro');
+    await user.selectOptions(segundoSelect, 'Ahorro · Ahorro');
     const dialog2 = await screen.findByRole('alertdialog');
     expect(dialog2).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
@@ -1062,7 +1062,7 @@ describe('BucketDetalleMesPage', () => {
     await waitFor(() => expect(primerSelect).not.toBeDisabled());
 
     // Set the announcement via a cross-bucket move.
-    await user.selectOptions(primerSelect, 'Paseos');
+    await user.selectOptions(primerSelect, 'Gustos · Paseos');
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 

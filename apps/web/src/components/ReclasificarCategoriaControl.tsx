@@ -35,6 +35,20 @@ function etiqueta(bucket: string): string {
  * re-bucket hecho en Configuración dispara la confirmación correcta de
  * inmediato (WCAT-04 delta, US-043 §7).
  *
+ * Cada `<option>` muestra "{bucket} · {categoría}" (p. ej. "Gustos ·
+ * Restaurantes"), no solo el nombre de la categoría (UX-clarity fix,
+ * reclasificar-bucket-y-categoria, 2026-09-14): el `<select>` CERRADO solo
+ * mostraba el nombre de la categoría, y el bucket era visible únicamente
+ * como encabezado de `<optgroup>` una vez abierto — el usuario no entendía
+ * que estaba eligiendo bucket Y categoría a la vez. El `<optgroup>` se
+ * mantiene para el escaneo visual al abrir el `<select>`; el prefijo de
+ * bucket en el texto de cada opción es ahora el mecanismo que hace el
+ * bucket visible en el `<select>` CERRADO. Esto amiende WDM-10 (openspec):
+ * esa regla decía "ningún sufijo de bucket en la opción, el `<optgroup>`
+ * es el único disambiguador visual" para categorías homónimas en distinto
+ * bucket — decisión de producto revisada explícitamente por el usuario;
+ * el `<optgroup>` sigue existiendo pero deja de ser el ÚNICO mecanismo.
+ *
  * **Mientras el catálogo carga** (`data === undefined`), el `<select>` se
  * DESHABILITA y ofrece solo la categoría actual — nunca un `<select>` vacío
  * en una superficie de dashboard ya en producción.
@@ -50,9 +64,22 @@ function etiqueta(bucket: string): string {
  * N veces por fila. Este control solo lee `data`/`isFetching` de
  * `useCategorias()` para su propio estado (`disabled`, `aria-busy`).
  *
- * a11y (ADR-018, WCAT-05): `<label htmlFor>` visualmente oculto pero con
- * nombre accesible real ("Cambiar categoría de {descripcion}", no un genérico
- * "Editar categoría" sin contexto); la confirmación es un `role="alertdialog"`
+ * a11y (ADR-018, WCAT-05): la etiqueta "Bucket y categoría" es VISIBLE (no
+ * `sr-only`) — un `<span aria-hidden="true">` puramente decorativo para
+ * lectores de pantalla, mientras el `<select>` lleva su nombre accesible
+ * COMPLETO vía `aria-label="Bucket y categoría de {descripcion}"` (nunca
+ * `aria-labelledby` apuntando a un segundo `<span sr-only>`: se probó esa
+ * variante y Playwright's `getByLabel` — a diferencia de jsdom y del árbol
+ * de accesibilidad nativo de Chromium — NO incluye el texto de un nodo
+ * `sr-only` referenciado por `aria-labelledby` en su cómputo de nombre
+ * accesible, así que el e2e real nunca encontraba el control). `aria-label`
+ * directo es robusto en los tres motores (jsdom, Playwright, lectores de
+ * pantalla reales) y sigue cumpliendo WCAG 2.5.3 Label in Name: el texto
+ * visible es un prefijo literal del nombre accesible, y al ir `aria-hidden`
+ * el span visible nunca se anuncia por separado (sin duplicar el anuncio).
+ * Antes de este cambio (reclasificar-bucket-y-categoria) el `<label>` era
+ * `sr-only` y el nombre era "Cambiar categoría de {descripcion}"; la
+ * confirmación es un `role="alertdialog"`
  * con foco movido a "Confirmar" al abrirse y devuelto al `<select>` al
  * cancelar — operable enteramente por teclado (botones nativos, sin ARIA de
  * dropdown custom); Escape dentro del diálogo cancela igual que el botón
@@ -181,29 +208,40 @@ export function ReclasificarCategoriaControl({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <label htmlFor={selectId} className="sr-only">
-        Cambiar categoría de {descripcion}
-      </label>
+    <div className="flex min-w-0 flex-col items-end gap-1">
+      {/* Visible label (WCAG 2.5.3 Label in Name — see docblock above):
+          `aria-hidden` so it is never announced on its own — the `<select>`
+          carries the FULL accessible name directly via `aria-label`, whose
+          text starts with this exact visible string, so nothing is
+          announced twice. */}
+      <span aria-hidden="true" className="text-xs text-muted-foreground">
+        Bucket y categoría
+      </span>
       <select
         id={selectId}
         ref={selectRef}
         value={valor}
         disabled={mutacion.isPending || data === undefined}
         aria-busy={catalogoCargandoInicial}
+        aria-label={`Bucket y categoría de ${descripcion}`}
         onChange={alCambiar}
-        className="rounded-none border border-border px-3 py-1 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="max-w-full min-w-0 rounded-none border border-border px-3 py-1 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         {data === undefined ? (
           // Mid-flight: the catalog hasn't loaded yet. Offer only the
           // current value — never an empty <select> on a shipped dashboard
-          // surface (design.md §7).
+          // surface (design.md §7). The single option still shows the
+          // bucket prefix (via `bucketActual`, the only bucket info this
+          // component has before the catalog resolves) so the loading
+          // state never regresses to a bucket-less label.
           categoriaActual === null ? (
             <option value="" disabled>
               Sin categoría
             </option>
           ) : (
-            <option value={categoriaActual.id}>{categoriaActual.nombre}</option>
+            <option value={categoriaActual.id}>
+              {etiqueta(bucketActual)} · {categoriaActual.nombre}
+            </option>
           )
         ) : (
           <>
@@ -216,7 +254,7 @@ export function ReclasificarCategoriaControl({
               <optgroup key={grupo.bucket} label={etiqueta(grupo.bucket)}>
                 {grupo.categorias.map((categoria) => (
                   <option key={categoria.id} value={categoria.id}>
-                    {categoria.nombre}
+                    {etiqueta(grupo.bucket)} · {categoria.nombre}
                   </option>
                 ))}
               </optgroup>
@@ -231,7 +269,7 @@ export function ReclasificarCategoriaControl({
       )}
       {pendiente && (
         <InlineConfirm
-          title="Confirmar cambio de categoría"
+          title="Confirmar cambio de bucket"
           confirmLabel="Confirmar"
           onConfirm={confirmar}
           onCancel={cancelar}

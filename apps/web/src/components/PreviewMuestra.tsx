@@ -169,7 +169,7 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * try to solve) and is out of scope here.
  *
  * The combined select leads with a neutral placeholder option
- * (`{ value: '', label: 'Selecciona una categoría' }`, distinct from
+ * (`{ value: '', label: 'Selecciona bucket y categoría' }`, distinct from
  * `SENTINEL_OPTION`'s "Sin categoría" — that phrase means "explicitly
  * uncategorized," which is not what an unselected toolbar control means) and
  * stays disabled while `catalogo.tag !== 'listo'`, mirroring the old
@@ -836,16 +836,30 @@ export function PreviewMuestra({
                 with every other select in this file. `<optgroup>` labels
                 come from `ETIQUETA_BUCKET` — the "Gustos" UI label, never
                 the raw "Deseos" domain key (DESIGN.md "Do label the Deseos
-                bucket as Gustos"). */}
+                bucket as Gustos").
+
+                UX-clarity fix (reclasificar-bucket-y-categoria, 2026-09-14):
+                each `<option>` text is now "{bucket} · {categoría}" (e.g.
+                "Gustos · Restaurantes"), not just the categoría name — same
+                fix as `ReclasificarCategoriaControl`'s per-row select, so
+                the CLOSED select here also reads bucket + categoría instead
+                of hiding the bucket inside the `<optgroup>` header alone.
+                The label stays `sr-only` here (unlike the per-row control's
+                now-visible label): this toolbar is already space-
+                constrained, and the placeholder option text ("Selecciona
+                bucket y categoría") is the visible cue while the control is
+                empty — once a value is picked, the selected option's own
+                "{bucket} · {categoría}" text carries the same information a
+                second visible label line would only repeat. */}
             <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-              <span className="sr-only">Categoría para aplicar</span>
+              <span className="sr-only">Bucket y categoría para aplicar</span>
               <select
                 value={categoriaToolbar}
                 onChange={(event) => setCategoriaToolbar(event.target.value)}
                 disabled={catalogo.tag !== 'listo'}
                 className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
               >
-                <option value="">Selecciona una categoría</option>
+                <option value="">Selecciona bucket y categoría</option>
                 {gruposCategoriaToolbar.map((grupo) => (
                   <optgroup
                     key={grupo.bucket}
@@ -853,6 +867,7 @@ export function PreviewMuestra({
                   >
                     {grupo.categorias.map((categoria) => (
                       <option key={categoria.id} value={categoria.id}>
+                        {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket} ·{' '}
                         {categoria.nombre}
                       </option>
                     ))}
