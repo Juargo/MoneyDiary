@@ -128,6 +128,30 @@ export function claseRellenoBucket(bucket: string): string {
   return CLASE_RELLENO_BUCKET[bucket] ?? 'fill-muted-foreground';
 }
 
+/**
+ * Domain bucket name → Tailwind `text-color` class for the icon badge glyph
+ * (categoria-iconografia D-08): reuses the SAME `--color-pie-etiqueta-*`
+ * tokens as `claseEtiquetaPie` (`lib/pie-colors.ts`) — those are already the
+ * measured on-fill ink per bucket in both ADR-043 themes (WCAG 1.4.11 ≥3:1
+ * against `claseRellenoBucket`'s fill, see design.md "Contrast"). Minting a
+ * separate glyph-ink token family was rejected (D-08) precisely to avoid
+ * this exact duplication — one set of measured values, two Tailwind
+ * property axes (`fill-`/`text-`) pointed at it. `SinCategoria` is the
+ * fallback for both the synthetic "Sin categoría" group AND any unrecognized
+ * bucket key, same rationale as `claseEtiquetaPie`'s own fallback comment
+ * (the three spend buckets share the same fallback family).
+ */
+const CLASE_GLIFO_BUCKET: Record<string, string> = {
+  Necesidades: 'text-pie-etiqueta-necesidades',
+  Deseos: 'text-pie-etiqueta-gustos',
+  Ahorro: 'text-pie-etiqueta-ahorro',
+  SinCategoria: 'text-pie-etiqueta-sin-categoria',
+};
+
+export function claseGlifoBucket(bucket: string): string {
+  return CLASE_GLIFO_BUCKET[bucket] ?? 'text-pie-etiqueta-necesidades';
+}
+
 /** Same mapping as `claseRellenoBucket`, for `background-color` instead of SVG `fill`. */
 const CLASE_FONDO_BUCKET: Record<string, string> = {
   Necesidades: 'bg-necesidades',
