@@ -1,5 +1,82 @@
 # Changelog
 
+## [0.8.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.7.0...web-v0.8.0) (2026-09-15)
+
+
+### Features
+
+* **api:** cero movimientos es error explícito, no éxito silencioso (Slice 4) ([3f35974](https://github.com/Juargo/MoneyDiary/commit/3f35974fef5a9327ebe5e5627633c2cdb54c05f8))
+* **api:** parsear la 2ª variante de cartola BCI + fin del fallo silencioso (plan) ([18fd9de](https://github.com/Juargo/MoneyDiary/commit/18fd9de0af53edb4b9eda7a94159204c804b6dc4))
+* el selector de reclasificación muestra bucket y categoría ([720d275](https://github.com/Juargo/MoneyDiary/commit/720d275e44e271f0f243b06a6168b4c83c767df2))
+* ingesta de cartolas PDF protegidas con contraseña ([b3f8749](https://github.com/Juargo/MoneyDiary/commit/b3f8749c6536c688c231433b51a2880cea89c60a))
+* listado agrupado por bucket y categoría en el paso de decisión de la cartola ([2318dcb](https://github.com/Juargo/MoneyDiary/commit/2318dcb276fb069fa79b18f5224559e453ddaea4))
+* resumen y decisión antes de subir la cartola en web y mobile ([4e01134](https://github.com/Juargo/MoneyDiary/commit/4e011342c00959e8d77a0d193db5ff0cbb8a30fb))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([fe11b73](https://github.com/Juargo/MoneyDiary/commit/fe11b737e386b2f077a37482687e6d82d15df464))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([8bd9173](https://github.com/Juargo/MoneyDiary/commit/8bd9173c8da95d38397b875477df543d55431247))
+* **web:** acordeón por categoría en el detalle de bucket ([8aa30e4](https://github.com/Juargo/MoneyDiary/commit/8aa30e4f8b4c292a3175be8ef1f3464e9e80a132))
+* **web:** agrega el núcleo del controlador de tema ([7069e99](https://github.com/Juargo/MoneyDiary/commit/7069e99ca8edf2a7402f51c2b5fbf18ffe97621e))
+* **web:** agrega el núcleo del controlador de tema ([f661f03](https://github.com/Juargo/MoneyDiary/commit/f661f033ab60b7ec1cc0622274d4cf1f8523d3d6))
+* **web:** agrega el paso de decision "subir tal cual"/"revisar y editar" ([dbc8acc](https://github.com/Juargo/MoneyDiary/commit/dbc8acc4ec3bdc376673328095fda7186360bbb4)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **web:** agrega el paso de decisión antes de la revisión de cartola ([5461c90](https://github.com/Juargo/MoneyDiary/commit/5461c900394db12002de16c4e826787c305da437))
+* **web:** agrega el selector de tema nativo (SelectorTema) ([72a1664](https://github.com/Juargo/MoneyDiary/commit/72a1664af7761887e561bcbb19d635fcb6abe203))
+* **web:** agrega helpers de clase para colores de bucket y pie ([4efb8e1](https://github.com/Juargo/MoneyDiary/commit/4efb8e16fac63454a85600ed80c126a1bcc939b0))
+* **web:** agrega helpers de clase para colores de bucket y pie ([dcbb1a2](https://github.com/Juargo/MoneyDiary/commit/dcbb1a2bf9e1808448f2f51181d707812eecb03a))
+* **web:** agrega la resolución pura del tema ([60534ce](https://github.com/Juargo/MoneyDiary/commit/60534ceb2c07d0ccc02ab03fe13b3313ba5a3868))
+* **web:** agrega la resolución pura del tema ([f2499ef](https://github.com/Juargo/MoneyDiary/commit/f2499ef1ebda627f821594b1df33d035a36cdb5f))
+* **web:** agrega la sección Apariencia en Perfil ([1f00800](https://github.com/Juargo/MoneyDiary/commit/1f00800cbd45b4ab6e503ad9573b01a63cb8823e))
+* **web:** agrega los listeners del controlador de tema ([873f324](https://github.com/Juargo/MoneyDiary/commit/873f324be9f86d67d1b919a50cd3bc91f052bc68))
+* **web:** agrega los listeners del controlador de tema ([0d361da](https://github.com/Juargo/MoneyDiary/commit/0d361da5cd94fe70f35730c91957e9631c630c85))
+* **web:** cablea el tema con script de pre-pintado y hook ([b56ad30](https://github.com/Juargo/MoneyDiary/commit/b56ad30daa53cc4992736dd2a6120a22bfb5451d))
+* **web:** cablea el tema con script de pre-pintado y hook ([bf53b38](https://github.com/Juargo/MoneyDiary/commit/bf53b38cfc21e7d8e5b4fc07a637510c9489e665))
+* **web:** client.ts reenvía password opcional y expone code en ApiError ([0548c87](https://github.com/Juargo/MoneyDiary/commit/0548c87ad90e0a9a5e0d9fc1a2d9e837288bfe8a))
+* **web:** colorea los montos de la leyenda y alerta sin categoría ([e1fff24](https://github.com/Juargo/MoneyDiary/commit/e1fff24484c8f7e3448ea7b091e0aceb12ff7cc7))
+* **web:** colorea los montos de la leyenda y alerta sin categoría ([81f830c](https://github.com/Juargo/MoneyDiary/commit/81f830ce3683bf55e31e87c1a7d1b6ab73a18f0c))
+* **web:** colores de bucket con significado (ahorro jade) ([ad6fe73](https://github.com/Juargo/MoneyDiary/commit/ad6fe7390487fcc05552ecfb0848ab1265e36aae))
+* **web:** colores de bucket con significado (ahorro jade) ([668a531](https://github.com/Juargo/MoneyDiary/commit/668a53181640679e5fca59e081af4d413f88ea75))
+* **web:** declara tokens inertes de etiqueta y separador de pie ([242ff10](https://github.com/Juargo/MoneyDiary/commit/242ff1082abe03b973ebf21ff0b456a8179d5ed5))
+* **web:** declara tokens inertes de etiqueta y separador de pie ([054ff6e](https://github.com/Juargo/MoneyDiary/commit/054ff6e78385543f389230ce368a8f8b8ec1e409))
+* **web:** desbloquea el tema claro y agrega el atajo del sidebar ([127ba07](https://github.com/Juargo/MoneyDiary/commit/127ba07ccaac132275e0938d4aab8597d0e27705))
+* **web:** desbloquea el tema claro y agrega el atajo del sidebar ([22c256f](https://github.com/Juargo/MoneyDiary/commit/22c256f05dfed55c58446eed6082232c32213deb))
+* **web:** pide la contraseña del PDF solo cuando el archivo está protegido ([5f6c037](https://github.com/Juargo/MoneyDiary/commit/5f6c0372cb631e08616d9c4ac38419a0b2b9ea4f))
+* **web:** repinta el modo oscuro con la identidad Tinta cálida ([e2ca5d9](https://github.com/Juargo/MoneyDiary/commit/e2ca5d907b68038b34a8f137ea9869136bf9f1ab))
+* **web:** repinta el modo oscuro con la identidad Tinta cálida ([e97166e](https://github.com/Juargo/MoneyDiary/commit/e97166eda5482a4f41f27545842e97b130ea63ea))
+* **web:** repinta root con la identidad Clínico frío (aún inalcanzable) ([76f02f5](https://github.com/Juargo/MoneyDiary/commit/76f02f507505c3771dd9e363469c795f1db7d8c9))
+* **web:** repinta root con la identidad Clínico frío (aún inalcanzable) ([21e04f9](https://github.com/Juargo/MoneyDiary/commit/21e04f9065ddb0bd3bfb373798661f1851e82be0))
+* **web:** revela el campo de contraseña de forma reactiva en la subida ([b472442](https://github.com/Juargo/MoneyDiary/commit/b472442ec3ec4d954ccb069eae831ecde459b7c8))
+* **web:** SelectorTema nativo + sección Apariencia en Perfil ([54bf25e](https://github.com/Juargo/MoneyDiary/commit/54bf25e06af2d403bcc0cba48fb4541fbba8eca5))
+* **web:** separa el texto de error del token destructive ([fb63b54](https://github.com/Juargo/MoneyDiary/commit/fb63b54655ab87f2ee011dbb8f7343f6f73d4478))
+* **web:** separa el texto de error del token destructive ([f9c66b0](https://github.com/Juargo/MoneyDiary/commit/f9c66b0ca96168763c470dc40cc60496273f3902))
+* **web:** show bucket in every reclassify option and add visible label ([7175936](https://github.com/Juargo/MoneyDiary/commit/7175936d1206ab9a0a4e6c1cf27041642db1bf90))
+* **web:** show grouped accordion summary at the cartola decision step ([5acab0e](https://github.com/Juargo/MoneyDiary/commit/5acab0ef866f0329613addabad5dcd7109cff6c8))
+* **web:** tema claro/oscuro con Clínico frío y Tinta cálida ([973e3d4](https://github.com/Juargo/MoneyDiary/commit/973e3d4b85a32ec38f542582c4246627894269fa))
+* **web:** turn bucket detail category groups into a collapsed accordion ([93f2cd4](https://github.com/Juargo/MoneyDiary/commit/93f2cd4cd16240fea25770393375972d2e51412e))
+* **web:** usa el tema claro como default ([fe1b64c](https://github.com/Juargo/MoneyDiary/commit/fe1b64ce4dc42fc2091bbff98f2d8cd2e7ca51be))
+* **web:** usa el tema claro como default ([f896456](https://github.com/Juargo/MoneyDiary/commit/f896456b56cb6961ca8c8d31b82ffbcc1e26d548))
+* **web:** usePreviewIngesta/useCommitIngesta reenvían password opcional ([667e1d5](https://github.com/Juargo/MoneyDiary/commit/667e1d5233bb05e2da9b13a320c260b9d020b806))
+
+
+### Bug Fixes
+
+* **cd:** compare Vercel preview builds against main, not the last commit ([599809e](https://github.com/Juargo/MoneyDiary/commit/599809ed02396e3a7731aac63f9ddc9d16ac9746))
+* **cd:** los previews de Vercel comparan contra main, no contra el último commit ([a0320f9](https://github.com/Juargo/MoneyDiary/commit/a0320f965fc62c38f2e98ad9475277cfcc3862d7))
+* **web:** cancelar el diálogo de bucket aborta también el patrón pendiente ([3dba8fe](https://github.com/Juargo/MoneyDiary/commit/3dba8fe9a3e0aac5a7cc8f73b89d35c99718c509))
+* **web:** el botón Guardar confirma los patrones nuevos pendientes ([e25bfc5](https://github.com/Juargo/MoneyDiary/commit/e25bfc5f865ac3928466b837243955813b30cdae))
+* **web:** Guardar confirma los patrones nuevos pendientes ([0d249c9](https://github.com/Juargo/MoneyDiary/commit/0d249c915fd412bcae884751e24c2a6af9ece343))
+* **web:** parsea index.html con DOMParser en el test de paridad ([f8ddd15](https://github.com/Juargo/MoneyDiary/commit/f8ddd15014e131638b22b9f91e384fb6d6c0b7c5))
+* **web:** un patrón nuevo no se podía guardar sin adivinar la tecla Enter ([ac9f998](https://github.com/Juargo/MoneyDiary/commit/ac9f9985a94c7a3207fe43271c9b9d8116aa12f9))
+* **web:** un patrón nuevo no se podía guardar sin adivinar la tecla Enter ([8bf1493](https://github.com/Juargo/MoneyDiary/commit/8bf14934c6378911ede3b1a93fa7924189743776)), closes [#600](https://github.com/Juargo/MoneyDiary/issues/600)
+
+
+### Refactors
+
+* **web:** extrae ResumenCartola de PreviewMuestra ([3888a00](https://github.com/Juargo/MoneyDiary/commit/3888a00dd7a01b965f29eff9762ff20dcc0cc3d6))
+* **web:** extrae ResumenCartola de PreviewMuestra ([708e09d](https://github.com/Juargo/MoneyDiary/commit/708e09d151ff7ecb9d0f74de1feeb7592f2e9b65)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **web:** los consumidores de la dona usan clases de token ([88a9f34](https://github.com/Juargo/MoneyDiary/commit/88a9f34157c9b391b8f66929651e2898a0b948ce))
+* **web:** los consumidores de la dona usan clases de token ([facd6c3](https://github.com/Juargo/MoneyDiary/commit/facd6c3178fdbed187ffa88170742bcf29077864))
+* **web:** remove speculative sin-categoria group shape (YAGNI) ([9c5a1ec](https://github.com/Juargo/MoneyDiary/commit/9c5a1ec5547a4d73a266ebd074586043d6ab751e))
+* **web:** retira las constantes hex de bucket y pie ([987fce8](https://github.com/Juargo/MoneyDiary/commit/987fce8e7c05a6572543ce992c77ea3832e572fc))
+* **web:** retira las constantes hex de bucket y pie ([2445f01](https://github.com/Juargo/MoneyDiary/commit/2445f0180e0dd6b1ce42e8c8d8941ae5e38195bf))
+
 ## [0.7.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.6.0...web-v0.7.0) (2026-09-07)
 
 
