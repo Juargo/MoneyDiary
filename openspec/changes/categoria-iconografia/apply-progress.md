@@ -206,10 +206,143 @@ orchestrator.
   (confirmed via `fd`). The next batch should extend that file's existing describe blocks, not create
   a new path.
 
+## Scope of PR2b batch (this update) — COMPLETE
+
+Assigned: Phase 2 (PR2) tasks 2.7–2.11 (the remainder PR2 stopped on for budget). All 5 completed.
+
+### Completed Tasks (PR2b, this batch)
+
+- [x] 2.7 RED: `agrupar-detalle-por-categoria.spec.ts` — 3 new cases: group exposes the category's
+  icono; a category with no icono of its own exposes `null`; the synthetic "Sin categoría" group
+  ALWAYS exposes `null` regardless of other categories' icons (MBD-02)
+- [x] 2.8 GREEN: `detalle-bucket.port.ts` (`DetalleBucketRow.categoria.icono: string | null`),
+  `agrupar-detalle-por-categoria.ts` (`GrupoDetalleCategoria.icono`, derived from
+  `fila.categoria?.icono ?? null` — the same nullish-coalesce already used for `categoriaId`/`nombre`,
+  so the synthetic-group-always-null rule falls out for free, no special-case branch needed)
+- [x] 2.9 RED: `prisma-detalle-bucket.repository.spec.ts` — 2 new cases (icono present, icono null)
+  plus updated the existing 3 fold tests and the select-shape assertion to include `icono`
+- [x] 2.10 GREEN: `prisma-detalle-bucket.repository.ts` — select adds `icono: true` to the nested
+  `categoria` relation; mapping stays `foldCategoria(row.categoria)!` (non-null assertion, since the
+  ternary already guards `row.categoria` truthy) spread with `icono: row.categoria.icono` — `icono`
+  travels INLINE next to the shared fold, which still returns bare `{id, nombre}` for
+  `PrismaMovimientosMesRepository` (unaffected, confirmed by full suite + tsc)
+- [x] 2.11 RED+GREEN: extended `apps/api/test/catalogo-isolation.int-spec.ts` (the file tasks.md
+  should have named — there is no `test/integration/` directory in this repo, confirmed by PR2's
+  batch and re-confirmed here) with one new `it` inside the first `describe` block: instantiates the
+  REAL `PrismaCategoriaRepository` + `ActualizarCategoriaUseCase` (not a fake), resolves user A's
+  seeded `Transporte` categoria id (seed default icono `'bus'`, `catalogo-template.ts`), then calls
+  `execute({userId: USER_ID_B, ..., id: transporteIdA, icono: 'house'})` — asserts
+  `CategoriaNoEncontradaError` and that A's `icono` column is untouched (`'bus'` before and after)
+
+**Layer note (per the batch's explicit instruction):** `PATCH /api/categorias/:id`'s HTTP schema
+(`categoriaUpdateRequestSchema`) is still `.strict()` with only `nombre`/`bucket` — PR3a (not yet
+applied) adds `icono` to that transport schema. This test therefore exercises the use case +
+`PrismaCategoriaRepository` layer directly against the ephemeral DB, NOT the HTTP route — it proves
+the exact ownership gate (`buscarPorId(userId, id)` scoped by `userId` in the SQL WHERE) the HTTP
+route will delegate to once PR3a threads `icono` through. PR3a's own route-test suite (task 3a.4)
+covers the transport-layer 400/404 shape once the schema accepts `icono`.
+
+### Type-ripple fixture fixes (mechanical, no new behavior)
+
+Widening `GrupoDetalleCategoria`/`DetalleBucketRow.categoria` with a new REQUIRED `icono` field (per
+design.md's own contract) forced `icono` literals into pre-existing fixtures across 6 files that build
+these types directly (not through a builder function): `obtener-detalle-bucket-mes.use-case.spec.ts`
+(4 occurrences), `app.bucket-detalle-mes.spec.ts` (2), `bucket-detalle-mes.schema.spec.ts` (1),
+`buckets.schema.spec.ts` (1), `detalle-bucket-mes.dto.spec.ts` (2). None of these thread `icono`
+through any HTTP contract — they only keep tsc's structural/excess-property checks green given this
+batch's port/service change. Same pattern PR2 already established for `CategoriaConPatrones`.
+
+## Mode (PR2b)
+
+Strict TDD (RED → GREEN → REFACTOR), verified per task via `pnpm exec vitest run <file>` before
+moving to the next task.
+
+## PR2b batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 2.7/2.8 | `application/services/agrupar-detalle-por-categoria.spec.ts` | Unit | ✅ 15/15 (pre-existing, before edit) | ✅ Written (3 failed: icono-present, icono-null, synthetic-always-null) | ✅ 18/18 passed | ✅ 3 cases (real icono, null icono, synthetic group) | ➖ None needed — the existing `?? null` pattern already generalized |
+| 2.9/2.10 | `infrastructure/persistence/prisma-detalle-bucket.repository.spec.ts` | Unit | ✅ 13/13 (pre-existing, before edit) | ✅ Written (5 failed: 3 existing fold assertions + select-shape assertion + 2 new icono cases) | ✅ 13/13 passed (net: 2 new tests, 3 existing extended) | ✅ 2 cases (icono present 'bus', icono null) | ➖ None needed |
+| 2.11 | `test/catalogo-isolation.int-spec.ts` | Integration | ✅ 13/13 (pre-existing, before edit, run against local ephemeral Postgres) | ✅ Written (new `it`, references `PrismaCategoriaRepository`/`ActualizarCategoriaUseCase`/`CategoriaNoEncontradaError`, all pre-existing production code — RED confirmed via `tsc`, since the test body itself was correct on first write and the assertions describe already-implemented PR2 behavior) | ✅ 14/14 passed (`ALLOW_DESTRUCTIVE_DB=1` against local Postgres, migration `20260915000000_categoria_icono` applied via `test:db:migrate`) | ➖ Single case (owner-scoped icono write — CATICO-05 has one scenario) | ➖ None needed |
+| Type-ripple fixture fixes | 6 files listed above | N/A | N/A | N/A — type-only literal additions (`icono: 'utensils'` or `icono: null`), not new behavior | ✅ `tsc --noEmit` clean after all 6 files fixed | N/A | N/A |
+
+### PR2b batch Test Summary
+
+- **Total tests written**: 6 new test cases (3 in `agrupar-detalle-por-categoria.spec.ts`, 2 in
+  `prisma-detalle-bucket.repository.spec.ts`, 1 integration in `catalogo-isolation.int-spec.ts`), plus
+  3 existing unit tests extended in place (icono added to their fixtures/assertions) and 6 files with
+  mechanical `icono` literal additions (type-compat only).
+- **Total tests passing**: 2707/2707 (full `apps/api` unit suite, `pnpm exec vitest run`), 277/277
+  files; 14/14 in `catalogo-isolation.int-spec.ts` (integration, local ephemeral DB).
+- **Layers used**: Unit (service, repository) + Integration (real Postgres, use case + repository).
+- **Approval tests** (refactoring): None — no refactoring tasks in this batch, only additive.
+- **Pure functions created**: None new — `agruparDetallePorCategoria` (pre-existing pure function)
+  was extended, not created.
+
+## PR2b batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm exec vitest run src/application/services/agrupar-detalle-por-categoria.spec.ts src/infrastructure/persistence/prisma-detalle-bucket.repository.spec.ts` → 2 files passed, 31 tests passed |
+| Runtime harness command/scenario and exact result | `DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 pnpm exec vitest run --config ./vitest.int.config.ts test/catalogo-isolation.int-spec.ts` against a local ephemeral Postgres (`moneydiary-test-db` docker container, already running; migration applied via `pnpm run test:db:migrate`) → 1 file passed, 14 tests passed, including the new CATICO-05 case by name |
+| Rollback boundary | Two independent commits: (1) `feat(api): expose categoria icono in bucket detalle groups` (10 files: port, service+spec, repository+spec, and the 6 type-ripple fixture fixes) — revertable on its own, leaves the detalle endpoint's `icono` field absent from the group shape; (2) `test(api): extend catalogo isolation coverage for categoria icono ownership` (1 file, the int-spec) — revertable independently, removes only the new CATICO-05 assertion, no production code depends on it |
+
+## PR2b batch — Verification (full commands run)
+
+- `pnpm api test` → 277 test files passed, 2707 tests passed
+- `pnpm api exec tsc --noEmit` → no errors (confirmed it covers `apps/api/test/**` — the int-spec
+  typechecks under the same root `tsconfig.json`, no separate config needed)
+- `pnpm api lint:ci` → 0 errors, 3 pre-existing warnings in untouched files (same 3 as PR1/PR2's
+  baseline — `excel-bank-detector.service.ts`, `excel-structure-validator.service.ts`,
+  `excel-transaction-normalizer.service.ts`, `no-unsafe-argument`); 2 new prettier errors were
+  auto-fixed via `eslint --fix` before the final clean run
+- Integration spec (task 2.11): **RUN LOCALLY** — a local ephemeral Postgres was already available
+  (`moneydiary-test-db` docker container); `pnpm run test:db:migrate` applied the pending
+  `20260915000000_categoria_icono` migration, then
+  `DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 pnpm exec vitest run --config ./vitest.int.config.ts test/catalogo-isolation.int-spec.ts`
+  → 14/14 passed, including the new CATICO-05 test by name (verified via `--reporter=verbose`)
+
+## PR2b batch — Commits (feature-branch-chain, this branch `feat/categoria-iconografia-pr2b` is a
+child of `feat/categoria-iconografia-pr2`, itself PR #681 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(api): expose categoria icono in bucket detalle groups` (ad4fd559) — 10 files changed, 144
+   insertions(+), 15 deletions(-)
+2. `test(api): extend catalogo isolation coverage for categoria icono ownership` (fda87268) — 1 file
+   changed, 52 insertions(+)
+
+## PR2b batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr2...HEAD`: **11 files changed, 196
+insertions(+), 15 deletions(-)** = **211 changed lines** — well within the 400-line budget (forecast
+was ~150 for the remainder of PR2; actual landed at 211, the difference being the 6 mechanical
+type-ripple fixture fixes plus the fuller MBD-02 triangulation set).
+
+## PR2b batch — Deviations from design
+
+None — implementation matches design.md exactly: `icono` travels inline next to `foldCategoria`
+without widening that shared function (File Changes table); the synthetic Sin categoría group's
+`icono` is always `null` via the same `?? null` pattern already used for `categoriaId`/`nombre`, with
+no special-case branch (Data Flow section). One documentation-scope correction: task 2.11 as written
+in tasks.md named a nonexistent path (`test/integration/catalogo-isolation.int-spec.ts`) — this batch
+extended the real file and corrected the task's own text in `tasks.md` to match, per PR2's note.
+
+## PR2b batch — Issues found
+
+None blocking. Task 1.10 (apply migration to prod) remains the sole unchecked item outside Phase
+2 — human-gated, intentionally out of scope for every automated apply batch so far.
+
 ## Status
 
 **PR1**: 9/10 Phase 1 tasks complete (1.10 is a human-gated prod step, intentionally not attempted).
-**PR2 (this batch)**: 6/11 Phase 2 tasks complete (2.1–2.6), plus 1 unplanned Phase 3a task (3a.5)
-pulled forward by a compile-time necessity. Stopped on the 400-line budget guard before starting
-2.7–2.11. Recommend `sdd-apply` again for a PR2b covering 2.7–2.11 (or a re-forecast/`size:exception`
-decision first) — NOT `sdd-verify` yet, since Phase 2 is incomplete.
+**PR2**: 6/11 Phase 2 tasks complete in the PR2 batch (2.1–2.6), plus 1 unplanned Phase 3a task
+(3a.5) pulled forward by a compile-time necessity.
+**PR2b (this batch)**: 5/5 remaining Phase 2 tasks complete (2.7–2.11). **Phase 2 is now 11/11
+complete** (all of 2.1–2.11, plus the pulled-forward 3a.5).
+Recommend `sdd-verify` for Phase 2 (PR1+PR2+PR2b), then `sdd-apply` again for Phase 3a onward.
+
+### PR2b post-validation fix (orchestrator)
+
+- Validator CRITICAL: `DetalleBucketRow.categoria` is shared with the flat `GET /api/buckets/:bucket` endpoint (US-017); `aDetalleBucketDto` passed `tx.categoria` by reference and the route does not strip through zod, so `icono` leaked into a contract that does not declare it.
+- Fixed test-first in `c2c6cdcf` (`fix(api): keep categoria icono out of the flat bucket detalle contract`): explicit `{ id, nombre }` projection + `toStrictEqual` test in `detalle-bucket.dto.spec.ts` (RED observed, then GREEN).
+- Verification after fix: `pnpm api test` 2708 passed; `tsc --noEmit` clean; `lint:ci` 0 errors. PR2b diff vs PR2: 13 files, 224+/16-.
+- Attempt settled `complete`.

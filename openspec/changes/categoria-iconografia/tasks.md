@@ -64,11 +64,11 @@ Slices are ordered by hard dependency (domain → application/infra → contract
 - [x] 2.4 GREEN: edit `apps/api/src/application/use-cases/actualizar-categoria.use-case.ts` (`patch.icono?`, tri-state)
 - [x] 2.5 RED: `prisma-categoria.repository.spec.ts` — maps/writes `icono` (existing spec style)
 - [x] 2.6 GREEN: edit `apps/api/src/infrastructure/persistence/prisma-categoria.repository.ts`
-- [ ] 2.7 RED: `agrupar-detalle-por-categoria.spec.ts` — group `icono` present, always `null` for Sin categoría (MBD-02)
-- [ ] 2.8 GREEN: edit `apps/api/src/application/ports/detalle-bucket.port.ts`, `apps/api/src/application/services/agrupar-detalle-por-categoria.ts`
-- [ ] 2.9 RED: `prisma-detalle-bucket.repository.spec.ts` — selects `icono`, maps inline (fold stays `{id,nombre}` for movimientos-mes) (MBD-02)
-- [ ] 2.10 GREEN: edit `apps/api/src/infrastructure/persistence/prisma-detalle-bucket.repository.ts`
-- [ ] 2.11 RED+GREEN: extend `test/integration/catalogo-isolation.int-spec.ts` — user B PATCHing A's `icono` → 404, A's row unchanged (CATICO-05, RNF-SEC-006)
+- [x] 2.7 RED: `agrupar-detalle-por-categoria.spec.ts` — group `icono` present, always `null` for Sin categoría (MBD-02)
+- [x] 2.8 GREEN: edit `apps/api/src/application/ports/detalle-bucket.port.ts`, `apps/api/src/application/services/agrupar-detalle-por-categoria.ts`
+- [x] 2.9 RED: `prisma-detalle-bucket.repository.spec.ts` — selects `icono`, maps inline (fold stays `{id,nombre}` for movimientos-mes) (MBD-02)
+- [x] 2.10 GREEN: edit `apps/api/src/infrastructure/persistence/prisma-detalle-bucket.repository.ts`
+- [x] 2.11 RED+GREEN: extend `apps/api/test/catalogo-isolation.int-spec.ts` (the REAL path — there is no `test/integration/` directory) — user B calling `ActualizarCategoriaUseCase` (wired to the real `PrismaCategoriaRepository`) against A's real categoria id with `icono` set → `CategoriaNoEncontradaError`, A's row unchanged (CATICO-05, RNF-SEC-006). Exercises the use case + repository layer, not HTTP: `categoriaUpdateRequestSchema` does not accept `icono` yet (PR3a adds it).
 
 **Verify:** `pnpm api test -- categoria icono`; `pnpm api test:integration` (ALLOW_DESTRUCTIVE_DB=1, ephemeral DB)
 
