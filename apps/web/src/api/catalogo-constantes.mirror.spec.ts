@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUCKET_INGRESO,
   BUCKETS_ASIGNABLES,
+  ICONOS_CATEGORIA,
   MATCH_TYPES,
 } from './catalogo-constantes';
 
@@ -55,6 +56,14 @@ const BACKEND_SOURCES = {
   // `BUCKET_INGRESO` no es un bucket asignable: vive en el enum de dominio,
   // no en los arrays `BUCKETS_ASIGNABLES` de los use cases de catálogo.
   bucketEnum: resolve(REPO_ROOT, 'apps/api/src/domain/value-objects/bucket.ts'),
+  // `ICONOS_CATEGORIA` (categoria-iconografia, ADR-045, CATICO-07): la
+  // allowlist curada de íconos lucide vive en domain, no en un use case —
+  // un solo archivo fuente, a diferencia de los pares crear/actualizar de
+  // arriba.
+  iconoCategoria: resolve(
+    REPO_ROOT,
+    'apps/api/src/domain/value-objects/icono-categoria.ts',
+  ),
 } as const;
 
 function readBackendSource(path: string): string {
@@ -74,6 +83,12 @@ function readBackendSource(path: string): string {
  * Extrae los literales string de un bloque `const NOMBRE = [ … ]` del
  * código fuente. Tolera espacios; no exige un estilo de comillas específico
  * para que un cambio de estilo futuro no rompa este parser espuriamente.
+ *
+ * El character class de literales acepta minúsculas, mayúsculas, dígitos,
+ * `_` y `-` (categoria-iconografia, CATICO-07): los nombres de bucket/match
+ * type existentes son `PascalCase`/`UPPER_SNAKE`, pero los nombres lucide de
+ * `ICONOS_CATEGORIA` son kebab-case con dígitos (p. ej. `gamepad-2`) — un
+ * superset, no un parser nuevo.
  */
 function bloque(fuente: string, nombre: string, path: string): string[] {
   const m = fuente.match(new RegExp(`const ${nombre}\\s*=\\s*\\[([^\\]]*)\\]`));
@@ -84,7 +99,7 @@ function bloque(fuente: string, nombre: string, path: string): string[] {
         'catalogo-constantes.mirror.spec.ts.',
     );
   }
-  return [...m[1].matchAll(/['"]([A-Z_a-z]+)['"]/g)].map((x) => x[1]);
+  return [...m[1].matchAll(/['"]([a-z0-9-]+|[A-Z_]+)['"]/gi)].map((x) => x[1]);
 }
 
 describe('catalogo-constantes drift guard', () => {
@@ -157,5 +172,19 @@ describe('catalogo-constantes drift guard', () => {
         `"${BACKEND_SOURCES.bucketEnum}".`,
     ).not.toBeNull();
     expect(miembro![1]).toBe(BUCKET_INGRESO);
+  });
+
+  // categoria-iconografia CATICO-07: la allowlist curada de íconos lucide
+  // debe estar en paridad exacta entre api/web/mobile. Si el backend agrega,
+  // quita o reordena un nombre y este archivo no se actualiza igual, este
+  // test lo detecta con el nombre de la fuente en el mensaje de fallo.
+  it('web ICONOS_CATEGORIA equals apps/api icono-categoria.ts, in order', () => {
+    const iconoCategoriaSrc = readBackendSource(BACKEND_SOURCES.iconoCategoria);
+    const backendIconos = bloque(
+      iconoCategoriaSrc,
+      'ICONOS_CATEGORIA',
+      BACKEND_SOURCES.iconoCategoria,
+    );
+    expect([...ICONOS_CATEGORIA]).toEqual(backendIconos);
   });
 });
