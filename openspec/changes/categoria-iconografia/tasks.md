@@ -9,13 +9,13 @@
 | Chained PRs recommended | Yes |
 | Suggested split | PR1 → PR2 → PR3a → PR3b → PR3c → PR4 → PR5 → PR6 → PR7 |
 | Delivery strategy | ask-on-risk |
-| Chain strategy | pending |
+| Chain strategy | feature-branch-chain |
 
 **Correction (2026-09-15, gate failure):** the first pass wrongly assumed path-filtered CI would skip `web`/`mobile` on a PR touching only `apps/api` + `packages/api-client`. Verified against `.github/workflows/ci.yml`: `web` (line 597), `web-e2e` (656) and `mobile` (713) all trigger on `packages == 'true'` too, and `api-client` (570) triggers on `api == 'true'` as well — so PR3a DOES run full web+mobile typecheck/tests. Fixed by design.md D-11 (below), not by re-merging slices: the client jobs still run, but they now pass because the regenerated `icono` field is `.optional()` in the TYPE (server still always emits it at runtime, enforced by route tests). This also removed the ~33-fixture-churn tasks from PR3b/PR3c entirely (an added optional field never breaks an existing object literal), so 3b/3c also shrank. The three-viewport `web-e2e` claim was re-checked and holds unchanged (job runs `pnpm web test:e2e`, 3 Chromium viewport projects, on the same `web`/`packages`/`shared` trigger).
 
 Decision needed before apply: Yes
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: feature-branch-chain
 400-line budget risk: High
 
 Slices are ordered by hard dependency (domain → application/infra → contract → each client's foundation → each client's UI) and work under either `stacked-to-main` (each is additive/backward-compatible) or `feature-branch-chain`. **Chain strategy is not yet chosen — ask the user before `sdd-apply` starts PR1.**
@@ -38,20 +38,20 @@ Slices are ordered by hard dependency (domain → application/infra → contract
 
 ## Phase 0: Housekeeping
 
-- [ ] 0.1 Create/link a GitHub issue for `categoria-iconografia` before opening PR1 (no linked issue exists yet)
-- [ ] 0.2 Ask the user for chain strategy (`stacked-to-main` vs `feature-branch-chain`) before starting PR1
+- [x] 0.1 Create/link a GitHub issue for `categoria-iconografia` before opening PR1 — #679 (US-067)
+- [x] 0.2 Ask the user for chain strategy before starting PR1 — `feature-branch-chain`
 
 ## Phase 1 (PR1): Allowlist, error, ADR-045, migration, seed defaults
 
-- [ ] 1.1 RED: `apps/api/src/domain/value-objects/icono-categoria.spec.ts` — 24 unique kebab-case names, `esIconoCategoria` true/false (CATICO-01)
-- [ ] 1.2 GREEN: `apps/api/src/domain/value-objects/icono-categoria.ts` — `ICONOS_CATEGORIA`, `IconoCategoria`, `esIconoCategoria` (CATICO-01)
-- [ ] 1.3 RED: `apps/api/src/domain/errors/icono-categoria-invalido.error.spec.ts` — `rawValue` never echoed in message (CATICO-02/03)
-- [ ] 1.4 GREEN: `apps/api/src/domain/errors/icono-categoria-invalido.error.ts` (CATICO-02/03)
-- [ ] 1.5 Edit `apps/api/prisma/schema.prisma` — `icono String?` on `Categoria`
-- [ ] 1.6 Create `apps/api/prisma/migrations/20260915000000_categoria_icono/migration.sql` — `ALTER TABLE "Categoria" ADD COLUMN "icono" TEXT;`
-- [ ] 1.7 Edit `apps/api/src/infrastructure/persistence/catalogo-template.ts` — add `icono: IconoCategoria` per 8 seeds (CATICO-04 defaults, D-06 seed list)
-- [ ] 1.8 Edit `apps/api/prisma/seed.ts` — set `icono` on create only, never update (CATICO-04, D-09)
-- [ ] 1.9 Create `docs/adr/ADR-045-categoria-icono-persistencia.md` covering D-01…D-06, D-10; edit `docs/adr/README.md` index and root `CLAUDE.md` ADR table
+- [x] 1.1 RED: `apps/api/src/domain/value-objects/icono-categoria.spec.ts` — 24 unique kebab-case names, `esIconoCategoria` true/false (CATICO-01)
+- [x] 1.2 GREEN: `apps/api/src/domain/value-objects/icono-categoria.ts` — `ICONOS_CATEGORIA`, `IconoCategoria`, `esIconoCategoria` (CATICO-01)
+- [x] 1.3 RED: `apps/api/src/domain/errors/icono-categoria-invalido.error.spec.ts` — `rawValue` never echoed in message (CATICO-02/03)
+- [x] 1.4 GREEN: `apps/api/src/domain/errors/icono-categoria-invalido.error.ts` (CATICO-02/03)
+- [x] 1.5 Edit `apps/api/prisma/schema.prisma` — `icono String?` on `Categoria`
+- [x] 1.6 Create `apps/api/prisma/migrations/20260915000000_categoria_icono/migration.sql` — `ALTER TABLE "Categoria" ADD COLUMN "icono" TEXT;`
+- [x] 1.7 Edit `apps/api/src/infrastructure/persistence/catalogo-template.ts` — add `icono: IconoCategoria` per 8 seeds (CATICO-04 defaults, D-06 seed list)
+- [x] 1.8 Edit `apps/api/prisma/seed.ts` — set `icono` on create only, never update (CATICO-04, D-09)
+- [x] 1.9 Create `docs/adr/ADR-045-categoria-icono-persistencia.md` covering D-01…D-06, D-10; edit `docs/adr/README.md` index and root `CLAUDE.md` ADR table
 - [ ] 1.10 Apply `apps/api/prisma/migrations/20260915000000_categoria_icono/migration.sql` (read-only) to prod: `prisma migrate deploy` with `DATABASE_URL` and `DIRECT_URL` both set; confirm column exists — MUST finish before PR1 merges
 
 **Verify:** `pnpm api test -- icono-categoria`
