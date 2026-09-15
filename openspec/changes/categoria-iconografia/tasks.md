@@ -58,12 +58,12 @@ Slices are ordered by hard dependency (domain → application/infra → contract
 
 ## Phase 2 (PR2): Use cases, ports, repos, detalle grouping, isolation
 
-- [ ] 2.1 RED: `crear-categoria.use-case.spec.ts` — invalid icono → `ICONO_INVALIDO`, no write; omitted → `null` (CATICO-02)
-- [ ] 2.2 GREEN: edit `apps/api/src/application/use-cases/crear-categoria.use-case.ts` + `apps/api/src/application/ports/categoria-repository.port.ts` (`icono` on create data)
-- [ ] 2.3 RED: `actualizar-categoria.use-case.spec.ts` — set/clear/leave-unchanged/invalid-unchanged, validation order before uniqueness (CATICO-03, CATICO-05)
-- [ ] 2.4 GREEN: edit `apps/api/src/application/use-cases/actualizar-categoria.use-case.ts` (`patch.icono?`, tri-state)
-- [ ] 2.5 RED: `prisma-categoria.repository.spec.ts` — maps/writes `icono` (existing spec style)
-- [ ] 2.6 GREEN: edit `apps/api/src/infrastructure/persistence/prisma-categoria.repository.ts`
+- [x] 2.1 RED: `crear-categoria.use-case.spec.ts` — invalid icono → `ICONO_INVALIDO`, no write; omitted → `null` (CATICO-02)
+- [x] 2.2 GREEN: edit `apps/api/src/application/use-cases/crear-categoria.use-case.ts` + `apps/api/src/application/ports/categoria-repository.port.ts` (`icono` on create data)
+- [x] 2.3 RED: `actualizar-categoria.use-case.spec.ts` — set/clear/leave-unchanged/invalid-unchanged, validation order before uniqueness (CATICO-03, CATICO-05)
+- [x] 2.4 GREEN: edit `apps/api/src/application/use-cases/actualizar-categoria.use-case.ts` (`patch.icono?`, tri-state)
+- [x] 2.5 RED: `prisma-categoria.repository.spec.ts` — maps/writes `icono` (existing spec style)
+- [x] 2.6 GREEN: edit `apps/api/src/infrastructure/persistence/prisma-categoria.repository.ts`
 - [ ] 2.7 RED: `agrupar-detalle-por-categoria.spec.ts` — group `icono` present, always `null` for Sin categoría (MBD-02)
 - [ ] 2.8 GREEN: edit `apps/api/src/application/ports/detalle-bucket.port.ts`, `apps/api/src/application/services/agrupar-detalle-por-categoria.ts`
 - [ ] 2.9 RED: `prisma-detalle-bucket.repository.spec.ts` — selects `icono`, maps inline (fold stays `{id,nombre}` for movimientos-mes) (MBD-02)
@@ -78,7 +78,7 @@ Slices are ordered by hard dependency (domain → application/infra → contract
 - [ ] 3a.2 GREEN: edit `apps/api/src/infrastructure/http-express/schemas/categorias.schema.ts` (`categoriaResponseSchema.icono: z.string().nullable().optional()`, D-11), `apps/api/src/infrastructure/http-express/schemas/bucket-detalle-mes.schema.ts` (`grupoDetalleMesSchema.icono` same shape)
 - [ ] 3a.3 Edit `apps/api/src/infrastructure/http/dto/categoria.dto.ts`, `apps/api/src/infrastructure/http/dto/detalle-bucket-mes.dto.ts` — thread `icono` (mapper always sets the key; the schema's `.optional()` is a type-only widening, not a mapper change)
 - [ ] 3a.4 RED+GREEN: route test in `apps/api/src/infrastructure/http-express/routes/categorias.routes.ts` suite — 400 `ICONO_INVALIDO` status+code, AND response body always includes the `icono` key even when `null` (memory: tsc misses union gaps, assert at HTTP layer; this is the enforcement point for the "always emitted" runtime contract now that the type allows omission)
-- [ ] 3a.5 Edit `apps/api/src/infrastructure/http-express/routes/catalogo-http-error.ts` — map `IconoCategoriaInvalidoError` → 400 `ICONO_INVALIDO`
+- [x] 3a.5 Edit `apps/api/src/infrastructure/http-express/routes/catalogo-http-error.ts` — map `IconoCategoriaInvalidoError` → 400 `ICONO_INVALIDO` — **done early in PR2** (unplanned): `CategoriaConPatrones` gaining a required `icono` field widened `CrearCategoriaError`/`ActualizarCategoriaError`, and this file's `const _exhaustive: never = error` guard forced the mapping to compile NOW, not at PR3a. Verify only; no further edit needed here.
 - [ ] 3a.6 Run `pnpm contract:sync` — regenerate `apps/api/openapi.json`, `packages/api-client/src/types.gen.ts`; confirm `icono` renders as `icono?: string | null` in `types.gen.ts` (not `icono: string | null`)
 
 **Verify:** `pnpm api test -- categorias.schema bucket-detalle-mes.schema catalogo-http-error categorias.routes`; `pnpm api openapi:check`; `pnpm contract:sync && pnpm api-client typecheck`; `pnpm web test` and `pnpm --filter @moneydiary/mobile test` (both retrigger per CI path filters on `packages/**` — confirm they still pass unmodified)
