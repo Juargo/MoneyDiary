@@ -583,6 +583,7 @@ export interface paths {
                 readonly content: {
                     readonly "application/json": {
                         readonly bucket: string;
+                        readonly icono?: string | null;
                         readonly nombre: string;
                         readonly patrones?: readonly {
                             readonly matchType: string;
@@ -707,6 +708,7 @@ export interface paths {
                 readonly content: {
                     readonly "application/json": {
                         readonly bucket?: string;
+                        readonly icono?: string | null;
                         readonly nombre?: string;
                     };
                 };
@@ -2110,6 +2112,7 @@ export interface components {
                 /** @description null for the synthetic group. */
                 readonly categoriaId: string | null;
                 readonly conteo: number;
+                readonly icono?: string | null;
                 readonly nombre: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly subtotal: string;
@@ -2150,6 +2153,7 @@ export interface components {
         /** @description A category with its nested classification patterns and the all-history count of the caller's own referencing transactions (US-038, US-039 CAT039-01). */
         readonly CategoriaResponse: {
             readonly bucket: string;
+            readonly icono?: string | null;
             readonly id: string;
             readonly nombre: string;
             readonly patrones: readonly {
