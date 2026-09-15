@@ -219,6 +219,32 @@ describe('ReclasificarMobileControl', () => {
   });
 
   /**
+   * Case 1b (UX-clarity fix, reclasificar-bucket-y-categoria): the trigger's
+   * accessibilityLabel and the modal's visible title both name "bucket y
+   * categoría" — the picker groups options by bucket, so the copy must say
+   * so, not just "categoría".
+   */
+  it('trigger accessibilityLabel and modal title both name "bucket y categoría" (reclasificar-bucket-y-categoria)', async () => {
+    const props = defaultProps();
+    await render(<ReclasificarMobileControl {...props} />);
+
+    const trigger = screen.getByTestId('reclasificar-trigger-tx-1');
+    expect(trigger.props.accessibilityLabel).toBe(
+      'Cambiar bucket y categoría de Netflix',
+    );
+
+    await act(async () => {
+      fireEvent.press(trigger);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+    });
+
+    expect(screen.getByText('Cambiar bucket y categoría')).toBeTruthy();
+  });
+
+  /**
    * Case 2: Modal renders exactly 3 section headers: Necesidades, Gustos, Ahorro — no Otros
    * Asserts that BUCKETS_ASIGNABLES filter dropped Otros/Ingresos
    */
@@ -306,7 +332,7 @@ describe('ReclasificarMobileControl', () => {
     // Alert.alert must have been called with the exact message
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const [title, message] = alertSpy.mock.calls[0] as [string, string];
-    expect(title).toBe('Confirmar cambio de categoría');
+    expect(title).toBe('Confirmar cambio de bucket');
     // ETIQUETA_BUCKET maps Deseos→'Gustos'. Raw key 'Deseos' would fail this pin.
     expect(message).toBe('Esto mueve $50.000 de Gustos a Necesidades.');
   });

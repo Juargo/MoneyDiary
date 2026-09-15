@@ -160,7 +160,7 @@ describe('GrupoMovimientos', () => {
     );
 
     expandirGrupo();
-    await screen.findByLabelText('Cambiar categoría de Compra en Líder');
+    await screen.findByLabelText('Bucket y categoría de Compra en Líder');
 
     expect(
       screen.getByRole('button', {
@@ -325,12 +325,13 @@ describe('GrupoMovimientos', () => {
     expandirGrupo();
     // Wait for the catalog to load and the select to be enabled.
     const select = await screen.findByLabelText(
-      'Cambiar categoría de Compra en Líder',
+      'Bucket y categoría de Compra en Líder',
     );
     await waitFor(() => expect(select).not.toBeDisabled());
 
-    // Pick a cross-bucket categoría (Streaming — Deseos).
-    await user.selectOptions(select as HTMLSelectElement, 'Streaming');
+    // Pick a cross-bucket categoría (Streaming — Deseos). The option text is
+    // now "Gustos · Streaming" (bucket prefix, reclasificar-bucket-y-categoria).
+    await user.selectOptions(select as HTMLSelectElement, 'Gustos · Streaming');
     // Confirm the cross-bucket dialog.
     await screen.findByRole('alertdialog');
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
@@ -376,7 +377,7 @@ describe('GrupoMovimientos', () => {
 
     expandirGrupo();
     const select = screen.getByLabelText(
-      'Cambiar categoría de Compra en Líder',
+      'Bucket y categoría de Compra en Líder',
     ) as HTMLSelectElement;
 
     // GRUPO_FIXTURE.categoriaId is 'cat-supermercado' — the sole mid-flight

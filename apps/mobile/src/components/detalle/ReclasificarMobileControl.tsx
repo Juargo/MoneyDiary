@@ -33,6 +33,13 @@
  * onMovida fires INSIDE the PATCH ok branch, AFTER the PATCH resolves — never
  * optimistically before. The screen's onMovida handler calls announceForAccessibility.
  *
+ * Copy (UX-clarity fix, reclasificar-bucket-y-categoria, 2026-09-14): the
+ * trigger's accessibilityLabel and the Modal's visible title both name
+ * "bucket y categoría", not just "categoría" — the modal already groups
+ * options under bucket section headers (point 2 above), so the copy now
+ * matches what the picker actually does. Previously: accessibilityLabel
+ * "Cambiar categoría de {descripcion}", Modal title "Cambiar categoría".
+ *
  * Pure: no route, no router.
  */
 
@@ -177,7 +184,7 @@ export function ReclasificarMobileControl({
     const etiquetaNueva = ETIQUETA_BUCKET[bucketCategoria] ?? bucketCategoria;
 
     Alert.alert(
-      'Confirmar cambio de categoría',
+      'Confirmar cambio de bucket',
       `Esto mueve ${tx.montoLabel} de ${etiquetaActual} a ${etiquetaNueva}.`,
       [
         {
@@ -216,7 +223,7 @@ export function ReclasificarMobileControl({
       {/* Trigger: one per movement row (D-17/D-19) */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Cambiar categoría de ${tx.descripcion}`}
+        accessibilityLabel={`Cambiar bucket y categoría de ${tx.descripcion}`}
         testID={`reclasificar-trigger-${tx.id}`}
         onPress={handleAbrirModal}
       >
@@ -260,7 +267,7 @@ export function ReclasificarMobileControl({
               <Text
                 style={{ fontSize: 16, fontWeight: '600', color: '#2D2F3A' }}
               >
-                Cambiar categoría
+                Cambiar bucket y categoría
               </Text>
               <Pressable
                 accessibilityRole="button"
