@@ -76,6 +76,33 @@ test.describe('list surface — Nueva categoría full-width below the tabs (E-01
   });
 });
 
+test.describe('list surface — category badge renders the icono, falls back for none (categoria-iconografia, WCTG-02, CATICO-06)', () => {
+  test.beforeEach(async ({ page }) => {
+    await stubApi(page);
+  });
+
+  test('Supermercado shows its allowlisted icono; Streaming (no icono) shows the generic fallback', async ({
+    page,
+  }) => {
+    await page.goto('/configuracion/categorias');
+    await page
+      .getByRole('heading', { name: 'Categorías y patrones' })
+      .waitFor();
+
+    const filaSupermercado = page
+      .getByRole('listitem')
+      .filter({ hasText: 'Supermercado' });
+    const filaStreaming = page
+      .getByRole('listitem')
+      .filter({ hasText: 'Streaming' });
+
+    await expect(
+      filaSupermercado.locator('svg.lucide-shopping-cart'),
+    ).toBeVisible();
+    await expect(filaStreaming.locator('svg.lucide-tag')).toBeVisible();
+  });
+});
+
 test.describe('list surface — exactly one action control per row below md (E-03, CA-02)', () => {
   test.beforeEach(async ({ page }) => {
     await stubApi(page);

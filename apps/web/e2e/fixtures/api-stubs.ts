@@ -32,6 +32,10 @@ const CATALOGO_FIXTURE = {
       id: 'cat-1',
       nombre: 'Supermercado',
       bucket: 'Necesidades',
+      // categoria-iconografia (WCTG-02, CATICO-06, PR5): a real allowlisted
+      // icono here, and NONE on Streaming below, so list-surface.e2e.ts can
+      // assert both the badge and the generic fallback in the same fixture.
+      icono: 'shopping-cart',
       transaccionesCount: 3,
       patrones: [
         {
@@ -199,6 +203,10 @@ const DETALLE_BUCKET_MES_FIXTURE = {
       nombre: 'Paseos',
       subtotal: '600000',
       conteo: 12,
+      // categoria-iconografia (WDM-03, CATICO-06, PR5): a real allowlisted
+      // icono on the ONLY category group here, so the badge case has
+      // something distinct to assert against the Sin categoría fallback.
+      icono: 'bike',
       transacciones: [
         {
           id: 'tx-p1',
