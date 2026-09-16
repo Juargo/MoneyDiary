@@ -2,12 +2,16 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useCrearCategoria } from '@/api/use-crear-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
-import type { BucketAsignable } from '@/api/catalogo-constantes';
+import type {
+  BucketAsignable,
+  IconoCategoria,
+} from '@/api/catalogo-constantes';
 import { construirOpcionesBucket } from '@/lib/bucket-colors';
 import { cn } from '@/lib/utils';
 import { CampoTexto } from '../CampoTexto';
 import { SUPERFICIE_SECCION } from '../SeccionConfig';
 import { CampoSelect } from './CampoSelect';
+import { SelectorIcono } from './SelectorIcono';
 import {
   MENSAJE_DEMO_CATALOGO,
   mensajeDeErrorCatalogo,
@@ -57,10 +61,19 @@ export function NuevaCategoriaForm({
   const mutation = useCrearCategoria();
   const [nombre, setNombre] = useState('');
   const [bucket, setBucket] = useState<BucketAsignable>(BUCKETS_ASIGNABLES[0]);
+  const [icono, setIcono] = useState<IconoCategoria | null>(null);
 
   function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    mutation.mutate({ nombre, bucket }, { onSuccess: onCerrar });
+    // `icono ?? undefined` (categoria-iconografia, CATICO-02): the default
+    // "Sin icono" pick and never touching the picker both mean the same
+    // thing on CREATE (no icon), so the key is only sent when the caller
+    // actually chose one — `JSON.stringify` drops an `undefined` property,
+    // keeping the no-icon POST body byte-identical to before this feature.
+    mutation.mutate(
+      { nombre, bucket, icono: icono ?? undefined },
+      { onSuccess: onCerrar },
+    );
   }
 
   return (
@@ -100,6 +113,12 @@ export function NuevaCategoriaForm({
           disabled={esDemo}
         />
       </div>
+      <SelectorIcono
+        name="icono-nueva-categoria"
+        value={icono}
+        onChange={setIcono}
+        disabled={esDemo}
+      />
       {esDemo && (
         <p role="note" className="text-sm text-muted-foreground">
           {MENSAJE_DEMO_CATALOGO}

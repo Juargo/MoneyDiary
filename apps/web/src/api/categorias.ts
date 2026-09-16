@@ -1,4 +1,8 @@
-import type { BucketAsignable, MatchType } from './catalogo-constantes';
+import type {
+  BucketAsignable,
+  IconoCategoria,
+  MatchType,
+} from './catalogo-constantes';
 import type { ApiError, ApiResult } from './client';
 import type { CatalogoDto, CategoriaDto, PatronDto } from './types';
 
@@ -74,7 +78,13 @@ function esCategoriaDto(value: unknown): value is CategoriaDto {
     typeof candidato.bucket === 'string' &&
     typeof candidato.transaccionesCount === 'number' &&
     Array.isArray(candidato.patrones) &&
-    candidato.patrones.every(esPatronDto)
+    candidato.patrones.every(esPatronDto) &&
+    // categoria-iconografia (design.md "Guards", CATICO-06): `icono` is
+    // `undefined | null | string` — membership in the allowlist is NEVER
+    // checked here, the server is the sole validity authority (ADR-024).
+    (candidato.icono === undefined ||
+      candidato.icono === null ||
+      typeof candidato.icono === 'string')
   );
 }
 
@@ -228,6 +238,12 @@ export async function fetchCatalogo(): Promise<ApiResult<CatalogoDto>> {
 export type CategoriaInput = {
   readonly nombre: string;
   readonly bucket: BucketAsignable;
+  /**
+   * `icono` (categoria-iconografia, CATICO-02): omitted persists `null`
+   * server-side — `NuevaCategoriaForm` only includes this key when the
+   * caller actually picked one, never sends an explicit `null` on create.
+   */
+  readonly icono?: IconoCategoria | null;
   readonly patrones?: ReadonlyArray<{
     readonly patron: string;
     readonly matchType: MatchType;
@@ -237,6 +253,13 @@ export type CategoriaInput = {
 export type CategoriaPatch = {
   readonly nombre?: string;
   readonly bucket?: BucketAsignable;
+  /**
+   * `icono` (categoria-iconografia, CATICO-03): tri-state — omitted leaves
+   * the stored value unchanged, `null` clears it, a value sets it.
+   * `EditarCategoria` only includes this key when the draft actually
+   * differs from the loaded category's `icono`.
+   */
+  readonly icono?: IconoCategoria | null;
 };
 
 /**

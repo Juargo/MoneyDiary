@@ -22,6 +22,7 @@ import React from 'react';
 import {
   render,
   screen,
+  within,
   fireEvent,
   waitFor,
   act,
@@ -55,7 +56,14 @@ async function llenarYEnviar(opts: { nombre?: string; bucket?: string }) {
       fireEvent.changeText(screen.getByLabelText('Nombre'), opts.nombre);
     }
     if (opts.bucket !== undefined) {
-      fireEvent.press(screen.getByRole('radio', { name: opts.bucket }));
+      // Scoped to bucket-selector: the "Ahorro" bucket name collides with
+      // SelectorIcono's "Ahorro" accessible label for `piggy-bank`
+      // (categoria-iconografia, PR6b) — an unscoped query would match both.
+      fireEvent.press(
+        within(screen.getByTestId('bucket-selector')).getByRole('radio', {
+          name: opts.bucket,
+        }),
+      );
     }
   });
   fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
@@ -87,8 +95,13 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
         onCancelar={mockOnCancelar}
       />,
     );
-    // SelectorChips renders a radiogroup with one radio per bucket
-    const radios = screen.getAllByRole('radio');
+    // SelectorChips renders a radiogroup with one radio per bucket.
+    // categoria-iconografia (PR6b): scoped to the bucket-selector testID —
+    // SelectorIcono (below) now ALSO renders 25 `accessibilityRole="radio"`
+    // options, so an unscoped `getAllByRole('radio')` would pick those up too.
+    const radios = within(screen.getByTestId('bucket-selector')).getAllByRole(
+      'radio',
+    );
     expect(radios.map((r) => r.props.accessibilityLabel)).toEqual([
       'Necesidades',
       'Deseos',
@@ -143,6 +156,65 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
       expect(mockCrearCategoria).toHaveBeenCalledTimes(1);
       expect(mockCrearCategoria).toHaveBeenCalledWith({
         nombre: 'Supermercado',
+        bucket: 'Necesidades',
+      });
+    });
+  });
+
+  it('renders SelectorIcono with the "Sin icono" option and 24 allowlisted icons (MCTG-02)', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+
+    expect(screen.getByRole('radio', { name: 'Sin icono' })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Streaming' })).toBeOnTheScreen();
+  });
+
+  it('picking an icon includes it in the crearCategoria body (MCTG-02)', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText('Nombre'), 'Streaming');
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+      fireEvent.press(screen.getByRole('radio', { name: 'Streaming' }));
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => {
+      expect(mockCrearCategoria).toHaveBeenCalledTimes(1);
+      expect(mockCrearCategoria).toHaveBeenCalledWith({
+        nombre: 'Streaming',
+        bucket: 'Deseos',
+        icono: 'tv',
+      });
+    });
+  });
+
+  it('never touching the picker omits icono from the crearCategoria body (MCTG-02)', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+    await llenarYEnviar({ nombre: 'Agua', bucket: 'Necesidades' });
+
+    await waitFor(() => {
+      expect(mockCrearCategoria).toHaveBeenCalledTimes(1);
+      // No `icono` key at all — same object shape as before this feature
+      // (JSON body drops an `undefined` property; `toEqual` treats an
+      // `undefined`-valued key as absent, same discipline as web PR4/4.4).
+      expect(mockCrearCategoria).toHaveBeenCalledWith({
+        nombre: 'Agua',
         bucket: 'Necesidades',
       });
     });

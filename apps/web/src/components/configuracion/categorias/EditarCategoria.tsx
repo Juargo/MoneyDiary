@@ -7,7 +7,10 @@ import { useCategorias } from '@/api/use-categorias';
 import { useEliminarCategoria } from '@/api/use-eliminar-categoria';
 import { useMe } from '@/api/use-me';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
-import type { BucketAsignable } from '@/api/catalogo-constantes';
+import type {
+  BucketAsignable,
+  IconoCategoria,
+} from '@/api/catalogo-constantes';
 import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
 import { cn } from '@/lib/utils';
@@ -16,6 +19,7 @@ import { BotonVolver } from '../BotonVolver';
 import { FOCUS_RING } from '../estilos';
 import { CampoTexto } from '../CampoTexto';
 import { CampoSelect } from './CampoSelect';
+import { SelectorIcono } from './SelectorIcono';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
 import { Loading } from '../../states/Loading';
 import { SUPERFICIE_SECCION } from '../SeccionConfig';
@@ -286,6 +290,15 @@ function EditarCategoriaCargada({
   const actualizacion = useActualizarCategoria();
   const [nombre, setNombre] = useState(categoria.nombre);
   const [bucket, setBucket] = useState(categoria.bucket);
+  // categoria-iconografia (ADR-045, WCTG-04, CATICO-03): a draft is not
+  // server state (§1/Q1b's discipline, same as `nombre`/`bucket` above).
+  // `categoria.icono` is `string | null | undefined` in the wire type
+  // (design.md D-11); the Guards discipline (CATICO-06) never checks
+  // allowlist membership on read — an unrecognized/retired value simply
+  // never matches any `SelectorIcono` option, exactly like the badge's
+  // fallback, so this cast is safe without re-validating membership here.
+  const iconoInicial = (categoria.icono ?? null) as IconoCategoria | null;
+  const [icono, setIcono] = useState<IconoCategoria | null>(iconoInicial);
   const [dialogo, setDialogo] = useState<'cambiar-bucket' | 'eliminar' | null>(
     null,
   );
@@ -315,6 +328,11 @@ function EditarCategoriaCargada({
     readonly bucketNuevo: string;
     readonly bucketAnterior: string;
     readonly transaccionesCount: number;
+    // categoria-iconografia (WCTG-04): frozen alongside `nombre`/`bucketNuevo`
+    // for the SAME reason (`snapshotAlAbrirDialogo`'s own doc comment above)
+    // — one snapshot mechanism drives both the dialog's copy and the exact
+    // PATCH it commits, instead of a second icono-only frozen value.
+    readonly iconoNuevo: IconoCategoria | null;
   } | null>(null);
   const guardarRef = useRef<HTMLButtonElement>(null);
   const eliminarRef = useRef<HTMLButtonElement>(null);
@@ -358,9 +376,18 @@ function EditarCategoriaCargada({
 
   const bucketSucio = bucket !== categoria.bucket;
 
+  // categoria-iconografia (CATICO-03 tri-state): the `icono` key is included
+  // in a PATCH body ONLY when the draft differs from what was loaded —
+  // unchanged omits the key entirely (server leaves it as-is), a different
+  // allowlisted value or an explicit clear-to-null both count as "changed".
+  function patchIcono(valor: IconoCategoria | null) {
+    return valor === iconoInicial ? {} : { icono: valor };
+  }
+
   function cancelarIdentidad() {
     setNombre(categoria.nombre);
     setBucket(categoria.bucket);
+    setIcono(iconoInicial);
     // WCTG-04 (frozen spec): "Cancelar MUST discard ONLY the identity
     // draft ... and return to the list" — discarding the draft without
     // navigating away left the user stranded on the edit screen.
@@ -394,6 +421,7 @@ function EditarCategoriaCargada({
         bucketNuevo: bucket,
         bucketAnterior: categoria.bucket,
         transaccionesCount: categoria.transaccionesCount,
+        iconoNuevo: icono,
       });
       // Judgment-day-style finding of THIS fix's own design (issue #600
       // follow-up): bumping `intentoGuardarPatrones` here, in the SAME
@@ -419,7 +447,11 @@ function EditarCategoriaCargada({
     setIntentoGuardarPatrones((n) => n + 1);
     actualizacion.mutate({
       id: categoria.id,
-      patch: { nombre, bucket: bucket as BucketAsignable },
+      patch: {
+        nombre,
+        bucket: bucket as BucketAsignable,
+        ...patchIcono(icono),
+      },
     });
   }
 
@@ -437,6 +469,7 @@ function EditarCategoriaCargada({
         patch: {
           nombre: snapshotAlAbrirDialogo.nombre,
           bucket: snapshotAlAbrirDialogo.bucketNuevo as BucketAsignable,
+          ...patchIcono(snapshotAlAbrirDialogo.iconoNuevo),
         },
       },
       {
@@ -622,6 +655,23 @@ function EditarCategoriaCargada({
             required
             disabled={esDemo || dialogo !== null || actualizacion.isPending}
           />
+          {/*
+            categoria-iconografia (WCTG-04): spans both grid columns — the
+            picker's own 25 options wrap on their own, unlike `Nombre`/
+            `Bucket`'s single-line fields that legitimately share the row.
+            Disabled by the SAME condition as `Nombre`/`Bucket` above: it is
+            part of the identity draft (§1/Q1b), so it freezes for the same
+            reasons (a confirmation dialog open, or the identity PATCH
+            in flight).
+          */}
+          <div className="md:col-span-2">
+            <SelectorIcono
+              name="icono-editar-categoria"
+              value={icono}
+              onChange={setIcono}
+              disabled={esDemo || dialogo !== null || actualizacion.isPending}
+            />
+          </div>
         </form>
 
         {esDemo && (
@@ -809,6 +859,10 @@ function EditarCategoriaCargada({
               bucketNuevo: categoria.bucket,
               bucketAnterior: categoria.bucket,
               transaccionesCount: categoria.transaccionesCount,
+              // Unused by the `eliminar` dialog/mutation (no identity PATCH
+              // happens on delete) — present only because both dialogs share
+              // ONE snapshot shape (see the state's own doc comment).
+              iconoNuevo: iconoInicial,
             });
             setDialogo('eliminar');
           }}

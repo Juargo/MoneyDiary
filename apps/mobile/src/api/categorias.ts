@@ -2,7 +2,11 @@ import { API_BASE_URL } from './config';
 import { construirHeadersSesion } from './client';
 import { enviarMutacion } from './mutacion';
 import type { ApiResult } from '../domain/api-error';
-import type { BucketAsignable, MatchType } from '../domain/catalogo-constantes';
+import type {
+  BucketAsignable,
+  IconoCategoria,
+  MatchType,
+} from '../domain/catalogo-constantes';
 import type {
   CatalogoDto,
   CategoriaDto,
@@ -75,7 +79,13 @@ function esCategoriaDto(value: unknown): value is CategoriaDto {
     typeof candidato.bucket === 'string' &&
     typeof candidato.transaccionesCount === 'number' &&
     Array.isArray(candidato.patrones) &&
-    candidato.patrones.every(esPatronDto)
+    candidato.patrones.every(esPatronDto) &&
+    // categoria-iconografia (design.md "Guards", CATICO-06): `icono` is
+    // undefined | null | string — allowlist membership is never checked
+    // here, the server is the sole validity authority (ADR-024).
+    (candidato.icono === undefined ||
+      candidato.icono === null ||
+      typeof candidato.icono === 'string')
   );
 }
 
@@ -139,11 +149,19 @@ export async function fetchCatalogo(): Promise<ApiResult<CatalogoDto>> {
 export type CategoriaInput = {
   readonly nombre: string;
   readonly bucket: BucketAsignable;
+  // categoria-iconografia (ADR-045, MCTG-02): mirrors web's `CategoriaInput`
+  // — omitted/undefined means "no icon chosen", `null` is never sent on
+  // create (CATICO-02 only distinguishes valid/invalid/omitted, not
+  // valid/null/omitted the way PATCH does).
+  readonly icono?: IconoCategoria | null;
 };
 
 export type CategoriaPatch = {
   readonly nombre?: string;
   readonly bucket?: BucketAsignable;
+  // categoria-iconografia (ADR-045, MCTG-03, CATICO-03): tri-state — omitted
+  // leaves it unchanged, `null` clears it, a value sets it.
+  readonly icono?: IconoCategoria | null;
 };
 
 /**

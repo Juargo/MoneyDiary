@@ -82,7 +82,7 @@ function renderFila(props: {
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 
-  render(<RouterProvider router={router} />);
+  return render(<RouterProvider router={router} />);
 }
 
 describe('CategoriaFila', () => {
@@ -96,6 +96,35 @@ describe('CategoriaFila', () => {
 
     expect(await screen.findByText('Supermercado')).toBeInTheDocument();
     expect(screen.getByText('1 patrón')).toBeInTheDocument();
+  });
+
+  /**
+   * categoria-iconografia (WCTG-02, CATICO-06/08): each row shows a
+   * bucket-colored icon badge next to the name — the badge glyph is
+   * `aria-hidden` (verified via `IconoCategoriaBadge.test.tsx`), so the
+   * row's own accessible name assertions elsewhere in this file (e.g. the
+   * edit `<Link>`'s `Editar categoría {nombre}`) stay unaffected by adding
+   * it.
+   */
+  it('renderiza el badge de ícono de la categoría, coloreado por su bucket (WCTG-02)', async () => {
+    const { container } = renderFila({
+      categoria: { ...CATEGORIA, icono: 'shopping-cart' },
+    });
+
+    await screen.findByText('Supermercado');
+    const glifo = container.querySelector('svg.lucide-shopping-cart');
+    expect(glifo).not.toBeNull();
+    expect(glifo).toHaveAttribute('aria-hidden', 'true');
+    expect(glifo).toHaveClass('text-pie-etiqueta-necesidades');
+  });
+
+  it('un icono null renderiza igual el badge, con el fallback genérico (CATICO-06)', async () => {
+    const { container } = renderFila({
+      categoria: { ...CATEGORIA, icono: null },
+    });
+
+    await screen.findByText('Supermercado');
+    expect(container.querySelector('svg.lucide-tag')).not.toBeNull();
   });
 
   it('el nombre lleva min-w-0 truncate dentro de una fila flex flex-wrap items-center gap-2 (Q10a mecanismo 2)', async () => {

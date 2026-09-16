@@ -9,6 +9,7 @@
  */
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { CategoriaFila } from './CategoriaFila';
+import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -19,6 +20,18 @@ jest.mock('expo-router', () => ({
     back: mockBack,
   }),
 }));
+
+// categoria-iconografia (PR6, task 6.3, MCTG-01): mock the badge itself —
+// its own rendering (fill/ink/fallback/hidden-from-a11y) is fully covered by
+// `IconoCategoriaBadge.spec.tsx`; this suite only proves CategoriaFila wires
+// the row's `icono`/`bucket` INTO it.
+jest.mock('../IconoCategoriaBadge', () => ({
+  IconoCategoriaBadge: jest.fn(() => null),
+}));
+
+const mockIconoCategoriaBadge = IconoCategoriaBadge as jest.MockedFunction<
+  typeof IconoCategoriaBadge
+>;
 
 const sampleCategoria = {
   id: 'cat-abc',
@@ -107,5 +120,27 @@ describe('CategoriaFila (US-044 PR5b, T5b.1/T5b.2)', () => {
     // Non-tautological: absence is real — paired with PR6a's positive "Eliminar categoría" present case
     expect(screen.queryByText('Eliminar')).toBeNull();
     expect(screen.queryByText('Eliminar categoría')).toBeNull();
+  });
+
+  it("renders the category icon badge with the row's icono and bucket (categoria-iconografia, MCTG-01)", async () => {
+    const categoriaConIcono = { ...sampleCategoria, icono: 'shopping-cart' };
+    await render(<CategoriaFila categoria={categoriaConIcono} />);
+
+    expect(mockIconoCategoriaBadge).toHaveBeenCalledTimes(1);
+    expect(mockIconoCategoriaBadge.mock.calls[0][0]).toMatchObject({
+      icono: 'shopping-cart',
+      bucket: 'Necesidades',
+    });
+  });
+
+  it("passes a null icono through to the badge — the fallback is the badge's own job (CATICO-06)", async () => {
+    const categoriaSinIcono = { ...sampleCategoria, icono: null };
+    await render(<CategoriaFila categoria={categoriaSinIcono} />);
+
+    expect(mockIconoCategoriaBadge).toHaveBeenCalledTimes(1);
+    expect(mockIconoCategoriaBadge.mock.calls[0][0]).toMatchObject({
+      icono: null,
+      bucket: 'Necesidades',
+    });
   });
 });

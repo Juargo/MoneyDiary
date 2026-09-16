@@ -3,8 +3,10 @@
  * clasificación (US-043, design.md §1/Q4a). `BUCKETS_ASIGNABLES` es también
  * el orden de agrupación de la lista (`agruparPorBucket`, PR #2) — no existe
  * un `ORDEN_BUCKETS` separado: dos nombres para el mismo array sería drift
- * (`dry`). Ambos arrays están espejados contra el backend por
- * `catalogo-constantes.mirror.spec.ts` (misma carpeta).
+ * (`dry`). `ICONOS_CATEGORIA` (categoria-iconografia, ADR-045) es la
+ * allowlist curada de íconos de categoría. Los tres arrays están espejados
+ * contra el backend por `catalogo-constantes.mirror.spec.ts` (misma
+ * carpeta).
  */
 
 /** Los tres buckets a los que una categoría puede asignarse (orden de grupo en CA-01). */
@@ -27,3 +29,48 @@ export const BUCKET_INGRESO = 'Ingreso';
 export const MATCH_TYPES = ['CONTAINS', 'STARTS_WITH', 'REGEX'] as const;
 
 export type MatchType = (typeof MATCH_TYPES)[number];
+
+/**
+ * `ICONOS_CATEGORIA` — la allowlist curada de 24 nombres lucide kebab-case
+ * para el ícono de una categoría (categoria-iconografia, ADR-045, CATICO-01).
+ * Fuente única de verdad: `apps/api/src/domain/value-objects/
+ * icono-categoria.ts`'s `ICONOS_CATEGORIA` — este array es un MIRROR
+ * verbatim, espejado contra esa fuente por
+ * `catalogo-constantes.mirror.spec.ts` (CATICO-07). El orden es el orden del
+ * picker (PR4), así que un reordenamiento cuenta como drift.
+ *
+ * A diferencia de `BUCKETS_ASIGNABLES`/`MATCH_TYPES`, este array no lleva un
+ * type guard `esIconoCategoria` propio: el cliente nunca valida membresía
+ * (design.md "Guards" — el servidor es la única autoridad, ADR-024), solo
+ * necesita el union type para tipar el mapa `Record<IconoCategoria,
+ * LucideIcon>` de `lib/iconos-categoria.ts` con totalidad en compilación.
+ */
+export const ICONOS_CATEGORIA = [
+  'shopping-cart',
+  'fuel',
+  'pill',
+  'heart-pulse',
+  'bus',
+  'house',
+  'zap',
+  'wifi',
+  'smartphone',
+  'graduation-cap',
+  'shield',
+  'car',
+  'paw-print',
+  'tv',
+  'bike',
+  'utensils',
+  'shirt',
+  'plane',
+  'gamepad-2',
+  'gift',
+  'dumbbell',
+  'piggy-bank',
+  'trending-up',
+  'credit-card',
+] as const;
+
+/** Nombre lucide kebab-case perteneciente a la allowlist curada del ícono de categoría. */
+export type IconoCategoria = (typeof ICONOS_CATEGORIA)[number];

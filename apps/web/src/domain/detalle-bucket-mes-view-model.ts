@@ -24,6 +24,14 @@ export interface GrupoDetalleMesViewModel {
   /** `formatearMontoCLP(subtotal)` — BigInt-exact, nunca `Number()`/`parseFloat()` (WCAT-02). */
   readonly subtotalLabel: string;
   readonly conteo: number;
+  /**
+   * categoria-iconografia (WDM-03, CATICO-06): nombre lucide del icono del
+   * grupo, o `null` para "sin icono" — SIEMPRE `null` en el grupo sintético
+   * Sin categoría (MBD-02). Normalizado con `?? null` porque el campo es
+   * `.optional()` en el tipo generado (D-11), aunque el servidor SIEMPRE
+   * emite la clave en runtime.
+   */
+  readonly icono: string | null;
   readonly transacciones: ReadonlyArray<TransaccionDetalleMesViewModel>;
 }
 
@@ -75,6 +83,7 @@ function aGrupoViewModel(
     nombre: grupo.nombre,
     subtotalLabel: formatearMontoCLP(grupo.subtotal),
     conteo: grupo.conteo,
+    icono: grupo.icono ?? null,
     transacciones: grupo.transacciones.map(aTransaccionViewModel),
   };
 }
