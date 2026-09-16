@@ -679,13 +679,185 @@ additions were the only change needed, no existing test fixture in
 `categorias.spec.ts`/`detalle-fetchers.spec.ts` broke). No picker/badge
 component was built (correctly out of scope — Phase 6/7).
 
+## PR4 — Web config list + picker (tasks 4.1–4.5) — PARTIAL, stopped on budget
+
+Assigned: Phase 4 (PR4) tasks 4.1–4.5, on branch `feat/categoria-iconografia-pr4`
+(child of `feat/categoria-iconografia-pr3c`, itself PR #686 targeting the
+tracker `feat/categoria-iconografia`). Tasks 4.1–4.4 were implemented
+test-first (RED→GREEN) and COMMITTED, one commit per task. Task 4.5
+(`EditarCategoria.tsx`) was **NOT STARTED**: 4.1–4.4 alone landed at
+384/400 changed lines (`git diff --shortstat
+feat/categoria-iconografia-pr3c...HEAD`), and 4.5 realistically needs far
+more than the remaining 16-line headroom — `EditarCategoriaCargada` already
+carries a `bucket`-dirty snapshot mechanism, two mutation call sites
+(direct save + the bucket-change-confirm dialog), and a tri-state PATCH
+semantic (CATICO-03: omitted/null/value) that needs its own dirty-check
+logic plus new test coverage for at least "changed on Guardar",
+"unchanged omits the key", and "cleared to null" — none of which fit in 16
+lines without trimming tests, which the batch's own instructions forbid.
+
+### Completed and COMMITTED (4.1–4.4)
+
+- [x] 4.1 `apps/web/src/components/IconoCategoriaBadge.tsx` (+test, new
+  files) — `size-6` badge, fill = `claseFondoBucket(bucket)`, glyph =
+  `claseGlifoBucket(bucket)` ink (D-08), resolved via
+  `iconoCategoria(icono)` (PR3b). The glyph carries `aria-hidden="true"`
+  directly (CategoriaFila's `Pencil`/`Trash2` convention) — CATICO-08's
+  "decorative next to the visible name" half.
+- [x] 4.2 `apps/web/src/components/configuracion/categorias/SelectorIcono.tsx`
+  (+test, new files) — `fieldset`/`legend` "Icono (opcional)" wrapping 25
+  native radios sharing one `name` ("Sin icono" first, then
+  `ICONOS_CATEGORIA` order). Verified EMPIRICALLY (a throwaway spec, run
+  then discarded) that this repo's jsdom+`@testing-library/user-event`
+  setup already gives native arrow-key roving and Space-to-select for
+  fully CONTROLLED radios (`checked`/`onChange`, no extra keyboard
+  wiring needed) — the 6-test suite covers rendering (25 options, "Sin
+  icono" first, Spanish accessible names), checked-state resolution
+  (including "no match" for an unrecognized value), click→`onChange`
+  both directions (pick and clear-to-null), `ArrowRight` keyboard nav,
+  and `disabled` propagation.
+- [x] 4.3 `apps/web/src/components/configuracion/categorias/CategoriaFila.tsx`
+  — renders `<IconoCategoriaBadge icono={categoria.icono}
+  bucket={categoria.bucket} />` leading the row, before the name (WCTG-02).
+  2 new tests (valid icono + null-fallback), both querying the resolved
+  lucide glyph's own `lucide-<name>` class (`svg.lucide-shopping-cart` /
+  `svg.lucide-tag`) instead of a bare `svg[aria-hidden="true"]` selector —
+  the row already had two OTHER `aria-hidden` svgs (`Pencil`/`Trash2`), so
+  the bare selector matched the wrong element on the first RED run.
+- [x] 4.4 `apps/web/src/components/configuracion/categorias/NuevaCategoriaForm.tsx`
+  — renders `SelectorIcono` after the Nombre/Bucket grid; `enviar` sends
+  `icono: icono ?? undefined` in the `POST` body (`JSON.stringify` drops
+  an `undefined` property, so the default "Sin icono"/never-touched case
+  produces the BYTE-IDENTICAL body the pre-existing test already pinned —
+  zero edits needed to that test). 1 new test picks "Streaming" (`tv`) and
+  asserts the full `POST` body including `icono: 'tv'`. Also edited
+  `apps/web/src/api/categorias.ts`: `CategoriaInput`/`CategoriaPatch` both
+  gained `readonly icono?: IconoCategoria | null` — this file change is
+  shared infrastructure for 4.4 AND the not-yet-started 4.5 (`EditarCategoria`
+  only needs to CONSUME `CategoriaPatch.icono`, no further edit to
+  `categorias.ts` required).
+
+**A real lint-gate finding, not a style choice:** `<Icono aria-hidden .../>`
+(`Icono` a local `const` holding the RESULT of calling `iconoCategoria()`)
+trips `react-hooks/static-components` ("Cannot create components during
+render") in BOTH new components — the rule's static analysis flags ANY
+value that flows from a function call into a literal JSX tag position,
+even though `iconoCategoria()` always returns one of a small, stable,
+statically-imported set of lucide components. Fixed by calling
+`createElement(iconoCategoria(x), props)` explicitly instead of assigning
+to a local and using `<Icono />` — `createElement` is an ordinary function
+call in the compiler's IR, not a `JsxExpression` node, so it isn't checked
+by that rule. Documented inline in both files; future dynamic-icon-lookup
+code in this repo should follow the same pattern.
+
+## PR4 batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 4.1 | `components/IconoCategoriaBadge.test.tsx` | Unit | N/A (new file) | ✅ Written (`Failed to resolve import`) | ✅ 2/2 passed | ✅ 2 cases (Necesidades+valid icono, Ahorro+null fallback — different bucket AND different icono state per case) | ✅ `createElement` fix (lint gate, behavior unchanged, tests re-ran green) |
+| 4.2 | `configuracion/categorias/SelectorIcono.test.tsx` | Unit | N/A (new file) | ✅ Written (`Failed to resolve import`) | ✅ 6/6 passed | ✅ 6 cases (render/count/order, checked-state incl. no-match, click-to-pick, click-to-clear, ArrowRight nav, disabled) | ✅ `createElement` fix (same lint gate) |
+| 4.3 | `configuracion/categorias/CategoriaFila.test.tsx` | Unit | ✅ 14/14 (pre-existing, before edit) | ✅ Written (bare `svg[aria-hidden]` selector matched the wrong pre-existing icon — corrected to `svg.lucide-<name>`, still a genuine RED against the not-yet-rendered badge) | ✅ 16/16 passed | ✅ 2 cases (valid icono vs. null fallback, different bucket each) | ➖ None needed |
+| 4.4 | `configuracion/categorias/NuevaCategoriaForm.test.tsx` | Unit | ✅ 6/6 (pre-existing, before edit) | ✅ Written (`getByRole('radio', {name:'Streaming'})` not found — `SelectorIcono` not yet wired) | ✅ 7/7 passed | ➖ Single case (spec's one create-time scenario; the "no icon chosen" path is the pre-existing test, already covered) | ➖ None needed |
+
+### PR4 batch Test Summary
+
+- **Total tests written**: 11 new test cases (2 in `IconoCategoriaBadge.test.tsx`,
+  6 in `SelectorIcono.test.tsx`, 2 in `CategoriaFila.test.tsx`, 1 in
+  `NuevaCategoriaForm.test.tsx`).
+- **Total tests passing**: 2175/2175 (full `apps/web` suite, `pnpm web test`),
+  155/155 files.
+- **Layers used**: Unit + RTL component tests only (no route/integration
+  layer touched this batch).
+- **Approval tests** (refactoring): None.
+- **Pure functions created**: None new — both new components are
+  presentational/controlled, reusing `iconoCategoria`/`claseFondoBucket`/
+  `claseGlifoBucket` from PR3b.
+
+## PR4 batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/web && pnpm exec vitest run src/components/IconoCategoriaBadge.test.tsx src/components/configuracion/categorias/SelectorIcono.test.tsx src/components/configuracion/categorias/CategoriaFila.test.tsx src/components/configuracion/categorias/NuevaCategoriaForm.test.tsx` → all 4 files passed (2+6+16+7 = 31 tests across the touched files) |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route or DB boundary this batch (pure client-side presentational components + one form wiring); `pnpm web build` (Vite production build) is the closest runtime harness and passed |
+| Rollback boundary | Each of the 4 committed commits is independently revertable (see Commits below) — reverting 4.4 alone leaves `CategoriaInput.icono`/`CategoriaPatch.icono` on `categorias.ts` unused but harmless (optional fields); reverting 4.3 alone leaves the badge component built but unused by any row; reverting 4.1/4.2 requires reverting 4.3/4.4 first (both depend on the components those commits add) |
+
+## PR4 batch — Verification (full commands run, with all 4 committed tasks present)
+
+- `pnpm web test` → 155 test files passed, 2175 tests passed
+- `pnpm web typecheck` (`tsr generate && tsc -b`) → no errors
+- `pnpm web lint` (`eslint .`) → 0 errors, 0 warnings (the
+  `react-hooks/static-components` finding above and a handful of prettier
+  formatting issues were fixed before this final clean run)
+- `pnpm web build` → succeeds, no new warnings
+
+## PR4 batch — Commits (feature-branch-chain, this branch
+`feat/categoria-iconografia-pr4` is a child of `feat/categoria-iconografia-pr3c`,
+itself PR #686 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(web): add the IconoCategoriaBadge component for category rows`
+   (be7a7178) — 2 files changed, 91 insertions(+)
+2. `feat(web): add the SelectorIcono accessible icon picker` (d9e3b9a4)
+   — 2 files changed, 174 insertions(+)
+3. `feat(web): render the category icon badge in each catalog row`
+   (47da22bf) — 2 files changed, 32 insertions(+), 1 deletion(-)
+4. `feat(web): wire the icon picker into category creation` (9bf1a171)
+   — 3 files changed, 87 insertions(+), 3 deletions(-)
+
+## PR4 batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr3c...HEAD` (4 committed
+commits): **9 files changed, 384 insertions(+), 4 deletions(-)** =
+**388 changed lines** — within the 400-line budget (forecast was 250–300;
+committed actual landed higher because a 25-option accessible picker with
+full keyboard-nav/disabled/click-both-directions test coverage is
+irreducibly larger than a typical presentational component, matching the
+task prompt's own "a 25-option picker plus tests can overrun" warning).
+4.5 (`EditarCategoria.tsx` + its tests) is NOT started — zero lines
+authored for it.
+
+## PR4 batch — Deviations from design
+
+None — implementation matches design.md exactly: the badge is `size-6`
+with bucket fill/glyph classes (D-08); the picker is a `fieldset`/`legend`
+with 25 native radios, "Sin icono" first, ≥40px targets (`size-10`),
+`FOCUS_RING` reused verbatim, `--primary` ring on the checked option
+(`checked:` variant); accessible names come from `ETIQUETA_ICONO`, never
+the raw lucide identifier (CATICO-08); the icon travels in the SAME `POST`
+body as `nombre`/`bucket`, never a separate request (WCTG-04, the create
+half — the edit/`Guardar` half is 4.5, not started). The ONLY deviation
+from the *batch's own instructions* is the budget stop itself (4.1–4.4
+committed, 4.5 not started) — an explicit, documented consequence of the
+400-line ceiling, not a design deviation.
+
+## PR4 batch — Issues found
+
+- **Budget overage risk confirmed, stop applied before starting 4.5** (see
+  Diff size above). Unlike PR3b's split (where the remaining work was
+  already implemented+green and just needed a commit), 4.5 here has ZERO
+  lines authored — the next apply batch starts completely fresh on
+  `EditarCategoria.tsx`/`EditarCategoria.test.tsx`, informed by this
+  batch's `CategoriaInput`/`CategoriaPatch.icono` typing (already landed)
+  and by the `createElement`-over-JSX-tag lint workaround (documented
+  above, needed again if 4.5 ever renders a dynamically-resolved icon
+  directly rather than only via `IconoCategoriaBadge`/`SelectorIcono`).
+- **`react-hooks/static-components` lint gate** (see "A real lint-gate
+  finding" above) — a genuinely new pattern for this repo (no prior `.tsx`
+  called `iconoCategoria()`/indexed a component map at JSX-tag position).
+  Future icon-lookup code should reach for `createElement` from the start
+  instead of rediscovering this via a failing `pnpm web lint`.
+
 ## Status (cumulative)
 
 **PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
 **PR2+PR2b**: 11/11 Phase 2 tasks complete.
 **PR3a**: 6/6 Phase 3a tasks complete.
 **PR3b+PR3b2**: 5/5 Phase 3b tasks complete.
-**PR3c (this batch)**: 5/5 Phase 3c tasks COMPLETE and COMMITTED
-(`feat/categoria-iconografia-pr3c`, 397 changed lines). Ready for
-`sdd-verify` on PR3c, then `sdd-apply` for Phase 4 onward (web config list +
-picker — the first UI-consuming phase for the icon feature).
+**PR3c**: 5/5 Phase 3c tasks complete.
+**PR4 (this batch)**: 4/5 Phase 4 tasks COMMITTED (4.1–4.4, 388 changed
+lines on `feat/categoria-iconografia-pr4`); 4.5 (`EditarCategoria.tsx`)
+NOT STARTED, stopped on budget BEFORE writing any code for it. Recommend
+`sdd-apply` again for a fresh batch scoped to 4.5 alone (likely its own
+PR slice, given `EditarCategoria.tsx`'s existing size/complexity and the
+tri-state PATCH semantics it needs to add), then `sdd-verify` for PR4 as
+delivered (4.1–4.4) or for the combined PR4+4.5 slice, per the
+orchestrator's delivery decision.

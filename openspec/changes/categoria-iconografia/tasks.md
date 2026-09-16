@@ -109,11 +109,11 @@ No fixture-file batch task here (D-11, same reasoning as PR3b): `icono` is `.opt
 
 ## Phase 4 (PR4): Web config list + picker
 
-- [ ] 4.1 RED+GREEN: `apps/web/src/components/IconoCategoriaBadge.tsx` + test — bucket-fill badge, `aria-hidden` (CATICO-06/08)
-- [ ] 4.2 RED+GREEN: `apps/web/src/components/configuracion/categorias/SelectorIcono.tsx` + test — fieldset/legend, 25 radios incl. "Sin icono", keyboard nav, focus ring, accessible names (CATICO-08, WCTG-04)
-- [ ] 4.3 Edit `apps/web/src/components/configuracion/categorias/CategoriaFila.tsx` — render badge (WCTG-02)
-- [ ] 4.4 RED+GREEN: edit `NuevaCategoriaForm.tsx` — picker travels with `POST` body (WCTG-04)
-- [ ] 4.5 RED+GREEN: edit `EditarCategoria.tsx` — picker travels with `Guardar`'s `PATCH`, not separately (WCTG-04)
+- [x] 4.1 RED+GREEN: `apps/web/src/components/IconoCategoriaBadge.tsx` + test — bucket-fill badge, `aria-hidden` (CATICO-06/08)
+- [x] 4.2 RED+GREEN: `apps/web/src/components/configuracion/categorias/SelectorIcono.tsx` + test — fieldset/legend, 25 radios incl. "Sin icono", keyboard nav, focus ring, accessible names (CATICO-08, WCTG-04)
+- [x] 4.3 Edit `apps/web/src/components/configuracion/categorias/CategoriaFila.tsx` — render badge (WCTG-02)
+- [x] 4.4 RED+GREEN: edit `NuevaCategoriaForm.tsx` — picker travels with `POST` body (WCTG-04)
+- [ ] 4.5 RED+GREEN: edit `EditarCategoria.tsx` — picker travels with `Guardar`'s `PATCH`, not separately (WCTG-04) — **NOT STARTED, budget stop**: 4.1-4.4 landed at 384/400 changed lines (`git diff --shortstat feat/categoria-iconografia-pr3c...HEAD`); 4.5 alone (state + tri-state dirty-check submit logic in 2 call sites + picker JSX + several new EditarCategoria.test.tsx cases for create/dirty/unchanged-omitted/clear-to-null) realistically needs well over the remaining 16-line headroom. `CategoriaInput`/`CategoriaPatch` in `apps/web/src/api/categorias.ts` already gained the `icono?: IconoCategoria | null` field (done in the 4.4 commit) — 4.5 only needs to consume it, no further api/categorias.ts change required.
 
 **Verify:** `pnpm web test -- CategoriaFila SelectorIcono IconoCategoriaBadge NuevaCategoriaForm EditarCategoria`
 
