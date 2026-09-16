@@ -846,6 +846,145 @@ committed, 4.5 not started) — an explicit, documented consequence of the
   Future icon-lookup code should reach for `createElement` from the start
   instead of rediscovering this via a failing `pnpm web lint`.
 
+## PR4b — Web EditarCategoria picker wiring (task 4.5) + deferred SelectorIcono keyboard test — COMPLETE
+
+Assigned: task 4.5 (`EditarCategoria.tsx` + its test) plus one deferred
+test from the PR4 validator (`SelectorIcono.test.tsx`, Tab+Space
+coverage), on branch `feat/categoria-iconografia-pr4b` (child of
+`feat/categoria-iconografia-pr4`, itself PR #687 targeting the tracker
+`feat/categoria-iconografia`). Both items implemented test-first
+(RED→GREEN) and committed as 2 separate work-unit commits.
+
+### Completed Tasks (PR4b, this batch)
+
+- [x] 4.5 `EditarCategoria.tsx` — `EditarCategoriaCargada` gains
+  `iconoInicial = (categoria.icono ?? null) as IconoCategoria | null` and
+  `const [icono, setIcono] = useState<IconoCategoria | null>(iconoInicial)`,
+  seeded/reset exactly like `nombre`/`bucket` (`cancelarIdentidad` resets it
+  too). A `patchIcono(valor)` helper returns `{}` when `valor === iconoInicial`
+  (CATICO-03 "unchanged omits the key") or `{ icono: valor }` otherwise
+  (covers both "set to an allowlisted value" and "cleared to `null`" — both
+  count as "changed"). Both mutation call sites use it:
+  - the direct (bucket-clean) `guardarIdentidad` path spreads
+    `...patchIcono(icono)` into the `PATCH` body next to `nombre`/`bucket`;
+  - the bucket-dirty `ConfirmarImpactoDialog` confirm path
+    (`confirmarCambioBucket`) spreads `...patchIcono(snapshotAlAbrirDialogo.iconoNuevo)`
+    — `iconoNuevo` was added to the `snapshotAlAbrirDialogo` state shape,
+    frozen at dialog-open time in the SAME `setSnapshotAlAbrirDialogo` calls
+    that already freeze `nombre`/`bucketNuevo` (including the unrelated
+    `eliminar`-dialog trigger, which sets `iconoNuevo: iconoInicial` — unused
+    by that path, but required because both dialogs share ONE snapshot
+    shape, per the file's own pre-existing DRY rationale).
+  - `SelectorIcono` renders inside `#form-identidad`, wrapped in a
+    `md:col-span-2` div (it's a 25-option fieldset, not a single-line field
+    like `Nombre`/`Bucket`), disabled by the SAME
+    `esDemo || dialogo !== null || actualizacion.isPending` condition as the
+    other two identity fields.
+  - 4 new `EditarCategoria.test.tsx` cases in a new describe block
+    ("el icono viaja con el PATCH de Guardar"), all clicking the REAL
+    `Guardar` control (and the dialog's `Cambiar bucket` confirm button) via
+    `user-event`, per the batch's hard constraint — not `fireEvent.submit`:
+    1. pick a new icon on a category with none → PATCH includes `icono`
+    2. rename only, category already had an icon → PATCH omits `icono`
+       entirely (tri-state "unchanged")
+    3. pick "Sin icono" on a category that had one → PATCH sends
+       `icono: null`
+    4. pick an icon AND make the bucket dirty → the dialog's confirm PATCH
+       also carries the new `icono` (proves the SAME tri-state travels
+       through both save paths)
+- [x] Deferred PR4-validator suggestion: `SelectorIcono.test.tsx` gains a
+  Tab-into-group + Space-to-select case. Uses an unrecognized/retired icono
+  value (`'icono-retirado' as IconoCategoria`) so no radio starts checked —
+  otherwise Tab would land on an already-checked "Sin icono" and Space would
+  be a no-op re-select, not actually exercising "Space picks the
+  Tab-focused option". Verified empirically that all 7 tests (6 pre-existing
+  + this one) pass, confirming the native radio-group behavior this
+  component already relied on.
+
+### A pre-implementation empirical check (jsdom `form=` attribute + click)
+
+Before writing the RED tests, verified — via a throwaway test written then
+discarded, same discipline PR4's 4.2 batch used for keyboard nav — that this
+repo's jsdom + `@testing-library/user-event` setup DOES activate a
+`type="submit"` button's external `form=` association on a real
+`user.click()`, including against the ACTUAL `EditarCategoria` component
+(not just a synthetic replica). This matters because task 32's own docblock
+in `EditarCategoria.test.tsx` carries older guidance ("jsdom's `form=`
+attribute submit-button activation on a plain `userEvent.click` is not
+something to bet a suite on") and a past bug shipped behind
+`fireEvent.submit`-only coverage of this exact button (closed via a
+Playwright e2e, not a unit test). This batch's own hard constraint required
+clicking the real button, so the check was necessary before trusting the
+new tests' RED/GREEN signal — confirmed the click-based approach is sound
+in the CURRENT vitest/jsdom versions pinned by this repo.
+
+## PR4b batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 4.5 | `configuracion/categorias/EditarCategoria.test.tsx` | Unit + RTL | ✅ 56/56 (pre-existing, before edit) | ✅ Written (3/4 new cases timed out on `findByRole('radio', ...)` — `SelectorIcono` not yet rendered; the 4th, "unchanged omits icono", passed immediately because it happens to already hold true pre-feature — confirmed as a legitimate triangulation case, not a weak RED, since it still pins the no-regression behavior post-implementation) | ✅ 60/60 passed after implementation (one assertion fix needed: the dialog-path test initially asserted `bucket: 'Gustos'` instead of the actual mapped value `'Deseos'` — a test-authoring mistake, not a RED against the production code) | ✅ 4 cases (set-from-null, unchanged-omitted, clear-to-null, travels-through-dialog-confirm) | ➖ None needed |
+| Deferred | `configuracion/categorias/SelectorIcono.test.tsx` | Unit | ✅ 6/6 (pre-existing, before edit) | ➖ No RED expected — the underlying native keyboard behavior already worked (this is a coverage-only addition, not a behavior-driving test); verified GREEN immediately and treated as legitimate confirmation, not a skipped RED | ✅ 7/7 passed | ➖ Single case (mirrors the ArrowRight test's structure) | ➖ None needed |
+
+### PR4b batch Test Summary
+
+- **Total tests written**: 5 new test cases (4 in `EditarCategoria.test.tsx`, 1 in `SelectorIcono.test.tsx`).
+- **Total tests passing**: 2180/2180 (full `apps/web` suite, `pnpm web test`), 155/155 files.
+- **Layers used**: Unit + RTL component tests only (no route/integration layer touched).
+- **Approval tests** (refactoring): None — no refactoring tasks in this batch, only additive.
+- **Pure functions created**: `patchIcono` (tri-state PATCH-key helper, `EditarCategoria.tsx`).
+
+## PR4b batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/web && pnpm exec vitest run src/components/configuracion/categorias/EditarCategoria.test.tsx src/components/configuracion/categorias/SelectorIcono.test.tsx` → both files passed (60 + 7 = 67 tests) |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route or DB boundary this batch (pure client-side form wiring); `pnpm web build` (Vite production build) is the closest runtime harness and passed |
+| Rollback boundary | Each of the 2 committed commits is independently revertable: reverting the `SelectorIcono.test.tsx` keyboard-test commit affects only that test file (zero production code); reverting the `EditarCategoria.tsx` commit removes 4.5 entirely, leaving `EditarCategoria` exactly as PR4 (4.1–4.4) shipped it — `CategoriaPatch.icono` (already landed in 4.4) becomes unused again but stays harmless (optional field) |
+
+## PR4b batch — Verification (full commands run)
+
+- `pnpm web test` → 155 test files passed, 2180 tests passed
+- `pnpm web typecheck` (`tsr generate && tsc -b`) → no errors
+- `pnpm web lint` (`eslint .`) → 0 errors after `eslint --fix` resolved 2 prettier-only formatting issues (a quote-style string literal and an import-wrap), both auto-fixed and re-verified clean
+- `pnpm web build` → succeeds, no new warnings
+
+## PR4b batch — Commits (feature-branch-chain, this branch
+`feat/categoria-iconografia-pr4b` is a child of `feat/categoria-iconografia-pr4`,
+itself PR #687 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(web): wire the icon picker into category editing` (845c36f2)
+   — 2 files changed, 201 insertions(+), 2 deletions(-)
+2. `test(web): cover Tab-into-group plus Space selection in SelectorIcono`
+   (e5217f07) — 1 file changed, 32 insertions(+)
+
+## PR4b batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr4...HEAD`: **3 files
+changed, 233 insertions(+), 2 deletions(-)** = **235 changed lines** — well
+within the 400-line budget (forecast for 4.5 alone, per PR4's own stop
+note, was "well over the remaining 16-line headroom" of PR4's 384/400 —
+i.e. it always needed its own PR slice, which this IS).
+
+## PR4b batch — Deviations from design
+
+None — implementation matches design.md exactly: the icon travels in the
+SAME `PATCH` body as `nombre`/`bucket` through BOTH save paths (WCTG-04's
+edit scenario); tri-state semantics match CATICO-03 verbatim (omitted
+unchanged, `null` clears, a value sets); the `snapshotAlAbrirDialogo`
+freeze-at-open-time pattern for `iconoNuevo` mirrors the file's own
+pre-existing rationale for `nombre`/`bucketNuevo` (one snapshot mechanism,
+not two). No production code outside `EditarCategoria.tsx` needed changes —
+`CategoriaPatch.icono` (PR4/4.4) and `SelectorIcono`/`ETIQUETA_ICONO`
+(PR4/4.1–4.2) were already exactly what 4.5 needed to consume.
+
+## PR4b batch — Issues found
+
+None blocking. The bare `EditarCategoria.test.tsx` bucket-label test
+authoring slip (asserted `'Gustos'` — the SELECT option's visible label —
+instead of `'Deseos'`, the actual value the existing `CampoSelect` options
+map it to) was caught immediately by the first test run and fixed before
+any commit; not a design or implementation defect.
+
 ## Status (cumulative)
 
 **PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
@@ -853,11 +992,9 @@ committed, 4.5 not started) — an explicit, documented consequence of the
 **PR3a**: 6/6 Phase 3a tasks complete.
 **PR3b+PR3b2**: 5/5 Phase 3b tasks complete.
 **PR3c**: 5/5 Phase 3c tasks complete.
-**PR4 (this batch)**: 4/5 Phase 4 tasks COMMITTED (4.1–4.4, 388 changed
-lines on `feat/categoria-iconografia-pr4`); 4.5 (`EditarCategoria.tsx`)
-NOT STARTED, stopped on budget BEFORE writing any code for it. Recommend
-`sdd-apply` again for a fresh batch scoped to 4.5 alone (likely its own
-PR slice, given `EditarCategoria.tsx`'s existing size/complexity and the
-tri-state PATCH semantics it needs to add), then `sdd-verify` for PR4 as
-delivered (4.1–4.4) or for the combined PR4+4.5 slice, per the
-orchestrator's delivery decision.
+**PR4+PR4b**: 5/5 Phase 4 tasks complete (4.1–4.4 on `feat/categoria-iconografia-pr4`,
+PR #687; 4.5 on `feat/categoria-iconografia-pr4b`, this batch) — **Phase 4
+is now fully complete**, plus the deferred PR4-validator `SelectorIcono`
+keyboard test. Recommend `sdd-verify` for PR4b (or the combined PR4+PR4b
+slice, per the orchestrator's delivery decision), then `sdd-apply` for
+Phase 5 onward (web detalle badges + `category-icons.ts` deletion).
