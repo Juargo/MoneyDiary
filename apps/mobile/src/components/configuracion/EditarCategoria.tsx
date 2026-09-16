@@ -28,6 +28,17 @@
  * transaccionesCount is read from the already-loaded DTO — never re-fetched
  * (design §1.11, T6b.5 refactor requirement).
  *
+ * PR6b wires the icon picker into the identity draft (categoria-iconografia,
+ * ADR-045, MCTG-03, CATICO-03): `SelectorIcono` renders alongside Nombre/
+ * Bucket, seeded from `categoria.icono`. `patchIcono()` mirrors web PR4b's
+ * tri-state helper (omitted = unchanged, `null` = clear, a value = set) and
+ * feeds BOTH mutation call sites — the direct (bucket-clean) `handleGuardar`
+ * PATCH and the bucket-dirty `confirmarCambiarBucket` PATCH fired from the
+ * `Alert.alert` confirm button. No snapshot field is needed for `icono`
+ * (D-15 above): reading `icono` state at `handleGuardar`-press time already
+ * IS the freeze, the same reasoning that already applies to `nombre`/`bucket`
+ * on this bucket-dirty path.
+ *
  * Props:
  *   categoria    — the resolved CategoriaDto from the route
  *   onGuardado   — called after a successful save (route re-fetches catalog)
@@ -40,13 +51,17 @@ import { useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { actualizarCategoria, eliminarCategoria } from '../../api/categorias';
 import { solicitarRecargaResumen } from '../../api/resumen-refresh';
-import type { BucketAsignable } from '../../domain/catalogo-constantes';
+import type {
+  BucketAsignable,
+  IconoCategoria,
+} from '../../domain/catalogo-constantes';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
 import { fraseDeImpacto } from '../../domain/impacto-catalogo';
 import { mensajeDeErrorCatalogo } from '../../domain/mensajes-catalogo';
 import type { CategoriaDto } from '../../domain/catalogo.types';
 import { CampoTexto } from './CampoTexto';
 import { SelectorChips } from './SelectorChips';
+import { SelectorIcono } from './SelectorIcono';
 import { PatronesSection } from './PatronesSection';
 
 export interface EditarCategoriaProps {
@@ -82,6 +97,15 @@ export function EditarCategoria({
     // fallback — an empty string is already invalid and will be visible).
     (categoria.bucket as BucketAsignable) ?? BUCKETS_ASIGNABLES[0],
   );
+  // categoria-iconografia (ADR-045, MCTG-03, CATICO-03): a draft is not
+  // server state, same as `nombre`/`bucket` above. `categoria.icono` is
+  // `string | null | undefined` in the wire type (design.md D-11); the
+  // Guards discipline (CATICO-06) never checks allowlist membership on
+  // read — an unrecognized/retired value simply never matches any
+  // `SelectorIcono` option, exactly like the badge's fallback, so this
+  // cast is safe without re-validating membership here.
+  const iconoInicial = (categoria.icono ?? null) as IconoCategoria | null;
+  const [icono, setIcono] = useState<IconoCategoria | null>(iconoInicial);
 
   // Split in-flight label semantics: 'guardar' shows "Guardando…", 'eliminar'
   // shows "Eliminando…". Both buttons are disabled during ANY in-flight op.
@@ -101,6 +125,15 @@ export function EditarCategoria({
     (categoria.bucket as BucketAsignable) ?? BUCKETS_ASIGNABLES[0];
   const bucketCambiado = bucket !== bucketOriginal;
 
+  // categoria-iconografia (CATICO-03 tri-state): the `icono` key is included
+  // in a PATCH body ONLY when the draft differs from what was loaded —
+  // unchanged omits the key entirely (server leaves it as-is), a different
+  // allowlisted value or an explicit clear-to-null both count as "changed".
+  // Mirrors web PR4b's `patchIcono` verbatim.
+  function patchIcono(valor: IconoCategoria | null) {
+    return valor === iconoInicial ? {} : { icono: valor };
+  }
+
   /**
    * Execute the actual bucket-change PATCH after Alert confirmation.
    * Called from the Alert's destructive button onPress.
@@ -113,6 +146,7 @@ export function EditarCategoria({
     const resultado = await actualizarCategoria(categoria.id, {
       nombre: nombre.trim(),
       bucket,
+      ...patchIcono(icono),
     });
 
     setOperacion(null);
@@ -178,6 +212,7 @@ export function EditarCategoria({
     const resultado = await actualizarCategoria(categoria.id, {
       nombre: nombre.trim(),
       bucket,
+      ...patchIcono(icono),
     });
 
     setOperacion(null);
@@ -268,6 +303,16 @@ export function EditarCategoria({
         options={BUCKETS_ASIGNABLES}
         value={bucket}
         onChange={(v) => setBucket(v)}
+      />
+
+      {/* categoria-iconografia (MCTG-03): part of the identity draft, so it
+          is disabled by the SAME condition as Nombre/Bucket above — a
+          confirmation dialog open, or the identity PATCH in flight. */}
+      <SelectorIcono
+        testID="icono-selector"
+        value={icono}
+        onChange={setIcono}
+        disabled={enviando}
       />
 
       {/* Error region — post-confirm failures render here (R5, design §1.11) */}
