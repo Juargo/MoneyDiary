@@ -1165,3 +1165,233 @@ PR5 (or the combined delivery slice per the orchestrator's decision), then
 - **Validator WARNING (test honesty):** two cases were named as if they proved resilience to a spec-violating server response, but both exercised `icono: null`. Renamed in `9054e0f0` to state what they actually prove, with a comment recording that MBD-02 is a SERVER-side invariant and the client deliberately does not special-case the synthetic group (YAGNI). No production code changed.
 - **Validator SUGGESTION (e2e scope):** the config-list badge case runs on all three Playwright projects, but the detalle badge assertions were added inside a pre-existing test already scoped to `escritorio`. Left as is — the badge has no responsive layout and its behaviour is covered viewport-agnostically by unit tests — and the PR description states the real coverage instead of implying three viewports for both.
 - Attempt settled `complete`; validator verdict PASS.
+
+## PR6 — Mobile config list + picker (tasks 6.1–6.3) — PARTIAL, stopped on budget
+
+Assigned: Phase 6 (PR6) tasks 6.1–6.3, on branch `feat/categoria-iconografia-pr6`
+(child of `feat/categoria-iconografia-pr5`, itself PR #689 targeting the
+tracker `feat/categoria-iconografia`). Tasks 6.1 and 6.2 (creating
+`IconoCategoriaBadge`/`SelectorIcono`) were implemented test-first
+(RED→GREEN) and fully COMMITTED. Task 6.3 ("wire it in":
+`CategoriaFila`/`NuevaCategoriaForm`/`EditarCategoria`) is **PARTIAL**: the
+`CategoriaFila` badge-render half (MCTG-01) is done; `NuevaCategoriaForm`
+(MCTG-02) and `EditarCategoria` (MCTG-03, tri-state) are **NOT STARTED** —
+zero lines authored for either. Stopped per the batch's explicit budget
+instruction ("if it would exceed 400, stop and report rather than trimming
+tests") because 6.1+6.2+CategoriaFila alone already measured **380/400
+changed lines** (`git diff --shortstat feat/categoria-iconografia-pr5...HEAD`),
+leaving only 20 lines of headroom — nowhere near enough for
+`NuevaCategoriaForm`'s wiring (new state, `SelectorIcono` render,
+`CategoriaInput.icono` type addition, at least one new test) let alone
+`EditarCategoria`'s tri-state `patchIcono`-style helper, which needed its
+own ~235-line PR (PR4b) on the web side for the equivalent scope. This
+mirrors web's own PR4/PR4b split exactly — see that section above.
+
+### Completed and COMMITTED (6.1, 6.2, CategoriaFila half of 6.3)
+
+- [x] 6.1 `apps/mobile/src/components/IconoCategoriaBadge.tsx` (+spec, new
+  files) — mobile's badge is a CIRCLE (`rounded-full`, design.md "UI": "a
+  `size-6` square (web radius 0) or a mobile circle"), fill =
+  `COLOR_BUCKET[bucket]` (fallback `'#CCCCCC'`, the SAME fallback
+  `DistribucionPie.tsx`/`LeyendaGasto.tsx` already use), glyph =
+  `COLOR_GLIFO_BUCKET[bucket]` ink (fallback `COLORS.heading`, D-08). Icon
+  resolution delegates entirely to `iconoCategoria()` (PR3c) — this
+  component never re-implements that lookup. Hidden from the accessibility
+  tree via `accessibilityElementsHidden` +
+  `importantForAccessibility="no-hide-descendants"` on the container View
+  (`IngresoCard.tsx`'s own precedent for a decorative sparkline, confirmed
+  via `rg` before writing the component) — CATICO-08's "decorative next to
+  visible text" half. Uses `createElement`, not a JSX tag: this workspace's
+  `eslint-config-expo` (flat config) ALSO enforces
+  `react-hooks/static-components` (confirmed empirically via `pnpm exec
+  eslint --fix`, which failed on the naive `<Icono />` JSX-tag form first) —
+  the exact same web/PR4 gate, so `IconoCategoriaBadge.tsx`'s own docstring
+  was corrected in place once this was discovered (an earlier draft
+  comment incorrectly claimed "no such rule in this workspace" before the
+  lint run proved otherwise).
+- [x] 6.2 `apps/mobile/src/components/configuracion/SelectorIcono.tsx`
+  (+spec, new files) — a 25-option picker following THIS workspace's own
+  `SelectorChips.tsx` radiogroup convention
+  (`accessibilityRole="radiogroup"` on the container,
+  `accessibilityRole="radio"` + `accessibilityState={{ checked, disabled }}`
+  per option) rather than web's native `<input type="radio">` fieldset —
+  there is no DOM/keyboard-roving equivalent to port, so this component has
+  no keyboard-nav test (the one web-only case in `SelectorIcono.test.tsx`
+  that does not apply here). Each option is a `size-11` (44pt, design's
+  "≥44pt targets") circular touch target with the resolved lucide glyph
+  centered inside (`createElement`, same lint gate as 6.1), filled with
+  `COLORS.ingreso` when selected / `COLORS.canvas` otherwise (mirrors
+  `SelectorChips`'s own selected/unselected convention). Accessible name per
+  option is `ETIQUETA_ICONO[opcion]` (Spanish, CATICO-08); "Sin icono" is
+  first in picker order (D-05/CATICO-01). Presentational/controlled — the
+  forms own the `IconoCategoria | null` state (not built yet, see below).
+- [x] `CategoriaFila` half of 6.3 (MCTG-01) — renders
+  `<IconoCategoriaBadge icono={icono} bucket={bucket} />` leading the row,
+  before the name, inside a new `flex-row items-center gap-3` wrapper (the
+  pre-existing `flex-1` on the name `Text` moved onto this new wrapper so
+  the pattern-count tag still gets pushed to the row's trailing edge). 2 new
+  tests mock `IconoCategoriaBadge` itself (its own render/fallback/hidden
+  behavior is fully covered by `IconoCategoriaBadge.spec.tsx`) and assert
+  the row wires `icono`/`bucket` INTO it correctly for both a real icono and
+  an explicit `null` (CATICO-06's fallback-selection stays the badge's own
+  job, never re-tested here).
+
+### NOT started (0 lines authored — next PR6b batch)
+
+- [ ] `NuevaCategoriaForm` half of 6.3 (MCTG-02) — render `SelectorIcono`
+  after the Nombre/Bucket fields; `handleGuardar` must send
+  `icono: icono ?? undefined` in the `crearCategoria` body (mirrors web
+  4.4's `JSON.stringify`-drops-`undefined` trick so the "never touched"
+  default case produces the byte-identical body the EXISTING
+  `NuevaCategoriaForm.spec.tsx` tests already pin — those must NOT need
+  editing for the "no icon chosen" cases). `CategoriaInput.icono?:
+  IconoCategoria | null` needs adding to `apps/mobile/src/api/categorias.ts`
+  (mirrors web's `categorias.ts` edit in 4.4) — this type addition is
+  shared infrastructure for BOTH `NuevaCategoriaForm` and the not-yet-started
+  `EditarCategoria` (`CategoriaPatch.icono` too), same as web's own note.
+- [ ] `EditarCategoria` half of 6.3 (MCTG-03) — seed
+  `const [icono, setIcono] = useState<IconoCategoria | null>((categoria.icono
+  ?? null) as IconoCategoria | null)`, same pattern as the existing
+  `nombre`/`bucket` seeding. A `patchIcono(valor)`-style tri-state helper
+  (CATICO-03: omitted unchanged / `null` clears / value sets) must feed
+  BOTH mutation call sites this file already has — the direct
+  (bucket-clean) `handleGuardar` PATCH and the bucket-dirty
+  `confirmarCambiarBucket` PATCH (fired from the `Alert.alert` confirm
+  button) — mirroring web PR4b's `patchIcono` helper exactly, adapted to
+  this file's `Alert.alert`-based confirm flow instead of web's
+  `snapshotAlAbrirDialogo` freeze (design.md D-15 already documents mobile
+  does NOT need that freeze mechanism: `Alert.alert` is a native modal that
+  blocks all interaction underneath, so reading `icono` state at
+  `handleGuardar`-press time already IS the freeze — no separate snapshot
+  field needed on this file's existing state shape). New test cases needed,
+  mirroring web PR4b's 4: set-from-null, unchanged-omitted, clear-to-null,
+  travels-through-the-bucket-dirty-Alert-confirm-path — using the SAME hard
+  constraint as every prior batch in this change: press the REAL `Guardar`/
+  confirm-button control via `fireEvent.press`, never call a handler
+  directly.
+
+## PR6 batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 6.1 | `components/IconoCategoriaBadge.spec.tsx` | Unit + RNTL | N/A (new file) | ✅ Written (`Cannot find module './IconoCategoriaBadge'`) | ✅ 3/3 passed | ✅ 3 cases (Necesidades+valid icono, Deseos+null fallback — different bucket AND different icono state per case — plus a dedicated accessibility-hiding case) | ✅ `createElement` fix (lint gate, discovered via `pnpm exec eslint --fix` failing on the naive JSX-tag form; behavior unchanged, tests re-ran green); ✅ `LucideIcon` mock-type cast fix (discovered via `tsc --noEmit`, `fix(mobile)` commit `aa559294`) |
+| 6.2 | `configuracion/SelectorIcono.spec.tsx` | Unit + RNTL | N/A (new file) | ✅ Written (`Cannot find module './SelectorIcono'`) | ✅ 7/7 passed | ✅ 7 cases (render-count+order, accessible-label-not-raw-id, checked-state, no-match on retired/unknown value, press-to-pick, press-to-clear, disabled-propagation) | ➖ None needed beyond `eslint --fix`'s auto-applied `readonly (T)[]` array-type style fix (mechanical, no behavior change) |
+| CategoriaFila half of 6.3 | `configuracion/CategoriaFila.spec.tsx` | Unit + RNTL | ✅ 6/6 (pre-existing, before edit) | ✅ Written (verified via `git stash` isolation: reverted the production edit, confirmed the 2 new cases failed with "Number of calls: 0", then restored the edit) | ✅ 8/8 passed | ✅ 2 cases (real icono, explicit `null`) | ➖ None needed |
+
+### PR6 batch Test Summary
+
+- **Total tests written**: 12 new test cases (3 in `IconoCategoriaBadge.spec.tsx`,
+  7 in `SelectorIcono.spec.tsx`, 2 in `CategoriaFila.spec.tsx`).
+- **Total tests passing**: 918/918 (full `apps/mobile` suite, `pnpm
+  --filter @moneydiary/mobile test`), 84/84 files.
+- **Layers used**: Unit + RNTL component tests only (no route/API layer
+  touched this batch).
+- **Approval tests** (refactoring): None — no refactoring tasks in this
+  batch, only additive.
+- **Pure functions created**: None new — both new components
+  (`IconoCategoriaBadge`, `SelectorIcono`) are presentational, consuming
+  `iconoCategoria`/`ETIQUETA_ICONO`/`COLOR_BUCKET`/`COLOR_GLIFO_BUCKET` from
+  PR3c.
+
+## PR6 batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/mobile && pnpm exec jest src/components/IconoCategoriaBadge.spec.tsx src/components/configuracion/SelectorIcono.spec.tsx src/components/configuracion/CategoriaFila.spec.tsx` → all 3 files passed (3+7+8 = 18 tests across the touched files) |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route, DB boundary, or screen navigation this batch (pure client-side presentational components + one row wiring); `cd apps/mobile && pnpm exec tsc --noEmit` is the closest runtime harness (confirms the components compile against the real `@moneydiary/api-client` `CategoriaDto` shape, not a hand-rolled fixture type) and passed clean |
+| Rollback boundary | Each of the 4 committed commits is independently revertable: reverting the `fix(mobile)` type-cast commit alone only affects a test-file annotation (zero production-code risk); reverting the `CategoriaFila` commit alone leaves the badge/picker components built but unused by any row; reverting `SelectorIcono` or `IconoCategoriaBadge` requires reverting `CategoriaFila` first (it imports `IconoCategoriaBadge`) — recorded as a sequencing note, not a blocker, since all 4 are committed together in this batch |
+
+## PR6 batch — Verification (full commands run, with all 4 committed commits present)
+
+- `pnpm --filter @moneydiary/mobile test` → 84 test files passed, 918 tests passed
+- `cd apps/mobile && pnpm exec tsc --noEmit` → no errors
+- `pnpm --filter @moneydiary/mobile lint` → 0 errors, 1 pre-existing warning
+  (`BucketDetalleScreen.spec.tsx:48`, `no-require-imports` — untouched file,
+  the same baseline PR3c/PR5 already recorded, not introduced by this batch)
+
+## PR6 batch — Commits (feature-branch-chain, branch
+`feat/categoria-iconografia-pr6`, child of `feat/categoria-iconografia-pr5`,
+itself PR #689 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(mobile): add the IconoCategoriaBadge component for category rows`
+   (`1cf412f2`) — 2 files changed, 148 insertions(+)
+2. `feat(mobile): add the SelectorIcono accessible icon picker` (`a69f2c15`)
+   — 2 files changed, 182 insertions(+)
+3. `feat(mobile): render the category icon badge in each catalog row`
+   (`301f60da`) — 2 files changed, 45 insertions(+), 5 deletions(-)
+4. `fix(mobile): cast the mocked LucideIcon in IconoCategoriaBadge.spec.tsx`
+   (`aa559294`) — 1 file changed, 6 insertions(+), 1 deletion(-)
+
+## PR6 batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr5...HEAD` (4 committed
+commits): **6 files changed, 380 insertions(+), 5 deletions(-)** =
+**380 changed lines** — within the 400-line budget (forecast was 250–300;
+committed actual landed higher for the same reason PR3b/PR3c/PR4 did: a
+24-entry icon render map plus a 25-option accessible picker with full
+checked-state/press/disabled test coverage is irreducibly larger than a
+typical presentational component). `NuevaCategoriaForm`/`EditarCategoria`
+wiring (the rest of 6.3) is NOT started — zero lines authored for either.
+
+## PR6 batch — Deviations from design
+
+None — implementation matches design.md exactly: the badge is a circle
+(design.md "UI": "a `size-6` square (web radius 0) or a mobile circle"),
+fill/ink from `COLOR_BUCKET`/`COLOR_GLIFO_BUCKET` (D-08, the mobile-specific
+literal-hex map PR3c already minted); the picker follows THIS workspace's
+`SelectorChips` radiogroup convention instead of inventing a new one
+(`kiss` skill: "tecnología aburrida — preferir patrones ya establecidos");
+accessible names come from `ETIQUETA_ICONO`, never the raw lucide
+identifier (CATICO-08); `CategoriaFila` renders the badge leading the row
+before the name (MCTG-01's own scenario wording). The ONLY deviation from
+the *batch's own instructions* is the budget stop itself
+(6.1+6.2+CategoriaFila committed, `NuevaCategoriaForm`/`EditarCategoria` not
+started) — an explicit, documented consequence of the 400-line ceiling, not
+a design deviation.
+
+## PR6 batch — Issues found
+
+- **Budget overage risk confirmed, stop applied before starting the
+  `NuevaCategoriaForm`/`EditarCategoria` halves of 6.3** (see Diff size
+  above). Unlike PR3b's split (where the remaining work was already
+  implemented+green and just needed a commit), this remainder has ZERO
+  lines authored — the next apply batch starts completely fresh, informed
+  by this batch's `IconoCategoriaBadge`/`SelectorIcono` components (already
+  landed) and by the `createElement`-over-JSX-tag lint workaround
+  (documented in both new components' docstrings).
+- **`react-hooks/static-components` lint gate applies to mobile too** — an
+  earlier draft comment in `IconoCategoriaBadge.tsx` incorrectly claimed
+  this workspace's `eslint.config.js` has no such rule (based on reading
+  the config file alone, which does not show `eslint-config-expo`'s
+  bundled rule set); `pnpm exec eslint --fix` proved otherwise on the first
+  run. Corrected in the same commit before landing — no lingering wrong
+  comment. Future mobile icon-lookup code should reach for `createElement`
+  from the start, exactly as web's own PR4 finding already recommended.
+- **RNTL v14 has no `UNSAFE_getByType`/`UNSAFE_getByProps`** (confirmed via
+  this exact package version's `dist/*.d.ts` — a different API shape than
+  older/newer RNTL majors): `IconoCategoriaBadge.spec.tsx` mocks the
+  `iconoCategoria` collaborator instead of asserting the real rendered SVG,
+  and `CategoriaFila.spec.tsx` mocks `IconoCategoriaBadge` itself for the
+  same reason — each suite asserts wiring at its own layer boundary, never
+  re-testing a lower layer's own already-covered behavior. Also: RNTL's
+  default queries EXCLUDE elements marked `accessibilityElementsHidden`
+  (`includeHiddenElements: true` is required to reach them) — worth noting
+  for any future mobile spec that needs to assert INTO a deliberately
+  hidden subtree.
+
+## Status (cumulative)
+
+**PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
+**PR2+PR2b**: 11/11 Phase 2 tasks complete.
+**PR3a**: 6/6 Phase 3a tasks complete.
+**PR3b+PR3b2**: 5/5 Phase 3b tasks complete.
+**PR3c**: 5/5 Phase 3c tasks complete.
+**PR4+PR4b**: 5/5 Phase 4 tasks complete.
+**PR5**: 3/3 Phase 5 tasks complete.
+**PR6 (this batch)**: 2/3 Phase 6 tasks fully complete (6.1, 6.2); task 6.3
+is PARTIAL (`CategoriaFila` half done, `NuevaCategoriaForm`/`EditarCategoria`
+halves NOT started — 0 lines authored). Recommend `sdd-apply` again for a
+PR6b batch that implements `NuevaCategoriaForm` first (smaller), then
+`EditarCategoria`'s tri-state wiring (likely its own PR6c given web PR4b's
+precedent size), before `sdd-verify` runs on the combined PR6 delivery
+slice. Phase 7 (mobile detalle badges) stays blocked on 6.3 finishing.

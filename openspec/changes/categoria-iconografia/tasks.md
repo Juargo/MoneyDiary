@@ -127,9 +127,9 @@ No fixture-file batch task here (D-11, same reasoning as PR3b): `icono` is `.opt
 
 ## Phase 6 (PR6): Mobile config list + picker
 
-- [ ] 6.1 RED+GREEN: `apps/mobile/src/components/IconoCategoriaBadge.tsx` + spec (CATICO-06/08)
-- [ ] 6.2 RED+GREEN: `apps/mobile/src/components/configuracion/SelectorIcono.tsx` + spec — `accessibilityRole="radio"`, ≥44pt targets, `accessibilityLabel` (CATICO-08, MCTG-02/03)
-- [ ] 6.3 Edit mobile `CategoriaFila`, `NuevaCategoriaForm`, `EditarCategoria` — badge render + picker travels with create/`Guardar` (MCTG-01/02/03)
+- [x] 6.1 RED+GREEN: `apps/mobile/src/components/IconoCategoriaBadge.tsx` + spec (CATICO-06/08)
+- [x] 6.2 RED+GREEN: `apps/mobile/src/components/configuracion/SelectorIcono.tsx` + spec — `accessibilityRole="radio"`, ≥44pt targets, `accessibilityLabel` (CATICO-08, MCTG-02/03)
+- [ ] 6.3 Edit mobile `CategoriaFila`, `NuevaCategoriaForm`, `EditarCategoria` — badge render + picker travels with create/`Guardar` (MCTG-01/02/03) — **PARTIAL**: `CategoriaFila` badge render is DONE (MCTG-01, commit `301f60da`); `NuevaCategoriaForm` (MCTG-02) and `EditarCategoria` (MCTG-03, tri-state) are NOT started — stopped on the 400-line budget at 380/400 after `CategoriaFila`, mirroring the web PR4/PR4b split (`apply-progress.md` "PR4" section). Next batch: implement `NuevaCategoriaForm` wiring first (smaller), then `EditarCategoria`'s tri-state `patchIcono`-style helper as its own commit/PR (PR6b), following PR4b's exact pattern.
 
 **Verify:** `pnpm --filter @moneydiary/mobile test -- CategoriaFila SelectorIcono IconoCategoriaBadge`; manual on-device gate before merge
 
