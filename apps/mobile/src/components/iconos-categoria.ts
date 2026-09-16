@@ -97,7 +97,11 @@ export const ETIQUETA_ICONO: Record<IconoCategoria, string> = {
   'gamepad-2': 'Videojuegos',
   gift: 'Regalos',
   dumbbell: 'Gimnasio',
-  'piggy-bank': 'Ahorro',
+  // "Alcancía", not "Ahorro": that was the exact accessible name of the Ahorro
+  // bucket option, and both controls share the Configuración screen — a
+  // flattened control list (VoiceOver rotor, Voice Control) could not tell them
+  // apart. Mirrored in apps/web; the mirror spec pins icon ids, not labels.
+  'piggy-bank': 'Alcancía',
   'trending-up': 'Inversiones',
   'credit-card': 'Tarjeta de crédito',
 };
