@@ -40,6 +40,15 @@ export interface GrupoDetalleMesViewModel {
   /** `formatearMontoCLP(subtotal)` — BigInt-exact. */
   readonly subtotalLabel: string;
   readonly conteo: number;
+  /**
+   * categoria-iconografia (MDET-03, CATICO-06): the group's lucide icon
+   * name, or `null` for "no icon" — ALWAYS `null` for the synthetic Sin
+   * categoría group (MBD-02). Normalized with `?? null` because the field
+   * is `.optional()` in the generated type (D-11), even though the server
+   * always emits the key at runtime. Ported from web
+   * (`apps/web/src/domain/detalle-bucket-mes-view-model.ts`).
+   */
+  readonly icono: string | null;
   readonly transacciones: readonly TransaccionDetalleMesViewModel[];
 }
 
@@ -90,6 +99,7 @@ function aGrupoViewModel(
     nombre: grupo.nombre,
     subtotalLabel: formatearMontoCLP(grupo.subtotal),
     conteo: grupo.conteo,
+    icono: grupo.icono ?? null,
     transacciones: grupo.transacciones.map(aTransaccionViewModel),
   };
 }
