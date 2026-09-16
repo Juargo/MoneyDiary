@@ -367,3 +367,189 @@ Recommend `sdd-verify` for Phase 2 (PR1+PR2+PR2b), then `sdd-apply` again for Ph
 - Generated `types.gen.ts`: 4× `icono?: string | null`.
 - Verification: `pnpm api test` 2734 passed; `tsc` clean; `lint:ci` 0 errors; `openapi:check` clean; `contract:sync` + `api-client typecheck` clean with no drift; `pnpm web test` 2145 passed and mobile 888 passed with zero client changes (D-11 confirmed); scoped int-specs 22/23 files pass locally, the 3 failures are `seed.int-spec.ts` local-DB-state noise.
 - Validator: PASS (no findings). Attempt settled `complete`.
+
+## PR3b — Web contract foundation (tasks 3b.1–3b.5) — PARTIAL, stopped on budget
+
+Assigned: Phase 3b (PR3b) tasks 3b.1–3b.5, on branch `feat/categoria-iconografia-pr3b`
+(child of `feat/categoria-iconografia-pr3a`, PR #683). All 5 tasks were implemented
+test-first (RED→GREEN) and are fully GREEN in the working tree, but only 3b.1–3b.3
+were COMMITTED this batch — 3b.4–3b.5 sit uncommitted, per the batch's explicit
+instruction ("if it would exceed 400, stop and report instead of trimming tests"):
+committing all 5 would have been `git diff --shortstat feat/categoria-iconografia-pr3a...HEAD`
+= 528 changed lines (515+/13-), 128 over the 400-line ceiling. Splitting at the
+3b.3/3b.4 boundary (constants+render-map+color-helper vs guards+messages) mirrors
+this same change's own PR2/PR2b precedent, keeps each commit's tests self-contained,
+and was verified independently: stashing 3b.4–3b.5 confirmed 3b.1–3b.3 alone pass
+`pnpm web test`/`typecheck`/`lint`/`build`; popping the stash back confirmed the
+full 5-task set together still passes all four commands.
+
+**Real-path correction (tasks.md, like 2.11 before it):** task 3b.5 as originally
+written named `apps/web/src/lib/mensajes-catalogo.ts`, which does not exist — the
+real file is `apps/web/src/components/configuracion/categorias/mensajes-catalogo.ts`
+(confirmed via `fd`). Also, "12-code table" in the original task text is stale by
+one: WCTG-12 (spec, ADDED) documents 12 DOMAIN codes + `BODY_INVALIDO` = 13 total;
+`ICONO_INVALIDO` is the 12th domain code (previously 11 domain + `BODY_INVALIDO`
+= 12).
+
+### Completed and COMMITTED (3b.1–3b.3)
+
+- [x] 3b.1 `apps/web/src/api/catalogo-constantes.ts` — added `ICONOS_CATEGORIA`
+  (24-name allowlist, mirrored verbatim) + `IconoCategoria` type. Extended
+  `catalogo-constantes.mirror.spec.ts`: added the `iconoCategoria` backend
+  source entry and widened the shared `bloque()` parser's character class from
+  `[A-Z_a-z]+` to `([a-z0-9-]+|[A-Z_]+)` with the `i` flag (a superset, not a
+  new parser — verified it still matches existing `PascalCase`/`UPPER_SNAKE`
+  tokens including `STARTS_WITH`'s underscore) so it also matches kebab-case
+  digits (`gamepad-2`). Added the exact-order drift-guard test (CATICO-07) and
+  a local exact-value pin test in `catalogo-constantes.test.ts` (same pattern
+  as `BUCKETS_ASIGNABLES`/`MATCH_TYPES`).
+- [x] 3b.2 `apps/web/src/lib/iconos-categoria.ts` (+test, new files) —
+  `MAPA_ICONO_CATEGORIA satisfies Record<IconoCategoria, LucideIcon>` (named
+  imports, tree-shakeable), `ETIQUETA_ICONO: Record<IconoCategoria, string>`
+  (Spanish accessible labels, CATICO-08), `iconoCategoria(icono): LucideIcon`
+  resolving `null`/`undefined`/any unrecognized (including retired) name to
+  the `Tag` fallback (CATICO-06) — never throws, never checks allowlist
+  membership as an error condition.
+- [x] 3b.3 `apps/web/src/lib/bucket-colors.ts` (+test) — added
+  `claseGlifoBucket()`, reusing the SAME `--color-pie-etiqueta-*` tokens
+  `claseEtiquetaPie` (`lib/pie-colors.ts`) already uses for the pie label text
+  (D-08) — `text-` prefix instead of `fill-`, same fallback-to-Necesidades-
+  family rationale.
+
+### Implemented + GREEN but NOT YET COMMITTED (3b.4–3b.5)
+
+- [ ] 3b.4 `apps/web/src/api/categorias.ts`'s `esCategoriaDto` — added an
+  explicit `icono === undefined || icono === null || typeof icono === 'string'`
+  clause (previously the guard didn't check `icono` at all, since it's
+  `.optional()` in the generated TS type — a runtime `number`/`boolean` would
+  have silently passed the guard before this fix). Also fixed the SAME class
+  of gap in `apps/web/src/api/client.ts`'s `esGrupoDetalleBucketMesDto`
+  (the bucket-detalle-mes group guard, per the batch's explicit instruction to
+  check it too) — identical clause. 4 new tests in `categorias.test.ts`
+  (omitted/null/string/invalid-type) + 4 new tests in `client.test.ts` (same
+  4 cases for the group shape).
+- [ ] 3b.5 `apps/web/src/components/configuracion/categorias/mensajes-catalogo.ts`
+  — added `'ICONO_INVALIDO'` to the `CodigoCatalogo` union and its `COPY` row
+  (`'Elige un ícono válido de la lista.'`); updated the file's docstrings from
+  "12 códigos"/"Doce miembros" to "13 códigos"/"Trece miembros". 1 new
+  `it.each` row in `mensajes-catalogo.test.ts`.
+
+**These 6 files' diffs are staged nowhere and uncommitted in the
+`feat/categoria-iconografia-pr3b` working tree right now** (182 insertions +
+8 deletions = 190 changed lines) — `pnpm web test`/`typecheck`/`lint`/`build`
+all pass with them present alongside the 3 committed commits. The next apply
+batch for this change can `git add` + commit them directly (recommend 2
+commits: one for the `categorias.ts`+`client.ts` guard fix, one for
+`mensajes-catalogo.ts`) without redoing any implementation.
+
+## PR3b batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 3b.1 | `api/catalogo-constantes.test.ts` + `.mirror.spec.ts` | Unit | ✅ 9/9 mirror + 2/2 local (pre-existing) | ✅ Written (`TypeError: ICONOS_CATEGORIA is not iterable` / `Target cannot be null or undefined`) | ✅ 11/11 (2 files) passed | ✅ length+uniqueness+full-order-literal (local) + backend-source-order (mirror) | ➖ None needed |
+| 3b.2 | `lib/iconos-categoria.test.ts` | Unit | N/A (new file) | ✅ Written (`Failed to resolve import`) | ✅ 6/6 passed | ✅ 6 cases (label-totality, label-not-raw-id, all-24-resolve, null, undefined, retired/unknown) | ➖ None needed |
+| 3b.3 | `lib/bucket-colors.test.ts` | Unit | ✅ 4/4 (pre-existing, before edit) | ✅ Written (`TypeError: claseGlifoBucket is not a function`) | ✅ 6/6 passed | ✅ 4 known buckets + 1 fallback case | ➖ None needed |
+| 3b.4 | `api/categorias.test.ts` + `api/client.test.ts` | Unit | ✅ 29/29 + 158/158 (pre-existing, before edit) | ✅ Written (1 new failure per file: the `icono: 42` invalid-type case; omitted/null/string cases passed immediately since they were never rejected — confirms the guard gap was exactly "no check", not "wrong check") | ✅ 33/33 + 162/162 passed | ✅ 4 cases each (omitted, null, string, invalid-type) | ➖ None needed |
+| 3b.5 | `mensajes-catalogo.test.ts` | Unit | ✅ 29/29 (pre-existing, before edit) | ✅ Written (`AssertionError: expected 'Ocurrió un error inesperado...' to be 'Elige un ícono válido...'`) | ✅ 30/30 passed | ➖ Single case (mirrors the existing one-row-per-code pattern) | ➖ None needed |
+
+### PR3b batch Test Summary
+
+- **Total tests written**: 19 new test cases (2 in `catalogo-constantes.test.ts`,
+  1 in `catalogo-constantes.mirror.spec.ts`, 6 in `iconos-categoria.test.ts`, 2 in
+  `bucket-colors.test.ts`, 4 in `categorias.test.ts`, 4 in `client.test.ts`, 1 in
+  `mensajes-catalogo.test.ts`).
+- **Total tests passing**: 2164/2164 (full `apps/web` suite, `pnpm web test`),
+  153/153 files — with ALL 5 tasks present (3 committed + 2 uncommitted).
+- **Layers used**: Unit only (constants/type mirror, render map, color helper,
+  runtime guards, error-copy table).
+- **Approval tests** (refactoring): None — no refactoring tasks in this batch,
+  only additive.
+- **Pure functions created**: `iconoCategoria` (resolver, CATICO-06),
+  `claseGlifoBucket` (color-class resolver).
+
+## PR3b batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/web && pnpm exec vitest run src/api/catalogo-constantes.test.ts src/api/catalogo-constantes.mirror.spec.ts src/lib/iconos-categoria.test.ts src/lib/bucket-colors.test.ts src/api/categorias.test.ts src/api/client.test.ts src/components/configuracion/categorias/mensajes-catalogo.test.ts` → all 7 files passed (11+6+6+33+162+30 = 248 tests across the touched files) |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route or DB boundary in this batch (pure client-side constants/render-map/guards/copy); `pnpm web build` (Vite production build) is the closest runtime harness and passed both for the 3b.1–3b.3-only tree and the full 5-task tree |
+| Rollback boundary | Each of the 3 committed commits is independently revertable (see Commits below); the 2 uncommitted file groups (3b.4, 3b.5) can be discarded via `git checkout -- <files>` with zero effect on the 3 committed commits, since the guard/copy additions are purely additive and read no state the earlier commits introduced |
+
+## PR3b batch — Verification (full commands run, with all 5 tasks present)
+
+- `pnpm web test` → 153 test files passed, 2164 tests passed
+- `pnpm web typecheck` (`tsr generate && tsc -b`) → no errors
+- `pnpm web lint` (`eslint .`) → 0 errors, 0 warnings (4 prettier issues from the
+  first pass were auto-fixed via `eslint --fix` before the final clean run)
+- `pnpm web build` → succeeds, no new chunks/warnings beyond expected bundle
+  content (`catalogo-constantes`/`mensajes-catalogo` chunks present)
+- Isolation check: stashed 3b.4/3b.5 files, re-ran all four commands against
+  3b.1–3b.3 alone → 153 files / 2155 tests passed, typecheck/lint/build clean;
+  popped the stash back and re-ran → 2164 tests passed again
+
+## PR3b batch — Commits (feature-branch-chain, this branch
+`feat/categoria-iconografia-pr3b` is a child of `feat/categoria-iconografia-pr3a`,
+itself PR #683 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(web): mirror the categoria icon allowlist from the backend` (b8f99b2a)
+   — 3 files changed, 119 insertions(+), 4 deletions(-)
+2. `feat(web): add the categoria icon render map and accessible labels`
+   (4f7e9e72) — 2 files changed, 162 insertions(+)
+3. `feat(web): add the bucket glyph text-color helper for icon badges`
+   (82f143a3) — 2 files changed, 52 insertions(+), 1 deletion(-)
+
+## PR3b batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr3a...HEAD` (3 committed
+commits only): **7 files changed, 333 insertions(+), 5 deletions(-)** =
+**338 changed lines** — within the 400-line budget (forecast was 180–230;
+committed actual landed at 338 because the domain data itself is large — a
+24-entry icon render map + 24-entry Spanish label map, each following the
+existing per-entry-commented style of `category-icons.ts`/`bucket-colors.ts`).
+The uncommitted 3b.4+3b.5 remainder is 190 changed lines (182+/8-); committing
+everything in one batch would have been 528 changed lines total, 128 over
+budget.
+
+## PR3b batch — Deviations from design
+
+None — implementation matches design.md exactly: `ICONOS_CATEGORIA` mirrors
+apps/api verbatim (D-01/D-02); the render map is `satisfies
+Record<IconoCategoria, LucideIcon>` with named imports (not a dynamic lookup);
+`claseGlifoBucket` reuses `--color-pie-etiqueta-*` per D-08 instead of minting
+a new token family; the guards accept `undefined | null | string` and never
+check allowlist membership, per the "Guards" section of design.md. The ONLY
+deviation from the *batch's own instructions* is the budget split itself
+(3b.1–3b.3 committed, 3b.4–3b.5 implemented-but-uncommitted) — an explicit,
+documented consequence of the 400-line ceiling, not a design deviation.
+
+## PR3b batch — Issues found
+
+- **Budget overage if delivered as one unit (see Diff size above).** Resolved
+  by splitting the commit boundary at 3b.3/3b.4, mirroring this change's own
+  PR2/PR2b precedent. The next apply batch (or the orchestrator) should decide
+  whether to (a) commit 3b.4–3b.5 as-is on this SAME branch/PR (recommended —
+  they are small, already green, and don't need a new PR slot), or (b) treat
+  them as a new "PR3b2" chain link if PR3b as committed is opened for review
+  before 3b.4–3b.5 land.
+- **tasks.md path/count corrections** (see "Real-path correction" above):
+  3b.5's file path and the "12-code" count were both stale in the original
+  task text — corrected in `tasks.md` directly, same discipline as the 2.11
+  correction in PR2.
+
+## Status (cumulative)
+
+**PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
+**PR2+PR2b**: 11/11 Phase 2 tasks complete.
+**PR3a**: 6/6 Phase 3a tasks complete.
+**PR3b (this batch)**: 3/5 Phase 3b tasks COMMITTED (3b.1–3b.3); 2/5
+(3b.4–3b.5) IMPLEMENTED+GREEN but uncommitted, pending a follow-up commit on
+the same branch. Recommend `sdd-apply` again for a short batch that commits
+the already-implemented 3b.4–3b.5, then `sdd-verify` for the full PR3b slice,
+then `sdd-apply` for Phase 3c onward.
+
+### PR3b delivery split (orchestrator, maintainer-approved 2026-09-15)
+
+- All five 3b tasks were implemented and green, but together they measured 528 changed lines vs PR3a (the two 24-entry maps dominate), over the 400 ceiling.
+- Split without `size:exception`: PR3b keeps 3b.1-3b.3 (commits `b8f99b2a`, `4f7e9e72`, `82f143a3`, 338 lines) and branch `feat/categoria-iconografia-pr3b2` carries 3b.4/3b.5 as `2fe1c0c0` (response guards) and `32b7b348` (ICONO_INVALIDO copy), 190 lines.
+- No reimplementation was needed: the already-green working-tree changes were committed onto the child branch.
+- PR3b attempt settled `complete` at 338 lines; a separate attempt covers PR3b2.
