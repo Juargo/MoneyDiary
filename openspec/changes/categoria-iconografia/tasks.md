@@ -97,11 +97,11 @@ No fixture-file batch task here (D-11): `icono` is `.optional()` in the generate
 
 ## Phase 3c (PR3c): Mobile contract foundation
 
-- [ ] 3c.1 RED+GREEN: `apps/mobile/src/domain/catalogo-constantes.ts` + `catalogo-constantes.mirror.spec.ts` (`fs`+`__dirname`, precedent `distribucion-gasto.spec.ts`) (CATICO-07)
-- [ ] 3c.2 RED+GREEN: `apps/mobile/src/components/iconos-categoria.ts` + spec — icon map + fallback (CATICO-06, CATICO-08)
-- [ ] 3c.3 Edit `apps/mobile/src/theme/colors.ts` — `COLOR_GLIFO_BUCKET`
-- [ ] 3c.4 Edit `apps/mobile/src/api/categorias.ts`, `apps/mobile/src/api/client.ts` — guards tolerate optional `icono`
-- [ ] 3c.5 Edit `apps/mobile/src/domain/mensajes-catalogo.ts` — add `ICONO_INVALIDO` row (MCTG-06)
+- [x] 3c.1 RED+GREEN: `apps/mobile/src/domain/catalogo-constantes.ts` + `catalogo-constantes.mirror.spec.ts` (`fs`+`__dirname`, precedent `distribucion-gasto.spec.ts`) (CATICO-07)
+- [x] 3c.2 RED+GREEN: `apps/mobile/src/components/iconos-categoria.ts` + spec — icon map + fallback (CATICO-06, CATICO-08)
+- [x] 3c.3 Edit `apps/mobile/src/theme/colors.ts` — `COLOR_GLIFO_BUCKET`
+- [x] 3c.4 Edit `apps/mobile/src/api/categorias.ts`, `apps/mobile/src/api/client.ts` — guards tolerate optional `icono`
+- [x] 3c.5 Edit `apps/mobile/src/domain/mensajes-catalogo.ts` — add `ICONO_INVALIDO` row (MCTG-06)
 
 No fixture-file batch task here (D-11, same reasoning as PR3b): `icono` is `.optional()` in the generated type, so pre-existing mobile fixtures compile unchanged.
 

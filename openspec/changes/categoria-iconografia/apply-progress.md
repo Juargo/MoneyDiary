@@ -553,3 +553,139 @@ then `sdd-apply` for Phase 3c onward.
 - Split without `size:exception`: PR3b keeps 3b.1-3b.3 (commits `b8f99b2a`, `4f7e9e72`, `82f143a3`, 338 lines) and branch `feat/categoria-iconografia-pr3b2` carries 3b.4/3b.5 as `2fe1c0c0` (response guards) and `32b7b348` (ICONO_INVALIDO copy), 190 lines.
 - No reimplementation was needed: the already-green working-tree changes were committed onto the child branch.
 - PR3b attempt settled `complete` at 338 lines; a separate attempt covers PR3b2.
+
+## PR3c — Mobile contract foundation (tasks 3c.1–3c.5) — COMPLETE, all 5 tasks committed
+
+Assigned: Phase 3c (PR3c) tasks 3c.1–3c.5, on branch
+`feat/categoria-iconografia-pr3c` (child of `feat/categoria-iconografia-pr3b2`,
+PR #685, itself targeting the tracker `feat/categoria-iconografia`). All 5
+tasks were implemented test-first (RED → GREEN) and committed as 5 separate
+work-unit commits, landing at 397 changed lines vs the 400-line ceiling —
+tighter than PR3b's initial attempt because the icon allowlist and render map
+were already authored once on the web side and this batch only had to port
+the mobile-specific parts (no fixture churn per D-11, same as PR3b).
+
+Mirrors PR3b's structure task-for-task:
+- 3c.1 mirrors web's `catalogo-constantes.ts`/`.mirror.spec.ts` (3b.1), but
+  uses Jest's CJS `__dirname`/`fs`/`path` (precedent:
+  `distribucion-gasto.spec.ts`) instead of Vitest's `import.meta.url` — Jest
+  does not expose `import.meta`. The mirror spec covers ONLY
+  `ICONOS_CATEGORIA` (CATICO-07's explicit ask), not `BUCKETS_ASIGNABLES`/
+  `MATCH_TYPES` — those were already ported verbatim by an earlier change
+  with no mirror-spec precedent in mobile, and adding one for them was out
+  of this task's scope (YAGNI: not part of CATICO-07, and the budget was
+  already tight).
+- 3c.2 mirrors web's `iconos-categoria.ts`/`.test.ts` (3b.2) verbatim in
+  data (same 24 names, same Spanish `ETIQUETA_ICONO` labels, same `Tag`
+  fallback logic) but is a fresh mobile file — named imports from
+  `lucide-react-native`, which `jest.config.js` already CJS-redirects
+  (pre-existing `moduleNameMapper` entry from an earlier slice, not touched
+  here).
+- 3c.3 has no web equivalent task number (web's `claseGlifoBucket` in
+  `bucket-colors.ts` predates this PR3c/mobile split) — added
+  `COLOR_GLIFO_BUCKET` to `apps/mobile/src/theme/colors.ts` as a literal-hex
+  `Record<string, string>` (mobile has no Tailwind CSS token layer, unlike
+  web's `--color-pie-etiqueta-*`), using design.md's measured contrast pairs:
+  white ink on Necesidades/Ahorro (8.5:1 / 3.5:1), `COLORS.heading` dark ink
+  on Deseos/SinCategoria (10.1:1 / 4.1:1). New `colors.spec.ts` file — the
+  pre-existing `COLOR_BUCKET`/`ETIQUETA_BUCKET` exports in the same file stay
+  untested (out of scope, not touched).
+- 3c.4 mirrors web's `categorias.ts`/`client.ts` guard tests (3b.4, shipped
+  in PR3b2 commit `2fe1c0c0`) — same three-way accept (`undefined | null |
+  string`) plus one reject-wrong-type case, added to the EXISTING
+  `categorias.spec.ts` (inside `describe('fetchCatalogo', ...)`) and
+  `detalle-fetchers.spec.ts` (inside `describe('fetchDetalleBucketMes', ...)`,
+  NOT `client.spec.ts` — mobile splits `fetchDetalleBucketMes`'s tests into
+  their own file, confirmed via `rg` before editing).
+- 3c.5 mirrors web's `mensajes-catalogo.ts` (3b.5, shipped in PR3b2 commit
+  `32b7b348`) — added `ICONO_INVALIDO` as the 13th `CodigoCatalogo` member
+  and its COPY row, same Spanish string as web ("Elige un ícono válido de la
+  lista."). Updated the existing spec's per-code `it.each` table (12→13 rows)
+  and its docblock/describe-title counts.
+
+## PR3c batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 3c.1 | `domain/catalogo-constantes.mirror.spec.ts` | Unit | N/A (new file) | ✅ Written (`ENOENT`/path bug caught + fixed, then `ICONOS_CATEGORIA is not iterable`) | ✅ 1/1 passed | ➖ Triangulation skipped: purely structural allowlist mirror, single order-preserving assertion by design (same as web's ICONOS_CATEGORIA parity test) | ➖ None needed |
+| 3c.2 | `components/iconos-categoria.spec.ts` | Unit | N/A (new file) | ✅ Written (`Cannot find module './iconos-categoria'`) | ✅ 6/6 passed | ✅ 6 cases (label-totality, label-not-raw-id, all-24-resolve, null, undefined, retired/unknown) | ➖ None needed |
+| 3c.3 | `theme/colors.spec.ts` | Unit | N/A (new file) | ✅ Written (`Cannot read properties of undefined`) | ✅ 2/2 passed | ✅ 2 cases (white-ink buckets vs heading-ink buckets) | ➖ None needed |
+| 3c.4 | `api/categorias.spec.ts` + `api/detalle-fetchers.spec.ts` | Unit | ✅ 35/35 (categorias) + ✅ 20/20 (detalle-fetchers), both pre-existing | ✅ Written (reject-wrong-type case failed: accepted `icono: 42` before the guard) | ✅ 8/8 new + 55/55 pre-existing passed | ✅ 3+3 accept cases (omitted/null/string) × 2 files + 1+1 reject case × 2 files | ➖ None needed |
+| 3c.5 | `domain/mensajes-catalogo.spec.ts` | Unit | ✅ 24/24 pre-existing | ✅ Written (`Received: "Ocurrió un error inesperado..."` instead of the new copy) | ✅ 25/25 passed | ➖ Triangulation skipped: single new literal-pinned row, same pattern as the other 12 existing rows in the same `it.each` table | ➖ None needed |
+
+### Test Summary
+- **Total tests written**: 20 new test cases (1 + 6 + 2 + 8 + 1 wrapping the ICONO_INVALIDO row entry, plus the 2 docblock/title edits)
+- **Total tests passing**: 906/906 (full mobile suite, `pnpm --filter @moneydiary/mobile test`)
+- **Layers used**: Unit (20 new), Integration (N/A — no HTTP route or DB boundary touched)
+- **Approval tests** (refactoring): None — no refactoring tasks, all new code/new assertions
+- **Pure functions created**: 2 (`iconoCategoria` in `components/iconos-categoria.ts`; the mirror spec's `leerIconosCategoriaBackend` helper)
+
+## PR3c batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/mobile && pnpm exec jest src/domain/catalogo-constantes.mirror.spec.ts src/components/iconos-categoria.spec.ts src/theme/colors.spec.ts src/api/categorias.spec.ts src/api/client.spec.ts src/api/detalle-fetchers.spec.ts src/domain/mensajes-catalogo.spec.ts` → all 7 files passed |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route, DB boundary, or screen in this batch (pure client-side constants/render-map/color-map/guards/copy); `pnpm --filter @moneydiary/mobile test` (full suite, 82 files/906 tests) is the closest runtime harness and passed |
+| Rollback boundary | Each of the 5 commits below is independently revertible: `git revert 88ba464c` removes only the ICONO_INVALIDO copy row; `git revert f038f842` removes only the two guard clauses (`esCategoriaDto`/`esGrupoDetalleDto`); `git revert c592c545` removes only `COLOR_GLIFO_BUCKET`; `git revert b6f9a4e5` removes only the icon render map (no other file imports it yet); `git revert 5f731629` removes only `ICONOS_CATEGORIA`/`IconoCategoria` and its mirror spec. None of the 5 depend on Phase 4/6 (no picker/badge component exists yet to break) |
+
+## PR3c batch — Verification (full commands run)
+
+- `pnpm --filter @moneydiary/mobile test` → 82 test suites passed, 906 tests passed
+- `cd apps/mobile && pnpm exec tsc --noEmit` → no errors (mobile has no dedicated `typecheck` script; this is the baseline command, confirmed clean before AND after this batch)
+- `pnpm --filter @moneydiary/mobile lint` → 0 errors, 1 pre-existing warning (`BucketDetalleScreen.spec.tsx:48`, `no-require-imports` — untouched file, not introduced by this batch)
+
+## PR3c batch — Commits (feature-branch-chain, branch `feat/categoria-iconografia-pr3c`, child of `feat/categoria-iconografia-pr3b2` which is PR #685 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(mobile): mirror the categoria icon allowlist from the backend` (`5f731629`) — 2 files changed, 101 insertions(+)
+2. `feat(mobile): add the categoria icon render map and accessible labels` (`b6f9a4e5`) — 2 files changed, 160 insertions(+)
+3. `feat(mobile): add the bucket glyph ink color map for icon badges` (`c592c545`) — 2 files changed, 39 insertions(+)
+4. `feat(mobile): tolerate the optional icono field in catalogo response guards` (`f038f842`) — 4 files changed, 78 insertions(+), 2 deletions(-)
+5. `feat(mobile): add the ICONO_INVALIDO row to the catalogo error copy table` (`88ba464c`) — 2 files changed, 11 insertions(+), 6 deletions(-)
+
+## PR3c batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr3b2...HEAD`: **12 files
+changed, 389 insertions(+), 8 deletions(-)** = **397 changed lines** — within
+the 400-line budget (forecast was 180–230; actual landed higher for the same
+reason PR3b did: the 24-entry icon map + 24-entry Spanish label map are
+irreducibly large data, and 3c.1/3c.2 alone account for 261 of the 397
+lines). All 5 tasks fit in this ONE PR without needing a PR3c2 split, unlike
+PR3b — mobile's smaller existing test files (no 33-fixture batch to touch,
+per D-11) kept 3c.4/3c.5 cheap enough to absorb the remaining ~136-line
+margin.
+
+## PR3c batch — Deviations from design
+
+None — implementation matches design.md exactly: `ICONOS_CATEGORIA` mirrors
+`apps/api` verbatim in the same order (D-01/D-02); the render map is
+`satisfies Record<IconoCategoria, LucideIcon>` with named imports (not a
+dynamic lookup); `COLOR_GLIFO_BUCKET` uses the exact contrast pairs
+design.md's "Contrast" section measured (white / `COLORS.heading`); the
+guards accept `undefined | null | string` without ever checking allowlist
+membership (ADR-024); `ICONO_INVALIDO` copy is byte-identical to web's
+string. One documentation-only deviation from the tasks.md file paths: the
+mirror spec and icon-map spec use `.spec.ts` (this codebase's existing
+convention for non-component pure-logic files, e.g. `distribucion-gasto.
+spec.ts`, `categorias.spec.ts`) rather than the `.test.ts` extension web uses
+— tasks.md itself did not pin an exact test-file extension for mobile.
+
+## PR3c batch — Issues found
+
+None. No fixture churn was needed (D-11 held: `icono` is `.optional()` in
+the generated wire type, and `CategoriaDto`/`GrupoDetalleBucketMesDto` in
+`packages/api-client/src/types.gen.ts` already carry `icono?: string | null`
+from PR3a's regen — confirmed via `rg` before writing 3c.4, so the guard
+additions were the only change needed, no existing test fixture in
+`categorias.spec.ts`/`detalle-fetchers.spec.ts` broke). No picker/badge
+component was built (correctly out of scope — Phase 6/7).
+
+## Status (cumulative)
+
+**PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
+**PR2+PR2b**: 11/11 Phase 2 tasks complete.
+**PR3a**: 6/6 Phase 3a tasks complete.
+**PR3b+PR3b2**: 5/5 Phase 3b tasks complete.
+**PR3c (this batch)**: 5/5 Phase 3c tasks COMPLETE and COMMITTED
+(`feat/categoria-iconografia-pr3c`, 397 changed lines). Ready for
+`sdd-verify` on PR3c, then `sdd-apply` for Phase 4 onward (web config list +
+picker — the first UI-consuming phase for the icon feature).
