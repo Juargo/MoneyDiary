@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { IconoCategoria } from '@/api/catalogo-constantes';
 import { SelectorIcono } from './SelectorIcono';
 
 /**
@@ -70,6 +71,37 @@ describe('SelectorIcono', () => {
       screen.getByRole('radio', { name: 'Carrito de compras' }),
     ).toHaveFocus();
     expect(onChange).toHaveBeenCalledWith('shopping-cart');
+  });
+
+  /**
+   * Tab into the group (not `.focus()` on a specific radio, unlike the
+   * ArrowRight case above) plus Space-to-select — the deferred case from
+   * PR4's SelectorIcono validation: only ArrowRight nav was exercised there.
+   * `value` is an unrecognized/retired name here (CATICO-06's "no match"
+   * case, cast because `SelectorIcono` never validates membership at the
+   * type level either), so NO radio starts checked — native radio-group tab
+   * behavior lands Tab on the FIRST option in DOM order ("Sin icono",
+   * CATICO-08) when none is checked, and Space then explicitly selects it.
+   * Landing on an already-checked "Sin icono" (i.e. `value={null}`) would
+   * make Space a no-op re-select and not actually exercise the "Space picks
+   * the Tab-focused option" path this test exists to pin.
+   */
+  it('Tab entra al grupo de radios (ninguna marcada) y Space selecciona la opción enfocada (WCTG-04)', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <SelectorIcono
+        name="icono"
+        value={'icono-retirado' as IconoCategoria}
+        onChange={onChange}
+      />,
+    );
+
+    await user.tab();
+    expect(screen.getByRole('radio', { name: 'Sin icono' })).toHaveFocus();
+    await user.keyboard(' ');
+
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('disabled disables every radio option', () => {
