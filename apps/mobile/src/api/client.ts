@@ -541,7 +541,11 @@ function esGrupoDetalleDto(value: unknown): value is GrupoDetalleBucketMesDto {
     typeof c.subtotal === 'string' &&
     esMontoStringValido(c.subtotal) &&
     Array.isArray(c.transacciones) &&
-    c.transacciones.every(esTransaccionDetalleDto)
+    c.transacciones.every(esTransaccionDetalleDto) &&
+    // categoria-iconografia (design.md "Guards", CATICO-06): `icono` is
+    // undefined | null | string — allowlist membership is never checked
+    // here, the server is the sole validity authority (ADR-024).
+    (c.icono === undefined || c.icono === null || typeof c.icono === 'string')
   );
 }
 

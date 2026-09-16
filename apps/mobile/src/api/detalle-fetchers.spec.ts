@@ -186,6 +186,33 @@ describe('fetchDetalleBucketMes', () => {
       expect(result.error.tag).toBe('parse');
     }
   });
+
+  // categoria-iconografia (design.md "Guards", CATICO-06): the group guard
+  // accepts `icono` as `undefined | null | string` — allowlist membership
+  // is never checked here (ADR-024, the server is the sole authority).
+  it.each([
+    ['omitted', undefined],
+    ['null (Sin categoría, MBD-02)', null],
+    ['a string', 'shopping-cart'],
+  ])('accepts a grupo with icono %s', async (_desc, icono) => {
+    const body = {
+      ...VALID_DETALLE_BODY,
+      grupos: [{ ...VALID_DETALLE_BODY.grupos[0], icono }],
+    };
+    mockFetch(200, body);
+    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+    expect(result).toEqual({ ok: true, value: body });
+  });
+
+  it('rejects a grupo with icono of the wrong type (number) as a parse failure', async () => {
+    const body = {
+      ...VALID_DETALLE_BODY,
+      grupos: [{ ...VALID_DETALLE_BODY.grupos[0], icono: 42 }],
+    };
+    mockFetch(200, body);
+    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
 });
 
 // ---- fetchIngresosMes ----
