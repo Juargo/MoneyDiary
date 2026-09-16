@@ -443,6 +443,151 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
 });
 
 /**
+ * Task 4.5 (categoria-iconografia, ADR-045, WCTG-04, CATICO-03) — the icon
+ * picker travels with `Guardar`'s `PATCH`, never as a separate request, with
+ * tri-state semantics: unchanged omits the `icono` key entirely, a different
+ * allowlisted pick sends it, and clearing to "Sin icono" when the category
+ * had one sends `icono: null`. Both save paths are covered — the direct
+ * (bucket-clean) `Guardar` and the `ConfirmarImpactoDialog` bucket-change
+ * confirm — because CATICO-03's tri-state applies regardless of which path
+ * commits the identity `PATCH` (design.md "Data Flow").
+ *
+ * These tests click the REAL `Guardar` control (and the dialog's own confirm
+ * button) via `user-event`, not `fireEvent.submit` — verified empirically
+ * (a throwaway test, run then discarded) that this repo's jsdom + RTL setup
+ * DOES activate a `type="submit"` button's external `form=` association on a
+ * real click, contrary to this file's own older caution above (task 32's
+ * docblock) — memory: a shipped bug once hid behind `fireEvent.submit`-only
+ * coverage of this exact button.
+ */
+describe('EditarCategoria — el icono viaja con el PATCH de Guardar (WCTG-04, CATICO-03)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const CATEGORIA_CON_ICONO = { ...CATEGORIA_SUPERMERCADO, icono: 'bus' };
+  const CATALOGO_CON_ICONO: CatalogoDto = {
+    categorias: [CATEGORIA_CON_ICONO],
+  };
+
+  function fetchMockPatch(bodyTrasExito: CatalogoDto) {
+    return vi.fn((_url: string, opciones?: RequestInit) =>
+      opciones?.method === 'PATCH'
+        ? Promise.resolve({ ok: true, status: 200 })
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => bodyTrasExito,
+          }),
+    );
+  }
+
+  it('elegir un icono distinto (categoría sin icono) y apretar Guardar (click real) lo incluye en el PATCH directo', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.click(await screen.findByRole('radio', { name: 'Hogar' }));
+    const fetchMock = fetchMockPatch({ categorias: [CATEGORIA_SUPERMERCADO] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          nombre: 'Supermercado',
+          bucket: 'Necesidades',
+          icono: 'house',
+        }),
+      }),
+    );
+  });
+
+  it('no tocar el selector de icono (categoría YA tenía uno) omite la clave icono del PATCH — solo cambia Nombre', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO_CON_ICONO });
+    const nombre = await screen.findByLabelText('Nombre');
+    await user.clear(nombre);
+    await user.type(nombre, 'Super Jumbo');
+    const fetchMock = fetchMockPatch({
+      categorias: [{ ...CATEGORIA_CON_ICONO, nombre: 'Super Jumbo' }],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nombre: 'Super Jumbo', bucket: 'Necesidades' }),
+      }),
+    );
+  });
+
+  it('elegir "Sin icono" cuando la categoría ya tenía uno envía icono: null (clear)', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO_CON_ICONO });
+    await user.click(await screen.findByRole('radio', { name: 'Sin icono' }));
+    const fetchMock = fetchMockPatch({
+      categorias: [{ ...CATEGORIA_CON_ICONO, icono: null }],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          nombre: 'Supermercado',
+          bucket: 'Necesidades',
+          icono: null,
+        }),
+      }),
+    );
+  });
+
+  it('el icono elegido viaja también por el PATCH del diálogo de confirmación de cambio de bucket', async () => {
+    const user = userEvent.setup();
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await user.click(await screen.findByRole('radio', { name: 'Hogar' }));
+    await user.selectOptions(
+      screen.getByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    const fetchMock = fetchMockPatch({ categorias: [CATEGORIA_SUPERMERCADO] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Cambiar bucket',
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias/cat-1', {
+        credentials: 'same-origin',
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          nombre: 'Supermercado',
+          bucket: 'Deseos',
+          icono: 'house',
+        }),
+      }),
+    );
+  });
+});
+
+/**
  * Task 33 — the bucket-change impact confirmation, in the SAME task as the
  * `PATCH` that can trigger it (non-negotiable #3). When `Bucket` is dirty
  * relative to the loaded value, `Guardar`'s submit handler opens
