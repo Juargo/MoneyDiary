@@ -14,6 +14,15 @@
  * via `onReclasificado` and `onMovida` REQUIRED props threaded from BucketDetalleScreen
  * (T-15). No optional-callback silent-noop variant (us-044 PR7 banned-pattern).
  *
+ * Header icon badge (categoria-iconografia, MDET-03, CATICO-06): each group
+ * header leads with an `IconoCategoriaBadge` filled with the SCREEN's bucket
+ * (the `bucket` prop, not a per-group bucket — this screen already scopes
+ * every group to the same bucket), before the categoría name. `grupo.icono`
+ * is normalized with `?? null` (D-11); the synthetic Sin categoría group's
+ * `icono` is always `null` server-side (MBD-02), so the badge renders the
+ * generic fallback for it with no client-side special-casing. Mirrors web's
+ * `GrupoMovimientos.tsx`.
+ *
  * Pure: no fetch, no router.
  */
 
@@ -22,6 +31,7 @@ import { Pressable, Text, View } from 'react-native';
 import { aFechaCorta } from '../../domain/fecha-corta';
 import { formatearMontoCLP } from '../../domain/formatear-monto';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
+import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
 import { ReclasificarMobileControl } from './ReclasificarMobileControl';
 
 /**
@@ -96,6 +106,11 @@ export function GrupoMovimientosMobile({
 
   const categoriaId = grupo.categoriaId;
   const nombre = grupo.nombre;
+  // categoria-iconografia (MDET-03, CATICO-06): `?? null` normalizes the
+  // optional wire field (D-11) — the SinCategoria group's `icono` is always
+  // `null` server-side (MBD-02), so the badge renders the generic fallback
+  // for it with no client-side special-casing.
+  const icono = grupo.icono ?? null;
   const subtotalLabel = formatearMontoCLP(grupo.subtotal);
   const transacciones = grupo.transacciones.map(asTxVM);
 
@@ -130,7 +145,16 @@ export function GrupoMovimientosMobile({
   // Inner content (header + rows + optional toggle)
   const contenido = (
     <>
-      <Text style={{ fontWeight: 'bold', fontSize: 14 }}>{nombre}</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <IconoCategoriaBadge icono={icono} bucket={bucket} />
+        <Text style={{ fontWeight: 'bold', fontSize: 14 }}>{nombre}</Text>
+      </View>
       <Text style={{ fontSize: 12, color: '#8A8F9C' }}>{subtotalLabel}</Text>
 
       {filasMostradas.map((tx) => (

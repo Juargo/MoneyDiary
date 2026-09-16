@@ -143,6 +143,44 @@ describe('aDetalleBucketMesViewModel', () => {
     expect(vm.grupos[1].nombre).toBe('Beta');
   });
 
+  it('icono maps through the group, normalized with ?? null (categoria-iconografia, MDET-03)', () => {
+    const grupos = [
+      {
+        categoriaId: 'a',
+        nombre: 'Supermercado',
+        subtotal: '100',
+        conteo: 1,
+        icono: 'shopping-cart',
+        transacciones: [],
+      },
+      {
+        categoriaId: 'b',
+        nombre: 'Sin icono propio',
+        subtotal: '200',
+        conteo: 1,
+        icono: null,
+        transacciones: [],
+      },
+    ];
+    const vm = aDetalleBucketMesViewModel(makeDto({ grupos }));
+    expect(vm.grupos[0].icono).toBe('shopping-cart');
+    expect(vm.grupos[1].icono).toBeNull();
+  });
+
+  it('icono normalizes an omitted wire field to null — the synthetic Sin categoría group never sends its own icono (MBD-02, D-11)', () => {
+    const grupos = [
+      {
+        categoriaId: null,
+        nombre: 'Sin categoría',
+        subtotal: '100',
+        conteo: 1,
+        transacciones: [],
+      },
+    ];
+    const vm = aDetalleBucketMesViewModel(makeDto({ grupos }));
+    expect(vm.grupos[0].icono).toBeNull();
+  });
+
   it('subtotalLabel and montoLabel are BigInt-exact CLP strings', () => {
     const grupos = [
       {
