@@ -67,7 +67,9 @@ export const ETIQUETA_MATCH_TYPE: Record<MatchType, string> = {
 const GENERICO = 'Ocurrió un error inesperado. Intenta nuevamente.';
 
 /**
- * COPY — the 12-row table, verbatim from web's mensajes-catalogo.ts:90-105.
+ * COPY — one row per `CodigoCatalogo`, verbatim from web's mensajes-catalogo.ts.
+ * No count here on purpose: `Record<CodigoCatalogo, string>` is what keeps the
+ * table closed, and a hand-kept number goes stale the next time a code lands.
  *
  * Notes preserved from web:
  * - `BUCKET_NO_ASIGNABLE` says `Gustos`, not `Deseos` — A1 applies to error
