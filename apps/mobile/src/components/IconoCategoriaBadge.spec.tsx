@@ -17,6 +17,7 @@
  */
 import { render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { COLOR_BUCKET, COLOR_GLIFO_BUCKET } from '../theme/colors';
 import { IconoCategoriaBadge } from './IconoCategoriaBadge';
 import { iconoCategoria } from './iconos-categoria';
@@ -47,7 +48,11 @@ function FakeIcon({
 
 describe('IconoCategoriaBadge (categoria-iconografia, PR6, CATICO-06/08)', () => {
   beforeEach(() => {
-    mockIconoCategoria.mockReturnValue(FakeIcon);
+    // `FakeIcon` is a plain function component, not a real `LucideIcon`
+    // (`ForwardRefExoticComponent`) — the cast is safe here because this
+    // mock is only ever consumed via `createElement`, which does not care
+    // about the exact component shape.
+    mockIconoCategoria.mockReturnValue(FakeIcon as unknown as LucideIcon);
   });
 
   it('resolves the icono via iconoCategoria() and renders it on the bucket fill with the measured glyph ink (Necesidades)', async () => {
