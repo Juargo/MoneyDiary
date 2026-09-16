@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { claseFondoBucket, claseRellenoBucket } from './bucket-colors';
+import {
+  claseFondoBucket,
+  claseGlifoBucket,
+  claseRellenoBucket,
+} from './bucket-colors';
 
 // D3 (design.md, web-theme-switch): pies/legend/categorías consume static
 // Tailwind class names, never hex, so a fill/background flips with the theme
@@ -17,6 +21,29 @@ describe('claseRellenoBucket', () => {
 
   it('falls back to fill-muted-foreground for an unknown bucket key', () => {
     expect(claseRellenoBucket('OtroBucket')).toBe('fill-muted-foreground');
+  });
+});
+
+// categoria-iconografia D-08: the icon badge glyph reuses the SAME measured
+// on-fill ink tokens as the pie label text (`--color-pie-etiqueta-*`,
+// index.css) — not a new token family. Mirrors `claseEtiquetaPie`
+// (`lib/pie-colors.ts`) one-for-one, `text-` instead of `fill-`.
+describe('claseGlifoBucket', () => {
+  it('returns the pie-etiqueta text class for each known bucket', () => {
+    expect(claseGlifoBucket('Necesidades')).toBe(
+      'text-pie-etiqueta-necesidades',
+    );
+    expect(claseGlifoBucket('Deseos')).toBe('text-pie-etiqueta-gustos');
+    expect(claseGlifoBucket('Ahorro')).toBe('text-pie-etiqueta-ahorro');
+    expect(claseGlifoBucket('SinCategoria')).toBe(
+      'text-pie-etiqueta-sin-categoria',
+    );
+  });
+
+  it('falls back to the Necesidades-family class for an unknown bucket key', () => {
+    expect(claseGlifoBucket('OtroBucket')).toBe(
+      'text-pie-etiqueta-necesidades',
+    );
   });
 });
 
