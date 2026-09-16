@@ -74,7 +74,13 @@ function esCategoriaDto(value: unknown): value is CategoriaDto {
     typeof candidato.bucket === 'string' &&
     typeof candidato.transaccionesCount === 'number' &&
     Array.isArray(candidato.patrones) &&
-    candidato.patrones.every(esPatronDto)
+    candidato.patrones.every(esPatronDto) &&
+    // categoria-iconografia (design.md "Guards", CATICO-06): `icono` is
+    // `undefined | null | string` — membership in the allowlist is NEVER
+    // checked here, the server is the sole validity authority (ADR-024).
+    (candidato.icono === undefined ||
+      candidato.icono === null ||
+      typeof candidato.icono === 'string')
   );
 }
 
