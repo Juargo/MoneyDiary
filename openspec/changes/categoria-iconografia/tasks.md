@@ -135,7 +135,7 @@ No fixture-file batch task here (D-11, same reasoning as PR3b): `icono` is `.opt
 
 ## Phase 7 (PR7): Mobile detalle badges
 
-- [ ] 7.1 RED+GREEN: edit mobile `GrupoMovimientosMobile` — header badge, fallback for `SinCategoria` (MDET-03)
-- [ ] 7.2 Edit mobile detalle view-model to thread `icono` through
+- [x] 7.1 RED+GREEN: edit mobile `GrupoMovimientosMobile` — header badge, fallback for `SinCategoria` (MDET-03)
+- [x] 7.2 Edit mobile detalle view-model to thread `icono` through
 
 **Verify:** `pnpm --filter @moneydiary/mobile test -- GrupoMovimientosMobile`; manual on-device gate before merge

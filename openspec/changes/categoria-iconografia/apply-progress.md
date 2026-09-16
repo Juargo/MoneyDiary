@@ -1566,3 +1566,100 @@ per the orchestrator's delivery decision), then `sdd-apply` for Phase 7
 PR6/PR6b mobile config-list-and-picker slice remains the maintainer's job
 before merge — not attempted here, per this batch's explicit scope
 boundary.
+
+## PR7 — Mobile detalle badges (tasks 7.1–7.2) — COMPLETE (last slice of the change)
+
+Assigned: Phase 7 (PR7) tasks 7.1–7.2, on branch `feat/categoria-iconografia-pr7`
+(child of `feat/categoria-iconografia-pr6b`, itself PR #691 targeting the
+tracker `feat/categoria-iconografia`). Both tasks implemented test-first
+(RED → GREEN) and committed as 2 separate work-unit commits, well within the
+400-line budget (132 changed lines total vs the forecast 150–200).
+
+### Completed Tasks (PR7, this batch)
+
+- [x] 7.2 RED: `apps/mobile/src/domain/detalle-bucket-mes-view-model.spec.ts`
+  — 2 new cases: a group's own `icono` maps through verbatim (real value and
+  explicit `null`), and an omitted wire `icono` (the synthetic Sin categoría
+  group never sends its own) normalizes to `null` (MBD-02, D-11)
+- [x] 7.2 GREEN: `apps/mobile/src/domain/detalle-bucket-mes-view-model.ts`
+  — added `GrupoDetalleMesViewModel.icono: string | null`; `aGrupoViewModel`
+  maps `icono: grupo.icono ?? null` (same normalization pattern web already
+  uses). `GrupoDetalleBucketMesDto` (the wire type) already carried
+  `icono?: string | null` from PR3a's contract regen (D-11) — no type file
+  needed a change on the wire side, confirmed via `rg` before starting.
+- [x] 7.1 RED: `apps/mobile/src/components/detalle/GrupoMovimientosMobile.spec.tsx`
+  — mocked `IconoCategoriaBadge` (its own render/fallback/hidden-from-a11y
+  behavior is fully covered by `IconoCategoriaBadge.spec.tsx`, PR6); 2 new
+  cases assert the group header wires `icono`/`bucket` INTO it: a real
+  `shopping-cart` icono for a normal group, and an explicit `null` for the
+  SinCategoria group (proving the actual wire value the server sends per
+  MBD-02, not a placeholder non-null value — the exact naming discipline
+  this batch's instructions called out against PR5's precedent mistake)
+- [x] 7.1 GREEN: `apps/mobile/src/components/detalle/GrupoMovimientosMobile.tsx`
+  — the header wraps `IconoCategoriaBadge` + the categoría name `Text` in a
+  new `flexDirection: 'row', alignItems: 'center', gap: 8` `View`, badge
+  leading before the name (mirrors web `GrupoMovimientos.tsx`'s structure).
+  Badge is filled with the SCREEN's `bucket` prop (not a per-group bucket —
+  this screen already scopes every group to the same bucket, same rationale
+  web's PR5 docstring already states). `icono = grupo.icono ?? null` derived
+  once and reused. No special-casing for the SinCategoria group: its
+  `icono` is already always `null` server-side (MBD-02), so the badge's own
+  fallback logic (`iconoCategoria(null)` → `Tag`, PR3c) handles it for free.
+  The toggle Pressable's `accessibilityState={{ expanded }}` and every
+  existing `testID` are untouched — the badge sits inside a new sibling
+  wrapper, not inside the accessible toggle button, and
+  `IconoCategoriaBadge` already hides itself from the accessibility tree
+  (`accessibilityElementsHidden` + `importantForAccessibility`, PR6), so no
+  accessible-name collision was introduced.
+
+## PR7 batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 7.2 | `domain/detalle-bucket-mes-view-model.spec.ts` | Unit | ✅ 10/10 (pre-existing, before edit) | ✅ Written (2 failed: `Received: undefined` for both real-icono and omitted-icono assertions) | ✅ 12/12 passed | ✅ 2 cases in the first test (real icono value + a category with its own `null`) plus a dedicated omitted-field case (the synthetic-group-always-null scenario, MBD-02) | ➖ None needed |
+| 7.1 | `components/detalle/GrupoMovimientosMobile.spec.tsx` | Unit + RNTL | ✅ 6/6 (pre-existing, before edit) | ✅ Written (`Expected number of calls: 1, Received number of calls: 0` for both new cases) | ✅ 8/8 passed | ✅ 2 cases (real icono for a normal group, explicit `null` for SinCategoria — the actual wire value, not a defensive non-null placeholder) | ➖ None needed |
+
+### PR7 batch Test Summary
+
+- **Total tests written**: 4 new test cases (2 in `detalle-bucket-mes-view-model.spec.ts`, 2 in `GrupoMovimientosMobile.spec.tsx`).
+- **Total tests passing**: 930/930 (full `apps/mobile` suite, `pnpm --filter @moneydiary/mobile test`), 84/84 files.
+- **Layers used**: Unit (view-model) + Unit/RNTL (component).
+- **Approval tests** (refactoring): None — no refactoring tasks, only additive.
+- **Pure functions created**: None new — `aGrupoViewModel` (pre-existing pure function) was extended, not created.
+
+## PR7 batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/mobile && pnpm exec jest src/domain/detalle-bucket-mes-view-model.spec.ts src/components/detalle/GrupoMovimientosMobile.spec.tsx` → both files passed, 20 tests passed |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route, DB boundary, or screen navigation this batch (pure view-model field + one component's header wiring); the manual on-device gate remains the maintainer's job, not attempted here, per this task's explicit scope boundary |
+| Rollback boundary | Two independent commits: (1) `d46f554e` (view-model) — revertable alone, leaves `GrupoDetalleMesViewModel` without `icono` and the component's `grupo.icono` reference would then fail `tsc`, so in practice these two commits are a coupled pair despite being separately revertable in git history; (2) `af553d6a` (component) — revertable alone, removes only the header badge render, leaving the accordion/destacado mechanics fully intact (untouched by this batch) |
+
+## PR7 batch — Verification (full commands run)
+
+- `pnpm --filter @moneydiary/mobile test` → 84 test files passed, 930 tests passed
+- `cd apps/mobile && pnpm exec tsc --noEmit` → no errors
+- `pnpm --filter @moneydiary/mobile lint` → 0 errors, 1 pre-existing warning (`BucketDetalleScreen.spec.tsx:48`, `no-require-imports` — untouched file, same baseline every prior mobile batch in this change has recorded)
+
+## PR7 batch — Commits (feature-branch-chain, branch `feat/categoria-iconografia-pr7`, child of `feat/categoria-iconografia-pr6b` which is PR #691 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(mobile): thread categoria icono through the detalle view model` (`d46f554e`) — 2 files changed, 48 insertions(+)
+2. `feat(mobile): render the category icon badge in detalle group headers` (`af553d6a`) — 2 files changed, 84 insertions(+), 1 deletion(-)
+
+## PR7 batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr6b..HEAD`: **4 files changed, 132 insertions(+), 1 deletion(-)** = **132 changed lines** — well within the 400-line budget (forecast was 150–200; actual landed lower because `GrupoDetalleBucketMesDto`'s wire type already carried `icono` from PR3a's contract regen, so this batch needed zero contract/type-ripple work, unlike the PR2/PR2b pattern).
+
+## PR7 batch — Deviations from design
+
+None — implementation matches design.md and the spec deltas exactly: `icono` travels through the view model normalized with `?? null` (D-11), same pattern as web; the badge is filled with the screen's bucket, not a per-group bucket (MDET-03's own scenario wording); the SinCategoria group gets the generic fallback with no special-case branch, since its `icono` is always `null` server-side (MBD-02) and `IconoCategoriaBadge`'s own fallback logic (PR6/PR3c) already handles `null` for free.
+
+## PR7 batch — Issues found
+
+None blocking. This was the last slice of the `categoria-iconografia` change per Phase 7's own scope — Phase 7 is now 2/2 complete. The manual on-device Maestro gate (for this slice and the earlier PR6/PR6b config-list-and-picker slice) remains the maintainer's job before any of these branches merge; automated apply does not attempt it.
+
+## Status (final)
+
+**PR1** through **PR6+PR6b**: see the cumulative status block above — all complete.
+**PR7 (this batch)**: 2/2 Phase 7 tasks complete. **All 7 phases of `categoria-iconografia` are now fully implemented.**
+Recommend `sdd-verify` for PR7, then archival once every chained PR (PR1…PR7) has merged and the manual on-device gates (PR6/PR6b, PR7) have been run by the maintainer. Task 1.10 (apply the PR1 migration to prod) remains the sole human-gated, unchecked item outside the automated apply scope.
