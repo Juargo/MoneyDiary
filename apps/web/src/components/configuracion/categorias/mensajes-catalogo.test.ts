@@ -46,7 +46,7 @@ describe('MENSAJE_DEMO_CATALOGO', () => {
   });
 });
 
-describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos (11 vía `it.each` + BODY_INVALIDO, con dos productores: `tag: "server"` real del backend y `tag: "parse"` del cliente)', () => {
+describe('mensajeDeErrorCatalogo — la tabla cerrada de 13 códigos (12 vía `it.each` + BODY_INVALIDO, con dos productores: `tag: "server"` real del backend y `tag: "parse"` del cliente)', () => {
   it.each([
     ['NOMBRE_INVALIDO', 'El nombre debe tener entre 1 y 40 caracteres.'],
     ['BUCKET_NO_ASIGNABLE', 'Elige un bucket: Necesidades, Gustos o Ahorro.'],
@@ -65,6 +65,10 @@ describe('mensajeDeErrorCatalogo — la tabla cerrada de 12 códigos (11 vía `i
       'Ya tienes una categoría con ese nombre en ese bucket.',
     ],
     ['PATRON_DUPLICADO', 'Ya tienes un patrón con ese texto.'],
+    // categoria-iconografia (ADR-045, WCTG-12): 12° código de dominio —
+    // `POST`/`PATCH /api/categorias` rechazan un `icono` fuera de la
+    // allowlist curada (CATICO-02/03) con este código.
+    ['ICONO_INVALIDO', 'Elige un ícono válido de la lista.'],
   ] as const)('%s → %s', (code, mensajeEsperado) => {
     expect(mensajeDeErrorCatalogo(servidor(400, code))).toBe(mensajeEsperado);
   });

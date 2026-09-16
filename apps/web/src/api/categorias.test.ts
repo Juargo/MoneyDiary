@@ -178,6 +178,89 @@ describe('fetchCatalogo', () => {
       value: { categorias: [categoriaBucketDesconocido] },
     });
   });
+
+  /**
+   * categoria-iconografia (design.md "Guards", CATICO-06): `esCategoriaDto`
+   * accepts `icono` as `undefined | null | string` — membership in the
+   * allowlist is NEVER checked here (ADR-024, the server is the sole
+   * validity authority), so a retired/unknown name still parses fine and
+   * only the render layer falls back to the generic icon.
+   */
+  it('una categoría sin icono (omitido) pasa el guard', async () => {
+    const { icono: _icono, ...sinIcono } = {
+      ...CATEGORIA_VALIDA,
+      icono: 'shopping-cart',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ categorias: [sinIcono] }),
+      }),
+    );
+
+    const result = await fetchCatalogo();
+
+    expect(result).toEqual({ ok: true, value: { categorias: [sinIcono] } });
+  });
+
+  it('una categoría con icono: null pasa el guard', async () => {
+    const categoriaIconoNull = { ...CATEGORIA_VALIDA, icono: null };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ categorias: [categoriaIconoNull] }),
+      }),
+    );
+
+    const result = await fetchCatalogo();
+
+    expect(result).toEqual({
+      ok: true,
+      value: { categorias: [categoriaIconoNull] },
+    });
+  });
+
+  it('una categoría con icono: string (allowlisted o no) pasa el guard', async () => {
+    const categoriaConIcono = { ...CATEGORIA_VALIDA, icono: 'not-a-real-icon' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ categorias: [categoriaConIcono] }),
+      }),
+    );
+
+    const result = await fetchCatalogo();
+
+    expect(result).toEqual({
+      ok: true,
+      value: { categorias: [categoriaConIcono] },
+    });
+  });
+
+  it('una categoría con icono de tipo inválido (number) se mapea a tag parse', async () => {
+    const categoriaIconoInvalido = { ...CATEGORIA_VALIDA, icono: 42 };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ categorias: [categoriaIconoInvalido] }),
+      }),
+    );
+
+    const result = await fetchCatalogo();
+
+    expect(result).toEqual({
+      ok: false,
+      error: { tag: 'parse', message: 'Respuesta inesperada del servidor.' },
+    });
+  });
 });
 
 describe('postCategoria', () => {
