@@ -26,15 +26,25 @@
  * message string (anti-enumeration).
  *
  * No fetch, no env in this file. crearCategoria is the only API call.
+ *
+ * Icon picker (categoria-iconografia, ADR-045, MCTG-02): `SelectorIcono`
+ * renders after the Nombre/Bucket fields. The default "Sin icono" pick and
+ * never touching the picker both mean "no icon" on CREATE (CATICO-02), so
+ * `icono: icono ?? undefined` only sends the key when the user actually
+ * chose one — mirrors web's `NuevaCategoriaForm.tsx` (4.4) verbatim.
  */
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { crearCategoria } from '../../api/categorias';
-import type { BucketAsignable } from '../../domain/catalogo-constantes';
+import type {
+  BucketAsignable,
+  IconoCategoria,
+} from '../../domain/catalogo-constantes';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
 import { mensajeDeErrorCatalogo } from '../../domain/mensajes-catalogo';
 import { CampoTexto } from './CampoTexto';
 import { SelectorChips } from './SelectorChips';
+import { SelectorIcono } from './SelectorIcono';
 
 export interface NuevaCategoriaFormProps {
   readonly onCreada: () => void;
@@ -47,6 +57,7 @@ export function NuevaCategoriaForm({
 }: NuevaCategoriaFormProps) {
   const [nombre, setNombre] = useState('');
   const [bucket, setBucket] = useState<BucketAsignable | ''>('');
+  const [icono, setIcono] = useState<IconoCategoria | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +78,7 @@ export function NuevaCategoriaForm({
     const resultado = await crearCategoria({
       nombre: nombreTrimmed,
       bucket: bucketSeleccionado,
+      icono: icono ?? undefined,
     });
 
     setEnviando(false);
@@ -96,6 +108,13 @@ export function NuevaCategoriaForm({
         options={BUCKETS_ASIGNABLES}
         value={bucket as BucketAsignable}
         onChange={(v) => setBucket(v)}
+      />
+
+      <SelectorIcono
+        testID="icono-selector"
+        value={icono}
+        onChange={setIcono}
+        disabled={enviando}
       />
 
       {error ? (

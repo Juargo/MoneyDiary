@@ -24,6 +24,7 @@ import React from 'react';
 import {
   render,
   screen,
+  within,
   fireEvent,
   waitFor,
   act,
@@ -63,6 +64,13 @@ const sampleCategoria: CategoriaDto = {
   bucket: 'Necesidades',
   patrones: [],
   transaccionesCount: 5,
+};
+
+// categoria-iconografia (PR6b, MCTG-03): a category that already carries an
+// icono, for the "unchanged omits" and "clear to null" tri-state cases.
+const categoriaConIcono: CategoriaDto = {
+  ...sampleCategoria,
+  icono: 'house',
 };
 
 describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
@@ -260,12 +268,18 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     const bucketSelector = screen.getByTestId('bucket-selector');
     expect(bucketSelector).toHaveProp('accessibilityRole', 'radiogroup');
 
-    // All 3 bucket options are rendered as radio chips
+    // All 3 bucket options are rendered as radio chips. Scoped to
+    // bucket-selector: categoria-iconografia (PR6b) added SelectorIcono,
+    // whose "Ahorro" label for `piggy-bank` collides with the bucket name.
     expect(
-      screen.getByRole('radio', { name: 'Necesidades' }),
+      within(bucketSelector).getByRole('radio', { name: 'Necesidades' }),
     ).toBeOnTheScreen();
-    expect(screen.getByRole('radio', { name: 'Deseos' })).toBeOnTheScreen();
-    expect(screen.getByRole('radio', { name: 'Ahorro' })).toBeOnTheScreen();
+    expect(
+      within(bucketSelector).getByRole('radio', { name: 'Deseos' }),
+    ).toBeOnTheScreen();
+    expect(
+      within(bucketSelector).getByRole('radio', { name: 'Ahorro' }),
+    ).toBeOnTheScreen();
   });
 
   // T7.5 integration case (strengthened JD fix): pattern commits are independent
@@ -1061,5 +1075,146 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     // Falsifiability: removing the mostrandoAlerta guard causes spyAlert to be
     // called twice, failing this assertion.
     expect(spyAlert).toHaveBeenCalledTimes(1);
+  });
+
+  // ── PR6b: icon picker tri-state wiring (MCTG-03, CATICO-03) ─────────────
+  // Mirrors web PR4b's 4 cases exactly, adapted to this file's press-based
+  // controls (never a direct handler call) and Alert.alert confirm flow
+  // instead of web's snapshotAlAbrirDialogo freeze (design.md D-15: reading
+  // `icono` state at handleGuardar-press time already IS the freeze, since
+  // Alert.alert is a native modal blocking all interaction underneath).
+
+  it('picking a new icon on a category with none includes it in the Guardar PATCH (MCTG-03)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Streaming' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+      expect(mockActualizarCategoria).toHaveBeenCalledWith('cat-1', {
+        nombre: 'Supermercado',
+        bucket: 'Necesidades',
+        icono: 'tv',
+      });
+    });
+  });
+
+  it('rename only, category already had an icon: PATCH omits icono entirely (tri-state unchanged)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={categoriaConIcono}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.changeText(
+        screen.getByDisplayValue('Supermercado'),
+        'Supermercado Lider',
+      );
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+      // No `icono` key at all — untouched picker leaves the draft equal to
+      // `iconoInicial`, so `patchIcono` returns `{}` (CATICO-03 "omitted").
+      expect(mockActualizarCategoria).toHaveBeenCalledWith('cat-1', {
+        nombre: 'Supermercado Lider',
+        bucket: 'Necesidades',
+      });
+    });
+  });
+
+  it('picking "Sin icono" on a category that had one sends icono: null (CATICO-03 clear)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={categoriaConIcono}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Sin icono' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+      expect(mockActualizarCategoria).toHaveBeenCalledWith('cat-1', {
+        nombre: 'Supermercado',
+        bucket: 'Necesidades',
+        icono: null,
+      });
+    });
+  });
+
+  it('picking an icon AND changing the bucket: the Alert confirm PATCH also carries the new icono (MCTG-03)', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Streaming' }));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('radio', { name: 'Deseos' }));
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+    });
+
+    // Bucket-dirty: Alert.alert opens, no PATCH yet
+    expect(spyAlert).toHaveBeenCalledTimes(1);
+    expect(mockActualizarCategoria).not.toHaveBeenCalled();
+
+    const buttons = spyAlert.mock.calls[0][2] as {
+      text: string;
+      style?: string;
+      onPress?: () => void;
+    }[];
+    const confirmBtn = buttons.find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      confirmBtn?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockActualizarCategoria).toHaveBeenCalledTimes(1);
+      expect(mockActualizarCategoria).toHaveBeenCalledWith('cat-1', {
+        nombre: 'Supermercado',
+        bucket: 'Deseos',
+        icono: 'tv',
+      });
+    });
   });
 });
