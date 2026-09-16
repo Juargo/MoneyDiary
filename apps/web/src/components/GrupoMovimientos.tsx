@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
 import { EliminarMovimientoControl } from './EliminarMovimientoControl';
+import { IconoCategoriaBadge } from './IconoCategoriaBadge';
 import { aFechaCorta } from '@/domain/fecha';
 import { usePendingIds } from '@/lib/undo-manager';
 import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
@@ -119,13 +120,22 @@ export function GrupoMovimientos({
           onClick={() => setExpandido((v) => !v)}
           className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
         >
-          <span className="min-w-0">
-            {grupo.nombre} ·{' '}
-            <span className="font-mono tabular-nums">
-              {grupo.subtotalLabel}
-            </span>{' '}
-            · <span className="font-mono tabular-nums">{grupo.conteo}</span>{' '}
-            {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
+          {/* categoria-iconografia (WDM-03, CATICO-06): the badge's fill is
+              the PAGE's bucket (`bucketActual`), not a per-group bucket —
+              this page already scopes every group to the same bucket. The
+              synthetic Sin categoría group's `icono` is always `null`
+              server-side (MBD-02), so `IconoCategoriaBadge` renders the
+              generic fallback for it with no client-side special-casing. */}
+          <span className="flex min-w-0 items-center gap-2">
+            <IconoCategoriaBadge icono={grupo.icono} bucket={bucketActual} />
+            <span className="min-w-0">
+              {grupo.nombre} ·{' '}
+              <span className="font-mono tabular-nums">
+                {grupo.subtotalLabel}
+              </span>{' '}
+              · <span className="font-mono tabular-nums">{grupo.conteo}</span>{' '}
+              {grupo.conteo === 1 ? 'movimiento' : 'movimientos'}
+            </span>
           </span>
           <ChevronDown
             aria-hidden="true"

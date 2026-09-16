@@ -99,6 +99,7 @@ const GRUPO_FIXTURE: GrupoDetalleMesViewModel = {
   nombre: 'Supermercado',
   subtotalLabel: '$10.000',
   conteo: 1,
+  icono: null,
   transacciones: [
     {
       id: 'tx-1',
@@ -340,6 +341,75 @@ describe('GrupoMovimientos', () => {
     // This proves the prop is forwarded through GrupoMovimientos — not dropped.
     await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
     expect(onMovida).toHaveBeenCalledWith('Gustos');
+  });
+
+  // ── categoria-iconografia (WDM-03, CATICO-06): accordion heading badge ──
+
+  it('renders the group icono as a bucket-colored badge on the heading (WDM-03)', () => {
+    mockFetch();
+    const grupoConIcono: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      icono: 'shopping-cart',
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConIcono}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const heading = screen.getByRole('heading', { level: 2 });
+    const glifo = heading.querySelector('svg.lucide-shopping-cart');
+    expect(glifo).not.toBeNull();
+    expect(glifo).toHaveAttribute('aria-hidden', 'true');
+    expect(glifo).toHaveClass('text-pie-etiqueta-necesidades');
+  });
+
+  it('a null icono renders the generic fallback badge on the heading (CATICO-06)', () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading.querySelector('svg.lucide-tag')).not.toBeNull();
+  });
+
+  it('the synthetic Sin categoría group always renders the generic fallback badge, even if a wire icono somehow arrived (MBD-02 defense)', () => {
+    mockFetch();
+    const sinCategoria: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      categoriaId: null,
+      nombre: 'Sin categoría',
+      icono: null,
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={sinCategoria}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading.querySelector('svg.lucide-tag')).not.toBeNull();
   });
 
   it('passes categoriaActual as { id, nombre } — id from grupo.categoriaId, nombre from grupo.nombre (D-07)', async () => {

@@ -186,4 +186,43 @@ describe('aDetalleBucketMesViewModel', () => {
     expect(viewModel.totalLabel).toBe('$500.000');
     expect(viewModel.totalTransacciones).toBe(5);
   });
+
+  // categoria-iconografia (design.md "Data Flow", WDM-03): `icono` viaja del
+  // grupo del wire al view model, normalizado con `?? null` porque el campo
+  // es `.optional()` en el tipo generado (D-11) aunque el servidor SIEMPRE
+  // emite la clave en runtime.
+  it('mapea grupo.icono verbatim cuando el wire trae un valor (WDM-03)', () => {
+    const viewModel = aDetalleBucketMesViewModel(
+      dtoConGrupos([
+        {
+          categoriaId: 'cat-noquis',
+          nombre: 'Ñoquis',
+          subtotal: '400000',
+          conteo: 4,
+          icono: 'shopping-cart',
+          transacciones: [],
+        },
+      ]),
+    );
+
+    expect(viewModel.grupos[0].icono).toBe('shopping-cart');
+  });
+
+  it('normaliza un icono ausente del wire a null (D-11, la clave puede faltar en el tipo)', () => {
+    const viewModel = aDetalleBucketMesViewModel(
+      dtoConGrupos(gruposOrdenServidor),
+    );
+
+    expect(viewModel.grupos[0].icono).toBeNull();
+  });
+
+  it('el grupo sintético Sin categoría siempre trae icono null (MBD-02)', () => {
+    const viewModel = aDetalleBucketMesViewModel(
+      dtoConGrupos(gruposOrdenServidor),
+    );
+
+    const sinCategoria = viewModel.grupos[2];
+    expect(sinCategoria.nombre).toBe('Sin categoría');
+    expect(sinCategoria.icono).toBeNull();
+  });
 });
