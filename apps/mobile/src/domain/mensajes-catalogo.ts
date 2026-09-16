@@ -31,9 +31,10 @@ import { copiaPorApiError } from './api-error';
 import type { MatchType } from './catalogo-constantes';
 
 /**
- * CodigoCatalogo — the closed literal union of the 12 codes the deployed
+ * CodigoCatalogo — the closed literal union of the codes the deployed
  * catalog API returns (ported verbatim from web's mensajes-catalogo.ts:62-74).
- * 12 members in total. Google-only perfil codes
+ * 13 members in total (`ICONO_INVALIDO` added by categoria-iconografia,
+ * ADR-045, CATICO-02/03). Google-only perfil codes
  * (VINCULO_REQUIERE_PASSWORD/GOOGLE_YA_VINCULADO/GOOGLE_NO_DISPONIBLE) are
  * NOT members — mobile never calls the Google-link endpoints (design §1.9).
  */
@@ -49,7 +50,8 @@ export type CodigoCatalogo =
   | 'CATEGORIA_NO_ENCONTRADA'
   | 'PATRON_NO_ENCONTRADO'
   | 'NOMBRE_DUPLICADO'
-  | 'PATRON_DUPLICADO';
+  | 'PATRON_DUPLICADO'
+  | 'ICONO_INVALIDO';
 
 /**
  * ETIQUETA_MATCH_TYPE — `MatchType` → UI label (ported from web's
@@ -93,6 +95,7 @@ const COPY: Record<CodigoCatalogo, string> = {
   PATRON_NO_ENCONTRADO: 'Ese patrón ya no existe. Vuelve y recarga.',
   NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre en ese bucket.',
   PATRON_DUPLICADO: 'Ya tienes un patrón con ese texto.',
+  ICONO_INVALIDO: 'Elige un ícono válido de la lista.',
 };
 
 /**
