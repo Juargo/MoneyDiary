@@ -1159,3 +1159,9 @@ list.
 complete**, closing the web side of this change. Recommend `sdd-verify` for
 PR5 (or the combined delivery slice per the orchestrator's decision), then
 `sdd-apply` for Phase 6 onward (mobile config list + picker).
+
+### PR5 post-validation corrections (orchestrator)
+
+- **Validator WARNING (test honesty):** two cases were named as if they proved resilience to a spec-violating server response, but both exercised `icono: null`. Renamed in `9054e0f0` to state what they actually prove, with a comment recording that MBD-02 is a SERVER-side invariant and the client deliberately does not special-case the synthetic group (YAGNI). No production code changed.
+- **Validator SUGGESTION (e2e scope):** the config-list badge case runs on all three Playwright projects, but the detalle badge assertions were added inside a pre-existing test already scoped to `escritorio`. Left as is — the badge has no responsive layout and its behaviour is covered viewport-agnostically by unit tests — and the PR description states the real coverage instead of implying three viewports for both.
+- Attempt settled `complete`; validator verdict PASS.
