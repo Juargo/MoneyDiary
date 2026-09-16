@@ -5,6 +5,12 @@ import { ICONOS_CATEGORIA } from '../../domain/catalogo-constantes';
 import type { IconoCategoria } from '../../domain/catalogo-constantes';
 import { ETIQUETA_ICONO, iconoCategoria } from '../iconos-categoria';
 
+/**
+ * Touch-target side in points (WCAG 2.5.8). A number, not a `size-11` class:
+ * see the component docstring for why rem-based utilities under-render here.
+ */
+const TAMANO_OPCION_PT = 44;
+
 /** "Sin icono" FIRST, then the 24-name allowlist in picker order (D-05/CATICO-01). */
 const OPCIONES: readonly (IconoCategoria | null)[] = [
   null,
@@ -27,10 +33,18 @@ export interface SelectorIconoProps {
  * option) rather than web's native `<input type="radio">` fieldset — mobile
  * has no DOM/keyboard-roving equivalent to port.
  *
- * Each option is a `size-11` (44pt, design's "≥44pt targets") circular
- * touch target with the resolved lucide glyph centered inside — filled
+ * Each option is a 44pt circular touch target (design's "≥44pt targets",
+ * WCAG 2.5.8) with the resolved lucide glyph centered inside — filled
  * (`COLORS.ingreso`) when selected, `COLORS.canvas` otherwise, mirroring
  * `SelectorChips`'s own selected/unselected fill convention.
+ *
+ * The size is a NUMERIC style, not a `size-11` class: NativeWind's native
+ * runtime defaults its `rem` unit to 14 (`react-native-css-interop`'s
+ * `unit-observables.ts`), and nothing here overrides it (`global.css` is the
+ * three bare `@tailwind` directives, `tailwind.config.js` sets no spacing or
+ * root font size), so `size-11` = 2.75rem would render 38.5pt — six under
+ * the floor. `ResumenAnual.tsx`'s `style={{ minHeight: 76 }}` is the same
+ * idiom. `TAMANO_OPCION_PT` is asserted in the spec so the claim cannot rot.
  *
  * Accessible name per option is `ETIQUETA_ICONO[opcion]` (Spanish,
  * CATICO-08 — "never the raw lucide identifier"); "Sin icono" is already a
@@ -72,8 +86,10 @@ export function SelectorIcono({
               accessibilityState={{ checked: seleccionada, disabled }}
               onPress={() => onChange(opcion)}
               disabled={disabled}
-              className="size-11 items-center justify-center rounded-full border"
+              className="items-center justify-center rounded-full border"
               style={{
+                width: TAMANO_OPCION_PT,
+                height: TAMANO_OPCION_PT,
                 backgroundColor: seleccionada ? COLORS.ingreso : COLORS.canvas,
                 borderColor: COLORS.hairline,
               }}

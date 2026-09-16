@@ -23,6 +23,17 @@ describe('SelectorIcono (categoria-iconografia, PR6, CATICO-08, MCTG-02/03)', ()
     expect(radios[0].props.accessibilityLabel).toBe('Sin icono');
   });
 
+  // Asserted on the RENDERED style, not on the constant: a `size-11` class
+  // would read as 44 in the source and render 38.5 at runtime, because
+  // NativeWind's native `rem` defaults to 14 here.
+  it('gives every option a 44pt touch target (WCAG 2.5.8)', async () => {
+    await render(<SelectorIcono value={null} onChange={() => {}} />);
+
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).toHaveStyle({ width: 44, height: 44 });
+    }
+  });
+
   it('exposes a human-readable Spanish accessibilityLabel per option, never the raw lucide id (CATICO-08)', async () => {
     await render(<SelectorIcono value={null} onChange={() => {}} />);
 
