@@ -119,9 +119,9 @@ No fixture-file batch task here (D-11, same reasoning as PR3b): `icono` is `.opt
 
 ## Phase 5 (PR5): Web detalle badges + dead code removal
 
-- [ ] 5.1 RED+GREEN: edit `apps/web/src/components/GrupoMovimientos.tsx`, `apps/web/src/domain/detalle-bucket-mes-view-model.ts` — accordion heading badge, fallback for Sin categoría (WDM-03)
-- [ ] 5.2 Delete `apps/web/src/lib/category-icons.ts` and `apps/web/src/lib/category-icons.test.ts`
-- [ ] 5.3 Update web Playwright e2e (movil/tablet/escritorio) to assert config + detalle badges render in all three viewports
+- [x] 5.1 RED+GREEN: edit `apps/web/src/components/GrupoMovimientos.tsx`, `apps/web/src/domain/detalle-bucket-mes-view-model.ts` — accordion heading badge, fallback for Sin categoría (WDM-03)
+- [x] 5.2 Delete `apps/web/src/lib/category-icons.ts` and `apps/web/src/lib/category-icons.test.ts`
+- [x] 5.3 Update web Playwright e2e (movil/tablet/escritorio) to assert config + detalle badges render in all three viewports
 
 **Verify:** `pnpm web test -- GrupoMovimientos`; `pnpm --filter @moneydiary/web e2e` (3 viewports)
 

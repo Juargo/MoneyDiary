@@ -998,3 +998,164 @@ is now fully complete**, plus the deferred PR4-validator `SelectorIcono`
 keyboard test. Recommend `sdd-verify` for PR4b (or the combined PR4+PR4b
 slice, per the orchestrator's delivery decision), then `sdd-apply` for
 Phase 5 onward (web detalle badges + `category-icons.ts` deletion).
+
+## PR5 — Web detalle badges + dead code removal (tasks 5.1–5.3) — COMPLETE
+
+Assigned: Phase 5 (PR5) tasks 5.1–5.3, on branch `feat/categoria-iconografia-pr5`
+(child of `feat/categoria-iconografia-pr4b`, itself PR #688 targeting the
+tracker `feat/categoria-iconografia`). All 3 tasks implemented test-first
+(RED→GREEN where production code changed) and COMMITTED, one commit per task.
+
+### Completed Tasks (PR5, this batch)
+
+- [x] 5.1 `apps/web/src/domain/detalle-bucket-mes-view-model.ts` +
+  `apps/web/src/components/GrupoMovimientos.tsx` — `GrupoDetalleMesViewModel`
+  gains `readonly icono: string | null`, mapped in `aGrupoViewModel` via
+  `grupo.icono ?? null` (D-11: the wire field is `.optional()` in the
+  generated type even though the server always emits it, so the `?? null`
+  normalization is the same discipline PR3b's client guards already use).
+  `GrupoMovimientos`'s accordion heading now renders `IconoCategoriaBadge`
+  (PR4) before the `nombre · subtotal · conteo` text, with `bucket={bucketActual}`
+  — the PAGE's bucket color token (WDM-03's own scenario wording), not a
+  per-group bucket; this page already scopes every group to one bucket. The
+  synthetic Sin categoría group's `icono` is always `null` server-side
+  (MBD-02, enforced by task 2.7/2.8 back in PR2), so `IconoCategoriaBadge`
+  renders the generic `Tag` fallback for it with zero client-side
+  special-casing — the same `iconoCategoria(null) → Tag` path any other
+  null icono takes. 3 new tests in `detalle-bucket-mes-view-model.test.ts`
+  (verbatim mapping, `?? null` normalization, Sin categoría always null) + 3
+  new tests in `GrupoMovimientos.test.tsx` (valid icono badge via
+  `svg.lucide-bike`, null-icono fallback via `svg.lucide-tag`, and the
+  synthetic-group-always-fallback defense case) — all querying the resolved
+  lucide glyph's own class inside the heading element (`heading.querySelector`),
+  the same pattern PR4's `CategoriaFila.test.tsx` established for
+  disambiguating from the row's OTHER `aria-hidden` icons (here: `ChevronDown`).
+- [x] 5.2 Deleted `apps/web/src/lib/category-icons.ts` (`iconoDeCategoria`,
+  name-keyed, orphaned since ADR-036 made categories per-user rows) and
+  `apps/web/src/lib/category-icons.test.ts`. Confirmed via `rg` that no
+  import of the deleted module survives anywhere in `apps/web/src` or `apps/web/e2e`.
+  The one remaining textual hit outside this change's own SDD artifacts
+  (`apps/web/src/lib/iconos-categoria.ts`'s docblock, "reemplaza en alcance
+  a `lib/category-icons.ts` ... retirado en PR5") already describes the file
+  as deleted in the present change — no correction needed, it is now
+  accurate rather than stale. `docs/adr/ADR-027-...md` and archived
+  `openspec/changes/archive/**` hits are historical records of a past
+  decision/change, not live pointers, and are intentionally left untouched.
+  `pnpm web typecheck` confirmed no consumer broke; the full suite dropped
+  exactly 13 tests (2186 → 2173) and 1 file (155 → 154), matching the
+  deleted test file's own count.
+- [x] 5.3 Updated `apps/web/e2e/bucket-detalle-mes.e2e.ts` (added `icono:
+  'bike'` to the fixture's Paseos group, asserted `svg.lucide-bike` inside
+  the Paseos heading and `svg.lucide-tag` inside the Sin categoría heading,
+  in the existing escritorio-scoped case 1) and `apps/web/e2e/list-surface.e2e.ts`
+  (new describe block: added `icono: 'shopping-cart'` to the catalog
+  fixture's Supermercado category, left Streaming without one, asserted the
+  glyph/fallback per row via `getByRole('listitem').filter({hasText})` — no
+  `test.skip`, so it runs unmodified across all three projects since the
+  badge itself has no viewport-conditional layout). Ran the full Playwright
+  suite (`pnpm exec playwright test`) across all three projects
+  (movil/tablet/escritorio) — 107 passed, 70 skipped (viewport-scoped by
+  design elsewhere in the suite), 0 failed.
+
+### PR5 batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 5.1 | `domain/detalle-bucket-mes-view-model.test.ts` | Unit | ✅ 10/10 (pre-existing, before edit) | ✅ Written (`expected undefined to be null` / `to be 'shopping-cart'`) | ✅ 14/14 passed | ✅ 3 cases (verbatim value, `?? null` normalization, Sin categoría always null) | ➖ None needed |
+| 5.1 | `components/GrupoMovimientos.test.tsx` | Unit + RTL | ✅ 7/7 (pre-existing, before edit) | ✅ Written (`expected null not to be null` — badge glyph absent) | ✅ 9/9 passed | ✅ 3 cases (valid icono, null fallback, Sin-categoría-always-fallback defense) | ➖ None needed |
+| 5.2 | N/A (deletion) | N/A | ✅ `pnpm web typecheck` clean pre- and post-deletion; full suite 2186→2173 (exactly the deleted file's own 13 tests) | N/A — deletion task, not new behavior | ✅ typecheck+lint+build+full suite green post-deletion | ➖ N/A | ➖ N/A |
+| 5.3 | `e2e/bucket-detalle-mes.e2e.ts` | E2E (Playwright, 3 viewports) | ✅ pre-existing case 1 passed before edit | ✅ Written (fixture had no `icono` on Paseos, so `svg.lucide-bike` assertion would have failed against the OLD fixture) | ✅ passed after adding `icono: 'bike'` to the fixture | ➖ Single case per glyph (badge vs fallback) — the production code was already exercised by 5.1's unit tests | ➖ None needed |
+| 5.3 | `e2e/list-surface.e2e.ts` | E2E (Playwright, 3 viewports) | ✅ pre-existing list-surface cases passed before edit | ✅ Written (fixture had no `icono` on Supermercado) | ✅ passed after adding `icono: 'shopping-cart'` to the fixture | ➖ Single case (badge vs fallback in the same test) | ➖ None needed |
+
+### PR5 batch Test Summary
+
+- **Total tests written**: 6 new unit/RTL test cases (3 in
+  `detalle-bucket-mes-view-model.test.ts`, 3 in `GrupoMovimientos.test.tsx`)
+  + 2 new e2e tests (1 assertion pair added inline to an existing
+  `bucket-detalle-mes.e2e.ts` case, 1 new `list-surface.e2e.ts` test running
+  across all 3 projects) − 13 tests removed with `category-icons.test.ts`.
+- **Total tests passing**: 2173/2173 (full `apps/web` unit suite, `pnpm web
+  test`, 154/154 files) + 107/107 applicable Playwright cases across all 3
+  projects (70 skipped by pre-existing viewport scoping, 0 failed).
+- **Layers used**: Unit + RTL component tests + Playwright E2E (all 3
+  viewport projects).
+- **Approval tests** (refactoring): None — no refactoring tasks in this
+  batch (5.2 is a pure deletion with a typecheck/test safety net, not a
+  behavior-preserving refactor of surviving code).
+- **Pure functions created**: None new — `aGrupoViewModel`'s `icono`
+  mapping reuses the existing `?? null` normalization idiom; `GrupoMovimientos`
+  reuses `IconoCategoriaBadge`/`iconoCategoria` from PR3b/PR4.
+
+### PR5 batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/web && pnpm exec vitest run src/components/GrupoMovimientos.test.tsx src/domain/detalle-bucket-mes-view-model.test.ts` → both files passed (9+14 = 23 tests); `pnpm exec playwright test bucket-detalle-mes.e2e.ts list-surface.e2e.ts` → 25 passed, 14 skipped (viewport-scoped), 0 failed, across movil/tablet/escritorio |
+| Runtime harness command/scenario and exact result | `pnpm exec playwright test` (full suite, all 3 projects, against the production `vite build` + `vite preview` per `playwright.config.ts`) — 107 passed, 70 skipped, 0 failed; this IS the runtime harness for this batch (real browser, real compiled CSS/JS, stubbed API only) |
+| Rollback boundary | Each of the 3 committed commits is independently revertable: reverting the 5.3 e2e commit leaves the badges rendering (proven by the unit-level 5.1 commit) without e2e coverage; reverting 5.2 restores the dead file with zero behavior change (nothing imports it); reverting 5.1 alone would need 5.3's fixture `icono` additions reverted too (or the e2e assertions would fail against a badge-less heading) — recorded as a sequencing note, not a blocker, since all 3 are committed together in this batch |
+
+### PR5 batch — Verification (full commands run)
+
+- `pnpm web test` → 154 test files passed, 2173 tests passed
+- `pnpm web typecheck` (`tsr generate && tsc -b`) → no errors
+- `pnpm web lint` (`eslint .`) → 0 errors, 0 warnings (2 prettier issues —
+  one after task 5.1's edit, one after task 5.3's edit — were auto-fixed via
+  `eslint --fix` before each final clean run; both fixes landed inside the
+  SAME work-unit commit via the repo's `lint-staged` pre-commit hook)
+- `pnpm web build` → succeeds, no new warnings; `iconos-categoria` and
+  `configuracion.categorias` chunks present as expected
+- `pnpm exec playwright test` (full suite, all 3 projects) → 107 passed, 70
+  skipped, 0 failed
+
+### PR5 batch — Commits (feature-branch-chain, this branch
+`feat/categoria-iconografia-pr5` is a child of `feat/categoria-iconografia-pr4b`,
+itself PR #688 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(web): render the category icon badge on detalle bucket group
+   headings` (325b95d9) — 4 files changed, 135 insertions(+), 7 deletions(-)
+2. `refactor(web): delete the dead name-keyed category icon map` (e298bf4f)
+   — 2 files changed, 123 deletions(-)
+3. `test(web): cover the category icon badge in detalle and config e2e`
+   (561adf39) — 3 files changed, 47 insertions(+), 5 deletions(-)
+
+### PR5 batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr4b...HEAD` (3 committed
+commits): **9 files changed, 182 insertions(+), 135 deletions(-)** =
+**317 changed lines** — well within the 400-line budget (forecast was
+150-200; landed higher mostly because of the dead-file deletion's own
+123-line removal, which counts toward the authored diff even though it
+shrinks the codebase).
+
+### PR5 batch — Deviations from design
+
+None — implementation matches design.md exactly: the badge fill is the
+PAGE's bucket (`bucketActual`), matching WDM-03's own scenario wording
+("the badge shows the shopping-cart icon on the page's bucket color
+token"), not a per-group bucket; the synthetic Sin categoría group needs no
+client-side special-casing because its `icono` is always `null` from the
+server (MBD-02); `category-icons.ts` is deleted with zero replacement
+consumers, per the File Changes table's "Delete (dead, name-keyed)" entry.
+
+### PR5 batch — Issues found
+
+None blocking. One pre-existing repo convention confirmed by direct
+inspection rather than assumed: `pnpm web build` runs a full production
+build inside `playwright.config.ts`'s `webServer.command`, so every
+Playwright run in this batch also served as an incidental production-build
+smoke test — no separate build-only verification step was needed beyond
+the explicit `pnpm web build` already run for the standard verification
+list.
+
+## Status (cumulative)
+
+**PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
+**PR2+PR2b**: 11/11 Phase 2 tasks complete.
+**PR3a**: 6/6 Phase 3a tasks complete.
+**PR3b+PR3b2**: 5/5 Phase 3b tasks complete.
+**PR3c**: 5/5 Phase 3c tasks complete.
+**PR4+PR4b**: 5/5 Phase 4 tasks complete.
+**PR5 (this batch)**: 3/3 Phase 5 tasks complete — **Phase 5 is now fully
+complete**, closing the web side of this change. Recommend `sdd-verify` for
+PR5 (or the combined delivery slice per the orchestrator's decision), then
+`sdd-apply` for Phase 6 onward (mobile config list + picker).
