@@ -85,11 +85,11 @@ Slices are ordered by hard dependency (domain → application/infra → contract
 
 ## Phase 3b (PR3b): Web contract foundation
 
-- [ ] 3b.1 RED+GREEN: `apps/web/src/api/catalogo-constantes.ts` + `catalogo-constantes.mirror.spec.ts` — mirror the 24 names via `/['"]([a-z0-9-]+)['"]/g` (CATICO-07)
-- [ ] 3b.2 RED+GREEN: `apps/web/src/lib/iconos-categoria.ts` + test — `satisfies Record<IconoCategoria, LucideIcon>`, `ETIQUETA_ICONO` (es), `iconoCategoria()` → `Tag` fallback (CATICO-06, CATICO-08)
-- [ ] 3b.3 Edit `apps/web/src/lib/bucket-colors.ts` — `claseGlifoBucket()` → `text-pie-etiqueta-*`
-- [ ] 3b.4 Edit `apps/web/src/api/categorias.ts` — guard tolerates `icono: undefined | null | string`
-- [ ] 3b.5 Edit `apps/web/src/lib/mensajes-catalogo.ts` — add `ICONO_INVALIDO` row, rename to 12-code table (WCTG-12)
+- [x] 3b.1 RED+GREEN: `apps/web/src/api/catalogo-constantes.ts` + `catalogo-constantes.mirror.spec.ts` — mirror the 24 names via `/['"]([a-z0-9-]+)['"]/g` (CATICO-07)
+- [x] 3b.2 RED+GREEN: `apps/web/src/lib/iconos-categoria.ts` + test — `satisfies Record<IconoCategoria, LucideIcon>`, `ETIQUETA_ICONO` (es), `iconoCategoria()` → `Tag` fallback (CATICO-06, CATICO-08)
+- [x] 3b.3 Edit `apps/web/src/lib/bucket-colors.ts` — `claseGlifoBucket()` → `text-pie-etiqueta-*`
+- [x] 3b.4 Edit `apps/web/src/api/categorias.ts` (`esCategoriaDto`) and `apps/web/src/api/client.ts` (`esGrupoDetalleBucketMesDto`) — guards tolerate `icono: undefined | null | string`, never allowlist membership (CATICO-06, ADR-024). Shipped in PR3b2 (#685), commit `2fe1c0c0`.
+- [x] 3b.5 Edit the REAL path `apps/web/src/components/configuracion/categorias/mensajes-catalogo.ts` (tasks.md names `apps/web/src/lib/mensajes-catalogo.ts`, which does not exist — confirmed via `fd`) — add `ICONO_INVALIDO` row, rename to 13-code table (WCTG-12: 12 domain codes + `BODY_INVALIDO`). Shipped in PR3b2 (#685), commit `32b7b348`.
 
 No fixture-file batch task here (D-11): `icono` is `.optional()` in the generated type, so the ~33 pre-existing `CategoriaDto`/detalle-group fixture literals in `apps/web/src/**/*.test.{ts,tsx}` compile unchanged — only NEW icon-specific tests (Phase 4/5) add `icono` to their own fixtures.
 
