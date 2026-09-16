@@ -70,11 +70,18 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       name: 'Paseos · $600.000 · 12 movimientos',
     });
     await expect(tituloPaseos).toBeVisible();
-    await expect(
-      page.getByRole('heading', {
-        name: 'Sin categoría · $50.000 · 2 movimientos',
-      }),
-    ).toBeVisible();
+    const tituloSinCategoria = page.getByRole('heading', {
+      name: 'Sin categoría · $50.000 · 2 movimientos',
+    });
+    await expect(tituloSinCategoria).toBeVisible();
+
+    // categoria-iconografia (WDM-03, CATICO-06): Paseos carries the fixture's
+    // allowlisted `icono: 'bike'` — its heading badge renders that glyph. The
+    // synthetic Sin categoría group's `icono` is always null server-side
+    // (MBD-02), so its badge renders the generic `Tag` fallback instead.
+    await expect(tituloPaseos.locator('svg.lucide-bike')).toBeVisible();
+    await expect(tituloSinCategoria.locator('svg.lucide-tag')).toBeVisible();
+
     const triggerPaseos = tituloPaseos.getByRole('button');
     await expect(triggerPaseos).toHaveAttribute('aria-expanded', 'false');
     const filaUber = page.getByText('Uber', { exact: true });
