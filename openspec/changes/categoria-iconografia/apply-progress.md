@@ -1395,3 +1395,9 @@ PR6b batch that implements `NuevaCategoriaForm` first (smaller), then
 `EditarCategoria`'s tri-state wiring (likely its own PR6c given web PR4b's
 precedent size), before `sdd-verify` runs on the combined PR6 delivery
 slice. Phase 7 (mobile detalle badges) stays blocked on 6.3 finishing.
+
+### PR6 post-validation correction (orchestrator)
+
+- **Validator CRITICAL:** `SelectorIcono` sized its options with the `size-11` class and both the docstring and these notes claimed that met the 44pt floor. It does not: NativeWind native defaults `rem` to 14 (`react-native-css-interop/dist/runtime/native/unit-observables.js`), and nothing overrides it here (`global.css` is the three bare `@tailwind` directives; `tailwind.config.js` sets no spacing or root font size), so `2.75rem` rendered **38.5pt** — six under WCAG 2.5.8. Independently reproduced before fixing.
+- **Fix:** the option size is now a numeric style (`TAMANO_OPCION_PT = 44`), the repo idiom already used by `ResumenAnual.tsx` (`style={{ minHeight: 76 }}`), the docstring records why the class form is wrong, and a new spec case asserts the RENDERED style (`toHaveStyle({ width: 44, height: 44 })`) so the claim cannot rot again.
+- Any earlier "44pt satisfied via `size-11`" wording in this file and in `tasks.md` is superseded by this note.
