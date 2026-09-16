@@ -13,12 +13,25 @@
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
+import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
 
 // Mock ReclasificarMobileControl — this spec tests accordion/destacado, not reclassify.
 // The real control is tested in ReclasificarMobileControl.spec.tsx.
 jest.mock('./ReclasificarMobileControl', () => ({
   ReclasificarMobileControl: () => null,
 }));
+
+// categoria-iconografia (PR7, task 7.1, MDET-03): mock the badge itself —
+// its own rendering (fill/ink/fallback/hidden-from-a11y) is fully covered by
+// `IconoCategoriaBadge.spec.tsx`; this suite only proves the group header
+// wires `icono`/`bucket` INTO it.
+jest.mock('../IconoCategoriaBadge', () => ({
+  IconoCategoriaBadge: jest.fn(() => null),
+}));
+
+const mockIconoCategoriaBadge = IconoCategoriaBadge as jest.MockedFunction<
+  typeof IconoCategoriaBadge
+>;
 
 function makeTx(id: string) {
   return {
@@ -34,12 +47,14 @@ function makeGrupo(
   categoriaId: string | null,
   nombre: string,
   txCount: number,
+  icono: string | null = null,
 ): GrupoDetalleBucketMesDto {
   return {
     categoriaId,
     nombre,
     conteo: txCount,
     subtotal: String(txCount * 10000),
+    icono,
     transacciones: Array.from({ length: txCount }, (_, i) =>
       makeTx(`${categoriaId ?? 'sin'}-tx-${i + 1}`),
     ),
@@ -47,6 +62,10 @@ function makeGrupo(
 }
 
 describe('GrupoMovimientosMobile', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('group with 12 rows shows exactly 10 rows and "Ver 2 más" collapsed (accessibilityState.expanded false)', async () => {
     const grupo = makeGrupo('cat-1', 'Entretenimiento', 12);
 
@@ -182,5 +201,45 @@ describe('GrupoMovimientosMobile', () => {
     expect(screen.getByTestId('grupo-movimientos-sin-categoria')).toBeTruthy();
     // Inner destacado wrapper MUST NOT exist when destacar is not active
     expect(screen.queryByTestId('grupo-sin-categoria-destacado')).toBeNull();
+  });
+
+  it("renders the header icon badge with the group's icono and bucket (categoria-iconografia, MDET-03)", async () => {
+    const grupo = makeGrupo('cat-1', 'Supermercado', 1, 'shopping-cart');
+
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        bucket="Necesidades"
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
+
+    expect(mockIconoCategoriaBadge).toHaveBeenCalledTimes(1);
+    expect(mockIconoCategoriaBadge.mock.calls[0][0]).toMatchObject({
+      icono: 'shopping-cart',
+      bucket: 'Necesidades',
+    });
+  });
+
+  it("the SinCategoria group header always passes a null icono to the badge — the fallback is the badge's own job (CATICO-06, MBD-02)", async () => {
+    const grupo = makeGrupo(null, 'Sin categoría', 1);
+
+    await render(
+      <GrupoMovimientosMobile
+        grupo={grupo}
+        bucket="Deseos"
+        destacar={undefined}
+        onReclasificado={jest.fn()}
+        onMovida={jest.fn()}
+      />,
+    );
+
+    expect(mockIconoCategoriaBadge).toHaveBeenCalledTimes(1);
+    expect(mockIconoCategoriaBadge.mock.calls[0][0]).toMatchObject({
+      icono: null,
+      bucket: 'Deseos',
+    });
   });
 });
