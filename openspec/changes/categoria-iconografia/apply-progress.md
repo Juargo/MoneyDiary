@@ -1401,3 +1401,168 @@ slice. Phase 7 (mobile detalle badges) stays blocked on 6.3 finishing.
 - **Validator CRITICAL:** `SelectorIcono` sized its options with the `size-11` class and both the docstring and these notes claimed that met the 44pt floor. It does not: NativeWind native defaults `rem` to 14 (`react-native-css-interop/dist/runtime/native/unit-observables.js`), and nothing overrides it here (`global.css` is the three bare `@tailwind` directives; `tailwind.config.js` sets no spacing or root font size), so `2.75rem` rendered **38.5pt** — six under WCAG 2.5.8. Independently reproduced before fixing.
 - **Fix:** the option size is now a numeric style (`TAMANO_OPCION_PT = 44`), the repo idiom already used by `ResumenAnual.tsx` (`style={{ minHeight: 76 }}`), the docstring records why the class form is wrong, and a new spec case asserts the RENDERED style (`toHaveStyle({ width: 44, height: 44 })`) so the claim cannot rot again.
 - Any earlier "44pt satisfied via `size-11`" wording in this file and in `tasks.md` is superseded by this note.
+
+## PR6b — Mobile create + edit icon wiring (task 6.3 remainder: MCTG-02/03) — COMPLETE
+
+Assigned: the two NOT-started halves of task 6.3 that PR6 stopped on
+(`NuevaCategoriaForm` MCTG-02, `EditarCategoria` MCTG-03 tri-state), on
+branch `feat/categoria-iconografia-pr6b` (child of
+`feat/categoria-iconografia-pr6`, PR #690, itself targeting the tracker
+`feat/categoria-iconografia`). Both halves implemented test-first
+(RED → GREEN) and COMMITTED as 2 separate work-unit commits, exactly the
+split PR6's own stop note recommended.
+
+### Completed Tasks (PR6b, this batch)
+
+- [x] `NuevaCategoriaForm` half of 6.3 (MCTG-02) — renders `SelectorIcono`
+  after the Nombre/Bucket fields; `handleGuardar` sends
+  `icono: icono ?? undefined` in the `crearCategoria` body (mirrors web
+  4.4's `JSON.stringify`-drops-`undefined` trick — `toEqual` in Jest treats
+  an `undefined`-valued key as absent, so the existing "no icon chosen"
+  tests needed zero edits). `CategoriaInput.icono?: IconoCategoria | null`
+  added to `apps/mobile/src/api/categorias.ts` — shared infrastructure for
+  both halves, same as web's own note. 3 new
+  `NuevaCategoriaForm.spec.tsx` cases (renders the 25-option picker,
+  picking an icon includes it in the body, never touching the picker omits
+  it).
+- [x] `EditarCategoria` half of 6.3 (MCTG-03, tri-state) —
+  `EditarCategoriaCargada`-equivalent state gains
+  `iconoInicial = (categoria.icono ?? null) as IconoCategoria | null` and
+  `const [icono, setIcono] = useState<IconoCategoria | null>(iconoInicial)`,
+  seeded exactly like `nombre`/`bucket`. A `patchIcono(valor)` helper —
+  verbatim port of web PR4b's — returns `{}` when unchanged or
+  `{ icono: valor }` otherwise, spread into BOTH mutation call sites: the
+  direct (bucket-clean) `handleGuardar` PATCH and the bucket-dirty
+  `confirmarCambiarBucket` PATCH fired from the `Alert.alert` confirm
+  button. Per the file's own docblock (D-15): mobile needs NO
+  `snapshotAlAbrirDialogo`-style freeze — `Alert.alert` is a native modal
+  that already blocks all interaction underneath, so reading `icono` state
+  at `handleGuardar`-press time already IS the freeze, exactly like
+  `nombre`/`bucket` on the same path. 4 new `EditarCategoria.spec.tsx`
+  cases, all pressing the REAL `Guardar`/Alert-confirm controls via
+  `fireEvent.press` (never a direct handler call): set-from-null,
+  unchanged-omitted, clear-to-null, travels-through-the-bucket-dirty-Alert-
+  confirm-path.
+
+### A real pre-existing-test ripple (accessible-name collision, not a design flaw)
+
+`piggy-bank`'s Spanish label (`ETIQUETA_ICONO`) is **"Ahorro"** — byte-identical
+to the `Ahorro` bucket name `SelectorChips` already renders as a radio.
+Once `SelectorIcono` mounted alongside the bucket `SelectorChips` in BOTH
+forms, every pre-existing unscoped `getByRole('radio', {name: 'Ahorro'})`
+(and the unscoped `getAllByRole('radio')` bucket-count assertions) started
+matching two elements instead of one, breaking 5 pre-existing tests across
+3 files:
+- `NuevaCategoriaForm.spec.tsx`: the `llenarYEnviar` helper's bucket press,
+  and the "renders SelectorChips" `getAllByRole('radio')` length-3 assertion.
+- `CategoriasPanel.spec.tsx`: the same length-3 `getAllByRole('radio')`
+  assertion (parent panel renders the same form).
+- `EditarCategoria.spec.tsx`: the "renders Bucket selector" test's bare
+  `getByRole('radio', {name: 'Ahorro'})`.
+
+Fixed by scoping every bucket-radio query to `within(screen.getByTestId('bucket-selector'))`
+— zero production-code change, zero test-intent change, only the query
+scope. This is a genuine cross-cutting consequence of the allowlist's own
+Spanish labels (not something PR3c/PR4/PR6 could have caught, since neither
+form rendered both radiogroups together before this batch) — worth noting
+for any FUTURE picker/selector pairing in this codebase where both groups
+use `accessibilityRole="radio"`.
+
+## PR6b batch — TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| MCTG-02 | `configuracion/NuevaCategoriaForm.spec.tsx` | Unit + RNTL | ✅ 12/12 (pre-existing, before edit) | ✅ Written (2/3 new cases failed: picker-not-rendered `getByRole` errors; the "never touching the picker" case passed immediately — legitimate triangulation/regression pin, not a weak RED, since it still proves the no-icon body stays byte-identical post-implementation) | ✅ 15/15 passed after implementation | ✅ 3 cases (renders picker, picks icon → included, untouched → omitted) | ➖ None needed |
+| MCTG-03 | `configuracion/EditarCategoria.spec.tsx` | Unit + RNTL | ✅ 25/25 (pre-existing, before edit) | ✅ Written (3/4 new cases failed: picker-not-rendered `getByRole` errors on the "Streaming"/"Sin icono" presses; the "rename only, unchanged" case passed immediately — legitimate triangulation, proves the no-op path stays correct post-implementation) | ✅ 29/29 passed after implementation | ✅ 4 cases (set-from-null, unchanged-omitted, clear-to-null, travels-through-dialog-confirm) | ➖ None needed |
+| Test-ripple fix | `NuevaCategoriaForm.spec.tsx`, `CategoriasPanel.spec.tsx`, `EditarCategoria.spec.tsx` | N/A | N/A | N/A — query-scope-only fixes, not new behavior (see "Ahorro" collision note above) | ✅ full mobile suite green after all 3 files fixed | N/A | N/A |
+
+### PR6b batch Test Summary
+
+- **Total tests written**: 7 new test cases (3 in `NuevaCategoriaForm.spec.tsx`,
+  4 in `EditarCategoria.spec.tsx`), plus 3 pre-existing tests across 3 files
+  fixed via query-scoping only (no assertion-intent change).
+- **Total tests passing**: 926/926 (full `apps/mobile` suite, `pnpm --filter
+  @moneydiary/mobile test`), 84/84 files.
+- **Layers used**: Unit + RNTL component tests only (no route/API layer
+  touched this batch).
+- **Approval tests** (refactoring): None — no refactoring tasks in this
+  batch, only additive.
+- **Pure functions created**: `patchIcono` (tri-state PATCH-key helper,
+  `EditarCategoria.tsx` — verbatim port of web PR4b's).
+
+## PR6b batch — Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `cd apps/mobile && pnpm exec jest src/components/configuracion/NuevaCategoriaForm.spec.tsx src/components/configuracion/EditarCategoria.spec.tsx src/components/configuracion/CategoriasPanel.spec.tsx` → all 3 files passed (15+29+remaining CategoriasPanel cases, all green) |
+| Runtime harness command/scenario and exact result | N/A — no new HTTP route or DB boundary this batch (pure client-side form wiring); `cd apps/mobile && pnpm exec tsc --noEmit` is the closest runtime harness (confirms both forms compile against the real `@moneydiary/api-client` `CategoriaDto`/`CategoriaInput`/`CategoriaPatch` shapes) and passed clean |
+| Rollback boundary | Each of the 2 committed commits is independently revertable: reverting `feat(mobile): wire the icon picker into category editing` (`16fea13e`) removes MCTG-03 entirely, leaving `EditarCategoria` exactly as PR6 shipped it; reverting `feat(mobile): wire the icon picker into category creation` (`9d994b06`) removes MCTG-02 and its `CategoriaInput.icono` type addition (which MCTG-03 does NOT depend on — it only reads `CategoriaPatch.icono`, added in the SAME commit as MCTG-02 but logically independent) |
+
+## PR6b batch — Verification (full commands run)
+
+- `pnpm --filter @moneydiary/mobile test` → 84 test files passed, 926 tests passed
+- `cd apps/mobile && pnpm exec tsc --noEmit` → no errors
+- `pnpm --filter @moneydiary/mobile lint` → 0 errors, 1 pre-existing warning
+  (`BucketDetalleScreen.spec.tsx:48`, `no-require-imports` — untouched file,
+  same baseline PR3c/PR5/PR6 already recorded, not introduced by this batch)
+
+## PR6b batch — Commits (feature-branch-chain, branch
+`feat/categoria-iconografia-pr6b`, child of `feat/categoria-iconografia-pr6`,
+itself PR #690 targeting the tracker `feat/categoria-iconografia`)
+
+1. `feat(mobile): wire the icon picker into category creation` (`9d994b06`)
+   — 4 files changed, 114 insertions(+), 6 deletions(-)
+2. `feat(mobile): wire the icon picker into category editing` (`16fea13e`)
+   — 2 files changed, 205 insertions(+), 5 deletions(-)
+
+## PR6b batch — Diff size
+
+`git diff --shortstat feat/categoria-iconografia-pr6...HEAD`: **6 files
+changed, 319 insertions(+), 11 deletions(-)** = **330 changed lines** —
+well within the 400-line budget (forecast for the remainder was PR6's own
+estimate of "likely its own PR6c given web PR4b's precedent size"; it fit
+in ONE PR6b instead because mobile's `SelectorIcono` is presentational and
+controlled, so BOTH forms only needed a few lines of state + one spread
+each, unlike web's heavier `snapshotAlAbrirDialogo` freeze mechanism this
+file's own D-15 explicitly avoids).
+
+## PR6b batch — Deviations from design
+
+None — implementation matches design.md exactly: the icon travels in the
+SAME `POST`/`PATCH` body as `nombre`/`bucket` (MCTG-02/03's own scenario
+wording); tri-state semantics match CATICO-03 verbatim (omitted unchanged,
+`null` clears, a value sets); `patchIcono` is a verbatim port of web PR4b's
+helper; the design.md D-15 "no snapshot freeze needed for mobile" note held
+exactly as documented — `Alert.alert`'s native-modal blocking made a
+separate `iconoNuevo` snapshot field unnecessary, unlike web's
+`snapshotAlAbrirDialogo.iconoNuevo`.
+
+## PR6b batch — Issues found
+
+- **Real test-ripple, not a design defect** (see "A real pre-existing-test
+  ripple" above): the `piggy-bank` → "Ahorro" label collision with the
+  bucket name broke 3 pre-existing test files' unscoped radio queries.
+  Fixed via query-scoping (`within(bucket-selector)`), zero behavior change.
+  Worth flagging for Phase 7 (mobile detalle badges, `GrupoMovimientosMobile`)
+  and any future SDD change that pairs two `accessibilityRole="radio"`
+  groups on the same screen in this codebase.
+- None blocking.
+
+## Status (cumulative)
+
+**PR1**: 9/10 Phase 1 tasks complete (1.10 human-gated).
+**PR2+PR2b**: 11/11 Phase 2 tasks complete.
+**PR3a**: 6/6 Phase 3a tasks complete.
+**PR3b+PR3b2**: 5/5 Phase 3b tasks complete.
+**PR3c**: 5/5 Phase 3c tasks complete.
+**PR4+PR4b**: 5/5 Phase 4 tasks complete.
+**PR5**: 3/3 Phase 5 tasks complete.
+**PR6+PR6b**: 3/3 Phase 6 tasks complete (6.1, 6.2, 6.3 — 6.3's
+`CategoriaFila`/`NuevaCategoriaForm`/`EditarCategoria` halves all done
+across PR6 and this PR6b batch) — **Phase 6 is now fully complete**.
+Recommend `sdd-verify` for PR6b (or the combined PR6+PR6b delivery slice,
+per the orchestrator's delivery decision), then `sdd-apply` for Phase 7
+(mobile detalle badges). The manual on-device Maestro gate for the combined
+PR6/PR6b mobile config-list-and-picker slice remains the maintainer's job
+before merge — not attempted here, per this batch's explicit scope
+boundary.
