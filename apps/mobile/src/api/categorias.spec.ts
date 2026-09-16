@@ -301,6 +301,45 @@ describe('fetchCatalogo', () => {
       expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
     },
   );
+
+  // categoria-iconografia (design.md "Guards", CATICO-06): `esCategoriaDto`
+  // accepts `icono` as `undefined | null | string` — allowlist membership
+  // is NEVER checked here (ADR-024, the server is the sole authority), so a
+  // retired/unknown name still parses fine.
+  it.each([
+    ['omitted', undefined],
+    ['null', null],
+    ['a string (allowlisted or not)', 'not-a-real-icon'],
+  ])(
+    'accepts icono %s without checking allowlist membership',
+    async (_desc, icono) => {
+      const catalogo = { categorias: [{ ...categoriaValida, icono }] };
+      mockFetchOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(catalogo),
+      });
+      const { fetchCatalogo } = requireCategorias();
+
+      const result = await fetchCatalogo();
+
+      expect(result).toEqual({ ok: true, value: catalogo });
+    },
+  );
+
+  it('rejects icono of the wrong type (number) as a parse failure', async () => {
+    const catalogo = { categorias: [{ ...categoriaValida, icono: 42 }] };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(catalogo),
+    });
+    const { fetchCatalogo } = requireCategorias();
+
+    const result = await fetchCatalogo();
+
+    expect(result).toEqual({ ok: false, error: { tag: 'parse' } });
+  });
 });
 
 describe('mutaciones de categorías', () => {

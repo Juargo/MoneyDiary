@@ -2,8 +2,9 @@
  * mensajes-catalogo.spec.ts (US-044 PR5a, T5a.5)
  *
  * Two independent halves:
- * 1. Runtime error-table cases — literal-pinned rows for all 12 CodigoCatalogo
- *    members + transport tags + unknown code fallback + GENERICO fallback.
+ * 1. Runtime error-table cases — literal-pinned rows for all 13 CodigoCatalogo
+ *    members (categoria-iconografia added `ICONO_INVALIDO`, ADR-045, CATICO-
+ *    02/03) + transport tags + unknown code fallback + GENERICO fallback.
  * 2. Type-level absence proofs — three `// @ts-expect-error` assignments that
  *    confirm the three Google-only codes are NOT members of CodigoCatalogo.
  *    Each @ts-expect-error MUST trigger a tsc error; if it does not, tsc itself
@@ -49,7 +50,7 @@ function httpSinCodigo(status: number): ApiError {
   return { tag: 'http', status };
 }
 
-describe('mensajeDeErrorCatalogo — 12-member CodigoCatalogo table', () => {
+describe('mensajeDeErrorCatalogo — 13-member CodigoCatalogo table', () => {
   it.each<readonly [CodigoCatalogo, string]>([
     ['NOMBRE_INVALIDO', 'El nombre debe tener entre 1 y 40 caracteres.'],
     ['BUCKET_NO_ASIGNABLE', 'Elige un bucket: Necesidades, Gustos o Ahorro.'],
@@ -77,6 +78,7 @@ describe('mensajeDeErrorCatalogo — 12-member CodigoCatalogo table', () => {
       'Ya tienes una categoría con ese nombre en ese bucket.',
     ],
     ['PATRON_DUPLICADO', 'Ya tienes un patrón con ese texto.'],
+    ['ICONO_INVALIDO', 'Elige un ícono válido de la lista.'],
   ])('%s → correcto copy string', (code, esperado) => {
     expect(mensajeDeErrorCatalogo(http(400, code))).toBe(esperado);
   });

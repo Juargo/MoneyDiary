@@ -74,3 +74,23 @@ export const ETIQUETA_BUCKET: Record<string, string> = {
   Ahorro: 'Ahorro',
   SinCategoria: 'Sin categoría',
 };
+
+/**
+ * Domain bucket name → glyph ink color for the category icon badge
+ * (categoria-iconografia, ADR-045 D-08). Web reuses its own measured
+ * `--color-pie-etiqueta-*` tokens for the same purpose; mobile has no
+ * equivalent CSS token family, so this mints the two literal inks the
+ * design already measured against each bucket fill (design.md "Contrast"):
+ * white on the two darker fills (Necesidades 8.5:1, Ahorro 3.5:1), and
+ * `COLORS.heading` on the two paler fills (Gustos 10.1:1, Sin categoría
+ * 4.1:1). Ahorro's 3.5:1 barely clears the SC 1.4.11 floor and Gustos' own
+ * fill measures only ~1.3:1 against a white page background, so neither
+ * badge may rely on color alone — the glyph shape and the adjacent bucket
+ * name both carry the information.
+ */
+export const COLOR_GLIFO_BUCKET: Record<string, string> = {
+  Necesidades: '#FFFFFF',
+  Deseos: COLORS.heading,
+  Ahorro: '#FFFFFF',
+  SinCategoria: COLORS.heading,
+};
