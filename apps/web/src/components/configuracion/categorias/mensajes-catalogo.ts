@@ -47,7 +47,7 @@ export const ETIQUETA_MATCH_TYPE: Record<MatchType, string> = {
 };
 
 /**
- * CodigoCatalogo — el union literal cerrado de los 11 códigos que el
+ * CodigoCatalogo — el union literal cerrado de los 12 códigos que el
  * deployed catalog API devuelve (verificado contra
  * `catalogo-http-error.ts`'s propio `_exhaustive: never` guard, design.md
  * §1/Q8a: una clase de error ⇒ exactamente un status ⇒ exactamente un
@@ -57,7 +57,11 @@ export const ETIQUETA_MATCH_TYPE: Record<MatchType, string> = {
  * `categorias.routes.ts`/`patrones.routes.ts` cuando `.safeParse()` rechaza
  * el body de una mutación) y el cliente lo produce vía `tag: 'parse'`
  * cuando `fetchCatalogo` recibe un body 2xx que falla la guarda de runtime.
- * Doce miembros en total.
+ * Trece miembros en total (WCTG-12).
+ *
+ * `ICONO_INVALIDO` (categoria-iconografia, ADR-045, CATICO-02/03): 12°
+ * código de dominio, agregado por `PATCH`/`POST /api/categorias` cuando
+ * `icono` no está en la allowlist curada (`icono-categoria.ts`).
  */
 export type CodigoCatalogo =
   | 'NOMBRE_INVALIDO'
@@ -71,11 +75,13 @@ export type CodigoCatalogo =
   | 'CATEGORIA_NO_ENCONTRADA'
   | 'PATRON_NO_ENCONTRADO'
   | 'NOMBRE_DUPLICADO'
-  | 'PATRON_DUPLICADO';
+  | 'PATRON_DUPLICADO'
+  | 'ICONO_INVALIDO';
 
 /**
- * COPY — la tabla de 12 filas, verbatim de design.md §1/Q8b. Notas que un
- * revisor pediría de otro modo:
+ * COPY — la tabla de 13 filas, verbatim de design.md §1/Q8b (más
+ * `ICONO_INVALIDO`, categoria-iconografia). Notas que un revisor pediría de
+ * otro modo:
  * - `BUCKET_NO_ASIGNABLE` dice `Gustos`, no `Deseos` — A1 aplica también al
  *   copy de error, o la app nombra un valor que el dropdown nunca mostró.
  * - `PRIORIDAD_INVALIDA` es INALCANZABLE desde esta UI: ningún control
@@ -102,6 +108,7 @@ const COPY: Record<CodigoCatalogo, string> = {
   PATRON_NO_ENCONTRADO: 'Ese patrón ya no existe. Recarga la página.',
   NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre en ese bucket.',
   PATRON_DUPLICADO: 'Ya tienes un patrón con ese texto.',
+  ICONO_INVALIDO: 'Elige un ícono válido de la lista.',
 };
 
 const GENERICO = 'Ocurrió un error inesperado. Intenta nuevamente.';
