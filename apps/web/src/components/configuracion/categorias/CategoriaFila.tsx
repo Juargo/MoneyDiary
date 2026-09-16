@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CategoriaDto } from '@/api/types';
 import { useEliminarCategoria } from '@/api/use-eliminar-categoria';
+import { IconoCategoriaBadge } from '@/components/IconoCategoriaBadge';
 import { etiquetaPatrones } from './plural';
 import { CLASE_BOTON_ICONO, FOCUS_RING } from '../estilos';
 import { ConfirmarImpactoDialog } from './ConfirmarImpactoDialog';
@@ -135,6 +136,7 @@ export function CategoriaFila({
 
   return (
     <li className="flex flex-wrap items-center gap-2 border-b border-border py-3 last:border-b-0">
+      <IconoCategoriaBadge icono={categoria.icono} bucket={categoria.bucket} />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
         {categoria.nombre}
       </span>

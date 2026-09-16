@@ -99,6 +99,54 @@ describe('NuevaCategoriaForm', () => {
     });
   });
 
+  /**
+   * categoria-iconografia (CATICO-01/02, WCTG-04, "Selecting an icon on
+   * create includes it in the POST body"): `SelectorIcono` defaults to "Sin
+   * icono" — picking a real option travels with the SAME `POST` the
+   * nombre/bucket test above already pins.
+   */
+  it('seleccionar un ícono lo incluye en el body de POST /api/categorias', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        id: 'cat-nueva',
+        nombre: 'Streaming',
+        bucket: 'Deseos',
+        icono: 'tv',
+        patrones: [],
+        transaccionesCount: 0,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<NuevaCategoriaForm esDemo={false} onCerrar={() => {}} />, {
+      wrapper: crearWrapper(),
+    });
+
+    await user.type(screen.getByLabelText('Nombre'), 'Streaming');
+    await user.selectOptions(
+      screen.getByLabelText('Bucket (obligatorio)'),
+      'Gustos',
+    );
+    await user.click(screen.getByRole('radio', { name: 'Streaming' }));
+    await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/categorias', {
+        credentials: 'same-origin',
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          nombre: 'Streaming',
+          bucket: 'Deseos',
+          icono: 'tv',
+        }),
+      }),
+    );
+  });
+
   it('Cancelar llama a onCerrar sin emitir ninguna request', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn();
