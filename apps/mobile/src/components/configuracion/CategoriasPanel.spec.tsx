@@ -271,7 +271,12 @@ describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
     expect(screen.queryByTestId('nueva-categoria-form-placeholder')).toBeNull();
     // The Nombre field and bucket chips confirm the real form rendered
     expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    // Scoped to bucket-selector: categoria-iconografia (PR6b) added
+    // SelectorIcono, which also renders `accessibilityRole="radio"` options
+    // (25 of them) — an unscoped query would count those too.
+    expect(
+      within(screen.getByTestId('bucket-selector')).getAllByRole('radio'),
+    ).toHaveLength(3);
   });
 
   it('[PR5c T5c.3 close-on-success] form closes and onCatalogoChange fires after successful creation', async () => {
