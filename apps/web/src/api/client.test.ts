@@ -723,6 +723,74 @@ describe('fetchDetalleBucketMes', () => {
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('parse');
   });
+
+  /**
+   * categoria-iconografia (design.md "Guards", CATICO-06): the group guard
+   * accepts `icono` as `undefined | null | string` — never checks allowlist
+   * membership (ADR-024, server is the sole validity authority).
+   */
+  it('resuelve ok cuando un grupo no trae icono (omitido)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validDetalleBucketMesDto),
+    });
+
+    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+
+    expect(result).toEqual({ ok: true, value: validDetalleBucketMesDto });
+  });
+
+  it('resuelve ok cuando un grupo trae icono: null (Sin categoría, MBD-02)', async () => {
+    const bodyConIconoNull = {
+      ...validDetalleBucketMesDto,
+      grupos: [{ ...validDetalleBucketMesDto.grupos[0], icono: null }],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConIconoNull),
+    });
+
+    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+
+    expect(result).toEqual({ ok: true, value: bodyConIconoNull });
+  });
+
+  it('resuelve ok cuando un grupo trae icono: string', async () => {
+    const bodyConIcono = {
+      ...validDetalleBucketMesDto,
+      grupos: [
+        { ...validDetalleBucketMesDto.grupos[0], icono: 'shopping-cart' },
+      ],
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyConIcono),
+    });
+
+    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+
+    expect(result).toEqual({ ok: true, value: bodyConIcono });
+  });
+
+  it('mapea a {tag: "parse"} cuando un grupo trae icono de tipo inválido (number)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validDetalleBucketMesDto,
+          grupos: [{ ...validDetalleBucketMesDto.grupos[0], icono: 42 }],
+        }),
+    });
+
+    const result = await fetchDetalleBucketMes('Necesidades', '2026-07');
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('parse');
+  });
 });
 
 const validIngresosMesDto: IngresosMesDto = {
