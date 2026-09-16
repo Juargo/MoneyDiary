@@ -388,7 +388,10 @@ describe('GrupoMovimientos', () => {
     expect(heading.querySelector('svg.lucide-tag')).not.toBeNull();
   });
 
-  it('the synthetic Sin categoría group always renders the generic fallback badge, even if a wire icono somehow arrived (MBD-02 defense)', () => {
+  // The synthetic group carries `icono: null` because MBD-02 makes that a
+  // server-side invariant; the client does not special-case it, so this proves
+  // the fallback for that shape, not resilience to a spec-violating response.
+  it('the synthetic Sin categoría group renders the generic fallback badge', () => {
     mockFetch();
     const sinCategoria: GrupoDetalleMesViewModel = {
       ...GRUPO_FIXTURE,

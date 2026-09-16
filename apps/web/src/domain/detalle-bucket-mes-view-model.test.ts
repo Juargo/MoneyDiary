@@ -216,7 +216,10 @@ describe('aDetalleBucketMesViewModel', () => {
     expect(viewModel.grupos[0].icono).toBeNull();
   });
 
-  it('el grupo sintético Sin categoría siempre trae icono null (MBD-02)', () => {
+  // MBD-02 garantiza `icono: null` para el grupo sintético en el servidor; acá
+  // se prueba que ese null llega intacto al view model, no que el cliente se
+  // defienda de una respuesta que viole esa invariante.
+  it('propaga como null el icono del grupo sintético Sin categoría', () => {
     const viewModel = aDetalleBucketMesViewModel(
       dtoConGrupos(gruposOrdenServidor),
     );
