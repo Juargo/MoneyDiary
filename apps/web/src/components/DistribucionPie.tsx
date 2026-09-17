@@ -358,7 +358,7 @@ export function DistribucionPie({
             />
           </svg>
         </div>
-        <span className="mt-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground">
+        <span className="mt-0.5 text-[10px] font-medium tracking-wider text-muted-foreground">
           IDEAL
         </span>
       </div>

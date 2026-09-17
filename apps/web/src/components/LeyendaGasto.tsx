@@ -179,11 +179,11 @@ function FilaClickeable({
               />
             )}
           {item.kind === 'gasto' ? (
-            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            <span className="font-mono text-sm font-medium tabular-nums text-foreground">
               {item.porcentaje}%
             </span>
           ) : (
-            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            <span className="font-mono text-sm font-medium tabular-nums text-foreground">
               {/* CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018): "tx" is a
                   visual abbreviation an AT user shouldn't have to guess at.
                   The visible "N tx" stays on screen but is pulled OUT of the
@@ -207,7 +207,7 @@ function FilaClickeable({
               read one by one. */}
           <span
             className={cn(
-              'font-mono text-sm font-semibold tabular-nums',
+              'font-mono text-sm font-medium tabular-nums',
               claseColorMonto(item.montoLabel),
             )}
           >
@@ -266,7 +266,7 @@ function FilaIngreso({
               read one by one. */}
           <span
             className={cn(
-              'font-mono text-sm font-semibold tabular-nums',
+              'font-mono text-sm font-medium tabular-nums',
               claseColorMonto(item.montoLabel),
             )}
           >

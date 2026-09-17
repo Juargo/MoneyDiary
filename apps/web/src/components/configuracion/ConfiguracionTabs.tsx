@@ -59,12 +59,12 @@ import { FOCUS_RING } from './estilos';
  * through two channels instead of none.
  */
 const TAB_BASE = cn(
-  'block border-b-4 border-transparent px-3 py-2 text-center text-sm font-medium text-secondary transition-colors',
+  'block border-b-4 border-transparent px-3 py-2 text-center text-sm font-normal text-secondary transition-colors',
   'hover:bg-card hover:text-foreground',
   'md:border-b-0 md:border-l-4 md:text-left',
   FOCUS_RING,
 );
-const TAB_ACTIVE = 'border-primary bg-card font-semibold text-primary';
+const TAB_ACTIVE = 'border-primary bg-card font-medium text-primary';
 
 /**
  * ConfiguracionTabs — the section-tab list, now shared chrome rendered once

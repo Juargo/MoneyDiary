@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
  *
  * - One row, nothing wraps: status dot → "Semáforo · {mes}" → estado pill →
  *   trailing `ChevronRight`. Hierarchy comes from ONE weight step
- *   (`font-semibold` label vs `text-muted-foreground` period) and ONE color
+ *   (`font-medium` label vs `text-muted-foreground` period) and ONE color
  *   step (the pill), not from size or boxes.
  * - Color is scarce: the small pastel-pill (`estilo.className`, the
  *   existing AA chip pair from `resolverEstiloSemaforo`) is the ONLY
@@ -51,7 +51,7 @@ export function SemaforoHeroCard({
           className="size-2 shrink-0 rounded-none bg-muted-foreground"
         />
         <span className="min-w-0 truncate">
-          <span className="font-semibold text-foreground">Sin datos</span>
+          <span className="font-medium text-foreground">Sin datos</span>
           <span className="text-muted-foreground">
             {' '}
             · Carga una cartola para conocer tu mes
@@ -95,7 +95,7 @@ export function SemaforoHeroCard({
       />
 
       <span className="min-w-0 truncate">
-        <span className="font-semibold text-foreground">Semáforo</span>
+        <span className="font-medium text-foreground">Semáforo</span>
         <span className="text-muted-foreground">
           {' '}
           · {mesCompletoLabel(periodo)}
@@ -104,7 +104,7 @@ export function SemaforoHeroCard({
 
       <span
         className={cn(
-          'shrink-0 rounded-none px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
+          'shrink-0 rounded-none px-2 py-0.5 text-xs font-medium uppercase tracking-wide',
           estilo.className,
         )}
       >

@@ -132,7 +132,7 @@ export function ResumenScreen({
       <div className="grid grid-cols-1 gap-4" data-testid="dashboard-page-grid">
         <div className={cn(DASHBOARD_CARD_CLASS, 'flex flex-col gap-4')}>
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold tracking-widest text-secondary uppercase">
+            <h2 className="text-xs font-medium tracking-widest text-secondary uppercase">
               Distribución del gasto
             </h2>
           </div>

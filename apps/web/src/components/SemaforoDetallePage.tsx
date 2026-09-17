@@ -56,7 +56,7 @@ function renderEstado(
     <>
       <header className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Semáforo</h1>
+          <h1 className="text-2xl font-medium text-foreground">Semáforo</h1>
           {/* SC 2.5.8 (WCAG 2.2 AA): un back link suelto es un TARGET, no
               texto dentro de una oración, así que la excepción *Inline* no lo
               alcanza. Medía 20px de alto — el mismo defecto pre-existente que
@@ -72,7 +72,7 @@ function renderEstado(
             asChild
             variant="link"
             size="sm"
-            className="-mr-3 font-semibold"
+            className="-mr-3 font-medium"
           >
             <Link to="/" search={{ periodo }}>
               Volver al resumen
@@ -160,7 +160,7 @@ function renderEstado(
                 to="/buckets/$bucket"
                 params={{ bucket: 'SinCategoria' }}
                 search={{ periodo: viewModel.periodo }}
-                className="inline-flex min-h-8 w-fit items-center font-semibold underline underline-offset-4"
+                className="inline-flex min-h-8 w-fit items-center font-medium underline underline-offset-4"
               >
                 Ver los movimientos sin categoría
               </Link>

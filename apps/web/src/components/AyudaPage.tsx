@@ -19,7 +19,7 @@ import { Link } from '@tanstack/react-router';
 export function AyudaPage() {
   return (
     <div className="mx-auto flex max-w-prose flex-col gap-8 p-4 pb-12">
-      <h1 className="text-2xl font-bold text-foreground">Ayuda</h1>
+      <h1 className="text-2xl font-medium text-foreground">Ayuda</h1>
 
       <section
         aria-labelledby="ayuda-como-funciona"
@@ -27,7 +27,7 @@ export function AyudaPage() {
       >
         <h2
           id="ayuda-como-funciona"
-          className="text-lg font-semibold text-foreground"
+          className="text-lg font-medium text-foreground"
         >
           Cómo funciona MoneyDiary
         </h2>
@@ -46,10 +46,7 @@ export function AyudaPage() {
       </section>
 
       <section aria-labelledby="ayuda-semaforo" className="flex flex-col gap-3">
-        <h2
-          id="ayuda-semaforo"
-          className="text-lg font-semibold text-foreground"
-        >
+        <h2 id="ayuda-semaforo" className="text-lg font-medium text-foreground">
           El semáforo
         </h2>
         <p className="text-sm text-foreground">
@@ -58,43 +55,40 @@ export function AyudaPage() {
         </p>
         <Link
           to="/semaforo"
-          className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
         >
           Ver tu semáforo del mes
         </Link>
       </section>
 
       <section aria-labelledby="ayuda-glosario" className="flex flex-col gap-3">
-        <h2
-          id="ayuda-glosario"
-          className="text-lg font-semibold text-foreground"
-        >
+        <h2 id="ayuda-glosario" className="text-lg font-medium text-foreground">
           Glosario
         </h2>
         <dl className="flex flex-col gap-3 text-sm">
           <div>
-            <dt className="font-semibold text-foreground">Cartola</dt>
+            <dt className="font-medium text-foreground">Cartola</dt>
             <dd className="text-muted-foreground">
               El archivo (.xlsx o .pdf) que descargas de tu banco con los
               movimientos del mes.
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">Ingesta</dt>
+            <dt className="font-medium text-foreground">Ingesta</dt>
             <dd className="text-muted-foreground">
               Cada vez que subes una cartola. Queda registrada en Gestionar
               cartolas como exitosa o fallida.
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">Movimiento</dt>
+            <dt className="font-medium text-foreground">Movimiento</dt>
             <dd className="text-muted-foreground">
               Un ingreso o gasto individual, ya sea importado desde una cartola
               o registrado a mano.
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">
+            <dt className="font-medium text-foreground">
               Buckets (Necesidades, Gustos, Ahorro y Sin categoría)
             </dt>
             <dd className="text-muted-foreground">
@@ -104,7 +98,7 @@ export function AyudaPage() {
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">
+            <dt className="font-medium text-foreground">
               Patrones de clasificación
             </dt>
             <dd className="text-muted-foreground">
@@ -113,7 +107,7 @@ export function AyudaPage() {
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-foreground">Modo demo</dt>
+            <dt className="font-medium text-foreground">Modo demo</dt>
             <dd className="text-muted-foreground">
               Una cuenta de ejemplo, con datos de muestra, para probar
               MoneyDiary sin crear una cuenta real. En demo, las superficies de
@@ -129,7 +123,7 @@ export function AyudaPage() {
       >
         <h2
           id="ayuda-donde-hago"
-          className="text-lg font-semibold text-foreground"
+          className="text-lg font-medium text-foreground"
         >
           ¿Dónde hago…?
         </h2>
@@ -137,7 +131,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/subir"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Subir cartola
             </Link>{' '}
@@ -146,7 +140,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/registrar"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Registrar movimiento
             </Link>{' '}
@@ -155,7 +149,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/ingestas"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Gestionar cartolas
             </Link>{' '}
@@ -164,7 +158,7 @@ export function AyudaPage() {
           <li>
             <Link
               to="/configuracion"
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Configuración
             </Link>{' '}
