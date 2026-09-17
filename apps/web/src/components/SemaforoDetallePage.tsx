@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { HelpCircle } from 'lucide-react';
 import { Loading } from './states/Loading';
@@ -56,13 +57,27 @@ function renderEstado(
       <header className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Semáforo</h1>
-          <Link
-            to="/"
-            search={{ periodo }}
-            className="text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          {/* SC 2.5.8 (WCAG 2.2 AA): un back link suelto es un TARGET, no
+              texto dentro de una oración, así que la excepción *Inline* no lo
+              alcanza. Medía 20px de alto — el mismo defecto pre-existente que
+              el barrido E-11 de `mobile-floor.e2e.ts` ya encontró en
+              `BucketDetalleMesPage` y en `IngresosMesPage`. Tercera aparición
+              del mismo patrón, tercer arreglo idéntico: la variante `link` ES
+              el className que este elemento ya tenía
+              (`text-primary underline-offset-4 hover:underline`), así que el
+              aspecto no cambia, y `size="sm"` le da un target real de 32px.
+              `-mr-3` cancela el `px-3` de ese tamaño en el borde alineado para
+              que el header no se corra. */}
+          <Button
+            asChild
+            variant="link"
+            size="sm"
+            className="-mr-3 font-semibold"
           >
-            Volver al resumen
-          </Link>
+            <Link to="/" search={{ periodo }}>
+              Volver al resumen
+            </Link>
+          </Button>
         </div>
         <div className="flex items-center gap-3">
           <SemaforoBadge estadoSemaforo={viewModel.estadoGlobal} size={40} />
@@ -83,10 +98,18 @@ function renderEstado(
           worst-of-3 explainer — links to the same rule in `/ayuda`'s
           "El semáforo" section (`AyudaPage.tsx` copies this exact sentence
           so the two never drift, per that file's own docblock). */}
+      {/* SC 2.5.8 otra vez, y peor que el back link: en `text-xs` esta línea
+          medía ~16px de alto. NO se envuelve en `Button` como el de arriba —
+          ninguna variante reproduce su aspecto (tinta atenuada, 12px, ícono
+          al lado, subrayado sólo en hover), y forzar `link` la pintaría de
+          `primary`, o `ghost` le metería un fondo en hover: en las dos el
+          arreglo de accesibilidad se llevaría puesto el diseño. Como ya es
+          `inline-flex items-center`, alcanza con `min-h-8`: la caja llega a
+          32px y el contenido sigue centrado, sin mover un pixel del texto. */}
       <Link
         to="/ayuda"
         hash="ayuda-semaforo"
-        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        className="inline-flex min-h-8 w-fit items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         <HelpCircle aria-hidden="true" className="size-3.5" />
         Ayuda: cómo se calcula el semáforo
@@ -111,18 +134,33 @@ function renderEstado(
 
           {viewModel.sinCategoria.cantidad > 0 && (
             <div className="rounded-lg border border-warning-border bg-warning p-3 text-xs text-warning-foreground">
+              {/* Las dos cifras van en mono tabular aunque vivan dentro de una
+                  oración; las palabras se quedan en sans. Mismo reparto que
+                  hace el encabezado de grupo del libro mayor de `/buckets`. */}
               <p>
-                {viewModel.sinCategoria.cantidad}{' '}
+                <span className="font-mono tabular-nums">
+                  {viewModel.sinCategoria.cantidad}
+                </span>{' '}
                 {viewModel.sinCategoria.cantidad === 1
                   ? 'movimiento'
                   : 'movimientos'}{' '}
-                sin categoría por {viewModel.sinCategoria.total}.
+                sin categoría por{' '}
+                <span className="font-mono tabular-nums">
+                  {viewModel.sinCategoria.total}
+                </span>
+                .
               </p>
+              {/* Tercer link suelto de esta pantalla, y tercer caso de SC
+                  2.5.8: hereda `text-xs` del aviso, o sea ~16px de alto. Mismo
+                  remedio mínimo que el de ayuda — `inline-flex min-h-8
+                  items-center` levanta la caja a 32px sin tocar la tipografía
+                  ni el color, que acá los manda el `warning-foreground` del
+                  aviso. */}
               <Link
                 to="/buckets/$bucket"
                 params={{ bucket: 'SinCategoria' }}
                 search={{ periodo: viewModel.periodo }}
-                className="font-semibold underline underline-offset-4"
+                className="inline-flex min-h-8 w-fit items-center font-semibold underline underline-offset-4"
               >
                 Ver los movimientos sin categoría
               </Link>

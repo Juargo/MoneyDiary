@@ -31,8 +31,14 @@ export function ZonaBar({
 }) {
   return (
     <div className="flex flex-col gap-1">
+      {/* `porcentajeLabel` es una CIFRA, así que va en mono tabular (DESIGN.md
+          lo exige para toda cifra, fecha y monto — esta barra no lo cumplía).
+          `estadoLabel` NO: es una palabra ("Saludable", "Atención"), y la sans
+          es su tipografía correcta. Mismo criterio que usa el libro mayor de
+          `/buckets`, donde el nombre de la categoría se queda en sans y sólo
+          el subtotal y el conteo pasan a mono. */}
       <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-        <span>{porcentajeLabel}</span>
+        <span className="font-mono tabular-nums">{porcentajeLabel}</span>
         <span>{estadoLabel}</span>
       </div>
 
@@ -59,7 +65,11 @@ export function ZonaBar({
         )}
       </div>
 
-      <ul className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+      {/* Cada `etiqueta` es un rango puro de cifras (`0–50%`, view-model
+          `semaforo-detalle-view-model.ts`), así que la leyenda entera va en
+          mono tabular: sin ella los rangos de las tres zonas no alinean sus
+          dígitos entre sí. */}
+      <ul className="flex flex-wrap gap-x-2 font-mono text-[11px] tabular-nums text-muted-foreground">
         {segmentos.map((segmento) => (
           <li key={`${segmento.estado}-${segmento.desdePct}-label`}>
             {segmento.etiqueta}
