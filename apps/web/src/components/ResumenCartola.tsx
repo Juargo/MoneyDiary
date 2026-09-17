@@ -39,7 +39,7 @@ export function ResumenCartola({
           <div className="flex min-w-0 flex-col gap-0.5">
             {/* Resumen header — WEB-PRV-02, D-08: banco from top-level
                 field. `truncate` guards long bank labels on phones. */}
-            <h3 className="truncate text-base font-semibold text-foreground">
+            <h3 className="truncate text-base font-medium text-foreground">
               {banco}
             </h3>
             <p className="text-xs text-muted-foreground">Cartola detectada</p>
@@ -53,19 +53,19 @@ export function ResumenCartola({
         <dl className="grid shrink-0 grid-cols-3 gap-x-6 text-sm tabular-nums">
           <div className="flex flex-col-reverse">
             <dt className="text-xs text-muted-foreground">Total filas</dt>
-            <dd className="text-lg leading-tight font-semibold text-foreground">
+            <dd className="text-lg leading-tight font-medium text-foreground">
               {resumen.totalFilas}
             </dd>
           </div>
           <div className="flex flex-col-reverse">
             <dt className="text-xs text-muted-foreground">Duplicados</dt>
-            <dd className="text-lg leading-tight font-semibold text-foreground">
+            <dd className="text-lg leading-tight font-medium text-foreground">
               {resumen.duplicadosDetectados}
             </dd>
           </div>
           <div className="flex flex-col-reverse">
             <dt className="text-xs text-muted-foreground">Nuevas</dt>
-            <dd className="text-lg leading-tight font-semibold text-foreground">
+            <dd className="text-lg leading-tight font-medium text-foreground">
               {resumen.nuevas}
             </dd>
           </div>

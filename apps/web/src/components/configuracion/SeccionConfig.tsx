@@ -53,7 +53,7 @@ export function SeccionConfig({
       className={cn('flex flex-col gap-4', SUPERFICIE_SECCION, className)}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-foreground">{titulo}</h2>
+        <h2 className="text-base font-medium text-foreground">{titulo}</h2>
         {descripcion !== undefined && (
           <p className="text-sm text-muted-foreground">{descripcion}</p>
         )}

@@ -8,17 +8,17 @@ const FOCUS_RING =
 const VARIANT_STYLES = {
   sidebar: {
     base: cn(
-      'flex items-center gap-3 rounded-lg border-r-4 border-transparent px-3 py-2 text-sm font-medium text-secondary transition-colors hover:bg-accent',
+      'flex items-center gap-3 rounded-lg border-r-4 border-transparent px-3 py-2 text-sm font-normal text-secondary transition-colors hover:bg-accent',
       FOCUS_RING,
     ),
-    active: 'border-primary bg-accent font-semibold text-primary',
+    active: 'border-primary bg-accent font-medium text-primary',
   },
   'bottom-tab': {
     base: cn(
-      'flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-secondary',
+      'flex flex-1 flex-col items-center gap-1 py-2 text-xs font-normal text-secondary',
       FOCUS_RING,
     ),
-    active: 'font-semibold text-primary',
+    active: 'font-medium text-primary',
   },
 } as const;
 

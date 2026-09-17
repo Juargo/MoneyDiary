@@ -242,7 +242,7 @@ export function InlineConfirm({
       )}
     >
       {titleVisible && (
-        <TitleTag id={titleId} className="font-semibold text-foreground">
+        <TitleTag id={titleId} className="font-medium text-foreground">
           {title}
         </TitleTag>
       )}

@@ -525,7 +525,7 @@ export function PreviewMuestra({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3
                 id={idTituloMovimientos}
-                className="text-base font-semibold text-foreground"
+                className="text-base font-medium text-foreground"
               >
                 Movimientos
               </h3>
@@ -733,7 +733,7 @@ export function PreviewMuestra({
                           aria-expanded={abierto}
                           aria-controls={idListaGrupo}
                           onClick={() => handleToggleGrupoAbierto(claveGrupo)}
-                          className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-semibold text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                          className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-medium text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                         >
                           <span className="min-w-0 truncate">
                             {grupo.fecha}{' '}

@@ -141,7 +141,7 @@ export function ListaIngestas() {
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        className="text-lg font-medium text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         Gestionar cartolas
       </h1>

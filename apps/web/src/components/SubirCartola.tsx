@@ -956,7 +956,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4">
-      <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <h1 className="text-2xl font-medium tracking-tight text-foreground">
         Subir cartola
       </h1>
 
@@ -975,7 +975,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
               aria-current={activo ? 'step' : undefined}
               className={`flex items-center gap-2 ${
                 activo
-                  ? 'font-semibold text-foreground'
+                  ? 'font-medium text-foreground'
                   : completado
                     ? 'text-foreground'
                     : 'text-muted-foreground'
@@ -1228,7 +1228,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
         >
           <h2
             id="password-pdf-heading"
-            className="text-sm font-semibold text-foreground"
+            className="text-sm font-medium text-foreground"
           >
             Contraseña requerida
           </h2>
@@ -1306,7 +1306,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             id="decision-heading"
             ref={previewHeadingRef}
             tabIndex={-1}
-            className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-lg font-medium text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Vista previa
           </h2>
@@ -1329,7 +1329,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
                 href="https://moneydiary.cl"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 Crea una cuenta real
               </a>{' '}
@@ -1377,7 +1377,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             id="preview-listo-heading"
             ref={previewHeadingRef}
             tabIndex={-1}
-            className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-lg font-medium text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Vista previa
           </h2>
@@ -1407,7 +1407,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
                 href="https://moneydiary.cl"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 Crea una cuenta real
               </a>{' '}
@@ -1495,7 +1495,7 @@ export function SubirCartola({ esDemo }: { readonly esDemo?: boolean }) {
             id="exito-heading"
             ref={exitoRef}
             tabIndex={-1}
-            className="text-lg font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-lg font-medium text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             <CircleCheck
               aria-hidden="true"

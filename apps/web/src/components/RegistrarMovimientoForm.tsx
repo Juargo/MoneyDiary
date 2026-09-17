@@ -497,7 +497,7 @@ export function RegistrarMovimientoForm({
         legend spacing note as PerfilForm applies here (see that file).
       */}
       <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
-        <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
+        <legend className="mb-4 p-0 text-sm font-medium text-foreground">
           Movimiento
         </legend>
         {/* Tipo selector — type-first (D-01/D-02) */}
@@ -565,7 +565,7 @@ export function RegistrarMovimientoForm({
           ref={cascadaRef}
           className="m-0 flex flex-col gap-4 border-0 p-0"
         >
-          <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
+          <legend className="mb-4 p-0 text-sm font-medium text-foreground">
             Clasificación
           </legend>
           {/* Catalog error degrade (D-08, CA-08) */}
@@ -696,12 +696,12 @@ export function RegistrarMovimientoForm({
           className="gap-2 p-4 text-sm"
         >
           <p>
-            <span className="font-semibold">{confirmacion.body.tipo}</span>
+            <span className="font-medium">{confirmacion.body.tipo}</span>
             {' · '}
             {confirmacion.body.fecha}
           </p>
           <p>{confirmacion.body.descripcion}</p>
-          <p className="font-semibold">
+          <p className="font-medium">
             {formatearMontoCLP(confirmacion.body.monto)}
           </p>
           {confirmacion.body.tipo === 'Gasto' && (

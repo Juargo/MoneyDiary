@@ -43,7 +43,7 @@ export function BucketSemaforoCard({
   return (
     <div className={cn(DASHBOARD_CARD_CLASS, fondo)}>
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">{etiqueta}</h2>
+        <h2 className="text-sm font-medium text-foreground">{etiqueta}</h2>
         {/* Mono tabular sobre el label COMPLETO ("Meta: 50%"), no sólo sobre
             la cifra: `metaLabel` llega armado desde el view-model
             (`Meta: ${metaBp / 100}%`), y partirlo para envolver únicamente el

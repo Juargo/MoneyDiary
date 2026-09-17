@@ -205,7 +205,7 @@ export function NuevaCategoriaDesdeFilaForm({
       onKeyDown={alPresionarTecla}
       className="flex flex-col gap-4 rounded-md border border-border p-4"
     >
-      <h4 id={idTitulo} className="text-sm font-semibold text-foreground">
+      <h4 id={idTitulo} className="text-sm font-medium text-foreground">
         Nueva categoría
       </h4>
 

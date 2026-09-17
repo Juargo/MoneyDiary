@@ -65,7 +65,7 @@ export function ResumenAnual({
     >
       <h2
         id={tituloId}
-        className="text-xs font-semibold tracking-widest text-secondary uppercase"
+        className="text-xs font-medium tracking-widest text-secondary uppercase"
       >
         Año {anio} — vista macro por mes
       </h2>
@@ -150,7 +150,7 @@ function MesCelda({
 
   const contenido = (
     <>
-      <span className="flex items-center gap-1 text-xs font-semibold tracking-wide">
+      <span className="flex items-center gap-1 text-xs font-medium tracking-wide">
         {etiquetaMes}
         {esActual && (
           <span data-testid="mes-actual-marker" aria-hidden="true">

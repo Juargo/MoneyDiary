@@ -123,7 +123,7 @@ export function PerfilForm({ me }: { readonly me: MeDto }) {
         sería una segunda capa para lo mismo.
       */}
       <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
-        <legend className="mb-4 p-0 text-sm font-semibold text-foreground">
+        <legend className="mb-4 p-0 text-sm font-medium text-foreground">
           Cambiar password
         </legend>
         <CampoTexto

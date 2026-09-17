@@ -328,7 +328,7 @@ export function FilaRevision({
             the description is always shown in full, wrapping as needed. */}
         <span
           data-descripcion
-          className="block break-words font-medium text-foreground"
+          className="block break-words font-normal text-foreground"
         >
           {fila.descripcion}
         </span>
@@ -337,16 +337,14 @@ export function FilaRevision({
               "Duplicado" badge beside it is a word, not a figure. */}
           <span className="font-mono">{fila.fecha.slice(0, 10)}</span>
           {fila.esDuplicado && <Badge variant="outline">Duplicado</Badge>}
-          {/* Plain bold green text, deliberately NOT a `Badge`: "Duplicado"
+          {/* Plain green text at one weight step, deliberately NOT a `Badge`: "Duplicado"
               is an EXCEPTION worth a chip (that row is being skipped),
               while "Ingreso" is just what this row is. A second badge beside
               it would give the two equal weight. Green is the same
               `ingreso-foreground` token the abono figure uses on the right,
               so the marker and the amount read as one statement. */}
           {!fila.esDuplicado && esIngreso && (
-            <span className="font-semibold text-ingreso-foreground">
-              Ingreso
-            </span>
+            <span className="font-medium text-ingreso-foreground">Ingreso</span>
           )}
         </span>
       </div>
@@ -360,7 +358,7 @@ export function FilaRevision({
         {ambosCero ? (
           <div className="flex justify-end gap-1">
             <dt className="sr-only">Monto</dt>
-            <dd className="text-sm font-medium text-foreground">
+            <dd className="text-sm font-normal text-foreground">
               {formatearMontoCLP('0')}
             </dd>
           </div>
@@ -369,7 +367,7 @@ export function FilaRevision({
             {!cargoEsCero && (
               <div className="flex justify-end gap-1">
                 <dt className="sr-only">Cargo</dt>
-                <dd className="text-sm font-medium text-cargo-foreground">
+                <dd className="text-sm font-normal text-cargo-foreground">
                   {formatearMontoConSigno(fila.cargo, '-')}
                 </dd>
               </div>
@@ -377,7 +375,7 @@ export function FilaRevision({
             {!abonoEsCero && (
               <div className="flex justify-end gap-1">
                 <dt className="sr-only">Abono</dt>
-                <dd className="text-sm font-medium text-ingreso-foreground">
+                <dd className="text-sm font-normal text-ingreso-foreground">
                   {formatearMontoConSigno(fila.abono, '+')}
                 </dd>
               </div>

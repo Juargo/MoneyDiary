@@ -1285,7 +1285,7 @@ describe('FilaRevision', () => {
       expect(marcaIngreso.tagName).toBe('SPAN');
       expect(marcaIngreso).not.toHaveAttribute('data-slot', 'badge');
       expect(marcaIngreso.className).toMatch(/text-ingreso-foreground/);
-      expect(marcaIngreso.className).toMatch(/font-semibold/);
+      expect(marcaIngreso.className).toMatch(/font-medium/);
       // Not greyed out like a duplicate — it IS being imported.
       expect(screen.getByRole('listitem').className).not.toMatch(/opacity-50/);
     });
