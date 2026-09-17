@@ -1,6 +1,17 @@
 /**
  * IngresosMesScreen spec — T-16 RED → T-17 GREEN (US-056, D-12/D-18/D-08/MDET-06)
  *
+ * **`await render(...)` es OBLIGATORIO en cada test. No lo quites** — el
+ * porqué completo, con las mediciones, está en el docblock de
+ * `BucketDetalleScreen.spec.tsx` (#724). Resumen: `render` de RNTL no
+ * devuelve una promesa, pero el `await` cede el tick que el `screen` global
+ * necesita para tener el árbol montado. Sin él, el síntoma es
+ * `` `render` function has not been called `` — intermitente cuando el test
+ * usa `waitFor` después, determinista cuando consulta `screen` derecho.
+ *
+ * Este archivo era, junto a su hermano, el único de los 73 specs de mobile
+ * que renderizaba sin `await`.
+ *
  * Six-plus test cases covering:
  * - Loading state (three-tag machine initial state)
  * - Error state
@@ -107,7 +118,7 @@ describe('IngresosMesScreen', () => {
     // Never resolves — keeps the component in loading state
     mockFetchIngresosMes.mockReturnValue(new Promise(() => {}));
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
@@ -129,7 +140,7 @@ describe('IngresosMesScreen', () => {
       error: { tag: 'network' },
     });
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
@@ -149,7 +160,7 @@ describe('IngresosMesScreen', () => {
       value: makeDto({ conteo: 0, transacciones: [] }),
     });
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
@@ -173,7 +184,7 @@ describe('IngresosMesScreen', () => {
       value: makeDto({ conteo: 5, total: '1500000' }),
     });
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
@@ -212,7 +223,7 @@ describe('IngresosMesScreen', () => {
       }),
     });
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
@@ -246,7 +257,7 @@ describe('IngresosMesScreen', () => {
       }),
     });
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}
@@ -292,7 +303,7 @@ describe('IngresosMesScreen', () => {
 
       const onChangePeriodo = jest.fn();
 
-      render(
+      await render(
         <IngresosMesScreen
           periodo="2026-07"
           onChangePeriodo={onChangePeriodo}
@@ -330,7 +341,7 @@ describe('IngresosMesScreen', () => {
       value: makeDto(),
     });
 
-    render(
+    await render(
       <IngresosMesScreen
         periodo="2026-07"
         onChangePeriodo={jest.fn()}

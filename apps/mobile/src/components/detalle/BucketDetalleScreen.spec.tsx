@@ -5,6 +5,29 @@
  *
  * GrupoMovimientosMobile is mocked so this spec controls when onMovida/onReclasificado
  * are called without requiring a live ReclasificarMobileControl or catalog fetch.
+ *
+ * **`await render(...)` es OBLIGATORIO en cada test de este archivo. No lo
+ * quites** (#724).
+ *
+ * `render` de RNTL no devuelve una promesa, así que el `await` parece
+ * decorativo y se lo quita "limpiando". No lo es: cede un tick del event
+ * loop, y sin él el `screen` global todavía no tiene el árbol montado cuando
+ * la siguiente línea lo consulta. El síntoma es
+ * `` `render` function has not been called ``, que suena a que nadie
+ * renderizó y en realidad significa "todavía no".
+ *
+ * Medido, no supuesto: quitando el `await` de UN solo render, el test de
+ * loading falla 3 de 3 corridas AISLADAS. Con `await`, 10 de 10 tests pasan.
+ *
+ * Los tests que siguen el render con `await waitFor(...)` sobrevivían sin el
+ * `await` porque `waitFor` les regalaba ese tick — hasta que la carga de los
+ * workers en paralelo los adelantaba. De ahí el flake intermitente de #724
+ * (`shows empty-state message`, 1 fallo en 9 corridas de la suite completa).
+ *
+ * Efecto medible del arreglo: los `console.error` de React
+ * `The current testing environment is not configured to support act(...)`
+ * atribuibles a `BucketDetalleScreen.tsx` bajaron de 43 a 8 en una corrida
+ * de la suite.
  */
 
 import {
@@ -146,7 +169,7 @@ describe('BucketDetalleScreen', () => {
 
   it('shows loading indicator and no content while fetchDetalleBucketMes is in flight', async () => {
     // Never resolves — keeps loading state
-    mockFetchDetalleBucketMes.mockReturnValue(new Promise(() => {}));
+    mockFetchDetalleBucketMes.mockReturnValueOnce(new Promise(() => {}));
 
     await render(
       <BucketDetalleScreen
@@ -171,7 +194,7 @@ describe('BucketDetalleScreen', () => {
       error: { tag: 'network' },
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -194,7 +217,7 @@ describe('BucketDetalleScreen', () => {
       value: makeDto({ grupos: [] }),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -216,7 +239,7 @@ describe('BucketDetalleScreen', () => {
       value: makeDto(),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -239,7 +262,7 @@ describe('BucketDetalleScreen', () => {
       value: makeDto({ bucket: 'Deseos' }),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -263,7 +286,7 @@ describe('BucketDetalleScreen', () => {
       value: makeDtoSinMeta(),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -286,7 +309,7 @@ describe('BucketDetalleScreen', () => {
       value: makeDtoSinPorcentaje(),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -350,7 +373,7 @@ describe('BucketDetalleScreen', () => {
       }),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -387,7 +410,7 @@ describe('BucketDetalleScreen', () => {
       value: makeDto({ grupos: [] }),
     });
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
@@ -435,7 +458,7 @@ describe('BucketDetalleScreen', () => {
       .spyOn(AccessibilityInfo, 'announceForAccessibility')
       .mockReturnValue(undefined);
 
-    render(
+    await render(
       <BucketDetalleScreen
         bucket="Deseos"
         destacar={undefined}
