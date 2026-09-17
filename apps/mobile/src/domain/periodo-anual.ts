@@ -12,6 +12,11 @@
  * are now available on mobile and actively used (the previous docstring's
  * claim that these were "out of scope for mobile" is no longer accurate and
  * has been removed per the D-13 truthful-comments obligation).
+ *
+ * `MESES_COMPLETOS_ES` is exported (bucket-detalle-lista-rediseño mobile
+ * port, Cambio 1) so `./fecha-corta`'s `aFechaLargaLabel` can reuse the same
+ * array instead of duplicating it (DRY) — mirrors `aFechaLargaLabel`'s own
+ * import of it in `apps/web/src/domain/fecha.ts`.
  */
 
 const MESES_ABREVIADOS_ES = [
@@ -29,7 +34,7 @@ const MESES_ABREVIADOS_ES = [
   'DIC',
 ] as const;
 
-const MESES_COMPLETOS_ES = [
+export const MESES_COMPLETOS_ES = [
   'enero',
   'febrero',
   'marzo',

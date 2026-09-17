@@ -87,4 +87,51 @@ describe('aIngresosMesViewModel', () => {
     expect(vm.filas[0].origen).toBe('Banco de Chile');
     expect(vm.filas[1].origen).toBe('Manual');
   });
+
+  // bucket-detalle-lista-rediseño mobile port (Cambio 4): the view model
+  // precomputes the fecha-cell fields (same discipline as fechaLabel/
+  // montoLabel/origen — the component stays purely presentational).
+  describe('fecha cell fields (bucket-detalle-lista-rediseño, Cambio 4)', () => {
+    it("diaLabel/diaSemanaLabel split '2026-07-01T00:00:00.000Z' into { '01', 'mié' }", () => {
+      const vm = aIngresosMesViewModel(
+        makeDto({
+          transacciones: [
+            {
+              id: 'ing-1',
+              descripcion: 'Sueldo',
+              fecha: '2026-07-01T00:00:00.000Z',
+              monto: '1000000',
+              origen: 'Banco de Chile',
+            },
+          ],
+        }),
+        '2026-07',
+      );
+      expect(vm.filas[0].diaLabel).toBe('01');
+      expect(vm.filas[0].diaSemanaLabel).toBe('mié');
+    });
+
+    it("fechaLargaLabel formats '2026-07-01T00:00:00.000Z' as '1 de julio de 2026'", () => {
+      const vm = aIngresosMesViewModel(
+        makeDto({
+          transacciones: [
+            {
+              id: 'ing-1',
+              descripcion: 'Sueldo',
+              fecha: '2026-07-01T00:00:00.000Z',
+              monto: '1000000',
+              origen: 'Banco de Chile',
+            },
+          ],
+        }),
+        '2026-07',
+      );
+      expect(vm.filas[0].fechaLargaLabel).toBe('1 de julio de 2026');
+    });
+
+    it('fechaLabel (aFechaCorta, YYYY-MM-DD) is kept for backward compatibility', () => {
+      const vm = aIngresosMesViewModel(makeDto(), '2026-07');
+      expect(vm.filas[0].fechaLabel).toBe('2026-07-01');
+    });
+  });
 });
