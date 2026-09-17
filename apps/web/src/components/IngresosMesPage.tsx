@@ -6,6 +6,7 @@ import { ErrorState } from './states/Error';
 import { Empty } from './states/Empty';
 import { PeriodoSelector } from './PeriodoSelector';
 import { IngresosMesTable } from './IngresosMesTable';
+import { Button } from '@/components/ui/button';
 import { aIngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
 import type { ApiError } from '@/api/client';
 import type { IngresosMesDto } from '@/api/types';
@@ -19,9 +20,26 @@ const MENSAJE_DEMO_ELIMINAR =
  * route (ingresos.tsx, T-11) es dueño del hook y pasa `query` como prop.
  *
  * Header: breadcrumb `nav aria-label="Ruta"` + back `Link to="/" search={{ periodo }}`
- * "Volver al resumen" con clases D-10 LOCKED (24×24 CSS px floor + accname visible).
- * NO BotonVolver — US-053 case law: BotonVolver no puede llevar search params
- * sin perder el periodo en back-nav (CA-08 bug class).
+ * "Volver al resumen". **D-10 LOCKED: raw `Link` (NOT `BotonVolver`) — carries
+ * `search={{ periodo }}`** — US-053 case law: `BotonVolver` no puede llevar
+ * search params sin perder el periodo en back-nav (CA-08 bug class). The
+ * `Link` itself is unchanged by `ingresos-visual-rediseno`; it now sits
+ * inside `<Button asChild variant="link" size="sm">` (`BucketDetalleMesPage`
+ * precedent) purely for the 24×24 CSS px target floor (SC 2.5.8) — the
+ * `link` variant reuses the SAME classes the raw `<Link>` had before
+ * (`text-primary underline-offset-4 hover:underline`, look unchanged),
+ * `size="sm"` is what actually grows the hit target, and `-mr-3` cancels
+ * that size's `px-3` on the flush right edge so the header's alignment does
+ * not shift.
+ *
+ * Franja de totales (`ingresos-visual-rediseno`, Cambio 3): reemplaza la
+ * línea de texto `{conteoLabel} · {totalLabel}` — dos celdas idénticas en
+ * clases Y EN COPY a `BucketDetalleMesPage`'s totals strip: "Total del mes" /
+ * `totalLabel` a la izquierda, "Movimientos" / `viewModel.conteo` (número, no
+ * `conteoLabel` parseado) a la derecha. La etiqueta derecha dice
+ * "Movimientos", no "Ingresos": la franja es la misma pieza en las dos
+ * pantallas y debe leerse igual, cada fila ES un movimiento, y "Ingresos" ya
+ * lo dicen el `<h1>` y el breadcrumb de esta página.
  *
  * Empty state: `<Empty>` con copy "Sin ingresos en {mes}" — sin tabla (WDI-04).
  * NO prefetch de catálogo (WDI-06 — sin reclasificación en esta pantalla).
@@ -72,15 +90,19 @@ export function IngresosMesPage({
             <span className="font-semibold text-foreground">Ingresos</span>
           </nav>
           {/* D-10 LOCKED: raw Link (NOT BotonVolver) — carries search={{ periodo }}
-              so back-nav preserves the month. py-1 + text-sm line-height ≥24 CSS px
-              (WDI-01 target floor). The visible text is the accname (WCTM-04). */}
-          <Link
-            to="/"
-            search={{ periodo }}
-            className="px-2 py-1 text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              so back-nav preserves the month (see docblock above). Wrapped in
+              Button asChild purely for the 24×24 CSS px target floor
+              (BucketDetalleMesPage precedent). */}
+          <Button
+            asChild
+            variant="link"
+            size="sm"
+            className="-mr-3 font-semibold"
           >
-            Volver al resumen
-          </Link>
+            <Link to="/" search={{ periodo }}>
+              Volver al resumen
+            </Link>
+          </Button>
         </div>
         <h1
           ref={headingRef}
@@ -91,12 +113,35 @@ export function IngresosMesPage({
         </h1>
         <PeriodoSelector periodo={periodo} onChange={onPeriodoChange} />
         <p className="text-sm text-muted-foreground">
-          {viewModel.conteoLabel} · {viewModel.totalLabel}
-        </p>
-        <p className="text-sm text-muted-foreground">
           Sin meta ni semáforo: los ingresos no participan del 50/30/20 como
           gasto
         </p>
+        <div className="flex items-end justify-between gap-6 border-t-2 border-b border-foreground border-b-border pt-3 pb-3.5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              Total del mes
+            </span>
+            <span className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+              {viewModel.totalLabel}
+            </span>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            {/* "Movimientos", no "Ingresos": esta celda es byte-idéntica a la
+                de `BucketDetalleMesPage`, que es el punto del rediseño, y cada
+                fila de la tabla ES un movimiento. Llamarla "Ingresos" repetía
+                por tercera vez una palabra que ya dicen el `<h1>` y el
+                breadcrumb — y esa ambigüedad se pagaba en los tests, que
+                necesitaban recorrer el DOM para distinguir las tres. Un
+                selector frágil suele delatar UI ambigua, no un problema de
+                testing. */}
+            <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              Movimientos
+            </span>
+            <span className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+              {viewModel.conteo}
+            </span>
+          </div>
+        </div>
       </header>
 
       <span role="status" aria-live="polite" className="sr-only">
@@ -116,6 +161,7 @@ export function IngresosMesPage({
       ) : (
         <IngresosMesTable
           mes={viewModel.mesLabel}
+          periodoLabel={viewModel.periodoLabel}
           filas={viewModel.filas}
           esDemo={esDemo}
           onEliminado={alEliminar}

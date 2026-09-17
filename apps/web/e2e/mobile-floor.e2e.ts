@@ -51,6 +51,19 @@ const SCREENS = [
     // that class of defect; this route belongs in the harness, not outside it.
     heading: 'Gustos',
   },
+  {
+    name: 'ingresos',
+    path: '/ingresos?periodo=2026-07',
+    // Same reasoning — `IngresosMesPage`'s `<h1>` only renders past its own
+    // `query.isPending`/`query.isError` early returns.
+    //
+    // Added by `ingresos-visual-rediseno`: this screen shipped its 5-column
+    // `<table>` with ZERO responsive treatment beyond `overflow-x-auto` —
+    // this route belongs in the harness for the same class of defect
+    // `bucket-detalle` above was added to catch (compacto delete trigger +
+    // Origen column collapse at 360px).
+    heading: 'Ingresos',
+  },
 ] as const;
 
 // SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception exempts a target "in a

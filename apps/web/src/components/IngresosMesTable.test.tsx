@@ -22,6 +22,9 @@ const FILAS_FIXTURE: IngresosMesViewModel['filas'] = [
   {
     id: 'tx-bci',
     fechaLabel: '2026-07-03',
+    diaLabel: '03',
+    diaSemanaLabel: 'vie',
+    fechaLargaLabel: '3 de julio de 2026',
     descripcion: 'Sueldo BCI',
     origen: 'BCI',
     montoLabel: '+$1.200.000',
@@ -29,6 +32,9 @@ const FILAS_FIXTURE: IngresosMesViewModel['filas'] = [
   {
     id: 'tx-manual',
     fechaLabel: '2026-07-15',
+    diaLabel: '15',
+    diaSemanaLabel: 'mié',
+    fechaLargaLabel: '15 de julio de 2026',
     descripcion: 'Bono navidad',
     origen: 'Manual',
     montoLabel: '+$50.000',
@@ -40,7 +46,12 @@ function renderTabla(
   props: { readonly esDemo?: boolean; readonly onEliminado?: () => void } = {},
 ) {
   renderConRouter(
-    <IngresosMesTable mes="julio 2026" filas={filas} {...props} />,
+    <IngresosMesTable
+      mes="julio 2026"
+      periodoLabel="JUL 2026"
+      filas={filas}
+      {...props}
+    />,
   );
 }
 
@@ -59,7 +70,7 @@ describe('IngresosMesTable', () => {
       expect(th).toHaveAttribute('scope', 'col');
     });
     expect(columnHeaders.map((th) => th.textContent)).toEqual([
-      'Fecha',
+      'JUL 2026',
       'Descripción',
       'Origen',
       'Monto',
@@ -79,11 +90,28 @@ describe('IngresosMesTable', () => {
     renderTabla();
     const table = await screen.findByRole('table');
     const rows = within(table).getAllByRole('row');
-    // Row 0 = header; rows 1+ = data rows
-    expect(rows[1]).toHaveTextContent('2026-07-03');
+    // Row 0 = header; rows 1+ = data rows. Fecha column now shows
+    // diaLabel/diaSemanaLabel (aria-hidden) + an sr-only fechaLargaLabel —
+    // not the raw fechaLabel string (bucket-detalle-lista-rediseño idiom).
+    expect(rows[1]).toHaveTextContent('03');
+    expect(rows[1]).toHaveTextContent('vie');
     expect(rows[1]).toHaveTextContent('Sueldo BCI');
-    expect(rows[2]).toHaveTextContent('2026-07-15');
+    expect(rows[2]).toHaveTextContent('15');
+    expect(rows[2]).toHaveTextContent('mié');
     expect(rows[2]).toHaveTextContent('Bono navidad');
+  });
+
+  it('renders the sr-only fechaLargaLabel and hides diaLabel/diaSemanaLabel from assistive tech (a11y)', async () => {
+    renderTabla();
+    const table = await screen.findByRole('table');
+    const rows = within(table).getAllByRole('row');
+
+    expect(within(rows[1]).getByText('3 de julio de 2026')).toHaveClass(
+      'sr-only',
+    );
+    expect(within(rows[2]).getByText('15 de julio de 2026')).toHaveClass(
+      'sr-only',
+    );
   });
 
   it('renders the Origen cell as a Badge with secondary variant for BCI and Manual (MID-02, D-04)', async () => {

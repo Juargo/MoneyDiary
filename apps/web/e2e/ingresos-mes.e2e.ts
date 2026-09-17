@@ -47,9 +47,32 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
     await expect(
       page.getByRole('button', { name: /julio 2026/i }),
     ).toBeVisible();
-    await expect(page.getByText('3 ingresos')).toBeVisible();
-    await expect(page.getByText('+$1.500.000')).toBeVisible();
     await expect(page.getByText('Sin meta ni semáforo')).toBeVisible();
+
+    // Totals strip (ingresos-visual-rediseno, Cambio 3: replaces the retired
+    // `{conteoLabel} · {totalLabel}` text line) — scoped to `<header>`, same
+    // discipline as `bucket-detalle-mes.e2e.ts`'s totals-strip assertion: the
+    // bare conteo digit can otherwise collide with the day-of-month column
+    // rendered further down the page. Each figure is reached from its own
+    // label's cell; both labels are unique page-wide. An earlier revision of
+    // this block had to walk `following-sibling::div` because the right-hand
+    // label read "Ingresos", which is also this page's h1 AND its breadcrumb
+    // — three matches. That was the UI being ambiguous, not the assertion
+    // being hard: the label now reads "Movimientos", verbatim the same copy
+    // as the sibling page's strip.
+    const totales = page.locator('header');
+    const totalCelda = totales
+      .getByText('Total del mes', { exact: true })
+      .locator('xpath=..');
+    await expect(
+      totalCelda.getByText('+$1.500.000', { exact: true }),
+    ).toBeVisible();
+    const movimientosCelda = totales
+      .getByText('Movimientos', { exact: true })
+      .locator('xpath=..');
+    await expect(
+      movimientosCelda.getByText('3', { exact: true }),
+    ).toBeVisible();
 
     // Table — semantic role, headers, and Origen badge variants present.
     await expect(page.getByRole('table')).toBeVisible();
@@ -100,10 +123,21 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
     await page.goto('/ingresos?periodo=2026-05');
     await page.getByRole('heading', { level: 1, name: 'Ingresos' }).waitFor();
 
-    // Counts line and total reflect the zeroed stub. formatearMontoConSigno
-    // returns '$0' (no sign for zero — WDI-04 / view-model docblock).
-    await expect(page.getByText('0 ingresos')).toBeVisible();
-    await expect(page.getByText('$0')).toBeVisible();
+    // Totals strip reflects the zeroed stub — scoped to `<header>` and each
+    // figure to its own label's cell (same discipline as the deep-link test
+    // above). `formatearMontoConSigno` returns '$0' (no sign for zero —
+    // WDI-04 / view-model docblock).
+    const totales = page.locator('header');
+    const totalCelda = totales
+      .getByText('Total del mes', { exact: true })
+      .locator('xpath=..');
+    await expect(totalCelda.getByText('$0', { exact: true })).toBeVisible();
+    const movimientosCelda = totales
+      .getByText('Movimientos', { exact: true })
+      .locator('xpath=..');
+    await expect(
+      movimientosCelda.getByText('0', { exact: true }),
+    ).toBeVisible();
 
     // Empty copy renders; no table.
     await expect(page.getByText(/Sin ingresos en mayo 2026/i)).toBeVisible();
@@ -169,10 +203,15 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
       throw new Error('T2 header elements did not render.');
     }
 
-    // At 880px (md breakpoint applies) breadcrumb and back control share
-    // the SAME top row (flex-wrap items-center justify-between — same vertical
-    // center, tolerance ≤5px for sub-pixel rounding; 4px observed in practice).
-    expect(Math.abs(rutaBox.y - volverBox.y)).toBeLessThanOrEqual(5);
+    // At 880px (md breakpoint applies) breadcrumb and back control share the
+    // SAME top row (flex-wrap items-center justify-between). CENTERS, not top
+    // edges (bucket-detalle-mes.e2e.ts precedent, same defect class): "Volver
+    // al resumen" is now a `Button asChild` (size="sm", 32px tall) while the
+    // breadcrumb nav stays a ~20px text line — under items-center the two
+    // CENTERS coincide, but the tops differ by half the height delta.
+    const centroY = (caja: { y: number; height: number }) =>
+      caja.y + caja.height / 2;
+    expect(Math.abs(centroY(rutaBox) - centroY(volverBox))).toBeLessThan(4);
     // The h1 sits on its own line below the breadcrumb row.
     expect(h1Box.y).toBeGreaterThanOrEqual(rutaBox.y + rutaBox.height);
 
