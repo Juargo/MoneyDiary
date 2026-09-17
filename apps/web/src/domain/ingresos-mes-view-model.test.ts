@@ -87,6 +87,46 @@ describe('aIngresosMesViewModel', () => {
     ]);
   });
 
+  it('derives diaLabel/diaSemanaLabel via aDiaConSemana for each row (bucket-detalle-lista-rediseño precedent)', () => {
+    const viewModel = aIngresosMesViewModel(dto(), '2026-07');
+
+    expect(viewModel.filas.map((fila) => fila.diaLabel)).toEqual(['03', '15']);
+    // 2026-07-03 is a Friday, 2026-07-15 is a Wednesday (UTC).
+    expect(viewModel.filas.map((fila) => fila.diaSemanaLabel)).toEqual([
+      'vie',
+      'mié',
+    ]);
+  });
+
+  it('derives fechaLargaLabel via aFechaLargaLabel for each row (sr-only full date)', () => {
+    const viewModel = aIngresosMesViewModel(dto(), '2026-07');
+
+    expect(viewModel.filas.map((fila) => fila.fechaLargaLabel)).toEqual([
+      '3 de julio de 2026',
+      '15 de julio de 2026',
+    ]);
+  });
+
+  it('derives periodoLabel from the given periodo via mesAbreviadoConAnio', () => {
+    const viewModel = aIngresosMesViewModel(dto(), '2026-08');
+
+    expect(viewModel.periodoLabel).toBe('AGO 2026');
+  });
+
+  it('defaults periodoLabel to the current calendar month when periodo is absent (MID-04)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-15T12:00:00.000Z'));
+
+    const viewModel = aIngresosMesViewModel(dto(), undefined);
+
+    expect(viewModel.periodoLabel).toBe('AGO 2026');
+  });
+
+  it('passes conteo verbatim as a number for the totals strip right cell', () => {
+    expect(aIngresosMesViewModel(dto({ conteo: 0 }), '2026-07').conteo).toBe(0);
+    expect(aIngresosMesViewModel(dto({ conteo: 7 }), '2026-07').conteo).toBe(7);
+  });
+
   it('passes origen verbatim — bank name or Manual (MID-02, CA-02)', () => {
     const viewModel = aIngresosMesViewModel(dto(), '2026-07');
 

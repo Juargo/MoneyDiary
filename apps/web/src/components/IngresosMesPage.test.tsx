@@ -114,14 +114,27 @@ describe('IngresosMesPage', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  // Case 4: empty month — $0, 0 ingresos, empty copy, NO table (WDI-04)
-  it('renders $0 and 0 ingresos for an empty month (WDI-04)', async () => {
+  // Case 4: empty month — totals strip $0 / 0 Ingresos, empty copy, NO table (WDI-04)
+  it('renders the totals strip with $0 total and 0 Ingresos for an empty month (WDI-04)', async () => {
     renderPagina({
       query: mockQuery({ data: DTO_MES_VACIO }),
       periodo: '2026-07',
     });
-    expect(await screen.findByText(/0 ingresos/)).toBeInTheDocument();
-    expect(screen.getByText(/\$0/)).toBeInTheDocument();
+    // Two separate labeled cells, not one combined sentence — each figure is
+    // scoped to its own label's cell so a stray "0" elsewhere on the page
+    // can't false-match (ingresos-visual-rediseno Cambio 3,
+    // BucketDetalleMesPage precedent). Both labels are unique page-wide, so
+    // each cell is reached from its own label: an earlier revision had to
+    // walk `nextElementSibling` because the right label read "Ingresos",
+    // which is also the h1 and the breadcrumb. That was the UI being
+    // ambiguous, not the test being hard — the label now reads
+    // "Movimientos", matching the sibling page verbatim.
+    const totalCell = (await screen.findByText('Total del mes'))
+      .parentElement as HTMLElement;
+    expect(within(totalCell).getByText('$0')).toBeInTheDocument();
+    const movimientosCell = screen.getByText('Movimientos')
+      .parentElement as HTMLElement;
+    expect(within(movimientosCell).getByText('0')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
@@ -171,6 +184,17 @@ describe('IngresosMesPage', () => {
     expect(
       screen.getByRole('button', { name: /julio 2026/ }),
     ).toBeInTheDocument();
+
+    // Totals strip (ingresos-visual-rediseno Cambio 3, BucketDetalleMesPage
+    // precedent): "Total del mes" / totalLabel, "Movimientos" / conteo
+    // (number, not the retired conteoLabel text). Scoped the same way as
+    // case 4.
+    const totalCell = screen.getByText('Total del mes')
+      .parentElement as HTMLElement;
+    expect(within(totalCell).getByText('+$1.250.000')).toBeInTheDocument();
+    const movimientosCell = screen.getByText('Movimientos')
+      .parentElement as HTMLElement;
+    expect(within(movimientosCell).getByText('2')).toBeInTheDocument();
   });
 
   // Case 8: deep link honours ?periodo= (WDI-03)
@@ -249,8 +273,24 @@ describe('IngresosMesPage', () => {
     });
     // Non-empty accname — the visible text "Volver al resumen" IS the accname (D-10)
     expect(backLink).toHaveAccessibleName('Volver al resumen');
-    // D-10 LOCKED classes: py-1 gives ≥24 CSS px target height
-    expect(backLink).toHaveClass('py-1');
+  });
+
+  /**
+   * ingresos-visual-rediseno: mirrors BucketDetalleMesPage's own assertion —
+   * jsdom does not lay out, so real geometry is not testable here (the E-11
+   * e2e owns that). This pins the MECHANISM: the link renders through
+   * `Button asChild`, whose `sm` size carries the 32px height (SC 2.5.8). A
+   * refactor back to a bare `<Link>` with text classes turns this red without
+   * waiting for a Playwright run.
+   */
+  it('renders the back link through Button (variant link, size sm) for the SC 2.5.8 floor', async () => {
+    renderPagina();
+    const backLink = await screen.findByRole('link', {
+      name: 'Volver al resumen',
+    });
+    expect(backLink).toHaveAttribute('data-slot', 'button');
+    expect(backLink).toHaveAttribute('data-variant', 'link');
+    expect(backLink).toHaveAttribute('data-size', 'sm');
   });
 
   // Case 12: onPeriodoChange updates URL (WDI-03)
