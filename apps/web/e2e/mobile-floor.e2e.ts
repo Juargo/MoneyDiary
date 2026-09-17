@@ -34,6 +34,23 @@ const SCREENS = [
     // pending/error/not-found early returns.
     heading: 'Editar categoría',
   },
+  {
+    name: 'bucket-detalle',
+    path: '/buckets/Deseos?periodo=2026-07',
+    // Same reasoning — `BucketDetalleMesPage`'s `<h1>` (the bucket's
+    // `ETIQUETA_BUCKET` label: "Gustos" for the API's `Deseos`) only renders
+    // past its own `query.isPending`/`query.isError` early returns.
+    //
+    // Added after a mobile-only regression (bucket-detalle-lista-rediseño):
+    // the ledger shipped a DESKTOP-ONLY 5-column grid whose fixed tracks plus
+    // gaps summed to 432px inside a 358px container, collapsing the category
+    // title and the description to zero width. Every unit test stayed green —
+    // jsdom does not lay out — and no e2e covered this route at 360px, because
+    // every test in `bucket-detalle-mes.e2e.ts` is scoped to the `escritorio`
+    // or `tablet` project. E-10 below is precisely the assertion that catches
+    // that class of defect; this route belongs in the harness, not outside it.
+    heading: 'Gustos',
+  },
 ] as const;
 
 // SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception exempts a target "in a

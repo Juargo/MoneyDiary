@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { aDetalleBucketMesViewModel } from './detalle-bucket-mes-view-model';
-import { SIN_PORCENTAJE_LABEL } from './porcentaje';
 import type { DetalleBucketMesDto } from '../api/types';
 
 function dtoConGrupos(
@@ -67,51 +66,6 @@ const gruposOrdenServidor: DetalleBucketMesDto['grupos'] = [
 ];
 
 describe('aDetalleBucketMesViewModel', () => {
-  it('etiqueta porcentaje y meta SOLO vía aPorcentajeLabel (ADR-024, WDM-08)', () => {
-    const viewModel = aDetalleBucketMesViewModel(dtoConGrupos([]));
-
-    expect(viewModel.porcentajeLabel).toBe('55%');
-    expect(viewModel.metaLabel).toBe('30%');
-  });
-
-  it('porcentajeBp/metaBp null → SIN_PORCENTAJE_LABEL en las etiquetas (MBD-03)', () => {
-    const viewModel = aDetalleBucketMesViewModel({
-      ...dtoConGrupos([]),
-      porcentajeBp: null,
-      metaBp: null,
-    });
-
-    expect(viewModel.porcentajeLabel).toBe(SIN_PORCENTAJE_LABEL);
-    expect(viewModel.metaLabel).toBe(SIN_PORCENTAJE_LABEL);
-  });
-
-  it('marcaPorcentajePct = bp/100 (presentación pura del wire, WDM-08)', () => {
-    const viewModel = aDetalleBucketMesViewModel(dtoConGrupos([]));
-
-    expect(viewModel.marcaPorcentajePct).toBe(55);
-  });
-
-  it('clampa marcaPorcentajePct/marcaMetaPct a 0..100', () => {
-    const viewModel = aDetalleBucketMesViewModel({
-      ...dtoConGrupos([]),
-      porcentajeBp: 0,
-      metaBp: 12000,
-    });
-
-    expect(viewModel.marcaPorcentajePct).toBe(0);
-    expect(viewModel.marcaMetaPct).toBe(100);
-  });
-
-  it('marcaMetaPct es null cuando metaBp es null (mientras marcaPorcentajePct sigue numérico)', () => {
-    const viewModel = aDetalleBucketMesViewModel({
-      ...dtoConGrupos([]),
-      metaBp: null,
-    });
-
-    expect(viewModel.marcaMetaPct).toBeNull();
-    expect(viewModel.marcaPorcentajePct).toBe(55);
-  });
-
   it('pasa los grupos verbatim, en el orden exacto del servidor — sin re-sort ni re-agrupación (WDM-03/WCAT-02)', () => {
     const viewModel = aDetalleBucketMesViewModel(
       dtoConGrupos(gruposOrdenServidor),
@@ -156,28 +110,6 @@ describe('aDetalleBucketMesViewModel', () => {
     expect(viewModel.totalTransacciones).toBe(0);
     expect(viewModel.totalCategorias).toBe(0);
     expect(viewModel.grupos).toEqual([]);
-  });
-
-  it('sinPorcentaje = true cuando porcentajeBp es null (barra oculta, D-02)', () => {
-    const viewModel = aDetalleBucketMesViewModel({
-      ...dtoConGrupos([]),
-      porcentajeBp: null,
-    });
-
-    expect(viewModel.sinPorcentaje).toBe(true);
-    expect(aDetalleBucketMesViewModel(dtoConGrupos([])).sinPorcentaje).toBe(
-      false,
-    );
-  });
-
-  it('sinMeta = true cuando metaBp es null (tag oculto, SinCategoria — D-02)', () => {
-    const viewModel = aDetalleBucketMesViewModel({
-      ...dtoConGrupos([]),
-      metaBp: null,
-    });
-
-    expect(viewModel.sinMeta).toBe(true);
-    expect(aDetalleBucketMesViewModel(dtoConGrupos([])).sinMeta).toBe(false);
   });
 
   it('línea de totales: total formateado y conteo de transacciones', () => {

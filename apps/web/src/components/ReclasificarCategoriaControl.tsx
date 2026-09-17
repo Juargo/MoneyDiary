@@ -64,22 +64,24 @@ function etiqueta(bucket: string): string {
  * N veces por fila. Este control solo lee `data`/`isFetching` de
  * `useCategorias()` para su propio estado (`disabled`, `aria-busy`).
  *
- * a11y (ADR-018, WCAT-05): la etiqueta "Bucket y categoría" es VISIBLE (no
- * `sr-only`) — un `<span aria-hidden="true">` puramente decorativo para
- * lectores de pantalla, mientras el `<select>` lleva su nombre accesible
- * COMPLETO vía `aria-label="Bucket y categoría de {descripcion}"` (nunca
- * `aria-labelledby` apuntando a un segundo `<span sr-only>`: se probó esa
- * variante y Playwright's `getByLabel` — a diferencia de jsdom y del árbol
- * de accesibilidad nativo de Chromium — NO incluye el texto de un nodo
+ * a11y (ADR-018, WCAT-05, bucket-detalle-lista-rediseño Cambio 4): el
+ * `<select>` ya NO lleva ningún `<span>` de etiqueta propio — el encabezado
+ * de columna "Categoría" de `GrupoMovimientos` lo dice UNA vez para toda la
+ * lista, no fila por fila. El nombre accesible completo sigue viviendo en
+ * `aria-label` (nunca `aria-labelledby`: se probó esa variante y
+ * Playwright's `getByLabel` — a diferencia de jsdom y del árbol de
+ * accesibilidad nativo de Chromium — NO incluye el texto de un nodo
  * `sr-only` referenciado por `aria-labelledby` en su cómputo de nombre
- * accesible, así que el e2e real nunca encontraba el control). `aria-label`
- * directo es robusto en los tres motores (jsdom, Playwright, lectores de
- * pantalla reales) y sigue cumpliendo WCAG 2.5.3 Label in Name: el texto
- * visible es un prefijo literal del nombre accesible, y al ir `aria-hidden`
- * el span visible nunca se anuncia por separado (sin duplicar el anuncio).
- * Antes de este cambio (reclasificar-bucket-y-categoria) el `<label>` era
- * `sr-only` y el nombre era "Cambiar categoría de {descripcion}"; la
- * confirmación es un `role="alertdialog"`
+ * accesible, así que el e2e real nunca encontraba el control), pero su
+ * fórmula cambió a `` `Categoría de {descripcion}: {etiquetaOpcionActual}` ``
+ * — WCAG 2.5.3 Label in Name exige que el nombre accesible CONTENGA el texto
+ * visible, y el único texto visible que le queda a este control es el de la
+ * `<option>` seleccionada que el navegador pinta sobre el `<select>` cerrado
+ * (`etiquetaOpcionActual()`, helper local: replica exactamente el texto que
+ * cada `<option>` ya renderiza — `"{bucket} · {categoría}"` o
+ * `"Sin categoría"` — tanto en el estado de carga del catálogo como una vez
+ * resuelto, para que el nombre accesible NUNCA quede desincronizado de lo
+ * que la persona realmente ve). La confirmación es un `role="alertdialog"`
  * con foco movido a "Confirmar" al abrirse y devuelto al `<select>` al
  * cancelar — operable enteramente por teclado (botones nativos, sin ARIA de
  * dropdown custom); Escape dentro del diálogo cancela igual que el botón
@@ -93,6 +95,16 @@ function etiqueta(bucket: string): string {
  * `aria-busy` en ese momento sería semánticamente engañoso para un lector de
  * pantalla — se dispararía en cualquier reconexión normal, no solo en un
  * estado que realmente bloquea la interacción.
+ *
+ * Estilo "fantasma" (bucket-detalle-lista-rediseño, Cambio 4): en reposo el
+ * `<select>` no tiene borde ni relleno — se funde con la fila del ledger
+ * (`GrupoMovimientos`'s `<li>`, 44px fijo) y solo la flechita nativa del
+ * navegador delata que es un control (decisión deliberada del mockup: NO se
+ * usa `appearance-none`, que borraría esa única señal). Borde y relleno
+ * aparecen recién al hover/foco. El contenedor exterior es `relative`
+ * porque la confirmación cross-bucket y el mensaje de error se posicionan
+ * `absolute` (`top-full right-0`, fuera del flujo normal) — la fila que los
+ * contiene tiene una altura FIJA de 44px y no puede crecer para acomodarlos.
  */
 export function ReclasificarCategoriaControl({
   transaccionId,
@@ -135,6 +147,29 @@ export function ReclasificarCategoriaControl({
   );
   const categoriaPorId = (id: string): string | undefined =>
     data?.categorias.find((c) => c.id === id)?.bucket;
+
+  // WCAG 2.5.3 Label in Name (Cambio 4): replicates EXACTLY the text each
+  // rendered `<option>` shows, for whichever one is currently selected —
+  // the mid-flight branch mirrors the single loading-state `<option>` below
+  // (`{etiqueta(bucketActual)} · {categoriaActual.nombre}` or "Sin
+  // categoría"), the loaded branch looks the selected `categoriaId` up in
+  // the live catalog. `valor === ''` covers both the SinCategoria
+  // placeholder AND the loaded branch consistently, since a real categoría
+  // id is never an empty string.
+  function etiquetaOpcionActual(): string {
+    if (data === undefined) {
+      return categoriaActual === null
+        ? 'Sin categoría'
+        : `${etiqueta(bucketActual)} · ${categoriaActual.nombre}`;
+    }
+    if (valor === '') {
+      return 'Sin categoría';
+    }
+    const categoria = data.categorias.find((c) => c.id === valor);
+    return categoria
+      ? `${etiqueta(categoria.bucket)} · ${categoria.nombre}`
+      : 'Sin categoría';
+  }
 
   // Cross-bucket commits need to fire onMovida only after the mutation
   // settles successfully. We capture the pending bucket label at confirm
@@ -208,24 +243,16 @@ export function ReclasificarCategoriaControl({
   }
 
   return (
-    <div className="flex min-w-0 flex-col items-end gap-1">
-      {/* Visible label (WCAG 2.5.3 Label in Name — see docblock above):
-          `aria-hidden` so it is never announced on its own — the `<select>`
-          carries the FULL accessible name directly via `aria-label`, whose
-          text starts with this exact visible string, so nothing is
-          announced twice. */}
-      <span aria-hidden="true" className="text-xs text-muted-foreground">
-        Bucket y categoría
-      </span>
+    <div className="relative flex min-w-0 flex-col gap-1">
       <select
         id={selectId}
         ref={selectRef}
         value={valor}
         disabled={mutacion.isPending || data === undefined}
         aria-busy={catalogoCargandoInicial}
-        aria-label={`Bucket y categoría de ${descripcion}`}
+        aria-label={`Categoría de ${descripcion}: ${etiquetaOpcionActual()}`}
         onChange={alCambiar}
-        className="max-w-full min-w-0 rounded-none border border-border px-3 py-1 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full min-w-0 max-w-full rounded-none border border-transparent bg-transparent px-1.5 py-1 text-xs text-muted-foreground hover:border-input hover:bg-card hover:text-foreground focus:border-input focus:bg-card focus:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
       >
         {data === undefined ? (
           // Mid-flight: the catalog hasn't loaded yet. Offer only the
@@ -262,8 +289,14 @@ export function ReclasificarCategoriaControl({
           </>
         )}
       </select>
+      {/* Absolute, not stacked in flow: the ledger row (`GrupoMovimientos`'s
+          `<li>`) has a FIXED 44px height, so an error/confirm popup must
+          never push it taller. */}
       {errorMensaje && (
-        <p role="alert" className="text-xs text-error-foreground">
+        <p
+          role="alert"
+          className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-error-foreground"
+        >
           {errorMensaje}
         </p>
       )}
@@ -274,7 +307,7 @@ export function ReclasificarCategoriaControl({
           onConfirm={confirmar}
           onCancel={cancelar}
           pending={mutacion.isPending}
-          className="gap-2 p-3 text-xs"
+          className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs gap-2 p-3 text-xs"
         >
           <p>
             Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}

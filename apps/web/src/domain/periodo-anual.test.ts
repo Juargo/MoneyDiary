@@ -4,6 +4,7 @@ import {
   esMesActual,
   esPeriodoFuturo,
   mesAbreviado,
+  mesAbreviadoConAnio,
   mesAnterior,
   mesCompletoLabel,
   mesSiguiente,
@@ -27,6 +28,24 @@ describe('mesAbreviado', () => {
 
   it('returns the input verbatim for an unparseable periodo instead of throwing', () => {
     expect(mesAbreviado('not-a-periodo')).toBe('not-a-periodo');
+  });
+});
+
+// bucket-detalle-lista-rediseño: the movimientos-list column header shows
+// the month+year once per group ("AGO 2026"), reusing `mesAbreviado`'s
+// uppercase abbreviation instead of a duplicate table (DRY).
+describe('mesAbreviadoConAnio', () => {
+  it('formats YYYY-MM to an uppercase abbreviation + year', () => {
+    expect(mesAbreviadoConAnio('2026-08')).toBe('AGO 2026');
+  });
+
+  it('maps the first and last month of the year', () => {
+    expect(mesAbreviadoConAnio('2026-01')).toBe('ENE 2026');
+    expect(mesAbreviadoConAnio('2026-12')).toBe('DIC 2026');
+  });
+
+  it('returns the input verbatim for an unparseable periodo instead of throwing', () => {
+    expect(mesAbreviadoConAnio('not-a-periodo')).toBe('not-a-periodo');
   });
 });
 

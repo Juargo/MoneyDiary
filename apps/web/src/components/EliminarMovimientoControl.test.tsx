@@ -297,6 +297,65 @@ describe('EliminarMovimientoControl', () => {
     expect(getUndoSnapshot()).toMatchObject({ kind: 'error' });
   });
 
+  // bucket-detalle-lista-rediseño (Cambio 5): `compacto` is opt-in and
+  // scoped to `GrupoMovimientos` — `IngresosMesTable` never passes it, so
+  // its own rendering stays byte-identical (verified by the default-mode
+  // tests above, which all render `<EliminarMovimientoControl {...PROPS} />`
+  // with no `compacto` prop).
+  describe('compacto (icon-only mode, GrupoMovimientos)', () => {
+    it('compacto=false (default) renders the outline button with visible "Eliminar" text', () => {
+      render(<EliminarMovimientoControl {...PROPS} />, {
+        wrapper: crearWrapper(),
+      });
+
+      const trigger = screen.getByRole('button', {
+        name: /Eliminar movimiento Bono navidad \(2026-07-15\)/i,
+      });
+      expect(trigger).toHaveTextContent('Eliminar');
+      expect(trigger).toHaveAttribute('data-variant', 'outline');
+    });
+
+    it('compacto=true renders an icon-only trigger with no visible "Eliminar" text, same accessible name', () => {
+      render(<EliminarMovimientoControl {...PROPS} compacto />, {
+        wrapper: crearWrapper(),
+      });
+
+      const trigger = screen.getByRole('button', {
+        name: /Eliminar movimiento Bono navidad \(2026-07-15\)/i,
+      });
+      expect(trigger).not.toHaveTextContent('Eliminar');
+      expect(trigger.querySelector('svg.lucide-trash2')).not.toBeNull();
+      expect(trigger.querySelector('svg.lucide-trash2')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      );
+    });
+
+    it('compacto=true still opens the confirm dialog and schedules the delayed delete on Confirmar', async () => {
+      mockFetchOnce({ ok: true, status: 204 });
+      render(<EliminarMovimientoControl {...PROPS} compacto />, {
+        wrapper: crearWrapper(),
+      });
+
+      await abrirYConfirmar();
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(getUndoSnapshot()).toMatchObject({ kind: 'pendiente' });
+    });
+
+    it('compacto=true respects esDemo, disabling the icon-only trigger', () => {
+      render(<EliminarMovimientoControl {...PROPS} compacto esDemo />, {
+        wrapper: crearWrapper(),
+      });
+
+      expect(
+        screen.getByRole('button', {
+          name: /Eliminar movimiento Bono navidad/i,
+        }),
+      ).toBeDisabled();
+    });
+  });
+
   describe('demo session (esDemo)', () => {
     it('disables the trigger and clicking it does not open the dialog', async () => {
       const fetchMock = mockFetchOnce({ ok: true, status: 204 });

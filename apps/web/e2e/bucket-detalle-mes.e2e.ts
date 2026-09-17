@@ -9,10 +9,11 @@ import { stubApi } from './fixtures/api-stubs';
  *
  * Five cases, each scoped to the project that owns its claim:
  * 1. deep link `?periodo=2026-07` — the WDM-01 header (breadcrumb, back
- *    link, %/meta tag, usage bar, totals line) + the WDM-03 groups verbatim,
- *    both collapsed by default (bucket-detalle-acordeon): Paseos's 12 rows
- *    stay hidden until its heading trigger is activated, then all 12 show
- *    (no truncation, no "ver N más…" control anywhere). Escritorio.
+ *    link, totals strip — bucket-detalle-lista-rediseño retires the old
+ *    %/meta tag and usage bar) + the WDM-03 groups verbatim, both collapsed
+ *    by default (bucket-detalle-acordeon): Paseos's 12 rows stay hidden
+ *    until its heading trigger is activated, then all 12 show (no
+ *    truncation, no "ver N más…" control anywhere). Escritorio.
  * 2. tablet T1 header geometry (WDM-01 Playwright scenario) — breadcrumb
  *    and back control share one row at ≥768px (the "back control below md"
  *    rule only stacks them below the `md` breakpoint); the `h1` sits on its
@@ -44,8 +45,9 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
 
     await page.goto('/buckets/Deseos?periodo=2026-07');
 
-    // WDM-01 header — breadcrumb (nav aria-label="Ruta"), back link, %/meta
-    // tag, usage bar (presentation-only markers, aria-hidden), totals line.
+    // WDM-01 header — breadcrumb (nav aria-label="Ruta"), back link, totals
+    // strip (bucket-detalle-lista-rediseño Cambio 2: replaces the retired
+    // %/meta tag + usage bar — the total becomes the page's one large figure).
     await expect(
       page.getByRole('heading', { level: 1, name: 'Gustos' }),
     ).toBeVisible();
@@ -55,23 +57,36 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await expect(
       page.getByRole('link', { name: 'Volver al resumen' }),
     ).toBeVisible();
-    await expect(page.getByText('25% · Meta: 30%')).toBeVisible();
-    const barra = page.getByTestId('usage-bar');
-    await expect(barra).toBeVisible();
-    await expect(barra).toHaveAttribute('aria-hidden', 'true');
+    // The totals strip is asserted SCOPED TO `<header>`, never page-wide.
+    // `exact: true` alone is not enough on a ledger screen: every figure in
+    // the strip also occurs, verbatim, further down the page. The conteo
+    // "14" is the sharp case — the rows' own day-of-month column renders a
+    // bare "14" for any movement dated the 14th, so an unscoped
+    // `getByText('14', { exact: true })` resolves to three nodes and fails
+    // Playwright's strict mode. Same reasoning for the labels: "movimientos"
+    // occurs lowercase inside every group heading's own conteo
+    // ("12 movimientos").
+    const totales = page.locator('header');
     await expect(
-      page.getByText('Total $650.000 · 14 movimientos'),
+      totales.getByText('Total del mes', { exact: true }),
     ).toBeVisible();
+    await expect(totales.getByText('$650.000', { exact: true })).toBeVisible();
+    await expect(
+      totales.getByText('Movimientos', { exact: true }),
+    ).toBeVisible();
+    await expect(totales.getByText('14', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('usage-bar')).toHaveCount(0);
 
     // WDM-03 — groups render the fixture verbatim (server order), both
     // collapsed by default: their headings are visible, their row lists are
-    // not.
+    // not. The heading's accessible name has no middots between
+    // nombre/subtotal/conteo (bucket-detalle-lista-rediseño Cambio 3).
     const tituloPaseos = page.getByRole('heading', {
-      name: 'Paseos · $600.000 · 12 movimientos',
+      name: 'Paseos $600.000 12 movimientos',
     });
     await expect(tituloPaseos).toBeVisible();
     const tituloSinCategoria = page.getByRole('heading', {
-      name: 'Sin categoría · $50.000 · 2 movimientos',
+      name: 'Sin categoría $50.000 2 movimientos',
     });
     await expect(tituloSinCategoria).toBeVisible();
 
@@ -124,7 +139,19 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // WDM-01's "back control below md": at 880px the `md` breakpoint
     // applies, so breadcrumb and back control share the SAME top row
     // (flex-wrap items-center justify-between — same vertical center).
-    expect(Math.abs(rutaBox.y - volverBox.y)).toBeLessThan(4);
+    //
+    // CENTERS, not top edges — the contract this line has always stated is
+    // "same vertical center", and comparing `y` was only ever a proxy that
+    // happened to hold while both boxes were the same 20px text line. They
+    // no longer are: `Volver al resumen` became a `Button asChild`
+    // (`size="sm"`, 32px tall) so it clears SC 2.5.8's 24px target floor —
+    // `mobile-floor.e2e.ts`'s E-11 sweep measured the bare link at 20px.
+    // Under `items-center` the two centers still coincide exactly while the
+    // TOPS differ by half the height delta (6px). The geometry contract is
+    // unchanged; only the proxy for it was wrong.
+    const centroY = (caja: { y: number; height: number }) =>
+      caja.y + caja.height / 2;
+    expect(Math.abs(centroY(rutaBox) - centroY(volverBox))).toBeLessThan(4);
     // The h1 sits on its own line below that row.
     expect(h1Box.y).toBeGreaterThanOrEqual(rutaBox.y + rutaBox.height);
   });
@@ -187,8 +214,8 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await expect(
       grupoSinCategoria.getByRole('button', { expanded: true }),
     ).toBeVisible();
-    // WDM-04/MBD-03: SinCategoria arrives with null `porcentajeBp`/`metaBp`,
-    // so the page renders no %/meta tag and no usage bar (D-02).
+    // bucket-detalle-lista-rediseño: the %/meta tag and usage bar are
+    // retired outright (no longer conditional on porcentajeBp/metaBp).
     await expect(page.getByTestId('usage-bar')).toHaveCount(0);
   });
 
@@ -215,7 +242,17 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
 
     // The catalog must load before the select enables — wait for it.
     // The first visible row in the Paseos group is 'Uber' (tx-p1).
-    const select = page.getByLabel('Bucket y categoría de Uber');
+    //
+    // reclasificar-bucket-y-categoria-lista-rediseño (Cambio 4): the
+    // accessible name now carries the CURRENT selection
+    // (`Categoría de {descripcion}: {etiquetaOpcionActual}`), not a static
+    // string — matched by prefix here rather than pinning the suffix, since
+    // this fixture's `cat-paseos` categoriaId (`DETALLE_BUCKET_MES_FIXTURE`)
+    // has no matching entry in `CATALOGO_FIXTURE`'s two seed categorías, a
+    // pre-existing fixture gap out of this change's scope — the exact
+    // resolved suffix is an artifact of that gap, not a behavior this test
+    // means to pin.
+    const select = page.getByLabel(/^Categoría de Uber:/);
     await expect(select).toBeEnabled({ timeout: 5000 });
 
     // Pick Streaming (Deseos) — cross-bucket from Necesidades. The option

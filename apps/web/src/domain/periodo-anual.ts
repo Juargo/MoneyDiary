@@ -1,10 +1,12 @@
 /**
- * Pure period helpers for the annual view (US-030 Slice C). All three
- * formatting functions never throw — an unparseable `periodo` returns the
- * input verbatim, mirroring `formatearPeriodoLabel`'s fallback discipline
- * (the "impossible case" guard: `periodo` is backend-validated on the happy
- * path, so this only protects against a defensive edge, never crashes the
- * grid over a formatting concern).
+ * Pure period helpers for the annual view (US-030 Slice C) and the
+ * movimientos-list column header (bucket-detalle-lista-rediseño,
+ * `mesAbreviadoConAnio`). All formatting functions never throw — an
+ * unparseable `periodo` returns the input verbatim, mirroring
+ * `formatearPeriodoLabel`'s fallback discipline (the "impossible case"
+ * guard: `periodo` is backend-validated on the happy path, so this only
+ * protects against a defensive edge, never crashes the grid over a
+ * formatting concern).
  */
 
 const MESES_ABREVIADOS_ES = [
@@ -22,7 +24,7 @@ const MESES_ABREVIADOS_ES = [
   'DIC',
 ] as const;
 
-const MESES_COMPLETOS_ES = [
+export const MESES_COMPLETOS_ES = [
   'enero',
   'febrero',
   'marzo',
@@ -57,6 +59,21 @@ export function mesCompletoLabel(periodo: string): string {
   }
   const mes = MESES_COMPLETOS_ES[Number(match[2]) - 1];
   return mes ? `${mes} ${match[1]}` : periodo;
+}
+
+/**
+ * "2026-08" → "AGO 2026" — the movimientos-list redesign's column-header
+ * period label (bucket-detalle-lista-rediseño): reuses `mesAbreviado`
+ * (already uppercase) instead of duplicating the abbreviation table (DRY).
+ * Same defensive contract as its neighbors: an unparseable `periodo` is
+ * returned verbatim.
+ */
+export function mesAbreviadoConAnio(periodo: string): string {
+  const match = PERIODO_REGEX.exec(periodo);
+  if (!match) {
+    return periodo;
+  }
+  return `${mesAbreviado(periodo)} ${match[1]}`;
 }
 
 /** "2026-07" → 2026. Falls back to `anioPorDefecto` for an unparseable periodo. */

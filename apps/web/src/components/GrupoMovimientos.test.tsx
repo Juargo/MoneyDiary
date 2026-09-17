@@ -155,13 +155,16 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
     );
 
     expandirGrupo();
-    await screen.findByLabelText('Bucket y categoría de Compra en Líder');
+    await screen.findByLabelText(
+      'Categoría de Compra en Líder: Necesidades · Supermercado',
+    );
 
     expect(
       screen.getByRole('button', {
@@ -176,18 +179,16 @@ describe('GrupoMovimientos', () => {
   });
 
   // Display-consistency follow-up named BY NAME in `domain/fecha.ts`'s
-  // `aFechaCorta` docblock: "el raw-ISO de la página gemela US-053
-  // (GrupoMovimientos.tsx:69) es un follow-up de consistencia de display
-  // (renderiza aFechaCorta, NO byte-idéntico)". Until now the visible date
-  // column rendered `tx.fecha` verbatim, so a backend UTC timestamp showed as
-  // "2026-07-05T00:00:00.000Z" in the row while the delete control beside it
-  // — already routed through `aFechaCorta` — said "2026-07-05". One row, two
-  // spellings of one date.
+  // bucket-detalle-lista-rediseño (Cambio 3): the visible fecha column no
+  // longer goes through `aFechaCorta` — it renders `aDiaConSemana`'s
+  // `{ dia, diaSemana }` pair (day + weekday abbreviation, both `aria-hidden`)
+  // plus an `sr-only` span carrying `aFechaLargaLabel`'s full Spanish date,
+  // never the raw ISO timestamp. 2026-07-05 is a Sunday in UTC.
   //
   // Scoped with `within` to the row's own listitem on purpose: asserting on
   // the whole screen would also see the delete button's accessible name,
   // which has always carried the short form and so cannot fail.
-  it('renders the visible date column via aFechaCorta, never the raw ISO timestamp (fecha.ts follow-up)', async () => {
+  it('renders the visible date column as day + weekday, with the full date as sr-only, never the raw ISO timestamp', async () => {
     mockFetch();
     const grupoConIso: GrupoDetalleMesViewModel = {
       ...GRUPO_FIXTURE,
@@ -208,6 +209,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
@@ -215,10 +217,13 @@ describe('GrupoMovimientos', () => {
 
     expandirGrupo();
     const fila = await screen.findByRole('listitem');
-    expect(within(fila).getByText('2026-07-05')).toBeInTheDocument();
+    expect(within(fila).getByText('05')).toBeInTheDocument();
+    expect(within(fila).getByText('dom')).toBeInTheDocument();
+    expect(within(fila).getByText('5 de julio de 2026')).toHaveClass('sr-only');
     expect(
       within(fila).queryByText('2026-07-05T00:00:00.000Z'),
     ).not.toBeInTheDocument();
+    expect(within(fila).queryByText('2026-07-05')).not.toBeInTheDocument();
   });
 
   it('confirming a delete calls onEliminado (parent owns the announcement)', async () => {
@@ -254,6 +259,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
         onEliminado={onEliminado}
       />,
@@ -293,6 +299,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
         esDemo
       />,
@@ -318,6 +325,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={onMovida}
       />,
       { wrapper: crearWrapper() },
@@ -326,7 +334,7 @@ describe('GrupoMovimientos', () => {
     expandirGrupo();
     // Wait for the catalog to load and the select to be enabled.
     const select = await screen.findByLabelText(
-      'Bucket y categoría de Compra en Líder',
+      'Categoría de Compra en Líder: Necesidades · Supermercado',
     );
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -358,6 +366,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
@@ -379,6 +388,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
@@ -406,6 +416,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
@@ -443,6 +454,7 @@ describe('GrupoMovimientos', () => {
         destacar={false}
         bucketActual="Necesidades"
         periodo="2026-07"
+        periodoLabel="JUL 2026"
         onMovida={vi.fn()}
       />,
       { wrapper: crearWrapper() },
@@ -450,7 +462,7 @@ describe('GrupoMovimientos', () => {
 
     expandirGrupo();
     const select = screen.getByLabelText(
-      'Bucket y categoría de Compra en Líder',
+      'Categoría de Compra en Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
 
     // GRUPO_FIXTURE.categoriaId is 'cat-supermercado' — the sole mid-flight
@@ -466,5 +478,344 @@ describe('GrupoMovimientos', () => {
       json: () => Promise.resolve(CATALOGO_FIXTURE),
     });
     await waitFor(() => expect(select).not.toBeDisabled());
+  });
+
+  // ── bucket-detalle-lista-rediseño (Cambio 3): one ledger row per fila ──
+
+  it("the heading's accessible name has no middots between nombre/subtotal/conteo (bucket-detalle-lista-rediseño)", () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Supermercado $10.000 1 movimiento',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders an aria-hidden column header row (periodoLabel, Descripción, Monto, Categoría) only while expanded', () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    // Collapsed by default (no `destacar`): the column header is hidden
+    // along with the row list (same belt-and-braces `hidden` pattern).
+    const encabezado = screen.getByText('JUL 2026').closest('div');
+    expect(encabezado).not.toBeNull();
+    expect(encabezado).toHaveAttribute('aria-hidden', 'true');
+    expect(encabezado).not.toBeVisible();
+    expect(screen.getByText('Descripción')).not.toBeVisible();
+    expect(screen.getByText('Categoría')).not.toBeVisible();
+
+    expandirGrupo();
+
+    expect(screen.getByText('JUL 2026')).toBeVisible();
+    expect(screen.getByText('Descripción')).toBeVisible();
+    expect(screen.getByText('Categoría')).toBeVisible();
+  });
+
+  // bucket-detalle-lista-rediseño (Cambio 5): the manual-origin row's delete
+  // trigger renders `compacto` (icon-only, no visible "Eliminar" text) in
+  // this ledger — distinct from `IngresosMesTable`'s outline/text mode.
+  it('renders the manual-origin delete trigger in compacto (icon-only) mode', async () => {
+    mockFetch();
+    const grupoConManual: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      transacciones: [
+        {
+          id: 'tx-manual',
+          fecha: '2026-07-05T00:00:00.000Z',
+          descripcion: 'Bono manual',
+          origen: 'Manual',
+          montoLabel: '$20.000',
+        },
+      ],
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConManual}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const trigger = await screen.findByRole('button', {
+      name: /Eliminar movimiento Bono manual \(2026-07-05\)/i,
+    });
+    expect(trigger).not.toHaveTextContent('Eliminar');
+    expect(trigger.querySelector('svg.lucide-trash2')).not.toBeNull();
+  });
+
+  // A non-manual row reserves the action column with an empty `<span />`
+  // instead of collapsing it — otherwise the fixed 5-column grid would
+  // shift the amount/categoría columns out of alignment across rows.
+  it('reserves the action column with an empty span for a non-manual row (no delete control)', async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const fila = await screen.findByRole('listitem');
+    expect(
+      within(fila).queryByRole('button', { name: /Eliminar/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  // ── mobile responsive grid (defecto de layout: rejilla solo-escritorio) ──
+  //
+  // jsdom NO hace layout — no puede probar anchos reales ni qué breakpoint
+  // "gana". Estos tests son estructurales: prueban que las clases responsive
+  // existen en el DOM (mobile-first sin prefijo + `sm:` para escritorio) y
+  // que las celdas nuevas (conteo en el encabezado de columnas) están
+  // presentes. La geometría real a 360px/1280px la cubre
+  // `e2e/bucket-detalle-mes.e2e.ts` (proyecto `escritorio`) — ningún
+  // proyecto Playwright hoy asertaba el layout MÓVIL de esta rejilla.
+
+  it('the heading button uses a mobile grid-cols-[1fr_auto] and switches to the desktop 4-column grid at sm:', () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const heading = screen.getByRole('heading', { level: 2 });
+    const boton = within(heading).getByRole('button');
+    expect(boton.className).toContain('grid-cols-[1fr_auto]');
+    expect(boton.className).toContain('sm:grid-cols-[1fr_6rem_11rem_2.25rem]');
+  });
+
+  it('the conteo span in the heading is hidden on mobile (hidden sm:block) — desktop-only, since mobile shows it in the column header instead', () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const heading = screen.getByRole('heading', { level: 2 });
+    const conteoSpan = within(heading).getByText('1 movimiento');
+    expect(conteoSpan.className).toContain('hidden');
+    expect(conteoSpan.className).toContain('sm:block');
+  });
+
+  it('the column header shows the conteo as its own mobile-only cell (sm:hidden), alongside periodoLabel, while the rest is desktop-only', () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const encabezado = screen.getByText('JUL 2026').closest('div');
+    expect(encabezado).not.toBeNull();
+    if (!encabezado) throw new Error('encabezado not found');
+
+    // periodoLabel is always visible — no `hidden`/`sm:` classes of its own.
+    const periodoSpan = within(encabezado).getByText('JUL 2026');
+    expect(periodoSpan.className).not.toContain('hidden');
+
+    // The desktop-only cells (Descripción/Monto/Categoría/blank) are
+    // `hidden sm:block`.
+    for (const texto of ['Descripción', 'Monto', 'Categoría']) {
+      const celda = within(encabezado).getByText(texto);
+      expect(celda.className).toContain('hidden');
+      expect(celda.className).toContain('sm:block');
+    }
+
+    // The new mobile-only conteo cell exists, is `sm:hidden`, and is
+    // distinct from the heading's own (desktop-only) conteo span.
+    const celdaConteo = within(encabezado).getByText('1 movimiento');
+    expect(celdaConteo.className).toContain('sm:hidden');
+    expect(celdaConteo).not.toBe(
+      within(screen.getByRole('heading', { level: 2 })).getByText(
+        '1 movimiento',
+      ),
+    );
+  });
+
+  it('positions the categoría control at col-start-2 row-start-2 on mobile and sm:col-start-4 sm:row-start-1 on desktop, without adding a className prop to ReclasificarCategoriaControl', async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const select = await screen.findByLabelText(
+      'Categoría de Compra en Líder: Necesidades · Supermercado',
+    );
+    // select -> ReclasificarCategoriaControl's own root div -> the
+    // positioning wrapper this component (the call site) owns.
+    const wrapper = select.parentElement?.parentElement;
+    expect(wrapper).not.toBeNull();
+    if (!wrapper) throw new Error('wrapper not found');
+    expect(wrapper.className).toContain('col-start-2');
+    expect(wrapper.className).toContain('row-start-2');
+    expect(wrapper.className).toContain('sm:col-start-4');
+    expect(wrapper.className).toContain('sm:row-start-1');
+  });
+
+  it('positions the acción cell (delete control) at col-start-3 row-start-2 justify-self-end on mobile and sm:col-start-5 sm:row-start-1 sm:justify-self-auto on desktop', async () => {
+    mockFetch();
+    const grupoConManual: GrupoDetalleMesViewModel = {
+      ...GRUPO_FIXTURE,
+      transacciones: [
+        {
+          id: 'tx-manual',
+          fecha: '2026-07-05T00:00:00.000Z',
+          descripcion: 'Bono manual',
+          origen: 'Manual',
+          montoLabel: '$20.000',
+        },
+      ],
+    };
+
+    render(
+      <GrupoMovimientos
+        grupo={grupoConManual}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const trigger = await screen.findByRole('button', {
+      name: /Eliminar movimiento Bono manual \(2026-07-05\)/i,
+    });
+    // trigger -> EliminarMovimientoControl's own root div -> the
+    // positioning wrapper this component (the call site) owns.
+    const wrapper = trigger.parentElement?.parentElement;
+    expect(wrapper).not.toBeNull();
+    if (!wrapper) throw new Error('wrapper not found');
+    expect(wrapper.className).toContain('col-start-3');
+    expect(wrapper.className).toContain('row-start-2');
+    expect(wrapper.className).toContain('justify-self-end');
+    expect(wrapper.className).toContain('sm:col-start-5');
+    expect(wrapper.className).toContain('sm:row-start-1');
+    expect(wrapper.className).toContain('sm:justify-self-auto');
+  });
+
+  it('the empty filler span (non-manual row) carries the same position classes as the delete trigger wrapper', async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const fila = await screen.findByRole('listitem');
+    const filler = within(fila).getByText('', { selector: 'span:empty' });
+    expect(filler.className).toContain('col-start-3');
+    expect(filler.className).toContain('row-start-2');
+    expect(filler.className).toContain('justify-self-end');
+    expect(filler.className).toContain('sm:col-start-5');
+    expect(filler.className).toContain('sm:row-start-1');
+    expect(filler.className).toContain('sm:justify-self-auto');
+  });
+
+  it('the row <li> uses a mobile 3-column grid with a fixed h-16 and switches to the desktop 5-column grid with h-11 at sm:', async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const fila = await screen.findByRole('listitem');
+    expect(fila.className).toContain('grid-cols-[3.5rem_1fr_5.25rem]');
+    expect(fila.className).toContain('h-16');
+    expect(fila.className).toContain(
+      'sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem]',
+    );
+    expect(fila.className).toContain('sm:h-11');
   });
 });
