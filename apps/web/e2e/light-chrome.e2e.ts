@@ -42,7 +42,7 @@ test.describe('chrome claro (Clínico frío)', () => {
     expect(tarjeta).toBe('rgb(249, 250, 252)');
   });
 
-  test('los <select> nativos pintan la cara Clínico frío al enfocarse, con OS claro', async ({
+  test('los <select> nativos son transparentes en reposo con tinta del tema, y pintan la cara Clínico frío al enfocarse', async ({
     page,
   }) => {
     await stubApi(page);
@@ -57,19 +57,31 @@ test.describe('chrome claro (Clínico frío)', () => {
     const select = page.locator('select').first();
     await select.waitFor();
 
-    // bucket-detalle-lista-rediseño (Cambio 4): this <select>
-    // (`ReclasificarCategoriaControl`) went "fantasma" — no border and no
-    // background AT REST by deliberate design, so it fuses with the ledger
-    // row; only hover/focus paints border + `bg-card`. Tailwind v4's
-    // utilities layer beats `@layer base` regardless of source order, so
-    // `bg-transparent` wins over `select { background-color: var(--card) }`
-    // at rest and this spec's assertion no longer describes that state.
-    // What the base rule still guarantees — and what this test now pins —
-    // is the FOCUSED face: the moment the control looks interactive it must
-    // paint its own surface and never leak the UA's widget theme.
+    // bucket-detalle-lista-rediseño (Cambio 4): este <select>
+    // (`ReclasificarCategoriaControl`) pasó a ser "fantasma" — sin borde y sin
+    // fondo EN REPOSO, por diseño, para fundirse con la fila del libro mayor;
+    // sólo hover/foco pintan borde + `bg-card`. En Tailwind v4 la capa de
+    // utilities le gana a base sin importar el orden, así que `bg-transparent`
+    // vence a `select { background-color: var(--card) }` en reposo.
     //
-    // Kept byte-for-byte in step with the same change in
-    // `dark-chrome.e2e.ts`: these two specs are twins and must not drift.
+    // El contrato son DOS estados y este test fija los dos. Una revisión
+    // anterior sólo afirmaba el enfocado, y el reposo quedaba sin vigilancia:
+    // nadie probaba que la transparencia fuera deliberada ni que la tinta
+    // saliera del tema.
+    //
+    // Se mantiene en espejo exacto con `dark-chrome.e2e.ts`: son gemelos y no
+    // deben driftear — si uno cambia, el otro cambia en el mismo commit.
+
+    // REPOSO — transparente a propósito, con la tinta del TEMA.
+    const reposo = await select.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { fondo: cs.backgroundColor, tinta: cs.color };
+    });
+    expect(reposo.fondo).toBe('rgba(0, 0, 0, 0)');
+    // `--muted-foreground` de Clínico frío (#5a6270) — no un gris del UA.
+    expect(reposo.tinta).toBe('rgb(90, 98, 112)');
+
+    // ENFOCADO — pinta su propia superficie, nunca la del widget del UA.
     await select.focus();
 
     const fondo = await select.evaluate(

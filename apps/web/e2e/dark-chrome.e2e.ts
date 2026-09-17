@@ -23,8 +23,13 @@ import { stubApi } from './fixtures/api-stubs';
  *    is what still paints it. `ReclasificarCategoriaControl`'s own select
  *    went "fantasma" (bucket-detalle-lista-rediseño, Cambio 4) — transparent
  *    AT REST by design, painting `bg-card` only on hover/focus — so for that
- *    control this base rule only governs the interactive face, not rest;
- *    see the second test below for the up-to-date assertion.
+ *    control this base rule only governs the interactive face, not rest.
+ *    The second test below therefore pins BOTH states: transparent with the
+ *    theme's own ink at rest, `--card` on focus. An earlier revision pinned
+ *    only the focused one, which left rest unguarded — dropping
+ *    `bg-transparent`, or letting the ink fall through to a UA default, both
+ *    passed green. Verified by mutation: swapping `bg-transparent` for
+ *    `bg-card` turns this spec AND its light twin red.
  *
  * Why e2e and not jsdom: jsdom does not paint, does not resolve `@layer base`
  * UA-default interactions, and has no notion of `color-scheme` widget
@@ -74,7 +79,7 @@ test.describe('chrome oscuro', () => {
     expect(esquema).toBe('dark');
   });
 
-  test('los <select> nativos pintan su propia cara oscura al enfocarse, sin depender del tema del UA', async ({
+  test('los <select> nativos son transparentes en reposo con tinta del tema, y pintan su propia cara oscura al enfocarse', async ({
     page,
   }) => {
     await stubApi(page);
@@ -92,32 +97,49 @@ test.describe('chrome oscuro', () => {
     const select = page.locator('select').first();
     await select.waitFor();
 
-    // bucket-detalle-lista-rediseño (Cambio 4): this <select>
-    // (`ReclasificarCategoriaControl`) went "fantasma" — no border, no
-    // background AT REST, by deliberate design (it fuses with the ledger
-    // row; only the hover/focus state paints border + `bg-card`). The
-    // `@layer base` rule this spec guards therefore no longer governs the
-    // REST paint for this control — utilities layer wins over base layer
-    // regardless of source order (Tailwind v4 cascade-layer semantics), so
-    // `bg-transparent` beats `select { background-color: var(--card) }` at
-    // rest. What the base rule still guarantees is the FOCUSED face (the
-    // `focus:bg-card` utility), which is what this test asserts now — the
-    // moment the control looks interactive, it must not leak the UA's light
-    // widget theme.
+    // bucket-detalle-lista-rediseño (Cambio 4): este <select>
+    // (`ReclasificarCategoriaControl`) pasó a ser "fantasma" — sin borde y
+    // sin fondo EN REPOSO, por diseño, para fundirse con la fila del libro
+    // mayor; sólo hover/foco pintan borde + `bg-card`. Eso sacó al `@layer
+    // base` de gobernar el reposo de este control: en Tailwind v4 la capa de
+    // utilities le gana a base sin importar el orden, así que `bg-transparent`
+    // vence a `select { background-color: var(--card) }`.
+    //
+    // El contrato son DOS estados, y este test fija los dos. Una revisión
+    // anterior sólo afirmaba el estado enfocado, y así el reposo quedaba sin
+    // vigilancia: nadie probaba que la transparencia fuera deliberada ni que
+    // la tinta saliera del tema. Con un solo estado fijado, quitar
+    // `bg-transparent` o dejar que la tinta cayera al default del UA pasaba
+    // en verde.
+
+    // REPOSO — transparente a propósito, y con la tinta del TEMA. La
+    // transparencia sólo es legible porque `color-scheme: dark` está puesto en
+    // `documentElement` (lo garantiza el primer test de este archivo): el
+    // fondo que se ve a través es el de la página, no una cara clara del UA.
+    const reposo = await select.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { fondo: cs.backgroundColor, tinta: cs.color };
+    });
+    expect(reposo.fondo).toBe('rgba(0, 0, 0, 0)');
+    // `--muted-foreground` de Tinta cálida (#9a9488) — no un gris del UA.
+    expect(reposo.tinta).toBe('rgb(154, 148, 136)');
+
+    // ENFOCADO — apenas se ve interactivo, pinta su propia superficie.
     await select.focus();
 
     const fondo = await select.evaluate(
       (el) => getComputedStyle(el).backgroundColor,
     );
 
-    // The concrete regression is "transparent, so the UA paints it": that is
-    // what the control resolved to before the `@layer base` rule existed.
+    // La regresión concreta es "transparente, así que lo pinta el UA": es a lo
+    // que resolvía este control antes de que existiera la regla de `@layer
+    // base`.
     expect(fondo).not.toBe('rgba(0, 0, 0, 0)');
     expect(fondo).not.toBe('transparent');
 
-    // And it must be the card surface (#22211e, Tinta cálida), not merely
-    // "some colour" — a select that drifts off the token would still pass
-    // the check above.
+    // Y tiene que ser la superficie de tarjeta (#22211e, Tinta cálida), no
+    // simplemente "algún color" — un select que se corriera del token pasaría
+    // igual el chequeo de arriba.
     expect(fondo).toBe('rgb(34, 33, 30)');
   });
 });
