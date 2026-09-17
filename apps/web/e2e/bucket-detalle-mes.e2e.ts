@@ -75,7 +75,6 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       totales.getByText('Movimientos', { exact: true }),
     ).toBeVisible();
     await expect(totales.getByText('14', { exact: true })).toBeVisible();
-    await expect(page.getByTestId('usage-bar')).toHaveCount(0);
 
     // WDM-03 — groups render the fixture verbatim (server order), both
     // collapsed by default: their headings are visible, their row lists are
@@ -214,9 +213,15 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await expect(
       grupoSinCategoria.getByRole('button', { expanded: true }),
     ).toBeVisible();
-    // bucket-detalle-lista-rediseño: the %/meta tag and usage bar are
-    // retired outright (no longer conditional on porcentajeBp/metaBp).
-    await expect(page.getByTestId('usage-bar')).toHaveCount(0);
+    // The `data-testid="usage-bar"` absence assertion that used to close this
+    // test (and the header test above) is gone. It was retired with the bar
+    // itself (bucket-detalle-lista-rediseño): once no source file renders
+    // that testid, `toHaveCount(0)` can only ever pass — it asserted a string
+    // literal against nothing while reading like coverage. The "%/meta and
+    // usage bar stay retired" contract has ONE home now, and it is a unit
+    // test: `BucketDetalleMesPage.test.tsx`, which pins the absence by
+    // CONTENT (`/Meta:/`, `/^\d+% ·/`) and so catches a re-introduction in
+    // any shape, testid or not.
   });
 
   test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
