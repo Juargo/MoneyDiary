@@ -272,8 +272,17 @@ describe('SemaforoDetallePage', () => {
     const dto = detalleDto({ sinCategoria: { cantidad: 3, total: '15000' } });
     renderPage(successQuery(dto), '2026-07');
     await screen.findByRole('heading', { name: 'Semáforo' });
-    expect(screen.getByText(/3\s+movimientos/)).toBeInTheDocument();
-    expect(screen.getByText(/\$15\.000/)).toBeInTheDocument();
+    // `toHaveTextContent` sobre el `<p>` entero, NO dos `getByText` sueltos.
+    // Las dos cifras viven ahora en spans `font-mono tabular-nums` (DESIGN.md
+    // exige mono para toda cifra, también dentro de una oración), y
+    // `getByText` compara contra `getNodeText`, que junta SÓLO los nodos de
+    // texto directos de un elemento: apenas una cifra se muda a un span hijo,
+    // deja de verla. Es la misma trampa que el docblock de `GrupoMovimientos`
+    // documenta para su encabezado de grupo. `toHaveTextContent` usa
+    // `textContent` completo, así que atraviesa los spans — y de paso fija la
+    // oración entera en vez de dos fragmentos sueltos.
+    const aviso = screen.getByText(/sin categoría por/).closest('p');
+    expect(aviso).toHaveTextContent('3 movimientos sin categoría por $15.000.');
     const link = screen.getByRole('link', {
       name: /sin categoría/i,
     });

@@ -44,7 +44,16 @@ export function BucketSemaforoCard({
     <div className={cn(DASHBOARD_CARD_CLASS, fondo)}>
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">{etiqueta}</h2>
-        <span className="text-xs text-muted-foreground">
+        {/* Mono tabular sobre el label COMPLETO ("Meta: 50%"), no sólo sobre
+            la cifra: `metaLabel` llega armado desde el view-model
+            (`Meta: ${metaBp / 100}%`), y partirlo para envolver únicamente el
+            número obligaría a cambiar un contrato de dominio por una razón de
+            presentación. En una anotación de 12px pegada al nombre del bucket,
+            la palabra en mono se lee como parte de la misma marca técnica —
+            el north star de DESIGN.md es justamente "instrumento de
+            precisión". Si algún día el view-model expone la cifra suelta,
+            acá se parte y la palabra vuelve a la sans. */}
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {viewModel.metaLabel}
         </span>
       </div>

@@ -64,6 +64,22 @@ const SCREENS = [
     // Origen column collapse at 360px).
     heading: 'Ingresos',
   },
+  {
+    name: 'semaforo',
+    path: '/semaforo?periodo=2026-07',
+    // Same reasoning — `SemaforoDetallePage`'s `<h1>` only renders past the
+    // pending/error early returns of `renderEstado`.
+    //
+    // Esta pantalla NO es una lista y no recibió el idioma de libro mayor: es
+    // una pantalla de veredicto, y su meta/porcentaje son su razón de ser, no
+    // ruido al costado. Entra al arnés por lo único que sí comparte con sus
+    // hermanas — el piso de 24×24 de SC 2.5.8 —, y entra con motivo: tiene
+    // TRES links sueltos (volver, ayuda, y "ver los movimientos sin
+    // categoría" dentro del aviso), dos de ellos en `text-xs`, o sea la
+    // versión más chica del mismo defecto que E-11 ya encontró en
+    // `bucket-detalle` y en `ingresos`.
+    heading: 'Semáforo',
+  },
 ] as const;
 
 // SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception exempts a target "in a
