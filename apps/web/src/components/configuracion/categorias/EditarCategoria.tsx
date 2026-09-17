@@ -594,9 +594,7 @@ function EditarCategoriaCargada({
           </li>
         </ol>
       </nav>
-      <h1 className="text-xl font-semibold text-foreground">
-        Editar categoría
-      </h1>
+      <h1 className="text-xl font-medium text-foreground">Editar categoría</h1>
 
       {/*
         Identidad sobre superficie, igual que el resto de Configuración.

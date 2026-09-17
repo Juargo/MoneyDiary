@@ -23,7 +23,7 @@ export function BrandBlock({
   const Wordmark = asHeading ? 'h1' : 'p';
   return (
     <>
-      <Wordmark className="text-lg font-semibold text-primary">
+      <Wordmark className="text-lg font-medium text-primary">
         MoneyDiary
       </Wordmark>
       <p className="text-xs text-muted-foreground">

@@ -97,31 +97,31 @@ export function IngresosMesTable({
           <tr className="text-left">
             <th
               scope="col"
-              className="border-b border-border pb-2 pr-4 font-mono text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase"
+              className="border-b border-border pb-2 pr-4 font-mono text-[11px] font-medium tracking-[0.1em] text-muted-foreground uppercase"
             >
               {periodoLabel}
             </th>
             <th
               scope="col"
-              className="border-b border-border pb-2 pr-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase"
+              className="border-b border-border pb-2 pr-4 text-[11px] font-medium tracking-[0.1em] text-muted-foreground uppercase"
             >
               Descripción
             </th>
             <th
               scope="col"
-              className="hidden border-b border-border pb-2 pr-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase sm:table-cell"
+              className="hidden border-b border-border pb-2 pr-4 text-[11px] font-medium tracking-[0.1em] text-muted-foreground uppercase sm:table-cell"
             >
               Origen
             </th>
             <th
               scope="col"
-              className="border-b border-border pb-2 pr-4 text-right text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase"
+              className="border-b border-border pb-2 pr-4 text-right text-[11px] font-medium tracking-[0.1em] text-muted-foreground uppercase"
             >
               Monto
             </th>
             <th
               scope="col"
-              className="border-b border-border pb-2 text-right text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase"
+              className="border-b border-border pb-2 text-right text-[11px] font-medium tracking-[0.1em] text-muted-foreground uppercase"
             >
               Acciones
             </th>
@@ -135,20 +135,20 @@ export function IngresosMesTable({
                   <span className="sr-only">{fila.fechaLargaLabel}</span>
                   <span
                     aria-hidden="true"
-                    className="font-mono text-sm font-medium tabular-nums text-foreground"
+                    className="font-mono text-sm font-normal tabular-nums text-foreground"
                   >
                     {fila.diaLabel}
                   </span>
                   <span
                     aria-hidden="true"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+                    className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
                   >
                     {fila.diaSemanaLabel}
                   </span>
                 </span>
               </td>
               <td
-                className="max-w-0 truncate pr-4 font-medium"
+                className="max-w-0 truncate pr-4 font-normal"
                 title={fila.descripcion}
               >
                 {fila.descripcion}
@@ -156,7 +156,7 @@ export function IngresosMesTable({
               <td className="hidden pr-4 sm:table-cell">
                 <Badge variant="secondary">{fila.origen}</Badge>
               </td>
-              <td className="pr-4 text-right font-mono font-semibold tabular-nums text-ingreso-foreground">
+              <td className="pr-4 text-right font-mono font-normal tabular-nums text-ingreso-foreground">
                 {fila.montoLabel}
               </td>
               <td className="text-right">

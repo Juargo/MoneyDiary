@@ -55,7 +55,7 @@ export function MonthYearPicker({
 
         <span
           aria-live="polite"
-          className="text-sm font-semibold text-foreground"
+          className="text-sm font-medium text-foreground"
         >
           {anioMostrado}
         </span>

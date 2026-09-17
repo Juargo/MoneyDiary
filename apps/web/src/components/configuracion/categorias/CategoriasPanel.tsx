@@ -210,7 +210,7 @@ export function CategoriasPanel() {
           <h2
             ref={tituloRef}
             tabIndex={-1}
-            className="text-xl font-semibold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+            className="text-xl font-medium text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Categorías y patrones
           </h2>
@@ -292,7 +292,7 @@ export function CategoriasPanel() {
                 key={grupo.bucket}
                 className={cn('flex flex-col', SUPERFICIE_SECCION)}
               >
-                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
                   <span
                     aria-hidden="true"
                     data-testid="bucket-swatch"

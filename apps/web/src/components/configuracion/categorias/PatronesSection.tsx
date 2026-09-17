@@ -140,7 +140,7 @@ export function PatronesSection({
       <h2
         id="titulo-patrones"
         aria-label="Patrones de auto-categorización"
-        className="text-sm font-semibold text-foreground"
+        className="text-sm font-medium text-foreground"
       >
         <EtiquetaResponsiva
           movil="Patrones"

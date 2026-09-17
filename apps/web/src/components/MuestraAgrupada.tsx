@@ -97,7 +97,7 @@ export function MuestraAgrupada({
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-foreground">
+      <h3 className="text-sm font-medium text-foreground">
         Movimientos por categoría
       </h3>
       <div className="flex flex-col gap-2">
@@ -122,7 +122,7 @@ export function MuestraAgrupada({
                     aria-expanded={abierto}
                     aria-controls={idLista}
                     onClick={() => handleToggle(grupo.clave)}
-                    className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-semibold text-foreground hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                    className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-medium text-foreground hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     <span className="min-w-0 truncate">
                       {tituloGrupo(grupo)}{' '}
