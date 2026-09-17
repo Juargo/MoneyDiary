@@ -10,7 +10,13 @@
  * catalog fetches.
  */
 
-import { act, render, screen, fireEvent } from '@testing-library/react-native';
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  within,
+} from '@testing-library/react-native';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
 import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
@@ -240,6 +246,72 @@ describe('GrupoMovimientosMobile', () => {
     expect(mockIconoCategoriaBadge.mock.calls[0][0]).toMatchObject({
       icono: null,
       bucket: 'Deseos',
+    });
+  });
+
+  // bucket-detalle-lista-rediseño mobile port (Cambio 3): two-line row —
+  // fecha/monto on line 1, descripción on line 2 — sharing `CeldaFecha` with
+  // `IngresosMesLista` for visual parity between the two mobile lists.
+  describe('row layout (bucket-detalle-lista-rediseño, Cambio 3)', () => {
+    it("renders the fecha cell with the full Spanish date as its accessibilityLabel ('2026-07-01' → '1 de julio de 2026')", async () => {
+      const grupo = makeGrupo('cat-1', 'Supermercado', 1);
+
+      await render(
+        <GrupoMovimientosMobile
+          grupo={grupo}
+          bucket="Necesidades"
+          destacar={undefined}
+          onReclasificado={jest.fn()}
+          onMovida={jest.fn()}
+        />,
+      );
+
+      expect(screen.getByLabelText('1 de julio de 2026')).toBeTruthy();
+      // Visible day/weekday fragments — 2026-07-01 is a Wednesday (UTC).
+      expect(screen.getByText('01')).toBeTruthy();
+      expect(screen.getByText('MIÉ')).toBeTruthy();
+    });
+
+    it('renders descripción with numberOfLines={2}', async () => {
+      const grupo = makeGrupo('cat-1', 'Supermercado', 1);
+
+      await render(
+        <GrupoMovimientosMobile
+          grupo={grupo}
+          bucket="Necesidades"
+          destacar={undefined}
+          onReclasificado={jest.fn()}
+          onMovida={jest.fn()}
+        />,
+      );
+
+      const descripcion = screen.getByText('Tx cat-1-tx-1');
+      expect(descripcion.props.numberOfLines).toBe(2);
+    });
+
+    it('renders the row monto with tabular-nums fontVariant', async () => {
+      // Single tx of 10000 also makes the group subtotal read '$10.000' —
+      // scope the query to the row so the assertion targets the ROW monto,
+      // not the group header's subtotal (both would otherwise match
+      // `getByText('$10.000')` ambiguously).
+      const grupo = makeGrupo('cat-1', 'Supermercado', 1);
+
+      await render(
+        <GrupoMovimientosMobile
+          grupo={grupo}
+          bucket="Necesidades"
+          destacar={undefined}
+          onReclasificado={jest.fn()}
+          onMovida={jest.fn()}
+        />,
+      );
+
+      const fila = screen.getByTestId('movimiento-cat-1-tx-1');
+      const monto = within(fila).getByText('$10.000');
+      const style = Array.isArray(monto.props.style)
+        ? Object.assign({}, ...monto.props.style)
+        : monto.props.style;
+      expect(style.fontVariant).toEqual(['tabular-nums']);
     });
   });
 });

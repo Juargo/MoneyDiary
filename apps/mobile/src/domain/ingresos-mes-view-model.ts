@@ -10,9 +10,19 @@
  * equivalent (D-22).
  *
  * Pure: no React Native, no fetch.
+ *
+ * Fecha cell fields (bucket-detalle-lista-rediseño mobile port, Cambio 4):
+ * `diaLabel`/`diaSemanaLabel`/`fechaLargaLabel` are precomputed HERE, not in
+ * `IngresosMesLista` — consistent with how this view model already owns
+ * every OTHER display string (`montoLabel`, `origen` verbatim, `fechaLabel`
+ * itself); the component stays purely presentational and does zero
+ * formatting today, and this keeps it that way. `fechaLabel` (the short
+ * `YYYY-MM-DD` form) is kept as-is — it has no other known consumer, but
+ * removing an existing public field without one is an unforced regression
+ * risk for zero benefit.
  */
 
-import { aFechaCorta } from './fecha-corta';
+import { aDiaConSemana, aFechaCorta, aFechaLargaLabel } from './fecha-corta';
 import { formatearMontoConSigno } from './formatear-monto';
 import { mesCompletoLabel, periodoActualUTC } from './periodo-anual';
 import type {
@@ -24,6 +34,12 @@ export interface IngresosMesFilaViewModel {
   readonly id: string;
   /** `aFechaCorta(fecha)` — YYYY-MM-DD via string surgery (TZ-safe). */
   readonly fechaLabel: string;
+  /** `aDiaConSemana(fecha).dia` — 2-digit day, for the shared `CeldaFecha` cell. */
+  readonly diaLabel: string;
+  /** `aDiaConSemana(fecha).diaSemana` — lowercase weekday abbreviation ('mié'). */
+  readonly diaSemanaLabel: string;
+  /** `aFechaLargaLabel(fecha)` — full Spanish date, used as `CeldaFecha`'s accessibilityLabel. */
+  readonly fechaLargaLabel: string;
   readonly descripcion: string;
   /** Origen verbatim — bank name or 'Manual' (MID-02, CA-02). No normalization. */
   readonly origen: string;
@@ -45,9 +61,13 @@ export interface IngresosMesViewModel {
 function aFilaViewModel(
   tx: TransaccionIngresosMesDto,
 ): IngresosMesFilaViewModel {
+  const { dia, diaSemana } = aDiaConSemana(tx.fecha);
   return {
     id: tx.id,
     fechaLabel: aFechaCorta(tx.fecha),
+    diaLabel: dia,
+    diaSemanaLabel: diaSemana,
+    fechaLargaLabel: aFechaLargaLabel(tx.fecha),
     descripcion: tx.descripcion,
     origen: tx.origen,
     montoLabel: formatearMontoConSigno(tx.monto, '+'),

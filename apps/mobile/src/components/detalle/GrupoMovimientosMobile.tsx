@@ -23,15 +23,28 @@
  * generic fallback for it with no client-side special-casing. Mirrors web's
  * `GrupoMovimientos.tsx`.
  *
+ * Row layout (bucket-detalle-lista-rediseño mobile port, Cambio 3): each row
+ * is two lines — fecha/monto on line 1 (`flexDirection: 'row',
+ * justifyContent: 'space-between'`), descripción on line 2
+ * (`numberOfLines={2}`) — replacing the previous three stacked `<Text>`s.
+ * The fecha cell is the SHARED `CeldaFecha` component (also used by
+ * `IngresosMesLista`, so both mobile lists read identically): visible
+ * `dia`/`diaSemana` from `aDiaConSemana(tx.fecha)`, full Spanish date as its
+ * `accessibilityLabel` via `aFechaLargaLabel(tx.fecha)` — the RN equivalent
+ * of web's `sr-only` span. The monto carries `fontVariant: ['tabular-nums']`
+ * so digits form a rigid column, same discipline as web's `font-mono
+ * tabular-nums`.
+ *
  * Pure: no fetch, no router.
  */
 
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { aFechaCorta } from '../../domain/fecha-corta';
+import { aDiaConSemana, aFechaLargaLabel } from '../../domain/fecha-corta';
 import { formatearMontoCLP } from '../../domain/formatear-monto';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
 import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
+import { CeldaFecha } from './CeldaFecha';
 import { ReclasificarMobileControl } from './ReclasificarMobileControl';
 
 /**
@@ -157,26 +170,49 @@ export function GrupoMovimientosMobile({
       </View>
       <Text style={{ fontSize: 12, color: '#8A8F9C' }}>{subtotalLabel}</Text>
 
-      {filasMostradas.map((tx) => (
-        <View
-          key={tx.id}
-          testID={`movimiento-${tx.id}`}
-          style={{ paddingVertical: 4 }}
-        >
-          <Text style={{ fontSize: 13 }}>{aFechaCorta(tx.fecha)}</Text>
-          <Text style={{ fontSize: 13 }}>{tx.descripcion}</Text>
-          <Text style={{ fontSize: 13, fontWeight: '500' }}>
-            {tx.montoLabel}
-          </Text>
-          {/* Reclassify control — wired per D-17/D-19/T-15 */}
-          <ReclasificarMobileControl
-            tx={tx}
-            categoriaActual={categoriaActual}
-            onReclasificado={onReclasificado}
-            onMovida={onMovida}
-          />
-        </View>
-      ))}
+      {filasMostradas.map((tx) => {
+        const { dia, diaSemana } = aDiaConSemana(tx.fecha);
+        return (
+          <View
+            key={tx.id}
+            testID={`movimiento-${tx.id}`}
+            style={{ paddingVertical: 4 }}
+          >
+            {/* Line 1: fecha (left) · monto (right) — bucket-detalle-lista-
+                rediseño mobile port, Cambio 3, web parity with
+                GrupoMovimientos.tsx. */}
+            <View
+              style={{ flexDirection: 'row', justifyContent: 'space-between' }}
+            >
+              <CeldaFecha
+                dia={dia}
+                diaSemana={diaSemana}
+                fechaLargaLabel={aFechaLargaLabel(tx.fecha)}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '500',
+                  fontVariant: ['tabular-nums'],
+                }}
+              >
+                {tx.montoLabel}
+              </Text>
+            </View>
+            {/* Line 2: descripción, clamped to 2 lines. */}
+            <Text style={{ fontSize: 13 }} numberOfLines={2}>
+              {tx.descripcion}
+            </Text>
+            {/* Reclassify control — wired per D-17/D-19/T-15 */}
+            <ReclasificarMobileControl
+              tx={tx}
+              categoriaActual={categoriaActual}
+              onReclasificado={onReclasificado}
+              onMovida={onMovida}
+            />
+          </View>
+        );
+      })}
 
       {tieneToggle && (
         <Pressable
