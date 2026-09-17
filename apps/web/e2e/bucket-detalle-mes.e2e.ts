@@ -246,13 +246,14 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // reclasificar-bucket-y-categoria-lista-rediseño (Cambio 4): the
     // accessible name now carries the CURRENT selection
     // (`Categoría de {descripcion}: {etiquetaOpcionActual}`), not a static
-    // string — matched by prefix here rather than pinning the suffix, since
-    // this fixture's `cat-paseos` categoriaId (`DETALLE_BUCKET_MES_FIXTURE`)
-    // has no matching entry in `CATALOGO_FIXTURE`'s two seed categorías, a
-    // pre-existing fixture gap out of this change's scope — the exact
-    // resolved suffix is an artifact of that gap, not a behavior this test
-    // means to pin.
-    const select = page.getByLabel(/^Categoría de Uber:/);
+    // string. Pinned EXACT, suffix included: `CATALOGO_FIXTURE` ya define
+    // `cat-paseos`, así que la etiqueta resuelve a la categoría real de la
+    // fila. Una revisión anterior matcheaba sólo el prefijo porque el
+    // catálogo no tenía esa entrada y el sufijo caía al texto de respaldo —
+    // ese hueco de fixture está cerrado, y con él la razón para aflojar el
+    // assert. Si vuelve a abrirse, este `getByLabel` se pone rojo, que es
+    // exactamente lo que queremos que pase.
+    const select = page.getByLabel('Categoría de Uber: Gustos · Paseos');
     await expect(select).toBeEnabled({ timeout: 5000 });
 
     // Pick Streaming (Deseos) — cross-bucket from Necesidades. The option

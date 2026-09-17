@@ -54,6 +54,32 @@ const CATALOGO_FIXTURE = {
       transaccionesCount: 0,
       patrones: [],
     },
+    // `cat-paseos` — la categoría a la que apunta el PRIMER grupo de
+    // `DETALLE_BUCKET_MES_FIXTURE` (abajo). Vive acá porque en producción NO
+    // puede no estar: por ADR-036 el catálogo es propiedad del usuario y
+    // `Transaccion → Categoria` es una FK compuesta `(categoriaId, userId)`,
+    // así que el backend es incapaz de devolver un grupo cuya `categoriaId`
+    // no exista en `GET /api/categorias`. Mientras faltó, este par de
+    // fixtures modelaba un estado imposible.
+    //
+    // Era invisible mientras el `aria-label` del `<select>` de
+    // `ReclasificarCategoriaControl` era un string estático. Al pasar a
+    // depender de la opción SELECCIONADA (WCAG 2.5.3 Label in Name, #699), la
+    // fila "Uber" empezó a caer al texto de respaldo en vez de decir su
+    // categoría real, y el e2e tuvo que aflojarse a un regex de prefijo. Con
+    // el catálogo completo, ese assert vuelve a ser exacto.
+    //
+    // `icono` y `transaccionesCount` se mantienen en sincronía con los del
+    // grupo homónimo del detalle ('bike', 12): son la misma categoría vista
+    // por dos endpoints, y si divergen vuelven a contar historias distintas.
+    {
+      id: 'cat-paseos',
+      nombre: 'Paseos',
+      bucket: 'Deseos',
+      icono: 'bike',
+      transaccionesCount: 12,
+      patrones: [],
+    },
   ],
 };
 
