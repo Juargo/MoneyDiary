@@ -104,8 +104,21 @@ export function ResumenScreen({
   // `useResumenAnual` query) — the income card's own derivations are gone.
   const anio = anioDePeriodo(viewModel.periodo, new Date().getUTCFullYear());
 
+  // SIN `p-4`: el padding de página lo pone `ResumenPage`, que envuelve a este
+  // componente (lo necesita para el `PeriodoSelector`, que vive fuera del
+  // switch de estados). Tenerlo en los dos lados aplicaba el padding dos veces
+  // y empujaba este contenedor 16px fuera del viewport: a 360px el dashboard
+  // —la pantalla más visitada del producto— se scrolleaba de costado.
+  //
+  // Lo encontró el barrido E-10 de `mobile-floor.e2e.ts` al sumar `/` a su
+  // lista de `SCREENS`. Ningún test lo veía antes: jsdom no hace layout, y los
+  // specs propios del dashboard (`dashboard-donut`, `annual-grid`) sí corren en
+  // móvil pero miden comportamiento, no geometría de la página.
+  //
+  // `mx-auto max-w-6xl` sí se queda acá: es el ancho del CONTENIDO, no el
+  // respiro de la página.
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <h1 className="sr-only">Resumen mensual</h1>
       <SemaforoHeroCard
         estadoGlobal={viewModel.estadoGlobal}

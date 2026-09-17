@@ -467,7 +467,7 @@ describe('ResumenScreen', () => {
   // in the responsive Tailwind classes directly — an accidental removal of
   // the mobile margin or a resurrected 2-column switch fails this test
   // loudly, same pattern PR2 used for the shell (AppShell.test.tsx).
-  it('reflows single-column with 16px page margins at every breakpoint (Phase 4 mobile audit, WDS-04)', async () => {
+  it('reflows single-column y NO pone el padding de página, que es de ResumenPage (Phase 4 mobile audit, WDS-04)', async () => {
     mockFetchAnual();
     const { container } = renderScreen();
     // Router harness resolves its initial match asynchronously — wait for
@@ -475,8 +475,19 @@ describe('ResumenScreen', () => {
     await screen.findByTestId('semaforo-global');
 
     const paginaRaiz = container.firstElementChild as HTMLElement;
-    // p-4 = 16px side margins around the whole dashboard body.
-    expect(paginaRaiz.className).toMatch(/\bp-4\b/);
+    // El margen lateral de 16px ya NO se pone acá: lo pone `ResumenPage`, que
+    // envuelve a este componente (lo necesita igual para el `PeriodoSelector`,
+    // que vive fuera del switch de estados). `ResumenPage.test.tsx` fija ese
+    // lado del contrato.
+    //
+    // Acá se afirma lo CONTRARIO —que este contenedor no lleve padding de
+    // página— y no es una aserción vacía: tenerlo en los dos lados era
+    // exactamente el bug. El padding se aplicaba dos veces y empujaba el
+    // contenedor 16px fuera del viewport, así que a 360px el dashboard se
+    // scrolleaba de costado. Lo encontró el barrido E-10 de
+    // `mobile-floor.e2e.ts` al sumar `/` a sus `SCREENS`; el margen real (16px
+    // a cada lado) lo mide ese arnés, no jsdom.
+    expect(paginaRaiz.className).not.toMatch(/\bp-4\b/);
 
     // Anchor on the page-level grid's own testid (the hero is a single-line
     // row now, no `.grid` of its own to collide with this lookup).

@@ -280,4 +280,38 @@ describe('ResumenPage', () => {
 
     expect(onPeriodoChange).toHaveBeenCalledWith('2026-06');
   });
+
+  /**
+   * WDS-04 (Phase 4 mobile audit): el margen lateral de 16px del dashboard
+   * vive ACÁ, en el contenedor que envuelve tanto al `PeriodoSelector` como al
+   * switch de estados. Antes estaba en los DOS lados —también en
+   * `ResumenScreen`— y el padding se aplicaba dos veces, empujando el
+   * contenido 16px fuera del viewport: a 360px la pantalla más visitada del
+   * producto se scrolleaba de costado.
+   *
+   * Este test y el de `ResumenScreen.test.tsx` son las dos mitades del mismo
+   * contrato y hay que leerlos juntos: acá se exige que el padding esté, allá
+   * que NO esté. Juntos cierran las dos regresiones posibles (que desaparezca,
+   * y que vuelva a duplicarse).
+   *
+   * jsdom no evalúa CSS, así que esto fija el MECANISMO (la clase). La
+   * geometría real —16px a cada lado a 360px— la mide el barrido E-10 de
+   * `mobile-floor.e2e.ts`, que es donde se descubrió el bug.
+   */
+  it('el contenedor de página lleva el padding de 16px, que ResumenScreen ya no duplica (WDS-04)', async () => {
+    const { container } = renderData(
+      <ResumenPage
+        query={mockQuery({ data: dataDto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        onSelectBucket={() => {}}
+        onSelectIngresos={() => {}}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Mes anterior' });
+
+    const contenedorPagina = container.firstElementChild as HTMLElement;
+    expect(contenedorPagina.className).toMatch(/\bp-4\b/);
+  });
 });
