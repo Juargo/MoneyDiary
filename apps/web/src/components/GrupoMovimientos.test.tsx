@@ -851,4 +851,30 @@ describe('GrupoMovimientos', () => {
     // the truncation came back.
     expect(descripcion).not.toHaveAttribute('title');
   });
+
+  it("shows the group's category name in full too: the heading cell wraps instead of truncating", async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const nombre = await screen.findByText('Supermercado');
+    const clases = nombre.className.split(/\s+/);
+    expect(clases).toContain('break-words');
+    expect(clases).not.toContain('truncate');
+    // `min-w-0` on the span itself, not just on its flex parent: a flex item
+    // defaults to `min-width: auto` and will NOT shrink below its content,
+    // so without this the name would overflow its cell instead of wrapping.
+    // `truncate` used to hide that, because it brought `overflow-hidden`.
+    expect(clases).toContain('min-w-0');
+  });
 });

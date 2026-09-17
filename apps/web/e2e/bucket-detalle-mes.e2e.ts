@@ -7,7 +7,11 @@ import { stubApi } from './fixtures/api-stubs';
  * real viewport, against the grouped endpoint stub (`DETALLE_BUCKET_MES_FIXTURE`
  * in `fixtures/api-stubs.ts`).
  *
- * Five cases, each scoped to the project that owns its claim:
+ * Seven cases, each scoped to the project that owns its claim. The last two
+ * (6 and 7) are geometry: they run in ALL THREE projects, because what they
+ * measure — whether a name fits, wraps or is cut — depends on the viewport
+ * width and cannot be observed in jsdom at all.
+ *
  * 1. deep link `?periodo=2026-07` — the WDM-01 header (breadcrumb, back
  *    link, totals strip — bucket-detalle-lista-rediseño retires the old
  *    %/meta tag and usage bar) + the WDM-03 groups verbatim, both collapsed
@@ -28,6 +32,12 @@ import { stubApi } from './fixtures/api-stubs';
  * 5. US-055 T-08 — cross-bucket reclassify surfaces the announcement in the
  *    page-owned `role="status"` region AND the URL retains `?periodo=` (D-07,
  *    WCAT-04). Escritorio.
+ * 6. a row descripción longer than its column is shown in full: it wraps
+ *    inside its own cell and the page never scrolls sideways. Three
+ *    viewports.
+ * 7. the same for the group's category name in the heading, plus the heading
+ *    button holding the wrapped name instead of clipping it. Three
+ *    viewports.
  */
 
 test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', () => {
@@ -368,6 +378,75 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // 3 · The distribución survives: no page-level horizontal scroll. This
     //     is what `break-words` buys — without it a single unspaced token
     //     widens the column and pushes the grid off-screen.
+    const desborde = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(desborde.scrollWidth).toBeLessThanOrEqual(desborde.clientWidth);
+  });
+
+  // Same reasoning as the test above (jsdom does not lay out, and every
+  // fixture name is short), applied to the OTHER name on this screen: the
+  // group's category name in the heading. This is the one that was still
+  // being cut on a phone after the row descripción stopped truncating — the
+  // heading's name cell is roughly half as wide below `sm`.
+  test('el nombre de la categoría del encabezado también se muestra completo y el botón crece con él', async ({
+    page,
+  }) => {
+    // Long enough to need a second line at the WIDEST viewport too: the
+    // heading's name cell measures ~195px on a phone but ~430px on desktop,
+    // so a 58-character name fits on one line there and the wrap assert
+    // below would fail for the right reason — nothing was cut, it simply did
+    // not need to wrap. This length needs two lines everywhere.
+    const CATEGORIA_LARGA =
+      'Supermercado y almacén del barrio con despacho a domicilio y retiro en tienda para las compras del mes';
+
+    await page.goto('/buckets/Necesidades?periodo=2026-07');
+    const nombre = page.getByText('Paseos', { exact: true });
+    await expect(nombre).toBeVisible();
+
+    // The heading button is reached with `closest` INSIDE the evaluate, not
+    // as a second locator: renaming the span changes the heading's
+    // accessible name, so a `getByRole('heading', { name: /Paseos/ })`
+    // captured outside stops resolving the moment the text is written and
+    // the call just times out.
+    const medidas = await nombre.evaluate((el, texto) => {
+      const boton = el.closest('button');
+      if (!boton)
+        throw new Error('el nombre del grupo no está dentro de un <button>');
+      const unaLinea = el.clientHeight;
+      const altoBotonAntes = boton.clientHeight;
+      el.textContent = texto;
+      return {
+        unaLinea,
+        altoBotonAntes,
+        altoBotonDespues: boton.clientHeight,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+        clientHeight: el.clientHeight,
+      };
+    }, CATEGORIA_LARGA);
+
+    // Not cut, and it wrapped: same two-part check as the descripción test.
+    expect(medidas.scrollWidth).toBeLessThanOrEqual(medidas.clientWidth + 1);
+    expect(medidas.clientHeight).toBeGreaterThan(medidas.unaLinea);
+
+    // The heading button carries `min-h-10` (40px), a MINIMUM, so it holds
+    // the whole wrapped name instead of clipping it.
+    //
+    // The assert is "at least as tall as its name", NOT "taller than it was":
+    // two wrapped lines measure exactly 40px, which FITS the minimum, so on a
+    // wide viewport the button legitimately does not grow at all. Demanding
+    // growth would fail there for no defect. On a phone the name takes three
+    // lines and the button does grow — this same assert covers both.
+    expect(medidas.altoBotonDespues).toBeGreaterThanOrEqual(
+      medidas.clientHeight,
+    );
+    expect(medidas.altoBotonDespues).toBeGreaterThanOrEqual(
+      medidas.altoBotonAntes,
+    );
+
+    // And the page still does not scroll sideways.
     const desborde = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,

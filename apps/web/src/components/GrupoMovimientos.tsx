@@ -228,7 +228,7 @@ export function GrupoMovimientos({
               generic fallback for it with no client-side special-casing. */}
           <span className="flex min-w-0 items-center gap-2.5">
             <IconoCategoriaBadge icono={grupo.icono} bucket={bucketActual} />
-            <span className="truncate">{grupo.nombre}</span>
+            <span className="min-w-0 break-words">{grupo.nombre}</span>
             <ChevronDown
               aria-hidden="true"
               className={`size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${
