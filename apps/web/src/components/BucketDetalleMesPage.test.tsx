@@ -435,6 +435,16 @@ describe('BucketDetalleMesPage', () => {
   // bar are RETIRED regardless of the DTO's porcentajeBp/metaBp — the view
   // model no longer maps those fields at all (Cambio 1c), so this holds for
   // every shape, not just the null ones the old WDM-04/D-02 tests exercised.
+  //
+  // THIS is the single home of that contract. `bucket-detalle-mes.e2e.ts`
+  // carried two bare `getByTestId('usage-bar')).toHaveCount(0)` lines until
+  // the fixture-cleanup change removed them: with the bar gone from every
+  // source file, a testid-absence assertion can only ever pass, so it read
+  // like coverage while asserting a string literal against nothing. The two
+  // CONTENT assertions below are what actually hold the line — they match the
+  // rendered text, so they catch a re-introduction whatever markup or testid
+  // it arrives in. The testid check stays only as a third, cheap belt on the
+  // same waist, never as the contract itself.
   it('never renders the retired %/meta tag or usage bar, for any porcentajeBp/metaBp shape', async () => {
     stubFetch({
       ok: true,

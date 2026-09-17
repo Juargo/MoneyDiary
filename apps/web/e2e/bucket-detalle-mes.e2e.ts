@@ -75,7 +75,6 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
       totales.getByText('Movimientos', { exact: true }),
     ).toBeVisible();
     await expect(totales.getByText('14', { exact: true })).toBeVisible();
-    await expect(page.getByTestId('usage-bar')).toHaveCount(0);
 
     // WDM-03 — groups render the fixture verbatim (server order), both
     // collapsed by default: their headings are visible, their row lists are
@@ -214,9 +213,15 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await expect(
       grupoSinCategoria.getByRole('button', { expanded: true }),
     ).toBeVisible();
-    // bucket-detalle-lista-rediseño: the %/meta tag and usage bar are
-    // retired outright (no longer conditional on porcentajeBp/metaBp).
-    await expect(page.getByTestId('usage-bar')).toHaveCount(0);
+    // The `data-testid="usage-bar"` absence assertion that used to close this
+    // test (and the header test above) is gone. It was retired with the bar
+    // itself (bucket-detalle-lista-rediseño): once no source file renders
+    // that testid, `toHaveCount(0)` can only ever pass — it asserted a string
+    // literal against nothing while reading like coverage. The "%/meta and
+    // usage bar stay retired" contract has ONE home now, and it is a unit
+    // test: `BucketDetalleMesPage.test.tsx`, which pins the absence by
+    // CONTENT (`/Meta:/`, `/^\d+% ·/`) and so catches a re-introduction in
+    // any shape, testid or not.
   });
 
   test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
@@ -246,13 +251,14 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // reclasificar-bucket-y-categoria-lista-rediseño (Cambio 4): the
     // accessible name now carries the CURRENT selection
     // (`Categoría de {descripcion}: {etiquetaOpcionActual}`), not a static
-    // string — matched by prefix here rather than pinning the suffix, since
-    // this fixture's `cat-paseos` categoriaId (`DETALLE_BUCKET_MES_FIXTURE`)
-    // has no matching entry in `CATALOGO_FIXTURE`'s two seed categorías, a
-    // pre-existing fixture gap out of this change's scope — the exact
-    // resolved suffix is an artifact of that gap, not a behavior this test
-    // means to pin.
-    const select = page.getByLabel(/^Categoría de Uber:/);
+    // string. Pinned EXACT, suffix included: `CATALOGO_FIXTURE` ya define
+    // `cat-paseos`, así que la etiqueta resuelve a la categoría real de la
+    // fila. Una revisión anterior matcheaba sólo el prefijo porque el
+    // catálogo no tenía esa entrada y el sufijo caía al texto de respaldo —
+    // ese hueco de fixture está cerrado, y con él la razón para aflojar el
+    // assert. Si vuelve a abrirse, este `getByLabel` se pone rojo, que es
+    // exactamente lo que queremos que pase.
+    const select = page.getByLabel('Categoría de Uber: Gustos · Paseos');
     await expect(select).toBeEnabled({ timeout: 5000 });
 
     // Pick Streaming (Deseos) — cross-bucket from Necesidades. The option
