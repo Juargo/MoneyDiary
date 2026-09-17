@@ -113,7 +113,7 @@ export function PeriodoSelector({
             type="button"
             variant="ghost"
             aria-label={`Cambiar mes y año, actualmente ${mesCompletoLabel(efectivo)}`}
-            className="text-xl font-semibold text-foreground"
+            className="text-xl font-medium text-foreground"
           >
             {mesCompletoLabel(efectivo)}
           </Button>

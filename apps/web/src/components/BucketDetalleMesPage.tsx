@@ -184,7 +184,7 @@ export function BucketDetalleMesPage({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <nav aria-label="Ruta" className="text-sm text-muted-foreground">
             Dashboard <span aria-hidden="true">/</span>{' '}
-            <span className="font-semibold text-foreground">{etiqueta}</span>
+            <span className="font-medium text-foreground">{etiqueta}</span>
           </nav>
           {/* SC 2.5.8 (WCAG 2.2 AA): a standalone back link is a TARGET, not
               inline text constrained by a sentence's line-height — the
@@ -202,7 +202,7 @@ export function BucketDetalleMesPage({
             asChild
             variant="link"
             size="sm"
-            className="-mr-3 font-semibold"
+            className="-mr-3 font-medium"
           >
             <Link to="/" search={{ periodo }}>
               Volver al resumen
@@ -212,7 +212,7 @@ export function BucketDetalleMesPage({
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="text-2xl font-bold text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          className="text-2xl font-medium text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
         >
           {etiqueta}
         </h1>
@@ -228,18 +228,18 @@ export function BucketDetalleMesPage({
         )}
         <div className="flex items-end justify-between gap-6 border-t-2 border-b border-foreground border-b-border pt-3 pb-3.5">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            <span className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
               Total del mes
             </span>
-            <span className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+            <span className="font-mono text-2xl font-medium tabular-nums text-foreground">
               {viewModel.totalLabel}
             </span>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            <span className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
               Movimientos
             </span>
-            <span className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+            <span className="font-mono text-2xl font-medium tabular-nums text-foreground">
               {viewModel.totalTransacciones}
             </span>
           </div>
