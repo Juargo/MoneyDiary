@@ -33,10 +33,14 @@ import type { IngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
  * por el view-model (`formatearMontoConSigno(monto, '+')`, MID-05), ahora en
  * `font-mono tabular-nums` (DESIGN.md: mono obligatorio para toda cifra).
  *
- * Alto de fila FIJO (`h-11` en el `<tr>` — un `<tr>` SÍ respeta `height`
- * como piso de su fila en un motor de layout real, aunque jsdom no lo mida;
- * esta es la razón por la que las filas ya no crecían distinto según
- * tuvieran o no botón de eliminar). `EliminarMovimientoControl` se renderiza
+ * Alto de fila con PISO de 44px (`h-11` en el `<tr>` — un `<tr>` respeta
+ * `height` como piso de su fila, no como techo, en un motor de layout real,
+ * aunque jsdom no lo mida; esta es la razón por la que las filas dejaron de
+ * crecer distinto según tuvieran o no botón de eliminar). Desde 2026-09-17 la
+ * descripción envuelve en vez de truncarse, así que una descripción larga SÍ
+ * hace crecer su fila por encima de ese piso — y solo la suya. Es el mismo
+ * trato que el libro mayor de buckets: las cinco columnas no se mueven, que
+ * es lo que sostiene la lectura de tabla. `EliminarMovimientoControl` se renderiza
  * `compacto` (36×44px, ya calibrado para un `h-11` — Cambio 5, opt-in
  * agregado en `bucket-detalle-lista-rediseño` justo para este momento) — la
  * celda de Acciones SIEMPRE se renderiza, vacía en la fila no-Manual, para
@@ -147,10 +151,7 @@ export function IngresosMesTable({
                   </span>
                 </span>
               </td>
-              <td
-                className="max-w-0 truncate pr-4 font-normal"
-                title={fila.descripcion}
-              >
+              <td className="max-w-0 break-words pr-4 font-normal">
                 {fila.descripcion}
               </td>
               <td className="hidden pr-4 sm:table-cell">

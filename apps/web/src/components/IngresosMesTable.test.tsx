@@ -147,6 +147,20 @@ describe('IngresosMesTable', () => {
     expect(rows).toHaveLength(3);
   });
 
+  it('shows the full descripción: it wraps instead of truncating, and no title tooltip stands in for it', async () => {
+    renderTabla();
+    const celda = await screen.findByText('Sueldo BCI');
+    // Token-exact so neither assert can pass on a substring of the other.
+    const clases = celda.className.split(/\s+/);
+    // `max-w-0` stays: it is what keeps this cell from claiming width by
+    // content and pushing the other columns around. What changes is that the
+    // overflow now wraps (`break-words`) instead of being cut (`truncate`).
+    expect(clases).toContain('max-w-0');
+    expect(clases).toContain('break-words');
+    expect(clases).not.toContain('truncate');
+    expect(celda).not.toHaveAttribute('title');
+  });
+
   // ── WEB-DEL-01: delete affordance, manual rows only ──────────────────────
 
   describe('delete affordance (WEB-DEL-01)', () => {

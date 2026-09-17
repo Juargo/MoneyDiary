@@ -306,4 +306,72 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // reclassify — in-place update only, per WCAT-04/D-07).
     await expect(page).toHaveURL(/\/buckets\/Necesidades\?periodo=2026-07/);
   });
+
+  // ── Descripción completa (2026-09-17) ───────────────────────────────────
+  //
+  // This one has to be an e2e, and it has to set its own text.
+  //
+  // jsdom performs NO layout: `GrupoMovimientos.test.tsx` can assert that the
+  // class list says `break-words` and not `truncate`, but it can never
+  // measure whether a name actually fits, wraps, or gets cut. Only a real
+  // engine can.
+  //
+  // And every descripción in `api-stubs.ts` is short ('Uber', 'Metro',
+  // 'Taxi'): at any of the three viewports they all fit on one line, so a
+  // harness running against those fixtures stays green whether the cell
+  // truncates or not. It would be a test that cannot fail. Hence the text is
+  // written into the cell here — what is under test is the CSS contract of
+  // that cell, and the DTO takes no part in deciding whether text is cut.
+  test('una descripción más larga que su columna se muestra completa, envolviendo sin desarmar la rejilla', async ({
+    page,
+  }) => {
+    const NOMBRE_LARGO =
+      'Transferencia a Juan Pérez por arriendo de departamento agosto 2026 más gastos comunes';
+
+    await page.goto('/buckets/Necesidades?periodo=2026-07');
+    // Paseos starts collapsed (bucket-detalle-acordeon) and its rows are
+    // inert while hidden — expand before measuring anything.
+    const tituloPaseos = page.getByRole('heading', { name: /Paseos/ });
+    await expect(tituloPaseos).toBeVisible();
+    await tituloPaseos.getByRole('button').click();
+
+    const celda = page.getByText('Uber', { exact: true });
+    await expect(celda).toBeVisible();
+
+    // One single `evaluate`: a Playwright locator is lazy and re-queries on
+    // every use, so `getByText('Uber')` stops resolving the moment the text
+    // is replaced. Measure before, write, and measure after, all inside the
+    // page — reading a layout property right after the write forces the
+    // reflow, so the second set of numbers is the post-wrap geometry.
+    const medidas = await celda.evaluate((el, texto) => {
+      const unaLinea = el.clientHeight;
+      el.textContent = texto;
+      return {
+        unaLinea,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+        clientHeight: el.clientHeight,
+      };
+    }, NOMBRE_LARGO);
+    const unaLinea = medidas.unaLinea;
+
+    // 1 · Not cut horizontally. A `truncate` cell reports a `scrollWidth`
+    //     larger than its `clientWidth` — that gap IS the hidden text.
+    expect(medidas.scrollWidth).toBeLessThanOrEqual(medidas.clientWidth + 1);
+
+    // 2 · It wrapped rather than shrank: the cell is now taller than the one
+    //     line it was. Together with (1) this is what "the whole name is on
+    //     screen" means — (1) alone would also hold for text that was cut
+    //     with `overflow: hidden` and no ellipsis.
+    expect(medidas.clientHeight).toBeGreaterThan(unaLinea);
+
+    // 3 · The distribución survives: no page-level horizontal scroll. This
+    //     is what `break-words` buys — without it a single unspaced token
+    //     widens the column and pushes the grid off-screen.
+    const desborde = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(desborde.scrollWidth).toBeLessThanOrEqual(desborde.clientWidth);
+  });
 });

@@ -794,7 +794,7 @@ describe('GrupoMovimientos', () => {
     expect(filler.className).toContain('sm:justify-self-auto');
   });
 
-  it('the row <li> uses a mobile 3-column grid with a fixed h-16 and switches to the desktop 5-column grid with h-11 at sm:', async () => {
+  it('the row <li> uses a mobile 3-column grid with a MINIMUM h-16 and switches to the desktop 5-column grid with a minimum h-11 at sm:', async () => {
     mockFetch();
 
     render(
@@ -811,11 +811,44 @@ describe('GrupoMovimientos', () => {
 
     expandirGrupo();
     const fila = await screen.findByRole('listitem');
-    expect(fila.className).toContain('grid-cols-[3.5rem_1fr_5.25rem]');
-    expect(fila.className).toContain('h-16');
-    expect(fila.className).toContain(
-      'sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem]',
+    // Token-exact, NOT `className.toContain`: the string 'min-h-16' contains
+    // 'h-16', so a substring assert would pass against either spelling and
+    // could never tell a fixed height from a minimum one.
+    const clases = fila.className.split(/\s+/);
+    expect(clases).toContain('grid-cols-[3.5rem_1fr_5.25rem]');
+    expect(clases).toContain('sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem]');
+    expect(clases).toContain('min-h-16');
+    expect(clases).toContain('sm:min-h-11');
+    expect(clases).not.toContain('h-16');
+    expect(clases).not.toContain('sm:h-11');
+  });
+
+  it('shows the full descripción: it wraps instead of truncating, and no title tooltip stands in for it', async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
     );
-    expect(fila.className).toContain('sm:h-11');
+
+    expandirGrupo();
+    const descripcion = await screen.findByText('Compra en Líder');
+    const clases = descripcion.className.split(/\s+/);
+    // `break-words` and not `truncate`: a name longer than the column takes a
+    // second line inside its own cell. `break-words` is what keeps a single
+    // unspaced token from widening the column and breaking the 5-column grid.
+    expect(clases).toContain('break-words');
+    expect(clases).not.toContain('truncate');
+    // The tooltip was the old workaround for the cut text. With the text
+    // shown in full it is not just redundant — keeping it would hide that
+    // the truncation came back.
+    expect(descripcion).not.toHaveAttribute('title');
   });
 });

@@ -40,11 +40,17 @@ import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-
  * This is what makes it read as ONE ledger instead of a stack of
  * independently-laid-out rows (the previous `grid-cols-[auto_1fr_auto]` + a
  * second `col-span-3` band per row varied every row's height and never
- * aligned a single column). Every `<li>` has a FIXED `sm:h-11` (44px) — the
- * WCAG 2.2 SC 2.5.8 touch-target floor for its row controls, and the reason
- * both `ReclasificarCategoriaControl`'s confirm/error popovers and this
- * component itself never let content grow a row taller (they position
- * `absolute` instead).
+ * aligned a single column). Every `<li>` has a MINIMUM `sm:min-h-11` (44px)
+ * — the WCAG 2.2 SC 2.5.8 touch-target floor for its row controls. It was a
+ * FIXED `sm:h-11` until the descripción stopped truncating (2026-09-17): a
+ * name that needs a second line now grows ITS row and only its row, while
+ * the five columns stay in the same x position, which is what makes this
+ * read as one ledger. A minimum never breaks SC 2.5.8 — growing a row keeps
+ * its controls above the floor, it cannot push them below it. The popovers
+ * are unaffected: `ReclasificarCategoriaControl`'s and
+ * `EliminarMovimientoControl`'s confirm/error layers position `absolute`
+ * against their OWN `relative` cell, never against the row, so a taller row
+ * still anchors them under their control.
  *
  * **Mobile grid, below `sm` (640px)** (mobile-layout hardening,
  * 2026-09-16): the desktop grid above was shipped with ZERO responsive
@@ -66,8 +72,9 @@ import type { GrupoDetalleMesViewModel } from '@/domain/detalle-bucket-mes-view-
  *     Descripción/Monto/Categoría/blank are `hidden sm:block` and become
  *     `sm:grid` cells again at `sm:`.
  *   - Row `<li>`: `grid-cols-[3.5rem_1fr_5.25rem]` (fecha · descripción ·
- *     monto) at a FIXED `h-16` (two text lines' worth — row height stays
- *     fixed on mobile too, same reason as `sm:h-11` above), with
+ *     monto) at a MINIMUM `min-h-16` (two text lines' worth — same floor and
+ *     same reason as `sm:min-h-11` above; a long descripción grows past it
+ *     instead of being cut), with
  *     categoría/acción moved to an implicit second row via
  *     `col-start`/`row-start` (see next paragraph) rather than duplicated
  *     markup.
@@ -283,7 +290,7 @@ export function GrupoMovimientos({
           return (
             <li
               key={tx.id}
-              className="grid h-16 grid-cols-[3.5rem_1fr_5.25rem] items-center gap-x-2 gap-y-0.5 text-sm hover:bg-accent sm:h-11 sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem] sm:gap-x-3"
+              className="grid min-h-16 grid-cols-[3.5rem_1fr_5.25rem] items-center gap-x-2 gap-y-0.5 py-1.5 text-sm hover:bg-accent sm:min-h-11 sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem] sm:gap-x-3"
             >
               {/* Mono + tabular-nums so dates form a rigid column
                   (DESIGN.md: mono is mandatory for every figure, date and
@@ -306,7 +313,7 @@ export function GrupoMovimientos({
                   {diaSemana}
                 </span>
               </span>
-              <span className="truncate text-foreground" title={tx.descripcion}>
+              <span className="break-words text-foreground">
                 {tx.descripcion}
               </span>
               {/* `text-right` + `tabular-nums` on a content-width column:
