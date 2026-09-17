@@ -38,10 +38,12 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
   test('deep link /buckets/Deseos?periodo=2026-07 renders the WDM-01 header and both WDM-03 groups', async ({
     page,
   }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Scoped to the escritorio project (1280px, design §5).',
-    );
+    // El conteo del encabezado de grupo es `hidden sm:block`
+    // (bucket-detalle-lista-rediseño): a 360px NO forma parte del nombre
+    // accesible del heading, porque el dato se muda al strip de columnas de la
+    // lista. El assert no se debilita en móvil — se REUBICA donde el diseño
+    // puso el dato (ver el bloque de expansión al final de este test).
+    const esMovil = testInfo.project.name === 'movil';
 
     await page.goto('/buckets/Deseos?periodo=2026-07');
 
@@ -80,12 +82,16 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // collapsed by default: their headings are visible, their row lists are
     // not. The heading's accessible name has no middots between
     // nombre/subtotal/conteo (bucket-detalle-lista-rediseño Cambio 3).
-    const tituloPaseos = page.getByRole('heading', {
-      name: 'Paseos $600.000 12 movimientos',
-    });
+    const nombrePaseos = esMovil
+      ? 'Paseos $600.000'
+      : 'Paseos $600.000 12 movimientos';
+    const nombreSinCategoria = esMovil
+      ? 'Sin categoría $50.000'
+      : 'Sin categoría $50.000 2 movimientos';
+    const tituloPaseos = page.getByRole('heading', { name: nombrePaseos });
     await expect(tituloPaseos).toBeVisible();
     const tituloSinCategoria = page.getByRole('heading', {
-      name: 'Sin categoría $50.000 2 movimientos',
+      name: nombreSinCategoria,
     });
     await expect(tituloSinCategoria).toBeVisible();
 
@@ -109,6 +115,34 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await expect(page.getByRole('button', { name: /ver .* más…/ })).toHaveCount(
       0,
     );
+
+    // Acá se paga la deuda del heading: en móvil el conteo salió del nombre
+    // accesible, pero NO desapareció de la pantalla — vive en el strip de
+    // columnas del grupo, que recién existe una vez expandido. Sin esta
+    // aserción, correr en móvil habría significado verificar MENOS; con ella,
+    // el dato queda fijado en los tres viewports, cada uno donde el diseño lo
+    // pone. El strip lleva `aria-hidden` (es un `<ul>`, no una tabla), lo cual
+    // no afecta a `getByText`: esconde del árbol de accesibilidad, no del DOM.
+    // Scopeado por el nombre accesible de la REGIÓN (`<section
+    // aria-labelledby>`), no por `filter({ hasText: 'Paseos' })`: desde que el
+    // fixture completó el catálogo con `cat-paseos` (#703), el `<select>` de
+    // CADA fila lleva la opción "Gustos · Paseos", así que filtrar por ese
+    // texto matchea los dos grupos. El nombre de la región es el único
+    // identificador que no se contamina con el contenido de las filas.
+    const grupoPaseos = page.getByRole('region', { name: nombrePaseos });
+    // El conteo existe DOS veces en el DOM del grupo — uno en el encabezado
+    // (`hidden sm:block`) y otro en el strip de columnas (`sm:hidden`) — y
+    // cada breakpoint esconde uno. Así que la aserción no necesita ramificar
+    // por viewport: se exige que haya EXACTAMENTE UNO visible, y eso vale en
+    // los tres. Es más fuerte que un `toBeVisible` con `if`, porque también
+    // caza el bug contrario: que se muestren los dos a la vez, o ninguno, si
+    // alguien toca esas clases responsive.
+    await expect(
+      grupoPaseos.getByText('12 movimientos').filter({ visible: true }),
+    ).toHaveCount(1);
+    // El mes y el año se dicen UNA vez por lista, en el encabezado de la
+    // columna de fecha, en los tres viewports.
+    await expect(grupoPaseos.getByText('JUL 2026')).toBeVisible();
   });
 
   test('tablet (880px): the T1 header keeps breadcrumb and back control on one row, h1 below (WDM-01 geometry)', async ({
@@ -157,12 +191,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
 
   test('dashboard legend row navigates to /buckets/Deseos?periodo=2026-07 (WDM-06, WCAT-01)', async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Dashboard navigation case, scoped to the escritorio project (1280px).',
-    );
-
+  }) => {
     // WDM-06 scenario: "GIVEN the dashboard is viewing 2026-07" — load the
     // dashboard WITH the period param so the drill-down carries it verbatim.
     await page.goto('/?periodo=2026-07');
@@ -184,12 +213,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
 
   test('dashboard Sin categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Dashboard navigation case, scoped to the escritorio project (1280px).',
-    );
-
+  }) => {
     // WDM-06 scenario: "GIVEN the dashboard is viewing 2026-07" — same
     // reason as case 3: the drill-down must carry the current `periodo`.
     await page.goto('/?periodo=2026-07');
@@ -226,12 +250,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
 
   test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Reclassify interaction case, scoped to the escritorio project (1280px).',
-    );
-
+  }) => {
     // Load Necesidades page — Paseos group (12 transactions) is visible.
     // CATALOGO_FIXTURE has Streaming (Deseos), so picking it for a Paseos
     // row is a cross-bucket move (Necesidades → Deseos), which announces

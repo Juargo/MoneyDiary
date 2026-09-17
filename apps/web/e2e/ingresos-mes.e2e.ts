@@ -27,10 +27,7 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
   test('deep link /ingresos?periodo=2026-07 renders the header and table with Origen badge tags (WDI-01..04/07)', async ({
     page,
   }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Scoped to the escritorio project (1280px, design §5).',
-    );
+    const esMovil = testInfo.project.name === 'movil';
 
     await page.goto('/ingresos?periodo=2026-07');
 
@@ -76,20 +73,36 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
 
     // Table — semantic role, headers, and Origen badge variants present.
     await expect(page.getByRole('table')).toBeVisible();
-    // All 3 Origen badges from the fixture (BCI, Manual, BancoEstado) — one per row.
-    await expect(page.getByRole('cell', { name: 'BCI' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Manual' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'BancoEstado' })).toBeVisible();
+
+    // La columna Origen es `hidden sm:table-cell` (ingresos-visual-rediseno):
+    // a 360px no entran cinco columnas y Origen es la menos crítica, porque la
+    // fila manual se sigue distinguiendo por tener botón de eliminar. Es una
+    // pérdida de información DELIBERADA, así que el test la fija en los dos
+    // sentidos en vez de saltearse la aserción en móvil: arriba de `sm` las
+    // tres badges del fixture están, y a 360px las tres se van. Si mañana
+    // alguien "arregla" la columna haciéndola visible en móvil, esto se pone
+    // rojo y obliga a decidirlo a propósito.
+    const origenes = ['BCI', 'Manual', 'BancoEstado'];
+    for (const origen of origenes) {
+      const celda = page.getByRole('cell', { name: origen });
+      if (esMovil) {
+        await expect(celda).toHaveCount(0);
+      } else {
+        await expect(celda).toBeVisible();
+      }
+    }
+
+    // La fila manual sigue siendo distinguible sin la columna Origen, que es
+    // lo que hace aceptable esconderla: su botón de eliminar está en los tres
+    // viewports.
+    await expect(
+      page.getByRole('button', { name: /^Eliminar movimiento/ }).first(),
+    ).toBeVisible();
   });
 
   test('prev arrow navigates to /ingresos?periodo=2026-06 and stays on the /ingresos route (WDI-03)', async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Scoped to the escritorio project (1280px).',
-    );
-
+  }) => {
     await page.goto('/ingresos?periodo=2026-07');
     await page.getByRole('heading', { level: 1, name: 'Ingresos' }).waitFor();
 
@@ -114,12 +127,7 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
 
   test('empty month 2026-05 renders $0 / 0 ingresos / Empty copy and operable arrows (WDI-04)', async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Scoped to the escritorio project (1280px).',
-    );
-
+  }) => {
     await page.goto('/ingresos?periodo=2026-05');
     await page.getByRole('heading', { level: 1, name: 'Ingresos' }).waitFor();
 
@@ -153,12 +161,7 @@ test.describe('/ingresos — Detalle MES-INGRESOS (US-054, WDI-01..08)', () => {
 
   test('dashboard legend Ingresos row navigates to /ingresos?periodo=2026-07 (CA-04, WG5-06)', async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== 'escritorio',
-      'Dashboard navigation case, scoped to the escritorio project (1280px).',
-    );
-
+  }) => {
     // GIVEN the dashboard is viewing 2026-07 — load with the period param so
     // the drill-down carries it verbatim (same discipline as WDM-06 case 3
     // in bucket-detalle-mes.e2e.ts).
