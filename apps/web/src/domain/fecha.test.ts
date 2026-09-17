@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { aFechaCorta, esFechaValida, hoyLocal } from './fecha';
+import {
+  aDiaConSemana,
+  aFechaCorta,
+  aFechaLargaLabel,
+  esFechaValida,
+  hoyLocal,
+} from './fecha';
 
 // US-060 T-01 (D-04): `hoyLocal()` — returns the current local date in
 // America/Santiago timezone as YYYY-MM-DD via Intl.DateTimeFormat('en-CA').
@@ -70,5 +76,59 @@ describe('aFechaCorta', () => {
 
   it('passes a short non-ISO string through unchanged (defensive, never throws)', () => {
     expect(aFechaCorta('nope')).toBe('nope');
+  });
+});
+
+// bucket-detalle-lista-rediseño: `aDiaConSemana` powers the ledger's fecha
+// column — a 2-digit day + a 3-letter weekday, both in lowercase (the CSS
+// `uppercase` class owns the small-caps presentation, never the domain).
+// `diaSemana` is computed in UTC via a fixed `T00:00:00Z` anchor — NEVER
+// `Intl` with a timezone (that would make the output depend on the runtime's
+// locale, the same reason `aFechaCorta` avoids a `Date` round-trip).
+describe('aDiaConSemana', () => {
+  it('splits an ISO-8601 UTC timestamp into a 2-digit day and a lowercase weekday abbreviation', () => {
+    expect(aDiaConSemana('2026-08-03T00:00:00.000Z')).toEqual({
+      dia: '03',
+      diaSemana: 'lun',
+    });
+  });
+
+  it('computes diaSemana in UTC without local-timezone drift', () => {
+    // 2026-08-03 is a Monday in UTC. Interpreted in Chile's local time
+    // (UTC-4) via a naive `new Date(fechaIso)` + `getDay()`, the UTC
+    // midnight instant would still read back as Sunday (2026-08-02 20:00
+    // local) for a runtime whose local TZ is behind UTC — this is exactly
+    // the drift `aFechaCorta`'s own docblock says this module avoids by
+    // never round-tripping through local-time `Date` accessors.
+    expect(aDiaConSemana('2026-08-03T00:00:00.000Z').diaSemana).toBe('lun');
+    // Independent cross-check: 2026-08-01 is a Saturday in UTC.
+    expect(aDiaConSemana('2026-08-01T00:00:00.000Z').diaSemana).toBe('sáb');
+  });
+
+  it('is defensive — an unparseable fecha never throws, and dia falls back to a raw slice', () => {
+    // 'not-a-date'.slice(8, 10) === 'te' — same positional-slice contract as
+    // `dia`'s happy path, just fed a non-ISO input.
+    expect(aDiaConSemana('not-a-date')).toEqual({ dia: 'te', diaSemana: '' });
+  });
+});
+
+// `aFechaLargaLabel` powers the row's `sr-only` accessible date — the full
+// Spanish long-form label a screen reader announces instead of the terse
+// visible day+weekday pair.
+describe('aFechaLargaLabel', () => {
+  it('formats an ISO-8601 UTC timestamp as a long Spanish date label', () => {
+    expect(aFechaLargaLabel('2026-08-03T00:00:00.000Z')).toBe(
+      '3 de agosto de 2026',
+    );
+  });
+
+  it('does not zero-pad the day', () => {
+    expect(aFechaLargaLabel('2026-08-09T00:00:00.000Z')).toBe(
+      '9 de agosto de 2026',
+    );
+  });
+
+  it('falls back to aFechaCorta for an unparseable fecha instead of throwing', () => {
+    expect(aFechaLargaLabel('not-a-date')).toBe(aFechaCorta('not-a-date'));
   });
 });

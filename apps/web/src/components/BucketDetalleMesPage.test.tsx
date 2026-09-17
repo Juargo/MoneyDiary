@@ -177,18 +177,6 @@ const dtoGrupoLargo: DetalleBucketMesDto = {
   ],
 };
 
-const dtoSinMeta: DetalleBucketMesDto = {
-  ...dtoCompleto,
-  porcentajeBp: null,
-  metaBp: null,
-};
-
-const dtoSinIngreso: DetalleBucketMesDto = {
-  ...dtoCompleto,
-  porcentajeBp: null,
-  metaBp: 5000,
-};
-
 const dtoMesVacio: DetalleBucketMesDto = {
   ...dtoCompleto,
   total: '0',
@@ -387,10 +375,16 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
-    // Header keeps the zeroed totals + selector (WDM-05: navigation survives).
-    expect(
-      await screen.findByText('Total $0 · 0 movimientos'),
-    ).toBeInTheDocument();
+    // Header keeps the zeroed totals-strip + selector (WDM-05: navigation
+    // survives). The strip is two separate cells now, not one combined
+    // sentence — "Total del mes" / "$0" and "Movimientos" / "0" — scoped via
+    // each label's own cell so a stray "0" elsewhere can't false-match.
+    const totalCell = (await screen.findByText('Total del mes'))
+      .parentElement as HTMLElement;
+    expect(within(totalCell).getByText('$0')).toBeInTheDocument();
+    const movimientosCell = screen.getByText('Movimientos')
+      .parentElement as HTMLElement;
+    expect(within(movimientosCell).getByText('0')).toBeInTheDocument();
     expect(
       await screen.findByText('Sin movimientos en julio 2026'),
     ).toBeInTheDocument();
@@ -402,7 +396,7 @@ describe('BucketDetalleMesPage', () => {
     expect(onPeriodoChange).toHaveBeenCalledWith('2026-06');
   });
 
-  it('renders the full header: breadcrumb, selector, %/meta tag, usage bar and totals line (WDM-01)', async () => {
+  it('renders the full header: breadcrumb, selector and the totals strip (WDM-01, bucket-detalle-lista-rediseño)', async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -425,14 +419,23 @@ describe('BucketDetalleMesPage', () => {
     expect(
       await screen.findByRole('button', { name: /julio 2026/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText('55% · Meta: 50%')).toBeInTheDocument();
-    expect(screen.getByTestId('usage-bar')).toBeInTheDocument();
-    expect(
-      screen.getByText('Total $500.000 · 9 movimientos'),
-    ).toBeInTheDocument();
+
+    // Totals strip replaces the retired %/meta tag + usage bar (Cambio 2):
+    // "Total del mes" / "$500.000" and "Movimientos" / "9", each its own
+    // labeled cell instead of one combined sentence.
+    const totalCell = screen.getByText('Total del mes')
+      .parentElement as HTMLElement;
+    expect(within(totalCell).getByText('$500.000')).toBeInTheDocument();
+    const movimientosCell = screen.getByText('Movimientos')
+      .parentElement as HTMLElement;
+    expect(within(movimientosCell).getByText('9')).toBeInTheDocument();
   });
 
-  it('renders no %/meta tag and no usage bar for SinCategoria (metaBp and porcentajeBp null)', async () => {
+  // bucket-detalle-lista-rediseño (Cambio 2): the %/meta tag and the usage
+  // bar are RETIRED regardless of the DTO's porcentajeBp/metaBp — the view
+  // model no longer maps those fields at all (Cambio 1c), so this holds for
+  // every shape, not just the null ones the old WDM-04/D-02 tests exercised.
+  it('never renders the retired %/meta tag or usage bar, for any porcentajeBp/metaBp shape', async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -441,7 +444,7 @@ describe('BucketDetalleMesPage', () => {
 
     renderData(
       <BucketDetalleMesPage
-        query={mockQuery({ data: dtoSinMeta })}
+        query={mockQuery({ data: dtoCompleto })}
         periodo="2026-07"
         onPeriodoChange={() => {}}
         destacar={false}
@@ -450,27 +453,7 @@ describe('BucketDetalleMesPage', () => {
 
     await verPrimerGrupo();
     expect(screen.queryByText(/Meta:/)).not.toBeInTheDocument();
-    expect(screen.queryByTestId('usage-bar')).not.toBeInTheDocument();
-  });
-
-  it('renders the "—" usage tag but hides the bar for a no-income month (D-02)', async () => {
-    stubFetch({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(CATALOGO_FIXTURE),
-    });
-
-    renderData(
-      <BucketDetalleMesPage
-        query={mockQuery({ data: dtoSinIngreso })}
-        periodo="2026-07"
-        onPeriodoChange={() => {}}
-        destacar={false}
-      />,
-    );
-
-    await verPrimerGrupo();
-    expect(screen.getByText('— · Meta: 50%')).toBeInTheDocument();
+    expect(screen.queryByText(/^\d+% ·/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('usage-bar')).not.toBeInTheDocument();
   });
 
@@ -492,10 +475,34 @@ describe('BucketDetalleMesPage', () => {
 
     const encabezados = await screen.findAllByRole('heading', { level: 2 });
     expect(encabezados.map((h) => h.textContent)).toEqual([
-      'Ñoquis · $300.000 · 3 movimientos',
-      'Zapatería · $150.000 · 5 movimientos',
-      'Sin categoría · $50.000 · 1 movimiento',
+      'Ñoquis $300.000 3 movimientos',
+      'Zapatería $150.000 5 movimientos',
+      'Sin categoría $50.000 1 movimiento',
     ]);
+  });
+
+  // bucket-detalle-lista-rediseño (Cambio 2, point 3): `periodoLabel` is
+  // derived from `viewModel.periodo` (always present), never the router's
+  // own `periodo` prop (can be `undefined` on first paint) — passed to
+  // every `GrupoMovimientos`, surfacing as that group's column header.
+  it('passes mesAbreviadoConAnio(viewModel.periodo) as periodoLabel to every group column header', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await expandirGrupo(/Ñoquis/);
+    expect(screen.getAllByText('JUL 2026').length).toBeGreaterThan(0);
   });
 
   it('renders group subtotals exactly beyond safe-integer precision (WCAT-02)', async () => {
@@ -514,7 +521,13 @@ describe('BucketDetalleMesPage', () => {
       />,
     );
 
-    await screen.findByText('Total $9.007.199.254.740.993 · 1 movimiento');
+    // Totals strip (Cambio 2) — scoped to its own cell (see the header test
+    // above for why a bare `getByText` on the combined sentence is gone).
+    const totalCell = (await screen.findByText('Total del mes'))
+      .parentElement as HTMLElement;
+    expect(
+      within(totalCell).getByText('$9.007.199.254.740.993'),
+    ).toBeInTheDocument();
     // Queried by ROLE, not by text: the Tecno-Analítico pass (2026-09-02)
     // wraps the group heading's figures in `font-mono tabular-nums` spans, and
     // `getByText` reads `getNodeText`, which joins only an element's DIRECT
@@ -525,7 +538,7 @@ describe('BucketDetalleMesPage', () => {
     // one flat text node.
     expect(
       screen.getByRole('heading', {
-        name: 'Ñoquis · $9.007.199.254.740.993 · 1 movimiento',
+        name: 'Ñoquis $9.007.199.254.740.993 1 movimiento',
       }),
     ).toBeInTheDocument();
   });
@@ -680,8 +693,14 @@ describe('BucketDetalleMesPage', () => {
 
     await waitFor(() => {
       const grupos = screen.getAllByTestId('grupo-movimientos');
+      // Identified by its OWN heading name, not a bare `queryByText` match:
+      // the redesigned row (Cambio 3) puts a "Sin categoría" PLACEHOLDER
+      // `<option>` inside `ReclasificarCategoriaControl` for any row with no
+      // categoría — same exact string as the group's own (now standalone)
+      // truncate span, so an unscoped `queryByText('Sin categoría')` would
+      // ambiguously match both once the row is present.
       const sinCategoria = grupos.find((g) =>
-        within(g).queryByText('Sin categoría'),
+        within(g).queryByRole('heading', { name: /^Sin categoría/ }),
       );
       expect(sinCategoria).toHaveAttribute('data-destacado', 'true');
       expect(sinCategoria).toHaveAttribute('aria-current', 'true');
@@ -808,6 +827,42 @@ describe('BucketDetalleMesPage', () => {
 
     const back = await screen.findByRole('link', { name: 'Volver al resumen' });
     expect(back).toHaveAttribute('href', '/?periodo=2026-07');
+  });
+
+  /**
+   * SC 2.5.8 (WCAG 2.2 AA): a standalone back link is a TARGET, not inline
+   * text constrained by a sentence's line-height, so the *Inline* exception
+   * does not reach it. `mobile-floor.e2e.ts`'s E-11 sweep measured this link
+   * at 20px tall the moment `/buckets/Deseos` joined its `SCREENS` list —
+   * the same 20px its sibling `Volver a Categorías` was caught at.
+   *
+   * Mirrors that screen's own assertion (`EditarCategoria.test.tsx`, "lleva
+   * padding real"): jsdom does not lay out, so real geometry is NOT testable
+   * here — the E-11 e2e owns that. What this test pins is the MECHANISM: the
+   * link is rendered through `Button asChild`, whose `sm` size carries the
+   * 32px height. A refactor back to a bare `<Link>` with text classes turns
+   * this red without waiting for a Playwright run.
+   */
+  it('el link "Volver al resumen" se renderiza como Button (variante link, tamaño sm) para cumplir el piso de 24px de SC 2.5.8', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    const back = await screen.findByRole('link', { name: 'Volver al resumen' });
+    expect(back).toHaveAttribute('data-slot', 'button');
+    expect(back).toHaveAttribute('data-variant', 'link');
+    expect(back).toHaveAttribute('data-size', 'sm');
   });
 
   it('renders exactly one h1 (the bucket title)', async () => {

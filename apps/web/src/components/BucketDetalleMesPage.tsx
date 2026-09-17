@@ -7,9 +7,10 @@ import { Empty } from './states/Empty';
 import { PeriodoSelector } from './PeriodoSelector';
 import { GrupoMovimientos } from './GrupoMovimientos';
 import { ReevaluarPatronesControl } from './ReevaluarPatronesControl';
+import { Button } from '@/components/ui/button';
 import { useCategorias } from '@/api/use-categorias';
 import { aDetalleBucketMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
-import { mesCompletoLabel } from '@/domain/periodo-anual';
+import { mesAbreviadoConAnio, mesCompletoLabel } from '@/domain/periodo-anual';
 import { CLAVE_SIN_CATEGORIA } from '@/domain/periodo';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { ApiError } from '@/api/client';
@@ -34,12 +35,21 @@ import type { DetalleBucketMesDto, ReevaluarCategoriasDto } from '@/api/types';
  *
  * Grouped wire shape → view-model: `aDetalleBucketMesViewModel` (domain,
  * T-06) maps `DetalleBucketMesDto` → `DetalleBucketMesViewModel` —
- * BigInt-exact CLP labels via `formatearMontoCLP`, `porcentajeBp`/`metaBp`
- * null → `SIN_PORCENTAJE_LABEL` ('—') + `sinPorcentaje`/`sinMeta` flags
- * (D-02: the usage bar renders only when `porcentajeBp !== null`; the %/meta
- * tag only when `metaBp !== null`). `clampBp` keeps marker positions within
- * the track (T-06).
+ * BigInt-exact CLP labels via `formatearMontoCLP`.
  *
+ * ⚠️ bucket-detalle-lista-rediseño (Cambio 2): the %/meta TAG and the usage
+ * bar (old D-02: `porcentajeLabel`/`metaLabel`/`sinPorcentaje`/`sinMeta`/
+ * `marcaPorcentajePct`/`marcaMetaPct`) are RETIRED — the view model no
+ * longer maps those fields at all (see `detalle-bucket-mes-view-model.ts`).
+ * The header's totals line is replaced by a two-cell totals STRIP ("Total
+ * del mes" / `totalLabel`, "Movimientos" / `totalTransacciones`) — the
+ * total becomes the page's one large figure. Each `GrupoMovimientos` also
+ * receives `periodoLabel={mesAbreviadoConAnio(viewModel.periodo)}` — derived
+ * from the VIEW MODEL's periodo (always present), never the route's own
+ * `periodo` prop (can be `undefined` on first paint) — so the month/year
+ * appears once per group's own column header instead of nowhere.
+ *
+
  * **Catálogo — fetch-lifecycle surface owned HERE, once per page** (WCAT-04
  * delta): this page is
  * `ReclasificarCategoriaControl`'s ONLY render site for the new screen, and
@@ -176,13 +186,28 @@ export function BucketDetalleMesPage({
             Dashboard <span aria-hidden="true">/</span>{' '}
             <span className="font-semibold text-foreground">{etiqueta}</span>
           </nav>
-          <Link
-            to="/"
-            search={{ periodo }}
-            className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          {/* SC 2.5.8 (WCAG 2.2 AA): a standalone back link is a TARGET, not
+              inline text constrained by a sentence's line-height — the
+              *Inline* exception does not reach it. `mobile-floor.e2e.ts`'s
+              E-11 sweep measured this link at 20px tall the moment this route
+              joined its `SCREENS` list, the same 20px its sibling
+              `Volver a Categorías` (`EditarCategoria.tsx`) was caught at and
+              fixed for. Reused here rather than inventing a control style:
+              the `link` variant IS this element's previous className
+              (`text-primary underline-offset-4 hover:underline`), so the look
+              is unchanged, while `size="sm"` gives it a real 32px target.
+              `-mr-3` cancels that size's `px-3` on the flush edge so the
+              header's right alignment does not shift. */}
+          <Button
+            asChild
+            variant="link"
+            size="sm"
+            className="-mr-3 font-semibold"
           >
-            Volver al resumen
-          </Link>
+            <Link to="/" search={{ periodo }}>
+              Volver al resumen
+            </Link>
+          </Button>
         </div>
         <h1
           ref={headingRef}
@@ -201,33 +226,24 @@ export function BucketDetalleMesPage({
             {MENSAJE_DEMO_ELIMINAR}
           </p>
         )}
-        {!viewModel.sinMeta && (
-          <p className="text-sm font-semibold text-foreground">
-            {viewModel.porcentajeLabel} · Meta: {viewModel.metaLabel}
-          </p>
-        )}
-        {!viewModel.sinPorcentaje && (
-          <div
-            aria-hidden="true"
-            data-testid="usage-bar"
-            className="relative h-1.5 w-full rounded-none bg-muted"
-          >
-            <span
-              className="absolute top-0 h-1.5 w-0.5 rounded-none bg-foreground"
-              style={{ left: `${viewModel.marcaPorcentajePct}%` }}
-            />
-            {viewModel.marcaMetaPct !== null && (
-              <span
-                className="absolute top-0 h-1.5 w-0.5 rounded-none bg-primary"
-                style={{ left: `${viewModel.marcaMetaPct}%` }}
-              />
-            )}
+        <div className="flex items-end justify-between gap-6 border-t-2 border-b border-foreground border-b-border pt-3 pb-3.5">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              Total del mes
+            </span>
+            <span className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+              {viewModel.totalLabel}
+            </span>
           </div>
-        )}
-        <p className="text-sm text-muted-foreground">
-          Total {viewModel.totalLabel} · {viewModel.totalTransacciones}{' '}
-          {viewModel.totalTransacciones === 1 ? 'movimiento' : 'movimientos'}
-        </p>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              Movimientos
+            </span>
+            <span className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+              {viewModel.totalTransacciones}
+            </span>
+          </div>
+        </div>
       </header>
 
       {viewModel.grupos.length === 0 ? (
@@ -248,6 +264,7 @@ export function BucketDetalleMesPage({
               destacar={destacar && grupo.categoriaId === null}
               bucketActual={viewModel.bucket}
               periodo={periodo}
+              periodoLabel={mesAbreviadoConAnio(viewModel.periodo)}
               onMovida={alMovida}
               onEliminado={alEliminarMovimiento}
               esDemo={esDemo}

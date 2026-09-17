@@ -188,7 +188,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber',
+      'Categoría de Uber: Necesidades · Transporte',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -242,7 +242,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber',
+      'Categoría de Uber: Necesidades · Transporte',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -269,7 +269,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('renders a select with an accessible label naming the transaction, prefixed by a VISIBLE "Bucket y categoría" label (WCAT-05, Label in Name)', () => {
+  it('renders a select with an accessible label naming the transaction and the CURRENT selection (WCAT-05, Label in Name)', () => {
     mockFetch({
       ok: true,
       status: 200,
@@ -290,13 +290,48 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     expect(
-      screen.getByLabelText('Bucket y categoría de Supermercado Líder'),
+      screen.getByLabelText(
+        'Categoría de Supermercado Líder: Necesidades · Supermercado',
+      ),
     ).toBeInTheDocument();
-    // WCAG 2.5.3 Label in Name: the visible text is a literal prefix of the
-    // full accessible name, and it is genuinely visible (not sr-only).
-    const etiquetaVisible = screen.getByText('Bucket y categoría');
-    expect(etiquetaVisible).toBeVisible();
-    expect(etiquetaVisible).not.toHaveClass('sr-only');
+  });
+
+  // WCAG 2.5.3 Label in Name (reclasificar-bucket-y-categoria-lista-rediseño,
+  // Cambio 4): the redesigned select carries NO visible label of its own
+  // anymore (the "Bucket y categoría" span was removed — the column header
+  // "Categoría" in `GrupoMovimientos` now says it once for the whole list).
+  // The only VISIBLE text this control has is the selected `<option>`'s own
+  // text, rendered by the browser on the closed `<select>` — this test
+  // proves the accessible name still contains that exact visible string, not
+  // that a dedicated label span does.
+  it('the accessible name contains the exact visible text of the selected option (WCAG 2.5.3)', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    const opcionVisible = select.options[select.selectedIndex].textContent;
+    expect(opcionVisible).toBe('Necesidades · Supermercado');
+    expect(select.getAttribute('aria-label')).toContain(opcionVisible);
   });
 
   it('while the catalog is loading, the select renders disabled offering only the current categoría — never empty (WCAT-04 delta)', async () => {
@@ -325,7 +360,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
 
     // Mid-flight, genuinely: the catalog fetch is a deferred promise that
@@ -380,7 +415,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -421,7 +456,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -453,7 +488,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -486,7 +521,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Transferencia recibida',
+      'Categoría de Transferencia recibida: Sin categoría',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -515,7 +550,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -554,7 +589,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -598,7 +633,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -643,7 +678,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -681,7 +716,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
     await user.selectOptions(select, 'Necesidades · Transporte');
@@ -719,7 +754,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
     await user.selectOptions(select, 'Necesidades · Transporte');
@@ -761,7 +796,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -806,7 +841,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -843,7 +878,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -902,7 +937,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Transferencia recibida',
+      'Categoría de Transferencia recibida: Sin categoría',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -959,7 +994,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -998,7 +1033,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -1104,7 +1139,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Movimiento',
+      'Categoría de Movimiento: Necesidades · Transporte',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -1147,7 +1182,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
 
     // The catalog genuinely never loads (no cached data, the fetch fails),
@@ -1191,7 +1226,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Uber Eats',
+      'Categoría de Uber Eats: Gustos · Delivery',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -1229,7 +1264,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
 
@@ -1281,7 +1316,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
 
     expect(select).toHaveAttribute('aria-busy', 'true');
@@ -1332,7 +1367,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
 
     const select = screen.getByLabelText(
-      'Bucket y categoría de Supermercado Líder',
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
     ) as HTMLSelectElement;
     await waitFor(() => expect(select).not.toBeDisabled());
     expect(screen.getAllByRole('option')).toHaveLength(8);

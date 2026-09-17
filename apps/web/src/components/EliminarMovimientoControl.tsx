@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { deleteMovimiento } from '@/api/movimientos';
 import { useEliminarMovimiento } from '@/api/use-eliminar-movimiento';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,27 @@ import {
  *   already rejects a demo DELETE with `MovimientoDemoSoloLecturaError`
  *   regardless). The explanatory `role="note"` lives at the page level, one
  *   per screen (WCTG-11 convention), not duplicated per row here.
+ *
+ * `compacto` (bucket-detalle-lista-rediseño, Cambio 5): opt-in icon-only
+ * trigger for `GrupoMovimientos`'s fixed-height ledger row (a visible
+ * "Eliminar" label does not fit the row's 36px action column). **This
+ * component is shared with `IngresosMesTable`** (the `/ingresos` screen) —
+ * `compacto` defaults to `false` so that caller's rendering stays
+ * byte-identical; only `GrupoMovimientos` passes `compacto`. The `aria-label`
+ * is UNCHANGED between modes (it was already the full accessible name, never
+ * just "Eliminar") — it becomes load-bearing in compacto mode since the
+ * button then carries no visible text at all. `disabled={esDemo}` and the
+ * confirm/schedule flow below are identical in both modes; only the trigger's
+ * own visual chrome differs (`Button`'s `ghost` variant, sized to the
+ * repo's 36×44px touch target via explicit `h-11 w-9` — none of
+ * `button.tsx`'s existing `size` tokens is exactly 36×44, so this overrides
+ * just the box + padding utilities, keeping the shared focus-visible ring).
+ * In `compacto` mode the confirm dialog also positions `absolute`
+ * (`top-full right-0`) instead of stacking in flow — `GrupoMovimientos`'s
+ * row has a FIXED 44px height (same constraint that makes
+ * `ReclasificarCategoriaControl`'s own confirm/error absolute), so nothing
+ * here may grow it. `IngresosMesTable`'s own rows have no such height cap,
+ * so its non-`compacto` confirm keeps stacking in flow, unchanged.
  */
 export function EliminarMovimientoControl({
   id,
@@ -62,6 +84,7 @@ export function EliminarMovimientoControl({
   descripcion,
   montoLabel,
   esDemo = false,
+  compacto = false,
   onEliminado,
 }: {
   readonly id: string;
@@ -69,6 +92,7 @@ export function EliminarMovimientoControl({
   readonly descripcion: string;
   readonly montoLabel: string;
   readonly esDemo?: boolean;
+  readonly compacto?: boolean;
   readonly onEliminado?: () => void;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -111,19 +135,39 @@ export function EliminarMovimientoControl({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="outline"
-        size="xs"
-        disabled={esDemo}
-        onClick={abrir}
-        aria-label={`Eliminar movimiento ${descripcion} (${fechaLabel})`}
-        className="text-error-foreground"
-      >
-        Eliminar
-      </Button>
+    <div
+      className={
+        compacto
+          ? 'relative flex flex-col items-end gap-1'
+          : 'flex flex-col items-end gap-1'
+      }
+    >
+      {compacto ? (
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="ghost"
+          disabled={esDemo}
+          onClick={abrir}
+          aria-label={`Eliminar movimiento ${descripcion} (${fechaLabel})`}
+          className="inline-flex h-11 w-9 items-center justify-center p-0 text-error-foreground hover:text-error-foreground has-[>svg]:px-0"
+        >
+          <Trash2 aria-hidden="true" className="size-4" />
+        </Button>
+      ) : (
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          size="xs"
+          disabled={esDemo}
+          onClick={abrir}
+          aria-label={`Eliminar movimiento ${descripcion} (${fechaLabel})`}
+          className="text-error-foreground"
+        >
+          Eliminar
+        </Button>
+      )}
       {abierto && (
         <InlineConfirm
           title="Confirmar eliminación"
@@ -131,7 +175,11 @@ export function EliminarMovimientoControl({
           destructive
           onConfirm={confirmar}
           onCancel={cancelar}
-          className="gap-2 p-3 text-xs"
+          className={
+            compacto
+              ? 'absolute top-full right-0 z-10 mt-1 w-max max-w-xs gap-2 p-3 text-xs'
+              : 'gap-2 p-3 text-xs'
+          }
         >
           <p>
             Se eliminará el movimiento {descripcion} ({fechaLabel}) por{' '}

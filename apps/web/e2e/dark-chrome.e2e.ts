@@ -18,9 +18,13 @@ import { stubApi } from './fixtures/api-stubs';
  *    the `<select>` alone would NOT have caught it; this spec asserts on
  *    `document.documentElement` for exactly that reason.
  * 2. `select, option { background-color: var(--card) }` in `@layer base`.
- *    The app's two native selects (`CampoSelect`,
- *    `ReclasificarCategoriaControl`) set a text colour and a border but no
- *    background, so the face fell through to the UA widget theme.
+ *    `CampoSelect` sets a text colour and a border but no background of its
+ *    own, so its face fell through to the UA widget theme — this base rule
+ *    is what still paints it. `ReclasificarCategoriaControl`'s own select
+ *    went "fantasma" (bucket-detalle-lista-rediseño, Cambio 4) — transparent
+ *    AT REST by design, painting `bg-card` only on hover/focus — so for that
+ *    control this base rule only governs the interactive face, not rest;
+ *    see the second test below for the up-to-date assertion.
  *
  * Why e2e and not jsdom: jsdom does not paint, does not resolve `@layer base`
  * UA-default interactions, and has no notion of `color-scheme` widget
@@ -70,7 +74,7 @@ test.describe('chrome oscuro', () => {
     expect(esquema).toBe('dark');
   });
 
-  test('los <select> nativos pintan su propia cara oscura, sin depender del tema del UA', async ({
+  test('los <select> nativos pintan su propia cara oscura al enfocarse, sin depender del tema del UA', async ({
     page,
   }) => {
     await stubApi(page);
@@ -87,6 +91,20 @@ test.describe('chrome oscuro', () => {
 
     const select = page.locator('select').first();
     await select.waitFor();
+
+    // bucket-detalle-lista-rediseño (Cambio 4): this <select>
+    // (`ReclasificarCategoriaControl`) went "fantasma" — no border, no
+    // background AT REST, by deliberate design (it fuses with the ledger
+    // row; only the hover/focus state paints border + `bg-card`). The
+    // `@layer base` rule this spec guards therefore no longer governs the
+    // REST paint for this control — utilities layer wins over base layer
+    // regardless of source order (Tailwind v4 cascade-layer semantics), so
+    // `bg-transparent` beats `select { background-color: var(--card) }` at
+    // rest. What the base rule still guarantees is the FOCUSED face (the
+    // `focus:bg-card` utility), which is what this test asserts now — the
+    // moment the control looks interactive, it must not leak the UA's light
+    // widget theme.
+    await select.focus();
 
     const fondo = await select.evaluate(
       (el) => getComputedStyle(el).backgroundColor,

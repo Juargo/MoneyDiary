@@ -42,7 +42,7 @@ test.describe('chrome claro (Clínico frío)', () => {
     expect(tarjeta).toBe('rgb(249, 250, 252)');
   });
 
-  test('los <select> nativos pintan la cara Clínico frío con OS claro', async ({
+  test('los <select> nativos pintan la cara Clínico frío al enfocarse, con OS claro', async ({
     page,
   }) => {
     await stubApi(page);
@@ -56,6 +56,21 @@ test.describe('chrome claro (Clínico frío)', () => {
 
     const select = page.locator('select').first();
     await select.waitFor();
+
+    // bucket-detalle-lista-rediseño (Cambio 4): this <select>
+    // (`ReclasificarCategoriaControl`) went "fantasma" — no border and no
+    // background AT REST by deliberate design, so it fuses with the ledger
+    // row; only hover/focus paints border + `bg-card`. Tailwind v4's
+    // utilities layer beats `@layer base` regardless of source order, so
+    // `bg-transparent` wins over `select { background-color: var(--card) }`
+    // at rest and this spec's assertion no longer describes that state.
+    // What the base rule still guarantees — and what this test now pins —
+    // is the FOCUSED face: the moment the control looks interactive it must
+    // paint its own surface and never leak the UA's widget theme.
+    //
+    // Kept byte-for-byte in step with the same change in
+    // `dark-chrome.e2e.ts`: these two specs are twins and must not drift.
+    await select.focus();
 
     const fondo = await select.evaluate(
       (el) => getComputedStyle(el).backgroundColor,
