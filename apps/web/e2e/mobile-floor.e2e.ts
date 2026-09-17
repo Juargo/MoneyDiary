@@ -80,6 +80,23 @@ const SCREENS = [
     // `bucket-detalle` y en `ingresos`.
     heading: 'Semáforo',
   },
+  {
+    name: 'dashboard',
+    path: '/?periodo=2026-07',
+    // `ResumenScreen`'s `<h1>` es `sr-only` ("Resumen mensual", ADR-018): el
+    // encabezado visible del dashboard es "Distribución del gasto", un `<h2>`.
+    // Sigue sirviendo de ancla — sólo se renderiza pasadas las early returns
+    // de pending/error de `ResumenPage`, que es lo único que este campo
+    // necesita garantizar.
+    //
+    // Es la pantalla más visitada del producto y la última que faltaba. A
+    // diferencia de sus hermanas, el dashboard YA nació con conciencia de
+    // viewport: sus specs (`dashboard-donut`, `annual-grid`) están repartidos
+    // a propósito entre movil/tablet/escritorio, y `LeyendaGasto` ya usa mono
+    // tabular en el dinero. Lo que le faltaba era justamente esto: nadie medía
+    // su geometría real a 360px.
+    heading: 'Resumen mensual',
+  },
 ] as const;
 
 // SC 2.5.8 (WCAG 2.2 AA)'s *Inline* exception exempts a target "in a
