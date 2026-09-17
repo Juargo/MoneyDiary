@@ -202,8 +202,8 @@ export function GrupoMovimientos({
         id={idTitulo}
         className={
           expandido
-            ? 'text-sm font-semibold text-foreground'
-            : 'border-b border-border pb-2 text-sm font-semibold text-foreground'
+            ? 'text-sm font-medium text-foreground'
+            : 'border-b border-border pb-2 text-sm font-medium text-foreground'
         }
       >
         <button
@@ -229,7 +229,7 @@ export function GrupoMovimientos({
               }`}
             />
           </span>{' '}
-          <span className="text-right font-mono text-sm font-semibold tabular-nums text-foreground">
+          <span className="text-right font-mono text-sm font-medium tabular-nums text-foreground">
             {grupo.subtotalLabel}
           </span>{' '}
           {/* Desktop-only: on mobile the conteo is announced via the column
@@ -249,7 +249,7 @@ export function GrupoMovimientos({
         hidden={!expandido}
         className={
           expandido
-            ? 'flex items-center justify-between border-b border-border py-1.5 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground uppercase sm:grid sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem] sm:justify-normal sm:gap-x-3'
+            ? 'flex items-center justify-between border-b border-border py-1.5 text-[11px] font-medium tracking-[0.1em] text-muted-foreground uppercase sm:grid sm:grid-cols-[4.75rem_1fr_6rem_11rem_2.25rem] sm:justify-normal sm:gap-x-3'
             : 'hidden'
         }
       >
@@ -295,13 +295,13 @@ export function GrupoMovimientos({
                 <span className="sr-only">{aFechaLargaLabel(tx.fecha)}</span>
                 <span
                   aria-hidden="true"
-                  className="font-mono text-sm font-medium tabular-nums text-foreground"
+                  className="font-mono text-sm font-normal tabular-nums text-foreground"
                 >
                   {dia}
                 </span>
                 <span
                   aria-hidden="true"
-                  className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+                  className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
                 >
                   {diaSemana}
                 </span>
@@ -312,7 +312,7 @@ export function GrupoMovimientos({
               {/* `text-right` + `tabular-nums` on a content-width column:
                   the digits line up across rows, so magnitudes are
                   comparable by eye without reading a single number. */}
-              <span className="text-right font-mono font-medium tabular-nums text-foreground">
+              <span className="text-right font-mono font-normal tabular-nums text-foreground">
                 {tx.montoLabel}
               </span>
               {/* Mobile: sinks to row 2 under the descripción column (col 1,
