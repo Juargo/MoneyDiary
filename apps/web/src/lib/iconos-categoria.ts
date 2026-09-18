@@ -2,6 +2,7 @@ import {
   Bike,
   Bus,
   Car,
+  CircleHelp,
   CreditCard,
   Dumbbell,
   Fuel,
@@ -68,6 +69,7 @@ const MAPA_ICONO_CATEGORIA = {
   'piggy-bank': PiggyBank,
   'trending-up': TrendingUp,
   'credit-card': CreditCard,
+  'circle-help': CircleHelp,
 } satisfies Record<IconoCategoria, LucideIcon>;
 
 /**
@@ -104,6 +106,7 @@ export const ETIQUETA_ICONO: Record<IconoCategoria, string> = {
   'piggy-bank': 'Alcancía',
   'trending-up': 'Inversiones',
   'credit-card': 'Tarjeta de crédito',
+  'circle-help': 'Desconocido',
 };
 
 /**

@@ -15,11 +15,11 @@ import { SelectorIcono } from './SelectorIcono';
 import type { IconoCategoria } from '../../domain/catalogo-constantes';
 
 describe('SelectorIcono (categoria-iconografia, PR6, CATICO-08, MCTG-02/03)', () => {
-  it('renders 25 radio options with "Sin icono" first (D-05/CATICO-01 picker order)', async () => {
+  it('renders 26 radio options with "Sin icono" first (D-05/CATICO-01 picker order)', async () => {
     await render(<SelectorIcono value={null} onChange={() => {}} />);
 
     const radios = screen.getAllByRole('radio');
-    expect(radios).toHaveLength(25);
+    expect(radios).toHaveLength(26);
     expect(radios[0].props.accessibilityLabel).toBe('Sin icono');
   });
 
