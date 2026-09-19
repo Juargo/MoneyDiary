@@ -26,6 +26,21 @@ describe('PeriodoSelector', () => {
     expect(screen.getByText('julio 2026')).toBeInTheDocument();
   });
 
+  // "Mes en curso" marker (issue #747 PR2, WCAG 1.4.1 — conveyed as text,
+  // never color alone): a resolved period different from the current
+  // (system-time-faked) UTC month renders its own label and NO marker; the
+  // current month renders both its label AND the marker.
+  it('shows the "Mes en curso" marker when the displayed period is the current month', () => {
+    render(<PeriodoSelector periodo="2026-07" onChange={() => {}} />);
+    expect(screen.getByText('Mes en curso')).toBeInTheDocument();
+  });
+
+  it('does not show the "Mes en curso" marker for a past month', () => {
+    render(<PeriodoSelector periodo="2026-06" onChange={() => {}} />);
+    expect(screen.getByText('junio 2026')).toBeInTheDocument();
+    expect(screen.queryByText('Mes en curso')).not.toBeInTheDocument();
+  });
+
   it('calls onChange with the previous month when "Mes anterior" is activated', () => {
     const onChange = vi.fn();
     render(<PeriodoSelector periodo="2026-07" onChange={onChange} />);
