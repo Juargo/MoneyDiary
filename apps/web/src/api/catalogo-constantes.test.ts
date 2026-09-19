@@ -20,9 +20,9 @@ describe('MATCH_TYPES', () => {
 // categoria-iconografia CATICO-01/07: exact-value pin, complementary to the
 // backend-source drift guard in catalogo-constantes.mirror.spec.ts.
 describe('ICONOS_CATEGORIA', () => {
-  it('has exactly 24 unique kebab-case lucide names, in picker order', () => {
-    expect(ICONOS_CATEGORIA).toHaveLength(24);
-    expect(new Set(ICONOS_CATEGORIA).size).toBe(24);
+  it('has exactly 25 unique kebab-case lucide names, in picker order', () => {
+    expect(ICONOS_CATEGORIA).toHaveLength(25);
+    expect(new Set(ICONOS_CATEGORIA).size).toBe(25);
     expect(ICONOS_CATEGORIA).toEqual([
       'shopping-cart',
       'fuel',
@@ -48,6 +48,7 @@ describe('ICONOS_CATEGORIA', () => {
       'piggy-bank',
       'trending-up',
       'credit-card',
+      'circle-help',
     ]);
   });
 });

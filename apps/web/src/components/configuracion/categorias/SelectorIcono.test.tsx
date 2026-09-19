@@ -7,7 +7,7 @@ import { SelectorIcono } from './SelectorIcono';
 /**
  * SelectorIcono.test.tsx (categoria-iconografia, ADR-045, CATICO-01/08,
  * design.md "UI", WCTG-04). A `fieldset`/`legend` "Icono (opcional)"
- * wrapping 25 native radios (24 allowlisted icons, order = `ICONOS_CATEGORIA`,
+ * wrapping 26 native radios (25 allowlisted icons, order = `ICONOS_CATEGORIA`,
  * plus "Sin icono" FIRST) — native radios give arrow-key navigation for
  * free (verified empirically against this repo's jsdom+user-event setup:
  * both controlled-`checked` arrow-key roving and Space-to-select work with
@@ -16,14 +16,14 @@ import { SelectorIcono } from './SelectorIcono';
  * this is the enforcement point for CATICO-08's picker half.
  */
 describe('SelectorIcono', () => {
-  it('renders a fieldset/legend with 25 radio options, "Sin icono" first, each with a Spanish accessible name (CATICO-08)', () => {
+  it('renders a fieldset/legend with 26 radio options, "Sin icono" first, each with a Spanish accessible name (CATICO-08)', () => {
     render(<SelectorIcono name="icono" value={null} onChange={() => {}} />);
 
     expect(
       screen.getByRole('group', { name: 'Icono (opcional)' }),
     ).toBeInTheDocument();
     const opciones = screen.getAllByRole('radio');
-    expect(opciones).toHaveLength(25);
+    expect(opciones).toHaveLength(26);
     expect(opciones[0]).toHaveAccessibleName('Sin icono');
     // Human-readable label, never the raw lucide identifier (CATICO-08).
     expect(screen.getByRole('radio', { name: 'Hogar' })).toBeInTheDocument();

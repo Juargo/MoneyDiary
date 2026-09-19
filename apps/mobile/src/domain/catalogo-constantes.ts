@@ -29,7 +29,7 @@ export const MATCH_TYPES = ['CONTAINS', 'STARTS_WITH', 'REGEX'] as const;
 export type MatchType = (typeof MATCH_TYPES)[number];
 
 /**
- * `ICONOS_CATEGORIA` — the curated allowlist of 24 lucide kebab-case names
+ * `ICONOS_CATEGORIA` — the curated allowlist of 25 lucide kebab-case names
  * for a category icon (categoria-iconografia, ADR-045, CATICO-01). Order is
  * the picker order (PR6), so a reorder counts as drift. Unlike
  * `BUCKETS_ASIGNABLES`/`MATCH_TYPES`, this array has no `esIconoCategoria`
@@ -62,6 +62,7 @@ export const ICONOS_CATEGORIA = [
   'piggy-bank',
   'trending-up',
   'credit-card',
+  'circle-help',
 ] as const;
 
 /** Lucide kebab-case name belonging to the curated category icon allowlist. */

@@ -161,7 +161,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     });
   });
 
-  it('renders SelectorIcono with the "Sin icono" option and 24 allowlisted icons (MCTG-02)', async () => {
+  it('renders SelectorIcono with the "Sin icono" option and 25 allowlisted icons (MCTG-02)', async () => {
     await render(
       <NuevaCategoriaForm
         onCreada={mockOnCreada}
