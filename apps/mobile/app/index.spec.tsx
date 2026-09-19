@@ -179,6 +179,28 @@ const emptyDto: ResumenMesDto = {
 // keeps this file correct regardless of when the suite runs.
 const anioActual = new Date().getUTCFullYear();
 
+// Shared `jest.useFakeTimers` config for specs that need a pinned UTC clock
+// (issue #747 PR3 + the pre-existing D-10 nav test below) — pins ONLY the
+// Date constructor; every timer API RNTL's `waitFor` needs stays real. DRY:
+// factored out so each pinned-clock `it()` doesn't repeat the same 15-line
+// `doNotFake` allowlist.
+const RELOJ_FIJO_DO_NOT_FAKE = [
+  'hrtime',
+  'nextTick',
+  'performance',
+  'queueMicrotask',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'requestIdleCallback',
+  'cancelIdleCallback',
+  'setImmediate',
+  'clearImmediate',
+  'setInterval',
+  'clearInterval',
+  'setTimeout',
+  'clearTimeout',
+] as const;
+
 /** One month of the annual grid fixture, always WITH data (§1.9's default
  * `periodoSeleccionado = periodoVista` marks the current month selected, and
  * every cell here is tappable so the tests below don't have to route around
@@ -508,31 +530,17 @@ describe('Index (4-state switch)', () => {
   // renderEstado would make onNavegar a no-op, so mockPush would not be
   // called and this test would fail on the toHaveBeenCalledWith assertion.
   describe('legend row navigation wiring (D-10, US-056 PR1)', () => {
-    it('pressing leyenda-fila-Necesidades calls router.push with the correct bucket path and periodo', async () => {
-      // Pin ONLY the Date constructor (every timer API stays real so RNTL's
-      // waitFor is unaffected). index.tsx derives periodoVista at render time
-      // via periodoActualUTC(new Date()); without this pin the test's own
-      // new Date() and the component's could straddle a UTC month boundary.
-      // Mid-June of the suite's current year keeps the annual-grid fixture
-      // (built from module-level anioActual) consistent with the pinned clock.
+    it('pressing leyenda-fila-Necesidades calls router.push with the BACKEND-RESOLVED periodo, not a local clock guess (issue #747 PR3)', async () => {
+      // Pin the clock somewhere OTHER than dataDto's own periodo ('2026-07')
+      // so a pass can't happen by accident merely because "resolved" and
+      // "now" coincide (same discipline as web's dashboard-periodo-resuelto
+      // test). Before this PR, index.tsx built the nav path from
+      // `periodoActualUTC(new Date())` on the initial (periodo-undefined)
+      // mount — this pin would have made the OLD code expect
+      // `${anioActual}-09`, not dataDto's '2026-07'.
       jest.useFakeTimers({
-        doNotFake: [
-          'hrtime',
-          'nextTick',
-          'performance',
-          'queueMicrotask',
-          'requestAnimationFrame',
-          'cancelAnimationFrame',
-          'requestIdleCallback',
-          'cancelIdleCallback',
-          'setImmediate',
-          'clearImmediate',
-          'setInterval',
-          'clearInterval',
-          'setTimeout',
-          'clearTimeout',
-        ],
-        now: new Date(Date.UTC(anioActual, 5, 15)),
+        doNotFake: [...RELOJ_FIJO_DO_NOT_FAKE],
+        now: new Date(Date.UTC(anioActual, 8, 15)), // September of anioActual.
       });
 
       try {
@@ -545,11 +553,12 @@ describe('Index (4-state switch)', () => {
 
         fireEvent.press(screen.getByTestId('leyenda-fila-Necesidades'));
 
-        // periodoVista in index.tsx = periodo state ?? periodoActualUTC(new Date()).
-        // periodo state is undefined on initial mount (no month was tapped), so
-        // the pinned clock makes the expected path an exact literal month.
+        // periodo state is undefined on initial mount (no month was tapped),
+        // so the ONLY source for the resolved month is the backend echo
+        // (`estado.dto.periodo`, issue #747 PR1) — dataDto's fixed '2026-07',
+        // never the pinned "now" above.
         expect(mockPush).toHaveBeenCalledWith(
-          `/bucket/Necesidades?periodo=${anioActual}-06`,
+          `/bucket/Necesidades?periodo=${dataDto.periodo}`,
         );
       } finally {
         jest.useRealTimers();
@@ -558,7 +567,14 @@ describe('Index (4-state switch)', () => {
   });
 
   describe('month selection (design §1.9, MOB-13)', () => {
-    it('fetches with periodo undefined on the default mount (current month)', async () => {
+    // Reframed for issue #747 PR3 (D-XX): the original title/comment called
+    // an absent periodo "current month" — since PR1, an absent periodo
+    // resolves on the BACKEND to the user's last month WITH DATA (current
+    // month is only the no-data fallback), so mobile must never derive it
+    // client-side. The one assertion that always held — the initial mount
+    // fetches with NO periodo argument, letting the backend resolve it — is
+    // kept unedited; only the misleading "(current month)" framing changes.
+    it('fetches with periodo undefined on the default mount (backend resolves the month, issue #747 PR1)', async () => {
       mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
 
       await render(<Index />);
@@ -588,8 +604,16 @@ describe('Index (4-state switch)', () => {
       expect(mockFetchResumen).toHaveBeenLastCalledWith(`${anioActual}-04`);
     });
 
-    it('updates the header label to the selected month', async () => {
-      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+    it('updates the header label to the selected month, sourced from the backend echo (issue #747 PR3)', async () => {
+      // Explicit periodo is ALWAYS respected and echoed back verbatim
+      // (issue #747 PR1) — this mock models that contract instead of always
+      // returning the same fixed dataDto.periodo regardless of what was
+      // requested, so this test can actually tell the backend-resolved
+      // periodo apart from a client-side guess.
+      mockFetchResumen.mockImplementation(async (periodoSolicitado) => ({
+        ok: true,
+        value: { ...dataDto, periodo: periodoSolicitado ?? dataDto.periodo },
+      }));
 
       await render(<Index />);
       await waitFor(() =>
@@ -600,8 +624,14 @@ describe('Index (4-state switch)', () => {
 
       fireEvent.press(screen.getByLabelText(`Ver abril ${anioActual}`));
 
+      // `IngresoCard` also renders `formatearPeriodoLabel(viewModel.periodo)`
+      // (the same backend-resolved value) — a plain `getByText` would now
+      // match BOTH it and the Header, since they finally agree (that IS the
+      // fix). `header-periodo-label` scopes the assertion to the Header.
       await waitFor(() =>
-        expect(screen.getByText(`Abril ${anioActual}`)).toBeOnTheScreen(),
+        expect(screen.getByTestId('header-periodo-label')).toHaveTextContent(
+          `Abril ${anioActual}`,
+        ),
       );
     });
 
@@ -685,6 +715,56 @@ describe('Index (4-state switch)', () => {
         ).not.toBeOnTheScreen(),
       );
       expect(screen.getByText('Distribución del gasto')).toBeOnTheScreen();
+    });
+  });
+
+  // issue #747 PR3: mobile mirror of web's
+  // `dashboard-periodo-resuelto.test.tsx` — pins that the header labels and
+  // marks the BACKEND-RESOLVED month (`estado.dto.periodo`), never a
+  // client-derived "now" guess. Clock pinned to 2026-08-15 (August) so
+  // dataDto's fixed periodo ('2026-07', July) is unambiguously a PAST month
+  // relative to "now" — ruling out a pass that only holds by coincidence.
+  describe('backend-resolved periodo drives the header (issue #747 PR3)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({
+        doNotFake: [...RELOJ_FIJO_DO_NOT_FAKE],
+        now: new Date('2026-08-15T12:00:00.000Z'),
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('labels the header with the RESOLVED month and shows NO "Mes en curso" marker for a past resolved month', async () => {
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dataDto });
+
+      await render(<Index />);
+
+      // Scoped to the Header specifically (see the comment on the "updates
+      // the header label" test above) — `IngresoCard` renders the same
+      // backend-resolved label too, which would make a plain `getByText`
+      // ambiguous.
+      await waitFor(() =>
+        expect(screen.getByTestId('header-periodo-label')).toHaveTextContent(
+          'Julio 2026',
+        ),
+      );
+      expect(screen.queryByText('Mes en curso')).not.toBeOnTheScreen();
+    });
+
+    it('shows the "Mes en curso" marker when the resolved month IS the current UTC month', async () => {
+      const dtoMesActual: ResumenMesDto = { ...dataDto, periodo: '2026-08' };
+      mockFetchResumen.mockResolvedValue({ ok: true, value: dtoMesActual });
+
+      await render(<Index />);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('header-periodo-label')).toHaveTextContent(
+          'Agosto 2026',
+        ),
+      );
+      expect(screen.getByText('Mes en curso')).toBeOnTheScreen();
     });
   });
 
