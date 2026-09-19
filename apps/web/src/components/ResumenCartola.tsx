@@ -78,6 +78,13 @@ export function ResumenCartola({
       <p className="text-xs text-muted-foreground">
         Nada se ha guardado aún. Revisa las filas y confirma para importar.
       </p>
+      {/* Issue #742: classification is misread as one-shot/mandatory —
+          this line tells the user up front it's editable later. Same
+          plain <p>, no live-region role, as the line above it. */}
+      <p className="text-xs text-muted-foreground">
+        Clasificar ahora no es obligatorio: puedes cambiar la categoría de
+        cualquier movimiento cuando quieras.
+      </p>
     </div>
   );
 }

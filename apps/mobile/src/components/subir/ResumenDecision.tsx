@@ -70,6 +70,17 @@ export function ResumenDecision({
             {resumen.nuevas}
           </Text>
         </View>
+        {/* Issue #742: "nada se ha guardado" affordance, ported from the web
+            sibling (ResumenCartola) — this decision block never carried it.
+            Paired with the "clasificar no es obligatorio" line right below
+            it, both plain supporting text, no accessibility role. */}
+        <Text className="text-sm text-muted">
+          Nada se ha guardado aún. Revisa las filas y confirma para importar.
+        </Text>
+        <Text className="text-sm text-muted">
+          Clasificar ahora no es obligatorio: puedes cambiar la categoría de
+          cualquier movimiento cuando quieras.
+        </Text>
       </View>
 
       <MuestraAgrupadaMobile filas={filas} catalogo={catalogo} />

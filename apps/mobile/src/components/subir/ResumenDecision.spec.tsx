@@ -51,6 +51,28 @@ describe('ResumenDecision', () => {
     expect(screen.getByRole('button', { name: 'Descartar' })).toBeOnTheScreen();
   });
 
+  it('renders the "nada se ha guardado" and "clasificar no es obligatorio" copy (issue #742)', async () => {
+    await render(
+      <ResumenDecision
+        resumen={RESUMEN}
+        onSubirTalCual={jest.fn()}
+        onRevisar={jest.fn()}
+        onDescartar={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Nada se ha guardado aún. Revisa las filas y confirma para importar.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Clasificar ahora no es obligatorio: puedes cambiar la categoría de cualquier movimiento cuando quieras.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
   it('cartola-decision-agrupada: with no filas passed, renders no grouped summary heading (default empty array)', async () => {
     await render(
       <ResumenDecision

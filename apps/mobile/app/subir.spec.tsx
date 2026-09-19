@@ -437,6 +437,18 @@ describe('Subir (mobile decision + review screen, design.md Phase 6)', () => {
     expect(screen.queryByRole('radio')).not.toBeOnTheScreen();
   });
 
+  it('renders the "puedes dejar filas sin categoría" supporting line in the review step (issue #742)', async () => {
+    await seleccionarYPrevisualizar();
+
+    await revisarYEditar();
+
+    expect(
+      screen.getByText(
+        'Puedes dejar filas sin categoría y ordenarlas después.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
   it('MOB-PRV-06/07: tapping an editable row opens the classification sheet; a duplicate row stays a no-op', async () => {
     const filas = [
       filaPreview({ rowIndex: 0 }),
