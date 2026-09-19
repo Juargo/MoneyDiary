@@ -18,9 +18,11 @@ import { COLORS } from '../theme/colors';
  */
 export function Header({
   periodoLabel,
+  mesEnCurso = false,
   iniciales = 'JD',
 }: {
   periodoLabel: string;
+  mesEnCurso?: boolean;
   iniciales?: string;
 }) {
   const router = useRouter();
@@ -37,7 +39,33 @@ export function Header({
         <Settings size={24} color={COLORS.heading} />
       </Pressable>
 
-      <Text className="text-lg font-bold text-heading">{periodoLabel}</Text>
+      {/* issue #747 PR3: `accessible` groups the label + the "Mes en curso"
+          marker into ONE accessible node ("agosto 2026, Mes en curso")
+          instead of two separate stops for a screen reader — mirrors web's
+          Badge sitting next to the label (PeriodoSelector.tsx). The marker
+          is conveyed as TEXT, never color alone (WCAG 1.4.1, ADR-018). */}
+      <View
+        accessible={true}
+        accessibilityRole="header"
+        accessibilityLabel={
+          mesEnCurso ? `${periodoLabel}, Mes en curso` : periodoLabel
+        }
+        className="items-center gap-1"
+      >
+        <Text
+          testID="header-periodo-label"
+          className="text-lg font-bold text-heading"
+        >
+          {periodoLabel}
+        </Text>
+        {mesEnCurso && (
+          <View className="rounded-full bg-canvas px-2.5 py-0.5">
+            <Text className="text-xs font-semibold text-ingreso">
+              Mes en curso
+            </Text>
+          </View>
+        )}
+      </View>
 
       <View
         accessibilityRole="image"
