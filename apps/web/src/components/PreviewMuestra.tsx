@@ -546,6 +546,15 @@ export function PreviewMuestra({
                 </Button>
               )}
             </div>
+            {/* Issue #742: classification is misread as one-shot/mandatory —
+                this supporting line under the "Movimientos" heading tells
+                the user rows can stay unclassified and be sorted later.
+                Plain text, unconditional (not gated by selection or filter
+                state — it's reference information, same idiom as the
+                inline bucket definition below). */}
+            <p className="text-xs text-muted-foreground">
+              Puedes dejar filas sin categoría y ordenarlas después.
+            </p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-3">
                 {seleccionablesVisibles.length > 0 && (

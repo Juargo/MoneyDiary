@@ -567,6 +567,14 @@ export default function Subir() {
                 </Pressable>
               </View>
             )}
+            {/* Issue #742: classification is misread as one-shot/mandatory
+                — this supporting line sits above the editable row list
+                (the review step's working surface) to tell the user rows
+                can stay unclassified and be sorted later. Plain text, no
+                accessibility role. */}
+            <Text className="text-sm text-muted">
+              Puedes dejar filas sin categoría y ordenarlas después.
+            </Text>
             <ListaRevision
               filas={revisando.dto.filas}
               categoriaNombrePorFila={categoriaNombrePorFila}

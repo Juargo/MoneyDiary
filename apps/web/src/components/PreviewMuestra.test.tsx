@@ -764,6 +764,28 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // ── Row-by-row review supporting copy (issue #742) ───────────────────────
+  describe('classification-is-optional copy under the "Movimientos" heading', () => {
+    it('renders the "puedes dejar filas sin categoría" supporting line', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByText(
+          'Puedes dejar filas sin categoría y ordenarlas después.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
   // ── Selection + bulk apply ───────────────────────────────────────────────
   describe('selection + bulk apply', () => {
     const filasDosGrupos: PreviewFilaDto[] = [
