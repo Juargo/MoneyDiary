@@ -103,6 +103,13 @@ interface GrupoMovimientosMobileProps {
    * (D-20 single announcement source). Non-optional per us-044 PR7 case law.
    */
   readonly onMovida: (label: string) => void;
+  /**
+   * agregar-categoria-desde-bucket (issue #743): forwarded verbatim to every
+   * row's `ReclasificarMobileControl` — see that prop's own docblock. Pure
+   * passthrough, this component has no opinion on it (no local state keys
+   * off it, unlike the `key`-remount approach this replaced).
+   */
+  readonly categoriaVersion?: number;
 }
 
 /**
@@ -116,6 +123,7 @@ export function GrupoMovimientosMobile({
   destacar,
   onReclasificado,
   onMovida,
+  categoriaVersion,
 }: GrupoMovimientosMobileProps) {
   const [expandido, setExpandido] = useState(false);
 
@@ -211,6 +219,7 @@ export function GrupoMovimientosMobile({
               categoriaActual={categoriaActual}
               onReclasificado={onReclasificado}
               onMovida={onMovida}
+              categoriaVersion={categoriaVersion}
             />
           </View>
         );

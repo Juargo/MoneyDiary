@@ -30,18 +30,25 @@
  * mounted in the header, gated on `BUCKETS_ASIGNABLES.includes(bucket)` —
  * `SinCategoria` cannot own a categoría. On success, `handleCategoriaCreada`
  * both announces via the SAME shared `anuncio`/AccessibilityInfo mechanism
- * `handleMovida` uses, and bumps `categoriaVersion`, a `key` on the groups
- * container below. Each `ReclasificarMobileControl` nested under
- * `GrupoMovimientosMobile` caches its OWN catalog fetch in local state for
- * its component lifetime (that control's own docblock: "Do NOT clear
- * catalogo — cache it so re-open is instant") — there is no shared/global
- * mobile cache to invalidate the way web's TanStack Query lets
- * `useCrearCategoria` seed `['categorias']`. Bumping the `key` remounts the
- * whole groups subtree, resetting every nested control's cached catalog to
- * null, so its NEXT open refetches fresh and includes the just-created
- * categoría — the same "immediately usable without a reload" guarantee web
- * gets from cache seeding, achieved here by remount instead (no shared
- * cache exists to seed on mobile).
+ * `handleMovida` uses, and bumps `categoriaVersion`, forwarded as a PROP
+ * through `GrupoMovimientosMobile` down to every row's
+ * `ReclasificarMobileControl` (never a `key` on the groups container — a
+ * `key`-based remount was tried first and reverted: `GrupoMovimientosMobile`
+ * keeps its own `expandido` accordion state, so remounting the subtree
+ * collapsed every already-expanded group the instant a categoría was
+ * created, which defeats the exact flow this feature exists to smooth: a
+ * user expands a group to reclassify a movement, doesn't find the categoría
+ * they want, creates it from this screen, and should NOT lose their place).
+ * `ReclasificarMobileControl` caches its OWN catalog fetch in local state
+ * for its component lifetime ("Do NOT clear catalogo — cache it so re-open
+ * is instant") — there is no shared/global mobile cache to invalidate the
+ * way web's TanStack Query lets `useCrearCategoria` seed `['categorias']`.
+ * That control's own `categoriaVersion` effect clears ONLY its cached
+ * `catalogo` (not the component) when the prop changes, so its NEXT open
+ * refetches fresh and includes the just-created categoría — the same
+ * "immediately usable without a reload" guarantee web gets from cache
+ * seeding, achieved here per-instance instead (no shared cache exists to
+ * seed on mobile), without touching any accordion state.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -97,8 +104,9 @@ export function BucketDetalleScreen({
   // Screen-owned announcement state (D-20)
   const [anuncio, setAnuncio] = useState('');
   // agregar-categoria-desde-bucket (issue #743): bumped on every successful
-  // categoría creation — see this file's own docblock for why this key
-  // (rather than a shared cache) is what refreshes the reclassify pickers.
+  // categoría creation and threaded down as a PROP (never a `key`) — see
+  // this file's own docblock for why this is what refreshes the reclassify
+  // pickers without collapsing any expanded group.
   const [categoriaVersion, setCategoriaVersion] = useState(0);
 
   const cargar = useCallback(async () => {
@@ -144,9 +152,9 @@ export function BucketDetalleScreen({
    * handleCategoriaCreada (issue #743): reuses the SAME `anuncio`/
    * AccessibilityInfo mechanism `handleMovida` uses above — one screen-level
    * announcement path for every mutation this screen can trigger, not a new
-   * one per affordance. Also bumps `categoriaVersion` (see this file's
-   * docblock for why a remount, not a cache seed, is what mobile needs
-   * here).
+   * one per affordance. Also bumps `categoriaVersion`, which flows down as a
+   * PROP (see this file's docblock for why a per-instance cache clear, not a
+   * remount, is what mobile needs here).
    */
   function handleCategoriaCreada() {
     setCategoriaVersion((v) => v + 1);
@@ -315,12 +323,12 @@ export function BucketDetalleScreen({
             </Text>
           </View>
         ) : (
-          // `key={categoriaVersion}` (issue #743): forces a full remount of
-          // this subtree — and every nested ReclasificarMobileControl's own
-          // cached catalog with it — after a categoría is created. See this
-          // file's own docblock for why a remount, not a shared cache, is
-          // the mobile-appropriate fix here.
-          <View testID="bucket-detalle-grupos" key={categoriaVersion}>
+          // NO `key={categoriaVersion}` here (issue #743, reverted after
+          // review): this subtree is NEVER remounted on categoría creation —
+          // `categoriaVersion` is instead threaded down as a plain prop (see
+          // this file's own docblock) so `GrupoMovimientosMobile`'s own
+          // `expandido` accordion state survives.
+          <View testID="bucket-detalle-grupos">
             {viewModel.grupos.map((grupo, idx) => (
               <GrupoMovimientosMobile
                 key={grupo.categoriaId ?? 'sin-categoria'}
@@ -329,6 +337,7 @@ export function BucketDetalleScreen({
                 destacar={destacar}
                 onReclasificado={cargar}
                 onMovida={handleMovida}
+                categoriaVersion={categoriaVersion}
               />
             ))}
           </View>

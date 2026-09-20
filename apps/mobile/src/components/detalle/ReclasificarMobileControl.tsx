@@ -99,6 +99,21 @@ export interface ReclasificarMobileControlProps {
    * this control never calls AccessibilityInfo (single announcement source, D-20).
    */
   readonly onMovida: (label: string) => void;
+  /**
+   * agregar-categoria-desde-bucket (issue #743): an opaque token (bumped by
+   * `BucketDetalleScreen` on every successful categoría creation) that
+   * invalidates ONLY this control's own per-instance `catalogo` cache — not
+   * the component tree. A `key`-based remount of the groups subtree was
+   * tried first and reverted: `GrupoMovimientosMobile` keeps its own
+   * `expandido` accordion state, so remounting collapsed every open group
+   * the instant a categoría was created, which is a worse regression than
+   * the staleness this prop fixes (a tester expands a row to reclassify,
+   * doesn't find the categoría, creates it, and would lose their place).
+   * Optional and defaulted to `undefined` so every pre-existing caller/test
+   * that doesn't pass it keeps the exact prior "fetch once, cache for the
+   * component's lifetime" behaviour — see the effect below.
+   */
+  readonly categoriaVersion?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +125,7 @@ export function ReclasificarMobileControl({
   categoriaActual,
   onReclasificado,
   onMovida,
+  categoriaVersion,
 }: ReclasificarMobileControlProps) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoDto | null>(null);
@@ -135,6 +151,24 @@ export function ReclasificarMobileControl({
       void cargarCatalogo();
     }
   }, [modalAbierto, catalogo, cargarCatalogo]);
+
+  // agregar-categoria-desde-bucket (issue #743): invalidate ONLY this
+  // control's own cached `catalogo` when `categoriaVersion` changes — never
+  // a remount (see the prop's own docblock). `categoriaVersion === undefined`
+  // (every pre-existing caller) makes this a permanent no-op, so nothing
+  // changes for a caller that doesn't opt in. When it IS provided, this also
+  // fires once on mount (`catalogo` is already `null` then, so `setCatalogo
+  // (null)` is a no-op re-render-wise) — the only observable effect is on a
+  // LATER change, which is exactly the "categoría created elsewhere" signal.
+  // If the modal happens to be open when that fires, the effect above
+  // refetches immediately instead of waiting for the next open.
+  useEffect(() => {
+    if (categoriaVersion === undefined) {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCatalogo(null);
+  }, [categoriaVersion]);
 
   function handleAbrirModal() {
     setErrorMensaje(null);

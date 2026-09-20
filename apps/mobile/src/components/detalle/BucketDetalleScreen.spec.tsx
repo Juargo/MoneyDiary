@@ -85,13 +85,13 @@ jest.mock('../../api/client', () => ({
 // `contadorMontajes`/`instanciaId` (agregar-categoria-desde-bucket, issue
 // #743): a `useRef` seeded once per MOUNT (never per re-render) — this is
 // how the "AgregarCategoriaControl integration" describe block below proves
-// `BucketDetalleScreen` actually REMOUNTS this subtree (not just
-// re-renders it) after a categoría is created. A real
-// `ReclasificarMobileControl` caches its own catalog fetch in local state
-// for the component's LIFETIME (`handleCerrarModal`'s own docblock: "Do NOT
-// clear catalogo — cache it so re-open is instant") — only a remount resets
-// that cache, which is exactly what makes a just-created categoría show up
-// in the picker without the user backgrounding/reopening the app.
+// `BucketDetalleScreen` does NOT remount this subtree after a categoría is
+// created (a `key`-based remount was tried first and reverted: it also
+// reset `GrupoMovimientosMobile`'s own `expandido` accordion state, which
+// is why the "expanded group" describe block further below exists — catalog
+// freshness now comes from a `categoriaVersion` PROP threaded down to
+// `ReclasificarMobileControl`, proven separately in that component's own
+// spec file, not from remounting anything here).
 jest.mock('./GrupoMovimientosMobile', () => {
   const { useRef } = require('react');
   const { View, Text, Pressable: P } = require('react-native');
@@ -642,7 +642,7 @@ describe('BucketDetalleScreen', () => {
       ).toBeNull();
     });
 
-    it('creating a category closes the form, announces success via the shared status region, and remounts the groups subtree (so nested reclassify catalogs refetch fresh)', async () => {
+    it('creating a category closes the form, announces success via the shared status region, and does NOT remount the groups subtree (reverted key-remount regression)', async () => {
       mockFetchDetalleBucketMes.mockResolvedValueOnce({
         ok: true,
         value: makeDto(),
@@ -693,13 +693,17 @@ describe('BucketDetalleScreen', () => {
       expect(announceSpy).toHaveBeenCalledWith('Categoría creada.');
       announceSpy.mockRestore();
 
-      // The groups subtree REMOUNTED — a fresh mount instance id proves any
-      // nested ReclasificarMobileControl's own per-instance catalog cache
-      // was reset too, so its next open refetches (picking up the new
-      // categoría) instead of serving a stale cached list.
+      // The groups subtree must NOT have remounted (issue #743 rework): a
+      // `key`-based remount was tried first and reverted because it also
+      // reset `GrupoMovimientosMobile`'s own `expandido` accordion state,
+      // collapsing every expanded group on every categoría creation. The
+      // SAME mount instance id proves this subtree stayed mounted; catalog
+      // freshness is now proven separately in `ReclasificarMobileControl.
+      // spec.tsx` (a `categoriaVersion` prop change) and expanded-state
+      // survival in this file's own "expanded group" describe block below.
       const instanciaDespues = screen.getByTestId('grupo-instancia-cat-1').props
         .children;
-      expect(instanciaDespues).not.toBe(instanciaAntes);
+      expect(instanciaDespues).toBe(instanciaAntes);
     });
   });
 });

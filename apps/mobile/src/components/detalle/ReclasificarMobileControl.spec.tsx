@@ -771,4 +771,100 @@ describe('ReclasificarMobileControl', () => {
       'cat-transporte-deseos',
     );
   });
+
+  // ── categoriaVersion (agregar-categoria-desde-bucket, issue #743) ──
+  //
+  // Reworked from an earlier `key`-based remount on the SCREEN's groups
+  // container: that approach also reset `GrupoMovimientosMobile`'s own
+  // `expandido` accordion state, collapsing every already-expanded group on
+  // every categoría creation (a real UX regression, caught in review). The
+  // fix instead threads `categoriaVersion` down as a plain PROP — this
+  // control's own effect clears ONLY its cached `catalogo` on a change,
+  // never the component tree.
+  describe('categoriaVersion prop (issue #743)', () => {
+    it('omitted (every pre-existing caller): fetches once and keeps serving the same cached catalog on every re-open', async () => {
+      const props = defaultProps();
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+      });
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-cancelar'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+
+      // Re-open with no categoriaVersion change: still the SAME cached
+      // catalog, no second fetch ("Do NOT clear catalogo — cache it so
+      // re-open is instant").
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+    });
+
+    it('a categoriaVersion change clears the cached catalog, refetches on the NEXT open, and lists a categoría created elsewhere', async () => {
+      mockFetchCatalogo.mockResolvedValueOnce({
+        ok: true,
+        value: makeCatalogo(),
+      });
+
+      const props = defaultProps();
+      const { rerender } = await render(
+        <ReclasificarMobileControl {...props} categoriaVersion={0} />,
+      );
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+      });
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('reclasificar-opcion-cat-nueva')).toBeNull();
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-cancelar'));
+      });
+
+      // A categoría was created elsewhere on the screen — the parent bumps
+      // categoriaVersion. The NEW catalog the next fetch will return
+      // includes it.
+      mockFetchCatalogo.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          categorias: [
+            ...makeCatalogo().categorias,
+            {
+              id: 'cat-nueva',
+              nombre: 'Streaming',
+              bucket: 'Deseos',
+              transaccionesCount: 0,
+              patrones: [],
+            },
+          ],
+        },
+      });
+      await act(async () => {
+        rerender(<ReclasificarMobileControl {...props} categoriaVersion={1} />);
+      });
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+
+      await waitFor(() => {
+        expect(mockFetchCatalogo).toHaveBeenCalledTimes(2);
+      });
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('reclasificar-opcion-cat-nueva'),
+        ).toBeTruthy();
+      });
+    });
+  });
 });
