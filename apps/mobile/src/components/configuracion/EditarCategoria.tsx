@@ -299,11 +299,21 @@ export function EditarCategoria({
           exist on the same screen (binding constraint from PR3a's gate) */}
       <SelectorChips
         testID="bucket-selector"
-        label="Bucket (obligatorio)"
+        label="Grupo (obligatorio)"
         options={BUCKETS_ASIGNABLES}
         value={bucket}
         onChange={(v) => setBucket(v)}
       />
+
+      {/*
+       * issue #750 — "bucket" es jerga interna sin explicación en la UI
+       * (una usuaria de prueba preguntó "¿por qué sale bucket?"). Copy
+       * aprobado por el owner, verbatim; mismo texto que NuevaCategoriaForm.
+       */}
+      <Text className="text-xs text-muted">
+        Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu
+        50/30/20. Puedes cambiarlo después, pero afecta todos los meses.
+      </Text>
 
       {/* categoria-iconografia (MCTG-03): part of the identity draft, so it
           is disabled by the SAME condition as Nombre/Bucket above — a

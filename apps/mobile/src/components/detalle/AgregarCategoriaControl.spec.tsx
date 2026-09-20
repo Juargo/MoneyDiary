@@ -138,7 +138,7 @@ describe('AgregarCategoriaControl (issue #743)', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre en ese bucket.',
+        'Ya tienes una categoría con ese nombre en ese grupo.',
       );
     });
     expect(screen.getByLabelText('Nombre')).toBeOnTheScreen();

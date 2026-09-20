@@ -300,7 +300,7 @@ export function ReclasificarMobileControl({
     const etiquetaNueva = ETIQUETA_BUCKET[bucketCategoria] ?? bucketCategoria;
 
     Alert.alert(
-      'Confirmar cambio de bucket',
+      'Confirmar cambio de grupo',
       `Esto mueve ${tx.montoLabel} de ${etiquetaActual} a ${etiquetaNueva}.`,
       [
         {
@@ -343,7 +343,7 @@ export function ReclasificarMobileControl({
       {/* Trigger: one per movement row (D-17/D-19) */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Cambiar bucket y categoría de ${tx.descripcion}`}
+        accessibilityLabel={`Cambiar grupo y categoría de ${tx.descripcion}`}
         testID={`reclasificar-trigger-${tx.id}`}
         onPress={handleAbrirModal}
       >
@@ -387,7 +387,7 @@ export function ReclasificarMobileControl({
               <Text
                 style={{ fontSize: 16, fontWeight: '600', color: '#2D2F3A' }}
               >
-                Cambiar bucket y categoría
+                Cambiar grupo y categoría
               </Text>
               <Pressable
                 accessibilityRole="button"

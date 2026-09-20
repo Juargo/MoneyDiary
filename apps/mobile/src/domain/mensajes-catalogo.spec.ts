@@ -53,7 +53,7 @@ function httpSinCodigo(status: number): ApiError {
 describe('mensajeDeErrorCatalogo — 13-member CodigoCatalogo table', () => {
   it.each<readonly [CodigoCatalogo, string]>([
     ['NOMBRE_INVALIDO', 'El nombre debe tener entre 1 y 40 caracteres.'],
-    ['BUCKET_NO_ASIGNABLE', 'Elige un bucket: Necesidades, Gustos o Ahorro.'],
+    ['BUCKET_NO_ASIGNABLE', 'Elige un grupo: Necesidades, Gustos o Ahorro.'],
     ['PATRON_INVALIDO', 'El patrón debe tener entre 1 y 200 caracteres.'],
     ['MATCH_TYPE_INVALIDO', 'Elige un tipo de coincidencia válido.'],
     ['REGEX_INVALIDA', 'Esa expresión regular no es válida.'],
@@ -75,7 +75,7 @@ describe('mensajeDeErrorCatalogo — 13-member CodigoCatalogo table', () => {
     ['PATRON_NO_ENCONTRADO', 'Ese patrón ya no existe. Vuelve y recarga.'],
     [
       'NOMBRE_DUPLICADO',
-      'Ya tienes una categoría con ese nombre en ese bucket.',
+      'Ya tienes una categoría con ese nombre en ese grupo.',
     ],
     ['PATRON_DUPLICADO', 'Ya tienes un patrón con ese texto.'],
     ['ICONO_INVALIDO', 'Elige un ícono válido de la lista.'],

@@ -140,19 +140,30 @@ export function NuevaCategoriaForm({
 
       {bucketFijo ? (
         <View className="gap-1">
-          <Text className="text-xs text-muted">Bucket</Text>
+          <Text className="text-xs text-muted">Grupo</Text>
           <Text className="text-sm font-medium text-heading">
             {ETIQUETA_BUCKET[bucketFijo] ?? bucketFijo}
           </Text>
         </View>
       ) : (
-        <SelectorChips
-          testID="bucket-selector"
-          label="Bucket (obligatorio)"
-          options={BUCKETS_ASIGNABLES}
-          value={bucket as BucketAsignable}
-          onChange={(v) => setBucket(v)}
-        />
+        <>
+          <SelectorChips
+            testID="bucket-selector"
+            label="Grupo (obligatorio)"
+            options={BUCKETS_ASIGNABLES}
+            value={bucket as BucketAsignable}
+            onChange={(v) => setBucket(v)}
+          />
+          {/*
+           * issue #750 — "bucket" es jerga interna sin explicación en la UI
+           * (una usuaria de prueba preguntó "¿por qué sale bucket?"). Copy
+           * aprobado por el owner, verbatim.
+           */}
+          <Text className="text-xs text-muted">
+            Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu
+            50/30/20. Puedes cambiarlo después, pero afecta todos los meses.
+          </Text>
+        </>
       )}
 
       <SelectorIcono

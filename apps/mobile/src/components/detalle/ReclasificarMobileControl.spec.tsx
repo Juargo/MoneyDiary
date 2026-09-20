@@ -269,7 +269,7 @@ describe('ReclasificarMobileControl', () => {
 
     const trigger = screen.getByTestId('reclasificar-trigger-tx-1');
     expect(trigger.props.accessibilityLabel).toBe(
-      'Cambiar bucket y categoría de Netflix',
+      'Cambiar grupo y categoría de Netflix',
     );
 
     await act(async () => {
@@ -280,7 +280,7 @@ describe('ReclasificarMobileControl', () => {
       expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
     });
 
-    expect(screen.getByText('Cambiar bucket y categoría')).toBeTruthy();
+    expect(screen.getByText('Cambiar grupo y categoría')).toBeTruthy();
   });
 
   /**
@@ -371,7 +371,7 @@ describe('ReclasificarMobileControl', () => {
     // Alert.alert must have been called with the exact message
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const [title, message] = alertSpy.mock.calls[0] as [string, string];
-    expect(title).toBe('Confirmar cambio de bucket');
+    expect(title).toBe('Confirmar cambio de grupo');
     // ETIQUETA_BUCKET maps Deseos→'Gustos'. Raw key 'Deseos' would fail this pin.
     expect(message).toBe('Esto mueve $50.000 de Gustos a Necesidades.');
   });

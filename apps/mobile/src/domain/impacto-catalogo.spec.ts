@@ -107,12 +107,12 @@ describe('fraseDeImpacto (US-044 PR6b, T6b.1)', () => {
 
     it('returns the exact frozen titulo', () => {
       const { titulo } = fraseDeImpacto(impacto);
-      expect(titulo).toBe('Cambiar el bucket');
+      expect(titulo).toBe('Cambiar el grupo');
     });
 
     it('returns the exact frozen textoConfirmar', () => {
       const { textoConfirmar } = fraseDeImpacto(impacto);
-      expect(textoConfirmar).toBe('Cambiar bucket');
+      expect(textoConfirmar).toBe('Cambiar grupo');
     });
 
     it('returns the exact frozen lineas body (Deseos renders as "Gustos" via ETIQUETA_BUCKET)', () => {
@@ -139,12 +139,12 @@ describe('fraseDeImpacto (US-044 PR6b, T6b.1)', () => {
     // textoConfirmar as the count>0 case (only lineas differs).
     it('still returns the exact frozen titulo — zero never skips confirmation', () => {
       const { titulo } = fraseDeImpacto(impacto);
-      expect(titulo).toBe('Cambiar el bucket');
+      expect(titulo).toBe('Cambiar el grupo');
     });
 
     it('still returns the exact frozen textoConfirmar — zero never skips confirmation', () => {
       const { textoConfirmar } = fraseDeImpacto(impacto);
-      expect(textoConfirmar).toBe('Cambiar bucket');
+      expect(textoConfirmar).toBe('Cambiar grupo');
     });
 
     it('still returns a defined lineas array — zero never skips confirmation', () => {

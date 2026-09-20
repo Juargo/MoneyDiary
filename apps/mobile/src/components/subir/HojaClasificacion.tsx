@@ -229,7 +229,7 @@ function HojaClasificacionContenido({
 
         <SelectorChips
           testID="hoja-bucket"
-          label="Bucket"
+          label="Grupo"
           options={buckets}
           value={bucketSeleccionado as BucketAsignable}
           getOptionLabel={(b) => ETIQUETA_BUCKET[b] ?? b}

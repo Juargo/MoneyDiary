@@ -100,9 +100,9 @@ export function fraseDeImpacto(i: ImpactoCatalogo): {
               'No tiene transacciones asociadas, así que no se mueve ningún monto.',
             ];
       return {
-        titulo: 'Cambiar el bucket',
+        titulo: 'Cambiar el grupo',
         lineas,
-        textoConfirmar: 'Cambiar bucket',
+        textoConfirmar: 'Cambiar grupo',
       };
     }
     default: {

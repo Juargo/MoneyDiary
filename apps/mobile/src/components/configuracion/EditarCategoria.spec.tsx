@@ -282,6 +282,28 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     ).toBeOnTheScreen();
   });
 
+  /**
+   * issue #750 — misma ayuda inline que NuevaCategoriaForm: el campo
+   * "Grupo" lleva el copy aprobado por el owner, verbatim.
+   */
+  it('el campo se llama "Grupo (obligatorio)" y muestra la ayuda inline con el copy aprobado', async () => {
+    await render(
+      <EditarCategoria
+        categoria={sampleCategoria}
+        onGuardado={mockOnGuardado}
+        onCancelar={mockOnCancelar}
+        onEliminado={mockOnEliminado}
+      />,
+    );
+
+    expect(screen.getByText('Grupo (obligatorio)')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu 50/30/20. Puedes cambiarlo después, pero afecta todos los meses.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
   // T7.5 integration case (strengthened JD fix): pattern commits are independent
   // of categoría's Guardar, and Cancelar discards only the identity draft —
   // MCTG-03's own scenario. Extended: assert that a committed pattern mutation
@@ -557,7 +579,7 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       string,
       ...unknown[],
     ];
-    expect(title).toBe('Cambiar el bucket');
+    expect(title).toBe('Cambiar el grupo');
     // Fix 6: exact verbatim body (frozen copy — do NOT compute from fraseDeImpacto)
     expect(message).toBe(
       '«Supermercado» pasa de Necesidades a Gustos.\nEsto mueve 5 transacciones en TODOS los períodos, incluidos los meses ya cerrados.\nTu resumen 50/30/20 va a cambiar para esos meses.',
@@ -650,7 +672,7 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
     }[];
     const confirmBtn = buttons.find((b) => b.style === 'destructive');
     expect(confirmBtn).toBeDefined();
-    expect(confirmBtn?.text).toBe('Cambiar bucket');
+    expect(confirmBtn?.text).toBe('Cambiar grupo');
 
     await act(async () => {
       confirmBtn?.onPress?.();
@@ -994,7 +1016,7 @@ describe('EditarCategoria (US-044 PR6a, T6a.3)', () => {
       ...unknown[],
     ];
     // Alert title is fixed
-    expect(title).toBe('Cambiar el bucket');
+    expect(title).toBe('Cambiar el grupo');
     // The Alert body MUST reference the draft name 'Mercado Central', not the
     // original DTO name 'Supermercado'. This pins fix 1: reverting to
     // categoria.nombre causes this assertion to FAIL.
