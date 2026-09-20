@@ -1686,4 +1686,247 @@ describe('ReclasificarCategoriaControl', () => {
     // The row's own selection is untouched by the failed creation attempt.
     expect(select.value).toBe('cat-supermercado');
   });
+
+  // ── patrón desde movimiento (issue #745) ──
+
+  /**
+   * Routes `/api/patrones` (the offer's own POST) alongside the existing
+   * `/api/categorias` (catalog) and reclassify-PATCH routing `mockFetch`
+   * already does — a dedicated helper because none of the existing ones
+   * discriminate a third URL.
+   */
+  function mockFetchConPatron({
+    catalogo = CATALOGO_FIXTURE,
+    reclasificarRespuesta = {
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    },
+    patronRespuesta = { ok: true, status: 201 },
+  }: {
+    catalogo?: CatalogoDto;
+    reclasificarRespuesta?: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    };
+    patronRespuesta?: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    };
+  } = {}) {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        return Promise.resolve(respuestaCatalogo(catalogo));
+      }
+      if (url === '/api/patrones') {
+        return Promise.resolve(patronRespuesta);
+      }
+      return Promise.resolve(reclasificarRespuesta);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('after a same-bucket reclassify commits, offers to create a pattern from the movement', async () => {
+    mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+
+    expect(await screen.findByText(/próximas cartolas/i)).toBeInTheDocument();
+  });
+
+  it('dismissing the pattern offer leaves the reclassification intact and fires no pattern request', async () => {
+    const fetchMock = mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByText(/próximas cartolas/i);
+
+    await user.click(screen.getByRole('button', { name: 'Ahora no' }));
+
+    expect(screen.queryByText(/próximas cartolas/i)).not.toBeInTheDocument();
+    // The reclassify PATCH already happened and is untouched.
+    expect(select.value).toBe('cat-transporte');
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/patrones',
+      expect.anything(),
+    );
+  });
+
+  it("confirming the offer POSTs to /api/patrones with the ROW'S NEWLY ASSIGNED categoriaId, the literal selected words, and CONTAINS, and announces the created pattern via onPatronCreado", async () => {
+    const fetchMock = mockFetchConPatron();
+    const onPatronCreado = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+        onPatronCreado={onPatronCreado}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Líder' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/patrones',
+        expect.objectContaining({
+          body: JSON.stringify({
+            categoriaId: 'cat-transporte',
+            patron: 'Líder',
+            matchType: 'CONTAINS',
+          }),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(onPatronCreado).toHaveBeenCalledExactlyOnceWith('Líder'),
+    );
+    // The offer closes once the pattern is created.
+    expect(screen.queryByText(/próximas cartolas/i)).not.toBeInTheDocument();
+  });
+
+  it('a failed pattern creation surfaces inline and does not undo the reclassification', async () => {
+    mockFetchConPatron({
+      patronRespuesta: {
+        ok: false,
+        status: 409,
+        json: () => Promise.resolve({ code: 'PATRON_DUPLICADO', message: 'x' }),
+      },
+    });
+    const onPatronCreado = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+        onPatronCreado={onPatronCreado}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Líder' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ya tienes un patrón con ese texto.',
+    );
+    expect(onPatronCreado).not.toHaveBeenCalled();
+    // The reclassify commit from before is completely unaffected.
+    expect(select.value).toBe('cat-transporte');
+  });
+
+  it('after confirming a CROSS-BUCKET reclassify, the pattern offer targets the DESTINATION categoría, not the original', async () => {
+    const fetchMock = mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Uber Eats: Gustos · Delivery',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Uber' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/patrones',
+        expect.objectContaining({
+          body: JSON.stringify({
+            categoriaId: 'cat-transporte',
+            patron: 'Uber',
+            matchType: 'CONTAINS',
+          }),
+        }),
+      ),
+    );
+  });
 });

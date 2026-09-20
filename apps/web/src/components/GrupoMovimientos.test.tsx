@@ -351,6 +351,47 @@ describe('GrupoMovimientos', () => {
     expect(onMovida).toHaveBeenCalledWith('Gustos');
   });
 
+  it('threads onPatronCreado to ReclasificarCategoriaControl and fires it once a pattern is created from the offer (issue #745)', async () => {
+    mockFetch();
+    const onPatronCreado = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+        onPatronCreado={onPatronCreado}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const select = await screen.findByLabelText(
+      'Categoría de Compra en Líder: Necesidades · Supermercado',
+    );
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    // Cross-bucket move (same fixture/path as the onMovida test above) —
+    // the offer fires after ANY successful commit, this is just the one
+    // this suite's fixture already sets up.
+    await user.selectOptions(select as HTMLSelectElement, 'Gustos · Streaming');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Líder' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    // Proves the prop is forwarded through GrupoMovimientos — not dropped.
+    await waitFor(() => expect(onPatronCreado).toHaveBeenCalledTimes(1));
+    expect(onPatronCreado).toHaveBeenCalledWith('Líder');
+  });
+
   // ── categoria-iconografia (WDM-03, CATICO-06): accordion heading badge ──
 
   it('renders the group icono as a bucket-colored badge on the heading (WDM-03)', () => {
