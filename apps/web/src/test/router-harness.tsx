@@ -165,5 +165,13 @@ export function renderConRouter(
         forzarActualizacion?.();
       });
     },
+    /**
+     * The real router instance (issue #752, `useVolverAtras`): lets a test
+     * simulate a genuine in-app navigation — `act(() => router.history.
+     * push('/'))` — so `useCanGoBack()` flips to `true` via the SAME
+     * `@tanstack/history` mechanism production code runs on, instead of
+     * mocking the hook. Not used by any test before this change.
+     */
+    router,
   };
 }

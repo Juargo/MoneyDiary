@@ -7,6 +7,7 @@ import { Empty } from './states/Empty';
 import { PeriodoSelector } from './PeriodoSelector';
 import { IngresosMesTable } from './IngresosMesTable';
 import { Button } from '@/components/ui/button';
+import { useVolverAtras } from '@/lib/use-volver-atras';
 import { aIngresosMesViewModel } from '@/domain/ingresos-mes-view-model';
 import type { ApiError } from '@/api/client';
 import type { IngresosMesDto } from '@/api/types';
@@ -19,18 +20,22 @@ const MENSAJE_DEMO_ELIMINAR =
  * Router-agnostic (SemaforoDetallePage + BucketDetalleMesPage precedent): el
  * route (ingresos.tsx, T-11) es dueño del hook y pasa `query` como prop.
  *
- * Header: breadcrumb `nav aria-label="Ruta"` + back `Link to="/" search={{ periodo }}`
- * "Volver al resumen". **D-10 LOCKED: raw `Link` (NOT `BotonVolver`) — carries
- * `search={{ periodo }}`** — US-053 case law: `BotonVolver` no puede llevar
- * search params sin perder el periodo en back-nav (CA-08 bug class). The
- * `Link` itself is unchanged by `ingresos-visual-rediseno`; it now sits
- * inside `<Button asChild variant="link" size="sm">` (`BucketDetalleMesPage`
- * precedent) purely for the 24×24 CSS px target floor (SC 2.5.8) — the
- * `link` variant reuses the SAME classes the raw `<Link>` had before
- * (`text-primary underline-offset-4 hover:underline`, look unchanged),
- * `size="sm"` is what actually grows the hit target, and `-mr-3` cancels
- * that size's `px-3` on the flush right edge so the header's alignment does
- * not shift.
+ * Header: breadcrumb `nav aria-label="Ruta"` + a back control (`useVolverAtras`,
+ * issue #752, `BucketDetalleMesPage` precedent — see that file's own
+ * docblock for the full "why `useCanGoBack`" reasoning). **D-10 LOCKED: the
+ * fallback is a raw `Link` (NOT `BotonVolver`) — carries `search={{ periodo
+ * }}`** — US-053 case law: `BotonVolver` no puede llevar search params sin
+ * perder el periodo en back-nav (CA-08 bug class); that constraint is about
+ * the FALLBACK link specifically, the real-back branch never carries search
+ * at all (browser history restores it). The `Link` itself is unchanged by
+ * `ingresos-visual-rediseno`; it sits inside `<Button asChild variant="link"
+ * size="sm">` (`BucketDetalleMesPage` precedent) purely for the 24×24 CSS px
+ * target floor (SC 2.5.8) — the `link` variant reuses the SAME classes the
+ * raw `<Link>` had before (`text-primary underline-offset-4 hover:underline`,
+ * look unchanged), `size="sm"` is what actually grows the hit target, and
+ * `-mr-3` cancels that size's `px-3` on the flush right edge so the header's
+ * alignment does not shift. The real-back button reuses the exact same
+ * classes for the exact same reason.
  *
  * Franja de totales (`ingresos-visual-rediseno`, Cambio 3): reemplaza la
  * línea de texto `{conteoLabel} · {totalLabel}` — dos celdas idénticas en
@@ -65,6 +70,7 @@ export function IngresosMesPage({
   readonly esDemo?: boolean;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { puedeVolver, volverAtras } = useVolverAtras();
   const [anuncio, setAnuncio] = useState('');
 
   function alEliminar() {
@@ -89,20 +95,34 @@ export function IngresosMesPage({
             Dashboard <span aria-hidden="true">/</span>{' '}
             <span className="font-medium text-foreground">Ingresos</span>
           </nav>
-          {/* D-10 LOCKED: raw Link (NOT BotonVolver) — carries search={{ periodo }}
-              so back-nav preserves the month (see docblock above). Wrapped in
-              Button asChild purely for the 24×24 CSS px target floor
-              (BucketDetalleMesPage precedent). */}
-          <Button
-            asChild
-            variant="link"
-            size="sm"
-            className="-mr-3 font-medium"
-          >
-            <Link to="/" search={{ periodo }}>
-              Volver al resumen
-            </Link>
-          </Button>
+          {/* issue #752: real back when there is in-app history to return
+              to; otherwise the D-10 LOCKED raw Link fallback (NOT
+              BotonVolver) — carries search={{ periodo }} so a direct-URL
+              arrival still preserves the month on its fixed destination
+              (see docblock above). Both wrapped in Button asChild/onClick
+              purely for the 24×24 CSS px target floor (BucketDetalleMesPage
+              precedent). */}
+          {puedeVolver ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="-mr-3 font-medium"
+              onClick={volverAtras}
+            >
+              Volver
+            </Button>
+          ) : (
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="-mr-3 font-medium"
+            >
+              <Link to="/" search={{ periodo }}>
+                Volver al resumen
+              </Link>
+            </Button>
+          )}
         </div>
         <h1
           ref={headingRef}

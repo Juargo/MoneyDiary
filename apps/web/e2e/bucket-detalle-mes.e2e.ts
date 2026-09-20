@@ -221,6 +221,49 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     ).toBeVisible();
   });
 
+  // issue #752 — the usability finding this closes: a tester pressed
+  // "volver" on a screen she reached via in-app navigation and landed back
+  // at "/" with a felt sense of having lost her place, because the control
+  // was ALWAYS a fixed link to the dashboard rather than a real back. This
+  // is the one layer that can prove the fix end-to-end: a real click into
+  // the detail screen (not `page.goto`, which starts a FRESH single-entry
+  // history — that's case 1's "direct URL" scenario, still the honest
+  // fallback) leaves a genuine in-app history entry behind, so "Volver"
+  // must become the real-back button and land the user on the EXACT
+  // dashboard state — same URL, same periodo — she came from.
+  test('after arriving from the dashboard via a real click, "Volver" uses real back-navigation and returns to the exact dashboard state (issue #752)', async ({
+    page,
+  }) => {
+    await page.goto('/?periodo=2026-07');
+    await page.getByText('Toca un ítem del gráfico o la leyenda').waitFor();
+
+    await page
+      .getByTestId('leyenda-item')
+      .filter({ hasText: 'Gustos' })
+      .click();
+    await expect(page).toHaveURL(/\/buckets\/Deseos\?periodo=2026-07/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Gustos' }),
+    ).toBeVisible();
+
+    // With real in-app history behind it, the control is a BUTTON labelled
+    // plain "Volver" (issue #752, `useVolverAtras`) — the fixed-link
+    // fallback ("Volver al resumen") must be gone.
+    await expect(
+      page.getByRole('link', { name: 'Volver al resumen' }),
+    ).toHaveCount(0);
+    const volver = page.getByRole('button', { name: 'Volver' });
+    await expect(volver).toBeVisible();
+    await volver.click();
+
+    // Exact dashboard state restored — same URL (periodo intact), same
+    // landmark visible — not just "some" screen.
+    await expect(page).toHaveURL(/\/\?periodo=2026-07/);
+    await expect(
+      page.getByText('Toca un ítem del gráfico o la leyenda'),
+    ).toBeVisible();
+  });
+
   test('dashboard Sin categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
     page,
   }) => {
