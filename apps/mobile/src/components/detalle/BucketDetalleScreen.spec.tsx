@@ -93,6 +93,18 @@ jest.mock('./GrupoMovimientosMobile', () => {
         >
           <Text>Reclasificar (mock)</Text>
         </P>
+        {/* confirmacion-reclasificar (issue #749): simulates the SAME-bucket
+            path, where ReclasificarMobileControl now calls onMovida with the
+            destination CATEGORÍA name instead of a bucket label. */}
+        <P
+          testID={`mock-reclasificar-trigger-samebucket-${id}`}
+          onPress={() => {
+            onReclasificado();
+            onMovida('Supermercado');
+          }}
+        >
+          <Text>Reclasificar mismo bucket (mock)</Text>
+        </P>
       </View>
     );
   }
@@ -504,5 +516,55 @@ describe('BucketDetalleScreen', () => {
     expect(screen.getByTestId('status-reclasificar').props.children).toBe(
       'Movida a Gustos.',
     );
+  });
+
+  /**
+   * confirmacion-reclasificar (issue #749): a same-bucket reclassify reuses
+   * the EXACT SAME `status-reclasificar` region and
+   * `AccessibilityInfo.announceForAccessibility` mechanism as the
+   * cross-bucket case — `handleMovida` is generic over whatever label it
+   * receives, so a categoría name renders/announces identically to a bucket
+   * label.
+   */
+  it('reuses the same status-reclasificar region and announcement mechanism for a same-bucket reclassify, rendering the categoría name', async () => {
+    const dtoConGrupo = makeDto();
+    // Two resolves queued: the initial mount fetch, plus the refetch fired
+    // by onReclasificado when the mock trigger is pressed below (T-15
+    // precedent above — the press fires onReclasificado + onMovida).
+    mockFetchDetalleBucketMes
+      .mockResolvedValueOnce({ ok: true, value: dtoConGrupo })
+      .mockResolvedValueOnce({ ok: true, value: dtoConGrupo });
+
+    const announceSpy = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockReturnValue(undefined);
+
+    await render(
+      <BucketDetalleScreen
+        bucket="Deseos"
+        destacar={undefined}
+        periodo="2026-07"
+        onChangePeriodo={jest.fn()}
+        onBack={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('mock-reclasificar-trigger-samebucket-cat-1'),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+        'Movida a Supermercado.',
+      );
+    });
+    expect(announceSpy).toHaveBeenCalledWith('Movida a Supermercado.');
+    announceSpy.mockRestore();
   });
 });

@@ -100,14 +100,20 @@ export function BucketDetalleScreen({
   }, [periodo]);
 
   /**
-   * Cross-bucket move handler (D-18/D-20 — wired T-15).
-   * The control calls this ONLY after the PATCH resolves ok (settled announcement,
-   * us-055 D-04 lesson). This screen is the ONLY caller of AccessibilityInfo
-   * in this change (single announcement source, D-20).
+   * Reclassify move handler (D-18/D-20 — wired T-15). Reused for BOTH
+   * cross-bucket AND same-bucket moves (confirmacion-reclasificar, issue
+   * #749): `ReclasificarMobileControl` calls this with the destination
+   * bucket's label for a cross-bucket move, or the destination categoría's
+   * name for a same-bucket move — this handler just formats whichever
+   * string it receives, so it needed no change to support the second
+   * caller. The control calls this ONLY after the PATCH resolves ok
+   * (settled announcement, us-055 D-04 lesson). This screen is the ONLY
+   * caller of AccessibilityInfo in this change (single announcement source,
+   * D-20).
    */
-  function handleMovida(bucketLabel: string) {
-    setAnuncio(`Movida a ${bucketLabel}.`);
-    AccessibilityInfo.announceForAccessibility(`Movida a ${bucketLabel}.`);
+  function handleMovida(label: string) {
+    setAnuncio(`Movida a ${label}.`);
+    AccessibilityInfo.announceForAccessibility(`Movida a ${label}.`);
   }
 
   // status-reclasificar live-region: OUTSIDE groups map — stable sibling (D-20/MDET-05).

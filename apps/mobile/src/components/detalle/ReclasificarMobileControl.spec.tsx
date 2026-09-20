@@ -117,6 +117,27 @@ function makeReclasificarDto(
 }
 
 /**
+ * confirmacion-reclasificar (issue #749) fixture: a SECOND Deseos categoría
+ * so a same-bucket reclassify (Entretenimiento → Streaming, both Deseos) has
+ * an actual different destination to pick — `makeCatalogo()` alone only has
+ * one categoría per bucket.
+ */
+function makeCatalogoConDosEnDeseos(): CatalogoDto {
+  return {
+    categorias: [
+      ...makeCatalogo().categorias,
+      {
+        id: 'cat-deseos-2',
+        nombre: 'Streaming',
+        bucket: 'Deseos',
+        transaccionesCount: 1,
+        patrones: [],
+      },
+    ],
+  };
+}
+
+/**
  * MDET-08 fixture (categoria-unica-por-bucket, ADR-042/D-08): the SAME
  * nombre ("Transporte") in two different buckets — legal once uniqueness
  * becomes bucket-scoped. Identity MUST resolve by `id`, never by `nombre`.
@@ -436,17 +457,19 @@ describe('ReclasificarMobileControl', () => {
   });
 
   /**
-   * Case 3b: same-bucket commit DOES NOT call onMovida nor announce (MDET-05 S7).
-   * The cross-bucket guard in commit() must prevent onMovida from firing when
-   * the destination bucket equals the current bucket. announceSpy is the negative
-   * oracle here — the control must NEVER call AccessibilityInfo directly (D-20
-   * single-announcement-source rule); this test also confirms no accidental call
-   * slips through on the same-bucket path.
+   * Case 3b: same-bucket commit calls onMovida with the destination
+   * CATEGORÍA's name (confirmacion-reclasificar, issue #749) but still NEVER
+   * calls AccessibilityInfo directly — announcing stays the screen's job
+   * (D-20 single-announcement-source rule; onMovida is the reused seam).
    */
-  it('same-bucket commit does NOT call onMovida nor announce (MDET-05 S7)', async () => {
+  it('same-bucket commit calls onMovida with the destination categoría name, never announces directly (confirmacion-reclasificar)', async () => {
     mockReclasificarCategoria.mockResolvedValueOnce({
       ok: true,
-      value: makeReclasificarDto('Deseos', 'Entretenimiento'),
+      value: makeReclasificarDto('Deseos', 'Streaming'),
+    });
+    mockFetchCatalogo.mockResolvedValue({
+      ok: true,
+      value: makeCatalogoConDosEnDeseos(),
     });
 
     const onMovida = jest.fn<void, [string]>();
@@ -461,19 +484,26 @@ describe('ReclasificarMobileControl', () => {
       expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
     });
 
-    // Press the same-bucket option (Entretenimiento is in Deseos — same bucket)
+    // Press a DIFFERENT categoría in the SAME bucket (Streaming, Deseos) —
+    // the current categoría is Entretenimiento, also Deseos.
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos-2'));
     });
 
     await waitFor(() => {
       expect(mockReclasificarCategoria).toHaveBeenCalledTimes(1);
     });
+    expect(mockReclasificarCategoria).toHaveBeenCalledWith(
+      'tx-1',
+      'cat-deseos-2',
+    );
 
-    // Same-bucket: onMovida must NOT fire — the cross-bucket guard must hold.
-    expect(onMovida).not.toHaveBeenCalled();
-    // The control must NEVER call AccessibilityInfo (D-20; announcement is the
-    // screen's responsibility). This negative assert turns announceSpy live.
+    // Same-bucket now reuses onMovida — but with the categoría NAME, never a
+    // bucket label.
+    await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
+    expect(onMovida).toHaveBeenCalledWith('Streaming');
+    // The control must NEVER call AccessibilityInfo (D-20; announcement is
+    // the screen's responsibility, driven by its own onMovida handler).
     expect(announceSpy).not.toHaveBeenCalled();
   });
 

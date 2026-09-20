@@ -96,11 +96,13 @@ interface GrupoMovimientosMobileProps {
    */
   readonly onReclasificado: () => void | Promise<void>;
   /**
-   * REQUIRED: called on cross-bucket success with the ETIQUETA_BUCKET display label
-   * of the destination bucket. Screen owns both setAnuncio and announceForAccessibility
+   * REQUIRED: called on EVERY successful reclassify — cross-bucket with the
+   * ETIQUETA_BUCKET display label of the destination bucket, same-bucket
+   * with the destination categoría's own nombre (confirmacion-reclasificar,
+   * issue #749). Screen owns both setAnuncio and announceForAccessibility
    * (D-20 single announcement source). Non-optional per us-044 PR7 case law.
    */
-  readonly onMovida: (bucketLabel: string) => void;
+  readonly onMovida: (label: string) => void;
 }
 
 /**

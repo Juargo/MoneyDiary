@@ -23,9 +23,13 @@
  *    mostrandoAlerta useRef; set true BEFORE Alert.alert; cleared in EVERY onPress
  *    (both Cancelar and Confirmar); { cancelable: false } for Android backdrop.
  *
- * 5. commit(categoriaId, bucketNuevo?): call reclasificarCategoria(tx.id, categoriaId).
+ * 5. commit(categoriaId, movidaLabel?): call reclasificarCategoria(tx.id, categoriaId).
  *    On ok: close modal → onReclasificado() → solicitarRecargaResumen()
- *           → if cross-bucket: onMovida(ETIQUETA_BUCKET[bucketNuevo]).
+ *           → onMovida(movidaLabel) when movidaLabel is defined.
+ *    `movidaLabel` is the ETIQUETA_BUCKET display label for a cross-bucket
+ *    move, or the destination CATEGORÍA's own nombre for a same-bucket move
+ *    (confirmacion-reclasificar, issue #749) — both reuse the SAME onMovida
+ *    seam, `commit` itself does not distinguish which case it is.
  *    The control NEVER calls AccessibilityInfo — onMovida is the screen's handler.
  *    On !ok: setErrorMensaje(mensajeDeErrorReclasificar(error)).
  *
@@ -85,13 +89,16 @@ export interface ReclasificarMobileControlProps {
    */
   readonly onReclasificado: () => void | Promise<void>;
   /**
-   * Called ONLY on cross-bucket success, AFTER the PATCH resolves ok (settled
-   * announcement, us-055 D-04 lesson). Receives the ETIQUETA_BUCKET display
-   * label of the destination bucket (e.g. 'Necesidades', 'Gustos', 'Ahorro').
+   * Called on EVERY successful reclassify, AFTER the PATCH resolves ok
+   * (settled announcement, us-055 D-04 lesson) — cross-bucket AND
+   * same-bucket alike (confirmacion-reclasificar, issue #749). Receives the
+   * ETIQUETA_BUCKET display label of the destination bucket for a
+   * cross-bucket move (e.g. 'Necesidades', 'Gustos', 'Ahorro'), or the
+   * destination CATEGORÍA's own nombre for a same-bucket move.
    * The screen's handler owns both setAnuncio and announceForAccessibility —
    * this control never calls AccessibilityInfo (single announcement source, D-20).
    */
-  readonly onMovida: (bucketLabel: string) => void;
+  readonly onMovida: (label: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,10 +147,14 @@ export function ReclasificarMobileControl({
   }
 
   /**
-   * commit(categoriaId, bucketNuevo?) — calls the PATCH and handles the settled ok/error path.
-   * bucketNuevo is defined only for cross-bucket moves.
+   * commit(categoriaId, movidaLabel?) — calls the PATCH and handles the settled ok/error path.
+   * `movidaLabel` is the string `onMovida` is called with on success — the
+   * ETIQUETA_BUCKET display label for a cross-bucket move, or the
+   * destination categoría's nombre for a same-bucket move (confirmacion-
+   * reclasificar, issue #749). `commit` itself does not need to know which
+   * case it is — it just forwards whatever label the caller computed.
    */
-  async function commit(categoriaId: string, bucketNuevo?: string) {
+  async function commit(categoriaId: string, movidaLabel?: string) {
     setErrorMensaje(null);
     const resultado = await reclasificarCategoria(tx.id, categoriaId);
 
@@ -159,19 +170,26 @@ export function ReclasificarMobileControl({
     void onReclasificado();
     solicitarRecargaResumen();
 
-    // Cross-bucket only: fire the screen-owned announcement handler.
-    // This is the settled-announcement: fires AFTER the PATCH resolves, NEVER before.
-    if (bucketNuevo !== undefined) {
-      onMovida(ETIQUETA_BUCKET[bucketNuevo] ?? bucketNuevo);
+    // Fire the screen-owned announcement handler (cross-bucket AND
+    // same-bucket alike, confirmacion-reclasificar). This is the
+    // settled-announcement: fires AFTER the PATCH resolves, NEVER before.
+    if (movidaLabel !== undefined) {
+      onMovida(movidaLabel);
     }
   }
 
-  function handleSelectCategoria(categoriaId: string, bucketCategoria: string) {
+  function handleSelectCategoria(
+    categoriaId: string,
+    bucketCategoria: string,
+    nombreCategoria: string,
+  ) {
     const esMismoBucket = bucketCategoria === categoriaActual.bucket;
 
     if (esMismoBucket) {
-      // Same-bucket: commit directly, no Alert.
-      void commit(categoriaId);
+      // Same-bucket: commit directly, no Alert — but still announce via
+      // onMovida with the destination categoría's own nombre
+      // (confirmacion-reclasificar, issue #749).
+      void commit(categoriaId, nombreCategoria);
       return;
     }
 
@@ -199,7 +217,11 @@ export function ReclasificarMobileControl({
           style: 'destructive',
           onPress: () => {
             mostrandoAlerta.current = false;
-            void commit(categoriaId, bucketCategoria);
+            // Cross-bucket: pass the destination BUCKET's display label
+            // (already computed above for the Alert body) — not the
+            // categoría name (that's the same-bucket case, see
+            // handleSelectCategoria's other branch).
+            void commit(categoriaId, etiquetaNueva);
           },
         },
       ],
@@ -326,7 +348,11 @@ export function ReclasificarMobileControl({
                           accessibilityState={{ selected: esCategoriaActual }}
                           testID={`reclasificar-opcion-${cat.id}`}
                           onPress={() =>
-                            handleSelectCategoria(cat.id, cat.bucket)
+                            handleSelectCategoria(
+                              cat.id,
+                              cat.bucket,
+                              cat.nombre,
+                            )
                           }
                           style={{
                             flexDirection: 'row',
