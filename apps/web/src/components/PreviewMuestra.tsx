@@ -555,6 +555,21 @@ export function PreviewMuestra({
             <p className="text-xs text-muted-foreground">
               Puedes dejar filas sin categoría y ordenarlas después.
             </p>
+            {/* Issue #748: usability finding — nothing on screen named what
+                the bulk-select checkboxes/toolbar are FOR, and the toolbar
+                only appears AFTER a row is selected, so a first-time user
+                could never discover it by reading. Real text (not
+                aria-only), same quiet `text-xs text-muted-foreground` idiom
+                as the line above. Follows the EXACT P4 selection-collapse
+                conditional (`seleccionados.size === 0`, see this
+                component's docblock) so it never competes with the bulk
+                toolbar's own count pill below — one or the other is on
+                screen, never both. */}
+            {seleccionados.size === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Marca varias filas para darles la misma categoría de una vez.
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-3">
                 {seleccionablesVisibles.length > 0 && (
@@ -574,7 +589,14 @@ export function PreviewMuestra({
                         algunaVisibleSeleccionada && !todasVisiblesSeleccionadas
                       }
                       onChange={() => handleToggleGrupo(seleccionablesVisibles)}
-                      ariaLabel={etiquetaSeleccionarVisibles}
+                      // issue #748: `aria-label` on the underlying `<input>`
+                      // (see `CheckboxIndeterminado`) always wins over this
+                      // `<label>`'s own visible text as the accessible name,
+                      // so the purpose suffix is added HERE, not in the
+                      // visible text below — WCAG 2.2 SC 2.5.3 only requires
+                      // the accessible name to CONTAIN the visible text, not
+                      // equal it.
+                      ariaLabel={`${etiquetaSeleccionarVisibles} para clasificar en grupo`}
                     />
                     {etiquetaSeleccionarVisibles}
                   </label>

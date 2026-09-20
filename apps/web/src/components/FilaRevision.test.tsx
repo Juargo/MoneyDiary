@@ -709,6 +709,28 @@ describe('FilaRevision', () => {
     expect(checkbox).not.toBeChecked();
   });
 
+  // issue #748: a usability test showed the bulk-select checkboxes were
+  // undiscoverable — nothing named their purpose. The accessible name now
+  // states it explicitly, keeping the pre-existing "Seleccionar fila N" row
+  // identity as a prefix (every other query in this file matches on that
+  // substring).
+  it('the checkbox accessible name states its bulk-classification purpose', () => {
+    render(
+      <FilaRevision
+        fila={unaFilaPreview({ rowIndex: 4 })}
+        categoriaId={null}
+        catalogo={catalogoListo}
+        onEditChange={vi.fn()}
+        selected={false}
+        onToggleSelect={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText(/seleccionar fila 5 para clasificar en grupo/i),
+    ).toBeInTheDocument();
+  });
+
   it('checkbox reflects the `selected` prop', () => {
     render(
       <FilaRevision

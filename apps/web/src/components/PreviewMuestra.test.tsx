@@ -786,6 +786,110 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // ── Multi-select discoverability (issue #748) ───────────────────────────
+  // Usability finding: nothing on screen named the bulk-select feature's
+  // purpose, and its toolbar only appears AFTER a row is selected, so a
+  // first-time user could never discover it by reading. Fix is copy +
+  // accessible naming only (owner decision: keep the feature as-is). The
+  // help line follows the EXACT same conditional idiom as the P4
+  // selection-collapse (`{seleccionados.size === 0 && (...)}`, see this
+  // file's docblock) so it never competes with the toolbar's own count pill.
+  describe('multi-select discoverability (issue #748)', () => {
+    const HELP_TEXT =
+      'Marca varias filas para darles la misma categoría de una vez.';
+
+    it('shows the help line when nothing is selected', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(screen.getByText(HELP_TEXT)).toBeInTheDocument();
+    });
+
+    it('hides the help line once a row is selected, without a competing second count', async () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+
+      expect(screen.queryByText(HELP_TEXT)).not.toBeInTheDocument();
+      // The bulk toolbar's own count pill is the only "selection" readout
+      // left on screen — not a second, competing one.
+      expect(screen.getByText('1 seleccionada')).toBeInTheDocument();
+    });
+
+    it('brings the help line back once the selection is cleared', async () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
+      await userEvent.click(
+        screen.getByRole('button', { name: /limpiar selección/i }),
+      );
+
+      expect(screen.getByText(HELP_TEXT)).toBeInTheDocument();
+    });
+
+    it('the per-row checkbox accessible name states its bulk-classification purpose', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByLabelText(/seleccionar fila 1 para clasificar en grupo/i),
+      ).toBeInTheDocument();
+    });
+
+    it('the master "select all visible" checkbox accessible name states its bulk-classification purpose', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaPreview()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByLabelText(
+          /seleccionar la visible \(1\) para clasificar en grupo/i,
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
   // ── Selection + bulk apply ───────────────────────────────────────────────
   describe('selection + bulk apply', () => {
     const filasDosGrupos: PreviewFilaDto[] = [
@@ -1761,12 +1865,16 @@ describe('PreviewMuestra', () => {
     });
 
     it('starts with every group expanded — a review flow never hides work by default', () => {
+      // issue #748: the per-row checkbox's accessible name gained a
+      // trailing purpose suffix ("… para clasificar en grupo"), so this
+      // block's queries no longer anchor on `$` — they only need to confirm
+      // the row's checkbox is present/absent, not its exact full name.
       renderDosGrupos();
 
       const toggles = screen.getAllByRole('button', { expanded: true });
       expect(toggles).toHaveLength(2);
       expect(
-        screen.getByRole('checkbox', { name: /seleccionar fila 1$/i }),
+        screen.getByRole('checkbox', { name: /seleccionar fila 1/i }),
       ).toBeInTheDocument();
     });
 
@@ -1782,10 +1890,10 @@ describe('PreviewMuestra', () => {
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       // Rows of the collapsed group leave the accessibility tree…
       expect(
-        screen.queryByRole('checkbox', { name: /seleccionar fila 1$/i }),
+        screen.queryByRole('checkbox', { name: /seleccionar fila 1/i }),
       ).toBeNull();
       expect(
-        screen.queryByRole('checkbox', { name: /seleccionar fila 2$/i }),
+        screen.queryByRole('checkbox', { name: /seleccionar fila 2/i }),
       ).toBeNull();
       // …but stay mounted (hidden, not removed) so per-row state survives.
       const lista = document.getElementById(
@@ -1795,13 +1903,13 @@ describe('PreviewMuestra', () => {
       expect(lista).toHaveAttribute('hidden');
       // The sibling group is unaffected.
       expect(
-        screen.getByRole('checkbox', { name: /seleccionar fila 3$/i }),
+        screen.getByRole('checkbox', { name: /seleccionar fila 3/i }),
       ).toBeInTheDocument();
 
       await user.click(toggle);
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
       expect(
-        screen.getByRole('checkbox', { name: /seleccionar fila 1$/i }),
+        screen.getByRole('checkbox', { name: /seleccionar fila 1/i }),
       ).toBeInTheDocument();
     });
 
