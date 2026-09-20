@@ -32,6 +32,15 @@
  * never touching the picker both mean "no icon" on CREATE (CATICO-02), so
  * `icono: icono ?? undefined` only sends the key when the user actually
  * chose one — mirrors web's `NuevaCategoriaForm.tsx` (4.4) verbatim.
+ *
+ * `bucketFijo` (agregar-categoria-desde-bucket, issue #743): when set, the
+ * bucket is NOT a user choice — `SelectorChips` is not rendered at all, and
+ * the value is shown as static `ETIQUETA_BUCKET` text instead, mirroring
+ * web's `NuevaCategoriaDesdeFilaForm` (its own fixed-bucket caller
+ * precedent). `bucket` state seeds from `bucketFijo` and never changes on
+ * this path (no setter is ever wired to it). Omitted (every pre-existing
+ * Configuración caller) keeps this component byte-for-byte the prior
+ * user-picks-the-bucket behavior.
  */
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -42,6 +51,7 @@ import type {
 } from '../../domain/catalogo-constantes';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
 import { mensajeDeErrorCatalogo } from '../../domain/mensajes-catalogo';
+import { ETIQUETA_BUCKET } from '../../theme/colors';
 import { CampoTexto } from './CampoTexto';
 import { SelectorChips } from './SelectorChips';
 import { SelectorIcono } from './SelectorIcono';
@@ -49,14 +59,16 @@ import { SelectorIcono } from './SelectorIcono';
 export interface NuevaCategoriaFormProps {
   readonly onCreada: () => void;
   readonly onCancelar: () => void;
+  readonly bucketFijo?: BucketAsignable;
 }
 
 export function NuevaCategoriaForm({
   onCreada,
   onCancelar,
+  bucketFijo,
 }: NuevaCategoriaFormProps) {
   const [nombre, setNombre] = useState('');
-  const [bucket, setBucket] = useState<BucketAsignable | ''>('');
+  const [bucket, setBucket] = useState<BucketAsignable | ''>(bucketFijo ?? '');
   const [icono, setIcono] = useState<IconoCategoria | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,13 +114,22 @@ export function NuevaCategoriaForm({
         editable={!enviando}
       />
 
-      <SelectorChips
-        testID="bucket-selector"
-        label="Bucket (obligatorio)"
-        options={BUCKETS_ASIGNABLES}
-        value={bucket as BucketAsignable}
-        onChange={(v) => setBucket(v)}
-      />
+      {bucketFijo ? (
+        <View className="gap-1">
+          <Text className="text-xs text-muted">Bucket</Text>
+          <Text className="text-sm font-medium text-heading">
+            {ETIQUETA_BUCKET[bucketFijo] ?? bucketFijo}
+          </Text>
+        </View>
+      ) : (
+        <SelectorChips
+          testID="bucket-selector"
+          label="Bucket (obligatorio)"
+          options={BUCKETS_ASIGNABLES}
+          value={bucket as BucketAsignable}
+          onChange={(v) => setBucket(v)}
+        />
+      )}
 
       <SelectorIcono
         testID="icono-selector"

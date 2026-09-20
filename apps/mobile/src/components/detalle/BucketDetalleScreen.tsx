@@ -25,6 +25,23 @@
  *
  * NO useFocusEffect for initial load (categoria/[id].tsx:55-58 rationale: the
  * route unmounts on nav-away, so mounting = every visit).
+ *
+ * `AgregarCategoriaControl` (agregar-categoria-desde-bucket, issue #743):
+ * mounted in the header, gated on `BUCKETS_ASIGNABLES.includes(bucket)` —
+ * `SinCategoria` cannot own a categoría. On success, `handleCategoriaCreada`
+ * both announces via the SAME shared `anuncio`/AccessibilityInfo mechanism
+ * `handleMovida` uses, and bumps `categoriaVersion`, a `key` on the groups
+ * container below. Each `ReclasificarMobileControl` nested under
+ * `GrupoMovimientosMobile` caches its OWN catalog fetch in local state for
+ * its component lifetime (that control's own docblock: "Do NOT clear
+ * catalogo — cache it so re-open is instant") — there is no shared/global
+ * mobile cache to invalidate the way web's TanStack Query lets
+ * `useCrearCategoria` seed `['categorias']`. Bumping the `key` remounts the
+ * whole groups subtree, resetting every nested control's cached catalog to
+ * null, so its NEXT open refetches fresh and includes the just-created
+ * categoría — the same "immediately usable without a reload" guarantee web
+ * gets from cache seeding, achieved here by remount instead (no shared
+ * cache exists to seed on mobile).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -38,10 +55,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchDetalleBucketMes } from '../../api/client';
 import { aDetalleBucketMesViewModel } from '../../domain/detalle-bucket-mes-view-model';
+import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
 import { ETIQUETA_BUCKET } from '../../theme/colors';
 import { SelectorPeriodoMes } from '../SelectorPeriodoMes';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
+import { AgregarCategoriaControl } from './AgregarCategoriaControl';
 import { copiaPorApiError } from '../../domain/api-error';
+import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 import type { ApiError } from '../../domain/api-error';
 
@@ -76,6 +96,10 @@ export function BucketDetalleScreen({
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
   // Screen-owned announcement state (D-20)
   const [anuncio, setAnuncio] = useState('');
+  // agregar-categoria-desde-bucket (issue #743): bumped on every successful
+  // categoría creation — see this file's own docblock for why this key
+  // (rather than a shared cache) is what refreshes the reclassify pickers.
+  const [categoriaVersion, setCategoriaVersion] = useState(0);
 
   const cargar = useCallback(async () => {
     setEstado({ fase: 'loading' });
@@ -114,6 +138,20 @@ export function BucketDetalleScreen({
   function handleMovida(label: string) {
     setAnuncio(`Movida a ${label}.`);
     AccessibilityInfo.announceForAccessibility(`Movida a ${label}.`);
+  }
+
+  /**
+   * handleCategoriaCreada (issue #743): reuses the SAME `anuncio`/
+   * AccessibilityInfo mechanism `handleMovida` uses above — one screen-level
+   * announcement path for every mutation this screen can trigger, not a new
+   * one per affordance. Also bumps `categoriaVersion` (see this file's
+   * docblock for why a remount, not a cache seed, is what mobile needs
+   * here).
+   */
+  function handleCategoriaCreada() {
+    setCategoriaVersion((v) => v + 1);
+    setAnuncio('Categoría creada.');
+    AccessibilityInfo.announceForAccessibility('Categoría creada.');
   }
 
   // status-reclasificar live-region: OUTSIDE groups map — stable sibling (D-20/MDET-05).
@@ -204,6 +242,12 @@ export function BucketDetalleScreen({
   const viewModel = aDetalleBucketMesViewModel(estado.dto);
   const etiqueta = ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket;
   const esVacio = viewModel.grupos.length === 0;
+  // SinCategoria (and any future non-spend bucket) cannot own a categoría
+  // (issue #743) — same gate ReclasificarMobileControl already applies to
+  // its own picker groups.
+  const bucketEsAsignable = (BUCKETS_ASIGNABLES as readonly string[]).includes(
+    viewModel.bucket,
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F3F5' }}>
@@ -248,6 +292,15 @@ export function BucketDetalleScreen({
           <Text style={{ fontSize: 13, color: '#8A8F9C' }}>
             {viewModel.totalTransacciones} transacciones
           </Text>
+
+          {bucketEsAsignable && (
+            <View style={{ marginTop: 12 }}>
+              <AgregarCategoriaControl
+                bucket={viewModel.bucket as BucketAsignable}
+                onCreada={handleCategoriaCreada}
+              />
+            </View>
+          )}
         </View>
 
         {esVacio ? (
@@ -262,7 +315,12 @@ export function BucketDetalleScreen({
             </Text>
           </View>
         ) : (
-          <View testID="bucket-detalle-grupos">
+          // `key={categoriaVersion}` (issue #743): forces a full remount of
+          // this subtree — and every nested ReclasificarMobileControl's own
+          // cached catalog with it — after a categoría is created. See this
+          // file's own docblock for why a remount, not a shared cache, is
+          // the mobile-appropriate fix here.
+          <View testID="bucket-detalle-grupos" key={categoriaVersion}>
             {viewModel.grupos.map((grupo, idx) => (
               <GrupoMovimientosMobile
                 key={grupo.categoriaId ?? 'sin-categoria'}

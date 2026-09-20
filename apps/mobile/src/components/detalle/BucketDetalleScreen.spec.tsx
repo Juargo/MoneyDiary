@@ -39,6 +39,7 @@ import {
   act,
 } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
+import * as categoriasApi from '../../api/categorias';
 import type { ApiResult } from '../../api/client';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 
@@ -46,6 +47,19 @@ import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 // (no need to mock — it has no side effects and depends only on pure domain helpers)
 
 import { BucketDetalleScreen } from './BucketDetalleScreen';
+
+// agregar-categoria-desde-bucket (issue #743): `AgregarCategoriaControl`
+// mounts the REAL `NuevaCategoriaForm`, which calls `crearCategoria` — mock
+// it at the module boundary (`NuevaCategoriaForm.spec.tsx` precedent) so
+// these screen-level tests control the outcome without a live request.
+jest.mock('../../api/categorias', () => ({
+  ...jest.requireActual('../../api/categorias'),
+  crearCategoria: jest.fn(),
+}));
+
+const mockCrearCategoria = categoriasApi.crearCategoria as jest.MockedFunction<
+  typeof categoriasApi.crearCategoria
+>;
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -67,8 +81,21 @@ jest.mock('../../api/client', () => ({
 // The mock renders a Pressable that simulates firing onMovida + onReclasificado when pressed,
 // allowing the content-survival test to drive the full wiring without a live catalog fetch.
 // Uses a factory function to avoid react-native-css-interop displayName errors.
+//
+// `contadorMontajes`/`instanciaId` (agregar-categoria-desde-bucket, issue
+// #743): a `useRef` seeded once per MOUNT (never per re-render) — this is
+// how the "AgregarCategoriaControl integration" describe block below proves
+// `BucketDetalleScreen` actually REMOUNTS this subtree (not just
+// re-renders it) after a categoría is created. A real
+// `ReclasificarMobileControl` caches its own catalog fetch in local state
+// for the component's LIFETIME (`handleCerrarModal`'s own docblock: "Do NOT
+// clear catalogo — cache it so re-open is instant") — only a remount resets
+// that cache, which is exactly what makes a just-created categoría show up
+// in the picker without the user backgrounding/reopening the app.
 jest.mock('./GrupoMovimientosMobile', () => {
+  const { useRef } = require('react');
   const { View, Text, Pressable: P } = require('react-native');
+  let contadorMontajes = 0;
   function GrupoMovimientosMobile({
     grupo,
     onReclasificado,
@@ -81,9 +108,11 @@ jest.mock('./GrupoMovimientosMobile', () => {
     onMovida: (bucketLabel: string) => void;
   }) {
     const id = grupo.categoriaId ?? 'sin-categoria';
+    const instanciaId = useRef(++contadorMontajes).current;
     return (
       <View testID={`grupo-movimientos-${id}`}>
         <Text>{grupo.nombre}</Text>
+        <Text testID={`grupo-instancia-${id}`}>{instanciaId}</Text>
         <P
           testID={`mock-reclasificar-trigger-${id}`}
           onPress={() => {
@@ -566,5 +595,111 @@ describe('BucketDetalleScreen', () => {
     });
     expect(announceSpy).toHaveBeenCalledWith('Movida a Supermercado.');
     announceSpy.mockRestore();
+  });
+
+  // ── AgregarCategoriaControl integration (agregar-categoria-desde-bucket, issue #743) ──
+  describe('AgregarCategoriaControl integration (issue #743)', () => {
+    it('renders the "Agregar categoría" trigger for an assignable bucket (Deseos)', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValueOnce({
+        ok: true,
+        value: makeDto(),
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: 'Agregar categoría' }),
+        ).toBeOnTheScreen();
+      });
+    });
+
+    it('does NOT render the trigger on the SinCategoria bucket detail screen (not assignable)', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValueOnce({
+        ok: true,
+        value: makeDto({ bucket: 'SinCategoria' }),
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="SinCategoria"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bucket-detalle-header')).toBeTruthy();
+      });
+      expect(
+        screen.queryByRole('button', { name: 'Agregar categoría' }),
+      ).toBeNull();
+    });
+
+    it('creating a category closes the form, announces success via the shared status region, and remounts the groups subtree (so nested reclassify catalogs refetch fresh)', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValueOnce({
+        ok: true,
+        value: makeDto(),
+      });
+      mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+      const announceSpy = jest
+        .spyOn(AccessibilityInfo, 'announceForAccessibility')
+        .mockReturnValue(undefined);
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+      const instanciaAntes = screen.getByTestId('grupo-instancia-cat-1').props
+        .children;
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Agregar categoría' }),
+        );
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Streaming');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Streaming',
+          bucket: 'Deseos',
+        });
+      });
+
+      // The form closed on success.
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Nombre')).toBeNull();
+      });
+      expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+        'Categoría creada.',
+      );
+      expect(announceSpy).toHaveBeenCalledWith('Categoría creada.');
+      announceSpy.mockRestore();
+
+      // The groups subtree REMOUNTED — a fresh mount instance id proves any
+      // nested ReclasificarMobileControl's own per-instance catalog cache
+      // was reset too, so its next open refetches (picking up the new
+      // categoría) instead of serving a stale cached list.
+      const instanciaDespues = screen.getByTestId('grupo-instancia-cat-1').props
+        .children;
+      expect(instanciaDespues).not.toBe(instanciaAntes);
+    });
   });
 });

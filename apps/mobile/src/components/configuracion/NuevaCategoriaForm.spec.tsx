@@ -362,6 +362,67 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     expect(mockCrearCategoria).not.toHaveBeenCalled();
   });
 
+  // ── bucketFijo (agregar-categoria-desde-bucket, issue #743) ──
+  //
+  // The bucket-detail screen reuses this exact form with the bucket FIXED
+  // (never a user choice there) — same idiom web's
+  // `NuevaCategoriaDesdeFilaForm` already uses for its own fixed-bucket
+  // caller. `bucketFijo` omitted (every test above) must keep the
+  // Configuración path byte-for-byte unchanged: SelectorChips renders, the
+  // bucket is user-chosen.
+  describe('bucketFijo (issue #743)', () => {
+    it('renders no bucket-selector chips and submits the fixed bucket, needing only nombre', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketFijo="Deseos"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      expect(screen.queryByTestId('bucket-selector')).toBeNull();
+
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Streaming');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledTimes(1);
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Streaming',
+          bucket: 'Deseos',
+        });
+      });
+    });
+
+    it('shows the fixed bucket as static ETIQUETA_BUCKET text (Deseos -> Gustos)', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketFijo="Deseos"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      expect(screen.getByText('Gustos')).toBeOnTheScreen();
+    });
+
+    it('submit is no-op when nombre is empty, even with bucketFijo set', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketFijo="Necesidades"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      expect(mockCrearCategoria).not.toHaveBeenCalled();
+    });
+  });
+
   it('double-submit protection: Guardar button is disabled while in-flight', async () => {
     // Deferred promise: keeps the first call in-flight so we can inspect mid-flight state.
     let resolveFirst!: (
