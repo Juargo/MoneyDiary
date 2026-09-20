@@ -198,6 +198,14 @@ function defaultProps(
     // above) — a plain jest.fn() default keeps every pre-existing case that
     // doesn't care about it compiling unchanged.
     onCategoriaCreada: jest.fn(),
+    // patrón-desde-movimiento (issue #745): REQUIRED per this control's own
+    // banned-pattern discipline (onMovida/onReclasificado/onCategoriaCreada
+    // precedent) — a plain jest.fn() default keeps every pre-existing case
+    // that doesn't care about it compiling unchanged.
+    onOfrecerPatron: jest.fn<
+      void,
+      [{ descripcion: string; categoriaId: string }]
+    >(),
     ...overrides,
   };
 }
@@ -1075,6 +1083,103 @@ describe('ReclasificarMobileControl', () => {
       });
       expect(mockReclasificarCategoria).not.toHaveBeenCalled();
       expect(props.onCategoriaCreada).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * patrón-desde-movimiento (issue #745): every successful reclassify —
+   * same-bucket AND cross-bucket alike — offers to turn the just-picked
+   * categoría into a pattern. `onOfrecerPatron` fires with the ROW's
+   * description and the DESTINATION categoría id, AFTER the PATCH settles
+   * (same settled-announcement discipline as `onMovida`), and never fires
+   * on a failed PATCH.
+   */
+  describe('onOfrecerPatron (issue #745)', () => {
+    it('same-bucket commit calls onOfrecerPatron with the description and destination categoriaId', async () => {
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: makeReclasificarDto('Deseos', 'Entretenimiento'),
+      });
+      const onOfrecerPatron = jest.fn();
+      const props = defaultProps({ onOfrecerPatron });
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+      });
+
+      await waitFor(() => {
+        expect(onOfrecerPatron).toHaveBeenCalledWith({
+          descripcion: 'Netflix',
+          categoriaId: 'cat-deseos',
+        });
+      });
+    });
+
+    it('cross-bucket commit (after confirming the Alert) calls onOfrecerPatron with the destination categoriaId', async () => {
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: makeReclasificarDto('Necesidades', 'Comida'),
+      });
+      const onOfrecerPatron = jest.fn();
+      const props = defaultProps({ onOfrecerPatron });
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+        );
+      });
+      await act(async () => {
+        const confirmButton = capturedAlertButtons.find(
+          (b) => b.text !== 'Cancelar',
+        );
+        confirmButton?.onPress?.();
+      });
+
+      await waitFor(() => {
+        expect(onOfrecerPatron).toHaveBeenCalledWith({
+          descripcion: 'Netflix',
+          categoriaId: 'cat-necesidades',
+        });
+      });
+    });
+
+    it('a failed PATCH never calls onOfrecerPatron', async () => {
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: false,
+        error: { tag: 'http', status: 400 },
+      });
+      const onOfrecerPatron = jest.fn();
+      const props = defaultProps({ onOfrecerPatron });
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeTruthy();
+      });
+      expect(onOfrecerPatron).not.toHaveBeenCalled();
     });
   });
 });

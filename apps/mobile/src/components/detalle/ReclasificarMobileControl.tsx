@@ -155,6 +155,22 @@ export interface ReclasificarMobileControlProps {
    * catalog picks up the new categoría too.
    */
   readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
+  /**
+   * patrón-desde-movimiento (issue #745): REQUIRED, same
+   * `onMovida`/`onReclasificado`/`onCategoriaCreada` banned-pattern
+   * discipline (us-044 PR7) — called on EVERY successful reclassify
+   * (same-bucket AND cross-bucket alike), AFTER the PATCH resolves ok
+   * (settled, same as `onMovida`), with the row's description and the
+   * DESTINATION categoría id. `BucketDetalleScreen` wires this to a
+   * screen-owned offer overlay (see that screen's own docblock for why
+   * the offer's state lives there rather than in this control — issue
+   * #762's reload unmounts this control's own tree almost immediately
+   * after commit, so any state kept HERE would never be seen).
+   */
+  readonly onOfrecerPatron: (info: {
+    descripcion: string;
+    categoriaId: string;
+  }) => void;
 }
 
 function esBucketAsignable(bucket: string): bucket is BucketAsignable {
@@ -172,6 +188,7 @@ export function ReclasificarMobileControl({
   onMovida,
   categoriaVersion,
   onCategoriaCreada,
+  onOfrecerPatron,
 }: ReclasificarMobileControlProps) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoDto | null>(null);
@@ -274,6 +291,17 @@ export function ReclasificarMobileControl({
     if (movidaLabel !== undefined) {
       onMovida(movidaLabel);
     }
+
+    // patrón-desde-movimiento (issue #745): every successful reclassify
+    // offers to turn it into a pattern, targeting the categoría it just
+    // committed TO. Fired in the SAME synchronous tick as `onReclasificado`
+    // above (no await between them) — this is deliberate, see this
+    // control's own `onOfrecerPatron` docblock and `BucketDetalleScreen`'s:
+    // React 18 batches this with the screen's `fase: 'loading'` update from
+    // `onReclasificado`, so the offer is already part of the SAME render
+    // that shows the loading state, instead of appearing on this
+    // (about-to-unmount) control and being lost.
+    onOfrecerPatron({ descripcion: tx.descripcion, categoriaId });
   }
 
   function handleSelectCategoria(

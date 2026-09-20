@@ -49,6 +49,29 @@
  * "immediately usable without a reload" guarantee web gets from cache
  * seeding, achieved here per-instance instead (no shared cache exists to
  * seed on mobile), without touching any accordion state.
+ *
+ * `ofrecerPatron` overlay (patrón-desde-movimiento, issue #745): every
+ * successful reclassify also offers to turn it into a pattern
+ * (`OfrecerPatronMobileControl`). Its trigger, `onOfrecerPatron`, fires in
+ * the SAME synchronous tick as `onReclasificado` (see
+ * `ReclasificarMobileControl.commit()`) — and `onReclasificado` is `cargar`,
+ * which sets `fase: 'loading'` and unmounts the ENTIRE groups subtree
+ * (issue #762, pre-existing and NOT fixed here: reclassifying still
+ * collapses every expanded group). If this offer's state lived inside that
+ * subtree — or inside `ReclasificarMobileControl` itself — it would be
+ * destroyed in the very same render that tries to show it, and the offer
+ * would never be reachable. The fix scoped to THIS feature: `ofrecerPatron`
+ * is SCREEN state (like `anuncio`), and the offer is rendered in ALL THREE
+ * fase branches (loading/error/data) as a fixed-position overlay — a stable
+ * sibling outside the conditional subtree, the same discipline
+ * `statusRegion` already uses for `anuncio`. Because both `estado.fase` and
+ * `ofrecerPatron` update in the same batched render (React 18 automatic
+ * batching, no `await` between the two calls in `commit()`), the offer
+ * shows up ALREADY correct in the very first `loading` render — it never
+ * flashes and disappears. It stays visible through the loading spinner and
+ * survives into the reloaded `data` state, closing only when the user
+ * dismisses it or the pattern is created. This does NOT fix #762 itself:
+ * expanded groups still collapse on every reclassify.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -67,6 +90,7 @@ import { ETIQUETA_BUCKET } from '../../theme/colors';
 import { SelectorPeriodoMes } from '../SelectorPeriodoMes';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
 import { AgregarCategoriaControl } from './AgregarCategoriaControl';
+import { OfrecerPatronMobileControl } from './OfrecerPatronMobileControl';
 import { copiaPorApiError } from '../../domain/api-error';
 import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
@@ -108,6 +132,13 @@ export function BucketDetalleScreen({
   // this file's own docblock for why this is what refreshes the reclassify
   // pickers without collapsing any expanded group.
   const [categoriaVersion, setCategoriaVersion] = useState(0);
+  // patrón-desde-movimiento (issue #745): screen-owned so it survives the
+  // fase transition to 'loading' a reclassify triggers — see this file's
+  // own docblock for why this state cannot live inside the groups subtree.
+  const [ofrecerPatron, setOfrecerPatron] = useState<{
+    descripcion: string;
+    categoriaId: string;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     setEstado({ fase: 'loading' });
@@ -126,9 +157,14 @@ export function BucketDetalleScreen({
   }, [cargar]);
 
   // Clear anuncio whenever period changes (web parity BucketDetalleMesPage.tsx:79-82).
+  // Also clears any pending "patrón desde movimiento" offer (issue #745):
+  // an offer targeting last period's row makes no sense once the user has
+  // navigated away from it.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAnuncio('');
+
+    setOfrecerPatron(null);
   }, [periodo]);
 
   /**
@@ -171,6 +207,57 @@ export function BucketDetalleScreen({
     AccessibilityInfo.announceForAccessibility('Categoría creada.');
   }
 
+  /**
+   * handleOfrecerPatron (issue #745): sets the SCREEN-owned offer state —
+   * see this file's docblock for why it must live here rather than inside
+   * `ReclasificarMobileControl`/the groups subtree. Fired unconditionally
+   * on EVERY successful reclassify (same-bucket and cross-bucket alike); a
+   * second reclassify simply replaces whichever offer was pending (same
+   * "latest action wins" discipline as `ReclasificarCategoriaControl`'s web
+   * counterpart).
+   */
+  function handleOfrecerPatron(info: {
+    descripcion: string;
+    categoriaId: string;
+  }) {
+    setOfrecerPatron(info);
+  }
+
+  /**
+   * handlePatronCreado (issue #745): reuses the SAME `anuncio`/
+   * AccessibilityInfo mechanism every other mutation on this screen uses —
+   * copy verbatim from web's `BucketDetalleMesPage.tsx` `alPatronCreado`.
+   */
+  function handlePatronCreado(patron: string) {
+    setOfrecerPatron(null);
+    const mensaje = `Patrón «${patron}» creado. Se usará en tus próximas importaciones.`;
+    setAnuncio(mensaje);
+    AccessibilityInfo.announceForAccessibility(mensaje);
+  }
+
+  // patrón-desde-movimiento (issue #745): fixed-position overlay, rendered
+  // as a stable sibling in ALL THREE fase branches below (same discipline
+  // as `statusRegion`) — see this file's docblock for why.
+  const ofrecerPatronOverlay = ofrecerPatron ? (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        padding: 16,
+      }}
+    >
+      <OfrecerPatronMobileControl
+        descripcion={ofrecerPatron.descripcion}
+        categoriaId={ofrecerPatron.categoriaId}
+        onCreado={handlePatronCreado}
+        onCerrar={() => setOfrecerPatron(null)}
+      />
+    </View>
+  ) : null;
+
   // status-reclasificar live-region: OUTSIDE groups map — stable sibling (D-20/MDET-05).
   // Rendered in ALL states so it is never unmounted by a state transition.
   const statusRegion = (
@@ -188,70 +275,78 @@ export function BucketDetalleScreen({
 
   if (estado.fase === 'loading') {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Back button always present so user can escape a slow load (D-12) */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver al resumen"
-          onPress={onBack}
-          style={{ paddingHorizontal: 16, paddingTop: 8 }}
-        >
-          <Text style={{ fontSize: 14, color: '#3B4266' }}>
-            ‹ Volver al resumen
-          </Text>
-        </Pressable>
-        {statusRegion}
-        <View
-          testID="bucket-detalle-loading"
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Text>Cargando...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (estado.fase === 'error') {
-    return (
-      <SafeAreaView style={{ flex: 1 }}>
-        {statusRegion}
-        <View
-          testID="bucket-detalle-error"
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <Text style={{ color: '#D1495B', textAlign: 'center' }}>
-            {copiaPorApiError(estado.error)}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Reintentar"
-            onPress={() => void cargar()}
-            style={{
-              marginTop: 12,
-              padding: 12,
-              backgroundColor: '#3B4266',
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 14 }}>Reintentar</Text>
-          </Pressable>
+      <View style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 }}>
+          {/* Back button always present so user can escape a slow load (D-12) */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Volver al resumen"
             onPress={onBack}
-            style={{ marginTop: 8 }}
+            style={{ paddingHorizontal: 16, paddingTop: 8 }}
           >
             <Text style={{ fontSize: 14, color: '#3B4266' }}>
               ‹ Volver al resumen
             </Text>
           </Pressable>
-        </View>
-      </SafeAreaView>
+          {statusRegion}
+          <View
+            testID="bucket-detalle-loading"
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text>Cargando...</Text>
+          </View>
+        </SafeAreaView>
+        {/* patrón-desde-movimiento (issue #745): survives this fase — see
+            this file's docblock. */}
+        {ofrecerPatronOverlay}
+      </View>
+    );
+  }
+
+  if (estado.fase === 'error') {
+    return (
+      <View style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 }}>
+          {statusRegion}
+          <View
+            testID="bucket-detalle-error"
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            <Text style={{ color: '#D1495B', textAlign: 'center' }}>
+              {copiaPorApiError(estado.error)}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reintentar"
+              onPress={() => void cargar()}
+              style={{
+                marginTop: 12,
+                padding: 12,
+                backgroundColor: '#3B4266',
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 14 }}>Reintentar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Volver al resumen"
+              onPress={onBack}
+              style={{ marginTop: 8 }}
+            >
+              <Text style={{ fontSize: 14, color: '#3B4266' }}>
+                ‹ Volver al resumen
+              </Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+        {ofrecerPatronOverlay}
+      </View>
     );
   }
 
@@ -267,92 +362,98 @@ export function BucketDetalleScreen({
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F3F5' }}>
-      {/* Back button (D-12) */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Volver al resumen"
-        onPress={onBack}
-        style={{ paddingHorizontal: 16, paddingTop: 8 }}
-      >
-        <Text style={{ fontSize: 14, color: '#3B4266' }}>
-          ‹ Volver al resumen
-        </Text>
-      </Pressable>
-
-      {/* Status live-region: always present OUTSIDE groups (D-20/MDET-05) */}
-      {statusRegion}
-
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {/* M1 header (MDET-02) */}
-        <View testID="bucket-detalle-header" style={{ marginBottom: 16 }}>
-          {/* Display label via ETIQUETA_BUCKET — NOT raw wire key (MDET-02) */}
-          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2D2F3A' }}>
-            {etiqueta}
+    <View style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F3F5' }}>
+        {/* Back button (D-12) */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Volver al resumen"
+          onPress={onBack}
+          style={{ paddingHorizontal: 16, paddingTop: 8 }}
+        >
+          <Text style={{ fontSize: 14, color: '#3B4266' }}>
+            ‹ Volver al resumen
           </Text>
+        </Pressable>
 
-          <SelectorPeriodoMes periodo={periodo} onChange={onChangePeriodo} />
+        {/* Status live-region: always present OUTSIDE groups (D-20/MDET-05) */}
+        {statusRegion}
 
-          {/* porcentajeLabel: '—' when sinPorcentaje (SIN_PORCENTAJE_LABEL/MOB-06) */}
-          <Text style={{ fontSize: 14, color: '#8A8F9C' }}>
-            {viewModel.porcentajeLabel}
-          </Text>
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          {/* M1 header (MDET-02) */}
+          <View testID="bucket-detalle-header" style={{ marginBottom: 16 }}>
+            {/* Display label via ETIQUETA_BUCKET — NOT raw wire key (MDET-02) */}
+            <Text
+              style={{ fontSize: 20, fontWeight: 'bold', color: '#2D2F3A' }}
+            >
+              {etiqueta}
+            </Text>
 
-          {/* metaLabel / sinMeta: 'Sin meta' text from sinMeta flag (D-22/MDET-02 — screen-layer) */}
-          <Text style={{ fontSize: 14, color: '#8A8F9C' }}>
-            {viewModel.sinMeta ? 'Sin meta' : viewModel.metaLabel}
-          </Text>
+            <SelectorPeriodoMes periodo={periodo} onChange={onChangePeriodo} />
 
-          <Text style={{ fontSize: 16, fontWeight: '600', color: '#2D2F3A' }}>
-            {viewModel.totalLabel}
-          </Text>
-          <Text style={{ fontSize: 13, color: '#8A8F9C' }}>
-            {viewModel.totalTransacciones} transacciones
-          </Text>
+            {/* porcentajeLabel: '—' when sinPorcentaje (SIN_PORCENTAJE_LABEL/MOB-06) */}
+            <Text style={{ fontSize: 14, color: '#8A8F9C' }}>
+              {viewModel.porcentajeLabel}
+            </Text>
 
-          {bucketEsAsignable && (
-            <View style={{ marginTop: 12 }}>
-              <AgregarCategoriaControl
-                bucket={viewModel.bucket as BucketAsignable}
-                onCreada={handleCategoriaCreada}
-              />
+            {/* metaLabel / sinMeta: 'Sin meta' text from sinMeta flag (D-22/MDET-02 — screen-layer) */}
+            <Text style={{ fontSize: 14, color: '#8A8F9C' }}>
+              {viewModel.sinMeta ? 'Sin meta' : viewModel.metaLabel}
+            </Text>
+
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#2D2F3A' }}>
+              {viewModel.totalLabel}
+            </Text>
+            <Text style={{ fontSize: 13, color: '#8A8F9C' }}>
+              {viewModel.totalTransacciones} transacciones
+            </Text>
+
+            {bucketEsAsignable && (
+              <View style={{ marginTop: 12 }}>
+                <AgregarCategoriaControl
+                  bucket={viewModel.bucket as BucketAsignable}
+                  onCreada={handleCategoriaCreada}
+                />
+              </View>
+            )}
+          </View>
+
+          {esVacio ? (
+            <View
+              testID="bucket-detalle-vacio"
+              style={{ alignItems: 'center', paddingVertical: 32 }}
+            >
+              <Text
+                style={{ fontSize: 14, color: '#8A8F9C', textAlign: 'center' }}
+              >
+                No hay transacciones este mes.
+              </Text>
+            </View>
+          ) : (
+            // NO `key={categoriaVersion}` here (issue #743, reverted after
+            // review): this subtree is NEVER remounted on categoría creation —
+            // `categoriaVersion` is instead threaded down as a plain prop (see
+            // this file's own docblock) so `GrupoMovimientosMobile`'s own
+            // `expandido` accordion state survives.
+            <View testID="bucket-detalle-grupos">
+              {viewModel.grupos.map((grupo, idx) => (
+                <GrupoMovimientosMobile
+                  key={grupo.categoriaId ?? 'sin-categoria'}
+                  grupo={estado.dto.grupos[idx]!}
+                  bucket={bucket}
+                  destacar={destacar}
+                  onReclasificado={cargar}
+                  onMovida={handleMovida}
+                  categoriaVersion={categoriaVersion}
+                  onCategoriaCreada={handleCategoriaCreada}
+                  onOfrecerPatron={handleOfrecerPatron}
+                />
+              ))}
             </View>
           )}
-        </View>
-
-        {esVacio ? (
-          <View
-            testID="bucket-detalle-vacio"
-            style={{ alignItems: 'center', paddingVertical: 32 }}
-          >
-            <Text
-              style={{ fontSize: 14, color: '#8A8F9C', textAlign: 'center' }}
-            >
-              No hay transacciones este mes.
-            </Text>
-          </View>
-        ) : (
-          // NO `key={categoriaVersion}` here (issue #743, reverted after
-          // review): this subtree is NEVER remounted on categoría creation —
-          // `categoriaVersion` is instead threaded down as a plain prop (see
-          // this file's own docblock) so `GrupoMovimientosMobile`'s own
-          // `expandido` accordion state survives.
-          <View testID="bucket-detalle-grupos">
-            {viewModel.grupos.map((grupo, idx) => (
-              <GrupoMovimientosMobile
-                key={grupo.categoriaId ?? 'sin-categoria'}
-                grupo={estado.dto.grupos[idx]!}
-                bucket={bucket}
-                destacar={destacar}
-                onReclasificado={cargar}
-                onMovida={handleMovida}
-                categoriaVersion={categoriaVersion}
-                onCategoriaCreada={handleCategoriaCreada}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+      {ofrecerPatronOverlay}
+    </View>
   );
 }

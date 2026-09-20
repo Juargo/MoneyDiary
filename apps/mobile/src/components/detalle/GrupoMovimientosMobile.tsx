@@ -123,6 +123,16 @@ interface GrupoMovimientosMobileProps {
    * the same way (issue #743's mechanism) — pure passthrough here.
    */
   readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
+  /**
+   * patrón-desde-movimiento (issue #745): REQUIRED per the us-044 PR7
+   * banned-pattern discipline (same precedent as the props above) — pure
+   * passthrough to every row's own `ReclasificarMobileControl`. See that
+   * control's own prop docblock for the settled-fire contract.
+   */
+  readonly onOfrecerPatron: (info: {
+    descripcion: string;
+    categoriaId: string;
+  }) => void;
 }
 
 /**
@@ -138,6 +148,7 @@ export function GrupoMovimientosMobile({
   onMovida,
   categoriaVersion,
   onCategoriaCreada,
+  onOfrecerPatron,
 }: GrupoMovimientosMobileProps) {
   const [expandido, setExpandido] = useState(false);
 
@@ -235,6 +246,7 @@ export function GrupoMovimientosMobile({
               onMovida={onMovida}
               categoriaVersion={categoriaVersion}
               onCategoriaCreada={onCategoriaCreada}
+              onOfrecerPatron={onOfrecerPatron}
             />
           </View>
         );
