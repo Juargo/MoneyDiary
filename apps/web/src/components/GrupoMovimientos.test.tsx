@@ -713,9 +713,10 @@ describe('GrupoMovimientos', () => {
     const select = await screen.findByLabelText(
       'Categoría de Compra en Líder: Necesidades · Supermercado',
     );
-    // select -> ReclasificarCategoriaControl's own root div -> the
-    // positioning wrapper this component (the call site) owns.
-    const wrapper = select.parentElement?.parentElement;
+    // select -> the select+"new categoría" trigger row (issue #744) ->
+    // ReclasificarCategoriaControl's own root div -> the positioning
+    // wrapper this component (the call site) owns.
+    const wrapper = select.parentElement?.parentElement?.parentElement;
     expect(wrapper).not.toBeNull();
     if (!wrapper) throw new Error('wrapper not found');
     expect(wrapper.className).toContain('col-start-2');
