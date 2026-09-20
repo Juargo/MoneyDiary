@@ -9,6 +9,7 @@ import { construirOpcionesBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { CampoSelect } from '@/components/configuracion/categorias/CampoSelect';
 import { NuevaCategoriaDesdeFilaForm } from '@/components/preview/NuevaCategoriaDesdeFilaForm';
+import { OfrecerPatronControl } from '@/components/OfrecerPatronControl';
 import { CLASE_BOTON_ICONO } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
@@ -152,6 +153,7 @@ export function ReclasificarCategoriaControl({
   categoriaActual,
   periodo,
   onMovida,
+  onPatronCreado,
 }: {
   readonly transaccionId: string;
   readonly descripcion: string;
@@ -166,6 +168,14 @@ export function ReclasificarCategoriaControl({
    * "Movida a {label}." verbatim either way.
    */
   readonly onMovida: (label: string) => void;
+  /**
+   * Fires once the "patrón desde movimiento" offer (issue #745) actually
+   * saves a pattern, with the exact literal pattern text that was sent —
+   * the caller announces it via the page's shared status region, same
+   * pattern as `onMovida`. Optional: omitting it just skips that
+   * announcement, the offer/creation flow itself works either way.
+   */
+  readonly onPatronCreado?: (patron: string) => void;
 }) {
   const selectId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -177,6 +187,13 @@ export function ReclasificarCategoriaControl({
   } | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
   const [creandoCategoria, setCreandoCategoria] = useState(false);
+  // "Patrón desde movimiento" offer (issue #745): set right after a
+  // reclassify commits successfully, targeting the categoría it just
+  // committed TO — never the row's previous one. `null` means no offer is
+  // showing (initial state, or dismissed/completed).
+  const [ofrecerPatron, setOfrecerPatron] = useState<{
+    categoriaId: string;
+  } | null>(null);
   const mutacion = useReclasificarCategoria(periodo, bucketActual);
   const { data, isFetching: catalogoEnVuelo } = useCategorias();
   // Initial load only (WCAT-04 delta): `data === undefined` while
@@ -219,6 +236,14 @@ export function ReclasificarCategoriaControl({
   // mutation settles successfully. We capture the destination label (bucket
   // or categoría name) at commit time and thread it into the mutation's
   // onSuccess callback so a failed PATCH never triggers the announcement.
+  //
+  // "Patrón desde movimiento" offer (issue #745): every successful commit
+  // ALSO opens the offer, targeting the categoría it just committed to —
+  // one seam for every caller (same-bucket, cross-bucket confirm, and
+  // create-category-then-assign) instead of duplicating this at each call
+  // site. A failed PATCH never reaches `onSuccess`, so a failed
+  // reclassification never offers a pattern for a change that didn't
+  // happen.
   function commit(categoriaId: string, onSuccess?: () => void) {
     setErrorMensaje(null);
     mutacion.mutate(
@@ -226,6 +251,7 @@ export function ReclasificarCategoriaControl({
       {
         onSuccess: () => {
           onSuccess?.();
+          setOfrecerPatron({ categoriaId });
         },
         onError: (error) => {
           setErrorMensaje(error.message);
@@ -245,6 +271,12 @@ export function ReclasificarCategoriaControl({
     setPendiente(null);
     setValor(categoriaId);
     setErrorMensaje(null);
+    // A new pick always supersedes a previous pattern offer too — the same
+    // reasoning as clearing `pendiente` above (WCAT-04 D-15... this
+    // component's own "latest pick wins" discipline extended, issue #745):
+    // an offer that still names the ROW's PREVIOUS categoría after a second
+    // reclassify would create a pattern for the wrong target.
+    setOfrecerPatron(null);
     const categoriaSeleccionada = data?.categorias.find(
       (c) => c.id === categoriaId,
     );
@@ -298,6 +330,9 @@ export function ReclasificarCategoriaControl({
   }
 
   function abrirCreacion() {
+    // Opening "+" mid-offer (rare, but possible) supersedes it — same
+    // "latest action wins" discipline as `alCambiar` above.
+    setOfrecerPatron(null);
     setCreandoCategoria(true);
   }
 
@@ -414,6 +449,28 @@ export function ReclasificarCategoriaControl({
             bucketInicial={bucketActual}
             onCancelar={cerrarCreacion}
             onCreada={alCategoriaCreada}
+          />
+        </div>
+      )}
+      {/* "Patrón desde movimiento" offer (issue #745). Mounts ONLY after a
+          reclassify already committed successfully — the reclassification
+          itself never depends on anything this panel does, and dismissing
+          it (or a failed pattern creation, see `OfrecerPatronControl`'s own
+          docblock) leaves that commit completely untouched. Not an
+          `InlineConfirm`/alertdialog: this is a low-stakes, non-blocking
+          offer, not a destructive/money-moving confirmation, so it must NOT
+          steal focus on mount (a11y) — it just becomes reachable in the
+          natural tab order right after this row's own controls. */}
+      {ofrecerPatron && (
+        <div className="absolute top-full right-0 z-20 mt-1 w-72 max-w-[90vw]">
+          <OfrecerPatronControl
+            descripcion={descripcion}
+            categoriaId={ofrecerPatron.categoriaId}
+            onCreado={(patron) => {
+              setOfrecerPatron(null);
+              onPatronCreado?.(patron);
+            }}
+            onCerrar={() => setOfrecerPatron(null)}
           />
         </div>
       )}

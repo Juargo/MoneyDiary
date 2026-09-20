@@ -1166,6 +1166,59 @@ describe('BucketDetalleMesPage', () => {
     ).toBeNull();
   });
 
+  // ── "patrón desde movimiento" offer (issue #745) ──
+
+  it('creating a pattern from the post-reclassify offer announces it in the SAME shared anuncio region as "Movida a…" (issue #745)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await expandirGrupo(/Ñoquis/);
+
+    const selects = await screen.findAllByRole('combobox');
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // Same-bucket reclassify (no confirmation) — the offer to create a
+    // pattern appears right after this commits.
+    await user.selectOptions(primerSelect, 'Necesidades · Combustible');
+
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Combustible.'),
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Crear patrón' }),
+    );
+    // "Ñoquis de la abuela" is the row's own descripcion (GRUPO_FIXTURE
+    // above).
+    await user.click(screen.getByRole('button', { name: 'Ñoquis' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    // Reuses the SAME page-level `anuncio` region — one status line for
+    // every mutation this screen can trigger, not a new one per affordance
+    // (same discipline as `alMovida`/`alEliminarMovimiento`/
+    // `alReevaluarPatrones`/`alCategoriaCreada`).
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent(
+        'Patrón «Ñoquis» creado. Se usará en tus próximas importaciones.',
+      ),
+    );
+  });
+
   // Fix 5: periodo change clears the announcement.
   it('Fix-5: announcement clears when periodo prop changes (periodoAnterior setState-during-render, D-07)', async () => {
     stubFetchInteraccion();

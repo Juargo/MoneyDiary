@@ -155,6 +155,19 @@ export function BucketDetalleMesPage({
     setAnuncio(`Categoría «${categoria.nombre}» creada.`);
   };
 
+  // "Patrón desde movimiento" offer (issue #745): reuses the SAME
+  // page-owned `anuncio` region as every other mutation this screen can
+  // trigger — one status line, not a new one per affordance. The wording
+  // makes explicit this only affects FUTURE imports (US-013's
+  // `reevaluar-patrones` bulk re-scan is the separate, existing path to
+  // apply a pattern retroactively — issue #331, explicitly out of scope
+  // here).
+  const alPatronCreado = (patron: string) => {
+    setAnuncio(
+      `Patrón «${patron}» creado. Se usará en tus próximas importaciones.`,
+    );
+  };
+
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
   }
@@ -304,6 +317,7 @@ export function BucketDetalleMesPage({
               periodo={periodo}
               periodoLabel={mesAbreviadoConAnio(viewModel.periodo)}
               onMovida={alMovida}
+              onPatronCreado={alPatronCreado}
               onEliminado={alEliminarMovimiento}
               esDemo={esDemo}
             />
