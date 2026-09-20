@@ -73,7 +73,11 @@ import type { CatalogoEstado } from '@/api/types';
  * A11y: accessible per-row labels via `CampoSelect`'s `label` prop for both
  * selects. Label format: "Fila {rowIndex+1}: bucket" /
  * "Fila {rowIndex+1}: categoría" (1-based, stable, D-10). The selection
- * checkbox uses "Seleccionar fila {rowIndex+1}" (same numbering).
+ * checkbox uses "Seleccionar fila {rowIndex+1} para clasificar en grupo"
+ * (same numbering; issue #748 appended the purpose suffix — a usability test
+ * found the bulk-select checkboxes undiscoverable since nothing named what
+ * they were for. "Seleccionar fila N" stays an exact PREFIX on purpose: the
+ * whole test suite queries this label by that substring).
  *
  * 2026-08-31: the description column no longer truncates (full text always
  * in the DOM, no `title` attribute) and the header amount column shows only
@@ -213,7 +217,7 @@ export function FilaRevision({
   const n = fila.rowIndex + 1; // 1-based human-friendly label index
   const labelBucket = `Fila ${n}: bucket`;
   const labelCategoria = `Fila ${n}: categoría`;
-  const labelSeleccionar = `Seleccionar fila ${n}`;
+  const labelSeleccionar = `Seleccionar fila ${n} para clasificar en grupo`;
 
   // crear-categoria-desde-preview PR3 (D-08/D-10/D-11): this component owns
   // the "+" trigger's ref so focus can return to it when the form it opens
