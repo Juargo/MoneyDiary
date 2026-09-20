@@ -582,7 +582,7 @@ export async function fetchDetalleBucketMes(
       ok: false,
       error: {
         tag: 'invalid',
-        message: 'El bucket o el período no son válidos.',
+        message: 'El grupo o el período no son válidos.',
       },
     };
   }

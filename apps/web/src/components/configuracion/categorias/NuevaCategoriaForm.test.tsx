@@ -8,7 +8,7 @@ import { MENSAJE_DEMO_CATALOGO } from './mensajes-catalogo';
 
 /**
  * NuevaCategoriaForm.test.tsx (US-043, design.md §1/Q9a, WCTG-02, WCTG-11)
- * — `Nombre` + `Bucket (obligatorio)` + `Crear`/`Cancelar`, toggled open by
+ * — `Nombre` + `Grupo (obligatorio)` + `Crear`/`Cancelar`, toggled open by
  * `CategoriasPanel`'s `Nueva categoría` button (PR #3a task 26). Closes on
  * `201` (calls `onCerrar`). Proactively demo-disabled (Q6c's
  * `MENSAJE_DEMO_CATALOGO`); the error surface is `mensajeDeErrorCatalogo`,
@@ -49,18 +49,36 @@ describe('NuevaCategoriaForm', () => {
     expect(grid).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-[1fr_220px]');
   });
 
-  it('renderiza Nombre y Bucket (obligatorio), con las tres opciones de bucket etiquetadas por A1', () => {
+  it('renderiza Nombre y Grupo (obligatorio), con las tres opciones de bucket etiquetadas por A1', () => {
     render(<NuevaCategoriaForm esDemo={false} onCerrar={() => {}} />, {
       wrapper: crearWrapper(),
     });
 
     expect(screen.getByLabelText('Nombre')).toHaveValue('');
-    const selectBucket = screen.getByLabelText('Bucket (obligatorio)');
+    const selectBucket = screen.getByLabelText('Grupo (obligatorio)');
     expect(selectBucket).toHaveValue('Necesidades');
     expect(screen.getByRole('option', { name: 'Gustos' })).toBeInTheDocument();
     expect(
       screen.queryByRole('option', { name: 'Deseos' }),
     ).not.toBeInTheDocument();
+  });
+
+  /**
+   * issue #750 — "bucket" es jerga interna que se filtraba a la UI sin
+   * explicación ("¿por qué sale bucket?"). El campo se llama "Grupo" y
+   * lleva, además, una ayuda inline con el copy aprobado por el owner
+   * (verbatim), visible sin interacción (no es un tooltip).
+   */
+  it('muestra la ayuda inline del campo Grupo con el copy aprobado', () => {
+    render(<NuevaCategoriaForm esDemo={false} onCerrar={() => {}} />, {
+      wrapper: crearWrapper(),
+    });
+
+    expect(
+      screen.getByText(
+        'Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu 50/30/20. Puedes cambiarlo después, pero afecta todos los meses.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('enviar Crear llama a POST /api/categorias con el nombre y bucket elegidos, y cierra el form en 201', async () => {
@@ -85,7 +103,7 @@ describe('NuevaCategoriaForm', () => {
 
     await user.type(screen.getByLabelText('Nombre'), 'Streaming');
     await user.selectOptions(
-      screen.getByLabelText('Bucket (obligatorio)'),
+      screen.getByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     await user.click(screen.getByRole('button', { name: 'Crear' }));
@@ -127,7 +145,7 @@ describe('NuevaCategoriaForm', () => {
 
     await user.type(screen.getByLabelText('Nombre'), 'Streaming');
     await user.selectOptions(
-      screen.getByLabelText('Bucket (obligatorio)'),
+      screen.getByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     await user.click(screen.getByRole('radio', { name: 'Streaming' }));
@@ -186,7 +204,7 @@ describe('NuevaCategoriaForm', () => {
     await user.click(screen.getByRole('button', { name: 'Crear' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Ya tienes una categoría con ese nombre en ese bucket.',
+      'Ya tienes una categoría con ese nombre en ese grupo.',
     );
     expect(
       screen.queryByText(/a duplicate category name error/),
@@ -199,7 +217,7 @@ describe('NuevaCategoriaForm', () => {
     });
 
     expect(screen.getByLabelText('Nombre')).toBeDisabled();
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Crear' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancelar' })).not.toBeDisabled();
     expect(screen.getByRole('note')).toHaveTextContent(MENSAJE_DEMO_CATALOGO);

@@ -562,7 +562,7 @@ describe('fetchDetalleBucketMes', () => {
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toEqual({
       tag: 'invalid',
-      message: 'El bucket o el período no son válidos.',
+      message: 'El grupo o el período no son válidos.',
     });
   });
 

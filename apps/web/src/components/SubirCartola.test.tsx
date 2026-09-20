@@ -955,7 +955,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     elegirRevisarYEditar();
 
     // First pick a bucket (reveals the categoría select)
-    const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
     await user.selectOptions(bucketGroup, 'Necesidades');
 
     // Then select a categoría
@@ -1044,7 +1044,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     elegirRevisarYEditar();
 
     // Edit row 3 — pick bucket then categoría (userEvent for proper state flush)
-    const bucketGroup = screen.getByLabelText(/Fila 4: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 4: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Necesidades');
     const categoriaSelect = screen.getByLabelText(/Fila 4: categoría/i);
     await userEvent.selectOptions(categoriaSelect, 'cat-nec-1');
@@ -1178,7 +1178,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     // like a sugerido-derived classification (D-05).
     const user = userEvent.setup();
     await user.selectOptions(
-      screen.getByLabelText(/Fila 4: bucket/i),
+      screen.getByLabelText(/Fila 4: grupo/i),
       'Necesidades',
     );
     await user.selectOptions(
@@ -1564,7 +1564,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     elegirRevisarYEditar();
 
     // Duplicate row: bucket control disabled, no categoría select rendered
-    const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
     expect(bucketGroup).toBeDisabled();
     expect(
       screen.queryByLabelText(/Fila 1: categoría/i),
@@ -2299,7 +2299,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     elegirRevisarYEditar();
 
     // Bucket control is disabled; no categoría select renders (existing D-10 assertion)
-    expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeDisabled();
+    expect(screen.getByLabelText(/Fila 1: grupo/i)).toBeDisabled();
     expect(
       screen.queryByLabelText(/Fila 1: categoría/i),
     ).not.toBeInTheDocument();
@@ -3082,7 +3082,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       rerender(<SubirCartola />);
       elegirRevisarYEditar();
 
-      const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
       await userEvent.click(
         screen.getByRole('button', { name: /nueva categoría/i }),
@@ -3236,7 +3236,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       utils.rerender(<SubirCartola />);
       elegirRevisarYEditar();
 
-      const bucketGroup = screen.getByLabelText(/Fila 1: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
       await userEvent.click(
         screen.getByRole('button', { name: /nueva categoría/i }),
@@ -3368,7 +3368,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
       // Manually classify row 2 (rowIndex 1) FIRST — the prior override.
       await userEvent.selectOptions(
-        screen.getByLabelText(/Fila 2: bucket/i),
+        screen.getByLabelText(/Fila 2: grupo/i),
         'Necesidades',
       );
       await userEvent.selectOptions(
@@ -3378,7 +3378,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
       // Now create a categoría on row 1 (rowIndex 0).
       await userEvent.selectOptions(
-        screen.getByLabelText(/Fila 1: bucket/i),
+        screen.getByLabelText(/Fila 1: grupo/i),
         'Necesidades',
       );
       await userEvent.click(
@@ -3591,7 +3591,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
         // Pre-existing override on row 2 (rowIndex 2), BEFORE creating.
         await userEvent.selectOptions(
-          screen.getByLabelText(/Fila 3: bucket/i),
+          screen.getByLabelText(/Fila 3: grupo/i),
           'Necesidades',
         );
         await userEvent.selectOptions(
@@ -3601,7 +3601,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
         // Create the categoría on row 0 (rowIndex 0).
         await userEvent.selectOptions(
-          screen.getByLabelText(/Fila 1: bucket/i),
+          screen.getByLabelText(/Fila 1: grupo/i),
           'Necesidades',
         );
         await userEvent.click(

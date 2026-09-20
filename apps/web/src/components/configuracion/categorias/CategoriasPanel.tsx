@@ -215,7 +215,7 @@ export function CategoriasPanel() {
             Categorías y patrones
           </h2>
           <p className="mt-1 hidden text-sm text-muted-foreground md:block">
-            Tu catálogo propio: toda categoría pertenece a un bucket. Los
+            Tu catálogo propio: toda categoría pertenece a un grupo. Los
             patrones permiten la auto-categorización.
           </p>
         </div>

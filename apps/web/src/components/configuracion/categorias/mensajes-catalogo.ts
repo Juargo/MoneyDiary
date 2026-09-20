@@ -95,7 +95,7 @@ export type CodigoCatalogo =
  */
 const COPY: Record<CodigoCatalogo, string> = {
   NOMBRE_INVALIDO: 'El nombre debe tener entre 1 y 40 caracteres.',
-  BUCKET_NO_ASIGNABLE: 'Elige un bucket: Necesidades, Gustos o Ahorro.',
+  BUCKET_NO_ASIGNABLE: 'Elige un grupo: Necesidades, Gustos o Ahorro.',
   PATRON_INVALIDO: 'El patrón debe tener entre 1 y 200 caracteres.',
   MATCH_TYPE_INVALIDO: 'Elige un tipo de coincidencia válido.',
   REGEX_INVALIDA: 'Esa expresión regular no es válida.',
@@ -106,7 +106,7 @@ const COPY: Record<CodigoCatalogo, string> = {
   CATEGORIA_NO_ENCONTRADA:
     'Esa categoría ya no existe. Vuelve a la lista y recarga.',
   PATRON_NO_ENCONTRADO: 'Ese patrón ya no existe. Recarga la página.',
-  NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre en ese bucket.',
+  NOMBRE_DUPLICADO: 'Ya tienes una categoría con ese nombre en ese grupo.',
   PATRON_DUPLICADO: 'Ya tienes un patrón con ese texto.',
   ICONO_INVALIDO: 'Elige un ícono válido de la lista.',
 };
@@ -241,9 +241,9 @@ export function fraseDeImpacto(i: ImpactoCatalogo): {
               'No tiene transacciones asociadas, así que no se mueve ningún monto.',
             ];
       return {
-        titulo: 'Cambiar el bucket',
+        titulo: 'Cambiar el grupo',
         lineas,
-        textoConfirmar: 'Cambiar bucket',
+        textoConfirmar: 'Cambiar grupo',
       };
     }
     default: {

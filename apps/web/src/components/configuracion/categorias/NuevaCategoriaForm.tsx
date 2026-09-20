@@ -105,13 +105,24 @@ export function NuevaCategoriaForm({
           disabled={esDemo}
         />
         <CampoSelect
-          label="Bucket (obligatorio)"
+          label="Grupo (obligatorio)"
           value={bucket}
           onChange={(value) => setBucket(value as BucketAsignable)}
           options={OPCIONES_BUCKET}
           required
           disabled={esDemo}
         />
+        {/*
+         * issue #750 — "bucket" es jerga interna sin explicación en la UI
+         * (una usuaria de prueba preguntó "¿por qué sale bucket?"). Copy
+         * aprobado por el owner, verbatim; texto plano siempre visible
+         * (mismo idioma que la ayuda inline de PreviewMuestra: sin
+         * tooltip/popover), spanning ambas columnas del grid.
+         */}
+        <p className="text-xs text-muted-foreground md:col-span-2">
+          Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu
+          50/30/20. Puedes cambiarlo después, pero afecta todos los meses.
+        </p>
       </div>
       <SelectorIcono
         name="icono-nueva-categoria"

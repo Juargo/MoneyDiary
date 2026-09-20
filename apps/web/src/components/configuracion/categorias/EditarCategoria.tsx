@@ -646,13 +646,21 @@ function EditarCategoriaCargada({
             disabled={esDemo || dialogo !== null || actualizacion.isPending}
           />
           <CampoSelect
-            label="Bucket (obligatorio)"
+            label="Grupo (obligatorio)"
             value={bucket}
             onChange={setBucket}
             options={OPCIONES_BUCKET}
             required
             disabled={esDemo || dialogo !== null || actualizacion.isPending}
           />
+          {/*
+           * issue #750 — mismo copy aprobado que NuevaCategoriaForm; spans
+           * ambas columnas del grid.
+           */}
+          <p className="text-xs text-muted-foreground md:col-span-2">
+            Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu
+            50/30/20. Puedes cambiarlo después, pero afecta todos los meses.
+          </p>
           {/*
             categoria-iconografia (WCTG-04): spans both grid columns — the
             picker's own 25 options wrap on their own, unlike `Nombre`/
@@ -808,7 +816,7 @@ function EditarCategoriaCargada({
             // intent, not the callback ordering.
             disabled={dialogo !== null || actualizacion.isPending}
             onClick={cancelarIdentidad}
-            aria-label="Cancelar cambios de nombre y bucket"
+            aria-label="Cancelar cambios de nombre y grupo"
             className="text-muted-foreground"
           >
             Cancelar

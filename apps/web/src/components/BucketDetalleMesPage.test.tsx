@@ -403,6 +403,10 @@ describe('BucketDetalleMesPage', () => {
     expect(
       await screen.findByText('Sin movimientos en julio 2026'),
     ).toBeInTheDocument();
+    // issue #750 — "bucket" es jerga interna; el empty state dice "grupo".
+    expect(
+      screen.getByText('No hay movimientos en este grupo para el período.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('ver 2 más…')).not.toBeInTheDocument();
     // No group sections render for an empty month.
     expect(screen.queryAllByTestId('grupo-movimientos')).toHaveLength(0);
@@ -1616,7 +1620,7 @@ describe('BucketDetalleMesPage', () => {
       await user.click(screen.getByRole('button', { name: 'Crear' }));
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre en ese bucket.',
+        'Ya tienes una categoría con ese nombre en ese grupo.',
       );
       expect(screen.queryByText(/a raw server string/)).not.toBeInTheDocument();
     });

@@ -107,7 +107,7 @@ test.describe('"Subir tal cual" desde el paso de decisión', () => {
       name: 'Subir tal cual',
     });
     await expect(subirTalCual).toBeVisible();
-    await expect(page.getByLabel('Fila 1: bucket')).toHaveCount(0);
+    await expect(page.getByLabel('Fila 1: grupo')).toHaveCount(0);
 
     await subirTalCual.click();
 

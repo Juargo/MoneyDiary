@@ -44,9 +44,12 @@ describe('NuevaCategoriaDesdeFilaForm', () => {
     );
 
     expect(screen.getByLabelText('Nombre')).toHaveFocus();
-    // Bucket shown as static text via ETIQUETA_BUCKET — "Deseos" -> "Gustos"
+    // Caption reads "Grupo" (issue #750 — "bucket" is internal jargon, never
+    // shown to the user); the value is static text via ETIQUETA_BUCKET —
+    // "Deseos" -> "Gustos".
+    expect(screen.getByText('Grupo')).toBeInTheDocument();
     expect(screen.getByText('Gustos')).toBeInTheDocument();
-    // No control changes the bucket
+    // No control changes the bucket/grupo
     expect(screen.queryByLabelText(/bucket/i)).not.toBeInTheDocument();
 
     const patronInput = screen.getByDisplayValue('COMPRA PETCO');
@@ -309,7 +312,7 @@ describe('NuevaCategoriaDesdeFilaForm', () => {
     const alertas = await screen.findAllByRole('alert');
     expect(alertas).toHaveLength(1);
     expect(alertas[0]).toHaveTextContent(
-      'Ya tienes una categoría con ese nombre en ese bucket.',
+      'Ya tienes una categoría con ese nombre en ese grupo.',
     );
   });
 

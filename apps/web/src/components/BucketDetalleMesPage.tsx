@@ -287,7 +287,7 @@ export function BucketDetalleMesPage({
       {viewModel.grupos.length === 0 ? (
         <Empty
           title={`Sin movimientos en ${mesLabel}`}
-          description="No hay movimientos en este bucket para el período."
+          description="No hay movimientos en este grupo para el período."
         />
       ) : (
         <div className="flex flex-col gap-3">
