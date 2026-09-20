@@ -19,6 +19,7 @@ import type {
 import { fetchCatalogo } from '../src/api/categorias';
 import { agruparPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
 import type { GrupoCategoriaPorBucket } from '../src/domain/agrupar-categorias-por-bucket';
+import type { CategoriaDto } from '../src/domain/catalogo.types';
 import {
   aOverlayEdits,
   categoriaEfectiva,
@@ -267,6 +268,38 @@ export default function Subir() {
       nombrePorId: new Map(
         resultado.value.categorias.map((c) => [c.id, c.nombre]),
       ),
+    });
+  }, []);
+
+  /**
+   * handleCategoriaCreada (agregar-categoria-desde-selector, issue #744) —
+   * `HojaClasificacion`'s own "+ Crear categoría" calls this with the
+   * created row. This screen owns the catalog (file docblock, "Catalog
+   * fetch ownership") — merging here, rather than inside the sheet, keeps
+   * `HojaClasificacion` presentational and means any LATER re-open of the
+   * sheet (or another row's) also sees the new categoría, not just the row
+   * that created it. A no-op when `catalogo` has not resolved yet: the "+"
+   * is only reachable once the sheet is open, which is itself gated on
+   * `catalogo.fase === 'listo'` (`abrirFila`), so this branch is defensive,
+   * not a real path.
+   */
+  const handleCategoriaCreada = useCallback((categoria: CategoriaDto) => {
+    setCatalogo((actual) => {
+      if (actual.fase !== 'listo') {
+        return actual;
+      }
+      const todas = [
+        ...actual.grupos.flatMap((grupo) => grupo.categorias),
+        categoria,
+      ];
+      return {
+        fase: 'listo',
+        grupos: agruparPorBucket(todas),
+        nombrePorId: new Map(actual.nombrePorId).set(
+          categoria.id,
+          categoria.nombre,
+        ),
+      };
     });
   }, []);
 
@@ -621,6 +654,7 @@ export default function Subir() {
             grupos={catalogo.grupos}
             onConfirmar={confirmarEdicionSheet}
             onCancelar={cerrarSheet}
+            onCategoriaCreada={handleCategoriaCreada}
           />
         )}
 

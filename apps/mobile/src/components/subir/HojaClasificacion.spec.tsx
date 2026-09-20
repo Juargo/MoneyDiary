@@ -11,11 +11,35 @@
  * catalog once and groups it, this sheet stays presentational).
  */
 
-import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+  within,
+} from '@testing-library/react-native';
 import type { PreviewFilaDto } from '@moneydiary/api-client';
 import { HojaClasificacion } from './HojaClasificacion';
 import type { GrupoCategoriaPorBucket } from '../../domain/agrupar-categorias-por-bucket';
 import type { EdicionFila } from '../../api/commit-ingesta';
+import type { CategoriaDto } from '../../domain/catalogo.types';
+import type { ApiResult } from '../../domain/api-error';
+
+// agregar-categoria-desde-selector (issue #744): the sheet's own "+" renders
+// the REAL `NuevaCategoriaForm`, which calls `crearCategoria` — mocked at
+// the module boundary (`NuevaCategoriaForm.spec.tsx` precedent) so this
+// suite stays focused on the WIRING (bucket-fixed, select-on-success,
+// onCategoriaCreada) rather than re-proving that form's own behaviour.
+const mockCrearCategoria = jest.fn<
+  Promise<ApiResult<CategoriaDto>>,
+  [{ nombre: string; bucket: string }]
+>();
+jest.mock('../../api/categorias', () => ({
+  ...jest.requireActual('../../api/categorias'),
+  crearCategoria: (input: { nombre: string; bucket: string }) =>
+    mockCrearCategoria(input),
+}));
 
 function filaDePreview(
   overrides: Partial<PreviewFilaDto> = {},
@@ -80,6 +104,9 @@ function defaultProps(
     grupos: gruposDePrueba(),
     onConfirmar: jest.fn<void, [EdicionFila]>(),
     onCancelar: jest.fn<void, []>(),
+    // agregar-categoria-desde-selector (issue #744): REQUIRED, same
+    // banned-pattern discipline (us-044 PR7) as onConfirmar/onCancelar.
+    onCategoriaCreada: jest.fn<void, [CategoriaDto]>(),
     ...overrides,
   };
 }
@@ -286,5 +313,150 @@ describe('HojaClasificacion', () => {
       'accessibilityLabel',
       'Confirmar',
     );
+  });
+
+  // ── crear categoría desde el selector (issue #744) ──
+
+  describe('crear categoría desde el selector (issue #744)', () => {
+    beforeEach(() => {
+      mockCrearCategoria.mockReset();
+    });
+
+    it('no "+ Crear categoría" trigger before a bucket is chosen', async () => {
+      await render(<HojaClasificacion {...defaultProps()} />);
+
+      expect(screen.queryByTestId('hoja-crear-categoria-trigger')).toBeNull();
+    });
+
+    it('shows the trigger once a bucket is chosen; opens NuevaCategoriaForm with the bucket FIXED (no bucket-selector chips)', async () => {
+      await render(<HojaClasificacion {...defaultProps()} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByRole('radio', { name: 'Gustos' }));
+      });
+
+      const trigger = screen.getByTestId('hoja-crear-categoria-trigger');
+      await act(async () => {
+        fireEvent.press(trigger);
+      });
+
+      const form = screen.getByTestId('nueva-categoria-form');
+      expect(form).toBeTruthy();
+      expect(screen.queryByTestId('bucket-selector')).toBeNull();
+      expect(within(form).getByText('Gustos')).toBeOnTheScreen();
+    });
+
+    it('creating a category selects it for the row (enables Confirmar) and calls onCategoriaCreada', async () => {
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'cat-libros',
+          nombre: 'Libros',
+          bucket: 'Deseos',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
+      const onCategoriaCreada = jest.fn<void, [CategoriaDto]>();
+      await render(
+        <HojaClasificacion {...defaultProps({ onCategoriaCreada })} />,
+      );
+
+      await act(async () => {
+        fireEvent.press(screen.getByRole('radio', { name: 'Gustos' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('hoja-crear-categoria-trigger'));
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Libros');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Libros',
+          bucket: 'Deseos',
+        });
+      });
+      await waitFor(() => {
+        expect(onCategoriaCreada).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 'cat-libros' }),
+        );
+      });
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('hoja-confirmar').props.accessibilityState,
+        ).toMatchObject({ disabled: false });
+      });
+    });
+
+    it('confirming after creating emits {rowIndex, categoriaId} for the created categoría', async () => {
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'cat-libros',
+          nombre: 'Libros',
+          bucket: 'Deseos',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
+      const onConfirmar = jest.fn<void, [EdicionFila]>();
+      await render(<HojaClasificacion {...defaultProps({ onConfirmar })} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByRole('radio', { name: 'Gustos' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('hoja-crear-categoria-trigger'));
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Libros');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('hoja-confirmar').props.accessibilityState,
+        ).toMatchObject({ disabled: false });
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('hoja-confirmar'));
+      });
+
+      expect(onConfirmar).toHaveBeenCalledWith({
+        rowIndex: 3,
+        categoriaId: 'cat-libros',
+      });
+    });
+
+    it('a duplicate-name creation error renders inline and keeps the row unselected', async () => {
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: false,
+        error: { tag: 'http', status: 409, code: 'NOMBRE_DUPLICADO' },
+      });
+      await render(<HojaClasificacion {...defaultProps()} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByRole('radio', { name: 'Gustos' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('hoja-crear-categoria-trigger'));
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Ocio');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeTruthy();
+      });
+      // The form stays open on failure (retryable, same idiom
+      // `NuevaCategoriaForm.spec.tsx` already proves for that form alone) —
+      // Confirmar is not even rendered while it is, so nothing was selected.
+      expect(screen.getByTestId('nueva-categoria-form')).toBeTruthy();
+      expect(screen.queryByTestId('hoja-confirmar')).toBeNull();
+    });
   });
 });
