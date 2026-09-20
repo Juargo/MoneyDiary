@@ -1,4 +1,10 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -872,6 +878,47 @@ describe('BucketDetalleMesPage', () => {
    * 32px height. A refactor back to a bare `<Link>` with text classes turns
    * this red without waiting for a Playwright run.
    */
+  // issue #752 — "volver" debe volver a la pantalla real de origen, no
+  // siempre a "/". Cuando SÍ hay historial de navegación dentro de la app
+  // (empujado por el propio router, no por el navegador), el control deja
+  // de ser un `<Link to="/">` y pasa a ser un botón real que llama a
+  // `router.history.back()` — la MISMA mecánica que `useVolverAtras.test.ts`
+  // prueba de forma aislada, aquí verificada dentro de la página real.
+  it('con historial de navegación in-app, "Volver" es un botón real que llama a router.history.back() (issue #752)', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    const { router } = renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await verPrimerGrupo();
+    // Sin esto, el historial de memoria arranca con UNA sola entrada — el
+    // mismo estado "llegué por URL directa" que el resto de esta suite ya
+    // cubre. Empujar una segunda entrada simula haber llegado navegando
+    // desde el dashboard.
+    act(() => {
+      router.history.push('/');
+    });
+
+    const boton = await screen.findByRole('button', { name: 'Volver' });
+    expect(
+      screen.queryByRole('link', { name: 'Volver al resumen' }),
+    ).not.toBeInTheDocument();
+
+    const backSpy = vi.spyOn(router.history, 'back');
+    fireEvent.click(boton);
+    expect(backSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('el link "Volver al resumen" se renderiza como Button (variante link, tamaño sm) para cumplir el piso de 24px de SC 2.5.8', async () => {
     stubFetch({
       ok: true,

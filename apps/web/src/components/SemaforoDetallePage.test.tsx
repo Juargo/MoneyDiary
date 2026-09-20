@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { renderConRouter } from '@/test/router-harness';
@@ -148,6 +148,35 @@ describe('SemaforoDetallePage', () => {
         'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
       ),
     ).toBeInTheDocument();
+  });
+
+  // issue #752 — "volver" hard-coded to "/" is the same bug class as
+  // BucketDetalleMesPage/IngresosMesPage: `/semaforo` is ALSO reachable from
+  // `/ayuda` (AyudaPage links here), not only from the dashboard.
+  it('on a direct URL/deep link (no in-app history), renders the fixed "Volver al resumen" fallback link', async () => {
+    renderPage(successQuery(detalleDto()));
+    await screen.findByRole('heading', { name: 'Semáforo' });
+
+    const back = screen.getByRole('link', { name: 'Volver al resumen' });
+    expect(back).toHaveAttribute('href', '/?periodo=2026-07');
+  });
+
+  it('con historial de navegación in-app, "Volver" es un botón real que llama a router.history.back() (issue #752)', async () => {
+    const { router } = renderPage(successQuery(detalleDto()));
+    await screen.findByRole('heading', { name: 'Semáforo' });
+
+    act(() => {
+      router.history.push('/');
+    });
+
+    const boton = await screen.findByRole('button', { name: 'Volver' });
+    expect(
+      screen.queryByRole('link', { name: 'Volver al resumen' }),
+    ).not.toBeInTheDocument();
+
+    const backSpy = vi.spyOn(router.history, 'back');
+    fireEvent.click(boton);
+    expect(backSpy).toHaveBeenCalledTimes(1);
   });
 
   it('the worst-of-3 explainer is present (CA-03)', async () => {

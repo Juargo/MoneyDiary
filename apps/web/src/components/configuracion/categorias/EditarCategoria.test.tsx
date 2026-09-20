@@ -253,6 +253,53 @@ describe('EditarCategoria — resolution states (Q1e)', () => {
     expect(volver).toHaveAttribute('data-variant', 'outline');
   });
 
+  // issue #752 — mismo fix, misma mecánica que BucketDetalleMesPage/
+  // IngresosMesPage/SemaforoDetallePage: con historial in-app real, ambos
+  // "Volver a Categorías" (error y not-found) pasan a ser un botón real que
+  // llama a router.history.back().
+  it('con historial in-app, "Volver" del estado de error es un botón real que llama a router.history.back() (issue #752)', async () => {
+    const { router } = renderEditar({
+      me: ME_NO_DEMO,
+      fetchMock: vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    });
+
+    await screen.findByRole('alert');
+    act(() => {
+      router.history.push(router.history.location.href);
+    });
+
+    const boton = await screen.findByRole('button', { name: 'Volver' });
+    expect(
+      screen.queryByRole('link', { name: 'Volver a Categorías' }),
+    ).not.toBeInTheDocument();
+
+    const backSpy = vi.spyOn(router.history, 'back');
+    fireEvent.click(boton);
+    expect(backSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('con historial in-app, "Volver" del estado not-found es un botón real que llama a router.history.back() (issue #752)', async () => {
+    const { router } = renderEditar({
+      categoriaId: 'cat-borrada',
+      me: ME_NO_DEMO,
+      categorias: CATALOGO,
+    });
+
+    await screen.findByRole('status');
+    act(() => {
+      router.history.push(router.history.location.href);
+    });
+
+    const boton = await screen.findByRole('button', { name: 'Volver' });
+    expect(
+      screen.queryByRole('link', { name: 'Volver a Categorías' }),
+    ).not.toBeInTheDocument();
+
+    const backSpy = vi.spyOn(router.history, 'back');
+    fireEvent.click(boton);
+    expect(backSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('con id presente, renderiza el h1 "Editar categoría" y la breadcrumb con aria-current en la hoja', async () => {
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
 
