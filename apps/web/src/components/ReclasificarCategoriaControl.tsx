@@ -35,6 +35,12 @@ function etiqueta(bucket: string): string {
  * re-bucket hecho en Configuración dispara la confirmación correcta de
  * inmediato (WCAT-04 delta, US-043 §7).
  *
+ * **`onMovida` (confirmacion-reclasificar, issue #749):** ya no es exclusivo
+ * del caso cross-bucket. Un mismo-bucket también llama a `onMovida`, pero con
+ * el NOMBRE de la categoría destino en vez de la etiqueta del bucket — el
+ * caller (`BucketDetalleMesPage`) arma el mismo mensaje "Movida a {label}."
+ * sin importar cuál de los dos casos lo disparó.
+ *
  * Cada `<option>` muestra "{bucket} · {categoría}" (p. ej. "Gustos ·
  * Restaurantes"), no solo el nombre de la categoría (UX-clarity fix,
  * reclasificar-bucket-y-categoria, 2026-09-14): el `<select>` CERRADO solo
@@ -121,7 +127,13 @@ export function ReclasificarCategoriaControl({
   readonly bucketActual: string;
   readonly categoriaActual: { id: string; nombre: string } | null;
   readonly periodo: string | undefined;
-  readonly onMovida: (bucketLabel: string) => void;
+  /**
+   * Fires on a successful reclassify — cross-bucket with the destination
+   * BUCKET's display label, same-bucket with the destination CATEGORÍA's
+   * name (confirmacion-reclasificar, issue #749). The caller formats
+   * "Movida a {label}." verbatim either way.
+   */
+  readonly onMovida: (label: string) => void;
 }) {
   const selectId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -145,8 +157,6 @@ export function ReclasificarCategoriaControl({
   const grupos = agruparPorBucket(data?.categorias ?? []).filter((g) =>
     (BUCKETS_ASIGNABLES as ReadonlyArray<string>).includes(g.bucket),
   );
-  const categoriaPorId = (id: string): string | undefined =>
-    data?.categorias.find((c) => c.id === id)?.bucket;
 
   // WCAG 2.5.3 Label in Name (Cambio 4): replicates EXACTLY the text each
   // rendered `<option>` shows, for whichever one is currently selected —
@@ -171,10 +181,10 @@ export function ReclasificarCategoriaControl({
       : 'Sin categoría';
   }
 
-  // Cross-bucket commits need to fire onMovida only after the mutation
-  // settles successfully. We capture the pending bucket label at confirm
-  // time and thread it into the mutation's onSuccess callback so a
-  // failed PATCH never triggers the announcement.
+  // Both cross-bucket and same-bucket commits fire onMovida only after the
+  // mutation settles successfully. We capture the destination label (bucket
+  // or categoría name) at commit time and thread it into the mutation's
+  // onSuccess callback so a failed PATCH never triggers the announcement.
   function commit(categoriaId: string, onSuccess?: () => void) {
     setErrorMensaje(null);
     mutacion.mutate(
@@ -201,8 +211,10 @@ export function ReclasificarCategoriaControl({
     setPendiente(null);
     setValor(categoriaId);
     setErrorMensaje(null);
-    const bucketNuevo = categoriaPorId(categoriaId);
-    if (bucketNuevo === undefined) {
+    const categoriaSeleccionada = data?.categorias.find(
+      (c) => c.id === categoriaId,
+    );
+    if (categoriaSeleccionada === undefined) {
       // Defensive, not reachable via the rendered `<option>`s today (they
       // and this lookup read the same `data` snapshot) — but "unresolved"
       // must fail loud, never fall through to "same bucket, commit
@@ -215,8 +227,17 @@ export function ReclasificarCategoriaControl({
       setValor(categoriaActual?.id ?? '');
       return;
     }
+    const bucketNuevo = categoriaSeleccionada.bucket;
     if (bucketNuevo === bucketActual) {
-      commit(categoriaId);
+      // Same-bucket reclassify (confirmacion-reclasificar, issue #749):
+      // reuses the SAME `onMovida` seam the cross-bucket case uses below in
+      // `confirmar()`, but with the destination CATEGORÍA's name instead of
+      // a bucket label. The page-owned `alMovida` handler
+      // (`BucketDetalleMesPage.tsx`) just interpolates whatever string it
+      // receives into "Movida a {label}." — it does not care whether the
+      // label is a bucket or a categoría, so no page-level change was
+      // needed to support this second caller.
+      commit(categoriaId, () => onMovida(categoriaSeleccionada.nombre));
       return;
     }
     setPendiente({ categoriaId, bucketNuevo });

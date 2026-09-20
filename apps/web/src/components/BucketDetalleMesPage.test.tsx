@@ -31,6 +31,17 @@ const CATALOGO_FIXTURE: CatalogoDto = {
       patrones: [],
       transaccionesCount: 0,
     },
+    // A second Necesidades categoría — required for the same-bucket
+    // reclassify test (T-06(d), confirmacion-reclasificar, issue #749): a
+    // same-bucket move needs two categorías in the SAME bucket to pick
+    // between.
+    {
+      id: 'categoria-combustible',
+      nombre: 'Combustible',
+      bucket: 'Necesidades',
+      patrones: [],
+      transaccionesCount: 0,
+    },
     // Deseos categoría — required for cross-bucket confirmation tests (T-06
     // cases a/c): a row in the Necesidades page picking this triggers the
     // alertdialog (Necesidades → Deseos cross-bucket, announces "Movida a Gustos.").
@@ -949,7 +960,7 @@ describe('BucketDetalleMesPage', () => {
     ).toBeNull();
   });
 
-  it('anuncio region is empty before any cross-bucket move (same-bucket path never sets it, D-07)', async () => {
+  it('anuncio region is empty before any reclassify interaction (D-07)', async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -967,8 +978,7 @@ describe('BucketDetalleMesPage', () => {
 
     // Wait for catalog to settle → only 1 status region (the anuncio one).
     const anuncioRegion = await screen.findByRole('status');
-    // No user interaction: the region must stay empty (D-07 invariant: only
-    // a cross-bucket confirm sets it; same-bucket commits skip onMovida).
+    // No user interaction at all: the region must stay empty.
     expect(anuncioRegion).toHaveTextContent('');
   });
 
@@ -1104,6 +1114,48 @@ describe('BucketDetalleMesPage', () => {
     );
     // The text is replaced, not appended — must not contain the first announcement.
     expect(statusRegion).not.toHaveTextContent('Gustos');
+  });
+
+  // T-06 case (d): same-bucket reclassify reuses the SAME page-owned status
+  // region/mechanism as the cross-bucket case (confirmacion-reclasificar,
+  // issue #749) — the message names the destination CATEGORÍA, not a bucket.
+  it('T-06(d): a same-bucket reclassify surfaces "Movida a Combustible." in the SAME page-owned role=status region as the cross-bucket case (confirmacion-reclasificar)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await expandirGrupo(/Ñoquis/);
+
+    const selects = await screen.findAllByRole('combobox');
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // Same-bucket: the Ñoquis row (Necesidades) picks another Necesidades
+    // categoría — no confirmation dialog, straight commit.
+    await user.selectOptions(primerSelect, 'Necesidades · Combustible');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Combustible.'),
+    );
+
+    // Same page-level sibling contract as the cross-bucket case (D-07).
+    expect(
+      statusRegion.closest('[data-testid="grupo-movimientos"]'),
+    ).toBeNull();
   });
 
   // Fix 5: periodo change clears the announcement.

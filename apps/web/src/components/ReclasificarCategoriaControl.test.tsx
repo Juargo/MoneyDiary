@@ -655,7 +655,7 @@ describe('ReclasificarCategoriaControl', () => {
     expect(onMovida).toHaveBeenCalledWith('Necesidades');
   });
 
-  it('a same-bucket commit does NOT call onMovida (D-07)', async () => {
+  it('a same-bucket reclassify calls onMovida with the destination categoría name, not a bucket label (confirmacion-reclasificar)', async () => {
     mockFetch({
       ok: true,
       status: 200,
@@ -688,7 +688,12 @@ describe('ReclasificarCategoriaControl', () => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
     );
 
-    expect(onMovida).toHaveBeenCalledTimes(0);
+    // Same-bucket now reuses the SAME onMovida callback the cross-bucket
+    // case uses, but with the destination CATEGORÍA's name — the page
+    // formats "Movida a {label}." verbatim regardless of which caller it is
+    // (confirmacion-reclasificar, issue #749).
+    await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
+    expect(onMovida).toHaveBeenCalledWith('Transporte');
   });
 
   // Touch-target quick win (round 2, P2): destructive/cross-bucket confirms
