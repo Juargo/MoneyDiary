@@ -32,7 +32,16 @@ describe('AgregarCategoriaControl (issue #743)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCrearCategoria.mockResolvedValue({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValue({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
   });
 
   it('renders a labelled "Agregar categoría" trigger and no form until pressed', async () => {

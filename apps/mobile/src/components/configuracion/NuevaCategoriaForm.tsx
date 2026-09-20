@@ -41,10 +41,30 @@
  * this path (no setter is ever wired to it). Omitted (every pre-existing
  * Configuración caller) keeps this component byte-for-byte the prior
  * user-picks-the-bucket behavior.
+ *
+ * `bucketInicial` (agregar-categoria-desde-selector, issue #744): unlike
+ * `bucketFijo`, this only PRESETS the chip selection — `SelectorChips`
+ * still renders and the user can change it before saving. Ignored when
+ * `bucketFijo` is also set (that one wins, no picker at all either way).
+ * The two reclassify surfaces (web `ReclasificarCategoriaControl`, mobile
+ * `ReclasificarMobileControl`) use this to default to the row's CURRENT
+ * bucket — the likeliest pick — without forcing it, since the usability
+ * finding behind issue #744 was wanting a category in a bucket OTHER than
+ * the one on screen (e.g. "Libros" under Gustos while looking at a
+ * Necesidades row).
+ *
+ * `onCreada` (issue #744): now receives the created `CategoriaDto` instead
+ * of firing bare — a caller that opened this form FROM a selector needs the
+ * new row's id/bucket to select it immediately (see the two reclassify
+ * surfaces and the cartola review sheet). Every pre-existing caller
+ * (`CategoriasPanel`, `AgregarCategoriaControl`) passes a zero-arg handler,
+ * which stays a valid `(categoria: CategoriaDto) => void` in TypeScript —
+ * no call-site change needed for either.
  */
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { crearCategoria } from '../../api/categorias';
+import type { CategoriaDto } from '../../domain/catalogo.types';
 import type {
   BucketAsignable,
   IconoCategoria,
@@ -57,18 +77,22 @@ import { SelectorChips } from './SelectorChips';
 import { SelectorIcono } from './SelectorIcono';
 
 export interface NuevaCategoriaFormProps {
-  readonly onCreada: () => void;
+  readonly onCreada: (categoria: CategoriaDto) => void;
   readonly onCancelar: () => void;
   readonly bucketFijo?: BucketAsignable;
+  readonly bucketInicial?: BucketAsignable;
 }
 
 export function NuevaCategoriaForm({
   onCreada,
   onCancelar,
   bucketFijo,
+  bucketInicial,
 }: NuevaCategoriaFormProps) {
   const [nombre, setNombre] = useState('');
-  const [bucket, setBucket] = useState<BucketAsignable | ''>(bucketFijo ?? '');
+  const [bucket, setBucket] = useState<BucketAsignable | ''>(
+    bucketFijo ?? bucketInicial ?? '',
+  );
   const [icono, setIcono] = useState<IconoCategoria | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +120,7 @@ export function NuevaCategoriaForm({
     setEnviando(false);
 
     if (resultado.ok) {
-      onCreada();
+      onCreada(resultado.value);
     } else {
       setError(mensajeDeErrorCatalogo(resultado.error));
     }

@@ -75,7 +75,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCrearCategoria.mockResolvedValue({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValue({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
   });
 
   it('renders the nombre CampoTexto field', async () => {
@@ -221,7 +230,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
   });
 
   it('success calls onCreada (closes the form)', async () => {
-    mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
 
     await render(
       <NuevaCategoriaForm
@@ -237,7 +255,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
   });
 
   it('success does NOT call solicitarRecargaResumen() — MCTG-07 negative-1', async () => {
-    mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
 
     await render(
       <NuevaCategoriaForm
@@ -423,6 +450,92 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     });
   });
 
+  // ── bucketInicial (agregar-categoria-desde-selector, issue #744) ──
+  //
+  // Unlike `bucketFijo` (never a user choice), `bucketInicial` only PRESETS
+  // the chip selection — the bucket-picker chips still render and the user
+  // can change it before saving. This is what the two reclassify surfaces
+  // use: default to the row's current bucket (the likeliest pick) without
+  // forcing it, since the usability finding behind this issue was wanting a
+  // category in a DIFFERENT bucket than the one currently on screen.
+  describe('bucketInicial (issue #744)', () => {
+    it('preselects the given bucket chip but still renders the picker (editable)', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketInicial="Deseos"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      expect(screen.getByTestId('bucket-selector')).toBeOnTheScreen();
+      const chipDeseos = within(
+        screen.getByTestId('bucket-selector'),
+      ).getByRole('radio', { name: 'Deseos' });
+      expect(chipDeseos.props.accessibilityState).toMatchObject({
+        checked: true,
+      });
+    });
+
+    it('the user can change the preselected bucket before saving', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketInicial="Necesidades"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      await llenarYEnviar({ nombre: 'Libros', bucket: 'Deseos' });
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Libros',
+          bucket: 'Deseos',
+        });
+      });
+    });
+
+    it('bucketInicial omitted keeps the prior unselected-chip behaviour (no regression)', async () => {
+      await render(
+        <NuevaCategoriaForm
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      expect(mockCrearCategoria).not.toHaveBeenCalled();
+    });
+  });
+
+  it('success calls onCreada with the created CategoriaDto (issue #744, selecting it downstream)', async () => {
+    const categoriaCreada = {
+      id: 'cat-libros',
+      nombre: 'Libros',
+      bucket: 'Deseos' as const,
+      transaccionesCount: 0,
+      patrones: [],
+    };
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: categoriaCreada,
+    });
+
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+    await llenarYEnviar({ nombre: 'Libros', bucket: 'Deseos' });
+
+    await waitFor(() => {
+      expect(mockOnCreada).toHaveBeenCalledWith(categoriaCreada);
+    });
+  });
+
   it('double-submit protection: Guardar button is disabled while in-flight', async () => {
     // Deferred promise: keeps the first call in-flight so we can inspect mid-flight state.
     let resolveFirst!: (
@@ -455,7 +568,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
 
     // Resolve the first call and confirm crearCategoria was only called once.
     await act(async () => {
-      resolveFirst({ ok: true, value: undefined });
+      resolveFirst({
+        ok: true,
+        value: {
+          id: 'cat-fake',
+          nombre: 'Fake',
+          bucket: 'Necesidades',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
     });
 
     await waitFor(() => {

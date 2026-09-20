@@ -43,6 +43,7 @@ import { Pressable, Text, View } from 'react-native';
 import { aDiaConSemana, aFechaLargaLabel } from '../../domain/fecha-corta';
 import { formatearMontoCLP } from '../../domain/formatear-monto';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
+import type { CategoriaDto } from '../../domain/catalogo.types';
 import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
 import { CeldaFecha } from './CeldaFecha';
 import { ReclasificarMobileControl } from './ReclasificarMobileControl';
@@ -110,6 +111,18 @@ interface GrupoMovimientosMobileProps {
    * off it, unlike the `key`-remount approach this replaced).
    */
   readonly categoriaVersion?: number;
+  /**
+   * agregar-categoria-desde-selector (issue #744): REQUIRED per the us-044
+   * PR7 banned-pattern (`onMovida`/`onReclasificado` above are the
+   * precedent) — forwarded verbatim to every row's own
+   * `ReclasificarMobileControl`, which now has its own "+ Crear categoría"
+   * affordance in its picker Modal. `BucketDetalleScreen` wires this to the
+   * SAME `handleCategoriaCreada` that `AgregarCategoriaControl` already
+   * uses, so a categoría created from EITHER entry point bumps
+   * `categoriaVersion` and reaches every other row's own cached catalog
+   * the same way (issue #743's mechanism) — pure passthrough here.
+   */
+  readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
 }
 
 /**
@@ -124,6 +137,7 @@ export function GrupoMovimientosMobile({
   onReclasificado,
   onMovida,
   categoriaVersion,
+  onCategoriaCreada,
 }: GrupoMovimientosMobileProps) {
   const [expandido, setExpandido] = useState(false);
 
@@ -220,6 +234,7 @@ export function GrupoMovimientosMobile({
               onReclasificado={onReclasificado}
               onMovida={onMovida}
               categoriaVersion={categoriaVersion}
+              onCategoriaCreada={onCategoriaCreada}
             />
           </View>
         );

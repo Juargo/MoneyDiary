@@ -22,7 +22,7 @@ import {
   eliminarPatron,
 } from './categorias';
 import { enviarMutacion } from './mutacion';
-import type { CatalogoDto } from '../domain/catalogo.types';
+import type { CatalogoDto, CategoriaDto } from '../domain/catalogo.types';
 
 jest.mock('./mutacion', () => ({
   enviarMutacion: jest.fn(),
@@ -342,9 +342,27 @@ describe('fetchCatalogo', () => {
   });
 });
 
+// Minimal valid CategoriaDto (agregar-categoria-desde-selector, issue #744):
+// `crearCategoria` used to discard the POST's success body — it now parses
+// and returns it (`esCategoriaDto` guard, same idiom `fetchCatalogo` already
+// uses) so a caller can select the just-created categoría without waiting
+// for a catalog refetch.
+const CATEGORIA_CREADA: CategoriaDto = {
+  id: 'cat-transporte',
+  nombre: 'Transporte',
+  bucket: 'Necesidades',
+  transaccionesCount: 0,
+  patrones: [],
+};
+
 describe('mutaciones de categorías', () => {
   beforeEach(() => {
-    mockEnviarMutacion.mockReset().mockResolvedValue({ ok: true, value: {} });
+    // `value` mimics `enviarMutacion`'s real success shape (the raw
+    // `Response`, per its own docblock) — only `crearCategoria` reads it now.
+    mockEnviarMutacion.mockReset().mockResolvedValue({
+      ok: true,
+      value: { json: () => Promise.resolve(CATEGORIA_CREADA) },
+    });
   });
 
   it('crearCategoria calls enviarMutacion with POST /api/categorias and the input as body', async () => {
@@ -354,6 +372,29 @@ describe('mutaciones de categorías', () => {
       nombre: 'Transporte',
       bucket: 'Necesidades',
     });
+  });
+
+  it('crearCategoria resolves with the created CategoriaDto parsed from the response body (issue #744)', async () => {
+    const resultado = await crearCategoria({
+      nombre: 'Transporte',
+      bucket: 'Necesidades',
+    });
+
+    expect(resultado).toEqual({ ok: true, value: CATEGORIA_CREADA });
+  });
+
+  it('crearCategoria returns a parse error when the response body does not match CategoriaDto', async () => {
+    mockEnviarMutacion.mockResolvedValueOnce({
+      ok: true,
+      value: { json: () => Promise.resolve({ nombre: 'sin id ni bucket' }) },
+    });
+
+    const resultado = await crearCategoria({
+      nombre: 'Transporte',
+      bucket: 'Necesidades',
+    });
+
+    expect(resultado).toEqual({ ok: false, error: { tag: 'parse' } });
   });
 
   it('actualizarCategoria calls enviarMutacion with PATCH /api/categorias/:id (URL-encoded) and the patch as body', async () => {

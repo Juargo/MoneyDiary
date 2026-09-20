@@ -1,10 +1,16 @@
 import { useId, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useCategorias } from '@/api/use-categorias';
 import { useReclasificarCategoria } from '@/api/use-reclasificar-categoria';
 import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
+import type { CategoriaDto } from '@/api/types';
 import { agruparPorBucket } from '@/domain/agrupar-categorias-por-bucket';
-import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { construirOpcionesBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
+import { CampoSelect } from '@/components/configuracion/categorias/CampoSelect';
+import { NuevaCategoriaDesdeFilaForm } from '@/components/preview/NuevaCategoriaDesdeFilaForm';
+import { CLASE_BOTON_ICONO } from '@/components/configuracion/estilos';
+import { cn } from '@/lib/utils';
 
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
@@ -102,6 +108,32 @@ function etiqueta(bucket: string): string {
  * pantalla — se dispararía en cualquier reconexión normal, no solo en un
  * estado que realmente bloquea la interacción.
  *
+ * **"+" crear categoría desde el selector (issue #744):** un botón fijo
+ * junto al `<select>` — deliberadamente NO una `<option>` (una opción que
+ * actúa como comando se vuelve el VALOR seleccionado en varios navegadores/
+ * lectores de pantalla al activarse por teclado, obligando a revertir la
+ * selección en cada render; un botón separado no tiene ese problema y sigue
+ * el mismo precedente que `FilaRevision`'s "+" y `AgregarCategoriaControl`,
+ * issue #743). Abre `CrearCategoriaDesdeSelector` (declarado más abajo en
+ * este archivo): a diferencia de `AgregarCategoriaControl` (bucket FIJO al
+ * de la página, issue #743), acá el bucket es un `<select>` editable — el
+ * hallazgo de usabilidad que originó este issue fue justo querer crear una
+ * categoría en un bucket DISTINTO al de la fila que se está reclasificando
+ * (p. ej. "Libros" bajo Gustos mientras se mira una fila de Necesidades).
+ * Precarga con `bucketActual` (el destino más probable) pero el usuario
+ * puede cambiarlo antes de crear. Reutiliza `NuevaCategoriaDesdeFilaForm`
+ * tal cual (mismo `useCrearCategoria`, mismo copy de error) — el ÚNICO
+ * componente nuevo es el `<select>` de bucket que la envuelve.
+ *
+ * Al crear, la categoría queda SELECCIONADA para esta fila (no solo
+ * agregada al catálogo): `alCategoriaCreada` reusa exactamente el mismo
+ * camino same-bucket/cross-bucket que `alCambiar` — mismo-bucket commitea
+ * directo, bucket distinto abre la MISMA confirmación `alertdialog` que
+ * cualquier otra reclasificación cross-bucket (ADR-015: crear la categoría
+ * no exime la confirmación de mover dinero de bucket). El bucket de la
+ * categoría recién creada viene directo del DTO que devuelve el POST — no
+ * hace falta esperar el refetch del catálogo para decidir el camino.
+ *
  * Estilo "fantasma" (bucket-detalle-lista-rediseño, Cambio 4): en reposo el
  * `<select>` no tiene borde ni relleno — se funde con la fila del ledger
  * (`GrupoMovimientos`'s `<li>`, 44px fijo) y solo la flechita nativa del
@@ -137,12 +169,14 @@ export function ReclasificarCategoriaControl({
 }) {
   const selectId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
+  const crearTriggerRef = useRef<HTMLButtonElement>(null);
   const [valor, setValor] = useState(categoriaActual?.id ?? '');
   const [pendiente, setPendiente] = useState<{
     categoriaId: string;
     bucketNuevo: string;
   } | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
   const mutacion = useReclasificarCategoria(periodo, bucketActual);
   const { data, isFetching: catalogoEnVuelo } = useCategorias();
   // Initial load only (WCAT-04 delta): `data === undefined` while
@@ -263,53 +297,91 @@ export function ReclasificarCategoriaControl({
     selectRef.current?.focus();
   }
 
+  function abrirCreacion() {
+    setCreandoCategoria(true);
+  }
+
+  function cerrarCreacion() {
+    setCreandoCategoria(false);
+    crearTriggerRef.current?.focus();
+  }
+
+  // The categoría just created (issue #744): select it for this row via the
+  // SAME same-bucket/cross-bucket branch `alCambiar` uses, but the bucket
+  // comparison reads straight off the POST response (`categoria.bucket`) —
+  // no need to wait for `data` (the `['categorias']` cache) to reflect the
+  // seed `useCrearCategoria`'s own `onSuccess` already wrote, since this
+  // callback has the full DTO in hand already.
+  function alCategoriaCreada(categoria: CategoriaDto) {
+    cerrarCreacion();
+    setErrorMensaje(null);
+    setValor(categoria.id);
+    if (categoria.bucket === bucketActual) {
+      commit(categoria.id, () => onMovida(categoria.nombre));
+      return;
+    }
+    setPendiente({ categoriaId: categoria.id, bucketNuevo: categoria.bucket });
+  }
+
   return (
     <div className="relative flex min-w-0 flex-col gap-1">
-      <select
-        id={selectId}
-        ref={selectRef}
-        value={valor}
-        disabled={mutacion.isPending || data === undefined}
-        aria-busy={catalogoCargandoInicial}
-        aria-label={`Categoría de ${descripcion}: ${etiquetaOpcionActual()}`}
-        onChange={alCambiar}
-        className="w-full min-w-0 max-w-full rounded-none border border-transparent bg-transparent px-1.5 py-1 text-xs text-muted-foreground hover:border-input hover:bg-card hover:text-foreground focus:border-input focus:bg-card focus:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {data === undefined ? (
-          // Mid-flight: the catalog hasn't loaded yet. Offer only the
-          // current value — never an empty <select> on a shipped dashboard
-          // surface (design.md §7). The single option still shows the
-          // bucket prefix (via `bucketActual`, the only bucket info this
-          // component has before the catalog resolves) so the loading
-          // state never regresses to a bucket-less label.
-          categoriaActual === null ? (
-            <option value="" disabled>
-              Sin categoría
-            </option>
-          ) : (
-            <option value={categoriaActual.id}>
-              {etiqueta(bucketActual)} · {categoriaActual.nombre}
-            </option>
-          )
-        ) : (
-          <>
-            {categoriaActual === null && (
+      <div className="flex min-w-0 items-center gap-1">
+        <select
+          id={selectId}
+          ref={selectRef}
+          value={valor}
+          disabled={mutacion.isPending || data === undefined}
+          aria-busy={catalogoCargandoInicial}
+          aria-label={`Categoría de ${descripcion}: ${etiquetaOpcionActual()}`}
+          onChange={alCambiar}
+          className="w-full min-w-0 max-w-full rounded-none border border-transparent bg-transparent px-1.5 py-1 text-xs text-muted-foreground hover:border-input hover:bg-card hover:text-foreground focus:border-input focus:bg-card focus:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {data === undefined ? (
+            // Mid-flight: the catalog hasn't loaded yet. Offer only the
+            // current value — never an empty <select> on a shipped dashboard
+            // surface (design.md §7). The single option still shows the
+            // bucket prefix (via `bucketActual`, the only bucket info this
+            // component has before the catalog resolves) so the loading
+            // state never regresses to a bucket-less label.
+            categoriaActual === null ? (
               <option value="" disabled>
                 Sin categoría
               </option>
-            )}
-            {grupos.map((grupo) => (
-              <optgroup key={grupo.bucket} label={etiqueta(grupo.bucket)}>
-                {grupo.categorias.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {etiqueta(grupo.bucket)} · {categoria.nombre}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </>
-        )}
-      </select>
+            ) : (
+              <option value={categoriaActual.id}>
+                {etiqueta(bucketActual)} · {categoriaActual.nombre}
+              </option>
+            )
+          ) : (
+            <>
+              {categoriaActual === null && (
+                <option value="" disabled>
+                  Sin categoría
+                </option>
+              )}
+              {grupos.map((grupo) => (
+                <optgroup key={grupo.bucket} label={etiqueta(grupo.bucket)}>
+                  {grupo.categorias.map((categoria) => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {etiqueta(grupo.bucket)} · {categoria.nombre}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </>
+          )}
+        </select>
+        <button
+          ref={crearTriggerRef}
+          type="button"
+          disabled={mutacion.isPending}
+          aria-label={`Nueva categoría para ${descripcion}`}
+          onClick={abrirCreacion}
+          className={cn(CLASE_BOTON_ICONO, 'shrink-0 text-muted-foreground')}
+        >
+          <Plus aria-hidden="true" className="size-[16px]" />
+        </button>
+      </div>
       {/* Absolute, not stacked in flow: the ledger row (`GrupoMovimientos`'s
           `<li>`) has a FIXED 44px height, so an error/confirm popup must
           never push it taller. */}
@@ -336,6 +408,65 @@ export function ReclasificarCategoriaControl({
           </p>
         </InlineConfirm>
       )}
+      {creandoCategoria && (
+        <div className="absolute top-full right-0 z-20 mt-1 w-80 max-w-[90vw]">
+          <CrearCategoriaDesdeSelector
+            bucketInicial={bucketActual}
+            onCancelar={cerrarCreacion}
+            onCreada={alCategoriaCreada}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * CrearCategoriaDesdeSelector — the bucket-picker shell `ReclasificarCategoriaControl`
+ * opens from its own "+" (issue #744, see that component's JSDoc). Unlike
+ * `NuevaCategoriaDesdeFilaForm`'s other two callers (`FilaRevision`,
+ * `AgregarCategoriaControl`), the bucket here is NOT fixed — the exact
+ * usability finding this issue fixes was wanting a category in a bucket
+ * OTHER than the row's own. `bucket` starts at `bucketInicial` (the row's
+ * current bucket, the single most likely pick) and is a plain editable
+ * `CampoSelect`; `NuevaCategoriaDesdeFilaForm` itself is reused byte-for-byte
+ * underneath, unaware that its `bucket` prop can now change out from under
+ * it between renders (it only reads `bucket` at submit time).
+ */
+function CrearCategoriaDesdeSelector({
+  bucketInicial,
+  onCancelar,
+  onCreada,
+}: {
+  readonly bucketInicial: string;
+  readonly onCancelar: () => void;
+  readonly onCreada: (categoria: CategoriaDto) => void;
+}) {
+  const [bucket, setBucket] = useState(bucketInicial);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-md">
+      {/* `srOnly`: `NuevaCategoriaDesdeFilaForm` below already shows a
+          visible "Bucket" caption that mirrors this select's live value
+          (it re-renders with whatever `bucket` this shell passes it) — a
+          second visible "Bucket" caption right above it would be
+          redundant. The accessible name stays "Bucket" either way
+          (`getByLabelText('Bucket')`, `CampoSelect`'s `srOnly` still nests
+          the text inside the wrapping `<label>`). */}
+      <CampoSelect
+        label="Bucket"
+        srOnly
+        value={bucket}
+        onChange={setBucket}
+        options={construirOpcionesBucket(BUCKETS_ASIGNABLES)}
+      />
+      <NuevaCategoriaDesdeFilaForm
+        bucket={bucket}
+        descripcionFila=""
+        esDemo={false}
+        onCancelar={onCancelar}
+        onCreada={onCreada}
+      />
     </div>
   );
 }

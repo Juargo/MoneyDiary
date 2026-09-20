@@ -46,7 +46,16 @@ jest.mock('expo-router', () => ({
 // not the form's mutation behaviour (that is NuevaCategoriaForm.spec.tsx's job).
 jest.mock('../../api/categorias', () => ({
   ...jest.requireActual('../../api/categorias'),
-  crearCategoria: jest.fn().mockResolvedValue({ ok: true, value: undefined }),
+  crearCategoria: jest.fn().mockResolvedValue({
+    ok: true,
+    value: {
+      id: 'cat-fake',
+      nombre: 'Fake',
+      bucket: 'Necesidades',
+      transaccionesCount: 0,
+      patrones: [],
+    },
+  }),
 }));
 
 const mockCrearCategoria = categoriasApi.crearCategoria as jest.MockedFunction<
@@ -281,7 +290,16 @@ describe('CategoriasPanel (US-044 PR5b, T5b.3/T5b.4)', () => {
 
   it('[PR5c T5c.3 close-on-success] form closes and onCatalogoChange fires after successful creation', async () => {
     const mockOnCatalogoChange = jest.fn();
-    mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
 
     await render(
       <CategoriasPanel

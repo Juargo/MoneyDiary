@@ -647,7 +647,16 @@ describe('BucketDetalleScreen', () => {
         ok: true,
         value: makeDto(),
       });
-      mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'cat-fake',
+          nombre: 'Fake',
+          bucket: 'Necesidades',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
       const announceSpy = jest
         .spyOn(AccessibilityInfo, 'announceForAccessibility')
         .mockReturnValue(undefined);

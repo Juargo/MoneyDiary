@@ -155,6 +155,15 @@ export function BucketDetalleScreen({
    * one per affordance. Also bumps `categoriaVersion`, which flows down as a
    * PROP (see this file's docblock for why a per-instance cache clear, not a
    * remount, is what mobile needs here).
+   *
+   * Second wiring (issue #744): also passed straight through
+   * `GrupoMovimientosMobile` to every row's own `ReclasificarMobileControl`
+   * (its new "+ Crear categoría" affordance) — a categoría created from
+   * EITHER entry point bumps the SAME `categoriaVersion`, so every OTHER
+   * row's reclassify picker picks it up too, not just the row/screen that
+   * created it. Stays zero-arg (TypeScript accepts a zero-arg handler
+   * wherever `(categoria: CategoriaDto) => void` is expected) since this
+   * screen only needs to know THAT one was created, never which.
    */
   function handleCategoriaCreada() {
     setCategoriaVersion((v) => v + 1);
@@ -338,6 +347,7 @@ export function BucketDetalleScreen({
                 onReclasificado={cargar}
                 onMovida={handleMovida}
                 categoriaVersion={categoriaVersion}
+                onCategoriaCreada={handleCategoriaCreada}
               />
             ))}
           </View>

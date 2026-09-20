@@ -44,6 +44,34 @@
  * matches what the picker actually does. Previously: accessibilityLabel
  * "Cambiar categoría de {descripcion}", Modal title "Cambiar categoría".
  *
+ * 6. "+ Crear categoría" (agregar-categoria-desde-selector, issue #744): a
+ *    Pressable inside the Modal, always available once it is open (no
+ *    dependency on the catalog having resolved — creating a categoría is
+ *    an independent POST). Opens `NuevaCategoriaForm` in place of the
+ *    bucket/categoría sections, with `bucketInicial={categoriaActual.bucket}`
+ *    — editable, NOT fixed (unlike `AgregarCategoriaControl`'s bucket-detail
+ *    page, issue #743, where the bucket is unambiguous): the usability
+ *    finding behind this issue was wanting a categoría in a bucket OTHER
+ *    than the one the user is currently looking at. `categoriaActual.bucket`
+ *    can be the `'SinCategoria'` sentinel (see `GrupoMovimientosMobile`) —
+ *    not a member of `BUCKETS_ASIGNABLES` — `NuevaCategoriaForm`'s
+ *    `SelectorChips` only offers real buckets, so that sentinel is passed
+ *    through `bucketInicial` typed loosely and simply never matches any
+ *    chip, leaving the picker unselected (same "no regression" fallback
+ *    `bucketInicial` already has when omitted).
+ *
+ *    On success: the created categoría is (a) appended to this control's
+ *    OWN cached `catalogo` state, so its bucket section shows it without
+ *    waiting for a refetch, (b) selected for THIS row via the exact same
+ *    `handleSelectCategoria` branch a tap on an existing option would take
+ *    (same-bucket commits directly, cross-bucket opens the SAME
+ *    confirmation Alert — ADR-015: creating a categoría is not a bypass for
+ *    the money-move confirmation), and (c) reported upward via
+ *    `onCategoriaCreada`, which `BucketDetalleScreen` wires to the SAME
+ *    `handleCategoriaCreada`/`categoriaVersion` bump `AgregarCategoriaControl`
+ *    already uses (issue #743) — every OTHER row's own cached catalog picks
+ *    it up too, on its next open, with no remount of the groups tree.
+ *
  * Pure: no route, no router.
  */
 
@@ -53,9 +81,11 @@ import { fetchCatalogo, reclasificarCategoria } from '../../api/categorias';
 import { solicitarRecargaResumen } from '../../api/resumen-refresh';
 import { agruparPorBucket } from '../../domain/agrupar-categorias-por-bucket';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
+import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import { mensajeDeErrorReclasificar } from '../../domain/mensajes-reclasificar';
 import { ETIQUETA_BUCKET } from '../../theme/colors';
-import type { CatalogoDto } from '../../domain/catalogo.types';
+import type { CatalogoDto, CategoriaDto } from '../../domain/catalogo.types';
+import { NuevaCategoriaForm } from '../configuracion/NuevaCategoriaForm';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -114,6 +144,21 @@ export interface ReclasificarMobileControlProps {
    * component's lifetime" behaviour — see the effect below.
    */
   readonly categoriaVersion?: number;
+  /**
+   * agregar-categoria-desde-selector (issue #744): REQUIRED, same
+   * `onMovida`/`onReclasificado` banned-pattern discipline (us-044 PR7) —
+   * called once a categoría created from THIS control's own "+" affordance
+   * has been appended to this control's local `catalogo` and selected for
+   * the row. `BucketDetalleScreen` wires this to the SAME
+   * `handleCategoriaCreada` that bumps `categoriaVersion` for
+   * `AgregarCategoriaControl` (issue #743), so every OTHER row's own cached
+   * catalog picks up the new categoría too.
+   */
+  readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
+}
+
+function esBucketAsignable(bucket: string): bucket is BucketAsignable {
+  return (BUCKETS_ASIGNABLES as readonly string[]).includes(bucket);
 }
 
 // ---------------------------------------------------------------------------
@@ -126,10 +171,12 @@ export function ReclasificarMobileControl({
   onReclasificado,
   onMovida,
   categoriaVersion,
+  onCategoriaCreada,
 }: ReclasificarMobileControlProps) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoDto | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
 
   // us-044 Alert guard: set true before Alert.alert; cleared in EVERY onPress.
   const mostrandoAlerta = useRef(false);
@@ -178,6 +225,23 @@ export function ReclasificarMobileControl({
   function handleCerrarModal() {
     setModalAbierto(false);
     // Do NOT clear catalogo — cache it so re-open is instant.
+  }
+
+  /**
+   * alCategoriaCreada (issue #744) — the created categoría is selected for
+   * this row via the EXACT SAME `handleSelectCategoria` branch a tap on an
+   * existing option takes (same-bucket direct commit, cross-bucket Alert),
+   * reported upward via `onCategoriaCreada` (bumps `categoriaVersion` for
+   * every OTHER row — see this prop's own docblock). This control's own
+   * `categoriaVersion` effect above reacts to that same bump by nulling its
+   * cached `catalogo`, so no separate local-cache append is needed here —
+   * the next open (or, if the modal is still open, the effect below) fetches
+   * the now-fresh catalog straight from the server.
+   */
+  function alCategoriaCreada(categoria: CategoriaDto) {
+    setCreandoCategoria(false);
+    onCategoriaCreada(categoria);
+    handleSelectCategoria(categoria.id, categoria.bucket, categoria.nombre);
   }
 
   /**
@@ -335,89 +399,133 @@ export function ReclasificarMobileControl({
               </Pressable>
             </View>
 
-            {/* Error message region */}
-            {errorMensaje ? (
-              <Text
-                accessibilityRole="alert"
-                style={{
-                  color: '#D1495B',
-                  fontSize: 13,
-                  paddingHorizontal: 16,
-                  paddingTop: 8,
-                }}
-              >
-                {errorMensaje}
-              </Text>
-            ) : null}
-
-            {/* Catalog loading state */}
-            {catalogo === null ? (
-              <View style={{ padding: 32, alignItems: 'center' }}>
-                <Text style={{ color: '#8A8F9C' }}>Cargando categorías...</Text>
+            {creandoCategoria ? (
+              /* "+ Crear categoría" (issue #744): replaces the picker body
+                 while open — same "at most one panel" idiom the reclassify
+                 surfaces on web use, avoids a cluttered Modal. */
+              <View style={{ padding: 16 }}>
+                <NuevaCategoriaForm
+                  bucketInicial={
+                    esBucketAsignable(categoriaActual.bucket)
+                      ? categoriaActual.bucket
+                      : undefined
+                  }
+                  onCreada={alCategoriaCreada}
+                  onCancelar={() => setCreandoCategoria(false)}
+                />
               </View>
             ) : (
-              <ScrollView style={{ padding: 16 }}>
-                {grupos.map((grupo) => (
-                  <View key={grupo.bucket} style={{ marginBottom: 16 }}>
-                    {/* Section header: ETIQUETA_BUCKET display label (D-17) */}
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '600',
-                        color: '#8A8F9C',
-                        marginBottom: 8,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Crear categoría"
+                  testID="reclasificar-crear-categoria-trigger"
+                  onPress={() => setCreandoCategoria(true)}
+                  style={{ paddingHorizontal: 16, paddingTop: 12 }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: '500',
+                      color: '#3B4266',
+                    }}
+                  >
+                    + Crear categoría
+                  </Text>
+                </Pressable>
+
+                {/* Error message region */}
+                {errorMensaje ? (
+                  <Text
+                    accessibilityRole="alert"
+                    style={{
+                      color: '#D1495B',
+                      fontSize: 13,
+                      paddingHorizontal: 16,
+                      paddingTop: 8,
+                    }}
+                  >
+                    {errorMensaje}
+                  </Text>
+                ) : null}
+
+                {/* Catalog loading state */}
+                {catalogo === null ? (
+                  <View style={{ padding: 32, alignItems: 'center' }}>
+                    <Text style={{ color: '#8A8F9C' }}>
+                      Cargando categorías...
                     </Text>
-
-                    {grupo.categorias.map((cat) => {
-                      const esCategoriaActual = cat.id === categoriaActual.id;
-
-                      return (
-                        <Pressable
-                          key={cat.id}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: esCategoriaActual }}
-                          testID={`reclasificar-opcion-${cat.id}`}
-                          onPress={() =>
-                            handleSelectCategoria(
-                              cat.id,
-                              cat.bucket,
-                              cat.nombre,
-                            )
-                          }
+                  </View>
+                ) : (
+                  <ScrollView style={{ padding: 16 }}>
+                    {grupos.map((grupo) => (
+                      <View key={grupo.bucket} style={{ marginBottom: 16 }}>
+                        {/* Section header: ETIQUETA_BUCKET display label (D-17) */}
+                        <Text
                           style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            paddingVertical: 10,
-                            paddingHorizontal: 4,
-                            borderBottomWidth: 1,
-                            borderBottomColor: '#EBEBEE',
+                            fontSize: 12,
+                            fontWeight: '600',
+                            color: '#8A8F9C',
+                            marginBottom: 8,
+                            textTransform: 'uppercase',
                           }}
                         >
-                          <Text
-                            style={{
-                              flex: 1,
-                              fontSize: 14,
-                              color: '#2D2F3A',
-                              fontWeight: esCategoriaActual ? '600' : '400',
-                            }}
-                          >
-                            {cat.nombre}
-                          </Text>
-                          {esCategoriaActual ? (
-                            <Text style={{ fontSize: 13, color: '#3B4266' }}>
-                              ● actual
-                            </Text>
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ))}
-              </ScrollView>
+                          {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
+                        </Text>
+
+                        {grupo.categorias.map((cat) => {
+                          const esCategoriaActual =
+                            cat.id === categoriaActual.id;
+
+                          return (
+                            <Pressable
+                              key={cat.id}
+                              accessibilityRole="button"
+                              accessibilityState={{
+                                selected: esCategoriaActual,
+                              }}
+                              testID={`reclasificar-opcion-${cat.id}`}
+                              onPress={() =>
+                                handleSelectCategoria(
+                                  cat.id,
+                                  cat.bucket,
+                                  cat.nombre,
+                                )
+                              }
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 10,
+                                paddingHorizontal: 4,
+                                borderBottomWidth: 1,
+                                borderBottomColor: '#EBEBEE',
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  flex: 1,
+                                  fontSize: 14,
+                                  color: '#2D2F3A',
+                                  fontWeight: esCategoriaActual ? '600' : '400',
+                                }}
+                              >
+                                {cat.nombre}
+                              </Text>
+                              {esCategoriaActual ? (
+                                <Text
+                                  style={{ fontSize: 13, color: '#3B4266' }}
+                                >
+                                  ● actual
+                                </Text>
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </>
             )}
           </View>
         </View>
