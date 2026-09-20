@@ -84,10 +84,12 @@ export function BucketDetalleMesPage({
 }) {
   const categoriasQuery = useCategorias();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  // Page-owned cross-bucket announcement (D-07): persists until replaced by a
-  // subsequent cross-bucket move, a period change, or page unmount. No timer,
-  // no auto-clear on inactivity, no `setTimeout` state machine (KISS). The
-  // `role="status"` region re-announces on every content change.
+  // Page-owned reclassify announcement (D-07; extended to same-bucket by
+  // confirmacion-reclasificar, issue #749): persists until replaced by a
+  // subsequent reclassify (cross-bucket OR same-bucket), a period change, or
+  // page unmount. No timer, no auto-clear on inactivity, no `setTimeout`
+  // state machine (KISS). The `role="status"` region re-announces on every
+  // content change.
   //
   // Period-change clearing: `periodoAnterior` shadows the previous render's
   // `periodo`. When they differ, `setAnuncio('')` is called during this render
@@ -102,8 +104,13 @@ export function BucketDetalleMesPage({
     setAnuncio('');
   }
 
-  const alMovida = (bucketLabel: string) =>
-    setAnuncio(`Movida a ${bucketLabel}.`);
+  // Reused for BOTH cross-bucket AND same-bucket reclassify (confirmacion-
+  // reclasificar, issue #749): `ReclasificarCategoriaControl` calls this
+  // with the destination bucket's label for a cross-bucket move, or the
+  // destination categoría's name for a same-bucket move — this handler just
+  // interpolates whichever string it receives, so it needed no change to
+  // support the second caller.
+  const alMovida = (label: string) => setAnuncio(`Movida a ${label}.`);
 
   // SDD `correccion-movimientos-manuales` PR 3 (WEB-DEL-01, D-03): reuses
   // the SAME page-owned `anuncio` region as `alMovida` above — a delete is a

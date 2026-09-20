@@ -154,7 +154,8 @@ export function GrupoMovimientos({
   readonly bucketActual: string;
   readonly periodo: string | undefined;
   readonly periodoLabel: string;
-  readonly onMovida: (bucketLabel: string) => void;
+  /** Bubbles straight up to `ReclasificarCategoriaControl`'s `onMovida` (see its own JSDoc for the cross-bucket/same-bucket label contract). */
+  readonly onMovida: (label: string) => void;
   readonly onEliminado?: () => void;
   readonly esDemo?: boolean;
 }) {
