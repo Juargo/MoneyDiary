@@ -12,7 +12,6 @@ import {
   waitFor,
   act,
 } from '@testing-library/react-native';
-import * as categoriasApi from '../../api/categorias';
 import type { ApiResult } from '../../domain/api-error';
 import { OfrecerPatronMobileControl } from './OfrecerPatronMobileControl';
 
