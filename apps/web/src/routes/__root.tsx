@@ -7,6 +7,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import type { QueryClient } from '@tanstack/react-query';
 import { UndoToast } from '@/components/ui/undo-toast';
+import { AvisoVersionNueva } from '@/components/AvisoVersionNueva';
 import { useFlushEliminacionAlNavegar } from '@/lib/use-flush-eliminacion-al-navegar';
 
 /**
@@ -42,6 +43,7 @@ function RootComponent() {
     <>
       <Outlet />
       <UndoToast />
+      <AvisoVersionNueva />
       {import.meta.env.DEV && (
         <>
           <TanStackRouterDevtools position="bottom-right" />
