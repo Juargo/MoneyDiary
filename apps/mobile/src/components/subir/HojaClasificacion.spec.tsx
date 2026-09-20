@@ -299,7 +299,7 @@ describe('HojaClasificacion', () => {
 
     expect(screen.getByTestId('hoja-bucket')).toHaveProp(
       'accessibilityLabel',
-      'Bucket',
+      'Grupo',
     );
     expect(screen.getByTestId('hoja-categoria')).toHaveProp(
       'accessibilityLabel',

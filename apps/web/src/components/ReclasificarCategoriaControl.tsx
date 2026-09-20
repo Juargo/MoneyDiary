@@ -395,7 +395,7 @@ export function ReclasificarCategoriaControl({
       )}
       {pendiente && (
         <InlineConfirm
-          title="Confirmar cambio de bucket"
+          title="Confirmar cambio de grupo"
           confirmLabel="Confirmar"
           onConfirm={confirmar}
           onCancel={cancelar}
@@ -454,7 +454,7 @@ function CrearCategoriaDesdeSelector({
           (`getByLabelText('Bucket')`, `CampoSelect`'s `srOnly` still nests
           the text inside the wrapping `<label>`). */}
       <CampoSelect
-        label="Bucket"
+        label="Grupo"
         srOnly
         value={bucket}
         onChange={setBucket}

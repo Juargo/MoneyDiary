@@ -219,7 +219,7 @@ export function NuevaCategoriaDesdeFilaForm({
           disabled={esDemo}
         />
         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-          Bucket
+          Grupo
           <span className="py-2 font-medium text-foreground">
             {ETIQUETA_BUCKET[bucket] ?? bucket}
           </span>

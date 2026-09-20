@@ -330,7 +330,7 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
 
     expect(await screen.findByLabelText('Nombre')).toHaveValue('Supermercado');
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue(
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toHaveValue(
       'Necesidades',
     );
   });
@@ -340,6 +340,22 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
 
     const guardar = await screen.findByRole('button', { name: 'Guardar' });
     expect(guardar).toHaveAttribute('form', 'form-identidad');
+  });
+
+  /**
+   * issue #750 — misma ayuda inline que NuevaCategoriaForm: el campo
+   * "Grupo" lleva el copy aprobado por el owner, verbatim, para que
+   * cambiarlo desde edición sea igual de claro que al crear.
+   */
+  it('muestra la ayuda inline del campo Grupo con el copy aprobado', async () => {
+    renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
+    await screen.findByLabelText('Nombre');
+
+    expect(
+      screen.getByText(
+        'Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu 50/30/20. Puedes cambiarlo después, pero afecta todos los meses.',
+      ),
+    ).toBeInTheDocument();
   });
 
   /**
@@ -432,7 +448,7 @@ describe('EditarCategoria — identity form (Q3b mechanism 1)', () => {
 
     await user.click(
       screen.getByRole('button', {
-        name: 'Cancelar cambios de nombre y bucket',
+        name: 'Cancelar cambios de nombre y grupo',
       }),
     );
 
@@ -559,7 +575,7 @@ describe('EditarCategoria — el icono viaja con el PATCH de Guardar (WCTG-04, C
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.click(await screen.findByRole('radio', { name: 'Hogar' }));
     await user.selectOptions(
-      screen.getByLabelText('Bucket (obligatorio)'),
+      screen.getByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     const fetchMock = fetchMockPatch({ categorias: [CATEGORIA_SUPERMERCADO] });
@@ -568,7 +584,7 @@ describe('EditarCategoria — el icono viaja con el PATCH de Guardar (WCTG-04, C
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Cambiar bucket',
+        name: 'Cambiar grupo',
       }),
     );
 
@@ -606,7 +622,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
     const fetchMock = vi.fn();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -622,7 +638,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
     const user = userEvent.setup();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
 
@@ -630,7 +646,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
       document.getElementById('form-identidad') as HTMLFormElement,
     );
 
-    expect(await screen.findByText('Cambiar el bucket')).toBeInTheDocument();
+    expect(await screen.findByText('Cambiar el grupo')).toBeInTheDocument();
     expect(
       screen.getByText('«Supermercado» pasa de Necesidades a Gustos.'),
     ).toBeInTheDocument();
@@ -646,7 +662,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -656,7 +672,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
 
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Cambiar bucket',
+        name: 'Cambiar grupo',
       }),
     );
 
@@ -675,7 +691,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
     const fetchMock = vi.fn();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -688,7 +704,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Guardar' })).toHaveFocus();
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue('Deseos');
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toHaveValue('Deseos');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -696,7 +712,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
     const user = userEvent.setup();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal(
@@ -709,7 +725,7 @@ describe('EditarCategoria — bucket-change impact confirmation (WCTG-07)', () =
     const dialogo = await screen.findByRole('alertdialog');
 
     await user.click(
-      within(dialogo).getByRole('button', { name: 'Cambiar bucket' }),
+      within(dialogo).getByRole('button', { name: 'Cambiar grupo' }),
     );
 
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
@@ -904,7 +920,7 @@ describe('EditarCategoria — stale mutation state on dialog reopen', () => {
     await screen.findByRole('alert');
 
     await user.selectOptions(
-      screen.getByLabelText('Bucket (obligatorio)'),
+      screen.getByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     fireEvent.submit(
@@ -963,7 +979,7 @@ describe('EditarCategoria — key={categoria.id} evita un draft de identidad obs
     });
 
     expect(await screen.findByLabelText('Nombre')).toHaveValue('Supermercado');
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue(
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toHaveValue(
       'Necesidades',
     );
 
@@ -975,7 +991,7 @@ describe('EditarCategoria — key={categoria.id} evita un draft de identidad obs
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Nombre')).toHaveValue('Streaming'),
     );
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue('Deseos');
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toHaveValue('Deseos');
   });
 });
 
@@ -989,7 +1005,7 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     const user = userEvent.setup();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     fireEvent.submit(
@@ -1027,7 +1043,7 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     const user = userEvent.setup();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     fireEvent.submit(
@@ -1036,10 +1052,10 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     await screen.findByRole('alertdialog');
 
     expect(screen.getByLabelText('Nombre')).toBeDisabled();
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toBeDisabled();
     expect(
       screen.getByRole('button', {
-        name: 'Cancelar cambios de nombre y bucket',
+        name: 'Cancelar cambios de nombre y grupo',
       }),
     ).toBeDisabled();
   });
@@ -1094,7 +1110,7 @@ describe('EditarCategoria — los triggers del footer se bloquean con un diálog
     });
 
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     fireEvent.submit(
@@ -1136,7 +1152,7 @@ describe('EditarCategoria — el diálogo de cambio de bucket congela su copy al
     const user = userEvent.setup();
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     fireEvent.submit(
@@ -1152,7 +1168,7 @@ describe('EditarCategoria — el diálogo de cambio de bucket congela su copy al
     // the snapshot defense directly, independent of the control-disabling
     // fix above, so a future regression in ONE of the two layers is still
     // caught by the other.
-    fireEvent.change(screen.getByLabelText('Bucket (obligatorio)'), {
+    fireEvent.change(screen.getByLabelText('Grupo (obligatorio)'), {
       target: { value: 'Ahorro' },
     });
 
@@ -1191,7 +1207,7 @@ describe('EditarCategoria — el snapshot también congela transaccionesCount/bu
       categorias: CATALOGO,
     });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     fireEvent.submit(
@@ -1448,7 +1464,7 @@ describe('EditarCategoria — Escape mientras la propia mutación está en vuelo
     );
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -1457,7 +1473,7 @@ describe('EditarCategoria — Escape mientras la propia mutación está en vuelo
     );
     const dialogo = await screen.findByRole('alertdialog');
     await user.click(
-      within(dialogo).getByRole('button', { name: 'Cambiar bucket' }),
+      within(dialogo).getByRole('button', { name: 'Cambiar grupo' }),
     );
     // Mid-flight: el PATCH aún no resuelve.
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
@@ -1562,7 +1578,7 @@ describe('EditarCategoria — foco tras un confirm exitoso (SUGGESTION)', () => 
     );
     renderEditar({ me: ME_NO_DEMO, categorias: CATALOGO });
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -1572,7 +1588,7 @@ describe('EditarCategoria — foco tras un confirm exitoso (SUGGESTION)', () => 
 
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Cambiar bucket',
+        name: 'Cambiar grupo',
       }),
     );
 
@@ -1643,7 +1659,7 @@ describe('EditarCategoria — demo (WCTG-11)', () => {
     renderEditar({ me: ME_DEMO, categorias: CATALOGO });
 
     expect(await screen.findByLabelText('Nombre')).toBeDisabled();
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
     expect(
       screen.getByRole('button', { name: 'Eliminar categoría Supermercado' }),
@@ -1656,7 +1672,7 @@ describe('EditarCategoria — demo (WCTG-11)', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: 'Cancelar cambios de nombre y bucket',
+        name: 'Cancelar cambios de nombre y grupo',
       }),
     ).not.toBeDisabled();
   });
@@ -1665,7 +1681,7 @@ describe('EditarCategoria — demo (WCTG-11)', () => {
     renderEditar({ me: ME_DEMO, categorias: CATALOGO });
 
     expect(await screen.findByLabelText('Nombre')).toHaveValue('Supermercado');
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toHaveValue(
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toHaveValue(
       'Necesidades',
     );
   });
@@ -1724,10 +1740,10 @@ describe('EditarCategoria — un PATCH directo (sin diálogo) en vuelo bloquea l
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Nombre')).toBeDisabled(),
     );
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeDisabled();
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toBeDisabled();
     expect(
       screen.getByRole('button', {
-        name: 'Cancelar cambios de nombre y bucket',
+        name: 'Cancelar cambios de nombre y grupo',
       }),
     ).toBeDisabled();
 
@@ -1758,7 +1774,7 @@ describe('EditarCategoria — footer reordenado a [Guardar, Cancelar], Eliminar 
 
     const guardar = await screen.findByRole('button', { name: 'Guardar' });
     const cancelar = screen.getByRole('button', {
-      name: 'Cancelar cambios de nombre y bucket',
+      name: 'Cancelar cambios de nombre y grupo',
     });
     const eliminar = screen.getByRole('button', {
       name: 'Eliminar categoría Supermercado',
@@ -1903,7 +1919,7 @@ describe('EditarCategoria — PatronesSection wiring (task 42, Q3b DOM boundary)
 
     await user.click(
       screen.getByRole('button', {
-        name: 'Cancelar cambios de nombre y bucket',
+        name: 'Cancelar cambios de nombre y grupo',
       }),
     );
 
@@ -2053,7 +2069,7 @@ describe('EditarCategoria — Guardar confirma patrones nuevos pendientes (issue
     const nuevoInput = screen.getAllByLabelText('Patrón').at(-1) as HTMLElement;
     await user.type(nuevoInput, 'uber');
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -2073,7 +2089,7 @@ describe('EditarCategoria — Guardar confirma patrones nuevos pendientes (issue
     ).toHaveLength(0);
 
     await user.click(
-      within(dialogo).getByRole('button', { name: 'Cambiar bucket' }),
+      within(dialogo).getByRole('button', { name: 'Cambiar grupo' }),
     );
 
     await waitFor(() =>
@@ -2118,7 +2134,7 @@ describe('EditarCategoria — Guardar confirma patrones nuevos pendientes (issue
     const nuevoInput = screen.getAllByLabelText('Patrón').at(-1) as HTMLElement;
     await user.type(nuevoInput, 'uber');
     await user.selectOptions(
-      await screen.findByLabelText('Bucket (obligatorio)'),
+      await screen.findByLabelText('Grupo (obligatorio)'),
       'Gustos',
     );
     vi.stubGlobal('fetch', fetchMock);

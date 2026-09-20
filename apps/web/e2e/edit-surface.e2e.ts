@@ -85,7 +85,7 @@ test.describe('edit surface — Nombre/Bucket stack across the full mobile range
     await page.getByRole('heading', { name: 'Editar categoría' }).waitFor();
 
     const nombre = page.getByLabel('Nombre', { exact: true });
-    const bucket = page.getByLabel('Bucket (obligatorio)');
+    const bucket = page.getByLabel('Grupo (obligatorio)');
     const nombreBox = await nombre.boundingBox();
     const bucketBox = await bucket.boundingBox();
     if (!nombreBox || !bucketBox) {
@@ -120,7 +120,7 @@ test.describe('edit surface — NuevaCategoriaForm stacks across the same 640–
     await page.getByRole('button', { name: 'Nueva categoría' }).click();
 
     const nombre = page.getByLabel('Nombre', { exact: true });
-    const bucket = page.getByLabel('Bucket (obligatorio)');
+    const bucket = page.getByLabel('Grupo (obligatorio)');
     const nombreBox = await nombre.boundingBox();
     const bucketBox = await bucket.boundingBox();
     if (!nombreBox || !bucketBox) {
@@ -149,7 +149,7 @@ test.describe('edit surface — footer order (E-08, D-10)', () => {
 
     const guardar = page.getByRole('button', { name: 'Guardar' });
     const cancelar = page.getByRole('button', {
-      name: 'Cancelar cambios de nombre y bucket',
+      name: 'Cancelar cambios de nombre y grupo',
     });
     // Fixture nombre (`api-stubs.ts`'s `CATALOGO_FIXTURE`, `cat-1` ==
     // "Supermercado") — the same disambiguated accessible name pattern

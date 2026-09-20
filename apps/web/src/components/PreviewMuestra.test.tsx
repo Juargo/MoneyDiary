@@ -193,7 +193,7 @@ describe('PreviewMuestra', () => {
     expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
 
     // Fix 2: bucket select should show Deseos selected (derived from edited categoriaId)
-    const bucketSelect = screen.getByLabelText(/Fila 1: bucket/i);
+    const bucketSelect = screen.getByLabelText(/Fila 1: grupo/i);
     expect(bucketSelect).toHaveValue('Deseos');
   });
 
@@ -212,7 +212,7 @@ describe('PreviewMuestra', () => {
       />,
     );
 
-    const bucketSelect = screen.getByLabelText(/Fila 1: bucket/i);
+    const bucketSelect = screen.getByLabelText(/Fila 1: grupo/i);
     const gustosOption = within(bucketSelect).getByRole('option', {
       name: 'Gustos',
     }) as HTMLOptionElement;
@@ -618,7 +618,7 @@ describe('PreviewMuestra', () => {
       const header = container.querySelector('[data-columnas-header]');
       expect(header).not.toBeNull();
       expect(header).toHaveAttribute('aria-hidden', 'true');
-      expect(header).toHaveTextContent('Bucket');
+      expect(header).toHaveTextContent('Grupo');
       expect(header).toHaveTextContent('Categoría');
     });
 
@@ -671,7 +671,7 @@ describe('PreviewMuestra', () => {
       );
 
       const link = screen.getByRole('link', {
-        name: /ayuda: qué es un bucket/i,
+        name: /ayuda: qué es un grupo/i,
       });
       expect(link).toHaveAttribute('href', '/ayuda#ayuda-glosario');
     });
@@ -689,7 +689,7 @@ describe('PreviewMuestra', () => {
       );
 
       const link = screen.getByRole('link', {
-        name: /ayuda: qué es un bucket/i,
+        name: /ayuda: qué es un grupo/i,
       });
       expect(link.closest('[data-columnas-header]')).toBeNull();
       expect(link.closest('[aria-hidden="true"]')).toBeNull();
@@ -714,7 +714,7 @@ describe('PreviewMuestra', () => {
       await userEvent.click(screen.getByLabelText(/Seleccionar fila 1/i));
 
       expect(
-        screen.getByRole('link', { name: /ayuda: qué es un bucket/i }),
+        screen.getByRole('link', { name: /ayuda: qué es un grupo/i }),
       ).toBeInTheDocument();
     });
   });
@@ -735,7 +735,7 @@ describe('PreviewMuestra', () => {
 
       expect(
         screen.getByText(
-          /el grupo 50\/30\/20 al que va el gasto \(necesidades, gustos o ahorro\)/i,
+          /el 50\/30\/20 al que va el gasto \(necesidades, gustos o ahorro\)/i,
         ),
       ).toBeInTheDocument();
       // Plain visible text, not gated behind hover/focus interaction —
@@ -756,10 +756,10 @@ describe('PreviewMuestra', () => {
       );
 
       expect(
-        screen.getByText(/el grupo 50\/30\/20 al que va el gasto/i),
+        screen.getByText(/el 50\/30\/20 al que va el gasto/i),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('link', { name: /ayuda: qué es un bucket/i }),
+        screen.getByRole('link', { name: /ayuda: qué es un grupo/i }),
       ).toBeInTheDocument();
     });
   });
@@ -1182,7 +1182,7 @@ describe('PreviewMuestra', () => {
       expect(categoriaToolbar.value).toBe('');
       expect(categoriaToolbar.options[0].value).toBe('');
       expect(categoriaToolbar.options[0].text).toMatch(
-        /selecciona bucket y categoría/i,
+        /selecciona grupo y categoría/i,
       );
 
       expect(
@@ -1511,7 +1511,7 @@ describe('PreviewMuestra', () => {
 
         const header = container.querySelector('[data-columnas-header]');
         expect(header).not.toBeNull();
-        expect(header).toHaveTextContent('Bucket');
+        expect(header).toHaveTextContent('Grupo');
         expect(header).toHaveTextContent('Categoría');
       });
     });
@@ -1767,7 +1767,7 @@ describe('PreviewMuestra', () => {
       // Classify row 1 (Fila 1 / rowIndex 0) via ITS OWN per-row control —
       // not the bulk toolbar, not the (now-hidden) filter toggle.
       await userEvent.selectOptions(
-        screen.getByLabelText(/Fila 1: bucket/i),
+        screen.getByLabelText(/Fila 1: grupo/i),
         'Necesidades',
       );
       await userEvent.selectOptions(
@@ -2004,11 +2004,11 @@ describe('PreviewMuestra', () => {
       if (!filaA || !filaB) throw new Error('rows not found');
 
       await user.selectOptions(
-        within(filaA).getByLabelText(/bucket/i),
+        within(filaA).getByLabelText(/: grupo/i),
         'Necesidades',
       );
       await user.selectOptions(
-        within(filaB).getByLabelText(/bucket/i),
+        within(filaB).getByLabelText(/: grupo/i),
         'Necesidades',
       );
 
@@ -2049,7 +2049,7 @@ describe('PreviewMuestra', () => {
       const fila = screen.getByText('A').closest('li');
       if (!fila) throw new Error('row not found');
       await user.selectOptions(
-        within(fila).getByLabelText(/bucket/i),
+        within(fila).getByLabelText(/: grupo/i),
         'Necesidades',
       );
 

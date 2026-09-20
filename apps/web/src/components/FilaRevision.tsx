@@ -215,7 +215,7 @@ export function FilaRevision({
   const seleccionable = esFilaSeleccionable(fila);
 
   const n = fila.rowIndex + 1; // 1-based human-friendly label index
-  const labelBucket = `Fila ${n}: bucket`;
+  const labelBucket = `Fila ${n}: grupo`;
   const labelCategoria = `Fila ${n}: categoría`;
   const labelSeleccionar = `Seleccionar fila ${n} para clasificar en grupo`;
 
@@ -398,7 +398,7 @@ export function FilaRevision({
           <div className="sm:flex-1">
             <CampoSelect
               label={labelBucket}
-              columnLabel="Bucket"
+              columnLabel="Grupo"
               value=""
               onChange={() => undefined}
               options={bucketOptions}
@@ -440,7 +440,7 @@ export function FilaRevision({
         <div className="sm:flex-1">
           <CampoSelect
             label={labelBucket}
-            columnLabel="Bucket"
+            columnLabel="Grupo"
             value={bucketUI}
             onChange={handleBucketChange}
             options={bucketOptions}

@@ -653,7 +653,7 @@ export function PreviewMuestra({
               className="hidden gap-2 px-2 sm:flex"
             >
               <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Bucket
+                Grupo
               </span>
               <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Categoría
@@ -669,14 +669,14 @@ export function PreviewMuestra({
               dropped — the link's own underline already signals it's
               interactive, so the glyph was decoration, not information. */}
             <p className="px-2 text-xs text-muted-foreground">
-              <strong className="font-medium">Bucket</strong>: el grupo 50/30/20
-              al que va el gasto (Necesidades, Gustos o Ahorro). ·{' '}
+              <strong className="font-medium">Grupo</strong>: el 50/30/20 al que
+              va el gasto (Necesidades, Gustos o Ahorro). ·{' '}
               <Link
                 to="/ayuda"
                 hash="ayuda-glosario"
                 className="underline underline-offset-2 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
               >
-                Ayuda: qué es un bucket
+                Ayuda: qué es un grupo
               </Link>
             </p>
           </div>
@@ -883,14 +883,14 @@ export function PreviewMuestra({
                 "{bucket} · {categoría}" text carries the same information a
                 second visible label line would only repeat. */}
             <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-              <span className="sr-only">Bucket y categoría para aplicar</span>
+              <span className="sr-only">Grupo y categoría para aplicar</span>
               <select
                 value={categoriaToolbar}
                 onChange={(event) => setCategoriaToolbar(event.target.value)}
                 disabled={catalogo.tag !== 'listo'}
                 className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
               >
-                <option value="">Selecciona bucket y categoría</option>
+                <option value="">Selecciona grupo y categoría</option>
                 {gruposCategoriaToolbar.map((grupo) => (
                   <optgroup
                     key={grupo.bucket}

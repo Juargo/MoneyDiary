@@ -118,6 +118,28 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     ]);
   });
 
+  /**
+   * issue #750 — "bucket" es jerga interna sin explicación en la UI (una
+   * usuaria de prueba preguntó "¿por qué sale bucket?"). El campo se llama
+   * "Grupo" y lleva la ayuda inline con el copy aprobado por el owner
+   * (verbatim), visible sin interacción.
+   */
+  it('el campo se llama "Grupo (obligatorio)" y muestra la ayuda inline con el copy aprobado', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+
+    expect(screen.getByText('Grupo (obligatorio)')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu 50/30/20. Puedes cambiarlo después, pero afecta todos los meses.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
   it('submit is no-op when nombre is empty (bucket selected)', async () => {
     await render(
       <NuevaCategoriaForm
@@ -300,7 +322,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
       // so the accessibilityRole="alert" + accessibilityLiveRegion="polite" are implicitly pinned:
       // if the Text node loses those props, getByRole('alert') fails before toHaveTextContent.
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre en ese bucket.',
+        'Ya tienes una categoría con ese nombre en ese grupo.',
       );
     });
 
@@ -336,7 +358,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     // Wait for first error to appear — via the alert role element
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre en ese bucket.',
+        'Ya tienes una categoría con ese nombre en ese grupo.',
       );
     });
 
@@ -349,7 +371,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     await waitFor(() => {
       expect(
         screen.queryByText(
-          'Ya tienes una categoría con ese nombre en ese bucket.',
+          'Ya tienes una categoría con ese nombre en ese grupo.',
         ),
       ).toBeNull();
     });

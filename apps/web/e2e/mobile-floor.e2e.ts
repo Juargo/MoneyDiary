@@ -193,7 +193,7 @@ test.describe('mobile floor — must already hold on main (WCTG-13, WCTG-14 scen
     // Necesidades") — unlike jsdom/Testing Library's `getByLabelText`,
     // which strips the control's value. A substring match still resolves
     // uniquely; `exact: true` here would time out against every option.
-    const bucket = page.getByLabel('Bucket (obligatorio)');
+    const bucket = page.getByLabel('Grupo (obligatorio)');
     const nombreBox = await nombre.boundingBox();
     const bucketBox = await bucket.boundingBox();
     if (!nombreBox || !bucketBox) {

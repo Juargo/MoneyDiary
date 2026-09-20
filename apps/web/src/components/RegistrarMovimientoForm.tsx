@@ -224,10 +224,10 @@ export function RegistrarMovimientoForm({
   const bucketOptions =
     catalogo.tag === 'listo'
       ? [
-          { value: '', label: 'Selecciona un bucket' },
+          { value: '', label: 'Selecciona un grupo' },
           ...construirOpcionesBucket(catalogo.grupos.map((g) => g.bucket)),
         ]
-      : [{ value: '', label: 'Selecciona un bucket' }];
+      : [{ value: '', label: 'Selecciona un grupo' }];
 
   const categoriaOptions =
     catalogo.tag === 'listo' && bucketUI
@@ -319,7 +319,7 @@ export function RegistrarMovimientoForm({
     }
     if (tipo === 'Gasto') {
       if (!esBucketAsignable(bucketUI)) {
-        nextErrores.cascade = 'Selecciona un bucket válido.';
+        nextErrores.cascade = 'Selecciona un grupo válido.';
       } else if (!categoriaId) {
         nextErrores.cascade = 'Selecciona una categoría.';
       }
@@ -583,7 +583,7 @@ export function RegistrarMovimientoForm({
 
           {/* Bucket select — first <select> inside cascadaRef (D-09 ordering invariant) */}
           <CampoSelect
-            label="Bucket"
+            label="Grupo"
             value={bucketUI}
             onChange={(v) => {
               setBucketUI(v);

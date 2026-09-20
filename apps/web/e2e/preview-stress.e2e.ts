@@ -34,8 +34,8 @@ import { buildPreviewStressFixture } from './fixtures/preview-stress-fixture';
 
 const ROW_COUNT = 300;
 const { fixture, meta } = buildPreviewStressFixture(ROW_COUNT);
-const lastRowLabel = `Fila ${meta.rowCount}: bucket`;
-const midRowLabelBucket = `Fila ${meta.midRowIndex + 1}: bucket`;
+const lastRowLabel = `Fila ${meta.rowCount}: grupo`;
+const midRowLabelBucket = `Fila ${meta.midRowIndex + 1}: grupo`;
 const midRowLabelCategoria = `Fila ${meta.midRowIndex + 1}: categoría`;
 const visiblesSeleccionablesCount = meta.rowCount - meta.duplicateCount;
 

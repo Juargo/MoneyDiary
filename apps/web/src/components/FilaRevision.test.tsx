@@ -138,7 +138,7 @@ describe('FilaRevision', () => {
 
     expect(screen.getByText('Duplicado')).toBeInTheDocument();
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toBeDisabled();
     expect(
       screen.queryByLabelText(/Fila 3: categoría/i),
@@ -174,7 +174,7 @@ describe('FilaRevision', () => {
     );
 
     expect(screen.queryByText('Duplicado')).not.toBeInTheDocument();
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).not.toBeDisabled();
   });
 
@@ -190,7 +190,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 5: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 5: grupo/i);
     expect(bucketGroup).toBeInTheDocument();
     expect(
       screen.queryByLabelText(/Fila 5: categoría/i),
@@ -211,7 +211,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Deseos');
 
     // After selecting "Deseos", categoría select should only show Deseos categorías
@@ -264,7 +264,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     const gustosOption = within(bucketGroup).getByRole('option', {
       name: 'Gustos',
     }) as HTMLOptionElement;
@@ -288,7 +288,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
     expect(onEditChange).toHaveBeenCalledTimes(0);
@@ -308,7 +308,7 @@ describe('FilaRevision', () => {
     );
 
     // First select a bucket to enable categoría select
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
@@ -333,7 +333,7 @@ describe('FilaRevision', () => {
     );
 
     // Mount already has categoriaId — changing bucket should fire onEditChange(2, null)
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Deseos');
 
     expect(onEditChange).toHaveBeenCalledTimes(1);
@@ -354,7 +354,7 @@ describe('FilaRevision', () => {
     );
 
     // First select a bucket to enable categoría select
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
@@ -377,7 +377,7 @@ describe('FilaRevision', () => {
     );
 
     // Select a bucket first, then a category, then reset to "Sin categoría"
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
     const categoriaSelect = screen.getByLabelText(/Fila 3: categoría/i);
@@ -405,7 +405,7 @@ describe('FilaRevision', () => {
     );
 
     // categoriaId prop is 'cat-nec-1' → bucketUI seeds to 'Necesidades' (fix 2)
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toHaveValue('Necesidades');
 
     // Changing bucket fires onEditChange(2, null) because categoriaId is non-null
@@ -434,7 +434,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toHaveValue('Necesidades');
   });
 
@@ -453,7 +453,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     // Should show Deseos (from edited categoriaId) not Necesidades (from sugerido)
     expect(bucketGroup).toHaveValue('Deseos');
 
@@ -488,7 +488,7 @@ describe('FilaRevision', () => {
     render(<Controlled />);
 
     // Step 1: select bucket — no call (categoriaId is null, fix 1a)
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Necesidades');
     expect(onEditChange).not.toHaveBeenCalled();
 
@@ -521,7 +521,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toHaveValue('');
     expect(
       screen.queryByLabelText(/Fila 3: categoría/i),
@@ -539,7 +539,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toBeDisabled();
     expect(
       screen.queryByLabelText(/Fila 3: categoría/i),
@@ -562,7 +562,7 @@ describe('FilaRevision', () => {
     );
 
     // Mount: no sugerido, no edit — bucketUI seeds empty, no categoría select.
-    const bucketGroupInicial = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroupInicial = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroupInicial).toHaveValue('');
     expect(
       screen.queryByLabelText(/Fila 3: categoría/i),
@@ -580,7 +580,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     // Bucket control must now show "Gustos" checked — derived from the
     // catalog group that owns 'cat-des-1', not the stale mount-time '' value.
     expect(bucketGroup).toHaveValue('Deseos');
@@ -609,7 +609,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     await userEvent.selectOptions(bucketGroup, 'Deseos');
     expect(bucketGroup).toHaveValue('Deseos');
     // No onEditChange yet — categoriaId prop was null (fix 1a semantics kept).
@@ -631,7 +631,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toHaveValue('');
     expect(
       screen.queryByLabelText(/Fila 3: categoría/i),
@@ -654,7 +654,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).toHaveValue('Necesidades');
 
     const categoriaSelect = screen.getByLabelText(
@@ -678,7 +678,7 @@ describe('FilaRevision', () => {
       />,
     );
 
-    const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
     expect(screen.getByLabelText(/Fila 3: categoría/i)).toBeInTheDocument();
 
     await userEvent.selectOptions(bucketGroup, '');
@@ -795,7 +795,7 @@ describe('FilaRevision', () => {
     );
 
     // Should not crash; bucket control should be disabled
-    const bucketGroup = screen.queryByLabelText(/Fila 3: bucket/i);
+    const bucketGroup = screen.queryByLabelText(/Fila 3: grupo/i);
     expect(bucketGroup).not.toBeNull();
     if (bucketGroup) expect(bucketGroup).toBeDisabled();
     expect(
@@ -830,7 +830,7 @@ describe('FilaRevision', () => {
       );
 
       // getByLabelText throws if the element is missing or the label association is broken
-      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 3: grupo/i)).toBeInTheDocument();
       expect(
         screen.queryByLabelText(/Fila 3: categoría/i),
       ).not.toBeInTheDocument();
@@ -846,7 +846,7 @@ describe('FilaRevision', () => {
         />,
       );
 
-      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeDisabled();
+      expect(screen.getByLabelText(/Fila 3: grupo/i)).toBeDisabled();
       expect(
         screen.queryByLabelText(/Fila 3: categoría/i),
       ).not.toBeInTheDocument();
@@ -886,9 +886,9 @@ describe('FilaRevision', () => {
       );
 
       // Visible short label for the bucket control is present immediately.
-      expect(screen.getByText('Bucket')).toBeInTheDocument();
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
-      expect(bucketGroup).toHaveAccessibleName('Fila 3: bucket');
+      expect(screen.getByText('Grupo')).toBeInTheDocument();
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
+      expect(bucketGroup).toHaveAccessibleName('Fila 3: grupo');
 
       // Categoría's visible label + accessible name appear once a bucket is chosen.
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
@@ -907,7 +907,7 @@ describe('FilaRevision', () => {
         />,
       );
 
-      const visibleBucketLabel = screen.getByText('Bucket');
+      const visibleBucketLabel = screen.getByText('Grupo');
       expect(visibleBucketLabel.className).toMatch(/sm:sr-only/);
     });
 
@@ -921,9 +921,9 @@ describe('FilaRevision', () => {
         />,
       );
 
-      expect(screen.getByText('Bucket')).toBeInTheDocument();
+      expect(screen.getByText('Grupo')).toBeInTheDocument();
       expect(screen.queryByText('Categoría')).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeDisabled();
+      expect(screen.getByLabelText(/Fila 3: grupo/i)).toBeDisabled();
     });
 
     it('three-row mix (1 duplicate + 2 non-duplicate): all three bucket controls reachable by label; no categoría rendered by default', () => {
@@ -954,15 +954,15 @@ describe('FilaRevision', () => {
 
       render(<ThreeRows />);
 
-      expect(screen.getByLabelText(/Fila 1: bucket/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 1: grupo/i)).toBeInTheDocument();
       expect(
         screen.queryByLabelText(/Fila 1: categoría/i),
       ).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/Fila 2: bucket/i)).toBeDisabled();
+      expect(screen.getByLabelText(/Fila 2: grupo/i)).toBeDisabled();
       expect(
         screen.queryByLabelText(/Fila 2: categoría/i),
       ).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/Fila 3: bucket/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Fila 3: grupo/i)).toBeInTheDocument();
       expect(
         screen.queryByLabelText(/Fila 3: categoría/i),
       ).not.toBeInTheDocument();
@@ -997,7 +997,7 @@ describe('FilaRevision', () => {
         />,
       );
 
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
       expect(
@@ -1031,7 +1031,7 @@ describe('FilaRevision', () => {
         />,
       );
 
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
       const boton = screen.getByRole('button', { name: /nueva categoría/i });
@@ -1051,7 +1051,7 @@ describe('FilaRevision', () => {
         { wrapper: crearWrapperQuery() },
       );
 
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
 
       expect(
@@ -1087,7 +1087,7 @@ describe('FilaRevision', () => {
         />,
       );
 
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
       await userEvent.click(
         screen.getByRole('button', { name: /nueva categoría/i }),
@@ -1115,7 +1115,7 @@ describe('FilaRevision', () => {
 
       render(<Wrapper />, { wrapper: crearWrapperQuery() });
 
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
       const trigger = screen.getByRole('button', { name: /nueva categoría/i });
       await userEvent.click(trigger);
@@ -1167,7 +1167,7 @@ describe('FilaRevision', () => {
 
       render(<Wrapper />, { wrapper: crearWrapperQuery() });
 
-      const bucketGroup = screen.getByLabelText(/Fila 3: bucket/i);
+      const bucketGroup = screen.getByLabelText(/Fila 3: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
       await userEvent.click(
         screen.getByRole('button', { name: /nueva categoría/i }),
@@ -1275,9 +1275,7 @@ describe('FilaRevision', () => {
         />,
       );
 
-      expect(
-        screen.queryByLabelText(/Fila 3: bucket/i),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Fila 3: grupo/i)).not.toBeInTheDocument();
       expect(
         screen.queryByLabelText(/Fila 3: categoría/i),
       ).not.toBeInTheDocument();

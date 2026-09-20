@@ -224,7 +224,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
 
     // Choose a bucket
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
 
     // Choose a categoría
     await user.selectOptions(
@@ -267,7 +267,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
 
     // Bucket select should appear; categoría should be present-but-disabled (no bucket)
-    const bucketSelect = screen.getByLabelText(/bucket/i);
+    const bucketSelect = screen.getByLabelText(/grupo/i);
     expect(bucketSelect).toBeInTheDocument();
 
     const categoriaSelect = screen.getByLabelText(/categor[ií]a/i);
@@ -323,7 +323,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     const user = userEvent.setup();
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
 
-    const bucketSelect = screen.getByLabelText(/bucket/i) as HTMLSelectElement;
+    const bucketSelect = screen.getByLabelText(/grupo/i) as HTMLSelectElement;
     const deseosOption = Array.from(bucketSelect.options).find(
       (o) => o.value === 'Deseos',
     );
@@ -368,7 +368,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     // Switch to Gasto and fill cascade
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
     await user.selectOptions(
       screen.getByLabelText(/categor[ií]a/i),
       'cat-des-1',
@@ -395,7 +395,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
         'Ingreso',
       );
       // Cascade no longer rendered (tipo is Ingreso)
-      expect(screen.queryByLabelText(/bucket/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/grupo/i)).not.toBeInTheDocument();
       // descripcion/monto cleared
       expect(
         (screen.getByLabelText(/descripci[oó]n/i) as HTMLInputElement).value,
@@ -546,7 +546,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
     // Choose bucket but NOT categoría
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
 
     fireEvent.change(screen.getByLabelText(/fecha/i), {
       target: { value: hoy },
@@ -591,7 +591,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     expect(mutateSpy).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Selecciona un bucket válido.',
+      'Selecciona un grupo válido.',
     );
   });
 
@@ -720,7 +720,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
 
     const grupo = screen.getByRole('group', { name: 'Clasificación' });
-    expect(within(grupo).getByLabelText(/bucket/i)).toBeInTheDocument();
+    expect(within(grupo).getByLabelText(/grupo/i)).toBeInTheDocument();
     expect(within(grupo).getByLabelText(/categor[ií]a/i)).toBeInTheDocument();
   });
 
@@ -800,7 +800,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     const user = userEvent.setup();
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
     await user.selectOptions(
       screen.getByLabelText(/categor[ií]a/i),
       'cat-des-1',
@@ -989,7 +989,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     const user = userEvent.setup();
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
     await user.selectOptions(
       screen.getByLabelText(/categor[ií]a/i),
       'cat-des-1',
@@ -1003,7 +1003,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(screen.getByLabelText(/fecha/i)).toBeDisabled();
     expect(screen.getByLabelText(/descripci[oó]n/i)).toBeDisabled();
     expect(screen.getByLabelText(/monto/i)).toBeDisabled();
-    expect(screen.getByLabelText(/bucket/i)).toBeDisabled();
+    expect(screen.getByLabelText(/grupo/i)).toBeDisabled();
     expect(screen.getByLabelText(/categor[ií]a/i)).toBeDisabled();
     expect(getSubmitButton()).toBeDisabled();
   });
@@ -1116,7 +1116,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
 
     // Cascade selects disabled
-    expect(screen.getByLabelText(/bucket/i)).toBeDisabled();
+    expect(screen.getByLabelText(/grupo/i)).toBeDisabled();
     expect(screen.getByLabelText(/categor[ií]a/i)).toBeDisabled();
 
     // Attempt to submit with empty cascade
@@ -1153,7 +1153,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
     const hoy = hoyLocal();
 
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
     await user.selectOptions(
       screen.getByLabelText(/categor[ií]a/i),
       'cat-des-1',
@@ -1224,7 +1224,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     // The first <select> inside cascadaRef (bucket) must receive focus.
     await waitFor(() => {
-      const bucketSelect = screen.getByLabelText(/bucket/i);
+      const bucketSelect = screen.getByLabelText(/grupo/i);
       expect(document.activeElement).toBe(bucketSelect);
     });
   });
@@ -1316,7 +1316,7 @@ describe('RegistrarMovimientoForm (US-060)', () => {
 
     const user = userEvent.setup();
     await user.selectOptions(screen.getByLabelText(/tipo/i), 'Gasto');
-    await user.selectOptions(screen.getByLabelText(/bucket/i), 'Deseos');
+    await user.selectOptions(screen.getByLabelText(/grupo/i), 'Deseos');
     await user.selectOptions(
       screen.getByLabelText(/categor[ií]a/i),
       'cat-des-1',
@@ -1335,9 +1335,9 @@ describe('RegistrarMovimientoForm (US-060)', () => {
       expect((screen.getByLabelText(/tipo/i) as HTMLSelectElement).value).toBe(
         'Gasto',
       );
-      expect(
-        (screen.getByLabelText(/bucket/i) as HTMLSelectElement).value,
-      ).toBe('Deseos');
+      expect((screen.getByLabelText(/grupo/i) as HTMLSelectElement).value).toBe(
+        'Deseos',
+      );
       expect(
         (screen.getByLabelText(/categor[ií]a/i) as HTMLSelectElement).value,
       ).toBe('cat-des-1');

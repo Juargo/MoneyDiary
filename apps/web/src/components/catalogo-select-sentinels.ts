@@ -14,5 +14,5 @@
 export const SENTINEL_OPTION = { value: '', label: 'Sin categoría' } as const;
 export const BUCKET_SENTINEL_OPTION = {
   value: '',
-  label: 'Seleccionar bucket',
+  label: 'Seleccionar grupo',
 } as const;

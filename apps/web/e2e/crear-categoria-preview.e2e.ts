@@ -153,18 +153,18 @@ test.describe('crear una categoría desde la vista previa', () => {
     // cartola-preview-confirmacion PR10 (D-07, WEB-PRV-19): "Revisar y
     // editar" is now the only path into the editable table.
     await page.getByRole('button', { name: 'Revisar y editar' }).click();
-    await expect(page.getByLabel('Fila 1: bucket')).toBeVisible();
+    await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     // Manual override on row 2 (fila 3) BEFORE creating: it must survive the
     // re-run even though its suggestion also changes.
     // El control de bucket es un `<select>`: `selectOption` con el VALOR de
     // dominio ('Deseos'), no un click sobre el texto de despliegue
     // ('Gustos'). Un `<option>` nunca es clickeable en Playwright.
-    await page.getByLabel('Fila 3: bucket').selectOption('Deseos');
+    await page.getByLabel('Fila 3: grupo').selectOption('Deseos');
     await page.getByLabel('Fila 3: categoría').selectOption('cat-des-1');
 
     // Create the categoría from row 0 (fila 1).
-    await page.getByLabel('Fila 1: bucket').selectOption('Deseos');
+    await page.getByLabel('Fila 1: grupo').selectOption('Deseos');
     await page
       .getByRole('button', { name: 'Nueva categoría para fila 1' })
       .click();
@@ -188,7 +188,7 @@ test.describe('crear una categoría desde la vista previa', () => {
     await expect(
       page.getByRole('heading', { name: 'Nueva categoría' }),
     ).toBeHidden();
-    await expect(page.getByLabel('Fila 1: bucket')).toBeVisible();
+    await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     // The originating row adopted it, and so did the two matching rows.
     for (const n of [1, 4, 5]) {
@@ -234,7 +234,7 @@ test.describe('crear una categoría desde la vista previa', () => {
       buffer: Buffer.from('stub'),
     });
     await page.getByRole('button', { name: 'Revisar y editar' }).click();
-    await expect(page.getByLabel('Fila 1: bucket')).toBeVisible();
+    await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     await expect(
       page.getByText(

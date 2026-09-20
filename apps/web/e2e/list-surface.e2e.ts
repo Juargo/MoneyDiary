@@ -233,7 +233,7 @@ test.describe('list + edit surface — WCTM-06 six-string band table (E-09)', ()
       .waitFor();
 
     const subtitulo = page.getByText(
-      'Tu catálogo propio: toda categoría pertenece a un bucket. Los patrones permiten la auto-categorización.',
+      'Tu catálogo propio: toda categoría pertenece a un grupo. Los patrones permiten la auto-categorización.',
     );
     if (testInfo.project.name === 'movil') {
       await expect(subtitulo).toBeHidden();
