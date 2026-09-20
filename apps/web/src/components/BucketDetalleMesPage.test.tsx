@@ -6,7 +6,11 @@ import { BucketDetalleMesPage } from './BucketDetalleMesPage';
 import { renderConRouter } from '@/test/router-harness';
 import { resetUndoManagerParaTests } from '@/lib/undo-manager';
 import type { ApiError } from '@/api/client';
-import type { CatalogoDto, DetalleBucketMesDto } from '@/api/types';
+import type {
+  CategoriaDto,
+  CatalogoDto,
+  DetalleBucketMesDto,
+} from '@/api/types';
 
 // US-053 (T-08) — page-level behavior ledger (design.md §5):
 // WDM-01 header · WDM-03 grouping/collapse · WDM-04 destacar · WDM-05 empty
@@ -1412,6 +1416,209 @@ describe('BucketDetalleMesPage', () => {
       expect(
         await screen.findByRole('button', { name: /Reevaluar categorías/i }),
       ).toBeDisabled();
+    });
+  });
+
+  // ── AgregarCategoriaControl integration (issue #743) ──
+  //
+  // The usability finding: a tester opened a bucket's detail screen and
+  // looked for an "add category" affordance right there, instead of leaving
+  // to Configuración → Categorías. `AgregarCategoriaControl` mounts a
+  // "Agregar categoría" trigger in this page's header (same slot as
+  // `ReevaluarPatronesControl`) that reuses `NuevaCategoriaDesdeFilaForm`
+  // (crear-categoria-desde-preview precedent) with the bucket FIXED to
+  // `viewModel.bucket` — never a user choice on this screen. Hidden on
+  // `SinCategoria` (BUCKETS_ASIGNABLES gate) since that bucket cannot own a
+  // categoría. `useCrearCategoria`'s own `onSuccess` seeds the shared
+  // `['categorias']` query BEFORE invalidating (see that hook's own
+  // docblock) — this is what makes the created categoría selectable in
+  // `ReclasificarCategoriaControl` without a reload, no extra plumbing
+  // needed here.
+  describe('AgregarCategoriaControl integration (issue #743)', () => {
+    // A successful POST also grows the GET fixture (mutable local state) —
+    // the mutation's own onSuccess (useCrearCategoria) seeds the cache
+    // BEFORE invalidating, but the invalidation's refetch still hits this
+    // same mock: a stub that always answered the ORIGINAL fixture would
+    // stomp that seed the instant TanStack Query's background refetch
+    // resolves, undoing the very freshness this feature exists to prove.
+    function stubFetchConCrearCategoria(
+      respuestaCrear: {
+        ok: boolean;
+        status: number;
+        json: () => Promise<unknown>;
+      },
+      catalogoInicial: CatalogoDto = CATALOGO_FIXTURE,
+    ) {
+      let catalogoActual = catalogoInicial;
+      const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST' && url === '/api/categorias') {
+          if (respuestaCrear.ok) {
+            const creada = (await respuestaCrear.json()) as CategoriaDto;
+            catalogoActual = {
+              categorias: [...catalogoActual.categorias, creada],
+            };
+          }
+          return {
+            ok: respuestaCrear.ok,
+            status: respuestaCrear.status,
+            json: respuestaCrear.json,
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(catalogoActual),
+        } as Response;
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    }
+
+    it('renders the "Agregar categoría" trigger in the header for an assignable bucket (Necesidades)', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      expect(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      ).toBeInTheDocument();
+    });
+
+    it('does NOT render the trigger on the SinCategoria bucket detail screen (not assignable)', async () => {
+      stubFetchInteraccion();
+      const dtoSinCategoria: DetalleBucketMesDto = {
+        ...dtoCompleto,
+        bucket: 'SinCategoria',
+      };
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoSinCategoria })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await verPrimerGrupo();
+      expect(
+        screen.queryByRole('button', { name: 'Agregar categoría' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('esDemo disables the trigger', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+          esDemo
+        />,
+      );
+
+      expect(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      ).toBeDisabled();
+    });
+
+    it('creating a category closes the form, announces success in the shared anuncio region, and the new category becomes selectable in the reclassify control without a reload', async () => {
+      const fetchMock = stubFetchConCrearCategoria({
+        ok: true,
+        status: 201,
+        json: () =>
+          Promise.resolve({
+            id: 'categoria-mascotas',
+            nombre: 'Mascotas',
+            bucket: 'Necesidades',
+            patrones: [],
+            transaccionesCount: 0,
+          }),
+      });
+      const user = userEvent.setup();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await user.click(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      );
+      await user.type(screen.getByLabelText('Nombre'), 'Mascotas');
+      await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+      const statusRegion = screen.getByTestId('anuncio-reclasificar');
+      await waitFor(() =>
+        expect(statusRegion).toHaveTextContent('Categoría «Mascotas» creada.'),
+      );
+      // The form closed on success — its own "Crear" button is gone.
+      expect(
+        screen.queryByRole('button', { name: 'Crear' }),
+      ).not.toBeInTheDocument();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/categorias',
+        expect.objectContaining({ method: 'POST' }),
+      );
+
+      // The new categoría must be selectable in the SAME screen's reclassify
+      // control right away — no reload, no re-mount.
+      await expandirGrupo(/Ñoquis/);
+      const selects = await screen.findAllByRole('combobox');
+      const primerSelect = selects[0] as HTMLSelectElement;
+      await waitFor(() => expect(primerSelect).not.toBeDisabled());
+      expect(
+        within(primerSelect).getByRole('option', {
+          name: 'Necesidades · Mascotas',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('a duplicate-name error from the server renders inline as a form-level alert, using the existing catalog error copy', async () => {
+      stubFetchConCrearCategoria({
+        ok: false,
+        status: 409,
+        json: () =>
+          Promise.resolve({
+            code: 'NOMBRE_DUPLICADO',
+            message: 'a raw server string that must never render',
+          }),
+      });
+      const user = userEvent.setup();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await user.click(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      );
+      await user.type(screen.getByLabelText('Nombre'), 'Ñoquis');
+      await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Ya tienes una categoría con ese nombre en ese bucket.',
+      );
+      expect(screen.queryByText(/a raw server string/)).not.toBeInTheDocument();
     });
   });
 });
