@@ -7,14 +7,20 @@ import { Empty } from './states/Empty';
 import { PeriodoSelector } from './PeriodoSelector';
 import { GrupoMovimientos } from './GrupoMovimientos';
 import { ReevaluarPatronesControl } from './ReevaluarPatronesControl';
+import { AgregarCategoriaControl } from './AgregarCategoriaControl';
 import { Button } from '@/components/ui/button';
 import { useCategorias } from '@/api/use-categorias';
+import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import { aDetalleBucketMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
 import { mesAbreviadoConAnio, mesCompletoLabel } from '@/domain/periodo-anual';
 import { CLAVE_SIN_CATEGORIA } from '@/domain/periodo';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { ApiError } from '@/api/client';
-import type { DetalleBucketMesDto, ReevaluarCategoriasDto } from '@/api/types';
+import type {
+  CategoriaDto,
+  DetalleBucketMesDto,
+  ReevaluarCategoriasDto,
+} from '@/api/types';
 
 /**
  * BucketDetalleMesPage — US-053 real page for a single bucket/month over the
@@ -137,6 +143,18 @@ export function BucketDetalleMesPage({
     );
   };
 
+  // AgregarCategoriaControl (issue #743): reuses the SAME page-owned
+  // `anuncio` region as the reclassify/delete/reevaluate handlers above —
+  // one page-level status line for every mutation this screen can trigger,
+  // not a new one per affordance. `useCrearCategoria`'s own `onSuccess`
+  // already seeds the shared `['categorias']` query (see that hook's
+  // docblock), so the created categoría is selectable in
+  // `ReclasificarCategoriaControl` the instant this handler runs — no
+  // extra invalidation needed here.
+  const alCategoriaCreada = (categoria: CategoriaDto) => {
+    setAnuncio(`Categoría «${categoria.nombre}» creada.`);
+  };
+
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
   }
@@ -147,6 +165,12 @@ export function BucketDetalleMesPage({
   const viewModel = aDetalleBucketMesViewModel(query.data);
   const etiqueta = ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket;
   const mesLabel = mesCompletoLabel(viewModel.periodo);
+  // SinCategoria (and any future non-spend bucket) cannot own a categoría —
+  // BUCKETS_ASIGNABLES is the same gate ReclasificarCategoriaControl already
+  // applies to its own <optgroup> list (issue #743).
+  const bucketEsAsignable = (
+    BUCKETS_ASIGNABLES as ReadonlyArray<string>
+  ).includes(viewModel.bucket);
 
   const categoriasCargandoInicial =
     categoriasQuery.data === undefined && categoriasQuery.isFetching;
@@ -228,6 +252,13 @@ export function BucketDetalleMesPage({
           esDemo={esDemo}
           onReevaluado={alReevaluarPatrones}
         />
+        {bucketEsAsignable && (
+          <AgregarCategoriaControl
+            bucket={viewModel.bucket}
+            esDemo={esDemo}
+            onCreada={alCategoriaCreada}
+          />
+        )}
         {esDemo && (
           <p role="note" className="text-sm text-muted-foreground">
             {MENSAJE_DEMO_ELIMINAR}

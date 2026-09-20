@@ -25,6 +25,30 @@
  *
  * NO useFocusEffect for initial load (categoria/[id].tsx:55-58 rationale: the
  * route unmounts on nav-away, so mounting = every visit).
+ *
+ * `AgregarCategoriaControl` (agregar-categoria-desde-bucket, issue #743):
+ * mounted in the header, gated on `BUCKETS_ASIGNABLES.includes(bucket)` —
+ * `SinCategoria` cannot own a categoría. On success, `handleCategoriaCreada`
+ * both announces via the SAME shared `anuncio`/AccessibilityInfo mechanism
+ * `handleMovida` uses, and bumps `categoriaVersion`, forwarded as a PROP
+ * through `GrupoMovimientosMobile` down to every row's
+ * `ReclasificarMobileControl` (never a `key` on the groups container — a
+ * `key`-based remount was tried first and reverted: `GrupoMovimientosMobile`
+ * keeps its own `expandido` accordion state, so remounting the subtree
+ * collapsed every already-expanded group the instant a categoría was
+ * created, which defeats the exact flow this feature exists to smooth: a
+ * user expands a group to reclassify a movement, doesn't find the categoría
+ * they want, creates it from this screen, and should NOT lose their place).
+ * `ReclasificarMobileControl` caches its OWN catalog fetch in local state
+ * for its component lifetime ("Do NOT clear catalogo — cache it so re-open
+ * is instant") — there is no shared/global mobile cache to invalidate the
+ * way web's TanStack Query lets `useCrearCategoria` seed `['categorias']`.
+ * That control's own `categoriaVersion` effect clears ONLY its cached
+ * `catalogo` (not the component) when the prop changes, so its NEXT open
+ * refetches fresh and includes the just-created categoría — the same
+ * "immediately usable without a reload" guarantee web gets from cache
+ * seeding, achieved here per-instance instead (no shared cache exists to
+ * seed on mobile), without touching any accordion state.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -38,10 +62,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchDetalleBucketMes } from '../../api/client';
 import { aDetalleBucketMesViewModel } from '../../domain/detalle-bucket-mes-view-model';
+import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
 import { ETIQUETA_BUCKET } from '../../theme/colors';
 import { SelectorPeriodoMes } from '../SelectorPeriodoMes';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
+import { AgregarCategoriaControl } from './AgregarCategoriaControl';
 import { copiaPorApiError } from '../../domain/api-error';
+import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 import type { ApiError } from '../../domain/api-error';
 
@@ -76,6 +103,11 @@ export function BucketDetalleScreen({
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
   // Screen-owned announcement state (D-20)
   const [anuncio, setAnuncio] = useState('');
+  // agregar-categoria-desde-bucket (issue #743): bumped on every successful
+  // categoría creation and threaded down as a PROP (never a `key`) — see
+  // this file's own docblock for why this is what refreshes the reclassify
+  // pickers without collapsing any expanded group.
+  const [categoriaVersion, setCategoriaVersion] = useState(0);
 
   const cargar = useCallback(async () => {
     setEstado({ fase: 'loading' });
@@ -114,6 +146,20 @@ export function BucketDetalleScreen({
   function handleMovida(label: string) {
     setAnuncio(`Movida a ${label}.`);
     AccessibilityInfo.announceForAccessibility(`Movida a ${label}.`);
+  }
+
+  /**
+   * handleCategoriaCreada (issue #743): reuses the SAME `anuncio`/
+   * AccessibilityInfo mechanism `handleMovida` uses above — one screen-level
+   * announcement path for every mutation this screen can trigger, not a new
+   * one per affordance. Also bumps `categoriaVersion`, which flows down as a
+   * PROP (see this file's docblock for why a per-instance cache clear, not a
+   * remount, is what mobile needs here).
+   */
+  function handleCategoriaCreada() {
+    setCategoriaVersion((v) => v + 1);
+    setAnuncio('Categoría creada.');
+    AccessibilityInfo.announceForAccessibility('Categoría creada.');
   }
 
   // status-reclasificar live-region: OUTSIDE groups map — stable sibling (D-20/MDET-05).
@@ -204,6 +250,12 @@ export function BucketDetalleScreen({
   const viewModel = aDetalleBucketMesViewModel(estado.dto);
   const etiqueta = ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket;
   const esVacio = viewModel.grupos.length === 0;
+  // SinCategoria (and any future non-spend bucket) cannot own a categoría
+  // (issue #743) — same gate ReclasificarMobileControl already applies to
+  // its own picker groups.
+  const bucketEsAsignable = (BUCKETS_ASIGNABLES as readonly string[]).includes(
+    viewModel.bucket,
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F3F5' }}>
@@ -248,6 +300,15 @@ export function BucketDetalleScreen({
           <Text style={{ fontSize: 13, color: '#8A8F9C' }}>
             {viewModel.totalTransacciones} transacciones
           </Text>
+
+          {bucketEsAsignable && (
+            <View style={{ marginTop: 12 }}>
+              <AgregarCategoriaControl
+                bucket={viewModel.bucket as BucketAsignable}
+                onCreada={handleCategoriaCreada}
+              />
+            </View>
+          )}
         </View>
 
         {esVacio ? (
@@ -262,6 +323,11 @@ export function BucketDetalleScreen({
             </Text>
           </View>
         ) : (
+          // NO `key={categoriaVersion}` here (issue #743, reverted after
+          // review): this subtree is NEVER remounted on categoría creation —
+          // `categoriaVersion` is instead threaded down as a plain prop (see
+          // this file's own docblock) so `GrupoMovimientosMobile`'s own
+          // `expandido` accordion state survives.
           <View testID="bucket-detalle-grupos">
             {viewModel.grupos.map((grupo, idx) => (
               <GrupoMovimientosMobile
@@ -271,6 +337,7 @@ export function BucketDetalleScreen({
                 destacar={destacar}
                 onReclasificado={cargar}
                 onMovida={handleMovida}
+                categoriaVersion={categoriaVersion}
               />
             ))}
           </View>
