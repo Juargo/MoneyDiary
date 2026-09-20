@@ -12,8 +12,20 @@
  * - data     — successful DTO; empty = viewModel.grupos.length === 0 (NOT a 4th tag)
  *
  * `cargar` is a useCallback([bucket, periodo]) that re-fires when bucket or periodo changes.
- * `onReclasificado={cargar}` is passed into GrupoMovimientosMobile so every successful
- * reclassify PATCH refetches the open M1 detail (D-17/D-18).
+ * It ALWAYS sets `fase: 'loading'` first — used for the initial mount and for a
+ * bucket/periodo change, where there is no rendered data worth keeping.
+ *
+ * `refrescar` (reclasificar-sin-colapsar-grupos, issue #762) is the OTHER
+ * refetch path: it never touches `fase` while the request is in flight, so the
+ * currently-rendered `data` subtree — and every `GrupoMovimientosMobile`'s own
+ * `expandido` state within it — stays mounted untouched. `onReclasificado=
+ * {refrescar}` is what's passed into GrupoMovimientosMobile, so every
+ * successful reclassify PATCH refreshes the open M1 detail in the BACKGROUND
+ * (D-17/D-18) instead of round-tripping through the unmounting loading phase.
+ * See this file's own patrón-desde-movimiento paragraph below for why that
+ * distinction used to matter even for state that lived OUTSIDE the groups
+ * subtree — issue #762 is now fixed, so that paragraph is historical context,
+ * not a description of current behavior.
  *
  * Screen-owned `anuncio` state + `status-reclasificar` live-region Text OUTSIDE
  * the groups map — survives a moved row's removal (D-20/MDET-05).
@@ -54,24 +66,23 @@
  * successful reclassify also offers to turn it into a pattern
  * (`OfrecerPatronMobileControl`). Its trigger, `onOfrecerPatron`, fires in
  * the SAME synchronous tick as `onReclasificado` (see
- * `ReclasificarMobileControl.commit()`) — and `onReclasificado` is `cargar`,
- * which sets `fase: 'loading'` and unmounts the ENTIRE groups subtree
- * (issue #762, pre-existing and NOT fixed here: reclassifying still
- * collapses every expanded group). If this offer's state lived inside that
- * subtree — or inside `ReclasificarMobileControl` itself — it would be
- * destroyed in the very same render that tries to show it, and the offer
- * would never be reachable. The fix scoped to THIS feature: `ofrecerPatron`
- * is SCREEN state (like `anuncio`), and the offer is rendered in ALL THREE
+ * `ReclasificarMobileControl.commit()`). Historically `onReclasificado` was
+ * `cargar`, which set `fase: 'loading'` and unmounted the ENTIRE groups
+ * subtree (issue #762) — if this offer's state had lived inside that
+ * subtree, or inside `ReclasificarMobileControl` itself, it would have been
+ * destroyed in the very same render that tried to show it. `ofrecerPatron`
+ * was therefore made SCREEN state (like `anuncio`) rendered in ALL THREE
  * fase branches (loading/error/data) as a fixed-position overlay — a stable
  * sibling outside the conditional subtree, the same discipline
- * `statusRegion` already uses for `anuncio`. Because both `estado.fase` and
- * `ofrecerPatron` update in the same batched render (React 18 automatic
- * batching, no `await` between the two calls in `commit()`), the offer
- * shows up ALREADY correct in the very first `loading` render — it never
- * flashes and disappears. It stays visible through the loading spinner and
- * survives into the reloaded `data` state, closing only when the user
- * dismisses it or the pattern is created. This does NOT fix #762 itself:
- * expanded groups still collapse on every reclassify.
+ * `statusRegion` already uses for `anuncio`.
+ *
+ * issue #762 is now fixed (`onReclasificado` is `refrescar`, which never
+ * sets `fase: 'loading'`), so the groups subtree no longer unmounts on a
+ * reclassify — but `ofrecerPatron` keeps living at screen level regardless:
+ * it is still the same "stable sibling, never re-created by a subtree
+ * remount" discipline `anuncio` uses, and `cargar` (bucket/periodo change,
+ * manual retry) still unmounts that subtree, so the offer would still need
+ * this home even with #762 fixed.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -125,6 +136,21 @@ export function BucketDetalleScreen({
   onBack,
 }: BucketDetalleScreenProps) {
   const [estado, setEstado] = useState<Estado>({ fase: 'loading' });
+  // reclasificar-sin-colapsar-grupos (issue #762): true while a BACKGROUND
+  // refresh (`refrescar`, below) is in flight. Not asserted by any spec
+  // today (no visible spinner wired to it yet — YAGNI beyond exposing the
+  // flag), but kept so a future subtle in-progress affordance doesn't need
+  // another round of plumbing through this state machine.
+  const [revalidando, setRevalidando] = useState(false);
+  // reclasificar-sin-colapsar-grupos (issue #762): set when a BACKGROUND
+  // refresh fails. Deliberately NOT `estado.fase = 'error'` — that branch
+  // replaces the entire data subtree, which is exactly the unmount this
+  // fix exists to avoid. Rendered as a small non-destructive banner in the
+  // `data` branch (see `errorRevalidacionRegion` below), same idiom as
+  // `anuncio`/`statusRegion`: a stable sibling, never touching `estado`.
+  const [errorRevalidacion, setErrorRevalidacion] = useState<ApiError | null>(
+    null,
+  );
   // Screen-owned announcement state (D-20)
   const [anuncio, setAnuncio] = useState('');
   // agregar-categoria-desde-bucket (issue #743): bumped on every successful
@@ -142,12 +168,41 @@ export function BucketDetalleScreen({
 
   const cargar = useCallback(async () => {
     setEstado({ fase: 'loading' });
+    setErrorRevalidacion(null);
     const resultado = await fetchDetalleBucketMes(bucket, periodo);
     if (resultado.ok) {
       setEstado({ fase: 'data', dto: resultado.value });
     } else {
       setEstado({ fase: 'error', error: resultado.error });
     }
+  }, [bucket, periodo]);
+
+  /**
+   * refrescar (issue #762 fix): background refetch used ONLY by a successful
+   * reclassify's `onReclasificado` (wired below). Unlike `cargar`, it never
+   * sets `fase: 'loading'` — that phase swaps the whole groups subtree for
+   * the spinner view, which unmounts every `GrupoMovimientosMobile` and,
+   * with it, each group's own `expandido` `useState`
+   * (GrupoMovimientosMobile.tsx). Keeping `fase: 'data'` — with the STALE
+   * dto still rendered — while the fetch is in flight means the groups
+   * subtree never unmounts, so every group's `expandido` state survives
+   * untouched. On success the dto is swapped in (same `fase: 'data'`, no
+   * remount forced by that swap either — see this file's own key comment on
+   * the groups `.map` below for why the `key`s stay stable across it). On
+   * failure the stale dto is left exactly as it was and the failure is
+   * surfaced via `errorRevalidacion` instead — non-destructive, matching the
+   * `anuncio` idiom, never touching `estado`/`fase`.
+   */
+  const refrescar = useCallback(async () => {
+    setRevalidando(true);
+    setErrorRevalidacion(null);
+    const resultado = await fetchDetalleBucketMes(bucket, periodo);
+    if (resultado.ok) {
+      setEstado({ fase: 'data', dto: resultado.value });
+    } else {
+      setErrorRevalidacion(resultado.error);
+    }
+    setRevalidando(false);
   }, [bucket, periodo]);
 
   // Fire on mount and on period/bucket change (D-12). No useFocusEffect (D-12).
@@ -273,6 +328,41 @@ export function BucketDetalleScreen({
     </Text>
   );
 
+  // reclasificar-sin-colapsar-grupos (issue #762): non-destructive failure
+  // surface for a BACKGROUND refresh (`refrescar`) — rendered only in the
+  // `data` branch below (a background refresh can only ever fire once data
+  // is already on screen). Deliberately a SEPARATE node from `statusRegion`:
+  // several specs pin `status-reclasificar`'s exact text (e.g. 'Movida a
+  // Gustos.'), so appending an error string there would break that contract
+  // instead of adding to it.
+  const errorRevalidacionRegion = errorRevalidacion ? (
+    <Text
+      testID="bucket-detalle-error-revalidacion"
+      accessibilityRole="alert"
+      style={{
+        color: '#D1495B',
+        fontSize: 12,
+        paddingHorizontal: 16,
+        paddingTop: 4,
+      }}
+    >
+      {copiaPorApiError(errorRevalidacion)}
+    </Text>
+  ) : null;
+
+  // Subtle in-progress affordance for the same background refresh — never
+  // asserted by a spec (no spinner contract exists yet), just a truthful use
+  // of `revalidando` instead of leaving it write-only.
+  const revalidandoRegion =
+    revalidando && errorRevalidacion === null ? (
+      <Text
+        testID="bucket-detalle-revalidando"
+        style={{ fontSize: 12, color: '#8A8F9C', paddingHorizontal: 16 }}
+      >
+        Actualizando...
+      </Text>
+    ) : null;
+
   if (estado.fase === 'loading') {
     return (
       <View style={{ flex: 1 }}>
@@ -378,6 +468,10 @@ export function BucketDetalleScreen({
 
         {/* Status live-region: always present OUTSIDE groups (D-20/MDET-05) */}
         {statusRegion}
+        {/* Background-refresh failure banner (issue #762) — non-destructive,
+            never touches statusRegion's pinned text. */}
+        {errorRevalidacionRegion}
+        {revalidandoRegion}
 
         <ScrollView contentContainerStyle={{ padding: 16 }}>
           {/* M1 header (MDET-02) */}
@@ -434,7 +528,16 @@ export function BucketDetalleScreen({
             // review): this subtree is NEVER remounted on categoría creation —
             // `categoriaVersion` is instead threaded down as a plain prop (see
             // this file's own docblock) so `GrupoMovimientosMobile`'s own
-            // `expandido` accordion state survives.
+            // `expandido` accordion state survives. The per-item
+            // `key={grupo.categoriaId ?? 'sin-categoria'}` below is the SAME
+            // reason `refrescar` (issue #762) is safe to swap `estado.dto` in
+            // wholesale on success: it is the group's stable categoría id,
+            // never an array index or a freshly-generated id, so a group
+            // whose contents changed (e.g. one row moved out) keeps the exact
+            // same React key across the refetch and is never remounted by it
+            // — only a group appearing/disappearing (a categoría gaining or
+            // losing its last row in this bucket) mounts/unmounts, same as
+            // any keyed list.
             <View testID="bucket-detalle-grupos">
               {viewModel.grupos.map((grupo, idx) => (
                 <GrupoMovimientosMobile
@@ -442,7 +545,7 @@ export function BucketDetalleScreen({
                   grupo={estado.dto.grupos[idx]!}
                   bucket={bucket}
                   destacar={destacar}
-                  onReclasificado={cargar}
+                  onReclasificado={refrescar}
                   onMovida={handleMovida}
                   categoriaVersion={categoriaVersion}
                   onCategoriaCreada={handleCategoriaCreada}

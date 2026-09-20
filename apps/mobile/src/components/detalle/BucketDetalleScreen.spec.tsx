@@ -748,18 +748,17 @@ describe('BucketDetalleScreen', () => {
    * screen's OWN state (`ofrecerPatron`) and the real offer/picker/mutation
    * chain underneath it.
    *
-   * The critical case is "survives the reload" (issue #762 interaction):
-   * `ReclasificarMobileControl.commit()` fires `onReclasificado` (→
-   * `cargar()` → `fase: 'loading'`, which unmounts the ENTIRE groups
-   * subtree) and `onOfrecerPatron` in the SAME synchronous tick. If the
-   * offer's own state lived inside the (about-to-unmount) reclassify
-   * control or the groups subtree, it would never be visible — this is
-   * exactly the failure mode issue #762 already causes for `expandido`.
-   * `BucketDetalleScreen` avoids it by keeping `ofrecerPatron` as its OWN
-   * state and rendering the offer OUTSIDE the fase-conditional groups tree
-   * (same discipline as `anuncio`/`statusRegion`), so it is part of the
-   * SAME render that flips to `fase: 'loading'` instead of depending on
-   * that subtree surviving.
+   * The critical case is "survives the background reload"
+   * (reclasificar-sin-colapsar-grupos, issue #762): `ReclasificarMobileControl.
+   * commit()` fires `onReclasificado` (→ `refrescar()`, which refetches
+   * WITHOUT ever setting `fase: 'loading'` — issue #762 fix, see this
+   * screen's own docblock) and `onOfrecerPatron` in the SAME synchronous
+   * tick. Even though the groups subtree no longer unmounts during this
+   * refresh, `ofrecerPatron` still lives at SCREEN level (same discipline as
+   * `anuncio`/`statusRegion`) rather than inside `ReclasificarMobileControl`
+   * or the groups subtree — `cargar` (bucket/periodo change, manual retry)
+   * still unmounts that subtree, so the offer still needs a home that
+   * survives every fase, not just this one refresh path.
    */
   describe('OfrecerPatronMobileControl integration (issue #745)', () => {
     it('a successful reclassify offers to create a pattern for the destination categoría', async () => {
@@ -795,7 +794,7 @@ describe('BucketDetalleScreen', () => {
       ).toBeTruthy();
     });
 
-    it('MUTATION-PROVEN: the offer survives the fase transition to "loading" that onReclasificado triggers (issue #762 interaction), and is still there once data reloads', async () => {
+    it('the offer survives the BACKGROUND reload onReclasificado triggers (issue #762 fix: no fase transition to "loading"), and is still there once data reloads', async () => {
       let resolverSegundaCarga: (
         value: ApiResult<DetalleBucketMesDto>,
       ) => void = () => {};
@@ -825,13 +824,15 @@ describe('BucketDetalleScreen', () => {
         );
       });
 
-      // The reload IS in flight: the loading branch replaced the groups
-      // tree (bucket-detalle-grupos is gone) — this is issue #762 firing.
+      // The refetch IS in flight (segundaCarga unresolved), but the fix
+      // means the groups subtree is NEVER replaced by the loading view —
+      // this is issue #762 no longer firing.
       await waitFor(() => {
-        expect(screen.getByTestId('bucket-detalle-loading')).toBeTruthy();
+        expect(mockFetchDetalleBucketMes).toHaveBeenCalledTimes(2);
       });
-      expect(screen.queryByTestId('bucket-detalle-grupos')).toBeNull();
-      // The offer must be visible ANYWAY — it does not live in that subtree.
+      expect(screen.queryByTestId('bucket-detalle-loading')).toBeNull();
+      expect(screen.getByTestId('bucket-detalle-grupos')).toBeTruthy();
+      // The offer is visible too — it never lived in that subtree anyway.
       expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
 
       // Let the refetch resolve.
