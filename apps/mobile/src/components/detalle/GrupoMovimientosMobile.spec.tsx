@@ -83,6 +83,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -113,6 +114,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -144,6 +146,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -168,6 +171,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -186,6 +190,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -206,6 +211,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -226,6 +232,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -247,6 +254,7 @@ describe('GrupoMovimientosMobile', () => {
         onReclasificado={jest.fn()}
         onMovida={jest.fn()}
         onCategoriaCreada={jest.fn()}
+        onOfrecerPatron={jest.fn()}
       />,
     );
 
@@ -272,6 +280,7 @@ describe('GrupoMovimientosMobile', () => {
           onReclasificado={jest.fn()}
           onMovida={jest.fn()}
           onCategoriaCreada={jest.fn()}
+          onOfrecerPatron={jest.fn()}
         />,
       );
 
@@ -292,6 +301,7 @@ describe('GrupoMovimientosMobile', () => {
           onReclasificado={jest.fn()}
           onMovida={jest.fn()}
           onCategoriaCreada={jest.fn()}
+          onOfrecerPatron={jest.fn()}
         />,
       );
 
@@ -314,6 +324,7 @@ describe('GrupoMovimientosMobile', () => {
           onReclasificado={jest.fn()}
           onMovida={jest.fn()}
           onCategoriaCreada={jest.fn()}
+          onOfrecerPatron={jest.fn()}
         />,
       );
 
