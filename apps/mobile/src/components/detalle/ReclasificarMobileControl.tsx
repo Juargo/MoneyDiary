@@ -163,9 +163,12 @@ export interface ReclasificarMobileControlProps {
    * (settled, same as `onMovida`), with the row's description and the
    * DESTINATION categoría id. `BucketDetalleScreen` wires this to a
    * screen-owned offer overlay (see that screen's own docblock for why
-   * the offer's state lives there rather than in this control — issue
-   * #762's reload unmounts this control's own tree almost immediately
-   * after commit, so any state kept HERE would never be seen).
+   * the offer's state lives there rather than in this control — a `cargar`-
+   * triggered reload, e.g. from a bucket/periodo change, still unmounts
+   * this control's own tree, so any state kept HERE could still be lost;
+   * the reclassify-triggered reload itself no longer unmounts anything,
+   * issue #762 fix, but the screen-level home stays the simpler, uniform
+   * choice regardless of which refresh path fired).
    */
   readonly onOfrecerPatron: (info: {
     descripcion: string;
