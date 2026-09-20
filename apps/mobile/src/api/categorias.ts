@@ -180,12 +180,32 @@ export type PatronPatch = {
   readonly matchType?: MatchType;
 };
 
-/** `POST /api/categorias` — MCTG-02. Success body discarded. */
+/**
+ * `POST /api/categorias` — MCTG-02. Success body now parsed and returned
+ * (agregar-categoria-desde-selector, issue #744): a caller that lets the
+ * user create a categoría FROM a selector (reclassify controls, the
+ * cartola review sheet) needs the created row's id/nombre/bucket to select
+ * it immediately, without waiting for a catalog refetch — same idiom as
+ * `reclasificarCategoria`'s own body-consuming read below. A malformed 2xx
+ * body maps to `{ tag: 'parse' }`, mirroring `fetchCatalogo`'s guard.
+ */
 export async function crearCategoria(
   input: CategoriaInput,
-): Promise<ApiResult<void>> {
+): Promise<ApiResult<CategoriaDto>> {
   const r = await enviarMutacion('/api/categorias', 'POST', input);
-  return r.ok ? { ok: true, value: undefined } : r;
+  if (!r.ok) {
+    return r;
+  }
+  let body: unknown;
+  try {
+    body = await r.value.json();
+  } catch {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+  if (!esCategoriaDto(body)) {
+    return { ok: false, error: { tag: 'parse' } };
+  }
+  return { ok: true, value: body };
 }
 
 /** `PATCH /api/categorias/:id` — MCTG-03. Success body discarded. */

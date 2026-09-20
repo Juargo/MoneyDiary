@@ -86,7 +86,16 @@ function makeDtoConGrupoLargo(): DetalleBucketMesDto {
 describe('BucketDetalleScreen — expanded group persists across categoría creation (issue #743)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCrearCategoria.mockResolvedValue({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValue({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
   });
 
   it('a group expanded before creating a categoría is STILL expanded after (no remount regression)', async () => {
