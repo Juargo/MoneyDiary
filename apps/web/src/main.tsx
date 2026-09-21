@@ -6,6 +6,7 @@ import { routeTree } from './routeTree.gen';
 import { QUERY_CLIENT_DEFAULTS } from './api/query-client-defaults';
 import { esErrorPermanente } from './api/retry-policy';
 import { controladorTema } from './lib/use-preferencia-tema';
+import { controladorVersion } from './lib/use-aviso-version';
 // Self-hosted Inter Variable (the app's body/label face) — same-origin,
 // bundled font file, no render-blocking Google Fonts CDN. Referenced by
 // --font-sans in index.css. Explicit `/index.css` path (not the bare package
@@ -61,6 +62,13 @@ declare module '@tanstack/react-router' {
 // pasa `matchMedia: undefined` si el navegador no lo soporta
 // (`lib/use-preferencia-tema.ts`), así que esta llamada no lanza en ese caso.
 controladorTema.iniciar();
+
+// issue #751: arma el intervalo (30 min, solo con la pestaña visible) y los
+// listeners de `visibilitychange`/`vite:preloadError` del aviso de "hay una
+// versión nueva" (`components/AvisoVersionNueva.tsx`, montado en
+// `routes/__root.tsx`). Ver `lib/controlador-version.ts` para el detalle de
+// cuándo dispara cada chequeo.
+controladorVersion.iniciar();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

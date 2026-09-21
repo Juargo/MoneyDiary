@@ -21,9 +21,11 @@
          S7b (PR11) ambos quedan en `null` (selector real). Rollback de
          emergencia: volver a poner `forzado = 'dark'` acá Y `TEMA_FORZADO =
          'dark'` en `lib/tema.ts` (deben moverse juntos). No existe CSP en
-         `apps/web` hoy (`vercel.json` no tiene bloque `headers`); si se
-         agrega una en el futuro, permitir este script por su hash `sha256`
-         en vez de moverlo a un archivo externo (ADR-043). Default `'light'`
+         `apps/web` hoy (`vercel.json` sí tiene un bloque `headers` desde
+         issue #751, pero solo para `Cache-Control` de assets/index.html/
+         version.json — ninguna entrada de CSP); si se agrega una CSP en el
+         futuro, permitir este script por su hash `sha256` en vez de moverlo
+         a un archivo externo (ADR-043). Default `'light'`
          cuando no hay valor guardado, es inválido, o el storage lanza —
          decisión del owner, 2026-09-13 (enmienda WT-02/WT-03); una elección
          explícita guardada (incluido `'system'`) se sigue respetando. DEBE
