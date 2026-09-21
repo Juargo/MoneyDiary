@@ -1,5 +1,82 @@
 # Changelog
 
+## [0.9.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.8.0...web-v0.9.0) (2026-09-21)
+
+
+### Features
+
+* agrega una categoría Desconocido por bucket, con el ícono circle-help ([44f00c1](https://github.com/Juargo/MoneyDiary/commit/44f00c1c14e95a7d39742e5eb0ff9cd8442bd2bd))
+* agrega una categoría Desconocido por bucket, con el ícono circle-help ([17e5b0d](https://github.com/Juargo/MoneyDiary/commit/17e5b0df2f4d0a34340837dac40be9b73a50c48d))
+* agregar categoría desde el detalle de bucket, con el bucket ya fijo ([bb3f0a8](https://github.com/Juargo/MoneyDiary/commit/bb3f0a813bd7283d6742cb045887e287da1876ca))
+* **cartola:** aclara que clasificar es opcional y editable después ([c7ad6cd](https://github.com/Juargo/MoneyDiary/commit/c7ad6cd9b8853f1e998cd69b5ce2218f7159dff0))
+* **cartola:** aclarar que clasificar es opcional y editable después ([079e626](https://github.com/Juargo/MoneyDiary/commit/079e6260684a6c4c58c03323eb0b4d1b21e43c01))
+* confirma la reclasificación dentro del mismo bucket ([2cdfc42](https://github.com/Juargo/MoneyDiary/commit/2cdfc420caa62e1382dce710bd3e8141319b759c))
+* crear categoría desde el selector, con la categoría nueva ya asignada ([774814b](https://github.com/Juargo/MoneyDiary/commit/774814b9eb819e68dc3a56b2443cf4db2e7bd7f0))
+* el bucket se llama Grupo en la interfaz, con ayuda en línea ([b108776](https://github.com/Juargo/MoneyDiary/commit/b10877629aaa4e74d1cb3df8807b4e3c8946c0e7))
+* iconografía de categorías elegida por el usuario (US-067) ([b8f3a6e](https://github.com/Juargo/MoneyDiary/commit/b8f3a6e1c4a9f869b4bedaed5ef7361d86764a46))
+* **web:** add the bucket glyph text-color helper for icon badges ([82f143a](https://github.com/Juargo/MoneyDiary/commit/82f143a3f3007cb82c3c7db4f953e959b19e2341))
+* **web:** add the categoria icon render map and accessible labels ([4f7e9e7](https://github.com/Juargo/MoneyDiary/commit/4f7e9e7204785c1b7866fe9d8d11f8a31799b0f7))
+* **web:** add the ICONO_INVALIDO row to the catalogo error copy table ([32b7b34](https://github.com/Juargo/MoneyDiary/commit/32b7b348c726107cf06ae2b9d5d9b764200beca3))
+* **web:** add the IconoCategoriaBadge component for category rows ([be7a717](https://github.com/Juargo/MoneyDiary/commit/be7a7178dbea4ac60ebb35b24a67b12decc4e325))
+* **web:** add the SelectorIcono accessible icon picker ([d9e3b9a](https://github.com/Juargo/MoneyDiary/commit/d9e3b9a4dc4e5cacd74baed78d034d3aa6a7f29f))
+* **web:** agrega el marcador "Mes en curso" al selector de período ([6798362](https://github.com/Juargo/MoneyDiary/commit/67983622e36eee7af6ffb5190422d97d29ee9150))
+* **web:** agregar categoría desde el detalle de bucket ([2f32f3a](https://github.com/Juargo/MoneyDiary/commit/2f32f3a3d54a0f74b38fe4c542790364a1a75ff4))
+* **web:** agregar dominio puro de patrón desde movimiento ([18eac71](https://github.com/Juargo/MoneyDiary/commit/18eac712ecdfdf0e7a88cc69b734dcec0d75253f))
+* **web:** agregar OfrecerPatronControl ([fcbaac1](https://github.com/Juargo/MoneyDiary/commit/fcbaac14f7eee7b2ebef2735c1ec3064f82f7c32))
+* **web:** agregar SelectorPalabrasPatron ([0786f49](https://github.com/Juargo/MoneyDiary/commit/0786f49494a7430f8ecbf50119a583d85e75a81a))
+* **web:** alinea /ingresos con el libro mayor del detalle de bucket ([5d72aa5](https://github.com/Juargo/MoneyDiary/commit/5d72aa541f0def773c911d8c3ba1c69cdf2ea9b1))
+* **web:** alinea /ingresos con el libro mayor del detalle de bucket ([c1de211](https://github.com/Juargo/MoneyDiary/commit/c1de211da515ac9fb75627a6aef2812567abe451))
+* **web:** avisa cuando hay una versión nueva y cachea los assets con hash ([535c86d](https://github.com/Juargo/MoneyDiary/commit/535c86dda3f41c0f93b0fc5bc7854250433ecebc))
+* **web:** aviso descartable de nueva versión con recarga (issue [#751](https://github.com/Juargo/MoneyDiary/issues/751)) ([e99f78d](https://github.com/Juargo/MoneyDiary/commit/e99f78d626da4e352b390471958ad4cda77e8439))
+* **web:** confirmar reclasificación dentro del mismo bucket ([e3d784d](https://github.com/Juargo/MoneyDiary/commit/e3d784d3d12a4cbe27563ece0ee4460e0e427f41))
+* **web:** controlador de detección de versión nueva (issue [#751](https://github.com/Juargo/MoneyDiary/issues/751)) ([99234bb](https://github.com/Juargo/MoneyDiary/commit/99234bb092325d8182e742059cf2434dc544467b))
+* **web:** crear categoría desde el selector de reclasificar ([25287ab](https://github.com/Juargo/MoneyDiary/commit/25287abdcbb7099695d9b7e8e28e816a86ebebf8))
+* **web:** el ícono viaja con Guardar al editar una categoría ([98eab7b](https://github.com/Juargo/MoneyDiary/commit/98eab7b8d0e6f176f2d8dd2adf5430333de92428))
+* **web:** espejo de la allowlist de íconos, mapa lucide y color del glifo ([2553c53](https://github.com/Juargo/MoneyDiary/commit/2553c53ad1c4a999047bcdcd6fcc2ff1bc0a556f))
+* **web:** explica la selección múltiple de la revisión de cartola ([d020df3](https://github.com/Juargo/MoneyDiary/commit/d020df358aa2167f145008e90dac632f5e63eb6b))
+* **web:** explicar la selección múltiple en la revisión de cartola ([057ba78](https://github.com/Juargo/MoneyDiary/commit/057ba78913bd14c80daeacac8dadd98b3629d84c))
+* **web:** guards tolerantes al icono y copy de ICONO_INVALIDO ([635a2b4](https://github.com/Juargo/MoneyDiary/commit/635a2b4d3f1997144958746bd13e734cc883c389))
+* **web:** insignia de ícono y selector accesible en Configuración → Categorías ([fda55ee](https://github.com/Juargo/MoneyDiary/commit/fda55ee9c9b47279f706eb91644e21976308f068))
+* **web:** insignias de ícono en el detalle del mes y retiro del mapa por nombre ([c5ea766](https://github.com/Juargo/MoneyDiary/commit/c5ea766bcc8e75b98f05cc2fbcddf38cbac645ec))
+* **web:** mirror the categoria icon allowlist from the backend ([b8f99b2](https://github.com/Juargo/MoneyDiary/commit/b8f99b2a9e5143d8f9be069b6b2cb36792f2bd51))
+* **web:** muestra completo el nombre de cada movimiento sin mover las columnas ([1062f47](https://github.com/Juargo/MoneyDiary/commit/1062f47bf5fd99fafe9fdff2a883c6f49c2eb7a8))
+* **web:** muestra completo el nombre de cada movimiento sin mover las columnas ([c67ee76](https://github.com/Juargo/MoneyDiary/commit/c67ee76fc187ba9fb463bccda8fe6820a97a5fe4))
+* **web:** ofrecer crear un patrón tras reclasificar un movimiento ([e6607aa](https://github.com/Juargo/MoneyDiary/commit/e6607aa8cd8be899e2b4b4a78742ef8f0761f9a8))
+* **web:** ofrecer crear un patrón tras reclasificar, eligiendo palabras de la glosa ([e16a21d](https://github.com/Juargo/MoneyDiary/commit/e16a21d2f8cae9afb57ca97fb6dbb778099c3ef0))
+* **web:** rediseña la lista de movimientos del detalle de bucket ([c734777](https://github.com/Juargo/MoneyDiary/commit/c734777c570afeed8cce04e000ee796a8792351f))
+* **web:** rediseña la lista de movimientos del detalle de bucket ([24d81e7](https://github.com/Juargo/MoneyDiary/commit/24d81e7c69c9367dbf13729e20cffa1d76ee87bd))
+* **web:** render the category icon badge in each catalog row ([47da22b](https://github.com/Juargo/MoneyDiary/commit/47da22bf059c8ad85e4a0c77a603d319e930cf19))
+* **web:** render the category icon badge on detalle bucket group headings ([325b95d](https://github.com/Juargo/MoneyDiary/commit/325b95d96ae9f9735b05c3dc863b9ad39fc17cb5))
+* **web:** renombrar "bucket" a "grupo" en toda la copy visible ([71ad98c](https://github.com/Juargo/MoneyDiary/commit/71ad98c725bbfac61be2a8769f6819424f0f7ae3))
+* **web:** tolerate the optional icono field in catalogo response guards ([2fe1c0c](https://github.com/Juargo/MoneyDiary/commit/2fe1c0c07d1cd753b0b82c286cfc981bf76b4bd2))
+* **web:** wire the icon picker into category creation ([9bf1a17](https://github.com/Juargo/MoneyDiary/commit/9bf1a17107ec44d5c739f9c7dc488444f6c6a9b7))
+* **web:** wire the icon picker into category editing ([845c36f](https://github.com/Juargo/MoneyDiary/commit/845c36f2c1614e6635920f8f623181714f554955))
+
+
+### Bug Fixes
+
+* **web,mobile:** rename the piggy-bank icon label to Alcancia ([7e374ca](https://github.com/Juargo/MoneyDiary/commit/7e374ca2225b88475ae0b4245a2b6d63a5f85064))
+* **web,mobile:** renombra la etiqueta del ícono piggy-bank a Alcancía ([8a00b4a](https://github.com/Juargo/MoneyDiary/commit/8a00b4a9f4db37cf6f73de1c11c85ae4089a7a5a))
+* **web:** "volver" regresa a la pantalla de origen, con fallback honesto ([7615a8d](https://github.com/Juargo/MoneyDiary/commit/7615a8d92acc6ff7fdf11e6000d14090fcb565f3))
+* **web:** "volver" regresa a la pantalla de origen, no siempre al fijo ([1aa333c](https://github.com/Juargo/MoneyDiary/commit/1aa333c5bc80b910f999bc055dd757559d6473e2))
+* **web:** muestra completo el nombre de la categoria en el encabezado de grupo ([cd0395f](https://github.com/Juargo/MoneyDiary/commit/cd0395f5ffc80f61651bd52b889e7b826827f747))
+* **web:** muestra completo el nombre de la categoría en el encabezado de grupo ([6818d93](https://github.com/Juargo/MoneyDiary/commit/6818d93544f36e705882c76587d74b15e9ab2509))
+* **web:** quita el padding duplicado que desbordaba el dashboard a 360px ([ecc5c7f](https://github.com/Juargo/MoneyDiary/commit/ecc5c7fd9daa83add9e2582cbd8457c0c14808ba))
+* **web:** quita el padding duplicado que desbordaba el dashboard a 360px ([4557cbd](https://github.com/Juargo/MoneyDiary/commit/4557cbdefebf08edd7048502080679078ee23bf7))
+* **web:** quita la regla catch-all de headers para no solapar Cache-Control ([a82df68](https://github.com/Juargo/MoneyDiary/commit/a82df68390a93d26ed563d9c6086a7942cc75bbf))
+* **web:** usa el período resuelto por el backend en el dashboard y sus drill-downs ([d1da2d3](https://github.com/Juargo/MoneyDiary/commit/d1da2d3523de50db93c5fb86c8530a03c324551e))
+* **web:** usa el período resuelto por el backend y marca el mes en curso ([dc3a47b](https://github.com/Juargo/MoneyDiary/commit/dc3a47b1d8c7304888e492a55cff9cbab61acdd7))
+
+
+### Performance
+
+* **web:** cache hashed assets un año, mantener index/version.json revalidando ([0d1308b](https://github.com/Juargo/MoneyDiary/commit/0d1308b92d919b08b20705c289568eba14a43564))
+
+
+### Refactors
+
+* **web:** delete the dead name-keyed category icon map ([e298bf4](https://github.com/Juargo/MoneyDiary/commit/e298bf4f4e3c94aa84dba0fbb8aedbe568b056fb))
+
 ## [0.8.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.7.0...web-v0.8.0) (2026-09-15)
 
 
