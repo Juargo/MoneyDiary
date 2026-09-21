@@ -329,10 +329,16 @@ export function ReclasificarMobileControl({
     const etiquetaActual =
       ETIQUETA_BUCKET[categoriaActual.bucket] ?? categoriaActual.bucket;
     const etiquetaNueva = ETIQUETA_BUCKET[bucketCategoria] ?? bucketCategoria;
+    // Destino COMPLETO, "{bucket} · {categoría}" (issue #782): nombrar solo
+    // el bucket perdía la mitad de la decisión que el usuario acaba de
+    // tomar — elige "Necesidades · Salud" en el picker y el Alert le
+    // contesta "a Necesidades", sin confirmarle nunca que Salud entró.
+    // Gemelo de `apps/web/.../ReclasificarCategoriaControl.tsx`.
+    const destinoLabel = `${etiquetaNueva} · ${nombreCategoria}`;
 
     Alert.alert(
       'Confirmar cambio de grupo',
-      `Esto mueve ${tx.montoLabel} de ${etiquetaActual} a ${etiquetaNueva}.`,
+      `Esto mueve ${tx.montoLabel} de ${etiquetaActual} a ${destinoLabel}.`,
       [
         {
           text: 'Cancelar',
@@ -346,11 +352,13 @@ export function ReclasificarMobileControl({
           style: 'destructive',
           onPress: () => {
             mostrandoAlerta.current = false;
-            // Cross-bucket: pass the destination BUCKET's display label
-            // (already computed above for the Alert body) — not the
-            // categoría name (that's the same-bucket case, see
-            // handleSelectCategoria's other branch).
-            void commit(categoriaId, etiquetaNueva);
+            // Cross-bucket: pass the FULL destination label, bucket +
+            // categoría (already computed above for the Alert body), so the
+            // anuncio repite exactamente lo que el Alert prometió. El
+            // mismo-bucket sigue mandando solo el nombre de la categoría
+            // (ahí el bucket no cambia), ver la otra rama de
+            // handleSelectCategoria.
+            void commit(categoriaId, destinoLabel);
           },
         },
       ],
