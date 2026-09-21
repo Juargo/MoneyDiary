@@ -31,7 +31,7 @@ export const MATCH_TYPES = ['CONTAINS', 'STARTS_WITH', 'REGEX'] as const;
 export type MatchType = (typeof MATCH_TYPES)[number];
 
 /**
- * `ICONOS_CATEGORIA` — la allowlist curada de 24 nombres lucide kebab-case
+ * `ICONOS_CATEGORIA` — la allowlist curada de 25 nombres lucide kebab-case
  * para el ícono de una categoría (categoria-iconografia, ADR-045, CATICO-01).
  * Fuente única de verdad: `apps/api/src/domain/value-objects/
  * icono-categoria.ts`'s `ICONOS_CATEGORIA` — este array es un MIRROR
@@ -70,6 +70,7 @@ export const ICONOS_CATEGORIA = [
   'piggy-bank',
   'trending-up',
   'credit-card',
+  'circle-help',
 ] as const;
 
 /** Nombre lucide kebab-case perteneciente a la allowlist curada del ícono de categoría. */

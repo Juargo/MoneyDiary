@@ -153,18 +153,18 @@ test.describe('crear una categoría desde la vista previa', () => {
     // cartola-preview-confirmacion PR10 (D-07, WEB-PRV-19): "Revisar y
     // editar" is now the only path into the editable table.
     await page.getByRole('button', { name: 'Revisar y editar' }).click();
-    await expect(page.getByLabel('Fila 1: bucket')).toBeVisible();
+    await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     // Manual override on row 2 (fila 3) BEFORE creating: it must survive the
     // re-run even though its suggestion also changes.
     // El control de bucket es un `<select>`: `selectOption` con el VALOR de
     // dominio ('Deseos'), no un click sobre el texto de despliegue
     // ('Gustos'). Un `<option>` nunca es clickeable en Playwright.
-    await page.getByLabel('Fila 3: bucket').selectOption('Deseos');
+    await page.getByLabel('Fila 3: grupo').selectOption('Deseos');
     await page.getByLabel('Fila 3: categoría').selectOption('cat-des-1');
 
     // Create the categoría from row 0 (fila 1).
-    await page.getByLabel('Fila 1: bucket').selectOption('Deseos');
+    await page.getByLabel('Fila 1: grupo').selectOption('Deseos');
     await page
       .getByRole('button', { name: 'Nueva categoría para fila 1' })
       .click();
@@ -188,7 +188,7 @@ test.describe('crear una categoría desde la vista previa', () => {
     await expect(
       page.getByRole('heading', { name: 'Nueva categoría' }),
     ).toBeHidden();
-    await expect(page.getByLabel('Fila 1: bucket')).toBeVisible();
+    await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     // The originating row adopted it, and so did the two matching rows.
     for (const n of [1, 4, 5]) {
@@ -200,5 +200,52 @@ test.describe('crear una categoría desde la vista previa', () => {
     // The manual override is untouched, and the non-matching row stays empty.
     await expect(page.getByLabel('Fila 3: categoría')).toHaveValue('cat-des-1');
     await expect(page.getByLabel('Fila 6: categoría')).toHaveCount(0);
+  });
+
+  // Issue #748: the review table's sticky header gained a new always-visible
+  // help line ("Marca varias filas…") to make the bulk-select feature
+  // discoverable. `PreviewMuestra`/`FilaRevision` have no dedicated e2e
+  // spec of their own and this route isn't in `mobile-floor.e2e.ts`'s
+  // `SCREENS` harness (that harness only covers routes reachable without a
+  // stubbed file upload), so this repo has no other place that exercises
+  // real-browser layout for this exact header at 360px. Scoped to `movil`
+  // only (not the "three viewports" a screen in `SCREENS` gets): 360px is
+  // the actual risk width for a new text line in an already-tight sticky
+  // header, and `escritorio`/`tablet` were never a concern for a plain text
+  // addition with no new breakpoint-specific class — same reasoning this
+  // file's own `beforeEach` already gives for skipping `tablet` on every
+  // OTHER test here (no tablet-specific CSS branch for this table).
+  test('el nuevo texto de ayuda de selección múltiple no produce desborde horizontal a 360px', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'movil',
+      '360px (movil) es el ancho de riesgo real para esta línea de texto; ver comentario del test.',
+    );
+
+    // `beforeEach` above already stubs the API and the first
+    // `/api/ingestas/preview` response with `FILAS_INICIALES` — this test
+    // only needs that first render, no re-run.
+    await page.goto('/subir');
+    await page.locator('#cartola-file').setInputFiles({
+      name: 'cartola.xlsx',
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer: Buffer.from('stub'),
+    });
+    await page.getByRole('button', { name: 'Revisar y editar' }).click();
+    await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
+
+    await expect(
+      page.getByText(
+        'Marca varias filas para darles la misma categoría de una vez.',
+      ),
+    ).toBeVisible();
+
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   });
 });

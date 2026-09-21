@@ -23,9 +23,13 @@
  *    mostrandoAlerta useRef; set true BEFORE Alert.alert; cleared in EVERY onPress
  *    (both Cancelar and Confirmar); { cancelable: false } for Android backdrop.
  *
- * 5. commit(categoriaId, bucketNuevo?): call reclasificarCategoria(tx.id, categoriaId).
+ * 5. commit(categoriaId, movidaLabel?): call reclasificarCategoria(tx.id, categoriaId).
  *    On ok: close modal → onReclasificado() → solicitarRecargaResumen()
- *           → if cross-bucket: onMovida(ETIQUETA_BUCKET[bucketNuevo]).
+ *           → onMovida(movidaLabel) when movidaLabel is defined.
+ *    `movidaLabel` is the ETIQUETA_BUCKET display label for a cross-bucket
+ *    move, or the destination CATEGORÍA's own nombre for a same-bucket move
+ *    (confirmacion-reclasificar, issue #749) — both reuse the SAME onMovida
+ *    seam, `commit` itself does not distinguish which case it is.
  *    The control NEVER calls AccessibilityInfo — onMovida is the screen's handler.
  *    On !ok: setErrorMensaje(mensajeDeErrorReclasificar(error)).
  *
@@ -40,6 +44,34 @@
  * matches what the picker actually does. Previously: accessibilityLabel
  * "Cambiar categoría de {descripcion}", Modal title "Cambiar categoría".
  *
+ * 6. "+ Crear categoría" (agregar-categoria-desde-selector, issue #744): a
+ *    Pressable inside the Modal, always available once it is open (no
+ *    dependency on the catalog having resolved — creating a categoría is
+ *    an independent POST). Opens `NuevaCategoriaForm` in place of the
+ *    bucket/categoría sections, with `bucketInicial={categoriaActual.bucket}`
+ *    — editable, NOT fixed (unlike `AgregarCategoriaControl`'s bucket-detail
+ *    page, issue #743, where the bucket is unambiguous): the usability
+ *    finding behind this issue was wanting a categoría in a bucket OTHER
+ *    than the one the user is currently looking at. `categoriaActual.bucket`
+ *    can be the `'SinCategoria'` sentinel (see `GrupoMovimientosMobile`) —
+ *    not a member of `BUCKETS_ASIGNABLES` — `NuevaCategoriaForm`'s
+ *    `SelectorChips` only offers real buckets, so that sentinel is passed
+ *    through `bucketInicial` typed loosely and simply never matches any
+ *    chip, leaving the picker unselected (same "no regression" fallback
+ *    `bucketInicial` already has when omitted).
+ *
+ *    On success: the created categoría is (a) appended to this control's
+ *    OWN cached `catalogo` state, so its bucket section shows it without
+ *    waiting for a refetch, (b) selected for THIS row via the exact same
+ *    `handleSelectCategoria` branch a tap on an existing option would take
+ *    (same-bucket commits directly, cross-bucket opens the SAME
+ *    confirmation Alert — ADR-015: creating a categoría is not a bypass for
+ *    the money-move confirmation), and (c) reported upward via
+ *    `onCategoriaCreada`, which `BucketDetalleScreen` wires to the SAME
+ *    `handleCategoriaCreada`/`categoriaVersion` bump `AgregarCategoriaControl`
+ *    already uses (issue #743) — every OTHER row's own cached catalog picks
+ *    it up too, on its next open, with no remount of the groups tree.
+ *
  * Pure: no route, no router.
  */
 
@@ -49,9 +81,11 @@ import { fetchCatalogo, reclasificarCategoria } from '../../api/categorias';
 import { solicitarRecargaResumen } from '../../api/resumen-refresh';
 import { agruparPorBucket } from '../../domain/agrupar-categorias-por-bucket';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
+import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import { mensajeDeErrorReclasificar } from '../../domain/mensajes-reclasificar';
 import { ETIQUETA_BUCKET } from '../../theme/colors';
-import type { CatalogoDto } from '../../domain/catalogo.types';
+import type { CatalogoDto, CategoriaDto } from '../../domain/catalogo.types';
+import { NuevaCategoriaForm } from '../configuracion/NuevaCategoriaForm';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -85,13 +119,65 @@ export interface ReclasificarMobileControlProps {
    */
   readonly onReclasificado: () => void | Promise<void>;
   /**
-   * Called ONLY on cross-bucket success, AFTER the PATCH resolves ok (settled
-   * announcement, us-055 D-04 lesson). Receives the ETIQUETA_BUCKET display
-   * label of the destination bucket (e.g. 'Necesidades', 'Gustos', 'Ahorro').
+   * Called on EVERY successful reclassify, AFTER the PATCH resolves ok
+   * (settled announcement, us-055 D-04 lesson) — cross-bucket AND
+   * same-bucket alike (confirmacion-reclasificar, issue #749). Receives the
+   * ETIQUETA_BUCKET display label of the destination bucket for a
+   * cross-bucket move (e.g. 'Necesidades', 'Gustos', 'Ahorro'), or the
+   * destination CATEGORÍA's own nombre for a same-bucket move.
    * The screen's handler owns both setAnuncio and announceForAccessibility —
    * this control never calls AccessibilityInfo (single announcement source, D-20).
    */
-  readonly onMovida: (bucketLabel: string) => void;
+  readonly onMovida: (label: string) => void;
+  /**
+   * agregar-categoria-desde-bucket (issue #743): an opaque token (bumped by
+   * `BucketDetalleScreen` on every successful categoría creation) that
+   * invalidates ONLY this control's own per-instance `catalogo` cache — not
+   * the component tree. A `key`-based remount of the groups subtree was
+   * tried first and reverted: `GrupoMovimientosMobile` keeps its own
+   * `expandido` accordion state, so remounting collapsed every open group
+   * the instant a categoría was created, which is a worse regression than
+   * the staleness this prop fixes (a tester expands a row to reclassify,
+   * doesn't find the categoría, creates it, and would lose their place).
+   * Optional and defaulted to `undefined` so every pre-existing caller/test
+   * that doesn't pass it keeps the exact prior "fetch once, cache for the
+   * component's lifetime" behaviour — see the effect below.
+   */
+  readonly categoriaVersion?: number;
+  /**
+   * agregar-categoria-desde-selector (issue #744): REQUIRED, same
+   * `onMovida`/`onReclasificado` banned-pattern discipline (us-044 PR7) —
+   * called once a categoría created from THIS control's own "+" affordance
+   * has been appended to this control's local `catalogo` and selected for
+   * the row. `BucketDetalleScreen` wires this to the SAME
+   * `handleCategoriaCreada` that bumps `categoriaVersion` for
+   * `AgregarCategoriaControl` (issue #743), so every OTHER row's own cached
+   * catalog picks up the new categoría too.
+   */
+  readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
+  /**
+   * patrón-desde-movimiento (issue #745): REQUIRED, same
+   * `onMovida`/`onReclasificado`/`onCategoriaCreada` banned-pattern
+   * discipline (us-044 PR7) — called on EVERY successful reclassify
+   * (same-bucket AND cross-bucket alike), AFTER the PATCH resolves ok
+   * (settled, same as `onMovida`), with the row's description and the
+   * DESTINATION categoría id. `BucketDetalleScreen` wires this to a
+   * screen-owned offer overlay (see that screen's own docblock for why
+   * the offer's state lives there rather than in this control — a `cargar`-
+   * triggered reload, e.g. from a bucket/periodo change, still unmounts
+   * this control's own tree, so any state kept HERE could still be lost;
+   * the reclassify-triggered reload itself no longer unmounts anything,
+   * issue #762 fix, but the screen-level home stays the simpler, uniform
+   * choice regardless of which refresh path fired).
+   */
+  readonly onOfrecerPatron: (info: {
+    descripcion: string;
+    categoriaId: string;
+  }) => void;
+}
+
+function esBucketAsignable(bucket: string): bucket is BucketAsignable {
+  return (BUCKETS_ASIGNABLES as readonly string[]).includes(bucket);
 }
 
 // ---------------------------------------------------------------------------
@@ -103,10 +189,14 @@ export function ReclasificarMobileControl({
   categoriaActual,
   onReclasificado,
   onMovida,
+  categoriaVersion,
+  onCategoriaCreada,
+  onOfrecerPatron,
 }: ReclasificarMobileControlProps) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [catalogo, setCatalogo] = useState<CatalogoDto | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
 
   // us-044 Alert guard: set true before Alert.alert; cleared in EVERY onPress.
   const mostrandoAlerta = useRef(false);
@@ -129,6 +219,24 @@ export function ReclasificarMobileControl({
     }
   }, [modalAbierto, catalogo, cargarCatalogo]);
 
+  // agregar-categoria-desde-bucket (issue #743): invalidate ONLY this
+  // control's own cached `catalogo` when `categoriaVersion` changes — never
+  // a remount (see the prop's own docblock). `categoriaVersion === undefined`
+  // (every pre-existing caller) makes this a permanent no-op, so nothing
+  // changes for a caller that doesn't opt in. When it IS provided, this also
+  // fires once on mount (`catalogo` is already `null` then, so `setCatalogo
+  // (null)` is a no-op re-render-wise) — the only observable effect is on a
+  // LATER change, which is exactly the "categoría created elsewhere" signal.
+  // If the modal happens to be open when that fires, the effect above
+  // refetches immediately instead of waiting for the next open.
+  useEffect(() => {
+    if (categoriaVersion === undefined) {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCatalogo(null);
+  }, [categoriaVersion]);
+
   function handleAbrirModal() {
     setErrorMensaje(null);
     setModalAbierto(true);
@@ -140,10 +248,31 @@ export function ReclasificarMobileControl({
   }
 
   /**
-   * commit(categoriaId, bucketNuevo?) — calls the PATCH and handles the settled ok/error path.
-   * bucketNuevo is defined only for cross-bucket moves.
+   * alCategoriaCreada (issue #744) — the created categoría is selected for
+   * this row via the EXACT SAME `handleSelectCategoria` branch a tap on an
+   * existing option takes (same-bucket direct commit, cross-bucket Alert),
+   * reported upward via `onCategoriaCreada` (bumps `categoriaVersion` for
+   * every OTHER row — see this prop's own docblock). This control's own
+   * `categoriaVersion` effect above reacts to that same bump by nulling its
+   * cached `catalogo`, so no separate local-cache append is needed here —
+   * the next open (or, if the modal is still open, the effect below) fetches
+   * the now-fresh catalog straight from the server.
    */
-  async function commit(categoriaId: string, bucketNuevo?: string) {
+  function alCategoriaCreada(categoria: CategoriaDto) {
+    setCreandoCategoria(false);
+    onCategoriaCreada(categoria);
+    handleSelectCategoria(categoria.id, categoria.bucket, categoria.nombre);
+  }
+
+  /**
+   * commit(categoriaId, movidaLabel?) — calls the PATCH and handles the settled ok/error path.
+   * `movidaLabel` is the string `onMovida` is called with on success — the
+   * ETIQUETA_BUCKET display label for a cross-bucket move, or the
+   * destination categoría's nombre for a same-bucket move (confirmacion-
+   * reclasificar, issue #749). `commit` itself does not need to know which
+   * case it is — it just forwards whatever label the caller computed.
+   */
+  async function commit(categoriaId: string, movidaLabel?: string) {
     setErrorMensaje(null);
     const resultado = await reclasificarCategoria(tx.id, categoriaId);
 
@@ -159,19 +288,37 @@ export function ReclasificarMobileControl({
     void onReclasificado();
     solicitarRecargaResumen();
 
-    // Cross-bucket only: fire the screen-owned announcement handler.
-    // This is the settled-announcement: fires AFTER the PATCH resolves, NEVER before.
-    if (bucketNuevo !== undefined) {
-      onMovida(ETIQUETA_BUCKET[bucketNuevo] ?? bucketNuevo);
+    // Fire the screen-owned announcement handler (cross-bucket AND
+    // same-bucket alike, confirmacion-reclasificar). This is the
+    // settled-announcement: fires AFTER the PATCH resolves, NEVER before.
+    if (movidaLabel !== undefined) {
+      onMovida(movidaLabel);
     }
+
+    // patrón-desde-movimiento (issue #745): every successful reclassify
+    // offers to turn it into a pattern, targeting the categoría it just
+    // committed TO. Fired in the SAME synchronous tick as `onReclasificado`
+    // above (no await between them) — this is deliberate, see this
+    // control's own `onOfrecerPatron` docblock and `BucketDetalleScreen`'s:
+    // React 18 batches this with the screen's `fase: 'loading'` update from
+    // `onReclasificado`, so the offer is already part of the SAME render
+    // that shows the loading state, instead of appearing on this
+    // (about-to-unmount) control and being lost.
+    onOfrecerPatron({ descripcion: tx.descripcion, categoriaId });
   }
 
-  function handleSelectCategoria(categoriaId: string, bucketCategoria: string) {
+  function handleSelectCategoria(
+    categoriaId: string,
+    bucketCategoria: string,
+    nombreCategoria: string,
+  ) {
     const esMismoBucket = bucketCategoria === categoriaActual.bucket;
 
     if (esMismoBucket) {
-      // Same-bucket: commit directly, no Alert.
-      void commit(categoriaId);
+      // Same-bucket: commit directly, no Alert — but still announce via
+      // onMovida with the destination categoría's own nombre
+      // (confirmacion-reclasificar, issue #749).
+      void commit(categoriaId, nombreCategoria);
       return;
     }
 
@@ -184,7 +331,7 @@ export function ReclasificarMobileControl({
     const etiquetaNueva = ETIQUETA_BUCKET[bucketCategoria] ?? bucketCategoria;
 
     Alert.alert(
-      'Confirmar cambio de bucket',
+      'Confirmar cambio de grupo',
       `Esto mueve ${tx.montoLabel} de ${etiquetaActual} a ${etiquetaNueva}.`,
       [
         {
@@ -199,7 +346,11 @@ export function ReclasificarMobileControl({
           style: 'destructive',
           onPress: () => {
             mostrandoAlerta.current = false;
-            void commit(categoriaId, bucketCategoria);
+            // Cross-bucket: pass the destination BUCKET's display label
+            // (already computed above for the Alert body) — not the
+            // categoría name (that's the same-bucket case, see
+            // handleSelectCategoria's other branch).
+            void commit(categoriaId, etiquetaNueva);
           },
         },
       ],
@@ -223,7 +374,7 @@ export function ReclasificarMobileControl({
       {/* Trigger: one per movement row (D-17/D-19) */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Cambiar bucket y categoría de ${tx.descripcion}`}
+        accessibilityLabel={`Cambiar grupo y categoría de ${tx.descripcion}`}
         testID={`reclasificar-trigger-${tx.id}`}
         onPress={handleAbrirModal}
       >
@@ -267,7 +418,7 @@ export function ReclasificarMobileControl({
               <Text
                 style={{ fontSize: 16, fontWeight: '600', color: '#2D2F3A' }}
               >
-                Cambiar bucket y categoría
+                Cambiar grupo y categoría
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -279,85 +430,133 @@ export function ReclasificarMobileControl({
               </Pressable>
             </View>
 
-            {/* Error message region */}
-            {errorMensaje ? (
-              <Text
-                accessibilityRole="alert"
-                style={{
-                  color: '#D1495B',
-                  fontSize: 13,
-                  paddingHorizontal: 16,
-                  paddingTop: 8,
-                }}
-              >
-                {errorMensaje}
-              </Text>
-            ) : null}
-
-            {/* Catalog loading state */}
-            {catalogo === null ? (
-              <View style={{ padding: 32, alignItems: 'center' }}>
-                <Text style={{ color: '#8A8F9C' }}>Cargando categorías...</Text>
+            {creandoCategoria ? (
+              /* "+ Crear categoría" (issue #744): replaces the picker body
+                 while open — same "at most one panel" idiom the reclassify
+                 surfaces on web use, avoids a cluttered Modal. */
+              <View style={{ padding: 16 }}>
+                <NuevaCategoriaForm
+                  bucketInicial={
+                    esBucketAsignable(categoriaActual.bucket)
+                      ? categoriaActual.bucket
+                      : undefined
+                  }
+                  onCreada={alCategoriaCreada}
+                  onCancelar={() => setCreandoCategoria(false)}
+                />
               </View>
             ) : (
-              <ScrollView style={{ padding: 16 }}>
-                {grupos.map((grupo) => (
-                  <View key={grupo.bucket} style={{ marginBottom: 16 }}>
-                    {/* Section header: ETIQUETA_BUCKET display label (D-17) */}
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '600',
-                        color: '#8A8F9C',
-                        marginBottom: 8,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Crear categoría"
+                  testID="reclasificar-crear-categoria-trigger"
+                  onPress={() => setCreandoCategoria(true)}
+                  style={{ paddingHorizontal: 16, paddingTop: 12 }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: '500',
+                      color: '#3B4266',
+                    }}
+                  >
+                    + Crear categoría
+                  </Text>
+                </Pressable>
+
+                {/* Error message region */}
+                {errorMensaje ? (
+                  <Text
+                    accessibilityRole="alert"
+                    style={{
+                      color: '#D1495B',
+                      fontSize: 13,
+                      paddingHorizontal: 16,
+                      paddingTop: 8,
+                    }}
+                  >
+                    {errorMensaje}
+                  </Text>
+                ) : null}
+
+                {/* Catalog loading state */}
+                {catalogo === null ? (
+                  <View style={{ padding: 32, alignItems: 'center' }}>
+                    <Text style={{ color: '#8A8F9C' }}>
+                      Cargando categorías...
                     </Text>
-
-                    {grupo.categorias.map((cat) => {
-                      const esCategoriaActual = cat.id === categoriaActual.id;
-
-                      return (
-                        <Pressable
-                          key={cat.id}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: esCategoriaActual }}
-                          testID={`reclasificar-opcion-${cat.id}`}
-                          onPress={() =>
-                            handleSelectCategoria(cat.id, cat.bucket)
-                          }
+                  </View>
+                ) : (
+                  <ScrollView style={{ padding: 16 }}>
+                    {grupos.map((grupo) => (
+                      <View key={grupo.bucket} style={{ marginBottom: 16 }}>
+                        {/* Section header: ETIQUETA_BUCKET display label (D-17) */}
+                        <Text
                           style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            paddingVertical: 10,
-                            paddingHorizontal: 4,
-                            borderBottomWidth: 1,
-                            borderBottomColor: '#EBEBEE',
+                            fontSize: 12,
+                            fontWeight: '600',
+                            color: '#8A8F9C',
+                            marginBottom: 8,
+                            textTransform: 'uppercase',
                           }}
                         >
-                          <Text
-                            style={{
-                              flex: 1,
-                              fontSize: 14,
-                              color: '#2D2F3A',
-                              fontWeight: esCategoriaActual ? '600' : '400',
-                            }}
-                          >
-                            {cat.nombre}
-                          </Text>
-                          {esCategoriaActual ? (
-                            <Text style={{ fontSize: 13, color: '#3B4266' }}>
-                              ● actual
-                            </Text>
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ))}
-              </ScrollView>
+                          {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}
+                        </Text>
+
+                        {grupo.categorias.map((cat) => {
+                          const esCategoriaActual =
+                            cat.id === categoriaActual.id;
+
+                          return (
+                            <Pressable
+                              key={cat.id}
+                              accessibilityRole="button"
+                              accessibilityState={{
+                                selected: esCategoriaActual,
+                              }}
+                              testID={`reclasificar-opcion-${cat.id}`}
+                              onPress={() =>
+                                handleSelectCategoria(
+                                  cat.id,
+                                  cat.bucket,
+                                  cat.nombre,
+                                )
+                              }
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 10,
+                                paddingHorizontal: 4,
+                                borderBottomWidth: 1,
+                                borderBottomColor: '#EBEBEE',
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  flex: 1,
+                                  fontSize: 14,
+                                  color: '#2D2F3A',
+                                  fontWeight: esCategoriaActual ? '600' : '400',
+                                }}
+                              >
+                                {cat.nombre}
+                              </Text>
+                              {esCategoriaActual ? (
+                                <Text
+                                  style={{ fontSize: 13, color: '#3B4266' }}
+                                >
+                                  ● actual
+                                </Text>
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </>
             )}
           </View>
         </View>

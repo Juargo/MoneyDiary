@@ -546,6 +546,30 @@ export function PreviewMuestra({
                 </Button>
               )}
             </div>
+            {/* Issue #742: classification is misread as one-shot/mandatory —
+                this supporting line under the "Movimientos" heading tells
+                the user rows can stay unclassified and be sorted later.
+                Plain text, unconditional (not gated by selection or filter
+                state — it's reference information, same idiom as the
+                inline bucket definition below). */}
+            <p className="text-xs text-muted-foreground">
+              Puedes dejar filas sin categoría y ordenarlas después.
+            </p>
+            {/* Issue #748: usability finding — nothing on screen named what
+                the bulk-select checkboxes/toolbar are FOR, and the toolbar
+                only appears AFTER a row is selected, so a first-time user
+                could never discover it by reading. Real text (not
+                aria-only), same quiet `text-xs text-muted-foreground` idiom
+                as the line above. Follows the EXACT P4 selection-collapse
+                conditional (`seleccionados.size === 0`, see this
+                component's docblock) so it never competes with the bulk
+                toolbar's own count pill below — one or the other is on
+                screen, never both. */}
+            {seleccionados.size === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Marca varias filas para darles la misma categoría de una vez.
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-3">
                 {seleccionablesVisibles.length > 0 && (
@@ -565,7 +589,14 @@ export function PreviewMuestra({
                         algunaVisibleSeleccionada && !todasVisiblesSeleccionadas
                       }
                       onChange={() => handleToggleGrupo(seleccionablesVisibles)}
-                      ariaLabel={etiquetaSeleccionarVisibles}
+                      // issue #748: `aria-label` on the underlying `<input>`
+                      // (see `CheckboxIndeterminado`) always wins over this
+                      // `<label>`'s own visible text as the accessible name,
+                      // so the purpose suffix is added HERE, not in the
+                      // visible text below — WCAG 2.2 SC 2.5.3 only requires
+                      // the accessible name to CONTAIN the visible text, not
+                      // equal it.
+                      ariaLabel={`${etiquetaSeleccionarVisibles} para clasificar en grupo`}
                     />
                     {etiquetaSeleccionarVisibles}
                   </label>
@@ -622,7 +653,7 @@ export function PreviewMuestra({
               className="hidden gap-2 px-2 sm:flex"
             >
               <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Bucket
+                Grupo
               </span>
               <span className="flex-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Categoría
@@ -638,14 +669,14 @@ export function PreviewMuestra({
               dropped — the link's own underline already signals it's
               interactive, so the glyph was decoration, not information. */}
             <p className="px-2 text-xs text-muted-foreground">
-              <strong className="font-medium">Bucket</strong>: el grupo 50/30/20
-              al que va el gasto (Necesidades, Gustos o Ahorro). ·{' '}
+              <strong className="font-medium">Grupo</strong>: el 50/30/20 al que
+              va el gasto (Necesidades, Gustos o Ahorro). ·{' '}
               <Link
                 to="/ayuda"
                 hash="ayuda-glosario"
                 className="underline underline-offset-2 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
               >
-                Ayuda: qué es un bucket
+                Ayuda: qué es un grupo
               </Link>
             </p>
           </div>
@@ -852,14 +883,14 @@ export function PreviewMuestra({
                 "{bucket} · {categoría}" text carries the same information a
                 second visible label line would only repeat. */}
             <label className="flex flex-col gap-1 text-sm text-muted-foreground">
-              <span className="sr-only">Bucket y categoría para aplicar</span>
+              <span className="sr-only">Grupo y categoría para aplicar</span>
               <select
                 value={categoriaToolbar}
                 onChange={(event) => setCategoriaToolbar(event.target.value)}
                 disabled={catalogo.tag !== 'listo'}
                 className="rounded-md border border-input px-3 py-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:opacity-50"
               >
-                <option value="">Selecciona bucket y categoría</option>
+                <option value="">Selecciona grupo y categoría</option>
                 {gruposCategoriaToolbar.map((grupo) => (
                   <optgroup
                     key={grupo.bucket}

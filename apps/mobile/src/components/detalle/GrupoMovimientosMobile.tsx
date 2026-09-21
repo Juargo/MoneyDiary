@@ -43,6 +43,7 @@ import { Pressable, Text, View } from 'react-native';
 import { aDiaConSemana, aFechaLargaLabel } from '../../domain/fecha-corta';
 import { formatearMontoCLP } from '../../domain/formatear-monto';
 import type { GrupoDetalleBucketMesDto } from '../../domain/detalle.types';
+import type { CategoriaDto } from '../../domain/catalogo.types';
 import { IconoCategoriaBadge } from '../IconoCategoriaBadge';
 import { CeldaFecha } from './CeldaFecha';
 import { ReclasificarMobileControl } from './ReclasificarMobileControl';
@@ -96,11 +97,42 @@ interface GrupoMovimientosMobileProps {
    */
   readonly onReclasificado: () => void | Promise<void>;
   /**
-   * REQUIRED: called on cross-bucket success with the ETIQUETA_BUCKET display label
-   * of the destination bucket. Screen owns both setAnuncio and announceForAccessibility
+   * REQUIRED: called on EVERY successful reclassify — cross-bucket with the
+   * ETIQUETA_BUCKET display label of the destination bucket, same-bucket
+   * with the destination categoría's own nombre (confirmacion-reclasificar,
+   * issue #749). Screen owns both setAnuncio and announceForAccessibility
    * (D-20 single announcement source). Non-optional per us-044 PR7 case law.
    */
-  readonly onMovida: (bucketLabel: string) => void;
+  readonly onMovida: (label: string) => void;
+  /**
+   * agregar-categoria-desde-bucket (issue #743): forwarded verbatim to every
+   * row's `ReclasificarMobileControl` — see that prop's own docblock. Pure
+   * passthrough, this component has no opinion on it (no local state keys
+   * off it, unlike the `key`-remount approach this replaced).
+   */
+  readonly categoriaVersion?: number;
+  /**
+   * agregar-categoria-desde-selector (issue #744): REQUIRED per the us-044
+   * PR7 banned-pattern (`onMovida`/`onReclasificado` above are the
+   * precedent) — forwarded verbatim to every row's own
+   * `ReclasificarMobileControl`, which now has its own "+ Crear categoría"
+   * affordance in its picker Modal. `BucketDetalleScreen` wires this to the
+   * SAME `handleCategoriaCreada` that `AgregarCategoriaControl` already
+   * uses, so a categoría created from EITHER entry point bumps
+   * `categoriaVersion` and reaches every other row's own cached catalog
+   * the same way (issue #743's mechanism) — pure passthrough here.
+   */
+  readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
+  /**
+   * patrón-desde-movimiento (issue #745): REQUIRED per the us-044 PR7
+   * banned-pattern discipline (same precedent as the props above) — pure
+   * passthrough to every row's own `ReclasificarMobileControl`. See that
+   * control's own prop docblock for the settled-fire contract.
+   */
+  readonly onOfrecerPatron: (info: {
+    descripcion: string;
+    categoriaId: string;
+  }) => void;
 }
 
 /**
@@ -114,6 +146,9 @@ export function GrupoMovimientosMobile({
   destacar,
   onReclasificado,
   onMovida,
+  categoriaVersion,
+  onCategoriaCreada,
+  onOfrecerPatron,
 }: GrupoMovimientosMobileProps) {
   const [expandido, setExpandido] = useState(false);
 
@@ -209,6 +244,9 @@ export function GrupoMovimientosMobile({
               categoriaActual={categoriaActual}
               onReclasificado={onReclasificado}
               onMovida={onMovida}
+              categoriaVersion={categoriaVersion}
+              onCategoriaCreada={onCategoriaCreada}
+              onOfrecerPatron={onOfrecerPatron}
             />
           </View>
         );

@@ -1,4 +1,10 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -291,6 +297,27 @@ describe('IngresosMesPage', () => {
     expect(backLink).toHaveAttribute('data-slot', 'button');
     expect(backLink).toHaveAttribute('data-variant', 'link');
     expect(backLink).toHaveAttribute('data-size', 'sm');
+  });
+
+  // issue #752 — same fix and same mechanism as BucketDetalleMesPage's own
+  // test: with real in-app navigation history, "Volver" becomes a button
+  // that calls router.history.back() instead of the fixed Link.
+  it('con historial de navegación in-app, "Volver" es un botón real que llama a router.history.back() (issue #752)', async () => {
+    const { router } = renderPagina();
+    await screen.findByRole('heading', { level: 1 });
+
+    act(() => {
+      router.history.push('/');
+    });
+
+    const boton = await screen.findByRole('button', { name: 'Volver' });
+    expect(
+      screen.queryByRole('link', { name: 'Volver al resumen' }),
+    ).not.toBeInTheDocument();
+
+    const backSpy = vi.spyOn(router.history, 'back');
+    fireEvent.click(boton);
+    expect(backSpy).toHaveBeenCalledTimes(1);
   });
 
   // Case 12: onPeriodoChange updates URL (WDI-03)

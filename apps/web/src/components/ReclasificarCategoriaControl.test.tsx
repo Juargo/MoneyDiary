@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
-import type { CatalogoDto, ReclasificarCategoriaDto } from '@/api/types';
+import type {
+  CatalogoDto,
+  CategoriaDto,
+  ReclasificarCategoriaDto,
+} from '@/api/types';
 
 // `Wrapper.queryClient` is attached so a handful of tests can drive a
 // background refetch directly (`wrapper.queryClient.refetchQueries(...)`)
@@ -603,7 +607,7 @@ describe('ReclasificarCategoriaControl', () => {
     // bucket" — the money-move copy body stays untouched (reclasificar-
     // bucket-y-categoria: only this dialog's title changes, since it only
     // ever appears on a cross-bucket move).
-    expect(dialog).toHaveAccessibleName('Confirmar cambio de bucket');
+    expect(dialog).toHaveAccessibleName('Confirmar cambio de grupo');
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-1/categoria',
       expect.anything(),
@@ -655,7 +659,7 @@ describe('ReclasificarCategoriaControl', () => {
     expect(onMovida).toHaveBeenCalledWith('Necesidades');
   });
 
-  it('a same-bucket commit does NOT call onMovida (D-07)', async () => {
+  it('a same-bucket reclassify calls onMovida with the destination categoría name, not a bucket label (confirmacion-reclasificar)', async () => {
     mockFetch({
       ok: true,
       status: 200,
@@ -688,7 +692,12 @@ describe('ReclasificarCategoriaControl', () => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
     );
 
-    expect(onMovida).toHaveBeenCalledTimes(0);
+    // Same-bucket now reuses the SAME onMovida callback the cross-bucket
+    // case uses, but with the destination CATEGORÍA's name — the page
+    // formats "Movida a {label}." verbatim regardless of which caller it is
+    // (confirmacion-reclasificar, issue #749).
+    await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
+    expect(onMovida).toHaveBeenCalledWith('Transporte');
   });
 
   // Touch-target quick win (round 2, P2): destructive/cross-bucket confirms
@@ -1402,5 +1411,522 @@ describe('ReclasificarCategoriaControl', () => {
     expect(select).not.toBeDisabled();
     expect(select).not.toHaveAttribute('aria-busy', 'true');
     expect(screen.getAllByRole('option')).toHaveLength(8);
+  });
+
+  // ── crear categoría desde el selector (issue #744) ──
+
+  /**
+   * Discriminates by HTTP method (unlike `mockFetch`, which only looks at
+   * the URL — `GET /api/categorias` and `POST /api/categorias` share the
+   * same URL). `crearRespuesta` is required so every test in this block is
+   * explicit about what the creation POST returns.
+   *
+   * `categoriaCreada` (only relevant when `crearRespuesta.ok`) is appended
+   * to the mocked catalog SYNCHRONOUSLY the moment the POST branch runs —
+   * before its own response promise even resolves — because
+   * `useCrearCategoria`'s `onSuccess` both seeds the cache directly AND
+   * invalidates `['categorias']` (profile B), and an active query
+   * invalidation triggers an immediate background refetch. A real backend
+   * would obviously return the just-created row on that refetch too; a
+   * naive mock that always serves the original fixture would make that
+   * background refetch silently erase the seed, which is a test-double gap,
+   * not a product bug.
+   */
+  function mockFetchConCreacion({
+    catalogo = CATALOGO_FIXTURE,
+    crearRespuesta,
+    categoriaCreada,
+    reclasificarRespuesta = {
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    },
+  }: {
+    catalogo?: CatalogoDto;
+    crearRespuesta: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    };
+    categoriaCreada?: CategoriaDto;
+    reclasificarRespuesta?: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    };
+  }) {
+    let categorias = catalogo.categorias;
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/categorias' && init?.method === 'POST') {
+        if (crearRespuesta.ok && categoriaCreada) {
+          categorias = [...categorias, categoriaCreada];
+        }
+        return Promise.resolve(crearRespuesta);
+      }
+      if (url === '/api/categorias') {
+        return Promise.resolve(respuestaCatalogo({ categorias }));
+      }
+      return Promise.resolve(reclasificarRespuesta);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('renders a "+" trigger beside the select that opens a creation form with an editable bucket field, preset to the row\'s current bucket', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    const trigger = screen.getByRole('button', {
+      name: 'Nueva categoría para Supermercado Líder',
+    });
+    // Not an <option> inside the <select> — a separate, always-keyboard-
+    // reachable control (issue #744 a11y decision).
+    expect(trigger.tagName).toBe('BUTTON');
+
+    await user.click(trigger);
+
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
+    const bucketField = screen.getByLabelText('Grupo') as HTMLSelectElement;
+    expect(bucketField.value).toBe('Necesidades');
+  });
+
+  it('creating a category in the SAME bucket selects it for the row and commits the reclassify immediately, no confirmation', async () => {
+    const categoriaCreada: CategoriaDto = {
+      id: 'cat-libros-necesidades',
+      nombre: 'Libros',
+      bucket: 'Necesidades',
+      patrones: [],
+      transaccionesCount: 0,
+    };
+    const fetchMock = mockFetchConCreacion({
+      crearRespuesta: {
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(categoriaCreada),
+      },
+      categoriaCreada,
+    });
+    const onMovida = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Librería Central"
+        montoLabel="$8.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={onMovida}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Librería Central: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Nueva categoría para Librería Central',
+      }),
+    );
+    await user.type(screen.getByLabelText('Nombre'), 'Libros');
+    await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/transacciones/tx-1/categoria',
+        expect.objectContaining({
+          body: JSON.stringify({ categoriaId: 'cat-libros-necesidades' }),
+        }),
+      ),
+    );
+    expect(onMovida).toHaveBeenCalledWith('Libros');
+    // The categoría-created cache seed (`useCrearCategoria`) and this
+    // control's own `setValor` land in the same synchronous callback, but
+    // the query cache's subscriber notification can settle a tick later —
+    // `waitFor` (not a bare assert) tolerates that without weakening what's
+    // proven: the row ends up pointed at the newly created categoría.
+    await waitFor(() => expect(select.value).toBe('cat-libros-necesidades'));
+  });
+
+  it('creating a category in a DIFFERENT bucket opens the same cross-bucket confirmation as picking an existing categoría, and does not commit until confirmed', async () => {
+    const categoriaCreada: CategoriaDto = {
+      id: 'cat-libros-deseos',
+      nombre: 'Libros',
+      bucket: 'Deseos',
+      patrones: [],
+      transaccionesCount: 0,
+    };
+    const fetchMock = mockFetchConCreacion({
+      crearRespuesta: {
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(categoriaCreada),
+      },
+      categoriaCreada,
+    });
+    const onMovida = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Librería Central"
+        montoLabel="$8.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={onMovida}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Librería Central: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Nueva categoría para Librería Central',
+      }),
+    );
+    // The user picks a DIFFERENT bucket than the row's own before creating —
+    // the exact usability finding this issue fixes (wanting "Libros" under
+    // Gustos while sitting on a Necesidades row).
+    await user.selectOptions(screen.getByLabelText('Grupo'), 'Deseos');
+    await user.type(screen.getByLabelText('Nombre'), 'Libros');
+    await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent(
+      'Esto mueve $8.000 de Necesidades a Gustos',
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/transacciones/tx-1/categoria',
+      expect.anything(),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/transacciones/tx-1/categoria',
+        expect.objectContaining({
+          body: JSON.stringify({ categoriaId: 'cat-libros-deseos' }),
+        }),
+      ),
+    );
+    expect(onMovida).toHaveBeenCalledWith('Gustos');
+  });
+
+  it('a duplicate-name creation error renders inline in the creation form (mensajeDeErrorCatalogo), never silently drops the row selection', async () => {
+    mockFetchConCreacion({
+      crearRespuesta: {
+        ok: false,
+        status: 409,
+        json: () => Promise.resolve({ code: 'NOMBRE_DUPLICADO', message: 'x' }),
+      },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Librería Central"
+        montoLabel="$8.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Librería Central: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Nueva categoría para Librería Central',
+      }),
+    );
+    await user.type(screen.getByLabelText('Nombre'), 'Supermercado');
+    await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    // The row's own selection is untouched by the failed creation attempt.
+    expect(select.value).toBe('cat-supermercado');
+  });
+
+  // ── patrón desde movimiento (issue #745) ──
+
+  /**
+   * Routes `/api/patrones` (the offer's own POST) alongside the existing
+   * `/api/categorias` (catalog) and reclassify-PATCH routing `mockFetch`
+   * already does — a dedicated helper because none of the existing ones
+   * discriminate a third URL.
+   */
+  function mockFetchConPatron({
+    catalogo = CATALOGO_FIXTURE,
+    reclasificarRespuesta = {
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(dtoDestino),
+    },
+    patronRespuesta = { ok: true, status: 201 },
+  }: {
+    catalogo?: CatalogoDto;
+    reclasificarRespuesta?: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    };
+    patronRespuesta?: {
+      ok: boolean;
+      status: number;
+      json?: () => Promise<unknown>;
+    };
+  } = {}) {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === '/api/categorias') {
+        return Promise.resolve(respuestaCatalogo(catalogo));
+      }
+      if (url === '/api/patrones') {
+        return Promise.resolve(patronRespuesta);
+      }
+      return Promise.resolve(reclasificarRespuesta);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('after a same-bucket reclassify commits, offers to create a pattern from the movement', async () => {
+    mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+
+    expect(await screen.findByText(/próximas cartolas/i)).toBeInTheDocument();
+  });
+
+  it('dismissing the pattern offer leaves the reclassification intact and fires no pattern request', async () => {
+    const fetchMock = mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByText(/próximas cartolas/i);
+
+    await user.click(screen.getByRole('button', { name: 'Ahora no' }));
+
+    expect(screen.queryByText(/próximas cartolas/i)).not.toBeInTheDocument();
+    // The reclassify PATCH already happened and is untouched.
+    expect(select.value).toBe('cat-transporte');
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/patrones',
+      expect.anything(),
+    );
+  });
+
+  it("confirming the offer POSTs to /api/patrones with the ROW'S NEWLY ASSIGNED categoriaId, the literal selected words, and CONTAINS, and announces the created pattern via onPatronCreado", async () => {
+    const fetchMock = mockFetchConPatron();
+    const onPatronCreado = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+        onPatronCreado={onPatronCreado}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Líder' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/patrones',
+        expect.objectContaining({
+          body: JSON.stringify({
+            categoriaId: 'cat-transporte',
+            patron: 'Líder',
+            matchType: 'CONTAINS',
+          }),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(onPatronCreado).toHaveBeenCalledExactlyOnceWith('Líder'),
+    );
+    // The offer closes once the pattern is created.
+    expect(screen.queryByText(/próximas cartolas/i)).not.toBeInTheDocument();
+  });
+
+  it('a failed pattern creation surfaces inline and does not undo the reclassification', async () => {
+    mockFetchConPatron({
+      patronRespuesta: {
+        ok: false,
+        status: 409,
+        json: () => Promise.resolve({ code: 'PATRON_DUPLICADO', message: 'x' }),
+      },
+    });
+    const onPatronCreado = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+        onPatronCreado={onPatronCreado}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Líder' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ya tienes un patrón con ese texto.',
+    );
+    expect(onPatronCreado).not.toHaveBeenCalled();
+    // The reclassify commit from before is completely unaffected.
+    expect(select.value).toBe('cat-transporte');
+  });
+
+  it('after confirming a CROSS-BUCKET reclassify, the pattern offer targets the DESTINATION categoría, not the original', async () => {
+    const fetchMock = mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Uber Eats"
+        montoLabel="$15.000"
+        bucketActual="Deseos"
+        categoriaActual={{ id: 'cat-delivery', nombre: 'Delivery' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Uber Eats: Gustos · Delivery',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    await screen.findByText(/próximas cartolas/i);
+    await user.click(screen.getByRole('button', { name: 'Crear patrón' }));
+    await user.click(screen.getByRole('button', { name: 'Uber' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/patrones',
+        expect.objectContaining({
+          body: JSON.stringify({
+            categoriaId: 'cat-transporte',
+            patron: 'Uber',
+            matchType: 'CONTAINS',
+          }),
+        }),
+      ),
+    );
   });
 });

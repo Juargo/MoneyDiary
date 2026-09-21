@@ -12,7 +12,11 @@ import type {
   ResumenMesDto,
 } from '../src/domain/resumen.types';
 import { aResumenViewModel } from '../src/domain/resumen-view-model';
-import { anioDePeriodo, periodoActualUTC } from '../src/domain/periodo-anual';
+import {
+  anioDePeriodo,
+  esMesActual,
+  periodoActualUTC,
+} from '../src/domain/periodo-anual';
 import { formatearPeriodoLabel } from '../src/domain/periodo-label';
 import { calcularVariacionIngreso } from '../src/domain/variacion-ingreso';
 import { calcularBarrasIngreso } from '../src/domain/sparkline-ingreso';
@@ -109,15 +113,33 @@ export default function Index() {
     setPeriodo(p);
   }, []);
 
-  // `periodoVista` is the single source for the header label, the annual
-  // grid's selected-cell marker, and `anio` (design §1.9) — a *presentation*
-  // derivation (which month am I looking at), never money math. `anio` never
+  // `periodoVista` is the client-derived guess (tapped selection, else
+  // "now") — it ONLY covers the brief window before the month fetch has
+  // resolved (loading/error), same discipline as web's `HomePage`
+  // (`routes/_authenticated/index.tsx`).
+  const periodoVista = periodo ?? periodoActualUTC(new Date());
+  // `periodoResuelto` is the single source for the header label, the
+  // annual grid's selected-cell marker, `anio`, and month-scoped navigation
+  // (design §1.9) — a *presentation* derivation (which month am I looking
+  // at), never money math. issue #747 PR3: once the month fetch lands, this
+  // reads the BACKEND-ECHOED `estado.dto.periodo` (PR1: an absent `periodo`
+  // now resolves to the user's last month WITH DATA, not "now") instead of
+  // re-deriving "now" client-side — otherwise the header/grid/nav would
+  // show/target the wrong month the instant the resolved month differs from
+  // today (mirrors web's `periodoResuelto`, issue #747 PR2). `anio` never
   // actually changes today (all 12 selectable cells belong to the current
   // year, binding decision 4), so the annual fetch runs once per mount;
   // `anioDePeriodo` is threaded anyway for web parity and so a future year
   // switch is a prop change, not a rewrite.
-  const periodoVista = periodo ?? periodoActualUTC(new Date());
-  const anio = anioDePeriodo(periodoVista, new Date().getUTCFullYear());
+  const periodoResuelto =
+    estado.fase === 'data' ? estado.dto.periodo : periodoVista;
+  const anio = anioDePeriodo(periodoResuelto, new Date().getUTCFullYear());
+  // Drives the "Mes en curso" marker (issue #747 PR3) — reuses
+  // `periodoActualUTC`'s UTC calendar (via `esMesActual`), the SAME notion
+  // of "now" the backend resolves an absent `periodo` with (PR1), so the
+  // marker agrees with what the resolved month actually means (mirrors web's
+  // `PeriodoSelector.tsx` `enMesActual`).
+  const mesEnCurso = esMesActual(periodoResuelto, new Date());
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.canvas }}>
@@ -129,17 +151,20 @@ export default function Index() {
           content to content height, not viewport height). No RNTL test can
           assert this layout fact; verification is Maestro/manual (T5b.4/T6.3). */}
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <Header periodoLabel={formatearPeriodoLabel(periodoVista)} />
+        <Header
+          periodoLabel={formatearPeriodoLabel(periodoResuelto)}
+          mesEnCurso={mesEnCurso}
+        />
         {renderEstado({
           estado,
           onRetry: cargar,
-          periodo: periodoVista,
+          periodo: periodoResuelto,
           mesesAnual,
           onNavegar: (path) => router.push(path),
         })}
         <ResumenAnual
           anio={anio}
-          periodoSeleccionado={periodoVista}
+          periodoSeleccionado={periodoResuelto}
           onSelectPeriodo={onSelectPeriodo}
           onMeses={setMesesAnual}
         />

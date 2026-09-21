@@ -140,7 +140,7 @@ describe('CategoriasPanel', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Tu catálogo propio: toda categoría pertenece a un bucket. Los patrones permiten la auto-categorización.',
+        'Tu catálogo propio: toda categoría pertenece a un grupo. Los patrones permiten la auto-categorización.',
       ),
     ).toBeInTheDocument();
   });
@@ -326,7 +326,7 @@ describe('CategoriasPanel', () => {
 
     await screen.findByText('Supermercado');
     const subtitulo = screen.getByText(
-      'Tu catálogo propio: toda categoría pertenece a un bucket. Los patrones permiten la auto-categorización.',
+      'Tu catálogo propio: toda categoría pertenece a un grupo. Los patrones permiten la auto-categorización.',
     );
     expect(subtitulo).toHaveClass('hidden', 'md:block');
   });
@@ -340,7 +340,7 @@ describe('CategoriasPanel', () => {
     );
 
     expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
-    expect(screen.getByLabelText('Bucket (obligatorio)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Grupo (obligatorio)')).toBeInTheDocument();
   });
 
   it('Cancelar en el form recién abierto lo cierra y vuelve a mostrar el botón Nueva categoría', async () => {

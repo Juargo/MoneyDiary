@@ -9,6 +9,7 @@ import { SemaforoBadge } from './SemaforoBadge';
 import { BucketSemaforoCard } from './BucketSemaforoCard';
 import { aSemaforoDetalleViewModel } from '@/domain/semaforo-detalle-view-model';
 import { mesCompletoLabel } from '@/domain/periodo-anual';
+import { useVolverAtras } from '@/lib/use-volver-atras';
 import type { ApiError } from '@/api/client';
 import type { SemaforoDetalleDto } from '@/api/types';
 
@@ -20,9 +21,19 @@ import type { SemaforoDetalleDto } from '@/api/types';
  * adopted here, closing issue #382 — + the backend `diagnostico` verbatim),
  * the CA-03 worst-of-3 explainer, three `BucketSemaforoCard`s, the Sin
  * categoría notice (CA-06), and the `sinIngreso` branch (CA-07). The
- * "Volver al resumen" back-link lives HERE (not in the route container) so
- * it is testable without a real router harness carrying the full app tree —
- * `search={{ periodo }}` is the CA-08 fix for the stub's dropped-periodo bug.
+ * back control lives HERE (not in the route container) so it is testable
+ * without a real router harness carrying the full app tree — `search={{
+ * periodo }}` is the CA-08 fix for the stub's dropped-periodo bug.
+ *
+ * "Volver" returns to real origin, not always "/" (issue #752,
+ * `useVolverAtras`): `/semaforo` is reachable from more than the dashboard
+ * (`/ayuda`'s "El semáforo" section links here too), so a hard-coded
+ * `to="/"` silently discarded whichever screen the user actually came
+ * from. `useVolverAtras()` is called HERE, in the real component, and its
+ * `puedeVolver`/`volverAtras` are threaded into `renderEstado` as
+ * parameters — `renderEstado` is a plain helper function, not a component,
+ * so calling a hook INSIDE it directly would violate
+ * `react-hooks/rules-of-hooks`.
  */
 export function SemaforoDetallePage({
   query,
@@ -31,9 +42,10 @@ export function SemaforoDetallePage({
   readonly query: UseQueryResult<SemaforoDetalleDto, ApiError>;
   readonly periodo: string | undefined;
 }) {
+  const { puedeVolver, volverAtras } = useVolverAtras();
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
-      {renderEstado(query, periodo)}
+      {renderEstado(query, periodo, puedeVolver, volverAtras)}
     </div>
   );
 }
@@ -41,6 +53,8 @@ export function SemaforoDetallePage({
 function renderEstado(
   query: UseQueryResult<SemaforoDetalleDto, ApiError>,
   periodo: string | undefined,
+  puedeVolver: boolean,
+  volverAtras: () => void,
 ) {
   if (query.isPending) {
     return <Loading message="Cargando semáforo…" />;
@@ -67,17 +81,37 @@ function renderEstado(
               (`text-primary underline-offset-4 hover:underline`), así que el
               aspecto no cambia, y `size="sm"` le da un target real de 32px.
               `-mr-3` cancela el `px-3` de ese tamaño en el borde alineado para
-              que el header no se corra. */}
-          <Button
-            asChild
-            variant="link"
-            size="sm"
-            className="-mr-3 font-medium"
-          >
-            <Link to="/" search={{ periodo }}>
-              Volver al resumen
-            </Link>
-          </Button>
+              que el header no se corra.
+
+              issue #752: `/semaforo` también se puede alcanzar desde
+              `/ayuda`, no solo desde el dashboard — un `to="/"` fijo
+              perdía esa procedencia. Con historial in-app, este control
+              pasa a ser un botón real que llama a `router.history.back()`
+              (etiqueta genérica "Volver": el destino real varía según de
+              dónde vino el usuario). Sin historial (URL directa), se
+              mantiene el `<Link>` de siempre — destino fijo conocido, así
+              que su etiqueta específica sigue siendo honesta. */}
+          {puedeVolver ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="-mr-3 font-medium"
+              onClick={volverAtras}
+            >
+              Volver
+            </Button>
+          ) : (
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="-mr-3 font-medium"
+            >
+              <Link to="/" search={{ periodo }}>
+                Volver al resumen
+              </Link>
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <SemaforoBadge estadoSemaforo={viewModel.estadoGlobal} size={40} />

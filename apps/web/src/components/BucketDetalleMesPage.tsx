@@ -7,14 +7,21 @@ import { Empty } from './states/Empty';
 import { PeriodoSelector } from './PeriodoSelector';
 import { GrupoMovimientos } from './GrupoMovimientos';
 import { ReevaluarPatronesControl } from './ReevaluarPatronesControl';
+import { AgregarCategoriaControl } from './AgregarCategoriaControl';
 import { Button } from '@/components/ui/button';
 import { useCategorias } from '@/api/use-categorias';
+import { useVolverAtras } from '@/lib/use-volver-atras';
+import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
 import { aDetalleBucketMesViewModel } from '@/domain/detalle-bucket-mes-view-model';
 import { mesAbreviadoConAnio, mesCompletoLabel } from '@/domain/periodo-anual';
 import { CLAVE_SIN_CATEGORIA } from '@/domain/periodo';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { ApiError } from '@/api/client';
-import type { DetalleBucketMesDto, ReevaluarCategoriasDto } from '@/api/types';
+import type {
+  CategoriaDto,
+  DetalleBucketMesDto,
+  ReevaluarCategoriasDto,
+} from '@/api/types';
 
 /**
  * BucketDetalleMesPage — US-053 real page for a single bucket/month over the
@@ -30,8 +37,23 @@ import type { DetalleBucketMesDto, ReevaluarCategoriasDto } from '@/api/types';
  * Router-agnostic (SemaforoDetallePage precedent, D-09): the route
  * (buckets.$bucket.tsx, T-10) owns the query hook + search-param parsing and
  * hands this component `query` / `periodo` / `onPeriodoChange` / `destacar`.
- * The back-link `to="/" search={{ periodo }}` lives HERE, not in the route —
- * so the navigation contract is testable without the route tree (D-09).
+ * The back control lives HERE, not in the route — so the navigation
+ * contract is testable without the route tree (D-09).
+ *
+ * **"Volver" returns to real origin, not always "/"** (issue #752,
+ * `useVolverAtras`): this screen is reachable from more than one place (the
+ * dashboard's legend AND `/semaforo`'s "Sin categoría" notice), so a
+ * hard-coded `to="/"` silently discarded whichever screen the user actually
+ * came from. `useVolverAtras()`'s `puedeVolver` (backed by TanStack
+ * Router's OWN in-app navigation index, never raw browser history — see
+ * that hook's docblock for why this is the honest signal) picks between two
+ * DIFFERENT controls, not one control with two hrefs: a real `<button>`
+ * calling `router.history.back()` labelled plain "Volver" (the destination
+ * varies with wherever the user came from, so the label stays honest by
+ * staying generic), or — only when there is no in-app history to return to,
+ * e.g. a direct URL/deep link — the ORIGINAL `<Link to="/" search={{
+ * periodo }}>Volver al resumen</Link>` fallback, whose specific label is
+ * still true because that fallback's destination never varies.
  *
  * Grouped wire shape → view-model: `aDetalleBucketMesViewModel` (domain,
  * T-06) maps `DetalleBucketMesDto` → `DetalleBucketMesViewModel` —
@@ -83,11 +105,14 @@ export function BucketDetalleMesPage({
   readonly esDemo?: boolean;
 }) {
   const categoriasQuery = useCategorias();
+  const { puedeVolver, volverAtras } = useVolverAtras();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  // Page-owned cross-bucket announcement (D-07): persists until replaced by a
-  // subsequent cross-bucket move, a period change, or page unmount. No timer,
-  // no auto-clear on inactivity, no `setTimeout` state machine (KISS). The
-  // `role="status"` region re-announces on every content change.
+  // Page-owned reclassify announcement (D-07; extended to same-bucket by
+  // confirmacion-reclasificar, issue #749): persists until replaced by a
+  // subsequent reclassify (cross-bucket OR same-bucket), a period change, or
+  // page unmount. No timer, no auto-clear on inactivity, no `setTimeout`
+  // state machine (KISS). The `role="status"` region re-announces on every
+  // content change.
   //
   // Period-change clearing: `periodoAnterior` shadows the previous render's
   // `periodo`. When they differ, `setAnuncio('')` is called during this render
@@ -102,8 +127,13 @@ export function BucketDetalleMesPage({
     setAnuncio('');
   }
 
-  const alMovida = (bucketLabel: string) =>
-    setAnuncio(`Movida a ${bucketLabel}.`);
+  // Reused for BOTH cross-bucket AND same-bucket reclassify (confirmacion-
+  // reclasificar, issue #749): `ReclasificarCategoriaControl` calls this
+  // with the destination bucket's label for a cross-bucket move, or the
+  // destination categoría's name for a same-bucket move — this handler just
+  // interpolates whichever string it receives, so it needed no change to
+  // support the second caller.
+  const alMovida = (label: string) => setAnuncio(`Movida a ${label}.`);
 
   // SDD `correccion-movimientos-manuales` PR 3 (WEB-DEL-01, D-03): reuses
   // the SAME page-owned `anuncio` region as `alMovida` above — a delete is a
@@ -130,6 +160,31 @@ export function BucketDetalleMesPage({
     );
   };
 
+  // AgregarCategoriaControl (issue #743): reuses the SAME page-owned
+  // `anuncio` region as the reclassify/delete/reevaluate handlers above —
+  // one page-level status line for every mutation this screen can trigger,
+  // not a new one per affordance. `useCrearCategoria`'s own `onSuccess`
+  // already seeds the shared `['categorias']` query (see that hook's
+  // docblock), so the created categoría is selectable in
+  // `ReclasificarCategoriaControl` the instant this handler runs — no
+  // extra invalidation needed here.
+  const alCategoriaCreada = (categoria: CategoriaDto) => {
+    setAnuncio(`Categoría «${categoria.nombre}» creada.`);
+  };
+
+  // "Patrón desde movimiento" offer (issue #745): reuses the SAME
+  // page-owned `anuncio` region as every other mutation this screen can
+  // trigger — one status line, not a new one per affordance. The wording
+  // makes explicit this only affects FUTURE imports (US-013's
+  // `reevaluar-patrones` bulk re-scan is the separate, existing path to
+  // apply a pattern retroactively — issue #331, explicitly out of scope
+  // here).
+  const alPatronCreado = (patron: string) => {
+    setAnuncio(
+      `Patrón «${patron}» creado. Se usará en tus próximas importaciones.`,
+    );
+  };
+
   if (query.isPending) {
     return <Loading message="Cargando movimientos…" />;
   }
@@ -140,6 +195,12 @@ export function BucketDetalleMesPage({
   const viewModel = aDetalleBucketMesViewModel(query.data);
   const etiqueta = ETIQUETA_BUCKET[viewModel.bucket] ?? viewModel.bucket;
   const mesLabel = mesCompletoLabel(viewModel.periodo);
+  // SinCategoria (and any future non-spend bucket) cannot own a categoría —
+  // BUCKETS_ASIGNABLES is the same gate ReclasificarCategoriaControl already
+  // applies to its own <optgroup> list (issue #743).
+  const bucketEsAsignable = (
+    BUCKETS_ASIGNABLES as ReadonlyArray<string>
+  ).includes(viewModel.bucket);
 
   const categoriasCargandoInicial =
     categoriasQuery.data === undefined && categoriasQuery.isFetching;
@@ -198,16 +259,27 @@ export function BucketDetalleMesPage({
               is unchanged, while `size="sm"` gives it a real 32px target.
               `-mr-3` cancels that size's `px-3` on the flush edge so the
               header's right alignment does not shift. */}
-          <Button
-            asChild
-            variant="link"
-            size="sm"
-            className="-mr-3 font-medium"
-          >
-            <Link to="/" search={{ periodo }}>
-              Volver al resumen
-            </Link>
-          </Button>
+          {puedeVolver ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="-mr-3 font-medium"
+              onClick={volverAtras}
+            >
+              Volver
+            </Button>
+          ) : (
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="-mr-3 font-medium"
+            >
+              <Link to="/" search={{ periodo }}>
+                Volver al resumen
+              </Link>
+            </Button>
+          )}
         </div>
         <h1
           ref={headingRef}
@@ -221,6 +293,13 @@ export function BucketDetalleMesPage({
           esDemo={esDemo}
           onReevaluado={alReevaluarPatrones}
         />
+        {bucketEsAsignable && (
+          <AgregarCategoriaControl
+            bucket={viewModel.bucket}
+            esDemo={esDemo}
+            onCreada={alCategoriaCreada}
+          />
+        )}
         {esDemo && (
           <p role="note" className="text-sm text-muted-foreground">
             {MENSAJE_DEMO_ELIMINAR}
@@ -249,7 +328,7 @@ export function BucketDetalleMesPage({
       {viewModel.grupos.length === 0 ? (
         <Empty
           title={`Sin movimientos en ${mesLabel}`}
-          description="No hay movimientos en este bucket para el período."
+          description="No hay movimientos en este grupo para el período."
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -266,6 +345,7 @@ export function BucketDetalleMesPage({
               periodo={periodo}
               periodoLabel={mesAbreviadoConAnio(viewModel.periodo)}
               onMovida={alMovida}
+              onPatronCreado={alPatronCreado}
               onEliminado={alEliminarMovimiento}
               esDemo={esDemo}
             />

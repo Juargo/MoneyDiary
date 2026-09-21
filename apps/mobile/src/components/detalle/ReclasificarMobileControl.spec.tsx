@@ -21,9 +21,10 @@ import {
   fireEvent,
   waitFor,
   act,
+  within,
 } from '@testing-library/react-native';
 import { Alert, AccessibilityInfo } from 'react-native';
-import type { CatalogoDto } from '../../domain/catalogo.types';
+import type { CatalogoDto, CategoriaDto } from '../../domain/catalogo.types';
 import type { ApiResult } from '../../domain/api-error';
 import type { ReclasificarCategoriaDto } from '../../domain/detalle.types';
 import { ReclasificarMobileControl } from './ReclasificarMobileControl';
@@ -39,7 +40,17 @@ const mockReclasificarCategoria = jest.fn<
 
 const mockFetchCatalogo = jest.fn<Promise<ApiResult<CatalogoDto>>, []>();
 
-// Single factory wiring both reclasificarCategoria and fetchCatalogo.
+// agregar-categoria-desde-selector (issue #744): the control's own "+" now
+// calls `crearCategoria` (via the real `NuevaCategoriaForm`, not mocked
+// away here — its OWN behaviour is `NuevaCategoriaForm.spec.tsx`'s job,
+// this suite only proves the WIRING: bucketInicial, select-on-success,
+// onCategoriaCreada).
+const mockCrearCategoria = jest.fn<
+  Promise<ApiResult<CategoriaDto>>,
+  [{ nombre: string; bucket: string }]
+>();
+
+// Single factory wiring reclasificarCategoria, fetchCatalogo and crearCategoria.
 // The previous file had two back-to-back jest.mock calls for the same module;
 // the first was dead (the second override always wins). Collapsed into one.
 jest.mock('../../api/categorias', () => ({
@@ -47,6 +58,8 @@ jest.mock('../../api/categorias', () => ({
   reclasificarCategoria: (txId: string, categoriaId: string) =>
     mockReclasificarCategoria(txId, categoriaId),
   fetchCatalogo: () => mockFetchCatalogo(),
+  crearCategoria: (input: { nombre: string; bucket: string }) =>
+    mockCrearCategoria(input),
 }));
 
 const mockSolicitarRecargaResumen = jest.fn<void, []>();
@@ -117,6 +130,27 @@ function makeReclasificarDto(
 }
 
 /**
+ * confirmacion-reclasificar (issue #749) fixture: a SECOND Deseos categoría
+ * so a same-bucket reclassify (Entretenimiento → Streaming, both Deseos) has
+ * an actual different destination to pick — `makeCatalogo()` alone only has
+ * one categoría per bucket.
+ */
+function makeCatalogoConDosEnDeseos(): CatalogoDto {
+  return {
+    categorias: [
+      ...makeCatalogo().categorias,
+      {
+        id: 'cat-deseos-2',
+        nombre: 'Streaming',
+        bucket: 'Deseos',
+        transaccionesCount: 1,
+        patrones: [],
+      },
+    ],
+  };
+}
+
+/**
  * MDET-08 fixture (categoria-unica-por-bucket, ADR-042/D-08): the SAME
  * nombre ("Transporte") in two different buckets — legal once uniqueness
  * becomes bucket-scoped. Identity MUST resolve by `id`, never by `nombre`.
@@ -159,6 +193,19 @@ function defaultProps(
     },
     onReclasificado: jest.fn<void, []>(),
     onMovida: jest.fn<void, [string]>(),
+    // agregar-categoria-desde-selector (issue #744): REQUIRED per the
+    // us-044 PR7 banned-pattern (same discipline as onReclasificado/onMovida
+    // above) — a plain jest.fn() default keeps every pre-existing case that
+    // doesn't care about it compiling unchanged.
+    onCategoriaCreada: jest.fn(),
+    // patrón-desde-movimiento (issue #745): REQUIRED per this control's own
+    // banned-pattern discipline (onMovida/onReclasificado/onCategoriaCreada
+    // precedent) — a plain jest.fn() default keeps every pre-existing case
+    // that doesn't care about it compiling unchanged.
+    onOfrecerPatron: jest.fn<
+      void,
+      [{ descripcion: string; categoriaId: string }]
+    >(),
     ...overrides,
   };
 }
@@ -230,7 +277,7 @@ describe('ReclasificarMobileControl', () => {
 
     const trigger = screen.getByTestId('reclasificar-trigger-tx-1');
     expect(trigger.props.accessibilityLabel).toBe(
-      'Cambiar bucket y categoría de Netflix',
+      'Cambiar grupo y categoría de Netflix',
     );
 
     await act(async () => {
@@ -241,7 +288,7 @@ describe('ReclasificarMobileControl', () => {
       expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
     });
 
-    expect(screen.getByText('Cambiar bucket y categoría')).toBeTruthy();
+    expect(screen.getByText('Cambiar grupo y categoría')).toBeTruthy();
   });
 
   /**
@@ -332,7 +379,7 @@ describe('ReclasificarMobileControl', () => {
     // Alert.alert must have been called with the exact message
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const [title, message] = alertSpy.mock.calls[0] as [string, string];
-    expect(title).toBe('Confirmar cambio de bucket');
+    expect(title).toBe('Confirmar cambio de grupo');
     // ETIQUETA_BUCKET maps Deseos→'Gustos'. Raw key 'Deseos' would fail this pin.
     expect(message).toBe('Esto mueve $50.000 de Gustos a Necesidades.');
   });
@@ -436,17 +483,19 @@ describe('ReclasificarMobileControl', () => {
   });
 
   /**
-   * Case 3b: same-bucket commit DOES NOT call onMovida nor announce (MDET-05 S7).
-   * The cross-bucket guard in commit() must prevent onMovida from firing when
-   * the destination bucket equals the current bucket. announceSpy is the negative
-   * oracle here — the control must NEVER call AccessibilityInfo directly (D-20
-   * single-announcement-source rule); this test also confirms no accidental call
-   * slips through on the same-bucket path.
+   * Case 3b: same-bucket commit calls onMovida with the destination
+   * CATEGORÍA's name (confirmacion-reclasificar, issue #749) but still NEVER
+   * calls AccessibilityInfo directly — announcing stays the screen's job
+   * (D-20 single-announcement-source rule; onMovida is the reused seam).
    */
-  it('same-bucket commit does NOT call onMovida nor announce (MDET-05 S7)', async () => {
+  it('same-bucket commit calls onMovida with the destination categoría name, never announces directly (confirmacion-reclasificar)', async () => {
     mockReclasificarCategoria.mockResolvedValueOnce({
       ok: true,
-      value: makeReclasificarDto('Deseos', 'Entretenimiento'),
+      value: makeReclasificarDto('Deseos', 'Streaming'),
+    });
+    mockFetchCatalogo.mockResolvedValue({
+      ok: true,
+      value: makeCatalogoConDosEnDeseos(),
     });
 
     const onMovida = jest.fn<void, [string]>();
@@ -461,19 +510,26 @@ describe('ReclasificarMobileControl', () => {
       expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
     });
 
-    // Press the same-bucket option (Entretenimiento is in Deseos — same bucket)
+    // Press a DIFFERENT categoría in the SAME bucket (Streaming, Deseos) —
+    // the current categoría is Entretenimiento, also Deseos.
     await act(async () => {
-      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos-2'));
     });
 
     await waitFor(() => {
       expect(mockReclasificarCategoria).toHaveBeenCalledTimes(1);
     });
+    expect(mockReclasificarCategoria).toHaveBeenCalledWith(
+      'tx-1',
+      'cat-deseos-2',
+    );
 
-    // Same-bucket: onMovida must NOT fire — the cross-bucket guard must hold.
-    expect(onMovida).not.toHaveBeenCalled();
-    // The control must NEVER call AccessibilityInfo (D-20; announcement is the
-    // screen's responsibility). This negative assert turns announceSpy live.
+    // Same-bucket now reuses onMovida — but with the categoría NAME, never a
+    // bucket label.
+    await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
+    expect(onMovida).toHaveBeenCalledWith('Streaming');
+    // The control must NEVER call AccessibilityInfo (D-20; announcement is
+    // the screen's responsibility, driven by its own onMovida handler).
     expect(announceSpy).not.toHaveBeenCalled();
   });
 
@@ -740,5 +796,390 @@ describe('ReclasificarMobileControl', () => {
       'tx-1',
       'cat-transporte-deseos',
     );
+  });
+
+  // ── categoriaVersion (agregar-categoria-desde-bucket, issue #743) ──
+  //
+  // Reworked from an earlier `key`-based remount on the SCREEN's groups
+  // container: that approach also reset `GrupoMovimientosMobile`'s own
+  // `expandido` accordion state, collapsing every already-expanded group on
+  // every categoría creation (a real UX regression, caught in review). The
+  // fix instead threads `categoriaVersion` down as a plain PROP — this
+  // control's own effect clears ONLY its cached `catalogo` on a change,
+  // never the component tree.
+  describe('categoriaVersion prop (issue #743)', () => {
+    it('omitted (every pre-existing caller): fetches once and keeps serving the same cached catalog on every re-open', async () => {
+      const props = defaultProps();
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+      });
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-cancelar'));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+
+      // Re-open with no categoriaVersion change: still the SAME cached
+      // catalog, no second fetch ("Do NOT clear catalogo — cache it so
+      // re-open is instant").
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+    });
+
+    it('a categoriaVersion change clears the cached catalog, refetches on the NEXT open, and lists a categoría created elsewhere', async () => {
+      mockFetchCatalogo.mockResolvedValueOnce({
+        ok: true,
+        value: makeCatalogo(),
+      });
+
+      const props = defaultProps();
+      const { rerender } = await render(
+        <ReclasificarMobileControl {...props} categoriaVersion={0} />,
+      );
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+      });
+      expect(mockFetchCatalogo).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('reclasificar-opcion-cat-nueva')).toBeNull();
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-cancelar'));
+      });
+
+      // A categoría was created elsewhere on the screen — the parent bumps
+      // categoriaVersion. The NEW catalog the next fetch will return
+      // includes it.
+      mockFetchCatalogo.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          categorias: [
+            ...makeCatalogo().categorias,
+            {
+              id: 'cat-nueva',
+              nombre: 'Streaming',
+              bucket: 'Deseos',
+              transaccionesCount: 0,
+              patrones: [],
+            },
+          ],
+        },
+      });
+      await act(async () => {
+        rerender(<ReclasificarMobileControl {...props} categoriaVersion={1} />);
+      });
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+
+      await waitFor(() => {
+        expect(mockFetchCatalogo).toHaveBeenCalledTimes(2);
+      });
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('reclasificar-opcion-cat-nueva'),
+        ).toBeTruthy();
+      });
+    });
+  });
+
+  // ── crear categoría desde el selector (issue #744) ──
+
+  describe('crear categoría desde el selector (issue #744)', () => {
+    beforeEach(() => {
+      mockCrearCategoria.mockReset();
+    });
+
+    it('renders a "Crear categoría" trigger inside the Modal, preselecting the row\'s current bucket (editable)', async () => {
+      const props = defaultProps();
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy();
+      });
+
+      const trigger = screen.getByTestId(
+        'reclasificar-crear-categoria-trigger',
+      );
+      expect(trigger.props.accessibilityRole).toBe('button');
+
+      await act(async () => {
+        fireEvent.press(trigger);
+      });
+
+      expect(screen.getByTestId('nueva-categoria-form')).toBeTruthy();
+      const chipDeseos = within(
+        screen.getByTestId('bucket-selector'),
+      ).getByRole('radio', { name: 'Deseos' });
+      expect(chipDeseos.props.accessibilityState).toMatchObject({
+        checked: true,
+      });
+    });
+
+    it('creating a category in the SAME bucket selects it for the row and commits the reclassify immediately, no Alert', async () => {
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'cat-libros',
+          nombre: 'Libros',
+          bucket: 'Deseos',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: makeReclasificarDto('Deseos', 'Libros'),
+      });
+      const props = defaultProps();
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('reclasificar-crear-categoria-trigger'),
+        );
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Libros');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Libros',
+          bucket: 'Deseos',
+        });
+      });
+      await waitFor(() => {
+        expect(mockReclasificarCategoria).toHaveBeenCalledWith(
+          'tx-1',
+          'cat-libros',
+        );
+      });
+      expect(alertSpy).not.toHaveBeenCalled();
+      expect(props.onCategoriaCreada).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'cat-libros' }),
+      );
+      await waitFor(() =>
+        expect(props.onMovida).toHaveBeenCalledWith('Libros'),
+      );
+    });
+
+    it('creating a category in a DIFFERENT bucket shows the SAME cross-bucket Alert as picking an existing categoría, and only commits on Confirmar', async () => {
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'cat-libros-necesidades',
+          nombre: 'Libros',
+          bucket: 'Necesidades',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: makeReclasificarDto('Necesidades', 'Libros'),
+      });
+      const props = defaultProps();
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('reclasificar-crear-categoria-trigger'),
+        );
+      });
+      // The row's current bucket is Deseos (defaultProps) — pick a
+      // DIFFERENT one before saving, the exact usability finding behind
+      // this issue.
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Libros');
+        fireEvent.press(
+          within(screen.getByTestId('bucket-selector')).getByRole('radio', {
+            name: 'Necesidades',
+          }),
+        );
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Libros',
+          bucket: 'Necesidades',
+        });
+      });
+      await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+      expect(mockReclasificarCategoria).not.toHaveBeenCalled();
+
+      const confirmarBtn = capturedAlertButtons.find(
+        (b) => b.text === 'Confirmar',
+      );
+      await act(async () => {
+        confirmarBtn?.onPress?.();
+      });
+
+      await waitFor(() => {
+        expect(mockReclasificarCategoria).toHaveBeenCalledWith(
+          'tx-1',
+          'cat-libros-necesidades',
+        );
+      });
+    });
+
+    it('a duplicate-name creation error renders inline in the form and keeps the row untouched', async () => {
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: false,
+        error: { tag: 'http', status: 409, code: 'NOMBRE_DUPLICADO' },
+      });
+      const props = defaultProps();
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('reclasificar-crear-categoria-trigger'),
+        );
+      });
+      await act(async () => {
+        fireEvent.changeText(
+          screen.getByLabelText('Nombre'),
+          'Entretenimiento',
+        );
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeTruthy();
+      });
+      expect(mockReclasificarCategoria).not.toHaveBeenCalled();
+      expect(props.onCategoriaCreada).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * patrón-desde-movimiento (issue #745): every successful reclassify —
+   * same-bucket AND cross-bucket alike — offers to turn the just-picked
+   * categoría into a pattern. `onOfrecerPatron` fires with the ROW's
+   * description and the DESTINATION categoría id, AFTER the PATCH settles
+   * (same settled-announcement discipline as `onMovida`), and never fires
+   * on a failed PATCH.
+   */
+  describe('onOfrecerPatron (issue #745)', () => {
+    it('same-bucket commit calls onOfrecerPatron with the description and destination categoriaId', async () => {
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: makeReclasificarDto('Deseos', 'Entretenimiento'),
+      });
+      const onOfrecerPatron = jest.fn();
+      const props = defaultProps({ onOfrecerPatron });
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+      });
+
+      await waitFor(() => {
+        expect(onOfrecerPatron).toHaveBeenCalledWith({
+          descripcion: 'Netflix',
+          categoriaId: 'cat-deseos',
+        });
+      });
+    });
+
+    it('cross-bucket commit (after confirming the Alert) calls onOfrecerPatron with the destination categoriaId', async () => {
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: makeReclasificarDto('Necesidades', 'Comida'),
+      });
+      const onOfrecerPatron = jest.fn();
+      const props = defaultProps({ onOfrecerPatron });
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('reclasificar-opcion-cat-necesidades'),
+        );
+      });
+      await act(async () => {
+        const confirmButton = capturedAlertButtons.find(
+          (b) => b.text !== 'Cancelar',
+        );
+        confirmButton?.onPress?.();
+      });
+
+      await waitFor(() => {
+        expect(onOfrecerPatron).toHaveBeenCalledWith({
+          descripcion: 'Netflix',
+          categoriaId: 'cat-necesidades',
+        });
+      });
+    });
+
+    it('a failed PATCH never calls onOfrecerPatron', async () => {
+      mockReclasificarCategoria.mockResolvedValueOnce({
+        ok: false,
+        error: { tag: 'http', status: 400 },
+      });
+      const onOfrecerPatron = jest.fn();
+      const props = defaultProps({ onOfrecerPatron });
+      await render(<ReclasificarMobileControl {...props} />);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeTruthy();
+      });
+      expect(onOfrecerPatron).not.toHaveBeenCalled();
+    });
   });
 });

@@ -146,6 +146,7 @@ export function GrupoMovimientos({
   periodo,
   periodoLabel,
   onMovida,
+  onPatronCreado,
   onEliminado,
   esDemo = false,
 }: {
@@ -154,7 +155,10 @@ export function GrupoMovimientos({
   readonly bucketActual: string;
   readonly periodo: string | undefined;
   readonly periodoLabel: string;
-  readonly onMovida: (bucketLabel: string) => void;
+  /** Bubbles straight up to `ReclasificarCategoriaControl`'s `onMovida` (see its own JSDoc for the cross-bucket/same-bucket label contract). */
+  readonly onMovida: (label: string) => void;
+  /** Bubbles straight up to `ReclasificarCategoriaControl`'s `onPatronCreado` (issue #745) — fires once the "patrón desde movimiento" offer actually saves a pattern. */
+  readonly onPatronCreado?: (patron: string) => void;
   readonly onEliminado?: () => void;
   readonly esDemo?: boolean;
 }) {
@@ -341,6 +345,7 @@ export function GrupoMovimientos({
                   }
                   periodo={periodo}
                   onMovida={onMovida}
+                  onPatronCreado={onPatronCreado}
                 />
               </div>
               {/* Same mobile/desktop repositioning as the categoría cell

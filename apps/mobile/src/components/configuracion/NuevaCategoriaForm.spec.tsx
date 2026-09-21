@@ -75,7 +75,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCrearCategoria.mockResolvedValue({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValue({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
   });
 
   it('renders the nombre CampoTexto field', async () => {
@@ -107,6 +116,28 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
       'Deseos',
       'Ahorro',
     ]);
+  });
+
+  /**
+   * issue #750 — "bucket" es jerga interna sin explicación en la UI (una
+   * usuaria de prueba preguntó "¿por qué sale bucket?"). El campo se llama
+   * "Grupo" y lleva la ayuda inline con el copy aprobado por el owner
+   * (verbatim), visible sin interacción.
+   */
+  it('el campo se llama "Grupo (obligatorio)" y muestra la ayuda inline con el copy aprobado', async () => {
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+
+    expect(screen.getByText('Grupo (obligatorio)')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu 50/30/20. Puedes cambiarlo después, pero afecta todos los meses.',
+      ),
+    ).toBeOnTheScreen();
   });
 
   it('submit is no-op when nombre is empty (bucket selected)', async () => {
@@ -161,7 +192,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     });
   });
 
-  it('renders SelectorIcono with the "Sin icono" option and 24 allowlisted icons (MCTG-02)', async () => {
+  it('renders SelectorIcono with the "Sin icono" option and 25 allowlisted icons (MCTG-02)', async () => {
     await render(
       <NuevaCategoriaForm
         onCreada={mockOnCreada}
@@ -221,7 +252,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
   });
 
   it('success calls onCreada (closes the form)', async () => {
-    mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
 
     await render(
       <NuevaCategoriaForm
@@ -237,7 +277,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
   });
 
   it('success does NOT call solicitarRecargaResumen() — MCTG-07 negative-1', async () => {
-    mockCrearCategoria.mockResolvedValueOnce({ ok: true, value: undefined });
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        id: 'cat-fake',
+        nombre: 'Fake',
+        bucket: 'Necesidades',
+        transaccionesCount: 0,
+        patrones: [],
+      },
+    });
 
     await render(
       <NuevaCategoriaForm
@@ -273,7 +322,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
       // so the accessibilityRole="alert" + accessibilityLiveRegion="polite" are implicitly pinned:
       // if the Text node loses those props, getByRole('alert') fails before toHaveTextContent.
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre en ese bucket.',
+        'Ya tienes una categoría con ese nombre en ese grupo.',
       );
     });
 
@@ -309,7 +358,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     // Wait for first error to appear — via the alert role element
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Ya tienes una categoría con ese nombre en ese bucket.',
+        'Ya tienes una categoría con ese nombre en ese grupo.',
       );
     });
 
@@ -322,7 +371,7 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     await waitFor(() => {
       expect(
         screen.queryByText(
-          'Ya tienes una categoría con ese nombre en ese bucket.',
+          'Ya tienes una categoría con ese nombre en ese grupo.',
         ),
       ).toBeNull();
     });
@@ -362,6 +411,153 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
     expect(mockCrearCategoria).not.toHaveBeenCalled();
   });
 
+  // ── bucketFijo (agregar-categoria-desde-bucket, issue #743) ──
+  //
+  // The bucket-detail screen reuses this exact form with the bucket FIXED
+  // (never a user choice there) — same idiom web's
+  // `NuevaCategoriaDesdeFilaForm` already uses for its own fixed-bucket
+  // caller. `bucketFijo` omitted (every test above) must keep the
+  // Configuración path byte-for-byte unchanged: SelectorChips renders, the
+  // bucket is user-chosen.
+  describe('bucketFijo (issue #743)', () => {
+    it('renders no bucket-selector chips and submits the fixed bucket, needing only nombre', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketFijo="Deseos"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      expect(screen.queryByTestId('bucket-selector')).toBeNull();
+
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Streaming');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledTimes(1);
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Streaming',
+          bucket: 'Deseos',
+        });
+      });
+    });
+
+    it('shows the fixed bucket as static ETIQUETA_BUCKET text (Deseos -> Gustos)', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketFijo="Deseos"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      expect(screen.getByText('Gustos')).toBeOnTheScreen();
+    });
+
+    it('submit is no-op when nombre is empty, even with bucketFijo set', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketFijo="Necesidades"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      expect(mockCrearCategoria).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── bucketInicial (agregar-categoria-desde-selector, issue #744) ──
+  //
+  // Unlike `bucketFijo` (never a user choice), `bucketInicial` only PRESETS
+  // the chip selection — the bucket-picker chips still render and the user
+  // can change it before saving. This is what the two reclassify surfaces
+  // use: default to the row's current bucket (the likeliest pick) without
+  // forcing it, since the usability finding behind this issue was wanting a
+  // category in a DIFFERENT bucket than the one currently on screen.
+  describe('bucketInicial (issue #744)', () => {
+    it('preselects the given bucket chip but still renders the picker (editable)', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketInicial="Deseos"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      expect(screen.getByTestId('bucket-selector')).toBeOnTheScreen();
+      const chipDeseos = within(
+        screen.getByTestId('bucket-selector'),
+      ).getByRole('radio', { name: 'Deseos' });
+      expect(chipDeseos.props.accessibilityState).toMatchObject({
+        checked: true,
+      });
+    });
+
+    it('the user can change the preselected bucket before saving', async () => {
+      await render(
+        <NuevaCategoriaForm
+          bucketInicial="Necesidades"
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      await llenarYEnviar({ nombre: 'Libros', bucket: 'Deseos' });
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Libros',
+          bucket: 'Deseos',
+        });
+      });
+    });
+
+    it('bucketInicial omitted keeps the prior unselected-chip behaviour (no regression)', async () => {
+      await render(
+        <NuevaCategoriaForm
+          onCreada={mockOnCreada}
+          onCancelar={mockOnCancelar}
+        />,
+      );
+
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      expect(mockCrearCategoria).not.toHaveBeenCalled();
+    });
+  });
+
+  it('success calls onCreada with the created CategoriaDto (issue #744, selecting it downstream)', async () => {
+    const categoriaCreada = {
+      id: 'cat-libros',
+      nombre: 'Libros',
+      bucket: 'Deseos' as const,
+      transaccionesCount: 0,
+      patrones: [],
+    };
+    mockCrearCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: categoriaCreada,
+    });
+
+    await render(
+      <NuevaCategoriaForm
+        onCreada={mockOnCreada}
+        onCancelar={mockOnCancelar}
+      />,
+    );
+    await llenarYEnviar({ nombre: 'Libros', bucket: 'Deseos' });
+
+    await waitFor(() => {
+      expect(mockOnCreada).toHaveBeenCalledWith(categoriaCreada);
+    });
+  });
+
   it('double-submit protection: Guardar button is disabled while in-flight', async () => {
     // Deferred promise: keeps the first call in-flight so we can inspect mid-flight state.
     let resolveFirst!: (
@@ -394,7 +590,16 @@ describe('NuevaCategoriaForm (US-044 PR5c, T5c.1/T5c.2)', () => {
 
     // Resolve the first call and confirm crearCategoria was only called once.
     await act(async () => {
-      resolveFirst({ ok: true, value: undefined });
+      resolveFirst({
+        ok: true,
+        value: {
+          id: 'cat-fake',
+          nombre: 'Fake',
+          bucket: 'Necesidades',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
     });
 
     await waitFor(() => {

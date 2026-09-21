@@ -39,6 +39,7 @@ import {
   act,
 } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
+import * as categoriasApi from '../../api/categorias';
 import type { ApiResult } from '../../api/client';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 
@@ -46,6 +47,26 @@ import type { DetalleBucketMesDto } from '../../domain/detalle.types';
 // (no need to mock — it has no side effects and depends only on pure domain helpers)
 
 import { BucketDetalleScreen } from './BucketDetalleScreen';
+
+// agregar-categoria-desde-bucket (issue #743): `AgregarCategoriaControl`
+// mounts the REAL `NuevaCategoriaForm`, which calls `crearCategoria` — mock
+// it at the module boundary (`NuevaCategoriaForm.spec.tsx` precedent) so
+// these screen-level tests control the outcome without a live request.
+// patrón-desde-movimiento (issue #745): `OfrecerPatronMobileControl` (real,
+// mounted by the screen itself — never mocked) calls `crearPatron` — mock
+// it at the SAME module boundary as `crearCategoria` above.
+jest.mock('../../api/categorias', () => ({
+  ...jest.requireActual('../../api/categorias'),
+  crearCategoria: jest.fn(),
+  crearPatron: jest.fn(),
+}));
+
+const mockCrearCategoria = categoriasApi.crearCategoria as jest.MockedFunction<
+  typeof categoriasApi.crearCategoria
+>;
+const mockCrearPatron = categoriasApi.crearPatron as jest.MockedFunction<
+  typeof categoriasApi.crearPatron
+>;
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -67,23 +88,43 @@ jest.mock('../../api/client', () => ({
 // The mock renders a Pressable that simulates firing onMovida + onReclasificado when pressed,
 // allowing the content-survival test to drive the full wiring without a live catalog fetch.
 // Uses a factory function to avoid react-native-css-interop displayName errors.
+//
+// `contadorMontajes`/`instanciaId` (agregar-categoria-desde-bucket, issue
+// #743): a `useRef` seeded once per MOUNT (never per re-render) — this is
+// how the "AgregarCategoriaControl integration" describe block below proves
+// `BucketDetalleScreen` does NOT remount this subtree after a categoría is
+// created (a `key`-based remount was tried first and reverted: it also
+// reset `GrupoMovimientosMobile`'s own `expandido` accordion state, which
+// is why the "expanded group" describe block further below exists — catalog
+// freshness now comes from a `categoriaVersion` PROP threaded down to
+// `ReclasificarMobileControl`, proven separately in that component's own
+// spec file, not from remounting anything here).
 jest.mock('./GrupoMovimientosMobile', () => {
+  const { useRef } = require('react');
   const { View, Text, Pressable: P } = require('react-native');
+  let contadorMontajes = 0;
   function GrupoMovimientosMobile({
     grupo,
     onReclasificado,
     onMovida,
+    onOfrecerPatron,
   }: {
     grupo: { categoriaId: string | null; nombre: string };
     bucket: string;
     destacar?: string;
     onReclasificado: () => void;
     onMovida: (bucketLabel: string) => void;
+    onOfrecerPatron: (info: {
+      descripcion: string;
+      categoriaId: string;
+    }) => void;
   }) {
     const id = grupo.categoriaId ?? 'sin-categoria';
+    const instanciaId = useRef(++contadorMontajes).current;
     return (
       <View testID={`grupo-movimientos-${id}`}>
         <Text>{grupo.nombre}</Text>
+        <Text testID={`grupo-instancia-${id}`}>{instanciaId}</Text>
         <P
           testID={`mock-reclasificar-trigger-${id}`}
           onPress={() => {
@@ -92,6 +133,31 @@ jest.mock('./GrupoMovimientosMobile', () => {
           }}
         >
           <Text>Reclasificar (mock)</Text>
+        </P>
+        {/* confirmacion-reclasificar (issue #749): simulates the SAME-bucket
+            path, where ReclasificarMobileControl now calls onMovida with the
+            destination CATEGORÍA name instead of a bucket label. */}
+        <P
+          testID={`mock-reclasificar-trigger-samebucket-${id}`}
+          onPress={() => {
+            onReclasificado();
+            onMovida('Supermercado');
+          }}
+        >
+          <Text>Reclasificar mismo bucket (mock)</Text>
+        </P>
+        {/* patrón-desde-movimiento (issue #745): simulates
+            ReclasificarMobileControl's real `commit()` — onReclasificado
+            (reload) and onOfrecerPatron fire in the SAME synchronous tick,
+            exactly like the real control does. */}
+        <P
+          testID={`mock-ofrecer-patron-trigger-${id}`}
+          onPress={() => {
+            onReclasificado();
+            onOfrecerPatron({ descripcion: 'Netflix', categoriaId: id });
+          }}
+        >
+          <Text>Reclasificar y ofrecer patrón (mock)</Text>
         </P>
       </View>
     );
@@ -504,5 +570,436 @@ describe('BucketDetalleScreen', () => {
     expect(screen.getByTestId('status-reclasificar').props.children).toBe(
       'Movida a Gustos.',
     );
+  });
+
+  /**
+   * confirmacion-reclasificar (issue #749): a same-bucket reclassify reuses
+   * the EXACT SAME `status-reclasificar` region and
+   * `AccessibilityInfo.announceForAccessibility` mechanism as the
+   * cross-bucket case — `handleMovida` is generic over whatever label it
+   * receives, so a categoría name renders/announces identically to a bucket
+   * label.
+   */
+  it('reuses the same status-reclasificar region and announcement mechanism for a same-bucket reclassify, rendering the categoría name', async () => {
+    const dtoConGrupo = makeDto();
+    // Two resolves queued: the initial mount fetch, plus the refetch fired
+    // by onReclasificado when the mock trigger is pressed below (T-15
+    // precedent above — the press fires onReclasificado + onMovida).
+    mockFetchDetalleBucketMes
+      .mockResolvedValueOnce({ ok: true, value: dtoConGrupo })
+      .mockResolvedValueOnce({ ok: true, value: dtoConGrupo });
+
+    const announceSpy = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockReturnValue(undefined);
+
+    await render(
+      <BucketDetalleScreen
+        bucket="Deseos"
+        destacar={undefined}
+        periodo="2026-07"
+        onChangePeriodo={jest.fn()}
+        onBack={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByTestId('mock-reclasificar-trigger-samebucket-cat-1'),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+        'Movida a Supermercado.',
+      );
+    });
+    expect(announceSpy).toHaveBeenCalledWith('Movida a Supermercado.');
+    announceSpy.mockRestore();
+  });
+
+  // ── AgregarCategoriaControl integration (agregar-categoria-desde-bucket, issue #743) ──
+  describe('AgregarCategoriaControl integration (issue #743)', () => {
+    it('renders the "Agregar categoría" trigger for an assignable bucket (Deseos)', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValueOnce({
+        ok: true,
+        value: makeDto(),
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: 'Agregar categoría' }),
+        ).toBeOnTheScreen();
+      });
+    });
+
+    it('does NOT render the trigger on the SinCategoria bucket detail screen (not assignable)', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValueOnce({
+        ok: true,
+        value: makeDto({ bucket: 'SinCategoria' }),
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="SinCategoria"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bucket-detalle-header')).toBeTruthy();
+      });
+      expect(
+        screen.queryByRole('button', { name: 'Agregar categoría' }),
+      ).toBeNull();
+    });
+
+    it('creating a category closes the form, announces success via the shared status region, and does NOT remount the groups subtree (reverted key-remount regression)', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValueOnce({
+        ok: true,
+        value: makeDto(),
+      });
+      mockCrearCategoria.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'cat-fake',
+          nombre: 'Fake',
+          bucket: 'Necesidades',
+          transaccionesCount: 0,
+          patrones: [],
+        },
+      });
+      const announceSpy = jest
+        .spyOn(AccessibilityInfo, 'announceForAccessibility')
+        .mockReturnValue(undefined);
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+      const instanciaAntes = screen.getByTestId('grupo-instancia-cat-1').props
+        .children;
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Agregar categoría' }),
+        );
+      });
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText('Nombre'), 'Streaming');
+      });
+      fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+
+      await waitFor(() => {
+        expect(mockCrearCategoria).toHaveBeenCalledWith({
+          nombre: 'Streaming',
+          bucket: 'Deseos',
+        });
+      });
+
+      // The form closed on success.
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Nombre')).toBeNull();
+      });
+      expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+        'Categoría creada.',
+      );
+      expect(announceSpy).toHaveBeenCalledWith('Categoría creada.');
+      announceSpy.mockRestore();
+
+      // The groups subtree must NOT have remounted (issue #743 rework): a
+      // `key`-based remount was tried first and reverted because it also
+      // reset `GrupoMovimientosMobile`'s own `expandido` accordion state,
+      // collapsing every expanded group on every categoría creation. The
+      // SAME mount instance id proves this subtree stayed mounted; catalog
+      // freshness is now proven separately in `ReclasificarMobileControl.
+      // spec.tsx` (a `categoriaVersion` prop change) and expanded-state
+      // survival in this file's own "expanded group" describe block below.
+      const instanciaDespues = screen.getByTestId('grupo-instancia-cat-1').props
+        .children;
+      expect(instanciaDespues).toBe(instanciaAntes);
+    });
+  });
+
+  /**
+   * patrón-desde-movimiento (issue #745). `OfrecerPatronMobileControl` is
+   * the REAL component here (never mocked) — only `GrupoMovimientosMobile`
+   * is mocked (module-level, see above), so these tests exercise the
+   * screen's OWN state (`ofrecerPatron`) and the real offer/picker/mutation
+   * chain underneath it.
+   *
+   * The critical case is "survives the background reload"
+   * (reclasificar-sin-colapsar-grupos, issue #762): `ReclasificarMobileControl.
+   * commit()` fires `onReclasificado` (→ `refrescar()`, which refetches
+   * WITHOUT ever setting `fase: 'loading'` — issue #762 fix, see this
+   * screen's own docblock) and `onOfrecerPatron` in the SAME synchronous
+   * tick. Even though the groups subtree no longer unmounts during this
+   * refresh, `ofrecerPatron` still lives at SCREEN level (same discipline as
+   * `anuncio`/`statusRegion`) rather than inside `ReclasificarMobileControl`
+   * or the groups subtree — `cargar` (bucket/periodo change, manual retry)
+   * still unmounts that subtree, so the offer still needs a home that
+   * survives every fase, not just this one refresh path.
+   */
+  describe('OfrecerPatronMobileControl integration (issue #745)', () => {
+    it('a successful reclassify offers to create a pattern for the destination categoría', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValue({
+        ok: true,
+        value: makeDto(),
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('mock-ofrecer-patron-trigger-cat-1'),
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+      });
+      expect(
+        screen.getByText(
+          '¿Reconocer automáticamente este movimiento en tus próximas cartolas?',
+        ),
+      ).toBeTruthy();
+    });
+
+    it('the offer survives the BACKGROUND reload onReclasificado triggers (issue #762 fix: no fase transition to "loading"), and is still there once data reloads', async () => {
+      let resolverSegundaCarga: (
+        value: ApiResult<DetalleBucketMesDto>,
+      ) => void = () => {};
+      const segundaCarga = new Promise<ApiResult<DetalleBucketMesDto>>(
+        (resolve) => {
+          resolverSegundaCarga = resolve;
+        },
+      );
+      mockFetchDetalleBucketMes
+        .mockResolvedValueOnce({ ok: true, value: makeDto() })
+        .mockReturnValueOnce(segundaCarga);
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('mock-ofrecer-patron-trigger-cat-1'),
+        );
+      });
+
+      // The refetch IS in flight (segundaCarga unresolved), but the fix
+      // means the groups subtree is NEVER replaced by the loading view —
+      // this is issue #762 no longer firing.
+      await waitFor(() => {
+        expect(mockFetchDetalleBucketMes).toHaveBeenCalledTimes(2);
+      });
+      expect(screen.queryByTestId('bucket-detalle-loading')).toBeNull();
+      expect(screen.getByTestId('bucket-detalle-grupos')).toBeTruthy();
+      // The offer is visible too — it never lived in that subtree anyway.
+      expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+
+      // Let the refetch resolve.
+      await act(async () => {
+        resolverSegundaCarga({ ok: true, value: makeDto() });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bucket-detalle-grupos')).toBeTruthy();
+      });
+      // Still there after the reload settles — same offer, not recreated
+      // from scratch by a remount that happened to line up.
+      expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+    });
+
+    it('"Ahora no" dismisses the offer without creating a pattern', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValue({
+        ok: true,
+        value: makeDto(),
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('mock-ofrecer-patron-trigger-cat-1'),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Ahora no' }));
+      });
+
+      expect(screen.queryByTestId('ofrecer-patron')).toBeNull();
+      expect(mockCrearPatron).not.toHaveBeenCalled();
+    });
+
+    it('confirming a pattern posts crearPatron, dismisses the offer, and announces success through the shared status region', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValue({
+        ok: true,
+        value: makeDto(),
+      });
+      mockCrearPatron.mockResolvedValue({ ok: true, value: undefined });
+      const announceSpy = jest
+        .spyOn(AccessibilityInfo, 'announceForAccessibility')
+        .mockReturnValue(undefined);
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('mock-ofrecer-patron-trigger-cat-1'),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Crear patrón' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Netflix' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Guardar patrón' }));
+      });
+
+      await waitFor(() => {
+        expect(mockCrearPatron).toHaveBeenCalledWith({
+          categoriaId: 'cat-1',
+          patron: 'Netflix',
+          matchType: 'CONTAINS',
+        });
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+          'Patrón «Netflix» creado. Se usará en tus próximas importaciones.',
+        );
+      });
+      expect(announceSpy).toHaveBeenCalledWith(
+        'Patrón «Netflix» creado. Se usará en tus próximas importaciones.',
+      );
+      expect(screen.queryByTestId('ofrecer-patron')).toBeNull();
+      announceSpy.mockRestore();
+    });
+
+    it('a failed pattern creation shows the inline error, keeps the offer mounted, and never undoes the reclassify announcement', async () => {
+      mockFetchDetalleBucketMes.mockResolvedValue({
+        ok: true,
+        value: makeDto(),
+      });
+      mockCrearPatron.mockResolvedValue({
+        ok: false,
+        error: { tag: 'http', status: 409, code: 'PATRON_DUPLICADO' },
+      });
+
+      await render(
+        <BucketDetalleScreen
+          bucket="Deseos"
+          onChangePeriodo={jest.fn()}
+          onBack={jest.fn()}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('mock-reclasificar-trigger-cat-1'));
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+          'Movida a Gustos.',
+        );
+      });
+
+      await act(async () => {
+        fireEvent.press(
+          screen.getByTestId('mock-ofrecer-patron-trigger-cat-1'),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Crear patrón' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Netflix' }));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: 'Guardar patrón' }));
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Ya tienes un patrón con ese texto.'),
+        ).toBeTruthy();
+      });
+      // The offer stays mounted (retry-able) and the reclassify's own
+      // announcement is untouched — a failed pattern never rewrites it.
+      expect(screen.getByTestId('ofrecer-patron')).toBeTruthy();
+      expect(screen.getByTestId('status-reclasificar').props.children).toBe(
+        'Movida a Gustos.',
+      );
+    });
   });
 });

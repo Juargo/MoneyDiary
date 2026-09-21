@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { MonthYearPicker } from './MonthYearPicker';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
@@ -12,8 +13,14 @@ import {
   periodoActualUTC,
 } from '@/domain/periodo-anual';
 
+// `flex-wrap` (not the original single-line row): issue #747 PR2 adds the
+// "Mes en curso" badge, which can push the row past 328px of usable width
+// on a 360px viewport (p-4 page padding, WDS-04) once the chevrons + the
+// (variable-width) month label + "Hoy" are already laid out. Wrapping the
+// badge onto its own line beats letting it overflow — it has zero effect
+// on the common case where everything already fits on one line.
 const PERIODO_SELECTOR_ROW_CLASS =
-  'mx-auto flex w-full max-w-6xl items-center justify-center gap-3';
+  'mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-3';
 
 /**
  * Prominent top-of-dashboard period header (period-selector-header,
@@ -58,6 +65,15 @@ export function PeriodoSelector({
 }) {
   const ahora = new Date();
   const efectivo = periodo ?? periodoActualUTC(ahora);
+  // `enMesActual` also drives the "Mes en curso" marker (issue #747 PR2):
+  // deliberately reusing `periodoActualUTC` (UTC calendar), NOT `hoyLocal()`
+  // (`domain/fecha.ts`, America/Santiago) — the backend resolves an absent
+  // `periodo` in UTC too (PR1), so the marker has to agree with what the
+  // resolved month actually means, not with a second, TZ-shifted notion of
+  // "now". Edge case, pre-existing and unchanged by this addition: late on
+  // the last day of the month Chile time (UTC-4), UTC has already rolled
+  // over to the 1st of the next month, so `enMesActual`/the marker/the
+  // "Mes siguiente" clamp can flip a few hours before local midnight.
   const enMesActual = esMesActual(efectivo, ahora);
   // D-01 §9: renamed to `mesActual` — avoids shadowing the `periodoActual()`
   // module-level import from `domain/periodo.ts` if ever added to this file.
@@ -151,6 +167,15 @@ export function PeriodoSelector({
       >
         Hoy
       </Button>
+
+      {/* issue #747 PR2: states in TEXT (never color alone, WCAG 1.4.1)
+          that the displayed month is the current calendar month — partial
+          figures for an in-progress month read as provisional, not as the
+          full month's final tally. Absent for any past month. Last in the
+          row (not between the label and "Mes siguiente") so it wraps onto
+          its own line below the controls on narrow viewports instead of
+          forcing an overflow (see `PERIODO_SELECTOR_ROW_CLASS`). */}
+      {enMesActual && <Badge variant="secondary">Mes en curso</Badge>}
     </div>
   );
 }

@@ -87,3 +87,32 @@ describe('Header — gear entry point (US-044 PR8)', () => {
     expect(screen.getByText('agosto 2026')).toBeTruthy();
   });
 });
+
+// issue #747 PR3: mobile mirror of web's PeriodoSelector "Mes en curso"
+// marker (PR2) — shown only when the caller says the displayed month is the
+// current calendar month. `Header` itself takes no `Date`; the "is it
+// current" decision is `app/index.tsx`'s (via `esMesActual`), so this spec
+// only pins the presentational contract of the `mesEnCurso` prop.
+describe('Header — "Mes en curso" marker (issue #747 PR3)', () => {
+  it('does not show the marker by default (mesEnCurso omitted)', async () => {
+    await render(<Header periodoLabel="agosto 2026" />);
+    expect(screen.queryByText('Mes en curso')).toBeNull();
+  });
+
+  it('does not show the marker when mesEnCurso is false', async () => {
+    await render(<Header periodoLabel="julio 2026" mesEnCurso={false} />);
+    expect(screen.queryByText('Mes en curso')).toBeNull();
+  });
+
+  it('shows "Mes en curso" as TEXT (not color alone) when mesEnCurso is true', async () => {
+    await render(<Header periodoLabel="agosto 2026" mesEnCurso />);
+    expect(screen.getByText('Mes en curso')).toBeTruthy();
+  });
+
+  it('exposes the label and the marker as ONE accessible header node', async () => {
+    await render(<Header periodoLabel="agosto 2026" mesEnCurso />);
+    // A screen reader must announce both together, not as two separate
+    // stops — `getByLabelText` finds the wrapping `accessible` View.
+    expect(screen.getByLabelText('agosto 2026, Mes en curso')).toBeTruthy();
+  });
+});

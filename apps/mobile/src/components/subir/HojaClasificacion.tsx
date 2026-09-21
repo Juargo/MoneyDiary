@@ -6,8 +6,10 @@ import { formatearFilaPreview } from '../../domain/preview-cartola';
 import type { GrupoCategoriaPorBucket } from '../../domain/agrupar-categorias-por-bucket';
 import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
+import type { CategoriaDto } from '../../domain/catalogo.types';
 import { COLORS, ETIQUETA_BUCKET } from '../../theme/colors';
 import { SelectorChips } from '../configuracion/SelectorChips';
+import { NuevaCategoriaForm } from '../configuracion/NuevaCategoriaForm';
 
 /**
  * HojaClasificacion — the tap-row bottom sheet: a bucket radiogroup, then a
@@ -32,6 +34,27 @@ import { SelectorChips } from '../configuracion/SelectorChips';
  * ownership decision is that the SCREEN fetches the catalog once on
  * entering `revisando` (Phase 8), so this sheet stays presentational
  * (ADR-024).
+ *
+ * "+ Crear categoría" (agregar-categoria-desde-selector, issue #744): a
+ * trigger next to the categoría radiogroup, shown only once a bucket is
+ * chosen (mirrors web's `FilaRevision` "+", gated the same way on its own
+ * bucket cascade) — opens the REAL `NuevaCategoriaForm` with
+ * `bucketFijo={bucketSeleccionado}`. Unlike the two reclassify surfaces
+ * (web `ReclasificarCategoriaControl`, mobile `ReclasificarMobileControl`),
+ * the bucket here IS fixed, not a picker: by the time this "+" is reachable
+ * the user has already completed the sheet's own two-step bucket→categoría
+ * cascade, so re-opening a bucket choice inside the creation form would be
+ * a THIRD, redundant bucket picker in the same sheet. This is still "pure"
+ * in the sense the file docblock claims: the sheet itself makes no fetch —
+ * `NuevaCategoriaForm` (same as `AgregarCategoriaControl`/
+ * `ReclasificarMobileControl`) is what owns the `crearCategoria` POST.
+ *
+ * On success, the created categoría is (a) selected immediately for THIS
+ * row (`categoriaSeleccionada` — no need to wait for `grupos` to reflect
+ * it) and (b) reported upward via `onCategoriaCreada`, which `subir.tsx`
+ * merges into its own `catalogo.grupos` state (screen-owned catalog,
+ * per this file's own docblock) so the row list's other affordances and any
+ * later re-open of this sheet see it too.
  */
 export interface HojaClasificacionProps {
   readonly visible: boolean;
@@ -42,6 +65,12 @@ export interface HojaClasificacionProps {
   readonly grupos: readonly GrupoCategoriaPorBucket[];
   readonly onConfirmar: (edicion: EdicionFila) => void;
   readonly onCancelar: () => void;
+  /**
+   * agregar-categoria-desde-selector (issue #744): REQUIRED, same
+   * banned-pattern discipline (us-044 PR7) as `onConfirmar`/`onCancelar`.
+   * See this file's own docblock for the full contract.
+   */
+  readonly onCategoriaCreada: (categoria: CategoriaDto) => void;
 }
 
 export function HojaClasificacion({
@@ -51,6 +80,7 @@ export function HojaClasificacion({
   grupos,
   onConfirmar,
   onCancelar,
+  onCategoriaCreada,
 }: HojaClasificacionProps) {
   return (
     <Modal
@@ -72,6 +102,7 @@ export function HojaClasificacion({
           grupos={grupos}
           onConfirmar={onConfirmar}
           onCancelar={onCancelar}
+          onCategoriaCreada={onCategoriaCreada}
         />
       ) : null}
     </Modal>
@@ -90,6 +121,7 @@ function HojaClasificacionContenido({
   grupos,
   onConfirmar,
   onCancelar,
+  onCategoriaCreada,
 }: ContenidoProps) {
   const gruposAsignables = grupos.filter(
     (g): g is GrupoCategoriaPorBucket & { bucket: BucketAsignable } =>
@@ -105,6 +137,8 @@ function HojaClasificacionContenido({
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(
     () => categoriaActualId ?? '',
   );
+  // agregar-categoria-desde-selector (issue #744).
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
 
   const buckets = gruposAsignables.map((g) => g.bucket);
   const categoriasDelBucket =
@@ -122,6 +156,18 @@ function HojaClasificacionContenido({
       rowIndex: fila.rowIndex,
       categoriaId: categoriaSeleccionada,
     });
+  }
+
+  /**
+   * alCategoriaCreada (issue #744) — selects the created categoría for
+   * THIS row directly (no need to wait for `grupos` to reflect it) and
+   * reports it upward via `onCategoriaCreada` (see this file's own
+   * docblock for the full contract).
+   */
+  function alCategoriaCreada(categoria: CategoriaDto) {
+    setCreandoCategoria(false);
+    setCategoriaSeleccionada(categoria.id);
+    onCategoriaCreada(categoria);
   }
 
   const formateada = formatearFilaPreview(fila);
@@ -183,48 +229,85 @@ function HojaClasificacionContenido({
 
         <SelectorChips
           testID="hoja-bucket"
-          label="Bucket"
+          label="Grupo"
           options={buckets}
           value={bucketSeleccionado as BucketAsignable}
           getOptionLabel={(b) => ETIQUETA_BUCKET[b] ?? b}
           onChange={handleSelectBucket}
         />
 
-        <SelectorChips
-          testID="hoja-categoria"
-          label="Categoría"
-          options={categoriasDelBucket.map((c) => c.id)}
-          value={categoriaSeleccionada}
-          getOptionLabel={(id) =>
-            categoriasDelBucket.find((c) => c.id === id)?.nombre ?? id
-          }
-          onChange={setCategoriaSeleccionada}
-        />
+        {creandoCategoria ? (
+          /* "+ Crear categoría" (issue #744): bucket FIXED to
+             `bucketSeleccionado` — see this file's docblock for why a
+             picker would be a redundant third bucket choice here. Replaces
+             the categoría radiogroup + Confirmar while open, same
+             "at most one panel" idiom `ReclasificarMobileControl` uses. */
+          <NuevaCategoriaForm
+            bucketFijo={bucketSeleccionado || undefined}
+            onCreada={alCategoriaCreada}
+            onCancelar={() => setCreandoCategoria(false)}
+          />
+        ) : (
+          <>
+            <SelectorChips
+              testID="hoja-categoria"
+              label="Categoría"
+              options={categoriasDelBucket.map((c) => c.id)}
+              value={categoriaSeleccionada}
+              getOptionLabel={(id) =>
+                categoriasDelBucket.find((c) => c.id === id)?.nombre ?? id
+              }
+              onChange={setCategoriaSeleccionada}
+            />
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Confirmar"
-          accessibilityState={{ disabled: !puedeConfirmar }}
-          disabled={!puedeConfirmar}
-          testID="hoja-confirmar"
-          onPress={handleConfirmar}
-          style={{
-            borderRadius: 12,
-            paddingVertical: 12,
-            alignItems: 'center',
-            backgroundColor: puedeConfirmar ? COLORS.ingreso : COLORS.canvas,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: puedeConfirmar ? '#ffffff' : COLORS.muted,
-            }}
-          >
-            Confirmar
-          </Text>
-        </Pressable>
+            {bucketSeleccionado !== '' && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Crear categoría"
+                testID="hoja-crear-categoria-trigger"
+                onPress={() => setCreandoCategoria(true)}
+                style={{ paddingVertical: 4 }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '500',
+                    color: COLORS.ingreso,
+                  }}
+                >
+                  + Crear categoría
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Confirmar"
+              accessibilityState={{ disabled: !puedeConfirmar }}
+              disabled={!puedeConfirmar}
+              testID="hoja-confirmar"
+              onPress={handleConfirmar}
+              style={{
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: puedeConfirmar
+                  ? COLORS.ingreso
+                  : COLORS.canvas,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: puedeConfirmar ? '#ffffff' : COLORS.muted,
+                }}
+              >
+                Confirmar
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );

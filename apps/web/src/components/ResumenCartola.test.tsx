@@ -44,6 +44,21 @@ describe('ResumenCartola', () => {
     expect(screen.getByText(/nada se ha guardado aún/i)).toBeInTheDocument();
   });
 
+  it('renders the "clasificar ahora no es obligatorio" copy (issue #742)', () => {
+    render(
+      <ResumenCartola
+        banco="BancoEstado"
+        resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Clasificar ahora no es obligatorio: puedes cambiar la categoría de cualquier movimiento cuando quieras.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('marks the block with data-resumen-cartola', () => {
     const { container } = render(
       <ResumenCartola

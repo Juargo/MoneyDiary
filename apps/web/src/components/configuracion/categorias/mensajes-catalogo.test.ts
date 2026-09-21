@@ -49,7 +49,7 @@ describe('MENSAJE_DEMO_CATALOGO', () => {
 describe('mensajeDeErrorCatalogo — la tabla cerrada de 13 códigos (12 vía `it.each` + BODY_INVALIDO, con dos productores: `tag: "server"` real del backend y `tag: "parse"` del cliente)', () => {
   it.each([
     ['NOMBRE_INVALIDO', 'El nombre debe tener entre 1 y 40 caracteres.'],
-    ['BUCKET_NO_ASIGNABLE', 'Elige un bucket: Necesidades, Gustos o Ahorro.'],
+    ['BUCKET_NO_ASIGNABLE', 'Elige un grupo: Necesidades, Gustos o Ahorro.'],
     ['PATRON_INVALIDO', 'El patrón debe tener entre 1 y 200 caracteres.'],
     ['MATCH_TYPE_INVALIDO', 'Elige un tipo de coincidencia válido.'],
     ['REGEX_INVALIDA', 'Esa expresión regular no es válida.'],
@@ -62,7 +62,7 @@ describe('mensajeDeErrorCatalogo — la tabla cerrada de 13 códigos (12 vía `i
     ['PATRON_NO_ENCONTRADO', 'Ese patrón ya no existe. Recarga la página.'],
     [
       'NOMBRE_DUPLICADO',
-      'Ya tienes una categoría con ese nombre en ese bucket.',
+      'Ya tienes una categoría con ese nombre en ese grupo.',
     ],
     ['PATRON_DUPLICADO', 'Ya tienes un patrón con ese texto.'],
     // categoria-iconografia (ADR-045, WCTG-12): 12° código de dominio —
@@ -198,13 +198,13 @@ describe('fraseDeImpacto', () => {
     });
 
     expect(frase).toEqual({
-      titulo: 'Cambiar el bucket',
+      titulo: 'Cambiar el grupo',
       lineas: [
         '«Supermercado» pasa de Necesidades a Gustos.',
         'Esto mueve 12 transacciones en TODOS los períodos, incluidos los meses ya cerrados.',
         'Tu resumen 50/30/20 va a cambiar para esos meses.',
       ],
-      textoConfirmar: 'Cambiar bucket',
+      textoConfirmar: 'Cambiar grupo',
     });
   });
 
@@ -218,12 +218,12 @@ describe('fraseDeImpacto', () => {
     });
 
     expect(frase).toEqual({
-      titulo: 'Cambiar el bucket',
+      titulo: 'Cambiar el grupo',
       lineas: [
         '«Suscripciones» pasa de Ahorro a Necesidades.',
         'No tiene transacciones asociadas, así que no se mueve ningún monto.',
       ],
-      textoConfirmar: 'Cambiar bucket',
+      textoConfirmar: 'Cambiar grupo',
     });
   });
 });

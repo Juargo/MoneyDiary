@@ -1,4 +1,10 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -6,7 +12,11 @@ import { BucketDetalleMesPage } from './BucketDetalleMesPage';
 import { renderConRouter } from '@/test/router-harness';
 import { resetUndoManagerParaTests } from '@/lib/undo-manager';
 import type { ApiError } from '@/api/client';
-import type { CatalogoDto, DetalleBucketMesDto } from '@/api/types';
+import type {
+  CategoriaDto,
+  CatalogoDto,
+  DetalleBucketMesDto,
+} from '@/api/types';
 
 // US-053 (T-08) — page-level behavior ledger (design.md §5):
 // WDM-01 header · WDM-03 grouping/collapse · WDM-04 destacar · WDM-05 empty
@@ -27,6 +37,17 @@ const CATALOGO_FIXTURE: CatalogoDto = {
     {
       id: 'categoria-supermercado',
       nombre: 'Supermercado',
+      bucket: 'Necesidades',
+      patrones: [],
+      transaccionesCount: 0,
+    },
+    // A second Necesidades categoría — required for the same-bucket
+    // reclassify test (T-06(d), confirmacion-reclasificar, issue #749): a
+    // same-bucket move needs two categorías in the SAME bucket to pick
+    // between.
+    {
+      id: 'categoria-combustible',
+      nombre: 'Combustible',
       bucket: 'Necesidades',
       patrones: [],
       transaccionesCount: 0,
@@ -387,6 +408,10 @@ describe('BucketDetalleMesPage', () => {
     expect(within(movimientosCell).getByText('0')).toBeInTheDocument();
     expect(
       await screen.findByText('Sin movimientos en julio 2026'),
+    ).toBeInTheDocument();
+    // issue #750 — "bucket" es jerga interna; el empty state dice "grupo".
+    expect(
+      screen.getByText('No hay movimientos en este grupo para el período.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('ver 2 más…')).not.toBeInTheDocument();
     // No group sections render for an empty month.
@@ -853,6 +878,47 @@ describe('BucketDetalleMesPage', () => {
    * 32px height. A refactor back to a bare `<Link>` with text classes turns
    * this red without waiting for a Playwright run.
    */
+  // issue #752 — "volver" debe volver a la pantalla real de origen, no
+  // siempre a "/". Cuando SÍ hay historial de navegación dentro de la app
+  // (empujado por el propio router, no por el navegador), el control deja
+  // de ser un `<Link to="/">` y pasa a ser un botón real que llama a
+  // `router.history.back()` — la MISMA mecánica que `useVolverAtras.test.ts`
+  // prueba de forma aislada, aquí verificada dentro de la página real.
+  it('con historial de navegación in-app, "Volver" es un botón real que llama a router.history.back() (issue #752)', async () => {
+    stubFetch({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(CATALOGO_FIXTURE),
+    });
+
+    const { router } = renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await verPrimerGrupo();
+    // Sin esto, el historial de memoria arranca con UNA sola entrada — el
+    // mismo estado "llegué por URL directa" que el resto de esta suite ya
+    // cubre. Empujar una segunda entrada simula haber llegado navegando
+    // desde el dashboard.
+    act(() => {
+      router.history.push('/');
+    });
+
+    const boton = await screen.findByRole('button', { name: 'Volver' });
+    expect(
+      screen.queryByRole('link', { name: 'Volver al resumen' }),
+    ).not.toBeInTheDocument();
+
+    const backSpy = vi.spyOn(router.history, 'back');
+    fireEvent.click(boton);
+    expect(backSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('el link "Volver al resumen" se renderiza como Button (variante link, tamaño sm) para cumplir el piso de 24px de SC 2.5.8', async () => {
     stubFetch({
       ok: true,
@@ -949,7 +1015,7 @@ describe('BucketDetalleMesPage', () => {
     ).toBeNull();
   });
 
-  it('anuncio region is empty before any cross-bucket move (same-bucket path never sets it, D-07)', async () => {
+  it('anuncio region is empty before any reclassify interaction (D-07)', async () => {
     stubFetch({
       ok: true,
       status: 200,
@@ -967,8 +1033,7 @@ describe('BucketDetalleMesPage', () => {
 
     // Wait for catalog to settle → only 1 status region (the anuncio one).
     const anuncioRegion = await screen.findByRole('status');
-    // No user interaction: the region must stay empty (D-07 invariant: only
-    // a cross-bucket confirm sets it; same-bucket commits skip onMovida).
+    // No user interaction at all: the region must stay empty.
     expect(anuncioRegion).toHaveTextContent('');
   });
 
@@ -1104,6 +1169,101 @@ describe('BucketDetalleMesPage', () => {
     );
     // The text is replaced, not appended — must not contain the first announcement.
     expect(statusRegion).not.toHaveTextContent('Gustos');
+  });
+
+  // T-06 case (d): same-bucket reclassify reuses the SAME page-owned status
+  // region/mechanism as the cross-bucket case (confirmacion-reclasificar,
+  // issue #749) — the message names the destination CATEGORÍA, not a bucket.
+  it('T-06(d): a same-bucket reclassify surfaces "Movida a Combustible." in the SAME page-owned role=status region as the cross-bucket case (confirmacion-reclasificar)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await expandirGrupo(/Ñoquis/);
+
+    const selects = await screen.findAllByRole('combobox');
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // Same-bucket: the Ñoquis row (Necesidades) picks another Necesidades
+    // categoría — no confirmation dialog, straight commit.
+    await user.selectOptions(primerSelect, 'Necesidades · Combustible');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Combustible.'),
+    );
+
+    // Same page-level sibling contract as the cross-bucket case (D-07).
+    expect(
+      statusRegion.closest('[data-testid="grupo-movimientos"]'),
+    ).toBeNull();
+  });
+
+  // ── "patrón desde movimiento" offer (issue #745) ──
+
+  it('creating a pattern from the post-reclassify offer announces it in the SAME shared anuncio region as "Movida a…" (issue #745)', async () => {
+    stubFetchInteraccion();
+    const user = userEvent.setup();
+
+    renderData(
+      <BucketDetalleMesPage
+        query={mockQuery({ data: dtoCompleto })}
+        periodo="2026-07"
+        onPeriodoChange={() => {}}
+        destacar={false}
+      />,
+    );
+
+    await expandirGrupo(/Ñoquis/);
+
+    const selects = await screen.findAllByRole('combobox');
+    const primerSelect = selects[0] as HTMLSelectElement;
+    await waitFor(() => expect(primerSelect).not.toBeDisabled());
+
+    // Same-bucket reclassify (no confirmation) — the offer to create a
+    // pattern appears right after this commits.
+    await user.selectOptions(primerSelect, 'Necesidades · Combustible');
+
+    const statusRegion = await screen.findByRole(
+      'status',
+      {},
+      { timeout: 3000 },
+    );
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent('Movida a Combustible.'),
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Crear patrón' }),
+    );
+    // "Ñoquis de la abuela" is the row's own descripcion (GRUPO_FIXTURE
+    // above).
+    await user.click(screen.getByRole('button', { name: 'Ñoquis' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar patrón' }));
+
+    // Reuses the SAME page-level `anuncio` region — one status line for
+    // every mutation this screen can trigger, not a new one per affordance
+    // (same discipline as `alMovida`/`alEliminarMovimiento`/
+    // `alReevaluarPatrones`/`alCategoriaCreada`).
+    await waitFor(() =>
+      expect(statusRegion).toHaveTextContent(
+        'Patrón «Ñoquis» creado. Se usará en tus próximas importaciones.',
+      ),
+    );
   });
 
   // Fix 5: periodo change clears the announcement.
@@ -1360,6 +1520,209 @@ describe('BucketDetalleMesPage', () => {
       expect(
         await screen.findByRole('button', { name: /Reevaluar categorías/i }),
       ).toBeDisabled();
+    });
+  });
+
+  // ── AgregarCategoriaControl integration (issue #743) ──
+  //
+  // The usability finding: a tester opened a bucket's detail screen and
+  // looked for an "add category" affordance right there, instead of leaving
+  // to Configuración → Categorías. `AgregarCategoriaControl` mounts a
+  // "Agregar categoría" trigger in this page's header (same slot as
+  // `ReevaluarPatronesControl`) that reuses `NuevaCategoriaDesdeFilaForm`
+  // (crear-categoria-desde-preview precedent) with the bucket FIXED to
+  // `viewModel.bucket` — never a user choice on this screen. Hidden on
+  // `SinCategoria` (BUCKETS_ASIGNABLES gate) since that bucket cannot own a
+  // categoría. `useCrearCategoria`'s own `onSuccess` seeds the shared
+  // `['categorias']` query BEFORE invalidating (see that hook's own
+  // docblock) — this is what makes the created categoría selectable in
+  // `ReclasificarCategoriaControl` without a reload, no extra plumbing
+  // needed here.
+  describe('AgregarCategoriaControl integration (issue #743)', () => {
+    // A successful POST also grows the GET fixture (mutable local state) —
+    // the mutation's own onSuccess (useCrearCategoria) seeds the cache
+    // BEFORE invalidating, but the invalidation's refetch still hits this
+    // same mock: a stub that always answered the ORIGINAL fixture would
+    // stomp that seed the instant TanStack Query's background refetch
+    // resolves, undoing the very freshness this feature exists to prove.
+    function stubFetchConCrearCategoria(
+      respuestaCrear: {
+        ok: boolean;
+        status: number;
+        json: () => Promise<unknown>;
+      },
+      catalogoInicial: CatalogoDto = CATALOGO_FIXTURE,
+    ) {
+      let catalogoActual = catalogoInicial;
+      const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST' && url === '/api/categorias') {
+          if (respuestaCrear.ok) {
+            const creada = (await respuestaCrear.json()) as CategoriaDto;
+            catalogoActual = {
+              categorias: [...catalogoActual.categorias, creada],
+            };
+          }
+          return {
+            ok: respuestaCrear.ok,
+            status: respuestaCrear.status,
+            json: respuestaCrear.json,
+          } as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(catalogoActual),
+        } as Response;
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    }
+
+    it('renders the "Agregar categoría" trigger in the header for an assignable bucket (Necesidades)', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      expect(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      ).toBeInTheDocument();
+    });
+
+    it('does NOT render the trigger on the SinCategoria bucket detail screen (not assignable)', async () => {
+      stubFetchInteraccion();
+      const dtoSinCategoria: DetalleBucketMesDto = {
+        ...dtoCompleto,
+        bucket: 'SinCategoria',
+      };
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoSinCategoria })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await verPrimerGrupo();
+      expect(
+        screen.queryByRole('button', { name: 'Agregar categoría' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('esDemo disables the trigger', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+          esDemo
+        />,
+      );
+
+      expect(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      ).toBeDisabled();
+    });
+
+    it('creating a category closes the form, announces success in the shared anuncio region, and the new category becomes selectable in the reclassify control without a reload', async () => {
+      const fetchMock = stubFetchConCrearCategoria({
+        ok: true,
+        status: 201,
+        json: () =>
+          Promise.resolve({
+            id: 'categoria-mascotas',
+            nombre: 'Mascotas',
+            bucket: 'Necesidades',
+            patrones: [],
+            transaccionesCount: 0,
+          }),
+      });
+      const user = userEvent.setup();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await user.click(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      );
+      await user.type(screen.getByLabelText('Nombre'), 'Mascotas');
+      await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+      const statusRegion = screen.getByTestId('anuncio-reclasificar');
+      await waitFor(() =>
+        expect(statusRegion).toHaveTextContent('Categoría «Mascotas» creada.'),
+      );
+      // The form closed on success — its own "Crear" button is gone.
+      expect(
+        screen.queryByRole('button', { name: 'Crear' }),
+      ).not.toBeInTheDocument();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/categorias',
+        expect.objectContaining({ method: 'POST' }),
+      );
+
+      // The new categoría must be selectable in the SAME screen's reclassify
+      // control right away — no reload, no re-mount.
+      await expandirGrupo(/Ñoquis/);
+      const selects = await screen.findAllByRole('combobox');
+      const primerSelect = selects[0] as HTMLSelectElement;
+      await waitFor(() => expect(primerSelect).not.toBeDisabled());
+      expect(
+        within(primerSelect).getByRole('option', {
+          name: 'Necesidades · Mascotas',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('a duplicate-name error from the server renders inline as a form-level alert, using the existing catalog error copy', async () => {
+      stubFetchConCrearCategoria({
+        ok: false,
+        status: 409,
+        json: () =>
+          Promise.resolve({
+            code: 'NOMBRE_DUPLICADO',
+            message: 'a raw server string that must never render',
+          }),
+      });
+      const user = userEvent.setup();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+        />,
+      );
+
+      await user.click(
+        await screen.findByRole('button', { name: 'Agregar categoría' }),
+      );
+      await user.type(screen.getByLabelText('Nombre'), 'Ñoquis');
+      await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Ya tienes una categoría con ese nombre en ese grupo.',
+      );
+      expect(screen.queryByText(/a raw server string/)).not.toBeInTheDocument();
     });
   });
 });

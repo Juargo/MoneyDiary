@@ -89,7 +89,7 @@ export function AyudaPage() {
           </div>
           <div>
             <dt className="font-medium text-foreground">
-              Buckets (Necesidades, Gustos, Ahorro y Sin categoría)
+              Grupos (Necesidades, Gustos, Ahorro y Sin categoría)
             </dt>
             <dd className="text-muted-foreground">
               Los grupos del método 50/30/20 en que se clasifica cada

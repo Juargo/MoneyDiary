@@ -32,31 +32,67 @@
  * never touching the picker both mean "no icon" on CREATE (CATICO-02), so
  * `icono: icono ?? undefined` only sends the key when the user actually
  * chose one — mirrors web's `NuevaCategoriaForm.tsx` (4.4) verbatim.
+ *
+ * `bucketFijo` (agregar-categoria-desde-bucket, issue #743): when set, the
+ * bucket is NOT a user choice — `SelectorChips` is not rendered at all, and
+ * the value is shown as static `ETIQUETA_BUCKET` text instead, mirroring
+ * web's `NuevaCategoriaDesdeFilaForm` (its own fixed-bucket caller
+ * precedent). `bucket` state seeds from `bucketFijo` and never changes on
+ * this path (no setter is ever wired to it). Omitted (every pre-existing
+ * Configuración caller) keeps this component byte-for-byte the prior
+ * user-picks-the-bucket behavior.
+ *
+ * `bucketInicial` (agregar-categoria-desde-selector, issue #744): unlike
+ * `bucketFijo`, this only PRESETS the chip selection — `SelectorChips`
+ * still renders and the user can change it before saving. Ignored when
+ * `bucketFijo` is also set (that one wins, no picker at all either way).
+ * The two reclassify surfaces (web `ReclasificarCategoriaControl`, mobile
+ * `ReclasificarMobileControl`) use this to default to the row's CURRENT
+ * bucket — the likeliest pick — without forcing it, since the usability
+ * finding behind issue #744 was wanting a category in a bucket OTHER than
+ * the one on screen (e.g. "Libros" under Gustos while looking at a
+ * Necesidades row).
+ *
+ * `onCreada` (issue #744): now receives the created `CategoriaDto` instead
+ * of firing bare — a caller that opened this form FROM a selector needs the
+ * new row's id/bucket to select it immediately (see the two reclassify
+ * surfaces and the cartola review sheet). Every pre-existing caller
+ * (`CategoriasPanel`, `AgregarCategoriaControl`) passes a zero-arg handler,
+ * which stays a valid `(categoria: CategoriaDto) => void` in TypeScript —
+ * no call-site change needed for either.
  */
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { crearCategoria } from '../../api/categorias';
+import type { CategoriaDto } from '../../domain/catalogo.types';
 import type {
   BucketAsignable,
   IconoCategoria,
 } from '../../domain/catalogo-constantes';
 import { BUCKETS_ASIGNABLES } from '../../domain/catalogo-constantes';
 import { mensajeDeErrorCatalogo } from '../../domain/mensajes-catalogo';
+import { ETIQUETA_BUCKET } from '../../theme/colors';
 import { CampoTexto } from './CampoTexto';
 import { SelectorChips } from './SelectorChips';
 import { SelectorIcono } from './SelectorIcono';
 
 export interface NuevaCategoriaFormProps {
-  readonly onCreada: () => void;
+  readonly onCreada: (categoria: CategoriaDto) => void;
   readonly onCancelar: () => void;
+  readonly bucketFijo?: BucketAsignable;
+  readonly bucketInicial?: BucketAsignable;
 }
 
 export function NuevaCategoriaForm({
   onCreada,
   onCancelar,
+  bucketFijo,
+  bucketInicial,
 }: NuevaCategoriaFormProps) {
   const [nombre, setNombre] = useState('');
-  const [bucket, setBucket] = useState<BucketAsignable | ''>('');
+  const [bucket, setBucket] = useState<BucketAsignable | ''>(
+    bucketFijo ?? bucketInicial ?? '',
+  );
   const [icono, setIcono] = useState<IconoCategoria | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +120,7 @@ export function NuevaCategoriaForm({
     setEnviando(false);
 
     if (resultado.ok) {
-      onCreada();
+      onCreada(resultado.value);
     } else {
       setError(mensajeDeErrorCatalogo(resultado.error));
     }
@@ -102,13 +138,33 @@ export function NuevaCategoriaForm({
         editable={!enviando}
       />
 
-      <SelectorChips
-        testID="bucket-selector"
-        label="Bucket (obligatorio)"
-        options={BUCKETS_ASIGNABLES}
-        value={bucket as BucketAsignable}
-        onChange={(v) => setBucket(v)}
-      />
+      {bucketFijo ? (
+        <View className="gap-1">
+          <Text className="text-xs text-muted">Grupo</Text>
+          <Text className="text-sm font-medium text-heading">
+            {ETIQUETA_BUCKET[bucketFijo] ?? bucketFijo}
+          </Text>
+        </View>
+      ) : (
+        <>
+          <SelectorChips
+            testID="bucket-selector"
+            label="Grupo (obligatorio)"
+            options={BUCKETS_ASIGNABLES}
+            value={bucket as BucketAsignable}
+            onChange={(v) => setBucket(v)}
+          />
+          {/*
+           * issue #750 — "bucket" es jerga interna sin explicación en la UI
+           * (una usuaria de prueba preguntó "¿por qué sale bucket?"). Copy
+           * aprobado por el owner, verbatim.
+           */}
+          <Text className="text-xs text-muted">
+            Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu
+            50/30/20. Puedes cambiarlo después, pero afecta todos los meses.
+          </Text>
+        </>
+      )}
 
       <SelectorIcono
         testID="icono-selector"

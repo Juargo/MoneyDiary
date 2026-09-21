@@ -15,6 +15,7 @@ import type { ApiError } from '@/api/client';
 import type { CategoriaDto } from '@/api/types';
 import { cn } from '@/lib/utils';
 import { construirOpcionesBucket } from '@/lib/bucket-colors';
+import { useVolverAtras } from '@/lib/use-volver-atras';
 import { BotonVolver } from '../BotonVolver';
 import { FOCUS_RING } from '../estilos';
 import { CampoTexto } from '../CampoTexto';
@@ -95,6 +96,15 @@ export function EditarCategoria({
   const eliminacion = useEliminarCategoria();
   const { data: me } = useMe();
   const esDemo = me?.esDemo ?? false;
+  // issue #752: the error/not-found states below each have their own
+  // "Volver a Categorías" recovery link. Real in-app history (arrived here
+  // from the list, the common case) should return there directly instead
+  // of always landing on the fixed list route — same fix, same
+  // `useVolverAtras` mechanism as `BucketDetalleMesPage`. NOT applied to
+  // `BotonVolver` further down (D-05): that control is deliberate
+  // hierarchical "go up to the parent" chrome shared across every
+  // Configuración screen, not a "return to origin" affordance.
+  const { puedeVolver, volverAtras } = useVolverAtras();
 
   // Judgment-day finding (round 2, cleanup added round 3): `eliminacion`
   // lives HERE, in the component that does NOT remount on in-place
@@ -177,9 +187,15 @@ export function EditarCategoria({
           padding, not an exemption. Reuses the footer's `Cancelar` pattern
           verbatim rather than inventing a fourth control style.
         */}
-        <Button asChild variant="outline">
-          <Link to="/configuracion/categorias">Volver a Categorías</Link>
-        </Button>
+        {puedeVolver ? (
+          <Button variant="outline" onClick={volverAtras}>
+            Volver
+          </Button>
+        ) : (
+          <Button asChild variant="outline">
+            <Link to="/configuracion/categorias">Volver a Categorías</Link>
+          </Button>
+        )}
       </div>
     );
   }
@@ -197,9 +213,15 @@ export function EditarCategoria({
         <p role="status" className="text-sm text-muted-foreground">
           Esa categoría ya no existe.
         </p>
-        <Button asChild variant="outline">
-          <Link to="/configuracion/categorias">Volver a Categorías</Link>
-        </Button>
+        {puedeVolver ? (
+          <Button variant="outline" onClick={volverAtras}>
+            Volver
+          </Button>
+        ) : (
+          <Button asChild variant="outline">
+            <Link to="/configuracion/categorias">Volver a Categorías</Link>
+          </Button>
+        )}
       </div>
     );
   }
@@ -646,13 +668,21 @@ function EditarCategoriaCargada({
             disabled={esDemo || dialogo !== null || actualizacion.isPending}
           />
           <CampoSelect
-            label="Bucket (obligatorio)"
+            label="Grupo (obligatorio)"
             value={bucket}
             onChange={setBucket}
             options={OPCIONES_BUCKET}
             required
             disabled={esDemo || dialogo !== null || actualizacion.isPending}
           />
+          {/*
+           * issue #750 — mismo copy aprobado que NuevaCategoriaForm; spans
+           * ambas columnas del grid.
+           */}
+          <p className="text-xs text-muted-foreground md:col-span-2">
+            Necesidades, Gustos o Ahorro. Define cómo cuenta este gasto en tu
+            50/30/20. Puedes cambiarlo después, pero afecta todos los meses.
+          </p>
           {/*
             categoria-iconografia (WCTG-04): spans both grid columns — the
             picker's own 25 options wrap on their own, unlike `Nombre`/
@@ -808,7 +838,7 @@ function EditarCategoriaCargada({
             // intent, not the callback ordering.
             disabled={dialogo !== null || actualizacion.isPending}
             onClick={cancelarIdentidad}
-            aria-label="Cancelar cambios de nombre y bucket"
+            aria-label="Cancelar cambios de nombre y grupo"
             className="text-muted-foreground"
           >
             Cancelar
