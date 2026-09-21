@@ -178,7 +178,7 @@ function renderEstado(
                 {viewModel.sinCategoria.cantidad === 1
                   ? 'movimiento'
                   : 'movimientos'}{' '}
-                sin categoría por{' '}
+                sin grupo ni categoría por{' '}
                 <span className="font-mono tabular-nums">
                   {viewModel.sinCategoria.total}
                 </span>
@@ -196,7 +196,7 @@ function renderEstado(
                 search={{ periodo: viewModel.periodo }}
                 className="inline-flex min-h-8 w-fit items-center font-medium underline underline-offset-4"
               >
-                Ver los movimientos sin categoría
+                Ver los movimientos sin grupo ni categoría
               </Link>
             </div>
           )}

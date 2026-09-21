@@ -67,12 +67,19 @@ export const COLOR_BUCKET: Record<string, string> = {
 /**
  * Domain bucket name → user-facing label. The domain models the middle bucket
  * as "Deseos"; the product/UI surface calls it "Gustos" (mockup copy).
+ *
+ * `SinCategoria` reads "Sin grupo ni categoría", NOT "Sin categoría", so it
+ * cannot be confused with the synthetic "Sin categoría" group the API builds
+ * INSIDE a bucket detail for `categoriaId IS NULL`. This one is
+ * `bucketId IS NULL`: no grupo, and therefore no categoría either. The web
+ * twin in `apps/web/src/lib/bucket-colors.ts` carries the same map and the
+ * full rationale; the two must stay in sync.
  */
 export const ETIQUETA_BUCKET: Record<string, string> = {
   Necesidades: 'Necesidades',
   Deseos: 'Gustos',
   Ahorro: 'Ahorro',
-  SinCategoria: 'Sin categoría',
+  SinCategoria: 'Sin grupo ni categoría',
 };
 
 /**

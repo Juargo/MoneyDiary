@@ -73,7 +73,9 @@ describe('AyudaPage', () => {
     expect(screen.getByText('Ingesta')).toBeInTheDocument();
     expect(screen.getByText('Movimiento')).toBeInTheDocument();
     expect(
-      screen.getByText('Grupos (Necesidades, Gustos, Ahorro y Sin categoría)'),
+      screen.getByText(
+        'Grupos (Necesidades, Gustos, Ahorro y Sin grupo ni categoría)',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Patrones de clasificación')).toBeInTheDocument();
     expect(screen.getByText('Modo demo')).toBeInTheDocument();

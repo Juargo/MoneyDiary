@@ -291,7 +291,7 @@ describe('DistribucionPie', () => {
     // inset's 3 slices must not add extra buttons with the same names.
     expect(screen.getAllByRole('button')).toHaveLength(4);
     expect(
-      screen.getByRole('button', { name: 'Sin categoría' }),
+      screen.getByRole('button', { name: 'Sin grupo ni categoría' }),
     ).toBeInTheDocument();
   });
 

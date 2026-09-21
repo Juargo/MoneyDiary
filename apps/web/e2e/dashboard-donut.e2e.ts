@@ -41,7 +41,7 @@ async function gridTracks(locator: Locator): Promise<string[]> {
  * The legend's own bounding box, computed from the union of its 5
  * `leyenda-item` rows (real rendered geometry — not a testid on
  * `LeyendaGasto`'s root, which this change does not add). `principales`
- * (3 spend rows) render before `complemento` (Ingresos, Sin categoría) in
+ * (3 spend rows) render before `complemento` (Ingresos, Sin grupo ni categoría) in
  * DOM order (D-03), so index 2 is always the last spend row and index 3 is
  * always Ingresos — used by the divider-position assertion (#6) below.
  */
@@ -159,7 +159,7 @@ test.describe('dashboard donut — T1 grid layout (CA-05, WG5-10)', () => {
     expect(box).toBeNull();
   });
 
-  test('escritorio (1280px): the divider is present between the spend rows and Ingresos/Sin categoría (divider proof 3/3, no lg regression)', async ({
+  test('escritorio (1280px): the divider is present between the spend rows and Ingresos/Sin grupo ni categoría (divider proof 3/3, no lg regression)', async ({
     page,
   }, testInfo) => {
     test.skip(

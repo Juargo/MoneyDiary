@@ -954,7 +954,7 @@ describe('ReclasificarCategoriaControl', () => {
 
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(
-      'Esto mueve $7.500 de Sin categoría a Necesidades',
+      'Esto mueve $7.500 de Sin grupo ni categoría a Necesidades',
     );
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-2/categoria',
