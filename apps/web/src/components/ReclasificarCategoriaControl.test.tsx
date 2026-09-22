@@ -614,7 +614,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('confirming the cross-bucket move commits it and calls onMovida with the destination bucket label (D-07)', async () => {
+  it('confirming the cross-bucket move commits it and calls onMovida with the full "{bucket} · {categoría}" destination label (D-07, issue #782)', async () => {
     const fetchMock = mockFetch({
       ok: true,
       status: 200,
@@ -656,7 +656,7 @@ describe('ReclasificarCategoriaControl', () => {
     // onMovida fires with the LABEL ('Necesidades' for Necesidades bucket) — not the raw key.
     // Deseos→Necesidades: destination bucket label is 'Necesidades'.
     expect(onMovida).toHaveBeenCalledTimes(1);
-    expect(onMovida).toHaveBeenCalledWith('Necesidades');
+    expect(onMovida).toHaveBeenCalledWith('Necesidades · Transporte');
   });
 
   it('a same-bucket reclassify calls onMovida with the destination categoría name, not a bucket label (confirmacion-reclasificar)', async () => {
@@ -923,7 +923,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('a SinCategoria row shows the confirmation with source "Sin categoría" and the destination bucket, commits only on confirm, calls onMovida with label (D-07)', async () => {
+  it('a SinCategoria row shows the confirmation naming source AND full "{bucket} · {categoría}" destination, commits only on confirm, calls onMovida with that same label (D-07, issue #782)', async () => {
     const fetchMock = mockFetch({
       ok: true,
       status: 200,
@@ -953,8 +953,12 @@ describe('ReclasificarCategoriaControl', () => {
     await user.selectOptions(select, 'Necesidades · Transporte');
 
     const dialog = await screen.findByRole('alertdialog');
+    // Frase COMPLETA, con punto final: el assert anterior cortaba en
+    // "…a Necesidades" y, siendo `toHaveTextContent` un match por
+    // subcadena, pasaba igual con y sin la categoría — no podía ponerse
+    // rojo por el bug que decía cubrir (issue #782).
     expect(dialog).toHaveTextContent(
-      'Esto mueve $7.500 de Sin grupo ni categoría a Necesidades',
+      'Esto mueve $7.500 de Sin grupo ni categoría a Necesidades · Transporte.',
     );
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-2/categoria',
@@ -976,9 +980,9 @@ describe('ReclasificarCategoriaControl', () => {
         ([url]) => url === '/api/transacciones/tx-2/categoria',
       ),
     ).toHaveLength(1);
-    // onMovida fires with the LABEL for Necesidades bucket ('Necesidades').
+    // onMovida fires with the FULL destination label, bucket + categoría.
     expect(onMovida).toHaveBeenCalledTimes(1);
-    expect(onMovida).toHaveBeenCalledWith('Necesidades');
+    expect(onMovida).toHaveBeenCalledWith('Necesidades · Transporte');
   });
 
   it('pressing Escape while the confirmation is open cancels it, reverts the select, fires no PATCH', async () => {
@@ -1643,7 +1647,7 @@ describe('ReclasificarCategoriaControl', () => {
         }),
       ),
     );
-    expect(onMovida).toHaveBeenCalledWith('Gustos');
+    expect(onMovida).toHaveBeenCalledWith('Gustos · Libros');
   });
 
   it('a duplicate-name creation error renders inline in the creation form (mensajeDeErrorCatalogo), never silently drops the row selection', async () => {

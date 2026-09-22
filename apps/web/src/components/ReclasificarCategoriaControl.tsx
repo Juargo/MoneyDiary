@@ -43,10 +43,17 @@ function etiqueta(bucket: string): string {
  * inmediato (WCAT-04 delta, US-043 §7).
  *
  * **`onMovida` (confirmacion-reclasificar, issue #749):** ya no es exclusivo
- * del caso cross-bucket. Un mismo-bucket también llama a `onMovida`, pero con
- * el NOMBRE de la categoría destino en vez de la etiqueta del bucket — el
+ * del caso cross-bucket. Un mismo-bucket también llama a `onMovida` — el
  * caller (`BucketDetalleMesPage`) arma el mismo mensaje "Movida a {label}."
  * sin importar cuál de los dos casos lo disparó.
+ *
+ * El `{label}` del caso cross-bucket nombra el destino COMPLETO, "{bucket} ·
+ * {categoría}" (issue #782). Antes nombraba solo el bucket, y eso perdía
+ * justo la mitad de la decisión que el usuario acababa de tomar: elegía
+ * "Necesidades · Salud" en el `<option>` y el diálogo le respondía "a
+ * Necesidades", sin confirmarle nunca que Salud hubiera entrado. El mismo-
+ * bucket sigue mandando solo el nombre de la categoría, porque ahí el bucket
+ * no cambia y repetirlo sería ruido.
  *
  * Cada `<option>` muestra "{bucket} · {categoría}" (p. ej. "Gustos ·
  * Restaurantes"), no solo el nombre de la categoría (UX-clarity fix,
@@ -162,10 +169,10 @@ export function ReclasificarCategoriaControl({
   readonly categoriaActual: { id: string; nombre: string } | null;
   readonly periodo: string | undefined;
   /**
-   * Fires on a successful reclassify — cross-bucket with the destination
-   * BUCKET's display label, same-bucket with the destination CATEGORÍA's
-   * name (confirmacion-reclasificar, issue #749). The caller formats
-   * "Movida a {label}." verbatim either way.
+   * Fires on a successful reclassify — cross-bucket with the full
+   * destination label "{bucket} · {categoría}" (issue #782), same-bucket
+   * with the destination CATEGORÍA's name alone (confirmacion-reclasificar,
+   * issue #749). The caller formats "Movida a {label}." verbatim either way.
    */
   readonly onMovida: (label: string) => void;
   /**
@@ -181,9 +188,15 @@ export function ReclasificarCategoriaControl({
   const selectRef = useRef<HTMLSelectElement>(null);
   const crearTriggerRef = useRef<HTMLButtonElement>(null);
   const [valor, setValor] = useState(categoriaActual?.id ?? '');
+  // `categoriaNombre` viaja junto al id (issue #782): la confirmación y el
+  // anuncio nombran el destino COMPLETO ("{bucket} · {categoría}"), no solo
+  // el bucket. Se congela acá, en el momento de la elección, en vez de
+  // buscarse en el catálogo al renderizar: un refetch en vuelo entre la
+  // elección y el confirm no puede cambiar el texto que el usuario leyó.
   const [pendiente, setPendiente] = useState<{
     categoriaId: string;
     bucketNuevo: string;
+    categoriaNombre: string;
   } | null>(null);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
   const [creandoCategoria, setCreandoCategoria] = useState(false);
@@ -306,7 +319,11 @@ export function ReclasificarCategoriaControl({
       commit(categoriaId, () => onMovida(categoriaSeleccionada.nombre));
       return;
     }
-    setPendiente({ categoriaId, bucketNuevo });
+    setPendiente({
+      categoriaId,
+      bucketNuevo,
+      categoriaNombre: categoriaSeleccionada.nombre,
+    });
   }
 
   function confirmar() {
@@ -316,9 +333,9 @@ export function ReclasificarCategoriaControl({
     // so the closure captures the value from this render, not a stale ref.
     // onMovida fires only when the PATCH succeeds — a failed mutation
     // must not announce a move that never happened (D-07).
-    const bucketLabel = etiqueta(pendiente.bucketNuevo);
+    const destinoLabel = `${etiqueta(pendiente.bucketNuevo)} · ${pendiente.categoriaNombre}`;
     commit(pendiente.categoriaId, () => {
-      onMovida(bucketLabel);
+      onMovida(destinoLabel);
     });
     setPendiente(null);
   }
@@ -355,7 +372,11 @@ export function ReclasificarCategoriaControl({
       commit(categoria.id, () => onMovida(categoria.nombre));
       return;
     }
-    setPendiente({ categoriaId: categoria.id, bucketNuevo: categoria.bucket });
+    setPendiente({
+      categoriaId: categoria.id,
+      bucketNuevo: categoria.bucket,
+      categoriaNombre: categoria.nombre,
+    });
   }
 
   return (
@@ -439,7 +460,7 @@ export function ReclasificarCategoriaControl({
         >
           <p>
             Esto mueve {montoLabel} de {etiqueta(bucketActual)} a{' '}
-            {etiqueta(pendiente.bucketNuevo)}.
+            {etiqueta(pendiente.bucketNuevo)} · {pendiente.categoriaNombre}.
           </p>
         </InlineConfirm>
       )}

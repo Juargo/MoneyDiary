@@ -380,8 +380,12 @@ describe('ReclasificarMobileControl', () => {
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const [title, message] = alertSpy.mock.calls[0] as [string, string];
     expect(title).toBe('Confirmar cambio de grupo');
-    // ETIQUETA_BUCKET maps Deseos→'Gustos'. Raw key 'Deseos' would fail this pin.
-    expect(message).toBe('Esto mueve $50.000 de Gustos a Necesidades.');
+    // ETIQUETA_BUCKET maps Deseos→'Gustos'. Raw key 'Deseos' would fail this
+    // pin. El destino nombra bucket Y categoría (issue #782): sin "· Comida"
+    // el mensaje le esconde al usuario la mitad de lo que acaba de elegir.
+    expect(message).toBe(
+      'Esto mueve $50.000 de Gustos a Necesidades · Comida.',
+    );
   });
 
   /**
@@ -442,7 +446,7 @@ describe('ReclasificarMobileControl', () => {
    * Case 6: cross-bucket success calls onMovida with ETIQUETA_BUCKET display label
    * (e.g. 'Necesidades', NOT raw key) — wiring pin
    */
-  it('cross-bucket success calls onMovida with ETIQUETA_BUCKET display label (e.g. "Necesidades")', async () => {
+  it('cross-bucket success calls onMovida with the full "{bucket} · {categoría}" label (e.g. "Necesidades · Comida")', async () => {
     // Cross-bucket: tx moves from Deseos to Necesidades
     mockReclasificarCategoria.mockResolvedValueOnce({
       ok: true,
@@ -478,8 +482,9 @@ describe('ReclasificarMobileControl', () => {
       expect(onMovida).toHaveBeenCalledTimes(1);
     });
 
-    // Called with the display label 'Necesidades' (ETIQUETA_BUCKET['Necesidades'])
-    expect(onMovida).toHaveBeenCalledWith('Necesidades');
+    // Called with the FULL destination label — ETIQUETA_BUCKET['Necesidades']
+    // plus the categoría's own nombre (issue #782).
+    expect(onMovida).toHaveBeenCalledWith('Necesidades · Comida');
   });
 
   /**
