@@ -264,7 +264,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     ).toBeVisible();
   });
 
-  test('dashboard Sin categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
+  test('dashboard Sin grupo ni categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
     page,
   }) => {
     // WDM-06 scenario: "GIVEN the dashboard is viewing 2026-07" — same
@@ -272,9 +272,17 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await page.goto('/?periodo=2026-07');
     await page.getByText('Toca un ítem del gráfico o la leyenda').waitFor();
 
+    // The two `hasText` filters below look like a copy-paste pair but target
+    // DIFFERENT concepts, and the labels are deliberately distinct so that
+    // neither substring can match the other's element:
+    //   - the dashboard legend row is the BUCKET `SinCategoria`
+    //     (`bucketId IS NULL`) → "Sin grupo ni categoría";
+    //   - the group inside the drill-down is the synthetic CATEGORY group
+    //     (`categoriaId IS NULL`) → plain "Sin categoría".
+    // See `lib/bucket-colors.ts`'s `ETIQUETA_BUCKET` docblock.
     await page
       .getByTestId('leyenda-item')
-      .filter({ hasText: 'Sin categoría' })
+      .filter({ hasText: 'Sin grupo ni categoría' })
       .click();
 
     await expect(page).toHaveURL(
@@ -301,7 +309,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     // any shape, testid or not.
   });
 
-  test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
+  test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos · Streaming." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
     page,
   }) => {
     // Load Necesidades page — Paseos group (12 transactions) is visible.
@@ -343,12 +351,13 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await page.getByRole('button', { name: 'Confirmar' }).click();
 
     // (i) The page-owned announcement region must show the exact literal.
-    // ETIQUETA_BUCKET['Deseos'] = 'Gustos', so the literal is "Movida a
-    // Gustos." (with period, per D-07). Scope to the announcement region
+    // ETIQUETA_BUCKET['Deseos'] = 'Gustos' and the destination label names
+    // the categoría too (issue #782), so the literal is "Movida a Gustos ·
+    // Streaming." (with period, per D-07). Scope to the announcement region
     // (data-testid="anuncio-reclasificar") if two role=status nodes coexist
     // with the catalog-loading status; use toHaveText for exact match.
     const anuncio = page.getByTestId('anuncio-reclasificar');
-    await expect(anuncio).toHaveText('Movida a Gustos.');
+    await expect(anuncio).toHaveText('Movida a Gustos · Streaming.');
 
     // (ii) After the PATCH fires, invalidation triggers a refetch. The stub
     // serves the fixture WITHOUT 'Uber' (tx-p1) once detallePatchFired is

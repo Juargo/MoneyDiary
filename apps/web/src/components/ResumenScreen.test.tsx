@@ -318,7 +318,7 @@ describe('ResumenScreen', () => {
       2,
     );
     expect(
-      screen.getAllByRole('button', { name: /^Sin categoría\b/ }),
+      screen.getAllByRole('button', { name: /^Sin grupo ni categoría\b/ }),
     ).toHaveLength(2);
   });
 
@@ -346,7 +346,7 @@ describe('ResumenScreen', () => {
 
     expect(await screen.findAllByTestId('leyenda-item')).toHaveLength(5);
     expect(
-      screen.getAllByRole('button', { name: /^Sin categoría\b/ }),
+      screen.getAllByRole('button', { name: /^Sin grupo ni categoría\b/ }),
     ).toHaveLength(2);
     for (const mensaje of consoleErrorSpy.mock.calls.map((call) => call[0])) {
       expect(String(mensaje)).not.toContain('same key');
@@ -445,7 +445,9 @@ describe('ResumenScreen', () => {
     await screen.findByTestId('semaforo-global');
 
     // The wedge, by its exact bare `aria-label` ("Sin categoría").
-    fireEvent.click(screen.getByRole('button', { name: 'Sin categoría' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Sin grupo ni categoría' }),
+    );
 
     expect(onSelectBucket).toHaveBeenCalledWith('SinCategoria', true);
   });
@@ -534,7 +536,7 @@ describe('ResumenScreen', () => {
       screen.getByRole('button', { name: /^Necesidades / }),
       screen.getByRole('button', { name: /^Gustos / }),
       screen.getByRole('button', { name: /^Ahorro / }),
-      screen.getByRole('button', { name: /^Sin categoría / }),
+      screen.getByRole('button', { name: /^Sin grupo ni categoría / }),
       // US-054 D-05: Ingresos is now a button — added to the focusable set.
       screen.getByRole('button', { name: /Ingresos/ }),
     ];

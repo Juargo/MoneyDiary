@@ -1066,7 +1066,7 @@ describe('BucketDetalleMesPage', () => {
   // regardless of mutation result. With the fix, onMovida fires only on
   // mutation success. The exact label 'Movida a Gustos.' (not raw 'Deseos')
   // pins the ETIQUETA_BUCKET mapping.
-  it('T-06(a): cross-bucket reclassify from a Necesidades row to a Deseos categoría surfaces "Movida a Gustos." in the page-owned role=status region; region is not inside any grupo (D-07)', async () => {
+  it('T-06(a): cross-bucket reclassify from a Necesidades row to a Deseos categoría surfaces "Movida a Gustos · Paseos." in the page-owned role=status region; region is not inside any grupo (D-07)', async () => {
     stubFetchInteraccion();
     const user = userEvent.setup();
 
@@ -1105,7 +1105,7 @@ describe('BucketDetalleMesPage', () => {
       { timeout: 3000 },
     );
     await waitFor(() =>
-      expect(statusRegion).toHaveTextContent('Movida a Gustos.'),
+      expect(statusRegion).toHaveTextContent('Movida a Gustos · Paseos.'),
     );
 
     // The region must NOT be inside a grupo-movimientos section (page-level
@@ -1117,7 +1117,7 @@ describe('BucketDetalleMesPage', () => {
 
   // T-06 case (c): a second cross-bucket move replaces the prior announcement
   // (last-move-wins, not appended).
-  it('T-06(c): a subsequent cross-bucket move to an Ahorro categoría replaces the prior announcement with "Movida a Ahorro." (D-07, replacement not append)', async () => {
+  it('T-06(c): a subsequent cross-bucket move to an Ahorro categoría replaces the prior announcement with "Movida a Ahorro · Ahorro." (D-07, replacement not append)', async () => {
     stubFetchInteraccion();
     const user = userEvent.setup();
 
@@ -1149,7 +1149,7 @@ describe('BucketDetalleMesPage', () => {
       { timeout: 3000 },
     );
     await waitFor(() =>
-      expect(statusRegion).toHaveTextContent('Movida a Gustos.'),
+      expect(statusRegion).toHaveTextContent('Movida a Gustos · Paseos.'),
     );
 
     // Second cross-bucket move: pick a second select (different row) and
@@ -1165,7 +1165,7 @@ describe('BucketDetalleMesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 
     await waitFor(() =>
-      expect(statusRegion).toHaveTextContent('Movida a Ahorro.'),
+      expect(statusRegion).toHaveTextContent('Movida a Ahorro · Ahorro.'),
     );
     // The text is replaced, not appended — must not contain the first announcement.
     expect(statusRegion).not.toHaveTextContent('Gustos');
@@ -1297,7 +1297,7 @@ describe('BucketDetalleMesPage', () => {
       { timeout: 3000 },
     );
     await waitFor(() =>
-      expect(statusRegion).toHaveTextContent('Movida a Gustos.'),
+      expect(statusRegion).toHaveTextContent('Movida a Gustos · Paseos.'),
     );
 
     // Change the periodo prop — the announcement must clear.

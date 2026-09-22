@@ -42,7 +42,7 @@ import type {
  *
  * **"Volver" returns to real origin, not always "/"** (issue #752,
  * `useVolverAtras`): this screen is reachable from more than one place (the
- * dashboard's legend AND `/semaforo`'s "Sin categoría" notice), so a
+ * dashboard's legend AND `/semaforo`'s "Sin grupo ni categoría" notice), so a
  * hard-coded `to="/"` silently discarded whichever screen the user actually
  * came from. `useVolverAtras()`'s `puedeVolver` (backed by TanStack
  * Router's OWN in-app navigation index, never raw browser history — see

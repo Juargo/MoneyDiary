@@ -348,7 +348,7 @@ describe('GrupoMovimientos', () => {
     // The onMovida spy must have fired once with the LABEL for Deseos ('Gustos').
     // This proves the prop is forwarded through GrupoMovimientos — not dropped.
     await waitFor(() => expect(onMovida).toHaveBeenCalledTimes(1));
-    expect(onMovida).toHaveBeenCalledWith('Gustos');
+    expect(onMovida).toHaveBeenCalledWith('Gustos · Streaming');
   });
 
   it('threads onPatronCreado to ReclasificarCategoriaControl and fires it once a pattern is created from the offer (issue #745)', async () => {

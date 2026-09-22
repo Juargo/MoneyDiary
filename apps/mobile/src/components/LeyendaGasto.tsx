@@ -14,7 +14,7 @@ import { COLOR_BUCKET, ETIQUETA_BUCKET } from '../theme/colors';
  * `'sinCategoria'` row shows name · N tx · amount (no %) and adds
  * `?destacar=sin-categoria` to its push path; `'ingreso'` shows name · amount.
  * The `'sinCategoria'` row's `accessibilityLabel` still expands "N tx" into
- * "N transacciones sin categorizar" (ADR-018 a11y). Previously these rows were
+ * "N transacciones sin grupo ni categoría" (ADR-018 a11y). Previously these rows were
  * inert `View`s (US-050 binding decision 2) — that decision is reversed here.
  */
 export function LeyendaGasto({
@@ -122,10 +122,10 @@ function FilaLeyenda({
 
   if (item.kind === 'sinCategoria') {
     // Visible "N tx" stays on screen; the accessible name spells it out —
-    // "N transacciones sin categorizar" (web's exact `.replace` transform).
+    // "N transacciones sin grupo ni categoría" (web's exact `.replace` transform).
     const accesible = `${etiqueta} · ${item.cantidadLabel.replace(
       /\s*tx$/,
-      ' transacciones sin categorizar',
+      ' transacciones sin grupo ni categoría',
     )} · ${item.montoLabel}`;
     return (
       <Pressable

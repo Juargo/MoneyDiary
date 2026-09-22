@@ -100,7 +100,7 @@ describe('LeyendaGasto', () => {
     const onSelectBucket = vi.fn();
     renderLeyenda({ onSelectBucket });
     const boton = screen.getByRole('button', {
-      name: 'Sin categoría 7 transacciones sin categorizar -$45.000',
+      name: 'Sin grupo ni categoría 7 transacciones sin grupo ni categoría -$45.000',
     });
     expect(boton).toBeInTheDocument();
     fireEvent.click(boton);
@@ -120,11 +120,13 @@ describe('LeyendaGasto', () => {
     // The digit-bearing visible text is aria-hidden — the accessible name
     // for that segment comes ONLY from the sr-only expansion below.
     expect(screen.getByText('7 tx')).toHaveAttribute('aria-hidden', 'true');
-    const expansion = screen.getByText('7 transacciones sin categorizar');
+    const expansion = screen.getByText(
+      '7 transacciones sin grupo ni categoría',
+    );
     expect(expansion).toHaveClass('sr-only');
     expect(
       screen.getByRole('button', {
-        name: 'Sin categoría 7 transacciones sin categorizar -$45.000',
+        name: 'Sin grupo ni categoría 7 transacciones sin grupo ni categoría -$45.000',
       }),
     ).toBeInTheDocument();
   });
@@ -250,7 +252,7 @@ describe('LeyendaGasto', () => {
     expect(alerta).toHaveClass('text-warning-foreground');
     expect(
       screen.getByRole('button', {
-        name: 'Sin categoría 7 transacciones sin categorizar -$45.000',
+        name: 'Sin grupo ni categoría 7 transacciones sin grupo ni categoría -$45.000',
       }),
     ).toBeInTheDocument();
   });
