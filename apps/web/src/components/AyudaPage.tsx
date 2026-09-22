@@ -89,12 +89,16 @@ export function AyudaPage() {
           </div>
           <div>
             <dt className="font-medium text-foreground">
-              Grupos (Necesidades, Gustos, Ahorro y Sin categoría)
+              Grupos (Necesidades, Gustos, Ahorro y Sin grupo ni categoría)
             </dt>
             <dd className="text-muted-foreground">
               Los grupos del método 50/30/20 en que se clasifica cada
-              movimiento. "Sin categoría" agrupa lo que todavía no tiene un
-              patrón de clasificación asignado.
+              movimiento. "Sin grupo ni categoría" no es un grupo más: junta los
+              movimientos que todavía no tienen un patrón de clasificación
+              asignado, así que no quedaron en ningún grupo. Como el grupo lo
+              trae la categoría, esos movimientos tampoco tienen categoría — a
+              diferencia de los que sí están en un grupo y aparecen dentro de él
+              como "Sin categoría".
             </dd>
           </div>
           <div>

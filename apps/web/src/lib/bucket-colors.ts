@@ -28,17 +28,37 @@
  * Domain bucket name → user-facing label. The domain models the middle bucket
  * as "Deseos"; the product/UI surface calls it "Gustos" (mockup copy).
  *
+ * `SinCategoria` reads "Sin grupo ni categoría", NOT "Sin categoría". That is
+ * not verbosity — it disambiguates two DIFFERENT absences the UI shows at two
+ * different levels, which used to share one label and confused users:
+ *
+ *   - THIS one (bucket level): `Transaccion.bucketId IS NULL`. The movement is
+ *     in no grupo at all. It has no categoría either, because a categoría
+ *     always carries its bucket — `categoriaId`/`bucketId` are written
+ *     atomically (`transaccion-bucket-writer.port.ts`), so there is no
+ *     "categoría without grupo" state. Hence "ni categoría".
+ *   - The OTHER one (category level, still plain "Sin categoría"): the
+ *     synthetic group the API builds inside a bucket detail for
+ *     `categoriaId IS NULL` (`agrupar-detalle-por-categoria.ts`). Those
+ *     movements DO have a grupo — reclassified by bucket (US-055), or their
+ *     categoría was deleted (`eliminar-categoria.use-case.ts` nulls
+ *     `categoriaId` and never touches `bucketId`).
+ *
+ * Keep the two labels distinct. The mobile twin in `apps/mobile/src/theme/
+ * colors.ts` carries the same map and must stay in sync.
+ *
  * Cross-workspace copy pin (US-049): `apps/api/src/domain/value-objects/
  * semaforo-detalle.ts`'s `ETIQUETA_BUCKET_COPY` duplicates this same
  * Deseos → 'Gustos' mapping for backend-generated diagnosis/advice copy — no
  * automated gate catches drift between the two maps (documented residual
- * risk, design §6). If you change this label, change that one too.
+ * risk, design §6). If you change this label, change that one too. That map
+ * covers the 3 rule buckets only, so it carries no `SinCategoria` entry.
  */
 export const ETIQUETA_BUCKET: Record<string, string> = {
   Necesidades: 'Necesidades',
   Deseos: 'Gustos',
   Ahorro: 'Ahorro',
-  SinCategoria: 'Sin categoría',
+  SinCategoria: 'Sin grupo ni categoría',
 };
 
 /**

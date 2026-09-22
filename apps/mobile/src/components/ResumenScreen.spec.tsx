@@ -124,7 +124,7 @@ describe('ResumenScreen', () => {
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
     expect(screen.getByText('Ingresos')).toBeOnTheScreen();
     expect(
-      screen.getByText('Sin categoría', { exact: false }),
+      screen.getByText('Sin grupo ni categoría', { exact: false }),
     ).toBeOnTheScreen();
   });
 

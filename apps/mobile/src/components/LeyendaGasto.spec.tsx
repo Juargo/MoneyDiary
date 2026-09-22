@@ -61,7 +61,7 @@ describe('LeyendaGasto', () => {
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
     expect(screen.getByText('Ingresos')).toBeOnTheScreen();
     expect(
-      screen.getByText('Sin categoría', { exact: false }),
+      screen.getByText('Sin grupo ni categoría', { exact: false }),
     ).toBeOnTheScreen();
     expect(screen.queryByText('Deseos')).not.toBeOnTheScreen();
     expect(screen.queryByText('SinCategoria')).not.toBeOnTheScreen();
@@ -112,7 +112,7 @@ describe('LeyendaGasto', () => {
   // is REMOVED — superseded by US-056 MOB-08 delta (rows are now Pressable).
   // US-050 binding decision 2 reversed.
 
-  it('spells out "transacciones sin categorizar" in the sinCategoria row\'s accessible name', async () => {
+  it('spells out "transacciones sin grupo ni categoría" in the sinCategoria row\'s accessible name', async () => {
     await render(
       <LeyendaGasto
         principales={principales}
@@ -122,7 +122,7 @@ describe('LeyendaGasto', () => {
       />,
     );
     expect(
-      screen.getByLabelText(/transacciones sin categorizar/),
+      screen.getByLabelText(/transacciones sin grupo ni categoría/),
     ).toBeOnTheScreen();
   });
 
@@ -147,7 +147,7 @@ describe('LeyendaGasto', () => {
     expect(screen.getByText('0 tx', { exact: false })).toBeOnTheScreen();
   });
 
-  it('renders the 5 rows in the fixed MOB-08 order: Necesidades, Gustos, Ahorro, Ingresos, Sin categoría', async () => {
+  it('renders the 5 rows in the fixed MOB-08 order: Necesidades, Gustos, Ahorro, Ingresos, Sin grupo ni categoría', async () => {
     await render(
       <LeyendaGasto
         principales={principales}
@@ -163,11 +163,11 @@ describe('LeyendaGasto', () => {
     expect(within(rows[2]).getByText('Ahorro')).toBeOnTheScreen();
     expect(within(rows[3]).getByText('Ingresos')).toBeOnTheScreen();
     expect(
-      within(rows[4]).getByText('Sin categoría', { exact: false }),
+      within(rows[4]).getByText('Sin grupo ni categoría', { exact: false }),
     ).toBeOnTheScreen();
   });
 
-  it('renders exactly 2 rows (Ingresos, Sin categoría) when there is no spend', async () => {
+  it('renders exactly 2 rows (Ingresos, Sin grupo ni categoría) when there is no spend', async () => {
     await render(
       <LeyendaGasto
         principales={[]}
@@ -180,7 +180,7 @@ describe('LeyendaGasto', () => {
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByText('Ingresos')).toBeOnTheScreen();
     expect(
-      within(rows[1]).getByText('Sin categoría', { exact: false }),
+      within(rows[1]).getByText('Sin grupo ni categoría', { exact: false }),
     ).toBeOnTheScreen();
   });
 });

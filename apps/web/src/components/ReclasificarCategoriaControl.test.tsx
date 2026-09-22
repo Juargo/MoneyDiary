@@ -958,7 +958,7 @@ describe('ReclasificarCategoriaControl', () => {
     // subcadena, pasaba igual con y sin la categoría — no podía ponerse
     // rojo por el bug que decía cubrir (issue #782).
     expect(dialog).toHaveTextContent(
-      'Esto mueve $7.500 de Sin categoría a Necesidades · Transporte.',
+      'Esto mueve $7.500 de Sin grupo ni categoría a Necesidades · Transporte.',
     );
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-2/categoria',
