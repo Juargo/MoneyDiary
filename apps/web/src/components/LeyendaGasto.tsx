@@ -169,7 +169,7 @@ function FilaClickeable({
           <span className="text-sm text-foreground">{etiqueta}</span>{' '}
           {/* Minimal "needs attention" cue for uncategorized movements.
               Decorative (`aria-hidden`): the accessible name already says
-              "N transacciones sin categorizar" via the sr-only expansion. */}
+              "N transacciones sin grupo ni categoría" via the sr-only expansion. */}
           {item.kind === 'sinCategoria' &&
             tieneSinCategorizar(item.cantidadLabel) && (
               <CircleAlert
@@ -194,7 +194,7 @@ function FilaClickeable({
               <span className="sr-only">
                 {item.cantidadLabel.replace(
                   /\s*tx$/,
-                  ' transacciones sin categorizar',
+                  ' transacciones sin grupo ni categoría',
                 )}
               </span>
             </span>

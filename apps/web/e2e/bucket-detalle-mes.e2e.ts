@@ -264,7 +264,7 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     ).toBeVisible();
   });
 
-  test('dashboard Sin categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
+  test('dashboard Sin grupo ni categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
     page,
   }) => {
     // WDM-06 scenario: "GIVEN the dashboard is viewing 2026-07" — same
@@ -272,9 +272,17 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     await page.goto('/?periodo=2026-07');
     await page.getByText('Toca un ítem del gráfico o la leyenda').waitFor();
 
+    // The two `hasText` filters below look like a copy-paste pair but target
+    // DIFFERENT concepts, and the labels are deliberately distinct so that
+    // neither substring can match the other's element:
+    //   - the dashboard legend row is the BUCKET `SinCategoria`
+    //     (`bucketId IS NULL`) → "Sin grupo ni categoría";
+    //   - the group inside the drill-down is the synthetic CATEGORY group
+    //     (`categoriaId IS NULL`) → plain "Sin categoría".
+    // See `lib/bucket-colors.ts`'s `ETIQUETA_BUCKET` docblock.
     await page
       .getByTestId('leyenda-item')
-      .filter({ hasText: 'Sin categoría' })
+      .filter({ hasText: 'Sin grupo ni categoría' })
       .click();
 
     await expect(page).toHaveURL(

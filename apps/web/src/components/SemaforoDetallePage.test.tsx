@@ -310,10 +310,12 @@ describe('SemaforoDetallePage', () => {
     // documenta para su encabezado de grupo. `toHaveTextContent` usa
     // `textContent` completo, así que atraviesa los spans — y de paso fija la
     // oración entera en vez de dos fragmentos sueltos.
-    const aviso = screen.getByText(/sin categoría por/).closest('p');
-    expect(aviso).toHaveTextContent('3 movimientos sin categoría por $15.000.');
+    const aviso = screen.getByText(/sin grupo ni categoría por/).closest('p');
+    expect(aviso).toHaveTextContent(
+      '3 movimientos sin grupo ni categoría por $15.000.',
+    );
     const link = screen.getByRole('link', {
-      name: /sin categoría/i,
+      name: /sin grupo ni categoría/i,
     });
     expect(link).toHaveAttribute(
       'href',
@@ -388,9 +390,11 @@ describe('SemaforoDetallePage', () => {
   it('a zero-count Sin categoría (WSEM-05) shows no warning block, no link', async () => {
     renderPage(successQuery(detalleDto()));
     await screen.findByRole('heading', { name: 'Semáforo' });
-    expect(screen.queryByText(/sin categoría/i)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: /sin categoría/i }),
+      screen.queryByText(/sin grupo ni categoría/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /sin grupo ni categoría/i }),
     ).not.toBeInTheDocument();
   });
 
