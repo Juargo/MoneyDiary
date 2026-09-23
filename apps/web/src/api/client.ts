@@ -42,7 +42,16 @@ export type ApiError =
       // `message`. Optional and unused by every other `'invalid'` producer
       // in this file, so this is additive, not a breaking widen.
       code?: string;
-    } // 400 — período inválido
+    } // 400 (período/archivo inválido) — y también 409 en previewIngesta/
+  // postCommitIngesta (issue #778): un 409 CATALOGO_INCOMPLETO es, igual
+  // que un 400, una condición PERMANENTE que el usuario debe resolver
+  // antes de reintentar — la diferencia es solo QUÉ hay que corregir
+  // (el archivo subido vs. el estado del catálogo de categorías de la
+  // cuenta). Comparten tag a propósito en vez de sumar uno nuevo: la
+  // propiedad que le importa a `retry-policy.ts` y a cada `switch` que
+  // consume esta unión es "permanente y accionable por el usuario", no
+  // el código HTTP exacto — un tag nuevo hubiera rippleado en cada
+  // consumidor sin cambiar lo que el usuario ve.
   | { tag: 'unauthorized'; message: string } // 401 — sin acceso
   | { tag: 'network'; message: string } // fetch rechazado (offline, DNS…)
   | { tag: 'parse'; message: string } // 2xx pero el body no tiene la forma esperada
@@ -1192,7 +1201,9 @@ function esPreviewIngestaDto(
  * (`us-003-vista-previa` Slice 2, design.md §9.4). Faithful mirror of
  * `postIngesta`'s transport: same multipart contract (field `file`, no
  * manual `Content-Type`), never throws, same status-mapping conventions
- * (400 passes `body.message` verbatim, 401 fixed session-expired message).
+ * (400 y 409 pasan `body.message` verbatim con `tag: 'invalid'` — issue
+ * #778, ver el comentario de `ApiError` —, 401 fixed session-expired
+ * message).
  * The ONLY difference from `postIngesta` is the URL and the response DTO —
  * this endpoint is read-only server-side (PREV-02), the client never
  * invalidates any cache from its result (that's `usePreviewIngesta`'s job,
@@ -1228,7 +1239,18 @@ export async function previewIngesta(
     };
   }
 
-  if (res.status === 400) {
+  // issue #778 (catálogo incompleto): un 409 CATALOGO_INCOMPLETO toma la
+  // MISMA rama que un 400 — ambos son condiciones permanentes que el
+  // usuario debe resolver antes de reintentar (ver el comentario de
+  // `ApiError` arriba en este archivo). El fallback de mensaje cuando el
+  // body no trae `message` SÍ difiere por status: el de 400 es específico
+  // de archivo ("El archivo no se pudo procesar") y mentiría para un 409,
+  // que no tiene nada que ver con el archivo subido.
+  if (res.status === 400 || res.status === 409) {
+    const mensajeFallback =
+      res.status === 409
+        ? 'No pudimos completar la operación. Intenta nuevamente.'
+        : 'El archivo no se pudo procesar. Intenta nuevamente.';
     let body: unknown;
     try {
       body = await res.json();
@@ -1237,7 +1259,7 @@ export async function previewIngesta(
         ok: false,
         error: {
           tag: 'invalid',
-          message: 'El archivo no se pudo procesar. Intenta nuevamente.',
+          message: mensajeFallback,
         },
       };
     }
@@ -1245,16 +1267,14 @@ export async function previewIngesta(
     // ingesta-pdf-password Slice 4 (D-03/D-10): `code` rides the same
     // channel the perfil endpoints already established for 'server' above
     // — `PDF_PROTEGIDO`/`PDF_PASSWORD_INCORRECTA` when the backend sends
-    // them, `undefined` for every other 400 (existing consumers untouched).
+    // them (400), `CATALOGO_INCOMPLETO` for the 409 (issue #778),
+    // `undefined` for every other case (existing consumers untouched).
     const code = (body as { code?: unknown } | null)?.code;
     return {
       ok: false,
       error: {
         tag: 'invalid',
-        message:
-          typeof mensaje === 'string'
-            ? mensaje
-            : 'El archivo no se pudo procesar. Intenta nuevamente.',
+        message: typeof mensaje === 'string' ? mensaje : mensajeFallback,
         code: typeof code === 'string' ? code : undefined,
       },
     };
@@ -1355,7 +1375,9 @@ function esCommitIngestaDto(value: unknown): value is CommitIngestaDto {
  * the multipart boundary.
  *
  * Status mapping identical to `postIngesta`:
- *   400 → `body.message` verbatim (backend-scrubbed Spanish)
+ *   400 y 409 → `body.message` verbatim con `tag: 'invalid'` (backend-scrubbed
+ *     Spanish; el 409 es CATALOGO_INCOMPLETO, issue #778 — ver el comentario
+ *     de `ApiError`)
  *   401 → fixed "Tu sesión expiró…"
  *   non-2xx → `server`
  *   network throw → `network`
@@ -1394,7 +1416,15 @@ export async function postCommitIngesta(
     };
   }
 
-  if (res.status === 400) {
+  // issue #778 (catálogo incompleto) — mismo razonamiento que en
+  // previewIngesta: el 409 toma la rama del 400 (ambos son 'invalid',
+  // permanentes), pero con su propio fallback de mensaje cuando el body no
+  // trae `message`, porque el fallback de 400 es específico de archivo.
+  if (res.status === 400 || res.status === 409) {
+    const mensajeFallback =
+      res.status === 409
+        ? 'No pudimos completar la operación. Intenta nuevamente.'
+        : 'El archivo no se pudo procesar. Intenta nuevamente.';
     let body: unknown;
     try {
       body = await res.json();
@@ -1403,22 +1433,19 @@ export async function postCommitIngesta(
         ok: false,
         error: {
           tag: 'invalid',
-          message: 'El archivo no se pudo procesar. Intenta nuevamente.',
+          message: mensajeFallback,
         },
       };
     }
     const mensaje = (body as { message?: unknown } | null)?.message;
     // ingesta-pdf-password Slice 4 (D-03/D-10) — same code extraction as
-    // previewIngesta's 400 branch.
+    // previewIngesta's 400/409 branch.
     const code = (body as { code?: unknown } | null)?.code;
     return {
       ok: false,
       error: {
         tag: 'invalid',
-        message:
-          typeof mensaje === 'string'
-            ? mensaje
-            : 'El archivo no se pudo procesar. Intenta nuevamente.',
+        message: typeof mensaje === 'string' ? mensaje : mensajeFallback,
         code: typeof code === 'string' ? code : undefined,
       },
     };
