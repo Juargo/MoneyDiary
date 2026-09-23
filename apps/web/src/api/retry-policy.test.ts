@@ -25,3 +25,23 @@ describe('retry-policy — ingesta-pdf-password Slice 4 (Phase 18)', () => {
     ).toBe(true);
   });
 });
+
+// issue #778 (catálogo incompleto): previewIngesta/postCommitIngesta ahora
+// mapean el 409 CATALOGO_INCOMPLETO al mismo tag 'invalid' que un 400 (ver
+// client.ts). Sin este test explícito, `esErrorPermanente` ya lo trataría
+// como permanente porque solo mira `tag` — pero el objetivo del cambio en
+// client.ts era justamente que el 409 dejara de reintentarse, así que se
+// documenta con su propio caso en vez de depender solo de la cobertura
+// genérica de 'invalid' de arriba.
+describe('retry-policy — issue #778 (catálogo incompleto)', () => {
+  it('un ApiError "invalid" con code CATALOGO_INCOMPLETO (409) es permanente — no se reintenta', () => {
+    expect(
+      esErrorPermanente({
+        tag: 'invalid',
+        message:
+          'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos.',
+        code: 'CATALOGO_INCOMPLETO',
+      }),
+    ).toBe(true);
+  });
+});

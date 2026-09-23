@@ -1665,6 +1665,62 @@ describe('previewIngesta', () => {
     });
   });
 
+  // issue #778: la API rechaza la ingesta con 409 CATALOGO_INCOMPLETO
+  // cuando el catálogo de categorías del usuario está incompleto. Debe
+  // tomar la MISMA rama que un 400 — 'invalid', message del backend
+  // verbatim, code presente — porque es una condición permanente que el
+  // usuario debe resolver (restaurar/crear la categoría) antes de reintentar.
+  it('mapea un 409 CATALOGO_INCOMPLETO a {tag: "invalid"} con el message del backend verbatim', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 409,
+      json: () =>
+        Promise.resolve({
+          message:
+            'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+          code: 'CATALOGO_INCOMPLETO',
+        }),
+    });
+
+    const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message:
+        'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+      code: 'CATALOGO_INCOMPLETO',
+    });
+  });
+
+  it('mapea un 409 con body ilegible/malformado a un mensaje genérico de fallback (NO el fallback de archivo del 400)', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 409,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+
+    const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('invalid');
+    expect(!result.ok && result.error.message).not.toMatch(/archivo/i);
+    expect(!result.ok && result.error.message.length).toBeGreaterThan(0);
+  });
+
+  it('mapea un 5xx a {tag: "server"} genérico (el cambio del 409 no absorbe el caso real de error de servidor)', async () => {
+    mockFetchOnce({ ok: false, status: 500 });
+
+    const result = await previewIngesta(archivoDePrueba());
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'server',
+      status: 500,
+      message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+    });
+  });
+
   it('mapea un rechazo de fetch a {tag: "network"}', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 
@@ -1934,6 +1990,46 @@ describe('postCommitIngesta', () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.tag).toBe('invalid');
+    expect(!result.ok && result.error.message.length).toBeGreaterThan(0);
+  });
+
+  // issue #778: mismo contrato 409 CATALOGO_INCOMPLETO que previewIngesta —
+  // ver los tests homólogos de esa describe para el razonamiento completo.
+  it('mapea un 409 CATALOGO_INCOMPLETO a {tag: "invalid"} con el message del backend verbatim', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 409,
+      json: () =>
+        Promise.resolve({
+          message:
+            'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+          code: 'CATALOGO_INCOMPLETO',
+        }),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toEqual({
+      tag: 'invalid',
+      message:
+        'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+      code: 'CATALOGO_INCOMPLETO',
+    });
+  });
+
+  it('mapea un 409 con body ilegible/malformado a un mensaje genérico de fallback (NO el fallback de archivo del 400)', async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 409,
+      json: () => Promise.reject(new Error('invalid json')),
+    });
+
+    const result = await postCommitIngesta(archivoDePrueba(), []);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.tag).toBe('invalid');
+    expect(!result.ok && result.error.message).not.toMatch(/archivo/i);
     expect(!result.ok && result.error.message.length).toBeGreaterThan(0);
   });
 
