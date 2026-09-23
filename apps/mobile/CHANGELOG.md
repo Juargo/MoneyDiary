@@ -1,5 +1,109 @@
 # Changelog
 
+## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.4.0...mobile-v0.5.0) (2026-09-23)
+
+
+### Features
+
+* agrega una categoría Desconocido por bucket, con el ícono circle-help ([44f00c1](https://github.com/Juargo/MoneyDiary/commit/44f00c1c14e95a7d39742e5eb0ff9cd8442bd2bd))
+* agrega una categoría Desconocido por bucket, con el ícono circle-help ([17e5b0d](https://github.com/Juargo/MoneyDiary/commit/17e5b0df2f4d0a34340837dac40be9b73a50c48d))
+* agregar categoría desde el detalle de bucket, con el bucket ya fijo ([bb3f0a8](https://github.com/Juargo/MoneyDiary/commit/bb3f0a813bd7283d6742cb045887e287da1876ca))
+* **cartola:** aclara que clasificar es opcional y editable después ([c7ad6cd](https://github.com/Juargo/MoneyDiary/commit/c7ad6cd9b8853f1e998cd69b5ce2218f7159dff0))
+* **cartola:** aclarar que clasificar es opcional y editable después ([079e626](https://github.com/Juargo/MoneyDiary/commit/079e6260684a6c4c58c03323eb0b4d1b21e43c01))
+* confirma la reclasificación dentro del mismo bucket ([2cdfc42](https://github.com/Juargo/MoneyDiary/commit/2cdfc420caa62e1382dce710bd3e8141319b759c))
+* crear categoría desde el selector, con la categoría nueva ya asignada ([774814b](https://github.com/Juargo/MoneyDiary/commit/774814b9eb819e68dc3a56b2443cf4db2e7bd7f0))
+* el bucket se llama Grupo en la interfaz, con ayuda en línea ([b108776](https://github.com/Juargo/MoneyDiary/commit/b10877629aaa4e74d1cb3df8807b4e3c8946c0e7))
+* el selector de reclasificación muestra bucket y categoría ([720d275](https://github.com/Juargo/MoneyDiary/commit/720d275e44e271f0f243b06a6168b4c83c767df2))
+* iconografía de categorías elegida por el usuario (US-067) ([b8f3a6e](https://github.com/Juargo/MoneyDiary/commit/b8f3a6e1c4a9f869b4bedaed5ef7361d86764a46))
+* listado agrupado por bucket y categoría en el paso de decisión de la cartola ([2318dcb](https://github.com/Juargo/MoneyDiary/commit/2318dcb276fb069fa79b18f5224559e453ddaea4))
+* **mobile:** add the bucket glyph ink color map for icon badges ([c592c54](https://github.com/Juargo/MoneyDiary/commit/c592c5457611d8eef5c1a67883e95cc6029fdb23))
+* **mobile:** add the categoria icon render map and accessible labels ([b6f9a4e](https://github.com/Juargo/MoneyDiary/commit/b6f9a4e5dcf542eee072656c4e1e6b0eface7bb9))
+* **mobile:** add the ICONO_INVALIDO row to the catalogo error copy table ([88ba464](https://github.com/Juargo/MoneyDiary/commit/88ba464c67ed87be9811fe6675f9ec7dd5c1b964))
+* **mobile:** add the IconoCategoriaBadge component for category rows ([1cf412f](https://github.com/Juargo/MoneyDiary/commit/1cf412f2d8531ffa41c37764e147515e7a3662e7))
+* **mobile:** add the SelectorIcono accessible icon picker ([a69f2c1](https://github.com/Juargo/MoneyDiary/commit/a69f2c1598144aacc9171b248173ff495dccb554))
+* **mobile:** agrega el marcador "Mes en curso" al Header ([5a0d419](https://github.com/Juargo/MoneyDiary/commit/5a0d41960621a61f7b53319f79329f2d8ca579e8))
+* **mobile:** agrega el paso de decisión y la revisión de solo lectura ([4a74d10](https://github.com/Juargo/MoneyDiary/commit/4a74d10d8d1e87ea2f554df36a01c9676e063399))
+* **mobile:** agrega esFilaEditable/categoriaEfectiva/aOverlayEdits ([8f8a65e](https://github.com/Juargo/MoneyDiary/commit/8f8a65eb9981be99c050b4a8501563c28438903b))
+* **mobile:** agrega esFilaEditable/categoriaEfectiva/aOverlayEdits ([44f28df](https://github.com/Juargo/MoneyDiary/commit/44f28df41c59c2e20d4797de9d6f4c259664becc))
+* **mobile:** agrega FilaRevisionMobile ([18e1627](https://github.com/Juargo/MoneyDiary/commit/18e16276c0f5755527b871fefeeacc57175a39de))
+* **mobile:** agrega FilaRevisionMobile (fila de revision) ([a05fe42](https://github.com/Juargo/MoneyDiary/commit/a05fe42f2bdfe5c8622fc0386054bc31d5bb4261))
+* **mobile:** agrega HojaClasificacion (hoja de clasificación por fila) ([d8ca65e](https://github.com/Juargo/MoneyDiary/commit/d8ca65e8a8e9aed74f567d2f72ee35167bf457ac))
+* **mobile:** agrega HojaClasificacion para elegir categoría por fila ([5d8f7a8](https://github.com/Juargo/MoneyDiary/commit/5d8f7a8fa54f39abe5701f34eb5d7b5fac4f08c3))
+* **mobile:** agrega ListaRevision (lista virtualizada de revision) ([87af83f](https://github.com/Juargo/MoneyDiary/commit/87af83fb9b0dbfcd1535b89e184805076cd93eb8))
+* **mobile:** agrega ListaRevision + ResumenDecision (PR5 de 11) ([488cea0](https://github.com/Juargo/MoneyDiary/commit/488cea0cfeb7f10b8796dab6dc8da6edb134a3de))
+* **mobile:** agrega paso de decision y revision de solo lectura ([27db497](https://github.com/Juargo/MoneyDiary/commit/27db49779ca4b22a6b65231a55ffbee674529d6f))
+* **mobile:** agrega ResumenDecision (paso de decision post-preview) ([c2545b4](https://github.com/Juargo/MoneyDiary/commit/c2545b411502ec5e1693148ba9529b0d8c4f483d))
+* **mobile:** agregar categoría desde el detalle de bucket ([ea932cb](https://github.com/Juargo/MoneyDiary/commit/ea932cbeaee0a4596a15ad66164434bbf0045dd4))
+* **mobile:** agregar selector de palabras y oferta de patrón ([#745](https://github.com/Juargo/MoneyDiary/issues/745)) ([20b425c](https://github.com/Juargo/MoneyDiary/commit/20b425c75b735bfb208329e69ba18c76104b279c))
+* **mobile:** conecta la hoja de clasificacion al catalogo de revision ([7b8e39a](https://github.com/Juargo/MoneyDiary/commit/7b8e39ab8daa2161196f4d308beacf7d918e74fa)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** conecta la hoja de clasificación y el catálogo a la revisión ([418b56f](https://github.com/Juargo/MoneyDiary/commit/418b56f4b160d3e95d4547a6ac12c4f13788b107))
+* **mobile:** confirma la subida de cartola vía /api/ingestas/commit ([83cf29d](https://github.com/Juargo/MoneyDiary/commit/83cf29d59a6b5955fc57f554b6bff1da14da8c5a))
+* **mobile:** confirmar reclasificación dentro del mismo bucket ([7534f7b](https://github.com/Juargo/MoneyDiary/commit/7534f7b1bd15f5ff5f571dd3da9ca585d58a9638))
+* **mobile:** confirmar sube via commitIngesta(archivo, []) ([8d846a3](https://github.com/Juargo/MoneyDiary/commit/8d846a3ac7bc8f2a745de5b61f72694239ccf9e3)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** crear categoría desde el selector de reclasificar ([767662e](https://github.com/Juargo/MoneyDiary/commit/767662e6be26174c72da0bd1fa53376b02a89fab))
+* **mobile:** crear categoría desde la hoja de clasificación de cartola ([ebfdf1b](https://github.com/Juargo/MoneyDiary/commit/ebfdf1b711ddb87a6032dfee9ae827420a1f178c))
+* **mobile:** el ícono viaja con crear y con Guardar al editar una categoría ([74e2bc5](https://github.com/Juargo/MoneyDiary/commit/74e2bc58bb1cfa15609c9a31faf52c3d17cfdf24))
+* **mobile:** envia el overlay de edicion y protege el doble envio ([62766c9](https://github.com/Juargo/MoneyDiary/commit/62766c9e487b2d453029fab206b807d03f9e5ace)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** envía las ediciones al confirmar y evita el doble envío ([edffbe2](https://github.com/Juargo/MoneyDiary/commit/edffbe26d4fb2f53db886e45c757b60f45e388d3))
+* **mobile:** espejo de la allowlist de íconos, mapa lucide-react-native y tinta del glifo ([e4cb906](https://github.com/Juargo/MoneyDiary/commit/e4cb906ce9ed4e224f889f265fe8d58220154e44))
+* **mobile:** fecha legible y cifras alineadas en las listas de movimientos ([702e880](https://github.com/Juargo/MoneyDiary/commit/702e880f7cf36a5a824422d1f7a431536e9f1ed8))
+* **mobile:** fecha legible y cifras alineadas en las listas de movimientos ([ecf33de](https://github.com/Juargo/MoneyDiary/commit/ecf33de4c05f7f58084e9d13f3e56621f2a8b477))
+* **mobile:** insignia de ícono y selector accesible en Configuración ([f18f250](https://github.com/Juargo/MoneyDiary/commit/f18f25046f9d4dadb53532a5dfbe60b9fa934ea4))
+* **mobile:** insignias de ícono en los grupos del detalle del mes ([df00798](https://github.com/Juargo/MoneyDiary/commit/df007987e7d6cbbc3d329121573ceba3aef01640))
+* **mobile:** mirrar dominio de patrón desde movimiento ([#745](https://github.com/Juargo/MoneyDiary/issues/745)) ([32ab428](https://github.com/Juargo/MoneyDiary/commit/32ab428f4628be15897ef403cb0db44234d0495f))
+* **mobile:** mirror the categoria icon allowlist from the backend ([5f73162](https://github.com/Juargo/MoneyDiary/commit/5f7316299bc74a6e5ead574365190cc355159e8d))
+* **mobile:** ofrecer crear un patrón tras reclasificar, eligiendo palabras de la glosa ([77646f4](https://github.com/Juargo/MoneyDiary/commit/77646f4421e9f0c98b243006b61a7765b8b8b2f2))
+* **mobile:** ofrecer patrón tras reclasificar ([#745](https://github.com/Juargo/MoneyDiary/issues/745)) ([db2fff1](https://github.com/Juargo/MoneyDiary/commit/db2fff133131b08893c1a4182d45617bf5ed4b34))
+* **mobile:** reescribe commit-ingesta.ts al contrato de POST /commit ([8b26fcd](https://github.com/Juargo/MoneyDiary/commit/8b26fcd17c260cc2b477dac1f4dd304882121e79)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** rename reclassify copy to name bucket and categoría ([1e7064b](https://github.com/Juargo/MoneyDiary/commit/1e7064bad60de01a3b711b4b0e58df30dfa447d6))
+* **mobile:** render the category icon badge in detalle group headers ([af553d6](https://github.com/Juargo/MoneyDiary/commit/af553d6a8988e980b99165c78c5197d1ca65dc45))
+* **mobile:** render the category icon badge in each catalog row ([301f60d](https://github.com/Juargo/MoneyDiary/commit/301f60da6913a8f8575b556b895dcbf3e3dd5948))
+* **mobile:** renombrar "bucket" a "grupo" en toda la copy visible ([b18a139](https://github.com/Juargo/MoneyDiary/commit/b18a13922c2545e4ae67923321d221818d80ee88))
+* **mobile:** show grouped accordion summary at the cartola decision step ([f4eace3](https://github.com/Juargo/MoneyDiary/commit/f4eace39b330a1cc1092be4931c021ea36e423bb))
+* **mobile:** sobrevivir la oferta de patrón al reload de reclasificar ([#745](https://github.com/Juargo/MoneyDiary/issues/745)) ([1ef41d7](https://github.com/Juargo/MoneyDiary/commit/1ef41d77507c3cd23fb41458a32b30eda7f9a2d2))
+* **mobile:** thread categoria icono through the detalle view model ([d46f554](https://github.com/Juargo/MoneyDiary/commit/d46f554ec9989efc821c16b2d401750cecd897e4))
+* **mobile:** tolerate the optional icono field in catalogo response guards ([f038f84](https://github.com/Juargo/MoneyDiary/commit/f038f8429c3e8bc93659a278fc0afed5e99b6382))
+* **mobile:** usa el preview canónico y quita el selector de filas ([4398b2b](https://github.com/Juargo/MoneyDiary/commit/4398b2b32956c954ea3430ea8fd56478869a24d9))
+* **mobile:** usa el preview canónico y quita el selector de filas ([a0ea577](https://github.com/Juargo/MoneyDiary/commit/a0ea577a87388155637ed250ef75a2e5d34bddb6))
+* **mobile:** wire the icon picker into category creation ([9d994b0](https://github.com/Juargo/MoneyDiary/commit/9d994b067346e785e2f31aa1d75e66973a50b507))
+* **mobile:** wire the icon picker into category editing ([16fea13](https://github.com/Juargo/MoneyDiary/commit/16fea13e4a3a44cf4ee00a894d5ddbe186bd41b4))
+* resumen y decisión antes de subir la cartola en web y mobile ([4e01134](https://github.com/Juargo/MoneyDiary/commit/4e011342c00959e8d77a0d193db5ff0cbb8a30fb))
+* **web,mobile:** distingue "Sin grupo ni categoría" de "Sin categoría" ([69c156f](https://github.com/Juargo/MoneyDiary/commit/69c156f49bfb6f350a27a2788aa30b42a4d2cf0c))
+* **web,mobile:** distingue "Sin grupo ni categoría" de "Sin categoría" ([88ede68](https://github.com/Juargo/MoneyDiary/commit/88ede683f6995a6f5de9554405f5adefddec93db)), closes [#750](https://github.com/Juargo/MoneyDiary/issues/750)
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([fe11b73](https://github.com/Juargo/MoneyDiary/commit/fe11b737e386b2f077a37482687e6d82d15df464))
+* **web,mobile:** mostrar 10 filas por grupo antes del "ver N más" ([8bd9173](https://github.com/Juargo/MoneyDiary/commit/8bd9173c8da95d38397b875477df543d55431247))
+
+
+### Bug Fixes
+
+* **mobile:** await cada render de RNTL para cerrar el flake de [#724](https://github.com/Juargo/MoneyDiary/issues/724) ([4f7f525](https://github.com/Juargo/MoneyDiary/commit/4f7f525ddd61c178315cfe42057f0a55add6bde4))
+* **mobile:** await cada render de RNTL para cerrar el flake de BucketDetalleScreen ([2b23dd2](https://github.com/Juargo/MoneyDiary/commit/2b23dd29f33000dceac2e4c4a93c683f18c8d4b9))
+* **mobile:** cast the mocked LucideIcon in IconoCategoriaBadge.spec.tsx ([aa55929](https://github.com/Juargo/MoneyDiary/commit/aa5592949a847903c740d274c9c0653ff8956cb1))
+* **mobile:** fetch the catalog on entering the decision step, not review ([485ec3d](https://github.com/Juargo/MoneyDiary/commit/485ec3deea3e6b5038571d7b658dfab2c6a72d15))
+* **mobile:** invalidar catálogo por instancia en vez de remontar grupos ([f927421](https://github.com/Juargo/MoneyDiary/commit/f927421a77d63db9e070ae47191783fb55e1a0a1))
+* **mobile:** reclasificar refresca en segundo plano sin colapsar grupos ([db20911](https://github.com/Juargo/MoneyDiary/commit/db20911f8ce5fac6e42c85e888012aea592f5dc1)), closes [#762](https://github.com/Juargo/MoneyDiary/issues/762)
+* **mobile:** reclasificar refresca en segundo plano sin colapsar los grupos ([9eeb4d7](https://github.com/Juargo/MoneyDiary/commit/9eeb4d78df0f739ce8a74a66aa9e759f3d69d453))
+* **mobile:** size icon picker options in points so targets really reach 44pt ([bc386e7](https://github.com/Juargo/MoneyDiary/commit/bc386e73ef1f8c717dbdcefa8a09029c336ca66a))
+* **mobile:** usa el período resuelto por el backend en la home ([0b6ad5e](https://github.com/Juargo/MoneyDiary/commit/0b6ad5e45bcefca5b39c253ed427fa0f0347ae87))
+* **mobile:** usa el período resuelto por el backend y marca el mes en curso ([a8f248a](https://github.com/Juargo/MoneyDiary/commit/a8f248aa6484a66652338d5e82db90d691c65857))
+* **web,mobile:** la confirmación cross-bucket nombra el destino completo ([40206d8](https://github.com/Juargo/MoneyDiary/commit/40206d8d9aabc7ee7ee237da01a425e75834a61c))
+* **web,mobile:** la confirmación cross-bucket nombra el destino completo ([a8deab0](https://github.com/Juargo/MoneyDiary/commit/a8deab0edb8b856b8df6d674cea63bf389ab4573)), closes [#782](https://github.com/Juargo/MoneyDiary/issues/782)
+* **web,mobile:** rename the piggy-bank icon label to Alcancia ([7e374ca](https://github.com/Juargo/MoneyDiary/commit/7e374ca2225b88475ae0b4245a2b6d63a5f85064))
+* **web,mobile:** renombra la etiqueta del ícono piggy-bank a Alcancía ([8a00b4a](https://github.com/Juargo/MoneyDiary/commit/8a00b4a9f4db37cf6f73de1c11c85ae4089a7a5a))
+
+
+### Refactors
+
+* **mobile:** actualiza comentarios que aun citaban post-ingesta ([b86ebb6](https://github.com/Juargo/MoneyDiary/commit/b86ebb62713fb8130f5a2c1ddca3b6bb77f4842b)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+* **mobile:** inicializa la selección de HojaClasificacion sin efecto ([2bb1e45](https://github.com/Juargo/MoneyDiary/commit/2bb1e45101c5663c5c14825dfbfc7aaa8f2a906b))
+* **mobile:** remove speculative sin-categoria group shape (YAGNI) ([205e123](https://github.com/Juargo/MoneyDiary/commit/205e1234bfea3da8783e045e47968890e78e993d))
+* **mobile:** renombra post-ingesta a commit-ingesta ([1e19299](https://github.com/Juargo/MoneyDiary/commit/1e19299103467556a52bb830834e686890c27461)), closes [#295](https://github.com/Juargo/MoneyDiary/issues/295)
+
+
+### Documentation
+
+* **mobile:** drop the stale row count from the catalogo copy docblock ([19ca532](https://github.com/Juargo/MoneyDiary/commit/19ca5320f598e99aef55f2f6cf5e2a6b40d27058))
+
 ## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.3.0...mobile-v0.4.0) (2026-09-03)
 
 
