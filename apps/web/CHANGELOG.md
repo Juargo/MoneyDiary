@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.9.0...web-v0.10.0) (2026-09-23)
+
+
+### Features
+
+* **api,web:** la ingesta rechaza un catalogo incompleto en vez de degradar ([44cdcae](https://github.com/Juargo/MoneyDiary/commit/44cdcae55c470031418bc64f0bad1d7405a6bfc6))
+* **api,web:** la ingesta rechaza un catálogo incompleto en vez de degradar ([98acfba](https://github.com/Juargo/MoneyDiary/commit/98acfba47541ba83896f1fe29ff4a637e4ac98c4)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **web,mobile:** distingue "Sin grupo ni categoría" de "Sin categoría" ([69c156f](https://github.com/Juargo/MoneyDiary/commit/69c156f49bfb6f350a27a2788aa30b42a4d2cf0c))
+* **web,mobile:** distingue "Sin grupo ni categoría" de "Sin categoría" ([88ede68](https://github.com/Juargo/MoneyDiary/commit/88ede683f6995a6f5de9554405f5adefddec93db)), closes [#750](https://github.com/Juargo/MoneyDiary/issues/750)
+
+
+### Bug Fixes
+
+* **web,mobile:** la confirmación cross-bucket nombra el destino completo ([40206d8](https://github.com/Juargo/MoneyDiary/commit/40206d8d9aabc7ee7ee237da01a425e75834a61c))
+* **web,mobile:** la confirmación cross-bucket nombra el destino completo ([a8deab0](https://github.com/Juargo/MoneyDiary/commit/a8deab0edb8b856b8df6d674cea63bf389ab4573)), closes [#782](https://github.com/Juargo/MoneyDiary/issues/782)
+
 ## [0.9.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.8.0...web-v0.9.0) (2026-09-21)
 
 
