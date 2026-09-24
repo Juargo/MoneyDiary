@@ -51,38 +51,14 @@ describe('DistribucionPie', () => {
     ).not.toBeInTheDocument();
   });
 
-  // US-047 T6: one wedge per RING item, including Sin categoría — the ring
-  // now renders all 4 `BUCKETS_ANILLO` members (WG5-01), not just the 3
-  // spend buckets.
-  const tajadasConSinCategoria: ReadonlyArray<TajadaGasto> = [
-    { bucket: 'Necesidades', porcentaje: 44, fraccion: 0.44 },
-    { bucket: 'Deseos', porcentaje: 28, fraccion: 0.28 },
-    { bucket: 'Ahorro', porcentaje: 18, fraccion: 0.18 },
-    { bucket: 'SinCategoria', porcentaje: 10, fraccion: 0.1 },
-  ];
-
-  it('renders one wedge per ring item, including Sin categoría (US-047 WG5-01)', () => {
-    renderPie({ tajadas: tajadasConSinCategoria });
-    expect(screen.getAllByTestId('pie-slice')).toHaveLength(4);
-  });
-
-  it('applies the resolved fill class to each slice, including a deliberate neutral grey class for Sin categoría (US-047 D-08, not the muted-foreground fallback)', () => {
-    renderPie({ tajadas: tajadasConSinCategoria });
-    const slices = screen.getAllByTestId('pie-slice');
-    // Brote bucket palette (2026-09-12), now resolved as token-backed
-    // classes (D3) instead of hex: steel blue→fill-necesidades,
-    // plum→fill-gustos, jade→fill-ahorro, deliberate mid
-    // grey→fill-sin-categoria (never the fill-muted-foreground fallback).
-    const clasesEsperadas = [
-      'fill-necesidades',
-      'fill-gustos',
-      'fill-ahorro',
-      'fill-sin-categoria',
-    ];
-    slices.forEach((slice, i) => {
-      expect(slice).toHaveClass(clasesEsperadas[i]);
-      expect(slice).not.toHaveClass('fill-muted-foreground');
-    });
+  // Issue #778 tramo5b PR1 (apps/web): the ring no longer carries a
+  // SinCategoria member at all — `resumen-view-model.ts` filters it out
+  // upstream of this generic, bucket-agnostic renderer. `DistribucionPie`
+  // itself does not decide what it's fed; the tests below just prove it
+  // still renders the 3 spend buckets correctly.
+  it('renders one wedge per ring item', () => {
+    renderPie();
+    expect(screen.getAllByTestId('pie-slice')).toHaveLength(3);
   });
 
   it('renders the percent label on each slice', () => {
@@ -114,24 +90,6 @@ describe('DistribucionPie', () => {
       expect(label).toHaveClass(clase);
       expect(label).not.toHaveClass('fill-foreground');
     }
-  });
-
-  // Brote re-tint (2026-09-12): Sin categoría's new fill (#686663) is too
-  // dark for the shared dark label (2.99:1) — the on-wedge label class is
-  // resolved per bucket via `claseEtiquetaPie` (`lib/pie-colors.ts`), not a
-  // single constant. Necesidades/Deseos/Ahorro keep the dark label class;
-  // Sin categoría gets the light one (`fill-pie-etiqueta-sin-categoria`,
-  // 4.59:1 on its own fill).
-  it('gives the Sin categoría wedge a light on-wedge label class while the other three keep a dark one (Brote re-tint)', () => {
-    renderPie({ tajadas: tajadasConSinCategoria });
-    expect(screen.getByText('44%')).toHaveClass(
-      'fill-pie-etiqueta-necesidades',
-    );
-    expect(screen.getByText('28%')).toHaveClass('fill-pie-etiqueta-gustos');
-    expect(screen.getByText('18%')).toHaveClass('fill-pie-etiqueta-ahorro');
-    expect(screen.getByText('10%')).toHaveClass(
-      'fill-pie-etiqueta-sin-categoria',
-    );
   });
 
   // WDS-07 (WCAG 1.4.11 non-text contrast): adjacent fill slices can sit
@@ -282,17 +240,12 @@ describe('DistribucionPie', () => {
     }
   });
 
-  // US-047 T6: renamed from 3→4 — the new Sin categoría wedge is ALSO
-  // selectable (the ring's 4th member), and the IDEAL inset still
-  // contributes zero interactive wedges of its own.
-  it('the new Sin categoría wedge is selectable, and the IDEAL inset still contributes zero interactive wedges (US-047)', () => {
-    renderPie({ tajadas: tajadasConSinCategoria });
-    // The main pie's 4 slices (incl. Sin categoría) ARE buttons; the IDEAL
-    // inset's 3 slices must not add extra buttons with the same names.
-    expect(screen.getAllByRole('button')).toHaveLength(4);
-    expect(
-      screen.getByRole('button', { name: 'Sin grupo ni categoría' }),
-    ).toBeInTheDocument();
+  // The IDEAL inset contributes zero interactive wedges of its own — the
+  // main pie's 3 slices ARE buttons, the IDEAL inset's 3 slices must not add
+  // extra buttons with the same names.
+  it('the IDEAL inset contributes zero interactive wedges of its own', () => {
+    renderPie();
+    expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
   // US-047 T6/D-01: the main ring is a DONUT ONLY when `conInterior` is
@@ -302,7 +255,6 @@ describe('DistribucionPie', () => {
   // "renders a filled pie by default" test below for the un-opted-in case.)
   it('main-ring wedge paths do not start at the centre and carry an outer + inner arc — the donut hole when conInterior is enabled (US-047 CA-01 donut proof)', () => {
     renderPie({
-      tajadas: tajadasConSinCategoria,
       size: 240,
       conInterior: true,
     });
@@ -314,10 +266,9 @@ describe('DistribucionPie', () => {
   });
 
   // Judgment-day fix: the donut hole was applied unconditionally, which
-  // meant any standalone consumer feeding fewer than the full ring (as
-  // `ResumenScreen` still does at this PR2 boundary — 3 items via the PR1
-  // shim, no `SinCategoria` wedge) got a hole with a visibly incomplete
-  // ring: worse than the pre-US-047 filled pie. The hole is now opt-in via
+  // meant any standalone consumer feeding fewer than the full ring got a
+  // hole with a visibly incomplete ring: worse than the pre-US-047 filled
+  // pie. The hole is now opt-in via
   // `conInterior` (default `false`), so a caller that hasn't wired the 4th
   // wedge yet keeps the byte-identical filled-pie shape `main` already
   // ships — same single-arc, `M cx cy`-starting path this function always
@@ -336,7 +287,7 @@ describe('DistribucionPie', () => {
   // start `M cx cy L ...` (single arc); this is the structural proof, not a
   // literal-coordinate pin (idealSize/2 carries float imprecision).
   it("the IDEAL inset's wedges still start at the centre and still number 3 (US-047 D-02, kept the 50/30/20 set, no hole)", () => {
-    renderPie({ tajadas: tajadasConSinCategoria });
+    renderPie();
     const idealPaths = screen.getAllByTestId('pie-ideal-slice');
     expect(idealPaths).toHaveLength(3);
     for (const path of idealPaths) {
@@ -344,28 +295,5 @@ describe('DistribucionPie', () => {
       expect(d).toMatch(/^M [\d.]+ [\d.]+ L /);
       expect(d.match(/A /g)).toHaveLength(1);
     }
-  });
-
-  // US-047 T6/R-6: the Sin categoría wedge's on-wedge % label follows the
-  // SAME uniform ≥5% suppression rule as the other 3 wedges — no special
-  // case. The %-omission (WG5-03) is scoped to the LEGEND row only.
-  it('shows the Sin categoría on-wedge % label under the same uniform ≥5% rule as the other wedges (US-047 R-6, no ring special-case)', () => {
-    renderPie({ tajadas: tajadasConSinCategoria });
-    expect(screen.getByText('44%')).toBeInTheDocument();
-    expect(screen.getByText('28%')).toBeInTheDocument();
-    expect(screen.getByText('18%')).toBeInTheDocument();
-    expect(screen.getByText('10%')).toBeInTheDocument();
-  });
-
-  it('suppresses the Sin categoría on-wedge % label when its share is under 5%, same as any other wedge (US-047 R-6)', () => {
-    const chicoSinCategoria: ReadonlyArray<TajadaGasto> = [
-      { bucket: 'Necesidades', porcentaje: 49, fraccion: 0.49 },
-      { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
-      { bucket: 'Ahorro', porcentaje: 18, fraccion: 0.18 },
-      { bucket: 'SinCategoria', porcentaje: 3, fraccion: 0.03 },
-    ];
-    renderPie({ tajadas: chicoSinCategoria });
-    expect(screen.getByText('49%')).toBeInTheDocument();
-    expect(screen.queryByText('3%')).not.toBeInTheDocument();
   });
 });

@@ -18,13 +18,16 @@ describe('claseEtiquetaPie', () => {
     );
     expect(claseEtiquetaPie('Deseos')).toBe('fill-pie-etiqueta-gustos');
     expect(claseEtiquetaPie('Ahorro')).toBe('fill-pie-etiqueta-ahorro');
-    expect(claseEtiquetaPie('SinCategoria')).toBe(
-      'fill-pie-etiqueta-sin-categoria',
-    );
   });
 
-  it('defaults to the Necesidades label class for an unknown bucket key', () => {
+  // Issue #778 tramo5b PR1: the ring no longer renders a SinCategoria
+  // wedge, and the dedicated light-label entry for it is removed — it now
+  // falls back like any other unrecognized bucket key.
+  it('defaults to the Necesidades label class for an unknown bucket key, including SinCategoria (issue #778)', () => {
     expect(claseEtiquetaPie('OtroBucket')).toBe(
+      'fill-pie-etiqueta-necesidades',
+    );
+    expect(claseEtiquetaPie('SinCategoria')).toBe(
       'fill-pie-etiqueta-necesidades',
     );
   });

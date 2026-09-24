@@ -27,11 +27,15 @@
  * Domain bucket name → Tailwind SVG-fill class for the on-wedge `%` label,
  * backed by the `--color-pie-etiqueta-*` tokens in `index.css` (D3,
  * `web-theme-switch`). Necesidades/Deseos/Ahorro (and any unrecognized key)
- * resolve to the dark label; Sin categoría resolves to the light one — its
- * mid grey fill (#686663) is too dark for the shared dark label (2.99:1),
- * clearing WCAG 2.2 AA only against the light tone (4.59:1). Mirrors
- * `construirOpcionesBucket` in `bucket-colors.ts`: one function, one place to
- * fix if a future palette change moves which bucket needs which label.
+ * resolve to the dark label. Mirrors `construirOpcionesBucket` in
+ * `bucket-colors.ts`: one function, one place to fix if a future palette
+ * change moves which bucket needs which label.
+ *
+ * Issue #778 tramo5b PR1: the dedicated `SinCategoria` entry (a light label,
+ * needed because its mid grey fill #686663 was too dark for the shared dark
+ * label) is REMOVED along with the wedge itself — the ring no longer renders
+ * a SinCategoria slice, so there is no fill left that needs the light
+ * variant. See `lib/bucket-colors.ts` for the removed fill/label rationale.
  *
  * Static full literal per branch, same reason as `claseRellenoBucket` in
  * `lib/bucket-colors.ts`: Tailwind 4 only emits utilities it can find as a
@@ -41,7 +45,6 @@ const CLASE_ETIQUETA_PIE: Record<string, string> = {
   Necesidades: 'fill-pie-etiqueta-necesidades',
   Deseos: 'fill-pie-etiqueta-gustos',
   Ahorro: 'fill-pie-etiqueta-ahorro',
-  SinCategoria: 'fill-pie-etiqueta-sin-categoria',
 };
 
 /**

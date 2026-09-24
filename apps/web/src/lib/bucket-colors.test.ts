@@ -16,11 +16,13 @@ describe('claseRellenoBucket', () => {
     expect(claseRellenoBucket('Necesidades')).toBe('fill-necesidades');
     expect(claseRellenoBucket('Deseos')).toBe('fill-gustos');
     expect(claseRellenoBucket('Ahorro')).toBe('fill-ahorro');
-    expect(claseRellenoBucket('SinCategoria')).toBe('fill-sin-categoria');
   });
 
-  it('falls back to fill-muted-foreground for an unknown bucket key', () => {
+  // Issue #778 tramo5b PR1: SinCategoria no longer has a dedicated entry —
+  // it falls back exactly like any other unrecognized bucket key.
+  it('falls back to fill-muted-foreground for an unknown bucket key, including SinCategoria (issue #778)', () => {
     expect(claseRellenoBucket('OtroBucket')).toBe('fill-muted-foreground');
+    expect(claseRellenoBucket('SinCategoria')).toBe('fill-muted-foreground');
   });
 });
 
@@ -35,13 +37,14 @@ describe('claseGlifoBucket', () => {
     );
     expect(claseGlifoBucket('Deseos')).toBe('text-pie-etiqueta-gustos');
     expect(claseGlifoBucket('Ahorro')).toBe('text-pie-etiqueta-ahorro');
-    expect(claseGlifoBucket('SinCategoria')).toBe(
-      'text-pie-etiqueta-sin-categoria',
-    );
   });
 
-  it('falls back to the Necesidades-family class for an unknown bucket key', () => {
+  // Issue #778 tramo5b PR1: SinCategoria no longer has a dedicated entry.
+  it('falls back to the Necesidades-family class for an unknown bucket key, including SinCategoria (issue #778)', () => {
     expect(claseGlifoBucket('OtroBucket')).toBe(
+      'text-pie-etiqueta-necesidades',
+    );
+    expect(claseGlifoBucket('SinCategoria')).toBe(
       'text-pie-etiqueta-necesidades',
     );
   });
@@ -52,10 +55,11 @@ describe('claseFondoBucket', () => {
     expect(claseFondoBucket('Necesidades')).toBe('bg-necesidades');
     expect(claseFondoBucket('Deseos')).toBe('bg-gustos');
     expect(claseFondoBucket('Ahorro')).toBe('bg-ahorro');
-    expect(claseFondoBucket('SinCategoria')).toBe('bg-sin-categoria');
   });
 
-  it('falls back to bg-muted-foreground for an unknown bucket key', () => {
+  // Issue #778 tramo5b PR1: SinCategoria no longer has a dedicated entry.
+  it('falls back to bg-muted-foreground for an unknown bucket key, including SinCategoria (issue #778)', () => {
     expect(claseFondoBucket('OtroBucket')).toBe('bg-muted-foreground');
+    expect(claseFondoBucket('SinCategoria')).toBe('bg-muted-foreground');
   });
 });

@@ -19,11 +19,15 @@ import type { SemaforoDetalleDto } from '@/api/types';
  * switch over a `useSemaforoDetalle` query result (same discipline as
  * `ResumenPage`), and composes: header (month + STATIC `SemaforoBadge` —
  * adopted here, closing issue #382 — + the backend `diagnostico` verbatim),
- * the CA-03 worst-of-3 explainer, three `BucketSemaforoCard`s, the Sin
- * categoría notice (CA-06), and the `sinIngreso` branch (CA-07). The
- * back control lives HERE (not in the route container) so it is testable
- * without a real router harness carrying the full app tree — `search={{
- * periodo }}` is the CA-08 fix for the stub's dropped-periodo bug.
+ * the CA-03 worst-of-3 explainer, three `BucketSemaforoCard`s, and the
+ * `sinIngreso` branch (CA-07). The CA-06 Sin categoría notice (SinCategoria
+ * bucket count/total + a link to `/buckets/SinCategoria`) is RETIRED —
+ * issue #778 tramo5b PR1: `dto.sinCategoria` still arrives (the API is
+ * unchanged in this PR) but `aSemaforoDetalleViewModel` never surfaces it,
+ * so there is nothing left here to conditionally render. The back control
+ * lives HERE (not in the route container) so it is testable without a real
+ * router harness carrying the full app tree — `search={{ periodo }}` is the
+ * CA-08 fix for the stub's dropped-periodo bug.
  *
  * "Volver" returns to real origin, not always "/" (issue #752,
  * `useVolverAtras`): `/semaforo` is reachable from more than the dashboard
@@ -165,41 +169,6 @@ function renderEstado(
               <BucketSemaforoCard key={bucket.bucket} viewModel={bucket} />
             ))}
           </div>
-
-          {viewModel.sinCategoria.cantidad > 0 && (
-            <div className="rounded-lg border border-warning-border bg-warning p-3 text-xs text-warning-foreground">
-              {/* Las dos cifras van en mono tabular aunque vivan dentro de una
-                  oración; las palabras se quedan en sans. Mismo reparto que
-                  hace el encabezado de grupo del libro mayor de `/buckets`. */}
-              <p>
-                <span className="font-mono tabular-nums">
-                  {viewModel.sinCategoria.cantidad}
-                </span>{' '}
-                {viewModel.sinCategoria.cantidad === 1
-                  ? 'movimiento'
-                  : 'movimientos'}{' '}
-                sin grupo ni categoría por{' '}
-                <span className="font-mono tabular-nums">
-                  {viewModel.sinCategoria.total}
-                </span>
-                .
-              </p>
-              {/* Tercer link suelto de esta pantalla, y tercer caso de SC
-                  2.5.8: hereda `text-xs` del aviso, o sea ~16px de alto. Mismo
-                  remedio mínimo que el de ayuda — `inline-flex min-h-8
-                  items-center` levanta la caja a 32px sin tocar la tipografía
-                  ni el color, que acá los manda el `warning-foreground` del
-                  aviso. */}
-              <Link
-                to="/buckets/$bucket"
-                params={{ bucket: 'SinCategoria' }}
-                search={{ periodo: viewModel.periodo }}
-                className="inline-flex min-h-8 w-fit items-center font-medium underline underline-offset-4"
-              >
-                Ver los movimientos sin grupo ni categoría
-              </Link>
-            </div>
-          )}
         </>
       )}
     </>
