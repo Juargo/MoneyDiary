@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
 import {
-  esFilaSeleccionable,
+  // esFilaSeleccionable,
   estaClasificada,
 } from '@/domain/clasificacion-preview';
 import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
@@ -222,64 +222,64 @@ function agruparPorFecha(filas: readonly FilaConMerged[]): GrupoPorFecha[] {
  * Used by the per-date-group "Seleccionar todas" control and the page-level
  * master checkbox.
  */
-function CheckboxIndeterminado({
-  checked,
-  indeterminate,
-  onChange,
-  ariaLabel,
-  hitTarget = false,
-}: {
-  readonly checked: boolean;
-  readonly indeterminate: boolean;
-  readonly onChange: () => void;
-  readonly ariaLabel: string;
-  /**
-   * hitTarget (round-9 critique P1 fix 2, WCAG 2.2 AA SC 2.5.8; fresh-review
-   * fix, jsx-a11y/label-has-associated-control) — when `true`, wraps the
-   * checkbox in its OWN `<label className="inline-flex size-6 ...">` so the
-   * interactive area grows to 24×24 CSS px while the checkbox stays size-4
-   * visually. This wrapping MUST live inside this component, not at the call
-   * site: `jsx-a11y/label-has-associated-control` can only see a `<label>`
-   * as valid when it directly contains a recognized control (`input`,
-   * `select`, …) in the SAME JSX subtree — it cannot see through a custom
-   * component boundary. A `<label>` wrapped around `<CheckboxIndeterminado
-   * />` from the outside is exactly what tripped that rule; wrapping the
-   * literal `<input>` here instead resolves it for real (not via
-   * eslint-disable).
-   *
-   * Default `false`: the master "select all visible" checkbox is already
-   * embedded inside an OUTER `<label>` that also carries its own visible
-   * text — that label gets its `min-h-6` hit-target fix directly at its
-   * call site. A SECOND `<label>` around just this input would be invalid
-   * HTML (nested `<label>` elements can double-fire the toggle), so the
-   * master call site leaves this prop at its default and renders the bare
-   * `<input>`.
-   */
-  readonly hitTarget?: boolean;
-}) {
-  const input = (
-    <input
-      type="checkbox"
-      aria-label={ariaLabel}
-      checked={checked}
-      ref={(el) => {
-        if (el) el.indeterminate = indeterminate;
-      }}
-      onChange={onChange}
-      className="size-4 shrink-0 rounded border-border accent-primary"
-    />
-  );
+// function CheckboxIndeterminado({
+//   checked,
+//   indeterminate,
+//   onChange,
+//   ariaLabel,
+//   hitTarget = false,
+// }: {
+//   readonly checked: boolean;
+//   readonly indeterminate: boolean;
+//   readonly onChange: () => void;
+//   readonly ariaLabel: string;
+//   /**
+//    * hitTarget (round-9 critique P1 fix 2, WCAG 2.2 AA SC 2.5.8; fresh-review
+//    * fix, jsx-a11y/label-has-associated-control) — when `true`, wraps the
+//    * checkbox in its OWN `<label className="inline-flex size-6 ...">` so the
+//    * interactive area grows to 24×24 CSS px while the checkbox stays size-4
+//    * visually. This wrapping MUST live inside this component, not at the call
+//    * site: `jsx-a11y/label-has-associated-control` can only see a `<label>`
+//    * as valid when it directly contains a recognized control (`input`,
+//    * `select`, …) in the SAME JSX subtree — it cannot see through a custom
+//    * component boundary. A `<label>` wrapped around `<CheckboxIndeterminado
+//    * />` from the outside is exactly what tripped that rule; wrapping the
+//    * literal `<input>` here instead resolves it for real (not via
+//    * eslint-disable).
+//    *
+//    * Default `false`: the master "select all visible" checkbox is already
+//    * embedded inside an OUTER `<label>` that also carries its own visible
+//    * text — that label gets its `min-h-6` hit-target fix directly at its
+//    * call site. A SECOND `<label>` around just this input would be invalid
+//    * HTML (nested `<label>` elements can double-fire the toggle), so the
+//    * master call site leaves this prop at its default and renders the bare
+//    * `<input>`.
+//    */
+//   readonly hitTarget?: boolean;
+// }) {
+//   const input = (
+//     <input
+//       type="checkbox"
+//       aria-label={ariaLabel}
+//       checked={checked}
+//       ref={(el) => {
+//         if (el) el.indeterminate = indeterminate;
+//       }}
+//       onChange={onChange}
+//       className="size-4 shrink-0 rounded border-border accent-primary"
+//     />
+//   );
 
-  if (!hitTarget) {
-    return input;
-  }
+//   if (!hitTarget) {
+//     return input;
+//   }
 
-  return (
-    <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
-      {input}
-    </label>
-  );
-}
+//   return (
+//     <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
+//       {input}
+//     </label>
+//   );
+// }
 
 export function PreviewMuestra({
   banco,
@@ -373,21 +373,21 @@ export function PreviewMuestra({
     clasificada: estaClasificada(fila, edits),
   }));
 
-  const noDuplicadas = filasConMerged.filter((f) => !f.fila.esDuplicado);
-  const clasificadas = noDuplicadas.filter((f) => f.clasificada).length;
-  const totalNoDuplicadas = noDuplicadas.length;
-  const duplicadosCount = filasConMerged.length - totalNoDuplicadas;
-  const progresoPct =
-    totalNoDuplicadas > 0
-      ? Math.round((clasificadas / totalNoDuplicadas) * 100)
-      : 100;
+  // const noDuplicadas = filasConMerged.filter((f) => !f.fila.esDuplicado);
+  // const clasificadas = noDuplicadas.filter((f) => f.clasificada).length;
+  // const totalNoDuplicadas = noDuplicadas.length;
+  // const duplicadosCount = filasConMerged.length - totalNoDuplicadas;
+  // const progresoPct =
+  //   totalNoDuplicadas > 0
+  //     ? Math.round((clasificadas / totalNoDuplicadas) * 100)
+  //     : 100;
   // Spanish number agreement (polish pass): "clasificadas" agrees with the
   // TOTAL fila count (the noun being modified), "duplicadas"/"seleccionadas"
   // agree with their own counts — all three read wrong ("1 clasificadas") at
   // N=1 without this.
-  const etiquetaClasificadas =
-    totalNoDuplicadas === 1 ? 'clasificada' : 'clasificadas';
-  const etiquetaDuplicadas = duplicadosCount === 1 ? 'duplicada' : 'duplicadas';
+  // const etiquetaClasificadas =
+  //   totalNoDuplicadas === 1 ? 'clasificada' : 'clasificadas';
+  // const etiquetaDuplicadas = duplicadosCount === 1 ? 'duplicada' : 'duplicadas';
 
   const filasVisibles = soloSinClasificar
     ? filasConMerged.filter((f) => !f.fila.esDuplicado && !f.clasificada)
@@ -401,50 +401,50 @@ export function PreviewMuestra({
   // one date group. Recomputes on every render, so toggling "Solo sin
   // clasificar" automatically recomputes N and the checked/indeterminate
   // state — no extra effect needed.
-  const seleccionablesVisibles = filasVisibles
-    .filter((f) => esFilaSeleccionable(f.fila))
-    .map((f) => f.fila.rowIndex);
-  const todasVisiblesSeleccionadas =
-    seleccionablesVisibles.length > 0 &&
-    seleccionablesVisibles.every((idx) => seleccionados.has(idx));
-  const algunaVisibleSeleccionada = seleccionablesVisibles.some((idx) =>
-    seleccionados.has(idx),
-  );
+  // const seleccionablesVisibles = filasVisibles
+  //   .filter((f) => esFilaSeleccionable(f.fila))
+  //   .map((f) => f.fila.rowIndex);
+  // const todasVisiblesSeleccionadas =
+  //   seleccionablesVisibles.length > 0 &&
+  //   seleccionablesVisibles.every((idx) => seleccionados.has(idx));
+  // const algunaVisibleSeleccionada = seleccionablesVisibles.some((idx) =>
+  //   seleccionados.has(idx),
+  // );
   // Singular edge (product decision): "todas las visibles" reads wrong at
   // N=1 ("select ALL the visible (1)"), so the determiner + noun switch to
   // singular together rather than just pluralizing a trailing word like the
   // other etiqueta* helpers in this file.
-  const etiquetaSeleccionarVisibles =
-    seleccionablesVisibles.length === 1
-      ? `Seleccionar la visible (${seleccionablesVisibles.length})`
-      : `Seleccionar todas las visibles (${seleccionablesVisibles.length})`;
+  // const etiquetaSeleccionarVisibles =
+  //   seleccionablesVisibles.length === 1
+  //     ? `Seleccionar la visible (${seleccionablesVisibles.length})`
+  //     : `Seleccionar todas las visibles (${seleccionablesVisibles.length})`;
 
-  function handleToggleFila(rowIndex: number) {
-    setSeleccionados((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowIndex)) {
-        next.delete(rowIndex);
-      } else {
-        next.add(rowIndex);
-      }
-      return next;
-    });
-  }
+  // function handleToggleFila(rowIndex: number) {
+  //   setSeleccionados((prev) => {
+  //     const next = new Set(prev);
+  //     if (next.has(rowIndex)) {
+  //       next.delete(rowIndex);
+  //     } else {
+  //       next.add(rowIndex);
+  //     }
+  //     return next;
+  //   });
+  // }
 
-  function handleToggleGrupo(rowIndexes: readonly number[]) {
-    setSeleccionados((prev) => {
-      const next = new Set(prev);
-      const todasSeleccionadas = rowIndexes.every((idx) => next.has(idx));
-      for (const idx of rowIndexes) {
-        if (todasSeleccionadas) {
-          next.delete(idx);
-        } else {
-          next.add(idx);
-        }
-      }
-      return next;
-    });
-  }
+  // function handleToggleGrupo(rowIndexes: readonly number[]) {
+  //   setSeleccionados((prev) => {
+  //     const next = new Set(prev);
+  //     const todasSeleccionadas = rowIndexes.every((idx) => next.has(idx));
+  //     for (const idx of rowIndexes) {
+  //       if (todasSeleccionadas) {
+  //         next.delete(idx);
+  //       } else {
+  //         next.add(idx);
+  //       }
+  //     }
+  //     return next;
+  //   });
+  // }
 
   function handleAplicarBulk() {
     if (!categoriaToolbar) return;
@@ -521,7 +521,7 @@ export function PreviewMuestra({
             block and the group headers use: this element sticks OVER the
             rows, and a translucent wash let descriptions and selects bleed
             through it (caught in the 2026-08-30 screenshot round). */}
-          <div className="sticky top-0 z-10 flex flex-col gap-2 border-y border-border bg-muted px-4 py-3">
+          <div className="sticky top-0 z-10 flex flex-col gap-2 border border-border bg-muted px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3
                 id={idTituloMovimientos}
@@ -534,7 +534,7 @@ export function PreviewMuestra({
                 `soloSinClasificar` itself is untouched, so the filtered
                 view never changes and the button reappears in the same
                 pressed state once the selection clears. */}
-              {seleccionados.size === 0 && (
+              {/* {seleccionados.size === 0 && (
                 <Button
                   type="button"
                   variant="outline"
@@ -544,7 +544,7 @@ export function PreviewMuestra({
                 >
                   Solo sin clasificar
                 </Button>
-              )}
+              )} */}
             </div>
             {/* Issue #742: classification is misread as one-shot/mandatory —
                 this supporting line under the "Movimientos" heading tells
@@ -552,9 +552,9 @@ export function PreviewMuestra({
                 Plain text, unconditional (not gated by selection or filter
                 state — it's reference information, same idiom as the
                 inline bucket definition below). */}
-            <p className="text-xs text-muted-foreground">
+            {/* <p className="text-xs text-muted-foreground">
               Puedes dejar filas sin categoría y ordenarlas después.
-            </p>
+            </p> */}
             {/* Issue #748: usability finding — nothing on screen named what
                 the bulk-select checkboxes/toolbar are FOR, and the toolbar
                 only appears AFTER a row is selected, so a first-time user
@@ -565,13 +565,13 @@ export function PreviewMuestra({
                 component's docblock) so it never competes with the bulk
                 toolbar's own count pill below — one or the other is on
                 screen, never both. */}
-            {seleccionados.size === 0 && (
+            {/* {seleccionados.size === 0 && (
               <p className="text-xs text-muted-foreground">
                 Marca varias filas para darles la misma categoría de una vez.
               </p>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-3">
+            )} */}
+            {/* <div className="flex flex-wrap items-center justify-between gap-2"> */}
+            {/* <div className="flex flex-wrap items-center gap-3">
                 {seleccionablesVisibles.length > 0 && (
                   // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
                   // `<label>` already wraps the checkbox AND its visible text
@@ -601,8 +601,8 @@ export function PreviewMuestra({
                     {etiquetaSeleccionarVisibles}
                   </label>
                 )}
-              </div>
-              {/* P4 distill: hidden while a selection is active — the
+              </div> */}
+            {/* P4 distill: hidden while a selection is active — the
                 bulk-apply toolbar's count pill already carries the live
                 number, so this text would be a second, redundant count.
                 Polish pass: right-aligned (`ml-auto`) so the row reads
@@ -611,7 +611,7 @@ export function PreviewMuestra({
                 `getByText(/1 de 2 clasificadas/)` only sees an element's
                 own text nodes, so wrapping the numbers in a span would
                 break that test. */}
-              {seleccionados.size === 0 && (
+            {/* {seleccionados.size === 0 && (
                 <p className="ml-auto text-sm font-medium text-foreground tabular-nums">
                   {clasificadas} de {totalNoDuplicadas} {etiquetaClasificadas}
                   <span className="font-normal text-muted-foreground">
@@ -619,11 +619,11 @@ export function PreviewMuestra({
                     · {duplicadosCount} {etiquetaDuplicadas}
                   </span>
                 </p>
-              )}
-            </div>
+              )} */}
+            {/* </div> */}
             {/* P4 distill: same collapse as the progress text above — this
               bar restates the same ratio, so it hides alongside it. */}
-            {seleccionados.size === 0 && (
+            {/* {seleccionados.size === 0 && (
               <div
                 aria-hidden="true"
                 className="h-1.5 w-full overflow-hidden rounded-none bg-muted"
@@ -634,7 +634,7 @@ export function PreviewMuestra({
                   style={{ width: `${progresoPct}%` }}
                 />
               </div>
-            )}
+            )} */}
             {/* P2 design critique fix 1: ONE shared column header, sm+ only —
               at sm+ each FilaRevision hides its own per-row "Bucket"/
               "Categoría" word (sm:sr-only) since selects sit side by side
@@ -647,7 +647,7 @@ export function PreviewMuestra({
               `px-2` + `flex-1` columns mirror FilaRevision's `li` padding
               (`p-2`) and its `sm:flex-1` select wrappers so the header text
               lines up over the selects below. */}
-            <div
+            {/* <div
               aria-hidden="true"
               data-columnas-header
               className="hidden gap-2 px-2 sm:flex"
@@ -682,7 +682,7 @@ export function PreviewMuestra({
           </div>
 
           {soloSinClasificar && filasVisibles.length === 0 ? (
-            <div className="m-4 flex flex-col items-start gap-2 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <div className="m-4 flex flex-col items-start gap-2  border border-dashed border-border p-4 text-sm text-muted-foreground">
               <p>Todas las filas están clasificadas.</p>
               <Button
                 type="button"
@@ -694,21 +694,21 @@ export function PreviewMuestra({
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 px-4 py-3">
+            <div className="flex flex-col gap-3 px-1 py-3 border-x">
               {grupos.map((grupo, indiceGrupo) => {
                 const claveGrupo = `${grupo.fecha}-${indiceGrupo}`;
                 const idListaGrupo = `${idBase}-grupo-${indiceGrupo}`;
                 const abierto = !gruposColapsados.has(claveGrupo);
                 const conteoGrupo = grupo.filas.length;
-                const seleccionablesGrupo = grupo.filas
-                  .filter((f) => esFilaSeleccionable(f.fila))
-                  .map((f) => f.fila.rowIndex);
-                const todasSeleccionadas =
-                  seleccionablesGrupo.length > 0 &&
-                  seleccionablesGrupo.every((idx) => seleccionados.has(idx));
-                const algunaSeleccionada = seleccionablesGrupo.some((idx) =>
-                  seleccionados.has(idx),
-                );
+                // const seleccionablesGrupo = grupo.filas
+                //   .filter((f) => esFilaSeleccionable(f.fila))
+                //   .map((f) => f.fila.rowIndex);
+                // const todasSeleccionadas =
+                //   seleccionablesGrupo.length > 0 &&
+                //   seleccionablesGrupo.every((idx) => seleccionados.has(idx));
+                // const algunaSeleccionada = seleccionablesGrupo.some((idx) =>
+                //   seleccionados.has(idx),
+                // );
 
                 return (
                   <div
@@ -739,7 +739,7 @@ export function PreviewMuestra({
                     <div
                       className={`flex items-center gap-2 bg-muted/40 px-3 py-1 ${abierto ? 'border-b border-border' : ''}`}
                     >
-                      {seleccionablesGrupo.length > 0 && (
+                      {/* {seleccionablesGrupo.length > 0 && (
                         // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): this
                         // checkbox is bare — the sibling heading (the date) is
                         // NOT part of any label. `hitTarget` makes
@@ -757,7 +757,7 @@ export function PreviewMuestra({
                           ariaLabel={`Seleccionar todas: ${grupo.fecha}`}
                           hitTarget
                         />
-                      )}
+                      )} */}
                       <h4 className="min-w-0 flex-1 text-sm">
                         <button
                           type="button"
@@ -803,8 +803,8 @@ export function PreviewMuestra({
                           categoriaId={categoriaMerged}
                           catalogo={catalogo}
                           onEditChange={onEditChange}
-                          selected={seleccionados.has(fila.rowIndex)}
-                          onToggleSelect={handleToggleFila}
+                          // selected={seleccionados.has(fila.rowIndex)}
+                          // onToggleSelect={handleToggleFila}
                           esDemo={esDemo}
                           onCategoriaCreada={onCategoriaCreada}
                           filaCreando={filaCreando}

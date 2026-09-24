@@ -17,7 +17,7 @@ import {
 } from '@/domain/formatear-monto';
 import {
   esFilaIngreso,
-  esFilaSeleccionable,
+  // esFilaSeleccionable,
 } from '@/domain/clasificacion-preview';
 import type { CategoriaDto, PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
@@ -131,8 +131,8 @@ export function FilaRevision({
   categoriaId,
   catalogo,
   onEditChange,
-  selected = false,
-  onToggleSelect = () => undefined,
+  // selected = false,
+  // onToggleSelect = () => undefined,
   onCategoriaCreada = () => undefined,
   filaCreando = null,
   onAbrirCreacion = () => undefined,
@@ -142,8 +142,8 @@ export function FilaRevision({
   readonly categoriaId: string | null;
   readonly catalogo: CatalogoEstado;
   readonly onEditChange: (rowIndex: number, categoriaId: string | null) => void;
-  readonly selected?: boolean;
-  readonly onToggleSelect?: (rowIndex: number) => void;
+  // readonly selected?: boolean;
+  // readonly onToggleSelect?: (rowIndex: number) => void;
   /**
    * crear-categoria-desde-preview PR3 (D-08/D-10/WEB-PRV-12..14) — all four
    * optional (default no-op/false/null) so pre-existing callers/tests that
@@ -212,12 +212,12 @@ export function FilaRevision({
 
   // Server verdict, never re-derived here (ADR-024) — see the docblock.
   const esIngreso = esFilaIngreso(fila);
-  const seleccionable = esFilaSeleccionable(fila);
+  // const seleccionable = esFilaSeleccionable(fila);
 
   const n = fila.rowIndex + 1; // 1-based human-friendly label index
   const labelBucket = `Fila ${n}: grupo`;
   const labelCategoria = `Fila ${n}: categoría`;
-  const labelSeleccionar = `Seleccionar fila ${n} para clasificar en grupo`;
+  // const labelSeleccionar = `Seleccionar fila ${n} para clasificar en grupo`;
 
   // crear-categoria-desde-preview PR3 (D-08/D-10/D-11): this component owns
   // the "+" trigger's ref so focus can return to it when the form it opens
@@ -304,7 +304,7 @@ export function FilaRevision({
   // exact match).
   const encabezado = (
     <div className="flex items-start gap-2">
-      {seleccionable && (
+      {/* {seleccionable && (
         // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): the checkbox
         // glyph stays size-4 (16px) visually, but a wrapping `<label>`
         // grows the CLICKABLE area to size-6 (24×24 CSS px) — the same
@@ -323,7 +323,7 @@ export function FilaRevision({
             className="size-4 shrink-0 rounded border-border accent-primary"
           />
         </label>
-      )}
+      )} */}
       <div className="min-w-0 flex-1 text-muted-foreground">
         {/* `data-descripcion`: the stable hook `PreviewMuestra.test.tsx`'s
             grouping suite reads row descriptions through (replaced a
