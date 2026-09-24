@@ -48,6 +48,13 @@ export interface BucketSemaforoViewModel {
   readonly consejo: ConsejoViewModel | null;
 }
 
+/**
+ * Issue #778 tramo5b PR1 (apps/web): NO `sinCategoria` field — the API's
+ * `SemaforoDetalleDto.sinCategoria` (the SinCategoria bucket's count/total,
+ * unchanged in this PR) is deliberately never read here. It used to drive
+ * `SemaforoDetallePage`'s "N movimientos sin grupo ni categoría" banner,
+ * which is retired.
+ */
 export interface SemaforoDetalleViewModel {
   readonly periodo: string;
   readonly totalIngreso: string;
@@ -56,7 +63,6 @@ export interface SemaforoDetalleViewModel {
   readonly diagnostico: string;
   readonly bucketsCriticos: ReadonlyArray<string>;
   readonly buckets: ReadonlyArray<BucketSemaforoViewModel>;
-  readonly sinCategoria: { readonly cantidad: number; readonly total: string };
 }
 
 function construirSegmentos(
@@ -168,9 +174,5 @@ export function aSemaforoDetalleViewModel(
     diagnostico: dto.diagnostico,
     bucketsCriticos: dto.bucketsCriticos,
     buckets: dto.buckets.map(aBucketSemaforoViewModel),
-    sinCategoria: {
-      cantidad: dto.sinCategoria.cantidad,
-      total: formatearMontoCLP(dto.sinCategoria.total),
-    },
   };
 }

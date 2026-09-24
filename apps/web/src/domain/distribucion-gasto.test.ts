@@ -4,7 +4,6 @@ import {
   BUCKETS_ANILLO,
   calcularDistribucionGasto,
 } from './distribucion-gasto';
-import { CASOS_PARIDAD_ANILLO } from './__fixtures__/distribucion-anillo.fixture';
 
 // DOM port of apps/mobile/src/domain/distribucion-gasto.spec.ts — pure BigInt
 // math, no platform dependency, so the port is verbatim.
@@ -45,11 +44,13 @@ describe('calcularDistribucionGasto', () => {
     expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 
-  // US-047 WG5-13: renamed+inverted from "excluye SinCategoria del pie y del
-  // denominador" — SinCategoria now dilutes the three spend-bucket ring
-  // percentages instead of being excluded from the denominator. This is the
-  // semantic core of the US, not a regression.
-  it('incluye SinCategoria en el anillo y en el denominador (WG5-13)', () => {
+  // issue #778 tramo5b PR1 (apps/web): SinCategoria is no longer a ring
+  // member — a SinCategoria entry in `buckets` (the API still sends one) is
+  // excluded from BOTH the ring's numerator set and its denominator, exactly
+  // like any other bucket outside `BUCKETS_ANILLO`. Replaces the retired
+  // WG5-13 "incluye SinCategoria en el anillo y en el denominador" test,
+  // which asserted the now-reverted dilution behavior.
+  it('ignora un bucket SinCategoria en la entrada: no aparece en el anillo y no diluye el denominador (issue #778 tramo5b PR1)', () => {
     const tajadas = calcularDistribucionGasto([
       bucket('Necesidades', '500000'),
       bucket('Deseos', '300000'),
@@ -60,56 +61,49 @@ describe('calcularDistribucionGasto', () => {
       'Necesidades',
       'Deseos',
       'Ahorro',
-      'SinCategoria',
     ]);
-    // Diluted against the 4-item total (1_999_999), not the 3-item total
-    // (1_000_000) — 50/30/20 would be the OLD, excluded-denominator reading.
-    expect(tajadas.map((t) => t.porcentaje)).toEqual([25, 15, 10, 50]);
+    // Against the 3-item total (1_000_000), not diluted by SinCategoria's
+    // 999_999 — the pre-US-047 50/30/20 reading, now the ONLY reading.
+    expect(tajadas.map((t) => t.porcentaje)).toEqual([50, 30, 20]);
+    expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 
-  // US-047 WG5-13: a zero-total 4th bucket must not shift the pre-existing
-  // 3-bucket reading — the mockup's 77/12/11 fixture stays 77/12/11 once
-  // SinCategoria is a real (zero) ring member.
-  it('el fixture del mockup (77/12/11) se mantiene igual cuando SinCategoria vale 0 (WG5-13)', () => {
-    const tajadas = calcularDistribucionGasto([
+  // issue #778 tramo5b PR1: the mockup's 77/12/11 fixture is unaffected by
+  // whatever total a SinCategoria entry carries — zero or not — since it
+  // never enters the ring's denominator anymore.
+  it('el fixture del mockup (77/12/11) no se distorsiona por una entrada SinCategoria, sea cero o no (issue #778)', () => {
+    const conSinCategoriaEnCero = calcularDistribucionGasto([
       bucket('Necesidades', '770000'),
       bucket('Deseos', '120000'),
       bucket('Ahorro', '110000'),
       bucket('SinCategoria', '0'),
     ]);
-    expect(tajadas.map((t) => [t.bucket, t.porcentaje])).toEqual([
+    const conSinCategoriaNoCero = calcularDistribucionGasto([
+      bucket('Necesidades', '770000'),
+      bucket('Deseos', '120000'),
+      bucket('Ahorro', '110000'),
+      bucket('SinCategoria', '999999'),
+    ]);
+    const esperado = [
       ['Necesidades', 77],
       ['Deseos', 12],
       ['Ahorro', 11],
-      ['SinCategoria', 0],
-    ]);
+    ];
+    expect(conSinCategoriaEnCero.map((t) => [t.bucket, t.porcentaje])).toEqual(
+      esperado,
+    );
+    expect(conSinCategoriaNoCero.map((t) => [t.bucket, t.porcentaje])).toEqual(
+      esperado,
+    );
   });
 
-  // US-047 WG5-01/WG5-13: the four BUCKETS_ANILLO percentages always sum to
-  // exactly 100 under largest-remainder, including when SinCategoria carries
-  // a nonzero total (not just when it's 0, per the case above).
-  it('los cuatro porcentajes del anillo SIEMPRE suman 100, con SinCategoria no-cero (WG5-01)', () => {
-    const tajadas = calcularDistribucionGasto([
-      bucket('Necesidades', '1'),
-      bucket('Deseos', '1'),
-      bucket('Ahorro', '1'),
-      bucket('SinCategoria', '1'),
-    ]);
-    expect(tajadas.map((t) => t.porcentaje)).toEqual([25, 25, 25, 25]);
-    expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
-  });
-
-  // US-047 D-05: ring order + membership pinned as a literal-array
-  // assertion, not an implementation detail — `BUCKETS_ANILLO` ends with
-  // 'SinCategoria' and `BUCKETS_5030` (the IDEAL inset's set) excludes it.
-  it('BUCKETS_ANILLO termina en SinCategoria y BUCKETS_5030 la excluye (D-05)', () => {
+  // US-047 D-05, updated for issue #778 tramo5b PR1: `BUCKETS_ANILLO` and
+  // `BUCKETS_5030` are now the SAME 3-item set — the ring dropped
+  // `SinCategoria` (previously its 4th, trailing member).
+  it('BUCKETS_ANILLO ya no incluye SinCategoria — es igual a BUCKETS_5030 (issue #778 tramo5b PR1)', () => {
     expect(BUCKETS_5030).toEqual(['Necesidades', 'Deseos', 'Ahorro']);
-    expect(BUCKETS_ANILLO).toEqual([
-      'Necesidades',
-      'Deseos',
-      'Ahorro',
-      'SinCategoria',
-    ]);
+    expect(BUCKETS_ANILLO).toEqual(['Necesidades', 'Deseos', 'Ahorro']);
+    expect(BUCKETS_ANILLO).toEqual(BUCKETS_5030);
   });
 
   it('devuelve [] cuando no hay gasto (evita división por cero)', () => {
@@ -176,13 +170,16 @@ describe('calcularDistribucionGasto', () => {
     expect(tajadas[0].fraccion).toBeCloseTo(0.5, 6);
   });
 
-  // US-047 PR1 shim (judgment-day round 2 CRITICAL fix): a trailing optional
-  // `bucketsIncluidos` param lets a caller apportion over a SUBSET of
-  // `BUCKETS_ANILLO` instead of always all 4 — the math (largest-remainder,
-  // BigInt ratios) stays in the domain layer (ADR-024) instead of a
-  // component-side filter-without-renormalize shim.
+  // US-047 PR1 shim (judgment-day round 2 CRITICAL fix), still exercised
+  // after issue #778 tramo5b PR1: a trailing optional `bucketsIncluidos`
+  // param lets a caller apportion over an explicit SUBSET of `buckets` — the
+  // math (largest-remainder, BigInt ratios) stays in the domain layer
+  // (ADR-024) instead of a component-side filter-without-renormalize shim.
+  // `BUCKETS_ANILLO`/`BUCKETS_5030` are now the SAME 3-item set (SinCategoria
+  // dropped out of the ring, see the D-05 test above), so passing either one
+  // explicitly is behaviorally identical to the default.
   describe('parámetro bucketsIncluidos (US-047 PR1 shim)', () => {
-    it('con BUCKETS_5030 excluye SinCategoria del denominador y renormaliza — reproduce el bug reportado (40/25/25/10 diluido -> 44/28/28 renormalizado)', () => {
+    it('con BUCKETS_5030 explícito, el resultado es idéntico al default (BUCKETS_ANILLO === BUCKETS_5030, issue #778)', () => {
       const entradas = [
         bucket('Necesidades', '400000'),
         bucket('Deseos', '250000'),
@@ -190,23 +187,15 @@ describe('calcularDistribucionGasto', () => {
         bucket('SinCategoria', '100000'),
       ];
 
-      // Sanity check: the default (4-item, BUCKETS_ANILLO) reading is the
-      // issue's reported 40/25/25/10 — exact diluted percentages, no
-      // remainder rounding involved.
-      const diluido = calcularDistribucionGasto(entradas);
-      expect(diluido.map((t) => t.porcentaje)).toEqual([40, 25, 25, 10]);
+      const porDefecto = calcularDistribucionGasto(entradas);
+      const explicito = calcularDistribucionGasto(entradas, BUCKETS_5030);
 
-      const renormalizado = calcularDistribucionGasto(entradas, BUCKETS_5030);
-      expect(renormalizado.map((t) => t.bucket)).toEqual([
-        'Necesidades',
-        'Deseos',
-        'Ahorro',
-      ]);
-      // 900000 total (SinCategoria excluded): 400000/900000=44.4%,
+      // 900000 total (SinCategoria excluded either way): 400000/900000=44.4%,
       // 250000/900000=27.7% x2 — largest remainder hands the 2 leftover
       // points to the two tied .7 remainders (Deseos, Ahorro).
-      expect(renormalizado.map((t) => t.porcentaje)).toEqual([44, 28, 28]);
-      expect(renormalizado.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
+      expect(porDefecto.map((t) => t.porcentaje)).toEqual([44, 28, 28]);
+      expect(explicito).toEqual(porDefecto);
+      expect(porDefecto.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
     });
 
     it('las fracciones del subconjunto suman exactamente 1.0 — legitima el cierre forzado a 360 de calcularAngulos (sin absorción de gap en la última cuña)', () => {
@@ -237,16 +226,15 @@ describe('calcularDistribucionGasto', () => {
     });
   });
 
-  // US-050 (design §2 D-09): runs web's OWN calcularDistribucionGasto
-  // against the shared ring-parity fixture table — apps/mobile runs the
-  // same table against ITS own implementation
-  // (apps/mobile/src/domain/distribucion-gasto.spec.ts), and a byte-equality
-  // guard on the mobile side keeps both fixture files in sync.
-  it.each(CASOS_PARIDAD_ANILLO)(
-    'paridad de anillo: $nombre',
-    ({ buckets, esperado }) => {
-      const tajadas = calcularDistribucionGasto(buckets);
-      expect(tajadas.map((t) => [t.bucket, t.porcentaje])).toEqual(esperado);
-    },
-  );
+  // US-050 (design §2 D-09) — CROSS-PACKAGE NOTE (issue #778 tramo5b PR1,
+  // apps/web only): `CASOS_PARIDAD_ANILLO` and its mobile-side byte-identity
+  // guard (`apps/mobile/src/domain/distribucion-gasto.spec.ts`, via
+  // `fs.readFileSync` on BOTH fixture files) still assume the OLD 4-item
+  // ring (`SinCategoria` included) — `apps/mobile` is untouched by this PR
+  // and keeps that ring. Running this table against web's now-3-item
+  // `calcularDistribucionGasto` would fail every case with a SinCategoria
+  // entry, so this file stops consuming it here. The fixture file itself is
+  // left BYTE-IDENTICAL to its mobile twin on purpose — do not edit it from
+  // this package; reconciling it (and this parity test) belongs to whichever
+  // later tramo5b PR updates `apps/mobile`'s own ring.
 });
