@@ -1677,7 +1677,7 @@ describe('previewIngesta', () => {
       json: () =>
         Promise.resolve({
           message:
-            'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+            'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
           code: 'CATALOGO_INCOMPLETO',
         }),
     });
@@ -1688,7 +1688,7 @@ describe('previewIngesta', () => {
     expect(!result.ok && result.error).toEqual({
       tag: 'invalid',
       message:
-        'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+        'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
       code: 'CATALOGO_INCOMPLETO',
     });
   });
@@ -2002,7 +2002,7 @@ describe('postCommitIngesta', () => {
       json: () =>
         Promise.resolve({
           message:
-            'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+            'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
           code: 'CATALOGO_INCOMPLETO',
         }),
     });
@@ -2013,7 +2013,7 @@ describe('postCommitIngesta', () => {
     expect(!result.ok && result.error).toEqual({
       tag: 'invalid',
       message:
-        'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+        'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
       code: 'CATALOGO_INCOMPLETO',
     });
   });
