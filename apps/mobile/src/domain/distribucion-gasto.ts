@@ -8,20 +8,27 @@ import { esMontoStringValido } from './formatear-monto';
  * apps/web/src/domain/distribucion-gasto.ts, which was originally a port OF
  * this file.
  *
- * `BUCKETS_5030` — the three spending buckets, canonical display order (the
- * legend's `leyendaPrincipal` filters the 4-item ring down to this set for
- * display, WITHOUT renormalizing — see design §1.4).
+ * `BUCKETS_5030` — the three spending buckets, canonical display order. Now
+ * that `BUCKETS_ANILLO` also drops `SinCategoria` (issue #778 tramo5b PR2),
+ * the legend's `leyendaPrincipal` filter to this set is a defensive
+ * belt-and-suspenders guard, not an active dilution boundary — see
+ * `resumen-view-model.ts`.
  */
 export const BUCKETS_5030 = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 
 /**
- * `BUCKETS_ANILLO` — the four ring members (US-047 WG5-13): the three spend
- * buckets plus `SinCategoria`, in ring order. `calcularDistribucionGasto`
- * apportions over these 4 items, so an uncategorized amount DILUTES the
- * three spend-bucket ring percentages instead of being excluded from the
- * denominator.
+ * `BUCKETS_ANILLO` — the ring members apportioned by
+ * `calcularDistribucionGasto`. Issue #778 tramo5b PR2 (apps/mobile):
+ * `SinCategoria` is REMOVED from this set, mirroring apps/web's own PR1 —
+ * the ring/legend stop depending on that bucket entirely (the API still
+ * sends it in `buckets[]`/`cantidadSinCategoria`; mobile simply never reads
+ * it downstream of this constant). `BUCKETS_ANILLO` is therefore
+ * byte-identical to `BUCKETS_5030` today; the two names stay distinct (not
+ * aliased) because they document different INTENTS — "the ring's own
+ * membership" vs. "the 50/30/20 spend set" — even though their current
+ * values coincide.
  */
-export const BUCKETS_ANILLO = [...BUCKETS_5030, 'SinCategoria'] as const;
+export const BUCKETS_ANILLO = BUCKETS_5030;
 
 const PRECISION = 1_000_000n;
 
@@ -62,10 +69,14 @@ function montoSeguro(montoStr: string): bigint {
  * no spending, returns `[]` so the caller can render an empty-pie placeholder
  * instead of dividing by zero.
  *
- * Apportions over `BUCKETS_ANILLO` (4 items) — mobile does NOT port web's
- * trailing optional `bucketsIncluidos` parameter (design §1.2 D-08): every
- * mobile call site wants the full 4-item ring, and the legend filters
- * (never renormalizes) for display.
+ * Apportions over `BUCKETS_ANILLO` — mobile does NOT port web's trailing
+ * optional `bucketsIncluidos` parameter (design §1.2 D-08): every mobile
+ * call site wants the full ring, and the legend filters (never
+ * renormalizes) for display. Any `buckets` entry outside `BUCKETS_ANILLO` —
+ * e.g. a `SinCategoria` entry, which the API still sends (issue #778
+ * tramo5b) even though `BUCKETS_ANILLO` no longer includes it — is excluded
+ * from BOTH the numerator set and the denominator, so the returned
+ * percentages always sum to exactly 100.
  */
 export function calcularDistribucionGasto(
   buckets: readonly EntradaBucket[],
