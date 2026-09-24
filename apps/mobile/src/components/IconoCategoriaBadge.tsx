@@ -21,7 +21,10 @@ export interface IconoCategoriaBadgeProps {
  * Fallback fill/ink match this file's existing conventions:
  * `DistribucionPie.tsx`/`LeyendaGasto.tsx` already fall back an unrecognized
  * bucket to `'#CCCCCC'`; `COLORS.heading` is the dark-ink fallback already
- * used for `Deseos`/`SinCategoria` in `COLOR_GLIFO_BUCKET`.
+ * used for `Deseos` in `COLOR_GLIFO_BUCKET`. Issue #778 tramo5b PR2:
+ * `SinCategoria` has no dedicated entry anymore in either map — a badge for
+ * the still-reachable `/bucket/SinCategoria` page (direct URL only) now
+ * falls back to this SAME generic fill/ink instead of a bucket-specific one.
  *
  * `createElement`, not a JSX tag — this workspace's `eslint-config-expo`
  * ALSO enforces `react-hooks/static-components` ("components created during
