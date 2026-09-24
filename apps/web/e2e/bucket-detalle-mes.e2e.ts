@@ -25,10 +25,13 @@ import { stubApi } from './fixtures/api-stubs';
  *    presence (the WCTG-14/WG5-10 gap). Tablet only.
  * 3. dashboard legend row → `/buckets/Deseos?periodo=…` (WDM-06/WCAT-01:
  *    navigation, never an inline panel swap). Escritorio.
- * 4. dashboard Sin categoría row → `/buckets/SinCategoria?…&destacar=…`
- *    (WDM-04/06): the Sin categoría group carries the highlight, and the
- *    SinCategoria bucket renders no %/meta tag and no usage bar (MBD-03,
- *    D-02). Escritorio.
+ * 4. issue #778 tramo5b PR1: the dashboard no longer has a Sin categoría
+ *    ROW/wedge to click at all — that case (formerly WDM-04/06, dashboard →
+ *    `/buckets/SinCategoria?…&destacar=…`) is retired along with the row.
+ *    `/buckets/SinCategoria` itself is still a working page if reached
+ *    directly (no in-app link points to it anymore); its own
+ *    %/meta-tag-and-usage-bar-suppression contract (MBD-03, D-02) is
+ *    unrelated to this dashboard drill-down and is unaffected.
  * 5. US-055 T-08 — cross-bucket reclassify surfaces the announcement in the
  *    page-owned `role="status"` region AND the URL retains `?periodo=` (D-07,
  *    WCAT-04). Escritorio.
@@ -264,49 +267,25 @@ test.describe('/buckets/:bucket — Detalle MES-BUCKET (US-053, WDM-01..04)', ()
     ).toBeVisible();
   });
 
-  test('dashboard Sin grupo ni categoría row navigates with destacar and the group highlights (WDM-04/06)', async ({
+  // Issue #778 tramo5b PR1 (replaces the retired WDM-04/06 "dashboard Sin
+  // grupo ni categoría row navigates with destacar" case): the dashboard
+  // legend no longer has a Sin categoría row at all, so there is nothing to
+  // click and nothing to navigate. This proves that absence at a real
+  // viewport (jsdom-level absence is already pinned by
+  // `LeyendaGasto.test.tsx`/`ResumenScreen.test.tsx`; this is the geometry
+  // layer's own proof that no such row is EVER rendered on screen).
+  test('the dashboard legend has no Sin grupo ni categoría row to click (issue #778 tramo5b PR1)', async ({
     page,
   }) => {
-    // WDM-06 scenario: "GIVEN the dashboard is viewing 2026-07" — same
-    // reason as case 3: the drill-down must carry the current `periodo`.
     await page.goto('/?periodo=2026-07');
     await page.getByText('Toca un ítem del gráfico o la leyenda').waitFor();
 
-    // The two `hasText` filters below look like a copy-paste pair but target
-    // DIFFERENT concepts, and the labels are deliberately distinct so that
-    // neither substring can match the other's element:
-    //   - the dashboard legend row is the BUCKET `SinCategoria`
-    //     (`bucketId IS NULL`) → "Sin grupo ni categoría";
-    //   - the group inside the drill-down is the synthetic CATEGORY group
-    //     (`categoriaId IS NULL`) → plain "Sin categoría".
-    // See `lib/bucket-colors.ts`'s `ETIQUETA_BUCKET` docblock.
-    await page
-      .getByTestId('leyenda-item')
-      .filter({ hasText: 'Sin grupo ni categoría' })
-      .click();
-
-    await expect(page).toHaveURL(
-      /\/buckets\/SinCategoria\?periodo=2026-07&destacar=sin-categoria/,
-    );
-
-    const grupoSinCategoria = page
-      .getByTestId('grupo-movimientos')
-      .filter({ hasText: 'Sin categoría' });
-    await expect(grupoSinCategoria).toHaveAttribute('data-destacado', 'true');
-    // bucket-detalle-acordeon: the destacado group starts EXPANDED — the
-    // sole exception to WDM-03's collapsed-by-default accordion.
     await expect(
-      grupoSinCategoria.getByRole('button', { expanded: true }),
-    ).toBeVisible();
-    // The `data-testid="usage-bar"` absence assertion that used to close this
-    // test (and the header test above) is gone. It was retired with the bar
-    // itself (bucket-detalle-lista-rediseño): once no source file renders
-    // that testid, `toHaveCount(0)` can only ever pass — it asserted a string
-    // literal against nothing while reading like coverage. The "%/meta and
-    // usage bar stay retired" contract has ONE home now, and it is a unit
-    // test: `BucketDetalleMesPage.test.tsx`, which pins the absence by
-    // CONTENT (`/Meta:/`, `/^\d+% ·/`) and so catches a re-introduction in
-    // any shape, testid or not.
+      page.getByTestId('leyenda-item').filter({ hasText: 'grupo ni' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /Sin grupo ni categoría/ }),
+    ).toHaveCount(0);
   });
 
   test('cross-bucket reclassify: on /buckets/Necesidades?periodo=2026-07, reclassify to a Deseos categoría → "Movida a Gustos · Streaming." in role=status, moved row gone after refetch, URL retains ?periodo= (US-055, T-08, D-07/WCAT-04)', async ({
