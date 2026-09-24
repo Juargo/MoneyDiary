@@ -849,6 +849,13 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault, distinct from the permanent 409 below. Nothing is persisted; retrying later may succeed. */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         readonly delete?: never;
@@ -970,8 +977,15 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure (PersistenciaFallidaError / CategorizacionFallidaError). Retryable. */
+                /** @description Infrastructure fault (DB) — ensure, dedup, or persist failure (PersistenciaFallidaError). Retryable. */
                 readonly 500: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. Fail-closed: nothing is persisted (D-10); retrying later may succeed. */
+                readonly 503: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
@@ -1030,6 +1044,13 @@ export interface paths {
                 };
                 /** @description Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB). */
                 readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault. Preview rejects rather than showing a degraded suggestion set the commit could never honor. */
+                readonly 503: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
