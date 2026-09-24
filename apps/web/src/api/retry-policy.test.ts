@@ -39,7 +39,7 @@ describe('retry-policy — issue #778 (catálogo incompleto)', () => {
       esErrorPermanente({
         tag: 'invalid',
         message:
-          'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos.',
+          'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo.',
         code: 'CATALOGO_INCOMPLETO',
       }),
     ).toBe(true);
