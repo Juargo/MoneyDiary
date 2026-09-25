@@ -67,16 +67,9 @@ function mesDto(
         porcentajeBp: null,
         estadoSemaforo: null,
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
-    cantidadSinCategoria: 0,
     ...overrides,
   };
 }
@@ -103,12 +96,6 @@ function mesConDatos(periodo: string): ResumenMesDto {
         total: '200000',
         porcentajeBp: 2000,
         estadoSemaforo: 'verde',
-      },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
       },
     ],
     estadoGlobal: 'verde',

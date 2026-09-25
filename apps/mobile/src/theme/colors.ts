@@ -53,9 +53,10 @@ export const COLORS = {
  * is REMOVED, mirroring apps/web's own PR1 (`lib/bucket-colors.ts`'s
  * `CLASE_RELLENO_BUCKET`/`CLASE_FONDO_BUCKET`) — the ring/legend never
  * render a SinCategoria slice/dot anymore, so there is no fill left that
- * needs it. Any unrecognized bucket key (including a literal `'SinCategoria'`,
- * still reachable only via a direct `/bucket/SinCategoria` URL) falls back
- * to `'#CCCCCC'` at each call site.
+ * needs it. Any unrecognized bucket key falls back to `'#CCCCCC'` at each
+ * call site. Tramo5b PR5 (apps/api) later removed `Bucket.SinCategoria` from
+ * the domain entirely, so a literal `'SinCategoria'` key is no longer
+ * reachable at all — `GET /api/buckets/SinCategoria` now 400s.
  */
 export const COLOR_BUCKET: Record<string, string> = {
   Necesidades: COLORS.necesidades,
@@ -67,26 +68,27 @@ export const COLOR_BUCKET: Record<string, string> = {
  * Domain bucket name → user-facing label. The domain models the middle bucket
  * as "Deseos"; the product/UI surface calls it "Gustos" (mockup copy).
  *
- * `SinCategoria` reads "Sin grupo ni categoría", NOT "Sin categoría", so it
- * cannot be confused with the synthetic "Sin categoría" group the API builds
- * INSIDE a bucket detail for `categoriaId IS NULL`. This one is
- * `bucketId IS NULL`: no grupo, and therefore no categoría either. The web
- * twin in `apps/web/src/lib/bucket-colors.ts` carries the same map and the
- * full rationale; the two must stay in sync.
+ * Issue #778 tramo 5b PR5 (apps/api) removed `Bucket.SinCategoria` from the
+ * domain entirely: the backend never returns that string anywhere anymore
+ * (`resolverBucket` folds a null or unrecognized bucketId into `Deseos`
+ * before it ever reaches the wire), and `GET /api/buckets/SinCategoria` now
+ * 400s. The `SinCategoria` entry this map used to carry (label "Sin grupo ni
+ * categoría", kept through tramo5b PR2 for `ReclasificarMobileControl`/
+ * `BucketDetalleScreen`) is removed here too — there is no longer any
+ * reachable caller that can pass that literal key as a bucket name.
  *
- * Issue #778 tramo5b PR2: unlike `COLOR_BUCKET`/`COLOR_GLIFO_BUCKET` below,
- * this entry STAYS — `ReclasificarMobileControl` still reads it to name the
- * source bucket when reclassifying a movement OUT of SinCategoria, and
- * `BucketDetalleScreen`'s header still reads it for the still-reachable
- * `/bucket/SinCategoria` route (direct URL, no longer linked from the
- * dashboard). Removing it would leak the raw internal key `"SinCategoria"`
- * to that copy instead of degrading gracefully.
+ * The category-level "Sin categoría" (a DIFFERENT, still-surviving absence —
+ * the synthetic group the API builds inside a bucket detail for
+ * `categoriaId IS NULL`) is unaffected: those movements DO have a real grupo
+ * (bucket) and are handled entirely without this map.
+ *
+ * The web twin in `apps/web/src/lib/bucket-colors.ts` carries the same map
+ * and must stay in sync.
  */
 export const ETIQUETA_BUCKET: Record<string, string> = {
   Necesidades: 'Necesidades',
   Deseos: 'Gustos',
   Ahorro: 'Ahorro',
-  SinCategoria: 'Sin grupo ni categoría',
 };
 
 /**
