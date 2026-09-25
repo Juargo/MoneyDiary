@@ -36,10 +36,12 @@ Close the three non-blocking suggestions left by the T2 review of the category-g
 - 2026-09-25: created.
 - 2026-09-25: S1–S3 implemented (writer). S1 RED: group order followed file order (`[cat-x, cat-y]` vs `[cat-y, cat-x]`) → GREEN with `clave` tiebreak. S2 RED: id `cat::raro` resolved to "Categoría no disponible" instead of "Rareza" → GREEN with `resolverGrupoDeFila` carrying bucket/categoriaId. S3: positive + negative component tests pinned GREEN; mutation (capture never resets to null) → negative test RED; restored (`PreviewMuestra.tsx` diff empty). Writer: `tsc -b` 0; vitest 2259/2259; eslint clean. Parent spot check: `tsc -b` 0; 2 touched test files 43/43; `PreviewMuestra.tsx` unchanged. 3 files, +209/−15.
 
+- 2026-09-25: commit `73a661fc`. RDD assess (base `main`): medium, under budget; stop hook flagged the PR slice → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-ee9a628dc80112e8`). Two advisory suggestions fixed (user-authorized): R3-s1-test-precondition (S1 test now asserts both groups share the fallback name) and R3-clave-tiebreak-locale (tiebreak is ordinal; RED test with a soft-hyphen id that `localeCompare('es')` treats as equal → GREEN). Checks: `tsc -b` 0; vitest 2260/2260; eslint clean.
+
 ## Delivery
 
 - Forecast well under 400 authored lines → single PR.
 
 ## Next step
 
-Commit, RDD assess, PR.
+Push and open the PR.

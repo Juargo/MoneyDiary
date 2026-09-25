@@ -207,8 +207,12 @@ export function agruparFilasPorCategoriaSugerida(
     // categoriaIds sharing the "Categoría no disponible" fallback, or a
     // catalog in `cargando`/`error`) to fall back to Map insertion order —
     // i.e. file order, which is not a deterministic contract. `clave` is
-    // always unique per group, so it is a safe final tiebreak.
+    // always unique per group, so it is a safe final tiebreak. Compared
+    // ordinally, not with `localeCompare`: ICU collation can report two
+    // distinct keys as equal (ignorable code points such as a soft hyphen),
+    // which would leak file order back in.
     if (ordenNombre !== 0) return ordenNombre;
-    return a.clave.localeCompare(b.clave, 'es');
+    if (a.clave === b.clave) return 0;
+    return a.clave < b.clave ? -1 : 1;
   });
 }
