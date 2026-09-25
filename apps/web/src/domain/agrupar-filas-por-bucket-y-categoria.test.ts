@@ -60,6 +60,50 @@ function comoBuckets(
 describe('agruparFilasPorBucketYCategoria', () => {
   const catalogo = unCatalogo();
 
+  // `PreviewMuestra`'s `filasDirectasDeGrupo` picks "direct rows" for any
+  // bucket whose `categorias` is empty, so this invariant is what keeps a
+  // non-Ingreso bucket from silently rendering (and counting) as flat rows.
+  it('un bucket asignable nunca queda con categorías vacías ni con filas directas; solo Ingreso usa filasDirectas', () => {
+    const filas = [
+      unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      }),
+      unaFilaPreview({
+        rowIndex: 1,
+        sugerido: { bucket: 'Deseos', categoriaId: 'cat-no-existe' },
+      }),
+      unaFilaPreview({
+        rowIndex: 2,
+        sugerido: { bucket: 'Ahorro', categoriaId: null },
+      }),
+      unaFilaPreview({
+        rowIndex: 3,
+        sugerido: { bucket: 'Ingreso', categoriaId: null },
+      }),
+    ];
+
+    const buckets = agruparFilasPorBucketYCategoria(filas, catalogo).filter(
+      (g) => g.kind === 'bucket',
+    );
+
+    expect(buckets.map((g) => g.bucket)).toEqual([
+      'Necesidades',
+      'Deseos',
+      'Ahorro',
+      'Ingreso',
+    ]);
+    for (const grupo of buckets) {
+      if (grupo.bucket === 'Ingreso') {
+        expect(grupo.categorias).toEqual([]);
+        expect(grupo.filasDirectas).toHaveLength(1);
+      } else {
+        expect(grupo.categorias.length).toBeGreaterThan(0);
+        expect(grupo.filasDirectas).toEqual([]);
+      }
+    }
+  });
+
   it('agrupa una fila clasificada bajo su bucket, con una categoría con nombre e ícono resueltos del catálogo', () => {
     const fila = unaFilaPreview({
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
