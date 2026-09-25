@@ -59,6 +59,28 @@ describe('ResumenCartola', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the unmatched-transaction note with the "Gustos" UI label (never the raw "Deseos" bucket key)', () => {
+    render(
+      <ResumenCartola
+        banco="BancoEstado"
+        resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+      />,
+    );
+
+    // The sentence is split across a <strong> for the bucket · categoría
+    // name, so the full text only lives on the <p>'s own textContent —
+    // match that, not a substring, to catch a copy regression on either
+    // side of the <strong> (toHaveTextContent-matchea-subcadena gotcha).
+    const nota = screen.getByText((_, element) => {
+      if (element?.tagName !== 'P') return false;
+      return (
+        element.textContent ===
+        'Los movimientos que no coincidan con ningún patrón se quedarán como Gustos · Desconocido y podrás editarlos antes de subir o después.'
+      );
+    });
+    expect(nota).toBeInTheDocument();
+  });
+
   it('marks the block with data-resumen-cartola', () => {
     const { container } = render(
       <ResumenCartola

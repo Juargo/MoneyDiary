@@ -32,24 +32,11 @@ export function esFilaIngreso(fila: Pick<PreviewFilaDto, 'sugerido'>): boolean {
 /**
  * True when the row needs no further work from the user: either income
  * (settled by the server, not editable) or it has an effective categoría
- * under the D-05 merge rule. Backs the progress readout, the "Solo sin
- * clasificar" filter and `SubirCartola`'s discard-confirm count — one rule
- * for all three, so they cannot drift.
+ * under the D-05 merge rule. Backs `SubirCartola`'s discard-confirm count.
  */
 export function estaClasificada(
   fila: Pick<PreviewFilaDto, 'rowIndex' | 'sugerido'>,
   edits: ReadonlyMap<number, string | null>,
 ): boolean {
   return esFilaIngreso(fila) || resolverCategoriaMerged(fila, edits) !== null;
-}
-
-/**
- * True when a row may take part in bulk apply / row selection. Duplicates are
- * never committed at all and income rows never accept an overlay, so offering
- * either for selection offers an edit that cannot land.
- */
-export function esFilaSeleccionable(
-  fila: Pick<PreviewFilaDto, 'esDuplicado' | 'sugerido'>,
-): boolean {
-  return !fila.esDuplicado && !esFilaIngreso(fila);
 }

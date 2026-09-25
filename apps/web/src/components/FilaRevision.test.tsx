@@ -225,31 +225,6 @@ describe('FilaRevision', () => {
     expect(options).not.toContain('Salud');
   });
 
-  // Round-9 critique P1 fix 2: the selection checkbox's own visual glyph
-  // stays size-4 (16px), but it must sit inside a ≥24×24 CSS px hit target
-  // (WCAG 2.2 AA SC 2.5.8) — same mechanism as the pre-existing `size-6`
-  // icon-button precedent (`CLASE_BOTON_ICONO`), applied here via a
-  // wrapping `<label>` around the bare `<input>` (label-click toggles the
-  // checkbox natively, growing the interactive area without resizing the
-  // checkbox itself).
-  it('round-9 P1 fix 2: the row selection checkbox sits in a size-6 (24×24) hit target while staying size-4 visually', () => {
-    render(
-      <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 2 })}
-        categoriaId={null}
-        catalogo={catalogoListo}
-        onEditChange={vi.fn()}
-      />,
-    );
-
-    const checkbox = screen.getByLabelText(/Seleccionar fila 3/i);
-    expect(checkbox.className).toContain('size-4');
-
-    const hitTarget = checkbox.closest('label');
-    expect(hitTarget).not.toBeNull();
-    expect(hitTarget?.className).toContain('size-6');
-  });
-
   // Round-9 critique P1 fix 1: bucket options must show the UI label
   // ("Gustos") while the underlying option value stays the domain key
   // ("Deseos") — ETIQUETA_BUCKET is applied at this call site now (inside
@@ -686,100 +661,6 @@ describe('FilaRevision', () => {
     expect(onEditChange).toHaveBeenCalledWith(2, null);
     expect(
       screen.queryByLabelText(/Fila 3: categoría/i),
-    ).not.toBeInTheDocument();
-  });
-
-  // ── Selection checkbox (feature: bulk apply) ────────────────────────────
-
-  it('non-duplicate row exposes an accessible "Seleccionar fila N" checkbox', () => {
-    render(
-      <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 4 })}
-        categoriaId={null}
-        catalogo={catalogoListo}
-        onEditChange={vi.fn()}
-        selected={false}
-        onToggleSelect={vi.fn()}
-      />,
-    );
-
-    const checkbox = screen.getByLabelText(/Seleccionar fila 5/i);
-    expect(checkbox).toBeInTheDocument();
-    expect(checkbox).toHaveAttribute('type', 'checkbox');
-    expect(checkbox).not.toBeChecked();
-  });
-
-  // issue #748: a usability test showed the bulk-select checkboxes were
-  // undiscoverable — nothing named their purpose. The accessible name now
-  // states it explicitly, keeping the pre-existing "Seleccionar fila N" row
-  // identity as a prefix (every other query in this file matches on that
-  // substring).
-  it('the checkbox accessible name states its bulk-classification purpose', () => {
-    render(
-      <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 4 })}
-        categoriaId={null}
-        catalogo={catalogoListo}
-        onEditChange={vi.fn()}
-        selected={false}
-        onToggleSelect={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByLabelText(/seleccionar fila 5 para clasificar en grupo/i),
-    ).toBeInTheDocument();
-  });
-
-  it('checkbox reflects the `selected` prop', () => {
-    render(
-      <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 4 })}
-        categoriaId={null}
-        catalogo={catalogoListo}
-        onEditChange={vi.fn()}
-        selected
-        onToggleSelect={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByLabelText(/Seleccionar fila 5/i)).toBeChecked();
-  });
-
-  it('clicking the checkbox calls onToggleSelect(rowIndex) exactly once', async () => {
-    const onToggleSelect = vi.fn();
-
-    render(
-      <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 4 })}
-        categoriaId={null}
-        catalogo={catalogoListo}
-        onEditChange={vi.fn()}
-        selected={false}
-        onToggleSelect={onToggleSelect}
-      />,
-    );
-
-    await userEvent.click(screen.getByLabelText(/Seleccionar fila 5/i));
-
-    expect(onToggleSelect).toHaveBeenCalledTimes(1);
-    expect(onToggleSelect).toHaveBeenCalledWith(4);
-  });
-
-  it('duplicate rows never render a selection checkbox (D-10)', () => {
-    render(
-      <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 4, esDuplicado: true })}
-        categoriaId={null}
-        catalogo={catalogoListo}
-        onEditChange={vi.fn()}
-        selected={false}
-        onToggleSelect={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.queryByLabelText(/Seleccionar fila 5/i),
     ).not.toBeInTheDocument();
   });
 
@@ -1323,22 +1204,6 @@ describe('FilaRevision', () => {
       expect(
         screen.getByText(/se clasifica.*autom[áa]tic/i),
       ).toBeInTheDocument();
-    });
-
-    it('is not selectable for bulk apply (no row checkbox)', () => {
-      render(
-        <FilaRevision
-          fila={unaFilaIngreso({ rowIndex: 2 })}
-          categoriaId={null}
-          catalogo={catalogoListo}
-          onEditChange={vi.fn()}
-          onToggleSelect={vi.fn()}
-        />,
-      );
-
-      expect(
-        screen.queryByLabelText(/Seleccionar fila 3/i),
-      ).not.toBeInTheDocument();
     });
 
     it('never calls onEditChange, even when a categoriaId prop arrives from a stale bulk apply', () => {

@@ -85,6 +85,13 @@ export function ResumenCartola({
         Clasificar ahora no es obligatorio: puedes cambiar la categoría de
         cualquier movimiento cuando quieras.
       </p>
+      <p className="text-xs text-muted-foreground">
+        Los movimientos que no coincidan con ningún patrón se quedarán como{' '}
+        <strong className="font-medium text-foreground">
+          Gustos · Desconocido
+        </strong>{' '}
+        y podrás editarlos antes de subir o después.
+      </p>
     </div>
   );
 }
