@@ -3,7 +3,7 @@ import {
   agruparFilasPorBucketYCategoria,
   type GrupoBucket,
   type GrupoNivel1,
-} from './agrupar-filas-por-categoria-sugerida';
+} from './agrupar-filas-por-bucket-y-categoria';
 import {
   unaFilaIngreso,
   unaFilaPreview,
