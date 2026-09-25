@@ -26,6 +26,26 @@ import {
   unCatalogo,
 } from '@/test-utils/preview-fixtures';
 
+/**
+ * Test helper (preview-acordeon-bucket T1): both accordion levels start
+ * COLLAPSED now, so any test that needs a row's own controls or a
+ * categoría's heading must first open its bucket (level 1) and, unless the
+ * row lives directly on Ingreso's `filasDirectas` (no level 2), its
+ * categoría (level 2) — pass only `nombreBucket` for Ingreso. Takes the
+ * already-constructed `userEvent` instance so every call site shares one
+ * pointer/clock state, like the rest of this suite.
+ */
+async function abrirGrupo(
+  user: ReturnType<typeof userEvent.setup>,
+  nombreBucket: string | RegExp,
+  nombreCategoria?: string | RegExp,
+) {
+  await user.click(screen.getByRole('button', { name: nombreBucket }));
+  if (nombreCategoria !== undefined) {
+    await user.click(screen.getByRole('button', { name: nombreCategoria }));
+  }
+}
+
 // PreviewMuestra (US-059 PR2, D-12) — presentational review table shell.
 // Receives canonical `filas`/`resumen` props (not legacy muestra/estructura).
 // Tests verify: banco header (D-08), resumen header, "nada se ha guardado"
@@ -200,7 +220,8 @@ describe('PreviewMuestra', () => {
   // Round-9 critique P1 fix 1: per-row bucket select shows "Gustos" as the
   // option text while the underlying option value stays "Deseos"
   // (ETIQUETA_BUCKET applied by `construirOpcionesBucket`).
-  it('round-9 P1: per-row bucket select shows "Gustos" text with "Deseos" value', () => {
+  it('round-9 P1: per-row bucket select shows "Gustos" text with "Deseos" value', async () => {
+    const user = userEvent.setup();
     render(
       <PreviewMuestra
         banco="BancoEstado"
@@ -211,6 +232,9 @@ describe('PreviewMuestra', () => {
         catalogo={unCatalogo()}
       />,
     );
+
+    // Default fixture sugerido: Necesidades/cat-nec-1 — open both levels.
+    await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
 
     const bucketSelect = screen.getByLabelText(/Fila 1: grupo/i);
     const gustosOption = within(bucketSelect).getByRole('option', {
@@ -336,9 +360,11 @@ describe('PreviewMuestra', () => {
     ).not.toBeInTheDocument();
   });
 
-  // ── Grouping by bucket · categoría (preview-agrupacion-categoria T2) ─────
-  describe('grouping by bucket · categoría', () => {
-    it('groups rows by the (bucket, categoriaId) of their sugerido, one heading + <ul> per group, with the category icon', () => {
+  // ── Two-level grouping: bucket → categoría (preview-acordeon-bucket T1,
+  // extends preview-agrupacion-categoria T2) ───────────────────────────────
+  describe('grouping by bucket, then categoría within it', () => {
+    it('groups rows by bucket (level 1) then categoría within it (level 2), each with its own heading and the category icon', async () => {
+      const user = userEvent.setup();
       const filas = [
         unaFilaPreview({
           rowIndex: 0,
@@ -381,30 +407,45 @@ describe('PreviewMuestra', () => {
         />,
       );
 
-      const grupos = container.querySelectorAll('[data-grupo-categoria]');
-      expect(grupos).toHaveLength(2);
+      // Level 1 headings sit OUTSIDE the collapsible panel, so they are
+      // reachable by role even while everything is collapsed.
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Necesidades ·/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Gustos ·/ }),
+      ).toBeInTheDocument();
+      expect(container.querySelectorAll('[data-grupo-bucket]')).toHaveLength(2);
+      expect(container.querySelectorAll('[data-grupo-categoria]')).toHaveLength(
+        2,
+      );
 
-      const grupoNecesidades = screen.getByRole('heading', {
-        level: 4,
-        name: /Necesidades · Supermercado/,
+      // Level 2 headings only become reachable BY ROLE once their bucket is open.
+      await abrirGrupo(user, /^Necesidades ·/);
+      await abrirGrupo(user, /^Gustos ·/);
+
+      const grupoSupermercado = screen.getByRole('heading', {
+        level: 5,
+        name: /^Supermercado ·/,
       });
-      const grupoGustos = screen.getByRole('heading', {
-        level: 4,
-        name: /Gustos · Restaurantes/,
+      const grupoRestaurantes = screen.getByRole('heading', {
+        level: 5,
+        name: /^Restaurantes ·/,
       });
-      expect(grupoNecesidades).toBeInTheDocument();
-      expect(grupoGustos).toBeInTheDocument();
-      // Each group heading carries its category's own glyph. Match the lucide
+      // Each categoría heading carries its own glyph. Match the lucide
       // class, not any aria-hidden svg: the heading also holds the accordion
       // chevron, which would satisfy a generic query with no badge at all.
       expect(
-        grupoNecesidades.querySelector('svg.lucide-shopping-cart'),
+        grupoSupermercado.querySelector('svg.lucide-shopping-cart'),
       ).toBeInTheDocument();
-      expect(grupoGustos.querySelector('svg.lucide-tag')).toBeInTheDocument();
+      expect(
+        grupoRestaurantes.querySelector('svg.lucide-tag'),
+      ).toBeInTheDocument();
     });
 
-    it('an Ingreso row groups alone under a plain "Ingreso" heading, no "· Ingreso" suffix', () => {
-      const filas = [unaFilaIngreso({ rowIndex: 0 })];
+    it('an Ingreso row groups alone under a plain "Ingreso" bucket heading, no level 2', async () => {
+      const user = userEvent.setup();
+      const filas = [unaFilaIngreso({ rowIndex: 0, descripcion: 'sueldo' })];
 
       render(
         <PreviewMuestra
@@ -420,14 +461,23 @@ describe('PreviewMuestra', () => {
       expect(
         screen.getByRole('heading', { level: 4, name: /^Ingreso ·/ }),
       ).toBeInTheDocument();
+      // No level-2 heading at all for Ingreso.
       expect(
-        screen.queryByRole('heading', { name: /Ingreso · Ingreso/ }),
+        screen.queryByRole('heading', { level: 5 }),
       ).not.toBeInTheDocument();
+
+      // Opening the bucket shows its row DIRECTLY, no categoría accordion in between.
+      await abrirGrupo(user, /^Ingreso ·/);
+      expect(screen.getByText('sueldo')).toBeVisible();
     });
 
-    it('rows with no sugerido group under "Sin categoría", placed LAST regardless of file order', () => {
+    it('a row with no sugerido (dead code path since #778) is DROPPED — no group is created for it, and nothing crashes', () => {
       const filas = [
-        unaFilaPreview({ rowIndex: 0, sugerido: null, descripcion: 'sin' }),
+        unaFilaPreview({
+          rowIndex: 0,
+          sugerido: null,
+          descripcion: 'sin sugerido',
+        }),
         unaFilaPreview({
           rowIndex: 1,
           sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
@@ -446,13 +496,19 @@ describe('PreviewMuestra', () => {
         />,
       );
 
-      const headings = screen
-        .getAllByRole('heading', { level: 4 })
-        .map((h) => h.textContent ?? '');
-      expect(headings[headings.length - 1]).toMatch(/^Sin categoría/);
+      // Only the classified row's bucket renders — no "Sin categoría" bucket,
+      // no phantom heading of any kind for the dropped row.
+      expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(1);
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Necesidades ·/ }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('sin sugerido')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: /sin categoría/i }),
+      ).not.toBeInTheDocument();
     });
 
-    it('rows inside a group are ordered by fecha ascending, regardless of file order', () => {
+    it('rows inside a categoría are ordered by fecha ascending, regardless of file order', () => {
       const filas = [
         unaFilaPreview({
           rowIndex: 0,
@@ -479,13 +535,16 @@ describe('PreviewMuestra', () => {
         />,
       );
 
+      // `data-descripcion` is queried directly (not by role/visibility), so
+      // it reads DOM order even while the categoría panel stays collapsed.
       const descripciones = Array.from(
         container.querySelectorAll('[data-descripcion]'),
       ).map((el) => el.textContent);
       expect(descripciones).toEqual(['temprana', 'tardía']);
     });
 
-    it("editing a row's category (merged edit) keeps it in its ORIGINAL sugerido group until reload", () => {
+    it("editing a row's category (merged edit) keeps it in its ORIGINAL bucket/categoría until reload", async () => {
+      const user = userEvent.setup();
       const filas = [
         unaFilaPreview({
           rowIndex: 0,
@@ -519,18 +578,23 @@ describe('PreviewMuestra', () => {
         />,
       );
 
-      // Still grouped under the ORIGINAL sugerido (Necesidades · Supermercado)…
+      // Still grouped under the ORIGINAL bucket — no "Gustos" bucket exists.
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Necesidades ·/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { level: 4, name: /^Gustos ·/ }),
+      ).not.toBeInTheDocument();
+
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+
       const grupoOriginal = screen
-        .getByRole('heading', { level: 4, name: /Necesidades · Supermercado/ })
+        .getByRole('heading', { level: 5, name: /^Supermercado ·/ })
         .closest('div[data-grupo-categoria]');
       expect(grupoOriginal).not.toBeNull();
       expect(
         within(grupoOriginal as HTMLElement).getByText('reclasificada'),
       ).toBeInTheDocument();
-      // …no "Gustos · Restaurantes" group was created for it.
-      expect(
-        screen.queryByRole('heading', { name: /Gustos · Restaurantes/ }),
-      ).not.toBeInTheDocument();
       // But the row's own select DOES show the merged (edited) value.
       const categoriaSelect = screen.getByLabelText(/Fila 1: categoría/i);
       expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
@@ -603,7 +667,7 @@ describe('PreviewMuestra', () => {
     });
   });
 
-  describe('group accordion (polish pass, re-keyed by categoría in T2)', () => {
+  describe('two-level accordion (preview-acordeon-bucket T1): both levels collapsed by default', () => {
     const dosGrupos = () => [
       unaFilaPreview({
         rowIndex: 0,
@@ -635,55 +699,119 @@ describe('PreviewMuestra', () => {
       );
     }
 
-    it('names each group heading with its row count, singular at 1', () => {
+    it('names each bucket heading with its row count, singular at 1', () => {
       renderDosGrupos();
 
       expect(
         screen.getByRole('heading', {
           level: 4,
-          name: /Necesidades · Supermercado · 2 movimientos/,
+          name: /^Necesidades · 2 movimientos/,
         }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('heading', {
           level: 4,
-          name: /Gustos · Restaurantes · 1 movimiento$/,
+          name: /^Gustos · 1 movimiento$/,
         }),
       ).toBeInTheDocument();
     });
 
-    it('starts with every group expanded — a review flow never hides work by default', () => {
-      renderDosGrupos();
-
-      const toggles = screen.getAllByRole('button', { expanded: true });
-      expect(toggles).toHaveLength(2);
-      expect(screen.getByText('A')).toBeVisible();
-    });
-
-    it('collapsing a group hides ONLY its rows and flips aria-expanded; the other group is untouched', async () => {
+    it('names each categoría heading with its row count once its bucket is open', async () => {
       const user = userEvent.setup();
       renderDosGrupos();
 
-      const toggle = screen.getByRole('button', {
-        name: /Necesidades · Supermercado · 2 movimientos/,
+      await abrirGrupo(user, /^Necesidades ·/);
+      await abrirGrupo(user, /^Gustos ·/);
+
+      expect(
+        screen.getByRole('heading', {
+          level: 5,
+          name: /^Supermercado · 2 movimientos/,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', {
+          level: 5,
+          name: /^Restaurantes · 1 movimiento$/,
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('starts with BOTH levels collapsed — a drill-down accordion never opens itself', () => {
+      renderDosGrupos();
+
+      // Only bucket triggers are reachable by role at all (categoría
+      // triggers live inside the still-hidden bucket panel).
+      const togglesAbiertos = screen.queryAllByRole('button', {
+        expanded: true,
       });
-      await user.click(toggle);
-
-      expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      // Rows of the collapsed group leave the accessibility tree…
+      expect(togglesAbiertos).toHaveLength(0);
+      const togglesCerrados = screen.getAllByRole('button', {
+        expanded: false,
+      });
+      expect(togglesCerrados).toHaveLength(2); // one per bucket
+      // Rows stay MOUNTED (hidden, not removed) behind the collapsed panel.
       expect(screen.getByText('A')).not.toBeVisible();
-      expect(screen.getByText('B')).not.toBeVisible();
-      // …but stay mounted (hidden, not removed) so per-row state survives.
-      const lista = document.getElementById(
-        toggle.getAttribute('aria-controls') ?? '',
-      );
-      expect(lista).not.toBeNull();
-      expect(lista).toHaveAttribute('hidden');
-      // The sibling group is unaffected.
-      expect(screen.getByText('C')).toBeVisible();
+    });
 
-      await user.click(toggle);
-      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    it('opening a bucket reveals its categorías, which stay collapsed themselves', async () => {
+      const user = userEvent.setup();
+      renderDosGrupos();
+
+      await abrirGrupo(user, /^Necesidades ·/);
+
+      const categoriaToggle = screen.getByRole('button', {
+        name: /^Supermercado ·/,
+      });
+      expect(categoriaToggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByText('A')).not.toBeVisible();
+      // The sibling bucket is unaffected.
+      expect(screen.getByRole('button', { name: /^Gustos ·/ })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    });
+
+    it('opening a bucket then its categoría reveals rows; collapsing the bucket hides the categoría and its rows; the sibling bucket is untouched', async () => {
+      const user = userEvent.setup();
+      renderDosGrupos();
+
+      const bucketToggle = screen.getByRole('button', {
+        name: /^Necesidades ·/,
+      });
+      await user.click(bucketToggle);
+      expect(bucketToggle).toHaveAttribute('aria-expanded', 'true');
+
+      const categoriaToggle = screen.getByRole('button', {
+        name: /^Supermercado ·/,
+      });
+      await user.click(categoriaToggle);
+      expect(categoriaToggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('A')).toBeVisible();
+      expect(screen.getByText('B')).toBeVisible();
+
+      // Collapsing the BUCKET hides the categoría panel too (rows stay
+      // mounted, hidden, not removed — per-row state survives).
+      await user.click(bucketToggle);
+      expect(bucketToggle).toHaveAttribute('aria-expanded', 'false');
+      const panelBucket = document.getElementById(
+        bucketToggle.getAttribute('aria-controls') ?? '',
+      );
+      expect(panelBucket).not.toBeNull();
+      expect(panelBucket).toHaveAttribute('hidden');
+      expect(screen.getByText('A')).not.toBeVisible();
+
+      // The sibling bucket (Deseos) was never touched.
+      expect(screen.getByRole('button', { name: /^Gustos ·/ })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+
+      // Reopening the bucket restores the categoría's own OPEN state (its
+      // own Set entry was never cleared) — rows are visible again without
+      // re-clicking the categoría toggle.
+      await user.click(bucketToggle);
+      expect(bucketToggle).toHaveAttribute('aria-expanded', 'true');
       expect(screen.getByText('A')).toBeVisible();
     });
   });
@@ -706,7 +834,8 @@ describe('PreviewMuestra', () => {
       });
     }
 
-    it('a focused trigger keeps focus after a re-render moves its row to another group', () => {
+    it('a focused trigger keeps focus after a re-render moves its row to another (still-collapsed) bucket/categoría', async () => {
+      const user = userEvent.setup();
       const { rerender } = render(
         <PreviewMuestra
           banco="BancoEstado"
@@ -718,6 +847,11 @@ describe('PreviewMuestra', () => {
         />,
       );
 
+      // The row starts under Necesidades/Supermercado — both levels open
+      // collapsed by default, so its trigger must be reached the same way
+      // any other test reaches a row's controls.
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+
       const trigger = screen.getByRole('button', {
         name: /nueva categoría para fila 1/i,
       });
@@ -726,9 +860,12 @@ describe('PreviewMuestra', () => {
 
       // The row's own SERVER SUGGESTION changes bucket · categoría — since
       // grouping keys off `sugerido` (component docblock), this moves the
-      // row's whole subtree to a DIFFERENT group's `<ul>` (a different React
-      // parent), unmounting/remounting the "+" trigger even though its
-      // `data-fila-trigger` (rowIndex) never changes.
+      // row's whole subtree to a DIFFERENT bucket's/categoría's `<ul>` (a
+      // different React parent), unmounting/remounting the "+" trigger even
+      // though its `data-fila-trigger` (rowIndex) never changes. The
+      // destination bucket/categoría (Deseos/Restaurantes) was NEVER opened
+      // before, so it starts collapsed — the focus-continuity effect must
+      // expand both before the trigger can regain focus.
       rerender(
         <PreviewMuestra
           banco="BancoEstado"
@@ -747,9 +884,16 @@ describe('PreviewMuestra', () => {
       expect(
         screen.getByRole('button', { name: /nueva categoría para fila 1/i }),
       ).toHaveFocus();
+      // The destination panels are visibly OPEN, not just focusable —
+      // confirms the effect expanded them rather than reaching into a
+      // hidden subtree.
+      expect(
+        screen.getByRole('button', { name: /nueva categoría para fila 1/i }),
+      ).toBeVisible();
     });
 
-    it('a user who deliberately blurs to <body> does NOT get focus pulled back to the trigger by a later re-render', () => {
+    it('a user who deliberately blurs to <body> does NOT get focus pulled back to the trigger by a later re-render', async () => {
+      const user = userEvent.setup();
       const fila = unaFilaConTrigger();
       const props = {
         banco: 'BancoEstado',
@@ -762,6 +906,8 @@ describe('PreviewMuestra', () => {
       const { rerender } = render(
         <PreviewMuestra {...props} edits={new Map()} />,
       );
+
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
 
       const trigger = screen.getByRole('button', {
         name: /nueva categoría para fila 1/i,
@@ -812,6 +958,10 @@ describe('PreviewMuestra', () => {
         { wrapper: crearWrapperQuery() },
       );
 
+      // Both rows share the default fixture sugerido (Necesidades/cat-nec-1)
+      // — one bucket/categoría to open reaches both.
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+
       const filaA = screen.getByText('A').closest('li');
       const filaB = screen.getByText('B').closest('li');
       if (!filaA || !filaB) throw new Error('rows not found');
@@ -859,6 +1009,8 @@ describe('PreviewMuestra', () => {
         />,
       );
 
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+
       const fila = screen.getByText('A').closest('li');
       if (!fila) throw new Error('row not found');
       await user.selectOptions(
@@ -882,29 +1034,36 @@ describe('PreviewMuestra', () => {
   // remaining contract is that income rows render in the list, in file
   // order, alongside classified and pending rows.
   describe('filas de ingreso', () => {
+    // Pre-#778 this fixture also carried a `sugerido: null` "pending" row —
+    // dropped since `agruparFilasPorBucketYCategoria` no longer renders it
+    // at all (dead per #778, see that module's docblock); the remaining
+    // contract is that Ingreso and classified rows render together.
     const filasConIngreso = [
       unaFilaPreview({
         rowIndex: 0,
         sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
       }),
-      unaFilaPreview({ rowIndex: 1, sugerido: null }),
-      unaFilaIngreso({ rowIndex: 2 }),
+      unaFilaIngreso({ rowIndex: 1 }),
     ];
 
-    it('renders income rows in the list alongside classified and pending rows', () => {
+    it('renders income rows in the list alongside classified rows, each under its own bucket', async () => {
+      const user = userEvent.setup();
       render(
         <PreviewMuestra
           banco="BancoEstado"
           filas={filasConIngreso}
-          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
           edits={new Map()}
           onEditChange={vi.fn()}
           catalogo={unCatalogo()}
         />,
       );
 
-      expect(screen.getAllByRole('listitem')).toHaveLength(3);
-      // T2: "Ingreso" now also appears as that row's own GROUP heading — the
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+      await abrirGrupo(user, /^Ingreso ·/);
+
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      // "Ingreso" also appears as that row's own BUCKET heading — the
       // row-level marker this test targets is the ONE inside its <li>.
       const filaIngreso = screen
         .getByText('Ingreso', { selector: 'li span' })

@@ -23,6 +23,15 @@ import { stubApi } from './fixtures/api-stubs';
 
 const FECHA = '2026-07-01T00:00:00.000Z';
 
+// preview-acordeon-bucket T1 / issue #778: the backend never sends
+// `sugerido: null` (every non-Ingreso row gets at least its bucket's
+// "Desconocido" fallback category before the pattern for "PETSHOP" exists —
+// `apps/api` `preview-ingesta.use-case.ts` step 4). `cat-des-1` ("Delivery",
+// Deseos) is this spec's own stubbed catalog entry (registered below), so
+// every row defaults to it unless overridden — a realistic "not yet matched
+// by the new pattern" shape instead of the dead `null`.
+const SUGERIDO_SIN_MATCH = { bucket: 'Deseos', categoriaId: 'cat-des-1' };
+
 // Row 0 opens the form. Row 1 is a duplicate that ALSO matches the new
 // patrón — it must never be counted nor classified. Row 2 carries a manual
 // override applied before creating, and must keep it. Rows 3 and 4 are the
@@ -42,7 +51,7 @@ function fila(
     cargo: '10000',
     abono: '0',
     esDuplicado: opciones.esDuplicado ?? false,
-    sugerido: opciones.sugerido ?? null,
+    sugerido: opciones.sugerido ?? SUGERIDO_SIN_MATCH,
   };
 }
 
@@ -153,6 +162,11 @@ test.describe('crear una categoría desde la vista previa', () => {
     // cartola-preview-confirmacion PR10 (D-07, WEB-PRV-19): "Revisar y
     // editar" is now the only path into the editable table.
     await page.getByRole('button', { name: 'Revisar y editar' }).click();
+    // preview-acordeon-bucket T1: both accordion levels start COLLAPSED.
+    // Every row above defaults to Gustos/Delivery (`SUGERIDO_SIN_MATCH`), so
+    // opening that one bucket/categoría reaches all six.
+    await page.getByRole('button', { name: /^Gustos ·/ }).click();
+    await page.getByRole('button', { name: /^Delivery ·/ }).click();
     await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     // Manual override on row 2 (fila 3) BEFORE creating: it must survive the
@@ -197,9 +211,12 @@ test.describe('crear una categoría desde la vista previa', () => {
       );
     }
 
-    // The manual override is untouched, and the non-matching row stays empty.
+    // The manual override is untouched, and the non-matching row keeps its
+    // original suggestion (Delivery) — post-#778 every row already carries a
+    // real categoría, so it was never a "no bucket chosen yet" row to begin
+    // with.
     await expect(page.getByLabel('Fila 3: categoría')).toHaveValue('cat-des-1');
-    await expect(page.getByLabel('Fila 6: categoría')).toHaveCount(0);
+    await expect(page.getByLabel('Fila 6: categoría')).toHaveValue('cat-des-1');
   });
 
   // Real-browser layout guard for the review table at 360px. It was added
@@ -230,6 +247,11 @@ test.describe('crear una categoría desde la vista previa', () => {
       buffer: Buffer.from('stub'),
     });
     await page.getByRole('button', { name: 'Revisar y editar' }).click();
+    // preview-acordeon-bucket T1: open the (only) bucket/categoría so the
+    // row controls — the widest elements in this table — are part of the
+    // overflow measurement below, not just the collapsed headers.
+    await page.getByRole('button', { name: /^Gustos ·/ }).click();
+    await page.getByRole('button', { name: /^Delivery ·/ }).click();
     await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
 
     const overflow = await page.evaluate(() => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agruparFilasPorCategoriaSugerida } from './agrupar-filas-por-categoria-sugerida';
+import { agruparFilasPorBucketYCategoria } from './agrupar-filas-por-categoria-sugerida';
 import {
   unaFilaIngreso,
   unaFilaPreview,
@@ -7,43 +7,51 @@ import {
 } from '@/test-utils/preview-fixtures';
 
 /**
- * agruparFilasPorCategoriaSugerida (preview-agrupacion-categoria T2) — pure
- * grouping for the EDITABLE review table (`PreviewMuestra`). Rules from the
- * feature document's product decisions:
+ * agruparFilasPorBucketYCategoria (preview-acordeon-bucket T1) — pure
+ * two-level grouping for the EDITABLE review table (`PreviewMuestra`).
+ * Rules from the feature document's product decisions:
  *
  * 1. Grouping key = the SERVER SUGGESTION (`fila.sugerido`), never the
  *    merged edit — a row stays in its original group until the preview is
  *    reloaded.
- * 2. `sugerido: { bucket: 'Ingreso', categoriaId: null }` → one "Ingreso"
- *    group.
- * 3. `sugerido: null` → one "Sin categoría" group, always LAST.
+ * 2. Level 1 (bucket): present buckets among Necesidades, Deseos, Ahorro (in
+ *    that order), then Ingreso last; an empty bucket is absent entirely.
+ * 3. Level 2 (categoría): only for the three asignable buckets, one entry
+ *    per categoriaId, sorted by name (`localeCompare('es')`) with `clave` as
+ *    the ordinal tiebreak. Ingreso never gets a level 2 — its rows sit on
+ *    `filasDirectas`.
  * 4. A `categoriaId` not resolvable in the catalog still groups by
  *    `(bucket, categoriaId)`, with a safe label fallback.
- * 5. Group order: `BUCKETS_ASIGNABLES` order, then Ingreso, then category
- *    name `localeCompare('es')` within a bucket, "Sin categoría" last.
- * 6. Rows inside a group: `fecha` ascending, `rowIndex` tiebreak.
- * 7. Duplicate rows group by their `sugerido` like any other row — no
- *    separate "Duplicadas" shape here (unlike the read-only decision-step
- *    summary in `agrupar-preview-por-categoria.ts`, out of scope for T2).
+ * 5. No "Sin categoría" group: `sugerido: null` rows are DROPPED (dead per
+ *    #778); a non-Ingreso row with a null `categoriaId` (unreachable today)
+ *    folds into an unresolvable categoría of its own bucket instead.
+ * 6. Rows inside a categoría/`filasDirectas`: `fecha` ascending, `rowIndex`
+ *    tiebreak.
+ * 7. Duplicate rows group by their `sugerido` like any other row.
  */
-describe('agruparFilasPorCategoriaSugerida', () => {
+describe('agruparFilasPorBucketYCategoria', () => {
   const catalogo = unCatalogo();
 
-  it('agrupa una fila clasificada por (bucket, categoriaId) del sugerido, con nombre e ícono resueltos del catálogo', () => {
+  it('agrupa una fila clasificada bajo su bucket, con una categoría con nombre e ícono resueltos del catálogo', () => {
     const fila = unaFilaPreview({
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogo);
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogo);
 
     expect(grupos).toEqual([
       {
-        clave: 'categoria::Necesidades::cat-nec-1',
         bucket: 'Necesidades',
-        categoriaId: 'cat-nec-1',
-        categoriaNombre: 'Supermercado',
-        icono: null,
-        filas: [fila],
+        categorias: [
+          {
+            clave: 'categoria::Necesidades::cat-nec-1',
+            categoriaId: 'cat-nec-1',
+            categoriaNombre: 'Supermercado',
+            icono: null,
+            filas: [fila],
+          },
+        ],
+        filasDirectas: [],
       },
     ]);
   });
@@ -70,12 +78,12 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogoConIcono);
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogoConIcono);
 
-    expect(grupos[0]?.icono).toBe('shopping-cart');
+    expect(grupos[0]?.categorias[0]?.icono).toBe('shopping-cart');
   });
 
-  it('fusiona varias filas del mismo (bucket, categoriaId) en un único grupo', () => {
+  it('fusiona varias filas del mismo (bucket, categoriaId) en una única categoría', () => {
     const fila1 = unaFilaPreview({
       rowIndex: 0,
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
@@ -85,61 +93,123 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila1, fila2], catalogo);
+    const grupos = agruparFilasPorBucketYCategoria([fila1, fila2], catalogo);
 
     expect(grupos).toHaveLength(1);
-    expect(grupos[0]?.filas).toEqual([fila1, fila2]);
+    expect(grupos[0]?.categorias).toHaveLength(1);
+    expect(grupos[0]?.categorias[0]?.filas).toEqual([fila1, fila2]);
   });
 
-  it('una fila Ingreso forma su propio grupo "Ingreso" sin categoriaId', () => {
+  it('dos filas del mismo bucket pero distinta categoría quedan bajo el MISMO grupo de bucket, con dos categorías', () => {
+    const filaSupermercado = unaFilaPreview({
+      rowIndex: 0,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+    const filaOtraCategoria = unaFilaPreview({
+      rowIndex: 1,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-2' },
+    });
+    const catalogoDosCategorias = unCatalogo({
+      grupos: [
+        {
+          bucket: 'Necesidades',
+          categorias: [
+            {
+              id: 'cat-nec-1',
+              nombre: 'Supermercado',
+              bucket: 'Necesidades',
+              patrones: [],
+              transaccionesCount: 0,
+            },
+            {
+              id: 'cat-nec-2',
+              nombre: 'Farmacia',
+              bucket: 'Necesidades',
+              patrones: [],
+              transaccionesCount: 0,
+            },
+          ],
+        },
+      ],
+    });
+
+    const grupos = agruparFilasPorBucketYCategoria(
+      [filaSupermercado, filaOtraCategoria],
+      catalogoDosCategorias,
+    );
+
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0]?.bucket).toBe('Necesidades');
+    expect(grupos[0]?.categorias.map((c) => c.categoriaNombre)).toEqual([
+      'Farmacia',
+      'Supermercado',
+    ]);
+  });
+
+  it('una fila Ingreso forma su propio grupo de bucket, sin categorías, con sus filas directas', () => {
     const fila = unaFilaIngreso();
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogo);
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogo);
 
     expect(grupos).toEqual([
       {
-        clave: 'ingreso',
         bucket: 'Ingreso',
-        categoriaId: null,
-        categoriaNombre: 'Ingreso',
-        icono: null,
-        filas: [fila],
+        categorias: [],
+        filasDirectas: [fila],
       },
     ]);
   });
 
-  it('una fila sin sugerido (sugerido: null) cae en el grupo "Sin categoría"', () => {
-    const fila = unaFilaPreview({ sugerido: null });
-
-    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogo);
-
-    expect(grupos).toEqual([
-      {
-        clave: 'sin-categoria',
-        bucket: null,
-        categoriaId: null,
-        categoriaNombre: 'Sin categoría',
-        icono: null,
-        filas: [fila],
-      },
-    ]);
-  });
-
-  it('el grupo "Sin categoría" siempre queda al final, incluso si aparece primero en el archivo', () => {
-    const filaSinCategoria = unaFilaPreview({ rowIndex: 0, sugerido: null });
+  it('una fila sin sugerido (sugerido: null) se DESCARTA por completo — no aparece en ningún grupo', () => {
+    const filaSinSugerido = unaFilaPreview({ rowIndex: 0, sugerido: null });
     const filaClasificada = unaFilaPreview({
       rowIndex: 1,
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida(
-      [filaSinCategoria, filaClasificada],
+    const grupos = agruparFilasPorBucketYCategoria(
+      [filaSinSugerido, filaClasificada],
       catalogo,
     );
 
-    expect(grupos.map((g) => g.clave)).toEqual([
-      'categoria::Necesidades::cat-nec-1',
-      'sin-categoria',
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0]?.bucket).toBe('Necesidades');
+    expect(grupos[0]?.categorias[0]?.filas).toEqual([filaClasificada]);
+    // No "sin-categoria" clave anywhere, no matter how it is spelled.
+    const todasLasClaves = grupos.flatMap((g) =>
+      g.categorias.map((c) => c.clave),
+    );
+    expect(todasLasClaves.some((c) => /sin.categoria$/i.test(c))).toBe(false);
+  });
+
+  it('si TODAS las filas no tienen sugerido, el resultado es una lista vacía de grupos', () => {
+    const filas = [
+      unaFilaPreview({ rowIndex: 0, sugerido: null }),
+      unaFilaPreview({ rowIndex: 1, sugerido: null }),
+    ];
+
+    const grupos = agruparFilasPorBucketYCategoria(filas, catalogo);
+
+    expect(grupos).toEqual([]);
+  });
+
+  it('una fila con sugerido presente pero categoriaId null en un bucket asignable (caso hoy inalcanzable por contrato) igual aparece bajo su bucket, como categoría no resoluble', () => {
+    const fila = unaFilaPreview({
+      sugerido: { bucket: 'Necesidades', categoriaId: null },
+    });
+
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogo);
+
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0]?.bucket).toBe('Necesidades');
+    expect(grupos[0]?.categorias).toEqual([
+      {
+        clave: 'categoria::Necesidades::__sin-categoria-id__',
+        categoriaId: null,
+        categoriaNombre: 'Categoría no disponible',
+        icono: null,
+        filas: [fila],
+      },
     ]);
   });
 
@@ -148,12 +218,11 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-borrada' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogo);
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogo);
 
-    expect(grupos).toEqual([
+    expect(grupos[0]?.categorias).toEqual([
       {
         clave: 'categoria::Necesidades::cat-borrada',
-        bucket: 'Necesidades',
         categoriaId: 'cat-borrada',
         categoriaNombre: 'Categoría no disponible',
         icono: null,
@@ -167,12 +236,12 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], {
-      tag: 'cargando',
-    });
+    const grupos = agruparFilasPorBucketYCategoria([fila], { tag: 'cargando' });
 
-    expect(grupos[0]?.categoriaNombre).toBe('Categoría no disponible');
-    expect(grupos[0]?.icono).toBeNull();
+    expect(grupos[0]?.categorias[0]?.categoriaNombre).toBe(
+      'Categoría no disponible',
+    );
+    expect(grupos[0]?.categorias[0]?.icono).toBeNull();
   });
 
   it('con catálogo en error, ninguna categoría es resoluble — no revienta', () => {
@@ -180,28 +249,29 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], { tag: 'error' });
+    const grupos = agruparFilasPorBucketYCategoria([fila], { tag: 'error' });
 
-    expect(grupos[0]?.categoriaNombre).toBe('Categoría no disponible');
+    expect(grupos[0]?.categorias[0]?.categoriaNombre).toBe(
+      'Categoría no disponible',
+    );
   });
 
-  it('orden determinístico: BUCKETS_ASIGNABLES, luego Ingreso, luego nombre es-CL dentro de un bucket, "Sin categoría" al final', () => {
+  it('orden determinístico: BUCKETS_ASIGNABLES, luego Ingreso; dentro de un bucket, nombre es-CL', () => {
     const filaAhorro = unaFilaPreview({
       rowIndex: 0,
       sugerido: { bucket: 'Ahorro', categoriaId: 'cat-ahorro-1' },
     });
     const filaIngreso = unaFilaIngreso({ rowIndex: 1 });
-    const filaSinCategoria = unaFilaPreview({ rowIndex: 2, sugerido: null });
     const filaDeseoZ = unaFilaPreview({
-      rowIndex: 3,
+      rowIndex: 2,
       sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-z' },
     });
     const filaDeseoA = unaFilaPreview({
-      rowIndex: 4,
+      rowIndex: 3,
       sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-a' },
     });
     const filaNecesidad = unaFilaPreview({
-      rowIndex: 5,
+      rowIndex: 4,
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
@@ -253,25 +323,24 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       ],
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida(
-      [
-        filaAhorro,
-        filaIngreso,
-        filaSinCategoria,
-        filaDeseoZ,
-        filaDeseoA,
-        filaNecesidad,
-      ],
+    const grupos = agruparFilasPorBucketYCategoria(
+      [filaAhorro, filaIngreso, filaDeseoZ, filaDeseoA, filaNecesidad],
       catalogoCompleto,
     );
 
-    expect(grupos.map((g) => g.categoriaNombre)).toEqual([
-      'Supermercado', // Necesidades
-      'Antojos', // Deseos, alfabético antes de Zapatillas
-      'Zapatillas', // Deseos
-      'Fondo mutuo', // Ahorro
+    expect(grupos.map((g) => g.bucket)).toEqual([
+      'Necesidades',
+      'Deseos',
+      'Ahorro',
       'Ingreso',
-      'Sin categoría', // siempre al final
+    ]);
+    expect(
+      grupos
+        .find((g) => g.bucket === 'Deseos')
+        ?.categorias.map((c) => c.categoriaNombre),
+    ).toEqual(['Antojos', 'Zapatillas']);
+    expect(grupos.find((g) => g.bucket === 'Ingreso')?.filasDirectas).toEqual([
+      filaIngreso,
     ]);
   });
 
@@ -285,18 +354,20 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-y' },
     });
 
-    const gruposXY = agruparFilasPorCategoriaSugerida([filaX, filaY], catalogo);
-    const gruposYX = agruparFilasPorCategoriaSugerida([filaY, filaX], catalogo);
+    const gruposXY = agruparFilasPorBucketYCategoria([filaX, filaY], catalogo);
+    const gruposYX = agruparFilasPorBucketYCategoria([filaY, filaX], catalogo);
 
-    // Precondition: both ids must be absent from the fixture so the groups tie
+    // Precondition: both ids must be absent from the fixture so the categorías tie
     // on the fallback name — otherwise this passes through name ordering and
     // no longer exercises the clave tiebreak.
-    expect(gruposXY.map((g) => g.categoriaNombre)).toEqual([
+    expect(gruposXY[0]?.categorias.map((c) => c.categoriaNombre)).toEqual([
       'Categoría no disponible',
       'Categoría no disponible',
     ]);
-    expect(gruposXY.map((g) => g.clave)).toEqual(gruposYX.map((g) => g.clave));
-    expect(gruposXY.map((g) => g.clave)).toEqual([
+    expect(gruposXY[0]?.categorias.map((c) => c.clave)).toEqual(
+      gruposYX[0]?.categorias.map((c) => c.clave),
+    );
+    expect(gruposXY[0]?.categorias.map((c) => c.clave)).toEqual([
       'categoria::Necesidades::cat-x',
       'categoria::Necesidades::cat-y',
     ]);
@@ -315,19 +386,21 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-­x' },
     });
 
-    const gruposAB = agruparFilasPorCategoriaSugerida(
+    const gruposAB = agruparFilasPorBucketYCategoria(
       [filaSimple, filaConGuionBlando],
       catalogo,
     );
-    const gruposBA = agruparFilasPorCategoriaSugerida(
+    const gruposBA = agruparFilasPorBucketYCategoria(
       [filaConGuionBlando, filaSimple],
       catalogo,
     );
 
-    expect(gruposAB.map((g) => g.clave)).toEqual(gruposBA.map((g) => g.clave));
+    expect(gruposAB[0]?.categorias.map((c) => c.clave)).toEqual(
+      gruposBA[0]?.categorias.map((c) => c.clave),
+    );
   });
 
-  it('S2: un categoriaId que contiene "::" igual resuelve su nombre del catálogo (ya no se trunca al hacer clave.split)', () => {
+  it('un categoriaId que contiene "::" igual resuelve su nombre del catálogo', () => {
     const catalogoConIdRaro = unCatalogo({
       grupos: [
         {
@@ -348,13 +421,13 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat::raro' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogoConIdRaro);
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogoConIdRaro);
 
-    expect(grupos[0]?.categoriaNombre).toBe('Rareza');
-    expect(grupos[0]?.categoriaId).toBe('cat::raro');
+    expect(grupos[0]?.categorias[0]?.categoriaNombre).toBe('Rareza');
+    expect(grupos[0]?.categorias[0]?.categoriaId).toBe('cat::raro');
   });
 
-  it('dentro de un grupo, las filas quedan ordenadas por fecha ascendente', () => {
+  it('dentro de una categoría, las filas quedan ordenadas por fecha ascendente', () => {
     const filaTardia = unaFilaPreview({
       rowIndex: 0,
       fecha: '2026-07-20T00:00:00.000Z',
@@ -368,12 +441,35 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida(
+    const grupos = agruparFilasPorBucketYCategoria(
       [filaTardia, filaTemprana],
       catalogo,
     );
 
-    expect(grupos[0]?.filas.map((f) => f.descripcion)).toEqual([
+    expect(grupos[0]?.categorias[0]?.filas.map((f) => f.descripcion)).toEqual([
+      'temprana',
+      'tardía',
+    ]);
+  });
+
+  it('dentro de filasDirectas de Ingreso, las filas quedan ordenadas por fecha ascendente', () => {
+    const filaTardia = unaFilaIngreso({
+      rowIndex: 0,
+      fecha: '2026-07-20T00:00:00.000Z',
+      descripcion: 'tardía',
+    });
+    const filaTemprana = unaFilaIngreso({
+      rowIndex: 1,
+      fecha: '2026-07-01T00:00:00.000Z',
+      descripcion: 'temprana',
+    });
+
+    const grupos = agruparFilasPorBucketYCategoria(
+      [filaTardia, filaTemprana],
+      catalogo,
+    );
+
+    expect(grupos[0]?.filasDirectas.map((f) => f.descripcion)).toEqual([
       'temprana',
       'tardía',
     ]);
@@ -395,9 +491,12 @@ describe('agruparFilasPorCategoriaSugerida', () => {
 
     // Pasadas en el orden "equivocado" (B antes que A) — el resultado debe
     // igual quedar A, B, por rowIndex.
-    const grupos = agruparFilasPorCategoriaSugerida([filaB, filaA], catalogo);
+    const grupos = agruparFilasPorBucketYCategoria([filaB, filaA], catalogo);
 
-    expect(grupos[0]?.filas.map((f) => f.descripcion)).toEqual(['A', 'B']);
+    expect(grupos[0]?.categorias[0]?.filas.map((f) => f.descripcion)).toEqual([
+      'A',
+      'B',
+    ]);
   });
 
   it('una fila duplicada (esDuplicado) agrupa por su sugerido, como cualquier otra fila', () => {
@@ -411,13 +510,30 @@ describe('agruparFilasPorCategoriaSugerida', () => {
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     });
 
-    const grupos = agruparFilasPorCategoriaSugerida(
+    const grupos = agruparFilasPorBucketYCategoria(
       [filaDuplicada, filaNormal],
       catalogo,
     );
 
-    // Un único grupo — la fila duplicada NO forma un grupo "Duplicadas" aparte.
+    // Una única categoría — la fila duplicada NO forma un grupo "Duplicadas" aparte.
     expect(grupos).toHaveLength(1);
-    expect(grupos[0]?.filas).toEqual([filaDuplicada, filaNormal]);
+    expect(grupos[0]?.categorias).toHaveLength(1);
+    expect(grupos[0]?.categorias[0]?.filas).toEqual([
+      filaDuplicada,
+      filaNormal,
+    ]);
+  });
+
+  it('un bucket sin ninguna fila está simplemente ausente del resultado', () => {
+    const fila = unaFilaPreview({
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+
+    const grupos = agruparFilasPorBucketYCategoria([fila], catalogo);
+
+    expect(grupos.map((g) => g.bucket)).toEqual(['Necesidades']);
+    expect(grupos.some((g) => g.bucket === 'Deseos')).toBe(false);
+    expect(grupos.some((g) => g.bucket === 'Ahorro')).toBe(false);
+    expect(grupos.some((g) => g.bucket === 'Ingreso')).toBe(false);
   });
 });

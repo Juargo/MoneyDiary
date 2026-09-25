@@ -2,16 +2,19 @@ import { BUCKETS_ASIGNABLES, BUCKET_INGRESO } from '@/api/catalogo-constantes';
 import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
 
 /**
- * agruparFilasPorCategoriaSugerida (preview-agrupacion-categoria T2) —
- * groups the EDITABLE review table (`PreviewMuestra`) rows by bucket ·
- * categoría, for the per-group accordion the table renders. Pure,
- * presentation-only (ADR-024): no reclassification, no amount math.
+ * agruparFilasPorBucketYCategoria (preview-acordeon-bucket T1, extends
+ * preview-agrupacion-categoria T2) — groups the EDITABLE review table
+ * (`PreviewMuestra`) rows into a TWO-LEVEL structure — bucket, then
+ * categoría within that bucket — for the nested accordion the table
+ * renders. Pure, presentation-only (ADR-024): no reclassification, no
+ * amount math.
  *
  * Grouping key = the SERVER SUGGESTION (`fila.sugerido`) ONLY, never the
  * merged edit (`resolverCategoriaMerged`) — a row the user reclassifies via
  * its own select stays in its ORIGINAL group until the preview is reloaded/
- * re-run (product decision, 2026-09-25). That is why this function takes no
- * `edits` parameter at all: there is nothing here for an edit to change.
+ * re-run (product decision, 2026-09-25, unchanged from T2). That is why this
+ * function takes no `edits` parameter at all: there is nothing here for an
+ * edit to change.
  *
  * Distinct from the READ-ONLY decision-step summary
  * (`agrupar-preview-por-categoria.ts`, `agruparPreviewPorCategoria`,
@@ -20,49 +23,56 @@ import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
  * dedicated "Duplicadas" bucket). Here, a duplicate row groups by its
  * `sugerido` like any other row — the editable table already renders
  * duplicates inline, greyed with a badge (WEB-PRV-04), so pulling them into
- * a separate group would split one visual "Movimientos" list into two. The
- * bucket-order helper below is intentionally a small standalone copy of
- * that sibling module's `ordenBucket` rather than a shared extraction: the
- * decision-step summary is explicitly out of scope for this change and its
- * own five-shape grouping doesn't map 1:1 onto this simpler one.
+ * a separate group would split one visual "Movimientos" list into two.
  *
- * Three group shapes, keyed by `clave`:
- * - `categoria::${bucket}::${categoriaId}` — a resolvable OR unresolvable
- *   categoriaId (catalog `cargando`/`error`, or a stale/deleted id) both
- *   group by `(bucket, categoriaId)`; only `categoriaNombre`/`icono`
- *   resolution differs (unresolvable → "Categoría no disponible", no
- *   ícono). Unlike the decision-step summary, this is NOT split into two
- *   group shapes — the editable table has no need for that distinction.
- * - `ingreso` — the backend's immutable Ingreso verdict (`sugerido.bucket
- *   === 'Ingreso'`, `categoriaId` always null). Single group, no
- *   categoriaId, `categoriaNombre: 'Ingreso'`.
- * - `sin-categoria` — `sugerido === null`, OR (unreachable today)
- *   `sugerido` present with a null `categoriaId` on a non-Ingreso bucket.
- *   Single group, always LAST regardless of file order (product decision).
+ * Level 1 (bucket): one entry per PRESENT bucket among `BUCKETS_ASIGNABLES`
+ * (Necesidades, Deseos, Ahorro) in that order, then `BUCKET_INGRESO` last.
+ * A bucket with no rows is simply absent — never rendered empty.
  *
- * Order: `BUCKETS_ASIGNABLES` order (Necesidades, Deseos, Ahorro), then
- * Ingreso, then "Sin categoría" last. Within the same bucket tier, groups
- * sort by `categoriaNombre` (`localeCompare('es')`) — this covers both
- * resolved names and the "Categoría no disponible" fallback uniformly, a
- * deliberate simplification versus the decision-step summary's two-tier
- * sort (named categorías before "no disponible" ones): T2's product
- * decisions never asked for that finer split. `clave` is the FINAL tiebreak
- * (T2 review S1 fix) — several groups can legitimately share the same
- * `categoriaNombre` (two unresolvable categoriaIds both falling back to
- * "Categoría no disponible", or the whole catalog in `cargando`/`error`),
- * and without a further tiebreak that left the sort's stability exposing
- * Map insertion order — i.e. file order — as an accidental, non-contractual
- * ordering.
+ * Level 2 (categoría, only for the three asignable buckets): one entry per
+ * `categoriaId` within that bucket, sorted by `categoriaNombre`
+ * (`localeCompare('es')`) with `clave` as the final ordinal tiebreak (T2
+ * review S1 fix — several groups can legitimately share the fallback name
+ * "Categoría no disponible", or the whole catalog can be in `cargando`/
+ * `error`; `clave` is always unique per group, and comparing it ordinally
+ * rather than with `localeCompare` avoids ICU treating two distinct keys as
+ * equal, e.g. an ignorable soft hyphen, which would leak file order back
+ * in). A `categoriaId` not resolvable in the catalog (catalog `cargando`/
+ * `error`, or a stale/deleted id) still groups by `(bucket, categoriaId)`,
+ * with the "Categoría no disponible" fallback name and no ícono.
  *
- * Rows inside every group: `fecha` ascending (ISO-8601 strings compare
- * lexicographically in chronological order), `rowIndex` as a stable
- * tiebreak.
+ * `BUCKET_INGRESO` never gets a level 2: the backend's immutable Ingreso
+ * verdict (`sugerido.bucket === 'Ingreso'`, `categoriaId` always null) has
+ * no categoría to drill into, so its rows sit directly on `filasDirectas`
+ * and `categorias` is always `[]` for it.
+ *
+ * No "Sin categoría" group (issue #778, product decision 2026-09-25): the
+ * backend has not returned `sugerido: null` since #778 tramo 5b — every
+ * non-Ingreso row the user's catalog can categorize gets a real
+ * `(bucket, categoriaId)`, defaulting to that bucket's `Desconocido`
+ * category when no pattern matched (`preview-ingesta.use-case.ts:104-110`).
+ * The wire type keeps `sugerido: {...} | null` for defensive contract
+ * discipline, not because a live path still produces `null` — so this
+ * function still HANDLES both theoretically-reachable-only-by-type shapes
+ * without crashing, deliberately minimally rather than resurrecting a
+ * dedicated group for either:
+ * - `sugerido === null` — the row is DROPPED from every group (never
+ *   rendered by the accordion). There is no bucket to nest it under, and
+ *   inventing a top-level "Sin categoría" bucket is exactly the group this
+ *   change removes.
+ * - `sugerido` present but `categoriaId === null` on a non-Ingreso bucket
+ *   (the bucket contract's own defaults make this unreachable today, same
+ *   as before T2) — treated as an unresolvable categoría of that bucket,
+ *   same fallback name/clave shape as a stale/deleted id, so it still
+ *   surfaces under its real bucket instead of disappearing.
+ *
+ * Rows inside every categoría (and inside `filasDirectas` for Ingreso):
+ * `fecha` ascending (ISO-8601 strings compare lexicographically in
+ * chronological order), `rowIndex` as a stable tiebreak.
  */
 
-export interface GrupoFilaPorCategoria {
+export interface GrupoCategoriaEnBucket {
   readonly clave: string;
-  /** `null` only for the `sin-categoria` group — every other group has a real bucket. */
-  readonly bucket: string | null;
   readonly categoriaId: string | null;
   readonly categoriaNombre: string;
   /** `CategoriaDto.icono` resolved from the catalog, or `null` (badge falls back to `Tag`). */
@@ -70,9 +80,17 @@ export interface GrupoFilaPorCategoria {
   readonly filas: ReadonlyArray<PreviewFilaDto>;
 }
 
-const CLAVE_INGRESO = 'ingreso';
-const CLAVE_SIN_CATEGORIA = 'sin-categoria';
+export interface GrupoBucket {
+  readonly bucket: string;
+  /** One entry per categoría in this bucket, sorted; always `[]` for `BUCKET_INGRESO`. */
+  readonly categorias: ReadonlyArray<GrupoCategoriaEnBucket>;
+  /** Rows to render DIRECTLY, no categoría level — only ever non-empty for `BUCKET_INGRESO`. */
+  readonly filasDirectas: ReadonlyArray<PreviewFilaDto>;
+}
+
 const NOMBRE_CATEGORIA_NO_DISPONIBLE = 'Categoría no disponible';
+/** Sentinel clave suffix for a non-Ingreso row whose `categoriaId` is `null` — see docblock. */
+const SIN_CATEGORIA_ID = '__sin-categoria-id__';
 
 /** Resolves a categoría's `{ nombre, icono }` from a `listo` catalog; `null` when absent or the catalog isn't ready. */
 function resolverCategoria(
@@ -88,131 +106,123 @@ function resolverCategoria(
   return null;
 }
 
-/**
- * Resolves one fila's grouping key AND its original `bucket`/`categoriaId`
- * in a single pass (T2 review S2 fix). Previously the `bucket`/`categoriaId`
- * used to build a `categoria::...` group were re-derived by splitting
- * `clave` on `'::'` — that truncated any bucket or categoriaId that itself
- * contained `'::'` (`clave.split('::')` has no way to tell a literal `'::'`
- * inside an id apart from the separator). Carrying them alongside the clave
- * from the one place that already knows them avoids that ambiguity entirely.
- */
-function resolverGrupoDeFila(fila: PreviewFilaDto): {
-  readonly clave: string;
-  readonly bucket: string | null;
-  readonly categoriaId: string | null;
-} {
-  if (fila.sugerido === null) {
-    return { clave: CLAVE_SIN_CATEGORIA, bucket: null, categoriaId: null };
-  }
-  const { bucket, categoriaId } = fila.sugerido;
-  if (bucket === BUCKET_INGRESO) {
-    return { clave: CLAVE_INGRESO, bucket: BUCKET_INGRESO, categoriaId: null };
-  }
-  if (categoriaId === null) {
-    return { clave: CLAVE_SIN_CATEGORIA, bucket: null, categoriaId: null };
-  }
-  return {
-    clave: `categoria::${bucket}::${categoriaId}`,
-    bucket,
-    categoriaId,
-  };
-}
-
-/** Canonical bucket order index: the three asignables, then Ingreso, then "everything else". */
-function ordenBucket(bucket: string): number {
-  const idx = (BUCKETS_ASIGNABLES as readonly string[]).indexOf(bucket);
-  if (idx !== -1) return idx;
-  if (bucket === BUCKET_INGRESO) return BUCKETS_ASIGNABLES.length;
-  return BUCKETS_ASIGNABLES.length + 1;
-}
-
 function compararFilas(a: PreviewFilaDto, b: PreviewFilaDto): number {
   if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
   return a.rowIndex - b.rowIndex;
 }
 
-export function agruparFilasPorCategoriaSugerida(
-  filas: ReadonlyArray<PreviewFilaDto>,
+/**
+ * Resolves one fila's bucket/categoriaId for grouping, or `null` when the
+ * row must be DROPPED (`sugerido === null`, dead per #778 — see docblock).
+ */
+function resolverBucketYCategoriaDeFila(fila: PreviewFilaDto): {
+  readonly bucket: string;
+  readonly categoriaId: string | null;
+} | null {
+  if (fila.sugerido === null) return null;
+  return {
+    bucket: fila.sugerido.bucket,
+    categoriaId: fila.sugerido.categoriaId,
+  };
+}
+
+/** Groups the rows ALREADY known to belong to one non-Ingreso `bucket` into sorted categoría entries. */
+function agruparPorCategoriaDentroDeBucket(
+  bucket: string,
+  filasDelBucket: ReadonlyArray<PreviewFilaDto>,
   catalogo: CatalogoEstado,
-): ReadonlyArray<GrupoFilaPorCategoria> {
-  const porClave = new Map<
-    string,
-    {
-      readonly bucket: string | null;
-      readonly categoriaId: string | null;
-      readonly filas: PreviewFilaDto[];
-    }
-  >();
-  for (const fila of filas) {
-    const { clave, bucket, categoriaId } = resolverGrupoDeFila(fila);
-    const entrada = porClave.get(clave);
+): ReadonlyArray<GrupoCategoriaEnBucket> {
+  const porCategoriaId = new Map<string, PreviewFilaDto[]>();
+  for (const fila of filasDelBucket) {
+    const categoriaId = fila.sugerido?.categoriaId ?? null;
+    const clave =
+      categoriaId === null
+        ? `categoria::${bucket}::${SIN_CATEGORIA_ID}`
+        : `categoria::${bucket}::${categoriaId}`;
+    const entrada = porCategoriaId.get(clave);
     if (entrada) {
-      entrada.filas.push(fila);
+      entrada.push(fila);
     } else {
-      porClave.set(clave, { bucket, categoriaId, filas: [fila] });
+      porCategoriaId.set(clave, [fila]);
     }
   }
 
-  const grupos: GrupoFilaPorCategoria[] = [];
-  for (const [clave, { bucket, categoriaId, filas: filasGrupo }] of porClave) {
-    const filasOrdenadas = [...filasGrupo].sort(compararFilas);
-
-    if (clave === CLAVE_SIN_CATEGORIA) {
-      grupos.push({
-        clave,
-        bucket: null,
-        categoriaId: null,
-        categoriaNombre: 'Sin categoría',
-        icono: null,
-        filas: filasOrdenadas,
-      });
-      continue;
-    }
-
-    if (clave === CLAVE_INGRESO) {
-      grupos.push({
-        clave,
-        bucket: BUCKET_INGRESO,
-        categoriaId: null,
-        categoriaNombre: 'Ingreso',
-        icono: null,
-        filas: filasOrdenadas,
-      });
-      continue;
-    }
-
-    const categoria = resolverCategoria(catalogo, categoriaId ?? '');
-    grupos.push({
+  const categorias: GrupoCategoriaEnBucket[] = [];
+  for (const [clave, filasCategoria] of porCategoriaId) {
+    const categoriaId = filasCategoria[0]?.sugerido?.categoriaId ?? null;
+    const categoria =
+      categoriaId === null ? null : resolverCategoria(catalogo, categoriaId);
+    categorias.push({
       clave,
-      bucket: bucket ?? '',
-      categoriaId: categoriaId ?? '',
+      categoriaId,
       categoriaNombre: categoria?.nombre ?? NOMBRE_CATEGORIA_NO_DISPONIBLE,
       icono: categoria?.icono ?? null,
-      filas: filasOrdenadas,
+      filas: [...filasCategoria].sort(compararFilas),
     });
   }
 
-  return grupos.sort((a, b) => {
-    const ordenA =
-      a.bucket === null ? Number.MAX_SAFE_INTEGER : ordenBucket(a.bucket);
-    const ordenB =
-      b.bucket === null ? Number.MAX_SAFE_INTEGER : ordenBucket(b.bucket);
-    if (ordenA !== ordenB) return ordenA - ordenB;
+  return categorias.sort((a, b) => {
     const ordenNombre = a.categoriaNombre.localeCompare(
       b.categoriaNombre,
       'es',
     );
-    // S1 fix: `categoriaNombre` alone leaves ties (several unresolvable
-    // categoriaIds sharing the "Categoría no disponible" fallback, or a
-    // catalog in `cargando`/`error`) to fall back to Map insertion order —
-    // i.e. file order, which is not a deterministic contract. `clave` is
-    // always unique per group, so it is a safe final tiebreak. Compared
-    // ordinally, not with `localeCompare`: ICU collation can report two
-    // distinct keys as equal (ignorable code points such as a soft hyphen),
-    // which would leak file order back in.
     if (ordenNombre !== 0) return ordenNombre;
+    // S1 fix (T2): `categoriaNombre` alone leaves ties (several unresolvable
+    // categoriaIds sharing the "Categoría no disponible" fallback) to fall
+    // back to Map insertion order — i.e. file order, not a deterministic
+    // contract. `clave` is always unique per group, so it is a safe final
+    // tiebreak, compared ORDINALLY (not `localeCompare`, which can report
+    // two distinct keys as equal for an ignorable code point).
     if (a.clave === b.clave) return 0;
     return a.clave < b.clave ? -1 : 1;
   });
+}
+
+export function agruparFilasPorBucketYCategoria(
+  filas: ReadonlyArray<PreviewFilaDto>,
+  catalogo: CatalogoEstado,
+): ReadonlyArray<GrupoBucket> {
+  const porBucket = new Map<string, PreviewFilaDto[]>();
+  for (const fila of filas) {
+    const resuelto = resolverBucketYCategoriaDeFila(fila);
+    if (resuelto === null) continue; // sugerido: null — dropped, see docblock
+    const entrada = porBucket.get(resuelto.bucket);
+    if (entrada) {
+      entrada.push(fila);
+    } else {
+      porBucket.set(resuelto.bucket, [fila]);
+    }
+  }
+
+  const ordenBuckets: readonly string[] = [
+    ...BUCKETS_ASIGNABLES,
+    BUCKET_INGRESO,
+  ];
+
+  const grupos: GrupoBucket[] = [];
+  for (const bucket of ordenBuckets) {
+    const filasBucket = porBucket.get(bucket);
+    if (!filasBucket || filasBucket.length === 0) continue; // empty buckets absent
+
+    if (bucket === BUCKET_INGRESO) {
+      grupos.push({
+        bucket,
+        categorias: [],
+        filasDirectas: [...filasBucket].sort(compararFilas),
+      });
+      continue;
+    }
+
+    grupos.push({
+      bucket,
+      categorias: agruparPorCategoriaDentroDeBucket(
+        bucket,
+        filasBucket,
+        catalogo,
+      ),
+      filasDirectas: [],
+    });
+  }
+
+  return grupos;
 }

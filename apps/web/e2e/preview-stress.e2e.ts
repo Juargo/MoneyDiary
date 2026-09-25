@@ -34,7 +34,7 @@ import { buildPreviewStressFixture } from './fixtures/preview-stress-fixture';
 
 const ROW_COUNT = 300;
 const { fixture, meta } = buildPreviewStressFixture(ROW_COUNT);
-const lastRowLabel = `Fila ${meta.rowCount}: grupo`;
+const lastRowLabel = `Fila ${meta.lastRowIndex + 1}: grupo`;
 const midRowLabelBucket = `Fila ${meta.midRowIndex + 1}: grupo`;
 const midRowLabelCategoria = `Fila ${meta.midRowIndex + 1}: categoría`;
 
@@ -92,6 +92,18 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
     await page
       .getByRole('button', { name: 'Revisar y editar' })
       .click({ timeout: 15_000 });
+
+    // preview-acordeon-bucket T1: both accordion levels start COLLAPSED, so
+    // no row is reachable until its bucket AND categoría are opened. Both
+    // the last row (forced classified into Necesidades/Supermercado) and
+    // the mid row (forced into Necesidades/Categoría no disponible, below)
+    // share the SAME bucket — one click opens it for both.
+    await page
+      .getByRole('button', { name: /^Necesidades ·/ })
+      .click({ timeout: 15_000 });
+    await page
+      .getByRole('button', { name: /^Supermercado ·/ })
+      .click({ timeout: 15_000 });
     // The LAST row's bucket <select> is the strongest "fully rendered AND
     // interactive" signal available — it only exists once React has mapped
     // all 300 `filas` to `<FilaRevision>` (`PreviewMuestra` maps in file
@@ -104,9 +116,12 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
     registrar(proyecto, 'render inicial (300 filas)', initialRenderMs);
 
     // --- 2. One per-row classification interaction, mid-list (~row 150) ---
-    // `midRowIndex` is forced non-duplicate + unclassified by the fixture
-    // generator, so this always exercises the real bucket->categoría
-    // cascade, never a no-op re-selection. The bucket control is a plain
+    // `midRowIndex` is forced non-duplicate + unclassified (Desconocido
+    // placeholder) by the fixture generator, so this always exercises the
+    // real bucket->categoría cascade, never a no-op re-selection. Its
+    // categoría panel ("Categoría no disponible", the Desconocido
+    // placeholder's fallback label) needs its own open — the bucket is
+    // already expanded from step 1 above. The bucket control is a plain
     // `<select>` (the 2026-08-30 `SelectorBucket` chip group was reverted on
     // 2026-09-06) and the categoría `<select>` only renders once a bucket
     // other than the leading sentinel is chosen — so the flow is: pick the
@@ -115,6 +130,9 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
     // "N de M clasificadas" progress readout this used to also assert on
     // was removed from `PreviewMuestra` (definitive removal, commit
     // 0f462ef8).
+    await page
+      .getByRole('button', { name: /^Categoría no disponible ·/ })
+      .click({ timeout: 15_000 });
     const bucketSelect = page.getByLabel(midRowLabelBucket);
     const categoriaSelect = page.getByLabel(midRowLabelCategoria);
 
