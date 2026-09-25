@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { aResumenViewModel } from './resumen-view-model';
 import type { ResumenMesDto } from '../api/types';
 
+// issue #778 tramo 5b PR5 (apps/api) removed `Bucket.SinCategoria` and
+// `cantidadSinCategoria` from the domain and the wire contract entirely — a
+// real `ResumenMesDto` is now exactly 3 buckets, no `cantidadSinCategoria`
+// key. This fixture reflects the NEW shape; tests below that specifically
+// prove deploy-order-safety tolerance for the OLD (legacy) shape build their
+// own one-off payload and cast it, since `ResumenMesDto` no longer types
+// those fields.
 function dto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
   return {
     periodo: '2026-07',
@@ -26,19 +33,9 @@ function dto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
         porcentajeBp: 3500,
         estadoSemaforo: 'amarillo',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: 0,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'amarillo',
-    // Nonzero default (not 0) so the explicit `{ cantidadSinCategoria: 0 }`
-    // override below genuinely proves the zero-mapping path instead of being
-    // a no-op against an already-zero default.
-    cantidadSinCategoria: 3,
     ...overrides,
   };
 }
@@ -66,9 +63,32 @@ describe('aResumenViewModel', () => {
   });
 
   it('mapea porcentajeBp: 0 (verdadero cero) como "0%"', () => {
-    const vm = aResumenViewModel(dto());
-    const sinCategoria = vm.buckets.find((b) => b.bucket === 'SinCategoria');
-    expect(sinCategoria?.porcentajeLabel).toBe('0%');
+    const vm = aResumenViewModel(
+      dto({
+        buckets: [
+          {
+            bucket: 'Necesidades',
+            total: '400000',
+            porcentajeBp: 4000,
+            estadoSemaforo: 'verde',
+          },
+          {
+            bucket: 'Deseos',
+            total: '250000',
+            porcentajeBp: 2500,
+            estadoSemaforo: 'verde',
+          },
+          {
+            bucket: 'Ahorro',
+            total: '0',
+            porcentajeBp: 0,
+            estadoSemaforo: null,
+          },
+        ],
+      }),
+    );
+    const ahorro = vm.buckets.find((b) => b.bucket === 'Ahorro');
+    expect(ahorro?.porcentajeLabel).toBe('0%');
   });
 
   it('mapea porcentajeBp: null a una etiqueta distinta de "0%" (MOB-06 / W1-02)', () => {
@@ -95,12 +115,6 @@ describe('aResumenViewModel', () => {
             porcentajeBp: null,
             estadoSemaforo: null,
           },
-          {
-            bucket: 'SinCategoria',
-            total: '0',
-            porcentajeBp: null,
-            estadoSemaforo: null,
-          },
         ],
         estadoGlobal: null,
       }),
@@ -122,9 +136,35 @@ describe('aResumenViewModel', () => {
   });
 
   it('mapea estadoSemaforo: null por bucket', () => {
-    const vm = aResumenViewModel(dto());
-    const sinCategoria = vm.buckets.find((b) => b.bucket === 'SinCategoria');
-    expect(sinCategoria?.estadoSemaforo).toBeNull();
+    const vm = aResumenViewModel(
+      dto({
+        sinIngreso: true,
+        totalIngreso: '0',
+        buckets: [
+          {
+            bucket: 'Necesidades',
+            total: '0',
+            porcentajeBp: null,
+            estadoSemaforo: null,
+          },
+          {
+            bucket: 'Deseos',
+            total: '0',
+            porcentajeBp: null,
+            estadoSemaforo: null,
+          },
+          {
+            bucket: 'Ahorro',
+            total: '0',
+            porcentajeBp: null,
+            estadoSemaforo: null,
+          },
+        ],
+        estadoGlobal: null,
+      }),
+    );
+    const necesidades = vm.buckets.find((b) => b.bucket === 'Necesidades');
+    expect(necesidades?.estadoSemaforo).toBeNull();
   });
 
   it('propaga estadoGlobal al view model (passthrough)', () => {
@@ -148,11 +188,26 @@ describe('aResumenViewModel', () => {
   });
 
   // Issue #778 tramo5b PR1 (apps/web): distribucionGasto no longer includes
-  // SinCategoria at all — the fixture's `buckets` array still carries a
-  // SinCategoria entry (the API is unchanged in this PR), but it never
-  // reaches the ring/legend.
-  it('distribucionGasto ignora la entrada SinCategoria del DTO — no aparece y no distorsiona los otros 3 buckets (issue #778)', () => {
-    const vm = aResumenViewModel(dto());
+  // SinCategoria at all. Tramo5b PR5 (apps/api) later removed
+  // `Bucket.SinCategoria` from the domain and the wire contract entirely —
+  // a real response can no longer send it, but a stale/cached response
+  // during the independent web/API deploy window still could. This test
+  // feeds a LEGACY 4-bucket payload and proves it never reaches the
+  // ring/legend (deploy-order safety).
+  it('distribucionGasto ignora una entrada SinCategoria legacy del DTO — no aparece y no distorsiona los otros 3 buckets (deploy-order safety, issue #778 tramo5b PR5)', () => {
+    const dtoConSinCategoriaLegacy: ResumenMesDto = {
+      ...dto(),
+      buckets: [
+        ...dto().buckets,
+        {
+          bucket: 'SinCategoria',
+          total: '0',
+          porcentajeBp: 0,
+          estadoSemaforo: null,
+        },
+      ],
+    } as ResumenMesDto;
+    const vm = aResumenViewModel(dtoConSinCategoriaLegacy);
     // Necesidades 400k / Deseos 250k / Ahorro 350k → 40/25/35, SinCategoria absent.
     expect(vm.distribucionGasto.map((t) => [t.bucket, t.porcentaje])).toEqual([
       ['Necesidades', 40],
@@ -281,9 +336,19 @@ describe('aResumenViewModel', () => {
       ]);
     });
 
-    it('cantidadSinCategoria no afecta leyendaComplemento sea cual sea su valor (issue #778)', () => {
-      const conCero = aResumenViewModel(dto({ cantidadSinCategoria: 0 }));
-      const conVarios = aResumenViewModel(dto({ cantidadSinCategoria: 7 }));
+    // issue #778 tramo 5b PR5 removed `cantidadSinCategoria` from
+    // `ResumenMesDto` entirely — kept as a deploy-order-safety proof that a
+    // legacy payload still carrying the field (cast, since the type no
+    // longer allows it) never affects leyendaComplemento either way.
+    it('cantidadSinCategoria (legacy) no afecta leyendaComplemento sea cual sea su valor (deploy-order safety, issue #778 tramo5b PR5)', () => {
+      const conCero = aResumenViewModel({
+        ...dto(),
+        cantidadSinCategoria: 0,
+      } as ResumenMesDto);
+      const conVarios = aResumenViewModel({
+        ...dto(),
+        cantidadSinCategoria: 7,
+      } as ResumenMesDto);
       expect(conCero.leyendaComplemento).toEqual([
         { kind: 'ingreso', montoLabel: '+$1.000.000' },
       ]);

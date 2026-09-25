@@ -77,7 +77,6 @@ const SEMAFORO_DETALLE_DTO: SemaforoDetalleDto = {
       consejo: null,
     },
   ],
-  sinCategoria: { cantidad: 0, total: '0' },
 };
 
 function buildFetchStub(authenticated: boolean) {

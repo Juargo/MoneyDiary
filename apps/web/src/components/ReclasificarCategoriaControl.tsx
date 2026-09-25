@@ -21,7 +21,7 @@ function etiqueta(bucket: string): string {
  * ReclasificarCategoriaControl — el `<select>` por fila que reemplaza los
  * placeholders deshabilitados "Editar categoría"/"Clasificar" (US-013 S6b,
  * WCAT-04/05, T6.0 decision). Un único control cubre AMBOS casos (reclasificar
- * una fila ya categorizada, o asignar categoría a una fila SinCategoria) —
+ * una fila ya categorizada, o asignar categoría a una fila sin categoría) —
  * mismo mecanismo, `categoriaActual` simplemente llega `null` en el segundo
  * caso (design.md §7.3, DRY: no dos controles distintos).
  *
@@ -227,7 +227,7 @@ export function ReclasificarCategoriaControl({
   // the mid-flight branch mirrors the single loading-state `<option>` below
   // (`{etiqueta(bucketActual)} · {categoriaActual.nombre}` or "Sin
   // categoría"), the loaded branch looks the selected `categoriaId` up in
-  // the live catalog. `valor === ''` covers both the SinCategoria
+  // the live catalog. `valor === ''` covers both the sin-categoría
   // placeholder AND the loaded branch consistently, since a real categoría
   // id is never an empty string.
   function etiquetaOpcionActual(): string {

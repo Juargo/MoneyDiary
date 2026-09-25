@@ -136,16 +136,9 @@ const dataDto: ResumenMesDto = {
       porcentajeBp: 2000,
       estadoSemaforo: 'verde',
     },
-    {
-      bucket: 'SinCategoria',
-      total: '0',
-      porcentajeBp: null,
-      estadoSemaforo: null,
-    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
-  cantidadSinCategoria: 0,
 };
 
 const emptyDto: ResumenMesDto = {
@@ -161,16 +154,9 @@ const emptyDto: ResumenMesDto = {
     },
     { bucket: 'Deseos', total: '0', porcentajeBp: null, estadoSemaforo: null },
     { bucket: 'Ahorro', total: '0', porcentajeBp: null, estadoSemaforo: null },
-    {
-      bucket: 'SinCategoria',
-      total: '0',
-      porcentajeBp: null,
-      estadoSemaforo: null,
-    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: null,
-  cantidadSinCategoria: 0,
 };
 
 // T5b.2 (US-050, design §1.9): the shell's own year, always the current UTC
@@ -229,16 +215,9 @@ function mesAnualConDatos(mes: string): ResumenMesDto {
         porcentajeBp: 2000,
         estadoSemaforo: 'verde',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
-    cantidadSinCategoria: 0,
   };
 }
 

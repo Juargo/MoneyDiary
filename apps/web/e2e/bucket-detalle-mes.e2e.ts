@@ -28,10 +28,9 @@ import { stubApi } from './fixtures/api-stubs';
  * 4. issue #778 tramo5b PR1: the dashboard no longer has a Sin categoría
  *    ROW/wedge to click at all — that case (formerly WDM-04/06, dashboard →
  *    `/buckets/SinCategoria?…&destacar=…`) is retired along with the row.
- *    `/buckets/SinCategoria` itself is still a working page if reached
- *    directly (no in-app link points to it anymore); its own
- *    %/meta-tag-and-usage-bar-suppression contract (MBD-03, D-02) is
- *    unrelated to this dashboard drill-down and is unaffected.
+ *    Tramo5b PR5 (apps/api) later removed `Bucket.SinCategoria` from the
+ *    domain entirely, so `/buckets/SinCategoria` itself no longer works even
+ *    if reached directly — the endpoint now 400s (BucketInvalidoError).
  * 5. US-055 T-08 — cross-bucket reclassify surfaces the announcement in the
  *    page-owned `role="status"` region AND the URL retains `?periodo=` (D-07,
  *    WCAT-04). Escritorio.

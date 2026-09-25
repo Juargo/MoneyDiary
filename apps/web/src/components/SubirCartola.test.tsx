@@ -144,7 +144,6 @@ function unResumenDto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
     buckets: [],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
-    cantidadSinCategoria: 0,
     ...overrides,
   };
 }
