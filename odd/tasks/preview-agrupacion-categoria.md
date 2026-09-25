@@ -68,10 +68,18 @@
 ## Delivery
 
 - Forecast: T1 is deletion-heavy (likely >400 authored lines, mostly removed tests); T2 ~300–400. Strategy: `ask-on-risk` → user chose **`stacked-to-main`** (2026-09-25).
-- Slice 1: PR #808 (`feature/preview-sin-seleccion` → `main`): `0f462ef8` + `dfd85b1e`. 367+/2535−.
-- Slice 2: PR #809 (`feature/design-subir` → `feature/preview-sin-seleccion`): `f2f1539a` + `43c97908`. 898+/129−. Retarget to `main` after #808 merges.
+- Slice 1: PR #808 (`feature/preview-sin-seleccion` → `main`): `0f462ef8` + `dfd85b1e` + `2ee49576`. 367+/2535− at opening. First CI run failed: `crear-categoria-preview.e2e.ts` still asserted the removed #748 help line → kept its 360px overflow guard, dropped the text assert (`2ee49576`, passed locally on `movil`). **Merged** 2026-09-25 as `8004b693`.
+- Slice 2: PR #809 (`feature/design-subir` → `feature/preview-sin-seleccion`): `f2f1539a` + `43c97908`. 898+/129−. After #808 merged: `main` merged into the branch (`ede0ec8b`), retargeted to `main`. CI green. **Merged** 2026-09-25 as `68795a2a`. Branch `feature/preview-sin-seleccion` deleted.
 - Both over 400 lines; `size:exception` suggested in each PR body (not applied — maintainer's call).
 
-## Next step
+## Status
 
-PRs #808 and #809 opened 2026-09-25. Review/merge #808, then retarget #809 to `main`.
+**Closed** 2026-09-25 — T1 and T2 delivered to `main` via #808 and #809.
+
+## Later work (not scheduled)
+
+- S1: tiebreak group order by `clave` (`agrupar-filas-por-categoria-sugerida.ts:167`).
+- S2: carry bucket/categoriaId instead of splitting `clave` on `::` (`:149`).
+- S3: component-level test for the focus-continuity guard (`PreviewMuestra.tsx:206-213`).
+- T1 review: `preview-stress.e2e.ts:130` completion signal is weak (select value, not the rendered state).
+- Engram mirror still PENDING (see header).
