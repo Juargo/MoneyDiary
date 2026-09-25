@@ -1,4 +1,4 @@
-import { ChevronRight, CircleAlert } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { claseFondoBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { ItemLeyenda } from '@/domain/resumen-view-model';
@@ -6,14 +6,15 @@ import type { ItemLeyenda } from '@/domain/resumen-view-model';
 /**
  * Pie legend + bucket selector — US-047 (design D-03/D-08): two ordered
  * `ItemLeyenda[]` groups (`principales`: the three 50/30/20 rows;
- * `complemento`: Ingresos then Sin categoría), separated by a structural
- * divider element (always in the DOM, viewport-conditional visibility only
- * — `hidden lg:block`, D-09; the Playwright geometry proof is T13's job,
- * not this component's). Row shape is derived from the item's `kind`
- * (D-03's discriminated union), never from a boolean flag:
- * `'gasto'`/`'sinCategoria'` → clickable `<button>` + chevron (both drill
- * down via `onSelectBucket`, `WCAT-01`); `'ingreso'` → clickable `<button>`
- * (US-054 D-05: the US-047 interim is retired — the endpoint now exists).
+ * `complemento`: just Ingresos as of issue #778 tramo5b PR1, which retired
+ * the Sin categoría row), separated by a structural divider element (always
+ * in the DOM, viewport-conditional visibility only — `hidden lg:block`,
+ * D-09; the Playwright geometry proof is T13's job, not this component's).
+ * Row shape is derived from the item's `kind` (D-03's discriminated union),
+ * never from a boolean flag: `'gasto'` → clickable `<button>` + chevron
+ * (drills down via `onSelectBucket`, `WCAT-01`); `'ingreso'` → clickable
+ * `<button>` (US-054 D-05: the US-047 interim is retired — the endpoint now
+ * exists).
  *
  * US-053 PR3 (D-06): the `bucketSeleccionado`/`aria-pressed` selection
  * state is GONE — a row click NAVIGATES to the month-scoped bucket page
@@ -86,17 +87,11 @@ function claseColorMonto(montoLabel: string): string {
   return 'text-foreground';
 }
 
-/** `cantidadLabel` is always `'N tx'` (view model); any N other than 0 needs attention. */
-function tieneSinCategorizar(cantidadLabel: string): boolean {
-  return !/^0\s/.test(cantidadLabel);
-}
-
 /**
- * `principales` is contractually always `kind: 'gasto'` and `complemento`
- * is `[ingreso, sinCategoria]` (D-03), but both are typed as the full
- * `ItemLeyenda` union on `ResumenViewModel` — this dispatcher handles all
- * 3 kinds so both `.map()` call sites stay a one-liner without an unsafe
- * cast.
+ * `principales` is contractually always `kind: 'gasto'` and `complemento` is
+ * `[ingreso]` (D-03, issue #778 tramo5b PR1), but both are typed as the full
+ * `ItemLeyenda` union on `ResumenViewModel` — this dispatcher handles both
+ * kinds so both `.map()` call sites stay a one-liner without an unsafe cast.
  */
 function filaParaItem(
   item: ItemLeyenda,
@@ -122,16 +117,15 @@ function filaParaItem(
 }
 
 /**
- * One clickable row — `'gasto'` (name · % · amount) or `'sinCategoria'`
- * (name · N tx · amount), both rendering the same button/chevron/dot
- * shell. Modeled as one function (not two) because the interactive shell
- * is identical; only the middle content column differs by `kind`.
+ * One clickable row — `'gasto'` (name · % · amount), rendering the
+ * button/chevron/dot shell. Issue #778 tramo5b PR1 retired the sibling
+ * `'sinCategoria'` row kind this used to also handle.
  */
 function FilaClickeable({
   item,
   onSelectBucket,
 }: {
-  readonly item: Extract<ItemLeyenda, { kind: 'gasto' | 'sinCategoria' }>;
+  readonly item: Extract<ItemLeyenda, { kind: 'gasto' }>;
   readonly onSelectBucket: (bucket: string) => void;
 }) {
   const etiqueta = ETIQUETA_BUCKET[item.bucket] ?? item.bucket;
@@ -167,38 +161,9 @@ function FilaClickeable({
               the single word "Necesidades42%" — a real accname bug, not a
               visual one (`gap-2` only affects layout). */}
           <span className="text-sm text-foreground">{etiqueta}</span>{' '}
-          {/* Minimal "needs attention" cue for uncategorized movements.
-              Decorative (`aria-hidden`): the accessible name already says
-              "N transacciones sin grupo ni categoría" via the sr-only expansion. */}
-          {item.kind === 'sinCategoria' &&
-            tieneSinCategorizar(item.cantidadLabel) && (
-              <CircleAlert
-                data-testid="leyenda-alerta-sin-categoria"
-                aria-hidden="true"
-                className="h-3.5 w-3.5 shrink-0 text-warning-foreground"
-              />
-            )}
-          {item.kind === 'gasto' ? (
-            <span className="font-mono text-sm font-medium tabular-nums text-foreground">
-              {item.porcentaje}%
-            </span>
-          ) : (
-            <span className="font-mono text-sm font-medium tabular-nums text-foreground">
-              {/* CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018): "tx" is a
-                  visual abbreviation an AT user shouldn't have to guess at.
-                  The visible "N tx" stays on screen but is pulled OUT of the
-                  accessible name (`aria-hidden`); a `sr-only` sibling
-                  REPLACES it with the spelled-out count instead of
-                  duplicating the digit. */}
-              <span aria-hidden="true">{item.cantidadLabel}</span>
-              <span className="sr-only">
-                {item.cantidadLabel.replace(
-                  /\s*tx$/,
-                  ' transacciones sin grupo ni categoría',
-                )}
-              </span>
-            </span>
-          )}
+          <span className="font-mono text-sm font-medium tabular-nums text-foreground">
+            {item.porcentaje}%
+          </span>
         </span>{' '}
         <span className="flex items-center gap-1">
           {/* Mono + tabular-nums (DESIGN.md): this is the dashboard's money

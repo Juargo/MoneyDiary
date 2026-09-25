@@ -38,12 +38,13 @@ async function gridTracks(locator: Locator): Promise<string[]> {
 }
 
 /**
- * The legend's own bounding box, computed from the union of its 5
+ * The legend's own bounding box, computed from the union of its 4
  * `leyenda-item` rows (real rendered geometry — not a testid on
  * `LeyendaGasto`'s root, which this change does not add). `principales`
- * (3 spend rows) render before `complemento` (Ingresos, Sin grupo ni categoría) in
- * DOM order (D-03), so index 2 is always the last spend row and index 3 is
- * always Ingresos — used by the divider-position assertion (#6) below.
+ * (3 spend rows) render before `complemento` (just Ingresos — issue #778
+ * tramo5b PR1 retired its Sin grupo ni categoría row) in DOM order (D-03),
+ * so index 2 is always the last spend row and index 3 is always Ingresos —
+ * used by the divider-position assertion (#6) below.
  */
 async function leyendaItems(page: Page): Promise<Locator[]> {
   return page.getByTestId('leyenda-item').all();
@@ -159,7 +160,7 @@ test.describe('dashboard donut — T1 grid layout (CA-05, WG5-10)', () => {
     expect(box).toBeNull();
   });
 
-  test('escritorio (1280px): the divider is present between the spend rows and Ingresos/Sin grupo ni categoría (divider proof 3/3, no lg regression)', async ({
+  test('escritorio (1280px): the divider is present between the spend rows and Ingresos (divider proof 3/3, no lg regression)', async ({
     page,
   }, testInfo) => {
     test.skip(
@@ -185,7 +186,7 @@ test.describe('dashboard donut — T1 grid layout (CA-05, WG5-10)', () => {
     expect(divisorBox.width * divisorBox.height).toBeGreaterThan(0);
 
     const items = await leyendaItems(page);
-    expect(items).toHaveLength(5);
+    expect(items).toHaveLength(4);
     const ultimoGasto = await items[2].boundingBox();
     const ingresos = await items[3].boundingBox();
     if (!ultimoGasto || !ingresos) {

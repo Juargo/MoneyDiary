@@ -5,13 +5,11 @@ import {
 } from '@/domain/pie-geometry';
 import { claseRellenoBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CLASE_SEPARADOR_PIE, claseEtiquetaPie } from '@/lib/pie-colors';
-// US-047 PR1 compile-fix (tasks.md "Proposed PR boundaries" #1): `BUCKETS_GASTO`
-// was split into `BUCKETS_5030`/`BUCKETS_ANILLO` (D-05). The IDEAL inset
-// indexes `targets`, which has no `SinCategoria` key, so it MUST keep using
-// the 3-item set — swapping to `BUCKETS_ANILLO` here would read
-// `targets.SinCategoria` (`undefined`) and render `NaN` paths (R-1). The
-// donut ring rewrite that actually threads `BUCKETS_ANILLO`'s 4th wedge lands
-// in PR2 (T6); this is a minimal 1-line compile-fix, not new behavior.
+// The IDEAL inset indexes `targets`, which has no `SinCategoria` key, so it
+// uses `BUCKETS_5030` (the 3-item spend set) — never `BUCKETS_ANILLO`, even
+// though the two are byte-identical since issue #778 tramo5b PR1, to keep
+// this call site's intent explicit (the ring's own membership vs. the
+// 50/30/20 target set).
 import { BUCKETS_5030 } from '@/domain/distribucion-gasto';
 import type { TajadaGasto } from '@/domain/distribucion-gasto';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
@@ -273,8 +271,8 @@ function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
  * US-047 (design D-01, judgment-day fix): the main ring's donut hole is
  * OPT-IN via `conInterior` (default `false`, filled pie — byte-identical to
  * this component's pre-US-047 shape). A caller only opts in once it feeds
- * the full 4-item `BUCKETS_ANILLO` ring; a hole around a still-3-item ring
- * would visibly regress the standalone chart.
+ * the full `BUCKETS_ANILLO` ring; a hole around an incomplete ring would
+ * visibly regress the standalone chart.
  */
 export function DistribucionPie({
   tajadas,
@@ -290,10 +288,9 @@ export function DistribucionPie({
   /**
    * Opt-in donut hole for the main ring (US-047 D-01). Default `false` —
    * judgment-day fix: a caller feeding fewer than the full `BUCKETS_ANILLO`
-   * set (e.g. `ResumenScreen` at the PR2 boundary, still on the PR1 shim's
-   * 3-item reading) would otherwise get a hole around an incomplete ring,
-   * visibly worse than the pre-US-047 filled pie. `ResumenScreen` opts in
-   * only once it wires the real 4-item `distribucionGasto` (T11).
+   * set would otherwise get a hole around an incomplete ring, visibly worse
+   * than the pre-US-047 filled pie. `ResumenScreen` opts in with the real
+   * `distribucionGasto` (T11).
    */
   readonly conInterior?: boolean;
 }) {
