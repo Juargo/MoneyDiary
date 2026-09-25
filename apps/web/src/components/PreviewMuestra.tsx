@@ -1,9 +1,15 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ChevronDown } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
 import { ResumenCartola } from './ResumenCartola';
+import { IconoCategoriaBadge } from './IconoCategoriaBadge';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
+import {
+  agruparFilasPorCategoriaSugerida,
+  type GrupoFilaPorCategoria,
+} from '@/domain/agrupar-filas-por-categoria-sugerida';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -16,17 +22,27 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * value (D-05: `edits` wins over `sugerido`).
  *
  * This component issues NO network requests and computes NO business values —
- * ADR-024 still holds: grouping by the existing `fecha` field is presentation,
- * never a recomputation of amounts, dedup, or classification rules. Product
- * decision 4 renders the full list without pagination or virtualization; a
- * per-date accordion (below) makes that full list navigable instead.
+ * ADR-024 still holds: grouping by bucket · categoría
+ * (`agruparFilasPorCategoriaSugerida`, preview-agrupacion-categoria T2) is
+ * presentation, never a recomputation of amounts, dedup, or classification
+ * rules. Product decision 4 renders the full list without pagination or
+ * virtualization; a per-group accordion (below) makes that full list
+ * navigable instead.
+ *
+ * Grouping key = the SERVER SUGGESTION (`fila.sugerido`), never the merged
+ * edit — a row the user reclassifies via its own select STAYS in its
+ * original group until the preview is reloaded/re-run. This is why the
+ * grouping call below takes `filas` directly, not `filasConMerged`: the
+ * merged value only feeds each row's own `categoriaId` prop, never the
+ * group it lands in.
  *
  * Local state (all ephemeral UI, none of it NETWORK/business state):
- * - `filaCreando` — WHICH row's inline "+ Nueva categoría" form is open (see
- *   that describe block's props further down); a single value gives "at
- *   most one form open across the table" for free.
- * - `gruposColapsados` — the Set of collapsed date-group keys behind the
- *   per-date accordion (2026-08-30 polish); empty = all open.
+ * - `filaCreando` — WHICH row's inline "+ Nueva categoría" form is open
+ *   (`FilaRevision`'s own docblock covers that flow); a single value gives
+ *   "at most one form open across the table" for free.
+ * - `gruposColapsados` — the Set of collapsed group keys (bucket ·
+ *   categoría, `GrupoFilaPorCategoria.clave`) behind the per-group accordion
+ *   (2026-08-30 polish, re-keyed by category in T2); empty = all open.
  *
  * D-07: when `catalogo.tag === 'cargando'` or `'error'`, the table still
  * renders (rows, amounts, Duplicado badges are backend data independent of the
@@ -52,33 +68,20 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * redundant — one is the one-line answer, the other is the depth.
  */
 
-interface FilaConMerged {
-  readonly fila: PreviewFilaDto;
-  readonly categoriaMerged: string | null;
-}
-
-interface GrupoPorFecha {
-  readonly fecha: string;
-  readonly filas: readonly FilaConMerged[];
-}
-
-// Groups CONSECUTIVE rows sharing the same `fecha` slice — filas arrive
-// date-ordered from the backend; if they weren't, a non-consecutive repeat of
-// the same date value intentionally starts a NEW group rather than merging
-// with an earlier one. No sorting, no dedup — pure presentation over file
-// order (ADR-024).
-function agruparPorFecha(filas: readonly FilaConMerged[]): GrupoPorFecha[] {
-  const grupos: GrupoPorFecha[] = [];
-  for (const item of filas) {
-    const fecha = item.fila.fecha.slice(0, 10);
-    const ultimo = grupos[grupos.length - 1];
-    if (ultimo && ultimo.fecha === fecha) {
-      (ultimo.filas as FilaConMerged[]).push(item);
-    } else {
-      grupos.push({ fecha, filas: [item] });
-    }
-  }
-  return grupos;
+/**
+ * Group header text: "{Bucket label} · {Categoría nombre}" via
+ * `ETIQUETA_BUCKET` (so Deseos reads "Gustos"), except for the two group
+ * shapes with no real categoría (`categoriaId === null`: `ingreso` and
+ * `sin-categoria`, `agrupar-filas-por-categoria-sugerida.ts`) — those show
+ * just their own label ("Ingreso" / "Sin categoría"), never a "· Ingreso"
+ * or "· Sin categoría" suffix on top of itself.
+ */
+function etiquetaGrupo(grupo: GrupoFilaPorCategoria): string {
+  if (grupo.categoriaId === null) return grupo.categoriaNombre;
+  const etiquetaBucket = grupo.bucket
+    ? (ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket)
+    : '';
+  return `${etiquetaBucket} · ${grupo.categoriaNombre}`;
 }
 
 export function PreviewMuestra({
@@ -151,13 +154,63 @@ export function PreviewMuestra({
   // sugerido.categoriaId (round-10 CRITICAL follow-up: extracted to
   // `resolverCategoriaMerged` so `SubirCartola`'s discard confirm reads the
   // SAME rule instead of a second copy that could drift). Backs the
-  // `categoriaId` prop each FilaRevision receives.
-  const filasConMerged: FilaConMerged[] = filas.map((fila) => ({
-    fila,
-    categoriaMerged: resolverCategoriaMerged(fila, edits),
-  }));
+  // `categoriaId` prop each FilaRevision receives — indexed by `rowIndex`
+  // since grouping (below) walks the raw `filas`, not this map.
+  const categoriaMergedPorFila = new Map<number, string | null>(
+    filas.map((fila) => [fila.rowIndex, resolverCategoriaMerged(fila, edits)]),
+  );
 
-  const grupos = agruparPorFecha(filasConMerged);
+  // Grouped by the SERVER SUGGESTION, never the merged edit above — see the
+  // docblock's "Grouping key" paragraph.
+  const grupos = agruparFilasPorCategoriaSugerida(filas, catalogo);
+
+  // Focus continuity across a group re-render (T2 + WEB-PRV-15/17): since
+  // grouping now keys off `sugerido`, a preview re-run that changes a row's
+  // suggested classification (e.g. right after creating a categoría from
+  // that row, WEB-PRV-15) moves the row's whole subtree to a DIFFERENT
+  // group's `<ul>` — a different React parent, which unmounts/remounts it
+  // regardless of its own `key` (React only preserves a keyed node across
+  // siblings of the SAME parent, never across parents). `FilaRevision`'s own
+  // `cerrarCreacionYRestaurarFoco` returns focus to that row's "+" trigger
+  // synchronously, right before the re-run it triggers — if the trigger's
+  // OLD node is torn down while still focused, the browser drops focus to
+  // `<body>` with nothing to restore it.
+  //
+  // `filaEnfocadaAntes` is read from `document.activeElement` DURING render,
+  // BEFORE this render's DOM mutations commit — the one point a function
+  // component can still see the PREVIOUS commit's DOM. React's documented
+  // "adjust state during render" idiom (same technique `FilaRevision` uses
+  // for `bucketUI`/`prevCategoriaId`) is used here rather than a ref write
+  // (`react-hooks/refs` forbids mutating a ref's `.current` during render):
+  // calling `setState` conditionally during render restarts this render
+  // pass with the new value BEFORE anything commits, so by the time this
+  // component actually paints, `filaEnfocadaAntes` already holds the
+  // rowIndex whose trigger was focused at the START of this render — i.e.
+  // still the OLD DOM. The effect below then only ACTS when, after commit,
+  // focus actually fell to `<body>` — i.e. exactly the remount case above,
+  // never a deliberate user blur.
+  const [filaEnfocadaAntes, setFilaEnfocadaAntes] = useState<number | null>(
+    null,
+  );
+  if (typeof document !== 'undefined') {
+    const activo = document.activeElement;
+    const rowIndexActivo =
+      activo instanceof HTMLElement && activo.hasAttribute('data-fila-trigger')
+        ? Number(activo.getAttribute('data-fila-trigger'))
+        : null;
+    if (rowIndexActivo !== filaEnfocadaAntes) {
+      setFilaEnfocadaAntes(rowIndexActivo);
+    }
+  }
+
+  useEffect(() => {
+    if (filaEnfocadaAntes === null) return;
+    if (document.activeElement !== document.body) return;
+    const trigger = document.querySelector<HTMLElement>(
+      `[data-fila-trigger="${filaEnfocadaAntes}"]`,
+    );
+    trigger?.focus();
+  }, [grupos, filaEnfocadaAntes]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -241,7 +294,13 @@ export function PreviewMuestra({
 
           <div className="flex flex-col gap-3 px-1 py-3 border-x">
             {grupos.map((grupo, indiceGrupo) => {
-              const claveGrupo = `${grupo.fecha}-${indiceGrupo}`;
+              // T2: keyed by the group's own STABLE identity (bucket ·
+              // categoriaId, `GrupoFilaPorCategoria.clave`) instead of a
+              // date-derived index — a group's key no longer shifts when an
+              // edit changes which rows land elsewhere on the next preview
+              // run, and accordion open/closed state survives a re-render
+              // that adds/removes rows from OTHER groups.
+              const claveGrupo = grupo.clave;
               const idListaGrupo = `${idBase}-grupo-${indiceGrupo}`;
               const abierto = !gruposColapsados.has(claveGrupo);
               const conteoGrupo = grupo.filas.length;
@@ -249,16 +308,16 @@ export function PreviewMuestra({
               return (
                 <div
                   key={claveGrupo}
-                  data-fecha-grupo={grupo.fecha}
+                  data-grupo-categoria={claveGrupo}
                   data-abierto={abierto}
                   className="flex flex-col rounded-lg border border-border"
                 >
                   {/* Group header = accordion toggle. The `h4` wraps the
                   button (heading-with-button is the standard accordion
-                  header pattern) and its accessible name is "{fecha} · N
-                  movimientos" — the count is part of the heading on
-                  purpose: it's what tells the user how much work a
-                  collapsed date still holds. */}
+                  header pattern) and its accessible name is "{Bucket ·
+                  Categoría} · N movimientos" — the count is part of the
+                  heading on purpose: it's what tells the user how much work
+                  a collapsed group still holds. */}
                   {/* Panel framing (2026-08-30): header + rows share ONE
                       bordered frame so containment is unmistakable — the
                       header is the frame's tinted top band, the rows sit
@@ -271,7 +330,11 @@ export function PreviewMuestra({
                   <div
                     className={`flex items-center gap-2 bg-muted/40 px-3 py-1 ${abierto ? 'border-b border-border' : ''}`}
                   >
-                    <h4 className="min-w-0 flex-1 text-sm">
+                    <h4 className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                      <IconoCategoriaBadge
+                        icono={grupo.icono}
+                        bucket={grupo.bucket ?? ''}
+                      />
                       <button
                         type="button"
                         aria-expanded={abierto}
@@ -280,7 +343,7 @@ export function PreviewMuestra({
                         className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-medium text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <span className="min-w-0 truncate">
-                          {grupo.fecha}{' '}
+                          {etiquetaGrupo(grupo)}{' '}
                           <span className="font-normal text-muted-foreground">
                             · {conteoGrupo}{' '}
                             {conteoGrupo === 1 ? 'movimiento' : 'movimientos'}
@@ -309,11 +372,13 @@ export function PreviewMuestra({
                         : 'hidden'
                     }
                   >
-                    {grupo.filas.map(({ fila, categoriaMerged }) => (
+                    {grupo.filas.map((fila) => (
                       <FilaRevision
                         key={fila.rowIndex}
                         fila={fila}
-                        categoriaId={categoriaMerged}
+                        categoriaId={
+                          categoriaMergedPorFila.get(fila.rowIndex) ?? null
+                        }
                         catalogo={catalogo}
                         onEditChange={onEditChange}
                         esDemo={esDemo}

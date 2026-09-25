@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PreviewMuestra } from './PreviewMuestra';
-import type { PreviewFilaDto } from '@/api/types';
+import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
 
 // crear-categoria-desde-preview PR3: opening a row's creation form mounts
 // `NuevaCategoriaDesdeFilaForm`, which owns a `useCrearCategoria()` mutation
@@ -336,69 +336,135 @@ describe('PreviewMuestra', () => {
     ).not.toBeInTheDocument();
   });
 
-  // ── Grouping by date ─────────────────────────────────────────────────────
-  describe('grouping by date', () => {
-    it('groups consecutive rows sharing the same fecha under one date heading and one <ul>', () => {
+  // ── Grouping by bucket · categoría (preview-agrupacion-categoria T2) ─────
+  describe('grouping by bucket · categoría', () => {
+    it('groups rows by the (bucket, categoriaId) of their sugerido, one heading + <ul> per group, with the category icon', () => {
       const filas = [
         unaFilaPreview({
           rowIndex: 0,
-          fecha: '2026-07-15T00:00:00.000Z',
           descripcion: 'A',
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
         }),
         unaFilaPreview({
           rowIndex: 1,
-          fecha: '2026-07-15T00:00:00.000Z',
           descripcion: 'B',
-        }),
-        unaFilaPreview({
-          rowIndex: 2,
-          fecha: '2026-07-16T00:00:00.000Z',
-          descripcion: 'C',
+          sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-1' },
         }),
       ];
+
+      // Supermercado carries an icon; Restaurantes keeps the fixture's
+      // missing icono so the same render also pins the fallback glyph.
+      const catalogoBase = unCatalogo();
+      const catalogo: CatalogoEstado =
+        catalogoBase.tag === 'listo'
+          ? {
+              ...catalogoBase,
+              grupos: catalogoBase.grupos.map((grupo) => ({
+                ...grupo,
+                categorias: grupo.categorias.map((categoria) =>
+                  categoria.id === 'cat-nec-1'
+                    ? { ...categoria, icono: 'shopping-cart' }
+                    : categoria,
+                ),
+              })),
+            }
+          : catalogoBase;
 
       const { container } = render(
         <PreviewMuestra
           banco="BancoEstado"
           filas={filas}
-          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
           edits={new Map()}
           onEditChange={vi.fn()}
-          catalogo={unCatalogo()}
+          catalogo={catalogo}
         />,
       );
 
-      const grupos = container.querySelectorAll('[data-fecha-grupo]');
+      const grupos = container.querySelectorAll('[data-grupo-categoria]');
       expect(grupos).toHaveLength(2);
-      expect(grupos[0]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
-      expect(grupos[1]).toHaveAttribute('data-fecha-grupo', '2026-07-16');
+
+      const grupoNecesidades = screen.getByRole('heading', {
+        level: 4,
+        name: /Necesidades · Supermercado/,
+      });
+      const grupoGustos = screen.getByRole('heading', {
+        level: 4,
+        name: /Gustos · Restaurantes/,
+      });
+      expect(grupoNecesidades).toBeInTheDocument();
+      expect(grupoGustos).toBeInTheDocument();
+      // Each group heading carries its category's own glyph. Match the lucide
+      // class, not any aria-hidden svg: the heading also holds the accordion
+      // chevron, which would satisfy a generic query with no badge at all.
       expect(
-        within(grupos[0] as HTMLElement).getByText('A'),
+        grupoNecesidades.querySelector('svg.lucide-shopping-cart'),
       ).toBeInTheDocument();
-      expect(
-        within(grupos[0] as HTMLElement).getByText('B'),
-      ).toBeInTheDocument();
-      expect(
-        within(grupos[1] as HTMLElement).getByText('C'),
-      ).toBeInTheDocument();
+      expect(grupoGustos.querySelector('svg.lucide-tag')).toBeInTheDocument();
     });
 
-    it('non-consecutive rows with the same fecha value form separate groups, in file order (no sorting)', () => {
+    it('an Ingreso row groups alone under a plain "Ingreso" heading, no "· Ingreso" suffix', () => {
+      const filas = [unaFilaIngreso({ rowIndex: 0 })];
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Ingreso ·/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: /Ingreso · Ingreso/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('rows with no sugerido group under "Sin categoría", placed LAST regardless of file order', () => {
+      const filas = [
+        unaFilaPreview({ rowIndex: 0, sugerido: null, descripcion: 'sin' }),
+        unaFilaPreview({
+          rowIndex: 1,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+          descripcion: 'con categoría',
+        }),
+      ];
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const headings = screen
+        .getAllByRole('heading', { level: 4 })
+        .map((h) => h.textContent ?? '');
+      expect(headings[headings.length - 1]).toMatch(/^Sin categoría/);
+    });
+
+    it('rows inside a group are ordered by fecha ascending, regardless of file order', () => {
       const filas = [
         unaFilaPreview({
           rowIndex: 0,
-          fecha: '2026-07-15T00:00:00.000Z',
-          descripcion: 'A',
+          fecha: '2026-07-20T00:00:00.000Z',
+          descripcion: 'tardía',
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
         }),
         unaFilaPreview({
           rowIndex: 1,
-          fecha: '2026-07-16T00:00:00.000Z',
-          descripcion: 'B',
-        }),
-        unaFilaPreview({
-          rowIndex: 2,
-          fecha: '2026-07-15T00:00:00.000Z',
-          descripcion: 'C',
+          fecha: '2026-07-01T00:00:00.000Z',
+          descripcion: 'temprana',
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
         }),
       ];
 
@@ -406,28 +472,68 @@ describe('PreviewMuestra', () => {
         <PreviewMuestra
           banco="BancoEstado"
           filas={filas}
-          resumen={{ totalFilas: 3, duplicadosDetectados: 0, nuevas: 3 }}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
           edits={new Map()}
           onEditChange={vi.fn()}
           catalogo={unCatalogo()}
         />,
       );
 
-      const grupos = container.querySelectorAll('[data-fecha-grupo]');
-      // Three groups, NOT two — the second '2026-07-15' is not merged with
-      // the first because it is not consecutive in file order.
-      expect(grupos).toHaveLength(3);
-      expect(grupos[0]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
-      expect(grupos[1]).toHaveAttribute('data-fecha-grupo', '2026-07-16');
-      expect(grupos[2]).toHaveAttribute('data-fecha-grupo', '2026-07-15');
-      // DOM/focus order stays file order. Scoped to the top row's
-      // description span, read through its stable `data-descripcion` hook
-      // (was a markup-coupled `.text-muted-foreground > span.font-medium`
-      // selector that broke every time the row layout moved).
       const descripciones = Array.from(
         container.querySelectorAll('[data-descripcion]'),
       ).map((el) => el.textContent);
-      expect(descripciones).toEqual(['A', 'B', 'C']);
+      expect(descripciones).toEqual(['temprana', 'tardía']);
+    });
+
+    it("editing a row's category (merged edit) keeps it in its ORIGINAL sugerido group until reload", () => {
+      const filas = [
+        unaFilaPreview({
+          rowIndex: 0,
+          descripcion: 'reclasificada',
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        }),
+      ];
+
+      const { rerender } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      // The row moves to Deseos/cat-des-1 via an edit — simulating what
+      // `onEditChange` would cause upstream (SubirCartola owns `edits`).
+      const edits = new Map<number, string | null>([[0, 'cat-des-1']]);
+      rerender(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={filas}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={edits}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      // Still grouped under the ORIGINAL sugerido (Necesidades · Supermercado)…
+      const grupoOriginal = screen
+        .getByRole('heading', { level: 4, name: /Necesidades · Supermercado/ })
+        .closest('div[data-grupo-categoria]');
+      expect(grupoOriginal).not.toBeNull();
+      expect(
+        within(grupoOriginal as HTMLElement).getByText('reclasificada'),
+      ).toBeInTheDocument();
+      // …no "Gustos · Restaurantes" group was created for it.
+      expect(
+        screen.queryByRole('heading', { name: /Gustos · Restaurantes/ }),
+      ).not.toBeInTheDocument();
+      // But the row's own select DOES show the merged (edited) value.
+      const categoriaSelect = screen.getByLabelText(/Fila 1: categoría/i);
+      expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
     });
   });
 
@@ -449,29 +555,6 @@ describe('PreviewMuestra', () => {
         name: /ayuda: qué es un grupo/i,
       });
       expect(link).toHaveAttribute('href', '/ayuda#ayuda-glosario');
-    });
-
-    it('is reachable in the accessibility tree — not nested inside the aria-hidden column header', () => {
-      const { container } = render(
-        <PreviewMuestra
-          banco="BancoEstado"
-          filas={[unaFilaPreview()]}
-          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
-          edits={new Map()}
-          onEditChange={vi.fn()}
-          catalogo={unCatalogo()}
-        />,
-      );
-
-      const link = screen.getByRole('link', {
-        name: /ayuda: qué es un grupo/i,
-      });
-      expect(link.closest('[data-columnas-header]')).toBeNull();
-      expect(link.closest('[aria-hidden="true"]')).toBeNull();
-      // Not hidden below sm either — Sam needs it on mobile too.
-      expect(container.querySelector('[data-columnas-header]')).not.toBe(
-        link.parentElement,
-      );
     });
   });
 
@@ -520,22 +603,22 @@ describe('PreviewMuestra', () => {
     });
   });
 
-  describe('date-group accordion (polish pass)', () => {
+  describe('group accordion (polish pass, re-keyed by categoría in T2)', () => {
     const dosGrupos = () => [
       unaFilaPreview({
         rowIndex: 0,
-        fecha: '2026-07-15T00:00:00.000Z',
         descripcion: 'A',
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
       }),
       unaFilaPreview({
         rowIndex: 1,
-        fecha: '2026-07-15T00:00:00.000Z',
         descripcion: 'B',
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
       }),
       unaFilaPreview({
         rowIndex: 2,
-        fecha: '2026-07-16T00:00:00.000Z',
         descripcion: 'C',
+        sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-1' },
       }),
     ];
 
@@ -552,19 +635,19 @@ describe('PreviewMuestra', () => {
       );
     }
 
-    it('names each date heading with its row count, singular at 1', () => {
+    it('names each group heading with its row count, singular at 1', () => {
       renderDosGrupos();
 
       expect(
         screen.getByRole('heading', {
           level: 4,
-          name: /2026-07-15 · 2 movimientos/,
+          name: /Necesidades · Supermercado · 2 movimientos/,
         }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('heading', {
           level: 4,
-          name: /2026-07-16 · 1 movimiento$/,
+          name: /Gustos · Restaurantes · 1 movimiento$/,
         }),
       ).toBeInTheDocument();
     });
@@ -582,7 +665,7 @@ describe('PreviewMuestra', () => {
       renderDosGrupos();
 
       const toggle = screen.getByRole('button', {
-        name: /2026-07-15 · 2 movimientos/,
+        name: /Necesidades · Supermercado · 2 movimientos/,
       });
       await user.click(toggle);
 
@@ -719,7 +802,12 @@ describe('PreviewMuestra', () => {
       );
 
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
-      expect(screen.getByText('Ingreso')).toBeInTheDocument();
+      // T2: "Ingreso" now also appears as that row's own GROUP heading — the
+      // row-level marker this test targets is the ONE inside its <li>.
+      const filaIngreso = screen
+        .getByText('Ingreso', { selector: 'li span' })
+        .closest('li');
+      expect(filaIngreso).not.toBeNull();
     });
   });
 });

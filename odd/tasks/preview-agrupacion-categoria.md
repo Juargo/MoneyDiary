@@ -35,7 +35,7 @@
 
 ## Tasks
 
-- [ ] **T1 — Make removals definitive** (route: delegated writer — 2+ non-trivial files + test files)
+- [x] **T1 — Make removals definitive** (route: delegated writer — 2+ non-trivial files + test files) · commit `dfd85b1e` · RDD assess (base `97eff3b4`): high (`process_boundary` in e2e) → consent **granted** → 4-lens review **approved**, acknowledged (lineage `review-8d61fbba188f05ee`, authority burned). Reviewed boundary → `dfd85b1e`.
   - Delete commented blocks in `PreviewMuestra.tsx` / `FilaRevision.tsx` (incl. the borrowed-close column-header comment).
   - Remove dead state/handlers: `seleccionados`, bulk toolbar + `handleAplicarBulk` + `categoriaToolbar`, `soloSinClasificar`/`cambiarFiltro`, filtered-empty state, `CheckboxIndeterminado`, `esFilaSeleccionable` (+ its tests) if unused; obsolete docblock paragraphs.
   - Delete tests asserting removed behavior; fix `FilaRevision.test.tsx` props.
@@ -43,7 +43,10 @@
   - Adjust `e2e/preview-stress.e2e.ts` (filter + "N de M clasificadas" steps).
   - Update `openspec/specs/web-import-preview/spec.md` WEB-PRV-16 (drop the progress-readout clause).
   - Checks: `npx tsc -b`, `npx vitest run`, eslint on touched files.
-- [ ] **T2 — Group preview by bucket · category with icon** (route: delegated writer)
+- [x] **T2 — Group preview by bucket · category with icon** (route: delegated writer) · commit `f2f1539a` · RDD assess (base `dfd85b1e`): medium, `slice_budget_reached` → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-2f4c58f24ddbaf89`, authority burned). Reviewed boundary → `f2f1539a`.
+  - Advisory (non-blocking) follow-ups: **W1** icon test `PreviewMuestra.test.tsx:381` is vacuous (the h4 also holds the aria-hidden ChevronDown svg); S1 group-order tiebreak by `clave`; S2 carry bucket/categoriaId instead of splitting `clave` on `::`; S3 component-level test for the focus-continuity guard.
+  - W1 fixed (user-authorized 2026-09-25): icon assertion now matches `svg.lucide-shopping-cart` (catalog override) + `svg.lucide-tag` fallback. Mutation proof: removing `<IconoCategoriaBadge>` → test RED (1 failed); restored → GREEN. Checks: `tsc -b` 0; `PreviewMuestra.test.tsx` 26/26; eslint clean. S1–S3 remain later work.
+  - T1 review follow-ups (non-blocking, advisory): F1 delete the vacuous `data-columnas-header` test (`PreviewMuestra.test.tsx:469-474`, asserts on a removed element); F2 `ResumenCartola` note should read the bucket label from `ETIQUETA_BUCKET` instead of hardcoding "Gustos"; F3 docblock wording "describe block" in `PreviewMuestra.tsx:25-27`. Not taken: e2e completion signal (`preview-stress.e2e.ts:130`) — recorded as later work.
   - RED: unit tests for a pure `agruparPreviewPorCategoria` in `apps/web/src/domain/` — key from `sugerido` (bucket + categoriaId), rows date-ordered (stable by `rowIndex`), deterministic group order, Ingreso and no-suggestion rows handled, edits do NOT move rows.
   - RED: `PreviewMuestra.test.tsx` — group header shows icon + "Bucket · Categoría" + count; editing a row keeps it in its group; accordion keys stable.
   - GREEN/REFACTOR: replace `agruparPorFecha`.
@@ -59,14 +62,16 @@
 ## Progress / evidence
 
 - 2026-09-25: baseline — `tsc -b` 6 errors (`FilaRevision.test.tsx`), vitest 55 failed / 2244 passed, eslint clean.
-- 2026-09-25: T1 implemented, UNCOMMITTED (10 files, +290/−2538, mostly deleted tests). Writer: `tsc -b` exit 0; vitest 2240 passed / 0 failed; eslint clean. ResumenCartola copy test RED (1 failed) → GREEN (6/6). Parent spot check: `tsc -b` exit 0; 4 touched test files 86/86 passed; no commented-out leftovers (rg). Judgment calls: `esFilaSeleccionable` deleted (no prod caller); `estaClasificada` kept (SubirCartola); accordion tests rewired to `toBeVisible()`; e2e select-all/bulk block also removed. Waiting on delivery strategy before commit.
+- 2026-09-25: T1 implemented, UNCOMMITTED (10 files, +290/−2538, mostly deleted tests). Writer: `tsc -b` exit 0; vitest 2240 passed / 0 failed; eslint clean. ResumenCartola copy test RED (1 failed) → GREEN (6/6). Parent spot check: `tsc -b` exit 0; 4 touched test files 86/86 passed; no commented-out leftovers (rg). Judgment calls: `esFilaSeleccionable` deleted (no prod caller); `estaClasificada` kept (SubirCartola); accordion tests rewired to `toBeVisible()`; e2e select-all/bulk block also removed. Committed as `dfd85b1e`.
+- 2026-09-25: T2 implemented. New pure `domain/agrupar-filas-por-categoria-sugerida.ts` (+13 unit tests; RED = unresolved import → GREEN 13/13). Date-accordion tests replaced by category-grouping tests. Unplanned: a genuine re-run moves a row between groups and remounted its "+" trigger → focus-continuity effect in PreviewMuestra (`data-fila-trigger`), `SubirCartola.test.tsx` focus test re-queries the trigger. Spec: new WEB-PRV-20. F1–F3 done. Writer: `tsc -b` 0; vitest 2255/2255; eslint clean. Parent spot check: `tsc -b` 0; 4 touched test files 149/149. ~860 authored lines (over the advisory heuristic: focus fix + test rewrite). Judgment calls: filename avoids collision with existing `agrupar-preview-por-categoria.ts` (WEB-PRV-19); bucket order reuses `BUCKETS_ASIGNABLES`; unresolved categoría → "Categoría no disponible" + Tag icon.
 
 ## Delivery
 
 - Forecast: T1 is deletion-heavy (likely >400 authored lines, mostly removed tests); T2 ~300–400. Strategy: `ask-on-risk` → user chose **`stacked-to-main`** (2026-09-25).
-- Slice 1 (PR 1 → `main`): `0f462ef8` + T1 commit.
-- Slice 2 (PR 2 stacked on PR 1): T2 commit(s).
+- Slice 1: PR #808 (`feature/preview-sin-seleccion` → `main`): `0f462ef8` + `dfd85b1e`. 367+/2535−.
+- Slice 2: PR #809 (`feature/design-subir` → `feature/preview-sin-seleccion`): `f2f1539a` + `43c97908`. 898+/129−. Retarget to `main` after #808 merges.
+- Both over 400 lines; `size:exception` suggested in each PR body (not applied — maintainer's call).
 
 ## Next step
 
-T1.
+PRs #808 and #809 opened 2026-09-25. Review/merge #808, then retarget #809 to `main`.
