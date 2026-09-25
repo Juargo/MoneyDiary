@@ -202,25 +202,21 @@ test.describe('crear una categoría desde la vista previa', () => {
     await expect(page.getByLabel('Fila 6: categoría')).toHaveCount(0);
   });
 
-  // Issue #748: the review table's sticky header gained a new always-visible
-  // help line ("Marca varias filas…") to make the bulk-select feature
-  // discoverable. `PreviewMuestra`/`FilaRevision` have no dedicated e2e
-  // spec of their own and this route isn't in `mobile-floor.e2e.ts`'s
-  // `SCREENS` harness (that harness only covers routes reachable without a
-  // stubbed file upload), so this repo has no other place that exercises
-  // real-browser layout for this exact header at 360px. Scoped to `movil`
-  // only (not the "three viewports" a screen in `SCREENS` gets): 360px is
-  // the actual risk width for a new text line in an already-tight sticky
-  // header, and `escritorio`/`tablet` were never a concern for a plain text
-  // addition with no new breakpoint-specific class — same reasoning this
-  // file's own `beforeEach` already gives for skipping `tablet` on every
-  // OTHER test here (no tablet-specific CSS branch for this table).
-  test('el nuevo texto de ayuda de selección múltiple no produce desborde horizontal a 360px', async ({
+  // Real-browser layout guard for the review table at 360px. It was added
+  // for the #748 multi-select help line, since removed together with bulk
+  // selection; the overflow check still protects the sticky header and rows.
+  // `PreviewMuestra`/`FilaRevision` have no dedicated e2e spec of their own
+  // and this route isn't in `mobile-floor.e2e.ts`'s `SCREENS` harness (that
+  // harness only covers routes reachable without a stubbed file upload), so
+  // this is the only place that measures this table at 360px. Scoped to
+  // `movil` only: 360px is the actual risk width, and this file's own
+  // `beforeEach` already skips `tablet` (no tablet-specific CSS branch here).
+  test('la tabla de revisión no produce desborde horizontal a 360px', async ({
     page,
   }, testInfo) => {
     test.skip(
       testInfo.project.name !== 'movil',
-      '360px (movil) es el ancho de riesgo real para esta línea de texto; ver comentario del test.',
+      '360px (movil) es el ancho de riesgo real para esta tabla; ver comentario del test.',
     );
 
     // `beforeEach` above already stubs the API and the first
@@ -235,12 +231,6 @@ test.describe('crear una categoría desde la vista previa', () => {
     });
     await page.getByRole('button', { name: 'Revisar y editar' }).click();
     await expect(page.getByLabel('Fila 1: grupo')).toBeVisible();
-
-    await expect(
-      page.getByText(
-        'Marca varias filas para darles la misma categoría de una vez.',
-      ),
-    ).toBeVisible();
 
     const overflow = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
