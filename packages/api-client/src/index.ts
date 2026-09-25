@@ -27,7 +27,7 @@ type S = components['schemas'];
 /** GET /api/resumen — 50/30/20 monthly breakdown. Money as decimal strings (BigInt-safe). */
 export type ResumenMesDto = S['ResumenMesResponse'];
 
-/** One bucket entry inside `ResumenMesDto.buckets` (Necesidades/Deseos/Ahorro/SinCategoria). */
+/** One bucket entry inside `ResumenMesDto.buckets` (Necesidades/Deseos/Ahorro — issue #778 tramo 5b PR5 removed SinCategoria). */
 export type BucketResumenDto = S['ResumenMesResponse']['buckets'][number];
 
 /** GET /api/resumen/anual — 50/30/20 annual breakdown; `meses` reuses `ResumenMesDto` (DRY). */
