@@ -440,6 +440,14 @@ export function FilaRevision({
                 type="button"
                 onClick={abrirCreacion}
                 disabled={esDemo}
+                // `data-fila-trigger`: stable lookup hook keyed by
+                // `rowIndex` (never changes for a row), consumed by
+                // `PreviewMuestra`'s focus-continuity effect (T2) — a
+                // preview re-run can move this exact button to a different
+                // group's DOM subtree (grouping now keys off `sugerido`),
+                // which unmounts/remounts it even though `rowIndex` itself
+                // is unchanged.
+                data-fila-trigger={fila.rowIndex}
                 aria-describedby={esDemo ? 'demo-catalogo-nota' : undefined}
                 aria-label={`Nueva categoría para fila ${n}`}
                 className={cn(CLASE_BOTON_ICONO, 'text-muted-foreground')}

@@ -1,4 +1,5 @@
 import { FileText } from 'lucide-react';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 
 /**
  * ResumenCartola (cartola-preview-confirmacion PR9, D-08) — the cartola
@@ -88,7 +89,7 @@ export function ResumenCartola({
       <p className="text-xs text-muted-foreground">
         Los movimientos que no coincidan con ningún patrón se quedarán como{' '}
         <strong className="font-medium text-foreground">
-          Gustos · Desconocido
+          {ETIQUETA_BUCKET.Deseos} · Desconocido
         </strong>{' '}
         y podrás editarlos antes de subir o después.
       </p>

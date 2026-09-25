@@ -3491,7 +3491,20 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(
         screen.getByRole('heading', { name: /vista previa/i }),
       ).not.toHaveFocus();
-      expect(trigger).toHaveFocus();
+      // preview-agrupacion-categoria T2: the review table now groups rows by
+      // (bucket, categoriaId) of `sugerido` — this row's `sugerido` just
+      // changed for real (null → Necesidades/cat-nueva, from the re-run
+      // response above), so it legitimately moves to a NEW group's `<ul>` (a
+      // different React parent), which unmounts the OLD `trigger` node
+      // rather than reusing it. `PreviewMuestra`'s own focus-continuity
+      // effect restores focus to the row's trigger in its new location —
+      // re-querying by role (instead of reusing the stale `trigger`
+      // reference) is what asserts THAT, which is this test's actual intent
+      // ("stays wherever the form already returned it", not "the exact same
+      // DOM node instance").
+      expect(
+        screen.getByRole('button', { name: /nueva categoría/i }),
+      ).toHaveFocus();
     });
 
     it.each([
