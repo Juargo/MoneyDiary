@@ -30,10 +30,17 @@ Close the four non-blocking suggestions left on the two-level preview accordion.
 - 2026-09-25: created.
 - 2026-09-25: S1–S4 implemented (writer). S1: `renderFilaRevision` + `filasDirectasDeGrupo` as the single discriminant for count and JSX; PreviewMuestra tests 33 → 33 unchanged. S2: `git mv` to `agrupar-filas-por-bucket-y-categoria.{ts,test.ts}`, 2 import sites. S3: typo fixed. S4 finding: an Ingreso row never renders a "+" trigger (`esFilaIngreso` suppresses all controls), so "focus lands on the trigger in Ingreso" is unreachable; test (a) pins the reachable behavior — the bucket auto-expands with no categoría level. Mutation (a): neutralize `ubicarFila`'s `filasDirectas` branch → RED (`data-abierto` stayed "false"). Mutation (b): drop `pendingFocoRowIndexRef.current = null` → RED (focus stolen by a later row reusing rowIndex 0). Both restored. Writer: `tsc -b` 0; vitest 2275/2275; eslint clean. Parent spot check: `tsc -b` 0; 2 touched test files 59/59.
 
+- 2026-09-25: commit `c0a56aa2`. RDD assess (base `main`): medium, `slice_budget_reached` (2122 lines counts the rename as delete+add; real diff +237/−45) → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-3ab341d2741b996e`).
+
+## Later work (not scheduled, user chose to ship as is)
+
+- No test pins that a non-Ingreso bucket never has an empty `categorias` array, which the new `filasDirectasDeGrupo` discriminant relies on (`PreviewMuestra.tsx:102-107`).
+- The Ingreso test asserts "no categoría level" via the absence of an `h5`; a `data-` attribute on categoría panels would be sturdier (`PreviewMuestra.test.tsx:1136-1138`).
+
 ## Delivery
 
 - Forecast well under 400 authored lines → single PR.
 
 ## Next step
 
-Commit, RDD assess, PR.
+PR open; merge after CI.
