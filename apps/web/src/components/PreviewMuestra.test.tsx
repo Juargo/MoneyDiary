@@ -1070,6 +1070,150 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // S4 (preview-acordeon-sugerencias): the S3 tests above move a focused row
+  // between two categoría-bearing buckets, and into a brand-new "Revisar"
+  // group. Neither exercises `ubicarFila`'s OTHER "direct rows, no
+  // categoría" branch — `GrupoBucket.filasDirectas`, which only ever holds
+  // Ingreso rows — nor the cleanup path for a row that disappears entirely.
+  describe('focus continuity — Ingreso destination and a vanished focused row (S4)', () => {
+    it('a re-run moving the focused row into a still-collapsed Ingreso bucket expands only that bucket (no categoría level); Ingreso rows render no trigger, so nothing is left to refocus', async () => {
+      const user = userEvent.setup();
+      const fila = unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      });
+
+      const { rerender } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[fila]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+      const trigger = screen.getByRole('button', {
+        name: /nueva categoría para fila 1/i,
+      });
+      trigger.focus();
+      expect(trigger).toHaveFocus();
+
+      // The row's own SERVER SUGGESTION becomes Ingreso — grouping keys off
+      // `sugerido` (component docblock), so the row's whole subtree moves
+      // into a BRAND NEW, never-opened Ingreso entry (`GrupoBucket` with
+      // `filasDirectas`, no categoría level — the same "direct rows" shape
+      // `filasDirectasDeGrupo` (S1) gives Revisar). `esFilaIngreso`
+      // (FilaRevision) reads that SAME `sugerido.bucket`, so the row also
+      // stops rendering its "+" trigger entirely (Ingreso rows show no
+      // controls at all) — there is no trigger left anywhere to refocus.
+      rerender(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[
+            { ...fila, sugerido: { bucket: 'Ingreso', categoriaId: null } },
+          ]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      // The destination bucket still auto-expands (the focus-continuity
+      // effect locates the row via `ubicarFila`'s `filasDirectas` branch and
+      // opens its still-collapsed bucket) even though nothing inside it can
+      // ever be focused.
+      const panelIngreso = document.querySelector(
+        '[data-grupo-bucket="Ingreso"]',
+      );
+      expect(panelIngreso).toHaveAttribute('data-abierto', 'true');
+      expect(
+        screen.getByText(/se clasifica como ingreso autom.ticamente/i),
+      ).toBeVisible();
+      // No categoría level exists for Ingreso, and no trigger renders for
+      // an income row.
+      expect(
+        screen.queryByRole('heading', { level: 5 }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /nueva categoría/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('clears the pending-focus ref when the focused row disappears from the next preview response, so a LATER unrelated re-render does not steal focus onto a different row that reuses the same rowIndex', async () => {
+      const user = userEvent.setup();
+      const props = {
+        banco: 'BancoEstado',
+        onEditChange: vi.fn(),
+        catalogo: unCatalogo(),
+      } as const;
+
+      const filaOriginal = unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      });
+
+      const { rerender } = render(
+        <PreviewMuestra
+          {...props}
+          filas={[filaOriginal]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+        />,
+      );
+
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+      const trigger = screen.getByRole('button', {
+        name: /nueva categoría para fila 1/i,
+      });
+      trigger.focus();
+      expect(trigger).toHaveFocus();
+
+      // Row 0 disappears entirely from the next preview response (e.g. a
+      // dedup pass dropped it) — replaced by an unrelated row under a
+      // brand-new "Revisar" group.
+      const filaSinRelacion = unaFilaPreview({ rowIndex: 99, sugerido: null });
+      rerender(
+        <PreviewMuestra
+          {...props}
+          filas={[filaSinRelacion]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+        />,
+      );
+
+      // The vanished row's trigger unmounted — the browser drops focus to
+      // <body>, with nothing left to restore it to.
+      expect(document.activeElement).toBe(document.body);
+
+      // A LATER, unrelated re-render reintroduces a BRAND NEW row that
+      // happens to reuse rowIndex 0 (e.g. the next preview run after fixing
+      // the file) under a bucket/categoría NEVER manually opened — nobody
+      // asked for focus on it, so a stale pending ref must not silently pull
+      // focus (or auto-expand its panel) onto it.
+      const filaNueva = unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-1' },
+      });
+      rerender(
+        <PreviewMuestra
+          {...props}
+          filas={[filaSinRelacion, filaNueva]}
+          resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
+          edits={new Map()}
+        />,
+      );
+
+      expect(document.activeElement).toBe(document.body);
+      expect(
+        document.querySelector('[data-grupo-bucket="Deseos"]'),
+      ).toHaveAttribute('data-abierto', 'false');
+    });
+  });
+
   // crear-categoria-desde-preview PR3 (D-08/D-10, WEB-PRV-12): `filaCreando`
   // is ephemeral table UI state owned HERE (single value ⇒ "at most one
   // form open" falls out for free). `onCategoriaCreada`/`esDemo` are pure

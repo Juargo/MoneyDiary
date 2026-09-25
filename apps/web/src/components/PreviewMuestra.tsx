@@ -8,9 +8,8 @@ import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
 import {
   agruparFilasPorBucketYCategoria,
   type GrupoNivel1,
-} from '@/domain/agrupar-filas-por-categoria-sugerida';
+} from '@/domain/agrupar-filas-por-bucket-y-categoria';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
-import { BUCKET_INGRESO } from '@/api/catalogo-constantes';
 import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
@@ -91,12 +90,31 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * redundant — one is the one-line answer, the other is the depth.
  */
 
-/** Total row count under one level-1 entry — `filas` for Revisar, `filasDirectas` for Ingreso, the sum of its categorías otherwise. */
+/**
+ * Rows to render DIRECTLY under a level-1 entry, no categoría level — `filas`
+ * for Revisar, `filasDirectas` for a bucket with no categorías (today only
+ * Ingreso, since `agruparFilasPorBucketYCategoria` always returns
+ * `categorias: []` for it) — or `null` when the entry drills into categorías
+ * instead. SINGLE discriminant (S1): `conteoGrupo` and the JSX render below
+ * both call this instead of picking "direct rows vs categorías" their own
+ * way, so they can never disagree on which grupo shape a bucket is.
+ */
+function filasDirectasDeGrupo(
+  grupo: GrupoNivel1,
+): ReadonlyArray<PreviewFilaDto> | null {
+  if (grupo.kind === 'revisar') return grupo.filas;
+  return grupo.categorias.length === 0 ? grupo.filasDirectas : null;
+}
+
+/** Total row count under one level-1 entry — direct rows, or the sum of its categorías. */
 function conteoGrupo(grupo: GrupoNivel1): number {
-  if (grupo.kind === 'revisar') return grupo.filas.length;
-  return grupo.categorias.length > 0
+  const directas = filasDirectasDeGrupo(grupo);
+  if (directas !== null) return directas.length;
+  // `filasDirectasDeGrupo` only returns `null` for a `bucket` entry that has
+  // categorías (a `revisar` entry always returns its flat `filas`).
+  return grupo.kind === 'bucket'
     ? grupo.categorias.reduce((total, c) => total + c.filas.length, 0)
-    : grupo.filasDirectas.length;
+    : 0;
 }
 
 /** Stable key for one level-1 entry's expand-state `Set` and DOM ids — the bucket name, or the fixed `'revisar'` sentinel for the Revisar entry (never a real bucket name). */
@@ -294,6 +312,28 @@ export function PreviewMuestra({
   // legitimately clobbered mid-sequence.
   const pendingFocoRowIndexRef = useRef<number | null>(null);
 
+  // S1: single render helper for one `FilaRevision` row — previously written
+  // out twice (once for the direct-rows panels, once for categoría panels)
+  // with nine identical props each time; a prop drifting between the two
+  // copies would only show up as a subtle per-panel behavior difference.
+  // Closes over every prop/state this component already threads through to
+  // `FilaRevision`, so a call site only ever needs the `fila` itself.
+  function renderFilaRevision(fila: PreviewFilaDto) {
+    return (
+      <FilaRevision
+        key={fila.rowIndex}
+        fila={fila}
+        categoriaId={categoriaMergedPorFila.get(fila.rowIndex) ?? null}
+        catalogo={catalogo}
+        onEditChange={onEditChange}
+        esDemo={esDemo}
+        onCategoriaCreada={onCategoriaCreada}
+        filaCreando={filaCreando}
+        onAbrirCreacion={setFilaCreando}
+      />
+    );
+  }
+
   useEffect(() => {
     if (filaEnfocadaAntes !== null) {
       pendingFocoRowIndexRef.current = filaEnfocadaAntes;
@@ -425,12 +465,10 @@ export function PreviewMuestra({
               const conteo = conteoGrupo(grupo);
               // Ingreso and Revisar both render their rows DIRECTLY, no
               // level 2 — `null` means "this entry has categorías" instead.
-              const filasPlano =
-                grupo.kind === 'revisar'
-                  ? grupo.filas
-                  : grupo.bucket === BUCKET_INGRESO
-                    ? grupo.filasDirectas
-                    : null;
+              // S1: same `filasDirectasDeGrupo` discriminant `conteoGrupo`
+              // uses above, so the row count and this branch can never
+              // disagree on which shape a given grupo is.
+              const filasPlano = filasDirectasDeGrupo(grupo);
               const etiqueta =
                 grupo.kind === 'revisar'
                   ? 'Revisar'
@@ -492,21 +530,7 @@ export function PreviewMuestra({
                     {filasPlano !== null ? (
                       // Ingreso / Revisar: no level 2 — rows render DIRECTLY.
                       <ul className="flex flex-col gap-2 divide-y divide-border">
-                        {filasPlano.map((fila) => (
-                          <FilaRevision
-                            key={fila.rowIndex}
-                            fila={fila}
-                            categoriaId={
-                              categoriaMergedPorFila.get(fila.rowIndex) ?? null
-                            }
-                            catalogo={catalogo}
-                            onEditChange={onEditChange}
-                            esDemo={esDemo}
-                            onCategoriaCreada={onCategoriaCreada}
-                            filaCreando={filaCreando}
-                            onAbrirCreacion={setFilaCreando}
-                          />
-                        ))}
+                        {filasPlano.map(renderFilaRevision)}
                       </ul>
                     ) : grupo.kind === 'bucket' ? (
                       grupo.categorias.map((categoria) => {
@@ -565,22 +589,7 @@ export function PreviewMuestra({
                                   : 'hidden'
                               }
                             >
-                              {categoria.filas.map((fila) => (
-                                <FilaRevision
-                                  key={fila.rowIndex}
-                                  fila={fila}
-                                  categoriaId={
-                                    categoriaMergedPorFila.get(fila.rowIndex) ??
-                                    null
-                                  }
-                                  catalogo={catalogo}
-                                  onEditChange={onEditChange}
-                                  esDemo={esDemo}
-                                  onCategoriaCreada={onCategoriaCreada}
-                                  filaCreando={filaCreando}
-                                  onAbrirCreacion={setFilaCreando}
-                                />
-                              ))}
+                              {categoria.filas.map(renderFilaRevision)}
                             </ul>
                           </div>
                         );

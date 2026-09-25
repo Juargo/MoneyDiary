@@ -3608,7 +3608,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         // `sugerido: null` (dropped entirely, see
         // `agruparFilasPorBucketYCategoria`'s docblock) — every row shares
         // the same unresolvable Necesidades categoriaId so a single
-        // `abirGrupo` below reaches all five.
+        // `abrirGrupo` below reaches all five.
         const SUGERIDO_SIN_MATCH = {
           bucket: 'Necesidades',
           categoriaId: 'cat-desconocido',
