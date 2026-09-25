@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.5.0...mobile-v0.6.0) (2026-09-25)
+
+
+### Features
+
+* **mobile:** el anillo y la leyenda dejan de incluir SinCategoria en el dominio ([5504f69](https://github.com/Juargo/MoneyDiary/commit/5504f69d7a663ff87b4fe9cbf34d46c2b87cad4a))
+* **mobile:** el anillo y la leyenda dejan de mostrar SinCategoria ([160d7f5](https://github.com/Juargo/MoneyDiary/commit/160d7f5d607e2dcd0bceef1bc41d2cf7a959aec5))
+* **mobile:** la leyenda, el anillo y los colores dejan de mostrar SinCategoria ([eaab345](https://github.com/Juargo/MoneyDiary/commit/eaab3457a4b006867c0a3ca073556424d49f9420))
+* **mobile:** tolerate resumen contract without SinCategoria ([5d1f8f9](https://github.com/Juargo/MoneyDiary/commit/5d1f8f9fefe572eefb44bc538923a4b17925852d))
+
 ## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.4.0...mobile-v0.5.0) (2026-09-23)
 
 
