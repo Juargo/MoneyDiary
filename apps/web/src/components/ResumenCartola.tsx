@@ -86,12 +86,11 @@ export function ResumenCartola({
         cualquier movimiento cuando quieras.
       </p>
       <p className="text-xs text-muted-foreground">
-        Las transacciones que no coincidan con ningún patrón se quedarán como
+        Los movimientos que no coincidan con ningún patrón se quedarán como{' '}
         <strong className="font-medium text-foreground">
-          {' '}
-          Deseos-Desconocido
+          Gustos · Desconocido
         </strong>{' '}
-        y podrás editarlas antes de subir o después.
+        y podrás editarlos antes de subir o después.
       </p>
     </div>
   );

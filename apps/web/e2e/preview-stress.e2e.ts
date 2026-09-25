@@ -37,7 +37,6 @@ const { fixture, meta } = buildPreviewStressFixture(ROW_COUNT);
 const lastRowLabel = `Fila ${meta.rowCount}: grupo`;
 const midRowLabelBucket = `Fila ${meta.midRowIndex + 1}: grupo`;
 const midRowLabelCategoria = `Fila ${meta.midRowIndex + 1}: categoría`;
-const visiblesSeleccionablesCount = meta.rowCount - meta.duplicateCount;
 
 interface Medicion {
   readonly proyecto: string;
@@ -104,74 +103,20 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
     const initialRenderMs = performance.now() - t0Render;
     registrar(proyecto, 'render inicial (300 filas)', initialRenderMs);
 
-    const previewRegion = page.locator(
-      'section[aria-labelledby="preview-listo-heading"]',
-    );
-
-    // --- 2. Master "select all visible" toggle, with 300 rows selected ---
-    // (One initial warm render already happened above — every measurement
-    // from here on runs against an already-rendered, already-warm tree.)
-    const selectAllCheckbox = page.getByLabel(
-      /seleccionar (todas las visibles|la visible)/i,
-    );
-    const bulkApplyButton = page.getByRole('button', {
-      name: new RegExp(
-        `aplicar a ${visiblesSeleccionablesCount} seleccionadas`,
-        'i',
-      ),
-    });
-
-    const t0SelectAll = performance.now();
-    await selectAllCheckbox.click();
-    await expect(bulkApplyButton).toBeVisible();
-    const selectAllMs = performance.now() - t0SelectAll;
-    registrar(
-      proyecto,
-      `select-all visible (${visiblesSeleccionablesCount} filas)`,
-      selectAllMs,
-    );
-
-    // Clear the selection before the filter measurement below — not timed,
-    // this is cleanup so the filter toggle starts from a known state.
-    await page.getByRole('button', { name: 'Limpiar selección' }).click();
-    await expect(bulkApplyButton).toBeHidden();
-
-    // --- 3. "Solo sin clasificar" filter toggle (on, then off) ---
-    const filterButton = page.getByRole('button', {
-      name: 'Solo sin clasificar',
-    });
-
-    const t0FilterOn = performance.now();
-    await filterButton.click();
-    await expect(previewRegion.locator('li')).toHaveCount(
-      meta.unclassifiedCount,
-    );
-    const filterOnMs = performance.now() - t0FilterOn;
-    registrar(proyecto, 'filtro "Solo sin clasificar" (activar)', filterOnMs);
-
-    const t0FilterOff = performance.now();
-    await filterButton.click();
-    await expect(previewRegion.locator('li')).toHaveCount(meta.rowCount);
-    const filterOffMs = performance.now() - t0FilterOff;
-    registrar(
-      proyecto,
-      'filtro "Solo sin clasificar" (desactivar)',
-      filterOffMs,
-    );
-
-    // --- 4. One per-row classification interaction, mid-list (~row 150) ---
+    // --- 2. One per-row classification interaction, mid-list (~row 150) ---
     // `midRowIndex` is forced non-duplicate + unclassified by the fixture
     // generator, so this always exercises the real bucket->categoría
     // cascade, never a no-op re-selection. The bucket control is a plain
     // `<select>` (the 2026-08-30 `SelectorBucket` chip group was reverted on
     // 2026-09-06) and the categoría `<select>` only renders once a bucket
     // other than the leading sentinel is chosen — so the flow is: pick the
-    // "Necesidades" bucket option, then pick the categoría.
+    // "Necesidades" bucket option, then pick the categoría. The completion
+    // signal is the categoría select settling on the chosen value — the
+    // "N de M clasificadas" progress readout this used to also assert on
+    // was removed from `PreviewMuestra` (definitive removal, commit
+    // 0f462ef8).
     const bucketSelect = page.getByLabel(midRowLabelBucket);
     const categoriaSelect = page.getByLabel(midRowLabelCategoria);
-    const progressText = page.getByText(
-      new RegExp(`${meta.classifiedCount + 1} de \\d+ clasificadas?`),
-    );
 
     // Guards against the catalog fetch racing the preview render — both are
     // stubbed near-instant, but this makes the precondition explicit rather
@@ -182,7 +127,7 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
     await bucketSelect.selectOption('Necesidades');
     await expect(bucketSelect).toHaveValue('Necesidades');
     await categoriaSelect.selectOption('cat-1');
-    await expect(progressText).toBeVisible();
+    await expect(categoriaSelect).toHaveValue('cat-1');
     const rowSelectMs = performance.now() - t0RowSelect;
     registrar(
       proyecto,
@@ -190,7 +135,7 @@ test.describe('preview review table — stress at realistic scale (300 rows)', (
       rowSelectMs,
     );
 
-    // --- 5. Scroll to bottom + long-task (jank) signal ---
+    // --- 3. Scroll to bottom + long-task (jank) signal ---
     await page.evaluate(() => {
       const win = window as Window & { __longTasks?: number[] };
       win.__longTasks = [];

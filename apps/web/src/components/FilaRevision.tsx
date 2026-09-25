@@ -15,10 +15,7 @@ import {
   formatearMontoCLP,
   formatearMontoConSigno,
 } from '@/domain/formatear-monto';
-import {
-  esFilaIngreso,
-  // esFilaSeleccionable,
-} from '@/domain/clasificacion-preview';
+import { esFilaIngreso } from '@/domain/clasificacion-preview';
 import type { CategoriaDto, PreviewFilaDto } from '@/api/types';
 import type { CatalogoEstado } from '@/api/types';
 
@@ -30,8 +27,6 @@ import type { CatalogoEstado } from '@/api/types';
  * `categoriaId` (merged display value: edits win over sugerido, D-05), the
  * `catalogo` (computed in `SubirCartola`, never here — D-12/ADR-024), and
  * `onEditChange` for the classification overlay (categoriaId only, D-03).
- * Optional `selected`/`onToggleSelect` back the bulk-apply row checkbox
- * (presentational — no default wiring required by pre-existing callers).
  *
  * Local state: `bucketUI` — a UI-only filter for the cascade; never reaches
  * the wire. Seeds from `fila.sugerido?.bucket` only when that bucket is among
@@ -53,8 +48,7 @@ import type { CatalogoEstado } from '@/api/types';
  *
  * Duplicate rows (`fila.esDuplicado`): greyed container + "Duplicado" badge +
  * bucket `<select>` `disabled` (no categoría select rendered, D-10) — no
- * `onEditChange` is ever wired for them. They never render a selection
- * checkbox either (never selectable for bulk).
+ * `onEditChange` is ever wired for them.
  *
  * 2026-08-30 → reverted 2026-09-06: the bucket `<select>` was briefly a
  * segmented control of native radios (`SelectorBucket`, one chip per bucket
@@ -72,12 +66,7 @@ import type { CatalogoEstado } from '@/api/types';
  *
  * A11y: accessible per-row labels via `CampoSelect`'s `label` prop for both
  * selects. Label format: "Fila {rowIndex+1}: bucket" /
- * "Fila {rowIndex+1}: categoría" (1-based, stable, D-10). The selection
- * checkbox uses "Seleccionar fila {rowIndex+1} para clasificar en grupo"
- * (same numbering; issue #748 appended the purpose suffix — a usability test
- * found the bulk-select checkboxes undiscoverable since nothing named what
- * they were for. "Seleccionar fila N" stays an exact PREFIX on purpose: the
- * whole test suite queries this label by that substring).
+ * "Fila {rowIndex+1}: categoría" (1-based, stable, D-10).
  *
  * 2026-08-31: the description column no longer truncates (full text always
  * in the DOM, no `title` attribute) and the header amount column shows only
@@ -104,12 +93,10 @@ import type { CatalogoEstado } from '@/api/types';
  * overlay entry on them, so every control this row used to show promised an
  * edit the server was always going to throw away. Full opacity, unlike
  * duplicates: this transaction IS being imported, it simply needs no
- * decision. It is also not selectable for bulk apply (`esFilaSeleccionable`)
- * — a bulk apply that silently skipped it would be the same lie in another
- * shape — while still COUNTING as classified in the progress readout
- * (`domain/clasificacion-preview.ts`); it needs no decision, so it must not
- * inflate the "pending" number. Duplicate status still wins: a duplicate
- * income row takes the duplicate path.
+ * decision. It still counts as settled under `estaClasificada`
+ * (`domain/clasificacion-preview.ts`) — needing no decision is not the same
+ * as being unclassified. Duplicate status still wins: a duplicate income row
+ * takes the duplicate path.
  *
  * One choice inside that rule that is easy to "fix" backwards, migrated here
  * 2026-09-03 from the `Bucket Segmented Control` section of `DESIGN.md` (that
@@ -131,8 +118,6 @@ export function FilaRevision({
   categoriaId,
   catalogo,
   onEditChange,
-  // selected = false,
-  // onToggleSelect = () => undefined,
   onCategoriaCreada = () => undefined,
   filaCreando = null,
   onAbrirCreacion = () => undefined,
@@ -142,8 +127,6 @@ export function FilaRevision({
   readonly categoriaId: string | null;
   readonly catalogo: CatalogoEstado;
   readonly onEditChange: (rowIndex: number, categoriaId: string | null) => void;
-  // readonly selected?: boolean;
-  // readonly onToggleSelect?: (rowIndex: number) => void;
   /**
    * crear-categoria-desde-preview PR3 (D-08/D-10/WEB-PRV-12..14) — all four
    * optional (default no-op/false/null) so pre-existing callers/tests that
@@ -212,12 +195,10 @@ export function FilaRevision({
 
   // Server verdict, never re-derived here (ADR-024) — see the docblock.
   const esIngreso = esFilaIngreso(fila);
-  // const seleccionable = esFilaSeleccionable(fila);
 
   const n = fila.rowIndex + 1; // 1-based human-friendly label index
   const labelBucket = `Fila ${n}: grupo`;
   const labelCategoria = `Fila ${n}: categoría`;
-  // const labelSeleccionar = `Seleccionar fila ${n} para clasificar en grupo`;
 
   // crear-categoria-desde-preview PR3 (D-08/D-10/D-11): this component owns
   // the "+" trigger's ref so focus can return to it when the form it opens
@@ -288,42 +269,21 @@ export function FilaRevision({
   const ambosCero = cargoEsCero && abonoEsCero;
 
   // Row header (polish pass, 2026-08-30; amount column reworked 2026-08-31):
-  // the old header was a single flex row with `justify-between` —
-  // checkbox+date on the left, a truncated description on the right, then a
-  // second row of "Cargo: / Abono:" pairs. On phones the description's box
-  // collided with the date (see the 390px screenshot that drove this) and
-  // the two amount pairs read as a table with no columns. Now the row is a
-  // classic list item: leading control, a `min-w-0 flex-1` text column
-  // (description as the primary line, wrapping in full — never truncated,
-  // no `title`; date beneath it as meta), and a `shrink-0` right-aligned
-  // amount column showing only the SIGNED non-zero amount(s) — a `$0` cargo
-  // or abono is pure noise (ADR-024: display-only, `esMontoCero` is the only
-  // decision made here). Amounts stay a `<dl>` for semantics, but each `<dt>`
-  // is `sr-only` now that sign + color carry the cargo/abono distinction for
-  // sighted users; each figure is still its own `<dd>` element (`getByText`
-  // exact match).
+  // the old header was a single flex row with `justify-between` — a
+  // truncated description on the right, then a second row of "Cargo: /
+  // Abono:" pairs. On phones the description's box collided with the date
+  // (see the 390px screenshot that drove this) and the two amount pairs
+  // read as a table with no columns. Now the row is a classic list item: a
+  // `min-w-0 flex-1` text column (description as the primary line,
+  // wrapping in full — never truncated, no `title`; date beneath it as
+  // meta), and a `shrink-0` right-aligned amount column showing only the
+  // SIGNED non-zero amount(s) — a `$0` cargo or abono is pure noise
+  // (ADR-024: display-only, `esMontoCero` is the only decision made here).
+  // Amounts stay a `<dl>` for semantics, but each `<dt>` is `sr-only` now
+  // that sign + color carry the cargo/abono distinction for sighted users;
+  // each figure is still its own `<dd>` element (`getByText` exact match).
   const encabezado = (
     <div className="flex items-start gap-2">
-      {/* {seleccionable && (
-        // Round-9 critique P1 fix 2 (WCAG 2.2 AA SC 2.5.8): the checkbox
-        // glyph stays size-4 (16px) visually, but a wrapping `<label>`
-        // grows the CLICKABLE area to size-6 (24×24 CSS px) — the same
-        // floor `CLASE_BOTON_ICONO` already enforces for icon buttons.
-        // A native `<label>` around a bare `<input>` toggles it on click
-        // anywhere inside, so this alone grows the hit target with no
-        // extra handler. Duplicate rows render no checkbox: never
-        // selectable for bulk (D-10) — and neither do Ingreso rows, whose
-        // classification the commit refuses to take from an overlay.
-        <label className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
-          <input
-            type="checkbox"
-            aria-label={labelSeleccionar}
-            checked={selected}
-            onChange={() => onToggleSelect(fila.rowIndex)}
-            className="size-4 shrink-0 rounded border-border accent-primary"
-          />
-        </label>
-      )} */}
       <div className="min-w-0 flex-1 text-muted-foreground">
         {/* `data-descripcion`: the stable hook `PreviewMuestra.test.tsx`'s
             grouping suite reads row descriptions through (replaced a

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  esFilaIngreso,
-  esFilaSeleccionable,
-  estaClasificada,
-} from './clasificacion-preview';
+import { esFilaIngreso, estaClasificada } from './clasificacion-preview';
 import { unaFilaPreview } from '@/test-utils/preview-fixtures';
 
 const sinEdits = new Map<number, string | null>();
@@ -72,19 +68,5 @@ describe('estaClasificada', () => {
     expect(estaClasificada(unaFilaPreview({ sugerido: null }), sinEdits)).toBe(
       false,
     );
-  });
-});
-
-describe('esFilaSeleccionable', () => {
-  it('excludes duplicates and income rows, includes ordinary gasto rows', () => {
-    expect(esFilaSeleccionable(unaFilaPreview({}))).toBe(true);
-    expect(esFilaSeleccionable(unaFilaPreview({ esDuplicado: true }))).toBe(
-      false,
-    );
-    expect(
-      esFilaSeleccionable(
-        unaFilaPreview({ sugerido: { bucket: 'Ingreso', categoriaId: null } }),
-      ),
-    ).toBe(false);
   });
 });
