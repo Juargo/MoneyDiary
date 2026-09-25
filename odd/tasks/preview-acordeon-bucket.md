@@ -63,10 +63,12 @@ Today every bucket · category is a flat list of groups. The user wants to see o
 
 - 2026-09-25: T2 implemented. Revisar entry as a discriminated union (`kind: 'revisar'`). RED domain 7 failed → GREEN 24/24; RED component 3 failed (crash reading `.categorias` on Revisar) → GREEN 33/33. W3: vitest excludes `e2e/**`, RED observed via `npx tsx` (`classified 278 / unclassified 8`) → GREEN (`94 / 192`, sum 300); fixture mirrors `estaClasificada` (alias not resolvable under `tsconfig.e2e.json`). Spec WEB-PRV-20: rule 9 + 3 scenarios (writer and parent edited concurrently; parent verified a single consistent result). Writer: `tsc -b` 0; vitest 2273/2273; eslint clean; Playwright 5 passed / 4 skipped / 0 failed. Parent spot check: `tsc -b` 0; 2 touched test files green.
 
+- 2026-09-25: T2 commit `8c3a1a15`. RDD assess (base `36412668`): medium, `slice_budget_reached` → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-640e2bde0d5ddde3`). One suggestion (spec rule 2 pointed to rule 8 instead of 9, an artifact of the concurrent spec edit) fixed.
+
 ## Delivery
 
 - Forecast ~400–600 authored lines (test churn from collapsed default). Strategy `ask-on-risk`: actual +1234/−544 (11 files). No cohesive split (the domain rewrite replaces the function the component consumes; splitting e2e out leaves CI red). User chose (2026-09-25) **single PR with `size:exception`**.
 
 ## Next step
 
-Push and open the PR and open the PR with `size:exception`.
+PR open with `size:exception`; merge after CI.
