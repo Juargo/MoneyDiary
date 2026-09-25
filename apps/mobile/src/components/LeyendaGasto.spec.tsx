@@ -8,9 +8,11 @@ import { LeyendaGasto } from './LeyendaGasto';
 import type { ItemLeyenda } from '../domain/resumen-view-model';
 
 // US-050 PR4b (design §1.7/§1.4a, MOB-08): rewritten from a 3-item
-// percent-only legend to a 5-row list dispatched on `ItemLeyenda.kind`
-// (never a boolean flag). US-056 PR1 (D-10/D-11/T-01/T-02): rows become
-// Pressable navigation targets — binding decision 2 reversed.
+// percent-only legend to a row list dispatched on `ItemLeyenda.kind` (never
+// a boolean flag). US-056 PR1 (D-10/D-11/T-01/T-02): rows become Pressable
+// navigation targets — binding decision 2 reversed. Issue #778 tramo5b PR2:
+// `complemento` is now just `[ingreso]` — the `'sinCategoria'` kind is
+// retired from `ItemLeyenda` entirely (mirrors apps/web's own PR1).
 const noop = () => undefined;
 
 const principales: readonly ItemLeyenda[] = [
@@ -26,16 +28,10 @@ const principales: readonly ItemLeyenda[] = [
 
 const complemento: readonly ItemLeyenda[] = [
   { kind: 'ingreso', montoLabel: '+$1.000.000' },
-  {
-    kind: 'sinCategoria',
-    bucket: 'SinCategoria',
-    montoLabel: '-$0',
-    cantidadLabel: '3 tx',
-  },
 ];
 
 describe('LeyendaGasto', () => {
-  it('renders exactly 5 rows', async () => {
+  it('renders three 50/30/20 rows then Ingresos (issue #778 tramo5b PR2 retired the Sin categoría row)', async () => {
     await render(
       <LeyendaGasto
         principales={principales}
@@ -44,7 +40,7 @@ describe('LeyendaGasto', () => {
         onNavegar={noop}
       />,
     );
-    expect(screen.getAllByTestId(/^leyenda-fila-/)).toHaveLength(5);
+    expect(screen.getAllByTestId(/^leyenda-fila-/)).toHaveLength(4);
   });
 
   it('renders the UI labels, never the raw domain names', async () => {
@@ -60,9 +56,6 @@ describe('LeyendaGasto', () => {
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
     expect(screen.getByText('Ingresos')).toBeOnTheScreen();
-    expect(
-      screen.getByText('Sin grupo ni categoría', { exact: false }),
-    ).toBeOnTheScreen();
     expect(screen.queryByText('Deseos')).not.toBeOnTheScreen();
     expect(screen.queryByText('SinCategoria')).not.toBeOnTheScreen();
   });
@@ -81,20 +74,7 @@ describe('LeyendaGasto', () => {
     expect(screen.getByText('20%')).toBeOnTheScreen();
   });
 
-  it('shows "N tx" and no % on the sinCategoria row', async () => {
-    await render(
-      <LeyendaGasto
-        principales={principales}
-        complemento={complemento}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
-    expect(screen.getByText('3 tx', { exact: false })).toBeOnTheScreen();
-    expect(screen.queryByText('3%')).not.toBeOnTheScreen();
-  });
-
-  it('signs amounts by kind: + for ingreso, − for the rest', async () => {
+  it('signs amounts by kind: + for ingreso, − for gasto', async () => {
     await render(
       <LeyendaGasto
         principales={principales}
@@ -105,14 +85,19 @@ describe('LeyendaGasto', () => {
     );
     expect(screen.getByText('+$1.000.000')).toBeOnTheScreen();
     expect(screen.getByText('-$500.000')).toBeOnTheScreen();
-    expect(screen.getByText('-$0')).toBeOnTheScreen();
   });
 
   // NOTE: "renders zero buttons and zero chevrons (binding decision 2)" test
   // is REMOVED — superseded by US-056 MOB-08 delta (rows are now Pressable).
   // US-050 binding decision 2 reversed.
 
-  it('spells out "transacciones sin grupo ni categoría" in the sinCategoria row\'s accessible name', async () => {
+  // Issue #778 tramo5b PR2: the Sin categoría row (SinCategoria bucket,
+  // "N tx" + drill-down to `/bucket/SinCategoria?destacar=sin-categoria`) is
+  // RETIRED. `ItemLeyenda` no longer even has a `'sinCategoria'` kind (a
+  // compile-time guarantee, not just a runtime one), so `complemento` can
+  // only ever be `[ingreso]` — this asserts nothing resembling that old row
+  // renders, and its expanded accessible name never appears either.
+  it('never renders a Sin categoría row or its expanded accessible name (issue #778 tramo5b PR2)', async () => {
     await render(
       <LeyendaGasto
         principales={principales}
@@ -122,32 +107,18 @@ describe('LeyendaGasto', () => {
       />,
     );
     expect(
-      screen.getByLabelText(/transacciones sin grupo ni categoría/),
-    ).toBeOnTheScreen();
+      screen.queryByText('Sin grupo ni categoría', { exact: false }),
+    ).not.toBeOnTheScreen();
+    expect(screen.queryByText(/ tx$/)).not.toBeOnTheScreen();
+    expect(
+      screen.queryByLabelText(/transacciones sin grupo ni categoría/),
+    ).not.toBeOnTheScreen();
+    expect(
+      screen.queryByTestId('leyenda-fila-SinCategoria'),
+    ).not.toBeOnTheScreen();
   });
 
-  it('renders a real "0 tx" row for cantidadLabel: \'0 tx\' — never omitted', async () => {
-    const complementoCero: readonly ItemLeyenda[] = [
-      { kind: 'ingreso', montoLabel: '+$1.000.000' },
-      {
-        kind: 'sinCategoria',
-        bucket: 'SinCategoria',
-        montoLabel: '$0',
-        cantidadLabel: '0 tx',
-      },
-    ];
-    await render(
-      <LeyendaGasto
-        principales={principales}
-        complemento={complementoCero}
-        periodo="2026-07"
-        onNavegar={noop}
-      />,
-    );
-    expect(screen.getByText('0 tx', { exact: false })).toBeOnTheScreen();
-  });
-
-  it('renders the 5 rows in the fixed MOB-08 order: Necesidades, Gustos, Ahorro, Ingresos, Sin grupo ni categoría', async () => {
+  it('renders the 4 rows in the fixed order: Necesidades, Gustos, Ahorro, Ingresos', async () => {
     await render(
       <LeyendaGasto
         principales={principales}
@@ -157,17 +128,14 @@ describe('LeyendaGasto', () => {
       />,
     );
     const rows = screen.getAllByTestId(/^leyenda-fila-/);
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(4);
     expect(within(rows[0]).getByText('Necesidades')).toBeOnTheScreen();
     expect(within(rows[1]).getByText('Gustos')).toBeOnTheScreen();
     expect(within(rows[2]).getByText('Ahorro')).toBeOnTheScreen();
     expect(within(rows[3]).getByText('Ingresos')).toBeOnTheScreen();
-    expect(
-      within(rows[4]).getByText('Sin grupo ni categoría', { exact: false }),
-    ).toBeOnTheScreen();
   });
 
-  it('renders exactly 2 rows (Ingresos, Sin grupo ni categoría) when there is no spend', async () => {
+  it('renders exactly 1 row (Ingresos) when there is no spend', async () => {
     await render(
       <LeyendaGasto
         principales={[]}
@@ -177,11 +145,8 @@ describe('LeyendaGasto', () => {
       />,
     );
     const rows = screen.getAllByTestId(/^leyenda-fila-/);
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(1);
     expect(within(rows[0]).getByText('Ingresos')).toBeOnTheScreen();
-    expect(
-      within(rows[1]).getByText('Sin grupo ni categoría', { exact: false }),
-    ).toBeOnTheScreen();
   });
 });
 
@@ -202,12 +167,6 @@ const principalesNav: readonly ItemLeyenda[] = [
 
 const complementoNav: readonly ItemLeyenda[] = [
   { kind: 'ingreso', montoLabel: '+$1.000.000' },
-  {
-    kind: 'sinCategoria',
-    bucket: 'SinCategoria',
-    montoLabel: '-$0',
-    cantidadLabel: '3 tx',
-  },
 ];
 
 describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 GREEN)', () => {
@@ -224,9 +183,9 @@ describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 G
         onNavegar={onNavegar}
       />,
     );
-    // All 5 rows must carry unique testIDs and accessibilityRole="button"
+    // All 4 rows must carry unique testIDs and accessibilityRole="button"
     const rows = screen.getAllByTestId(/^leyenda-fila-/);
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(4);
     rows.forEach((row) => {
       expect(row.props.accessibilityRole).toBe('button');
     });
@@ -251,7 +210,9 @@ describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 G
     );
   });
 
-  it('pressing SinCategoria row calls onNavegar with /bucket/SinCategoria?destacar=sin-categoria&periodo=2026-07', async () => {
+  // Issue #778 tramo5b PR2: there is no more SinCategoria row to press — the
+  // legend never mounts a `leyenda-fila-SinCategoria` testID at all.
+  it('never mounts a leyenda-fila-SinCategoria row (issue #778 tramo5b PR2)', async () => {
     await render(
       <LeyendaGasto
         principales={principalesNav}
@@ -260,10 +221,9 @@ describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 G
         onNavegar={onNavegar}
       />,
     );
-    fireEvent.press(screen.getByTestId('leyenda-fila-SinCategoria'));
-    expect(onNavegar).toHaveBeenCalledWith(
-      '/bucket/SinCategoria?destacar=sin-categoria&periodo=2026-07',
-    );
+    expect(
+      screen.queryByTestId('leyenda-fila-SinCategoria'),
+    ).not.toBeOnTheScreen();
   });
 
   it('pressing Ingresos row calls onNavegar with /ingresos?periodo=2026-07', async () => {
@@ -279,7 +239,7 @@ describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 G
     expect(onNavegar).toHaveBeenCalledWith('/ingresos?periodo=2026-07');
   });
 
-  it('testIDs resolve uniquely: leyenda-fila-Necesidades, -Deseos, -Ahorro, -ingreso, -SinCategoria', async () => {
+  it('testIDs resolve uniquely: leyenda-fila-Necesidades, -Deseos, -Ahorro, -ingreso', async () => {
     await render(
       <LeyendaGasto
         principales={principalesNav}
@@ -292,7 +252,6 @@ describe('LeyendaGasto — US-056 pressability + navigation (T-01 RED → T-02 G
     expect(screen.getByTestId('leyenda-fila-Deseos')).toBeTruthy();
     expect(screen.getByTestId('leyenda-fila-Ahorro')).toBeTruthy();
     expect(screen.getByTestId('leyenda-fila-ingreso')).toBeTruthy();
-    expect(screen.getByTestId('leyenda-fila-SinCategoria')).toBeTruthy();
   });
 
   // Fix 1 (MOB-08): pressing the Deseos row must use the wire key 'Deseos',

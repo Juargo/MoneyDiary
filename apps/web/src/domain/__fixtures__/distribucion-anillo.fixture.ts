@@ -8,13 +8,20 @@
  *
  * Twin: apps/web/src/domain/__fixtures__/distribucion-anillo.fixture.ts
  *
- * Only default-path (4-item `BUCKETS_ANILLO`) cases live here — mobile does
- * not port web's trailing optional `bucketsIncluidos` parameter (D-08), so a
+ * Only default-path (`BUCKETS_ANILLO`) cases live here — mobile does not
+ * port web's trailing optional `bucketsIncluidos` parameter (D-08), so a
  * case exercising it would not be parity between the two ports.
+ *
+ * Issue #778 tramo5b PR2: `BUCKETS_ANILLO` dropped `SinCategoria` on BOTH
+ * apps (apps/web PR1, apps/mobile this PR) — it is now the SAME 3-item set
+ * as `BUCKETS_5030` on both sides. Every case below that still feeds a
+ * `SinCategoria` entry does so ON PURPOSE, to prove both ports ignore it —
+ * it never appears in `esperado` and never enters the denominator.
  */
 export const CASOS_PARIDAD_ANILLO = [
   {
-    nombre: 'dilución 4 items (WG5-13)',
+    nombre:
+      'SinCategoria en la entrada no aparece y no diluye el denominador (issue #778)',
     buckets: [
       { bucket: 'Necesidades', total: '500000' },
       { bucket: 'Deseos', total: '300000' },
@@ -22,14 +29,13 @@ export const CASOS_PARIDAD_ANILLO = [
       { bucket: 'SinCategoria', total: '999999' },
     ],
     esperado: [
-      ['Necesidades', 25],
-      ['Deseos', 15],
-      ['Ahorro', 10],
-      ['SinCategoria', 50],
+      ['Necesidades', 50],
+      ['Deseos', 30],
+      ['Ahorro', 20],
     ],
   },
   {
-    nombre: 'mockup 77/12/11 con SinCategoria = 0',
+    nombre: 'mockup 77/12/11 no se distorsiona con SinCategoria en 0',
     buckets: [
       { bucket: 'Necesidades', total: '770000' },
       { bucket: 'Deseos', total: '120000' },
@@ -40,11 +46,25 @@ export const CASOS_PARIDAD_ANILLO = [
       ['Necesidades', 77],
       ['Deseos', 12],
       ['Ahorro', 11],
-      ['SinCategoria', 0],
     ],
   },
   {
-    nombre: 'cuatro unos → 25/25/25/25 (suman 100)',
+    nombre:
+      'mockup 77/12/11 tampoco se distorsiona con SinCategoria con plata (issue #778)',
+    buckets: [
+      { bucket: 'Necesidades', total: '770000' },
+      { bucket: 'Deseos', total: '120000' },
+      { bucket: 'Ahorro', total: '110000' },
+      { bucket: 'SinCategoria', total: '999999' },
+    ],
+    esperado: [
+      ['Necesidades', 77],
+      ['Deseos', 12],
+      ['Ahorro', 11],
+    ],
+  },
+  {
+    nombre: 'tres unos con SinCategoria ignorada → 34/33/33 (suman 100)',
     buckets: [
       { bucket: 'Necesidades', total: '1' },
       { bucket: 'Deseos', total: '1' },
@@ -52,10 +72,9 @@ export const CASOS_PARIDAD_ANILLO = [
       { bucket: 'SinCategoria', total: '1' },
     ],
     esperado: [
-      ['Necesidades', 25],
-      ['Deseos', 25],
-      ['Ahorro', 25],
-      ['SinCategoria', 25],
+      ['Necesidades', 34],
+      ['Deseos', 33],
+      ['Ahorro', 33],
     ],
   },
   {
@@ -114,20 +133,21 @@ export const CASOS_PARIDAD_ANILLO = [
     // ORIGINAL en `bucketsIncluidos` (orden de `BUCKETS_ANILLO`), no un
     // desempate explícito por nombre. Por eso Necesidades (índice 0) se lleva
     // el punto y queda en 26%, mientras Deseos (índice 1, mismo remanente)
-    // se queda en 24%.
+    // se queda en 24%. `SinCategoria` carga un monto grande a propósito
+    // (500) — si entrara al denominador (total 700 en vez de 200) rompería
+    // el empate exacto que este caso ejercita; queda ignorada (issue #778).
     nombre:
-      'empate genuino de remanente (25.5% vs 24.5%) — gana el índice menor',
+      'empate genuino de remanente (25.5% vs 24.5%) — gana el índice menor, SinCategoria ignorada',
     buckets: [
-      { bucket: 'Necesidades', total: '255' },
-      { bucket: 'Deseos', total: '245' },
-      { bucket: 'Ahorro', total: '300' },
-      { bucket: 'SinCategoria', total: '200' },
+      { bucket: 'Necesidades', total: '51' },
+      { bucket: 'Deseos', total: '49' },
+      { bucket: 'Ahorro', total: '100' },
+      { bucket: 'SinCategoria', total: '500' },
     ],
     esperado: [
       ['Necesidades', 26],
       ['Deseos', 24],
-      ['Ahorro', 30],
-      ['SinCategoria', 20],
+      ['Ahorro', 50],
     ],
   },
 ] as const;

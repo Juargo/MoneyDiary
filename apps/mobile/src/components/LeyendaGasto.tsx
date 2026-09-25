@@ -3,19 +3,26 @@ import type { ItemLeyenda } from '../domain/resumen-view-model';
 import { COLOR_BUCKET, ETIQUETA_BUCKET } from '../theme/colors';
 
 /**
- * 5-row spend/income legend (US-050 PR4b, design §1.7): props
+ * 4-row spend/income legend (US-050 PR4b, design §1.7): props
  * `{ principales, complemento }: ReadonlyArray<ItemLeyenda>`. US-056 PR1
- * (D-10/D-11): every row is now a `Pressable` with `accessibilityRole="button"`,
+ * (D-10/D-11): every row is a `Pressable` with `accessibilityRole="button"`,
  * unique `testID="leyenda-fila-{key}"`, and an `onNavegar` callback that the
  * caller (via `ResumenScreen` → `app/index.tsx`) wires to `router.push`. The
  * `periodo` prop threads the currently-selected dashboard month so each push
- * carries the correct period in the URL. Row shape still dispatches on
- * `item.kind` (D-03's discriminated union): `'gasto'` rows show name · % · amount;
- * `'sinCategoria'` row shows name · N tx · amount (no %) and adds
- * `?destacar=sin-categoria` to its push path; `'ingreso'` shows name · amount.
- * The `'sinCategoria'` row's `accessibilityLabel` still expands "N tx" into
- * "N transacciones sin grupo ni categoría" (ADR-018 a11y). Previously these rows were
- * inert `View`s (US-050 binding decision 2) — that decision is reversed here.
+ * carries the correct period in the URL. Row shape dispatches on `item.kind`
+ * (D-03's discriminated union): `'gasto'` rows show name · % · amount;
+ * `'ingreso'` shows name · amount. Previously these rows were inert `View`s
+ * (US-050 binding decision 2) — that decision is reversed here.
+ *
+ * Issue #778 tramo5b PR2: the `'sinCategoria'` row kind (name · N tx ·
+ * amount, `?destacar=sin-categoria` push path, expanded "N transacciones
+ * sin grupo ni categoría" accessible name) is RETIRED — the legend no
+ * longer depends on the SinCategoria bucket at all, mirroring apps/web's
+ * own PR1. The `destacar=sin-categoria` mechanism itself is NOT removed —
+ * `GrupoMovimientosMobile`/`BucketDetalleScreen` still support it for the
+ * unrelated, surviving "Sin categoría" GROUP (`categoriaId IS NULL`) inside
+ * any bucket's own detail page — this row was simply its only caller, and
+ * that page stays reachable by direct URL.
  */
 export function LeyendaGasto({
   principales,
@@ -67,14 +74,6 @@ function pathForItem(item: ItemLeyenda, periodo: string | undefined): string {
     return `/ingresos${periodoParam}`;
   }
 
-  if (item.kind === 'sinCategoria') {
-    // SinCategoria path always carries destacar before periodo (exact order per spec).
-    // When periodo is undefined, omit the periodo param entirely.
-    return periodo
-      ? `/bucket/SinCategoria?destacar=sin-categoria&periodo=${encodeURIComponent(periodo)}`
-      : `/bucket/SinCategoria?destacar=sin-categoria`;
-  }
-
   // 'gasto' bucket row
   return `/bucket/${encodeURIComponent(item.bucket)}${periodoParam}`;
 }
@@ -119,34 +118,6 @@ function FilaLeyenda({
   }
 
   const etiqueta = ETIQUETA_BUCKET[item.bucket] ?? item.bucket;
-
-  if (item.kind === 'sinCategoria') {
-    // Visible "N tx" stays on screen; the accessible name spells it out —
-    // "N transacciones sin grupo ni categoría" (web's exact `.replace` transform).
-    const accesible = `${etiqueta} · ${item.cantidadLabel.replace(
-      /\s*tx$/,
-      ' transacciones sin grupo ni categoría',
-    )} · ${item.montoLabel}`;
-    return (
-      <Pressable
-        testID={testID}
-        accessibilityRole="button"
-        accessibilityLabel={accesible}
-        onPress={() => onNavegar(path)}
-        className="flex-row items-center justify-between"
-      >
-        <View className="flex-row items-center gap-2">
-          <Punto bucket={item.bucket} />
-          <Text className="text-[15px] text-heading">
-            {etiqueta} · {item.cantidadLabel}
-          </Text>
-        </View>
-        <Text className="text-[15px] font-semibold text-heading">
-          {item.montoLabel}
-        </Text>
-      </Pressable>
-    );
-  }
 
   return (
     <Pressable

@@ -22,11 +22,12 @@ function slicesDesdeTajadas(tajadas: readonly TajadaGasto[]): Slice[] {
 }
 
 /**
- * "Distribución del gasto" chart: a label-less 4-wedge donut of the full
- * `BUCKETS_ANILLO` ring (Necesidades/Deseos/Ahorro/SinCategoria), with a
- * white wedge separator (WCAG 1.4.11). Pure presentation — all math is done
- * upstream (view-model + `pie-geometry`). When there is no spending, the
- * ring renders a muted placeholder ring instead of dividing by zero.
+ * "Distribución del gasto" chart: a label-less donut of the full
+ * `BUCKETS_ANILLO` ring (Necesidades/Deseos/Ahorro — issue #778 tramo5b PR2
+ * dropped SinCategoria from this set), with a white wedge separator (WCAG
+ * 1.4.11). Pure presentation — all math is done upstream (view-model +
+ * `pie-geometry`). When there is no spending, the ring renders a muted
+ * placeholder ring instead of dividing by zero.
  *
  * US-050 PR4a rewrite (design §1.7, MOB-15): the IDEAL 50/30/20 reference
  * inset, `slicesIdeales`, the `targets` prop, `centroidLabel`, and the

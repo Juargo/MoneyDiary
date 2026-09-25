@@ -6,17 +6,20 @@ import type { TajadaGasto } from '../domain/distribucion-gasto';
 // 44px mini-mini. Fixed size, label-less — carries NO accessibility props of
 // its own (the parent `Pressable`, `MesCelda`, is `accessible` and collapses
 // the subtree into a single AT node).
+//
+// Issue #778 tramo5b PR2: `BUCKETS_ANILLO` dropped SinCategoria upstream —
+// this generic, bucket-agnostic renderer never decides what it's fed, so the
+// fixture below just reflects the ring's real, current 3-item shape.
 const tajadas: readonly TajadaGasto[] = [
   { bucket: 'Necesidades', porcentaje: 44, fraccion: 0.44 },
   { bucket: 'Deseos', porcentaje: 28, fraccion: 0.28 },
-  { bucket: 'Ahorro', porcentaje: 18, fraccion: 0.18 },
-  { bucket: 'SinCategoria', porcentaje: 10, fraccion: 0.1 },
+  { bucket: 'Ahorro', porcentaje: 28, fraccion: 0.28 },
 ];
 
 describe('MiniDistribucionPie', () => {
-  it('renders at most 4 wedge paths for a 4-item ring', async () => {
+  it('renders at most 3 wedge paths for a 3-item ring', async () => {
     await render(<MiniDistribucionPie tajadas={tajadas} />);
-    expect(screen.getAllByTestId('mini-pie-slice')).toHaveLength(4);
+    expect(screen.getAllByTestId('mini-pie-slice')).toHaveLength(3);
   });
 
   it('renders a muted placeholder circle instead of dividing by zero when there is no spending', async () => {

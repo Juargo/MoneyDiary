@@ -4,6 +4,7 @@ import {
   BUCKETS_ANILLO,
   calcularDistribucionGasto,
 } from './distribucion-gasto';
+import { CASOS_PARIDAD_ANILLO } from './__fixtures__/distribucion-anillo.fixture';
 
 // DOM port of apps/mobile/src/domain/distribucion-gasto.spec.ts — pure BigInt
 // math, no platform dependency, so the port is verbatim.
@@ -226,15 +227,19 @@ describe('calcularDistribucionGasto', () => {
     });
   });
 
-  // US-050 (design §2 D-09) — CROSS-PACKAGE NOTE (issue #778 tramo5b PR1,
-  // apps/web only): `CASOS_PARIDAD_ANILLO` and its mobile-side byte-identity
-  // guard (`apps/mobile/src/domain/distribucion-gasto.spec.ts`, via
-  // `fs.readFileSync` on BOTH fixture files) still assume the OLD 4-item
-  // ring (`SinCategoria` included) — `apps/mobile` is untouched by this PR
-  // and keeps that ring. Running this table against web's now-3-item
-  // `calcularDistribucionGasto` would fail every case with a SinCategoria
-  // entry, so this file stops consuming it here. The fixture file itself is
-  // left BYTE-IDENTICAL to its mobile twin on purpose — do not edit it from
-  // this package; reconciling it (and this parity test) belongs to whichever
-  // later tramo5b PR updates `apps/mobile`'s own ring.
+  // US-050 (design §2 D-09) — RESTORED in issue #778 tramo5b PR2:
+  // `apps/mobile` now also drops SinCategoria from its own ring
+  // (`BUCKETS_ANILLO` = `BUCKETS_5030` on both apps), so
+  // `CASOS_PARIDAD_ANILLO` was updated to the new 3-item shape on BOTH
+  // fixture files and both ports can run the SAME table again — apps/mobile
+  // runs it against ITS own implementation
+  // (`apps/mobile/src/domain/distribucion-gasto.spec.ts`), and a byte-equality
+  // guard on the mobile side keeps both fixture files in sync.
+  it.each(CASOS_PARIDAD_ANILLO)(
+    'paridad de anillo: $nombre',
+    ({ buckets, esperado }) => {
+      const tajadas = calcularDistribucionGasto(buckets);
+      expect(tajadas.map((t) => [t.bucket, t.porcentaje])).toEqual(esperado);
+    },
+  );
 });

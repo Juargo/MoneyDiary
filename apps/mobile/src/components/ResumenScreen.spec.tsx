@@ -39,42 +39,36 @@ const viewModel: ResumenViewModel = {
       estadoSemaforo: null,
     },
   ],
+  // Issue #778 tramo5b PR2: distribucionGasto/leyendaPrincipal/leyendaComplemento
+  // reflect the real post-PR2 shape — no SinCategoria member anywhere in the
+  // ring/legend (only `buckets` above keeps the inert API entry).
   distribucionGasto: [
-    { bucket: 'Necesidades', porcentaje: 47, fraccion: 0.47 },
-    { bucket: 'Deseos', porcentaje: 28, fraccion: 0.28 },
-    { bucket: 'Ahorro', porcentaje: 19, fraccion: 0.19 },
-    { bucket: 'SinCategoria', porcentaje: 6, fraccion: 0.06 },
+    { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
+    { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
+    { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
   ],
   estadoGlobal: 'verde',
   leyendaPrincipal: [
     {
       kind: 'gasto',
       bucket: 'Necesidades',
-      porcentaje: 47,
+      porcentaje: 50,
       montoLabel: '-$500.000',
     },
     {
       kind: 'gasto',
       bucket: 'Deseos',
-      porcentaje: 28,
+      porcentaje: 30,
       montoLabel: '-$300.000',
     },
     {
       kind: 'gasto',
       bucket: 'Ahorro',
-      porcentaje: 19,
+      porcentaje: 20,
       montoLabel: '-$200.000',
     },
   ],
-  leyendaComplemento: [
-    { kind: 'ingreso', montoLabel: '+$1.000.000' },
-    {
-      kind: 'sinCategoria',
-      bucket: 'SinCategoria',
-      montoLabel: '-$0',
-      cantidadLabel: '3 tx',
-    },
-  ],
+  leyendaComplemento: [{ kind: 'ingreso', montoLabel: '+$1.000.000' }],
 };
 
 const noop = () => undefined;
@@ -117,15 +111,24 @@ describe('ResumenScreen', () => {
     expect(screen.getByText('$1.000.000')).toBeOnTheScreen();
   });
 
-  it('renders the 5 legend labels', async () => {
+  it('renders the 4 legend labels', async () => {
     await renderScreen();
     expect(screen.getByText('Necesidades')).toBeOnTheScreen();
     expect(screen.getByText('Gustos')).toBeOnTheScreen();
     expect(screen.getByText('Ahorro')).toBeOnTheScreen();
     expect(screen.getByText('Ingresos')).toBeOnTheScreen();
+  });
+
+  // Issue #778 tramo5b PR2: the Sin categoría legend row is retired — even
+  // when the view model's `buckets` array still carries an inert
+  // SinCategoria entry (the API is unchanged in this PR), nothing renders
+  // for it.
+  it('never renders a Sin categoría row, even with an inert SinCategoria entry in the view model (issue #778 tramo5b PR2)', async () => {
+    await renderScreen();
     expect(
-      screen.getByText('Sin grupo ni categoría', { exact: false }),
-    ).toBeOnTheScreen();
+      screen.queryByText('Sin grupo ni categoría', { exact: false }),
+    ).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('leyenda-fila-SinCategoria')).toBeNull();
   });
 
   it('renders testID="semaforo-global"', async () => {
