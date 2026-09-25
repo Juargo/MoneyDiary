@@ -68,9 +68,10 @@
 ## Delivery
 
 - Forecast: T1 is deletion-heavy (likely >400 authored lines, mostly removed tests); T2 ~300–400. Strategy: `ask-on-risk` → user chose **`stacked-to-main`** (2026-09-25).
-- Slice 1 (PR 1 → `main`): `0f462ef8` + T1 commit.
-- Slice 2 (PR 2 stacked on PR 1): T2 commit(s).
+- Slice 1: PR #808 (`feature/preview-sin-seleccion` → `main`): `0f462ef8` + `dfd85b1e`. 367+/2535−.
+- Slice 2: PR #809 (`feature/design-subir` → `feature/preview-sin-seleccion`): `f2f1539a` + `43c97908`. 898+/129−. Retarget to `main` after #808 merges.
+- Both over 400 lines; `size:exception` suggested in each PR body (not applied — maintainer's call).
 
 ## Next step
 
-Then PR 1 (T1) → main and PR 2 (T2) stacked, when the user decides to deliver.
+PRs #808 and #809 opened 2026-09-25. Review/merge #808, then retarget #809 to `main`.
