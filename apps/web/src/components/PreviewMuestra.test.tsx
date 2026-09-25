@@ -1130,14 +1130,18 @@ describe('PreviewMuestra', () => {
         '[data-grupo-bucket="Ingreso"]',
       );
       expect(panelIngreso).toHaveAttribute('data-abierto', 'true');
+      const filaIngreso = screen.getByText(
+        /se clasifica como ingreso autom.ticamente/i,
+      );
+      expect(filaIngreso).toBeVisible();
+      // No categoría level exists for Ingreso: the row sits directly in the
+      // bucket panel, not inside a categoría wrapper. Structural check, so it
+      // does not depend on which heading level categoría headers use.
       expect(
-        screen.getByText(/se clasifica como ingreso autom.ticamente/i),
-      ).toBeVisible();
-      // No categoría level exists for Ingreso, and no trigger renders for
-      // an income row.
-      expect(
-        screen.queryByRole('heading', { level: 5 }),
-      ).not.toBeInTheDocument();
+        filaIngreso.closest('[data-grupo-bucket="Ingreso"]'),
+      ).not.toBeNull();
+      expect(filaIngreso.closest('[data-grupo-categoria]')).toBeNull();
+      // And no trigger renders for an income row.
       expect(
         screen.queryByRole('button', { name: /nueva categoría/i }),
       ).not.toBeInTheDocument();

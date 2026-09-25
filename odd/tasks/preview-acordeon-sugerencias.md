@@ -32,10 +32,13 @@ Close the four non-blocking suggestions left on the two-level preview accordion.
 
 - 2026-09-25: commit `c0a56aa2`. RDD assess (base `main`): medium, `slice_budget_reached` (2122 lines counts the rename as delete+add; real diff +237/−45) → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-3ab341d2741b996e`).
 
-## Later work (not scheduled, user chose to ship as is)
+## Follow-up (done)
 
-- No test pins that a non-Ingreso bucket never has an empty `categorias` array, which the new `filasDirectasDeGrupo` discriminant relies on (`PreviewMuestra.tsx:102-107`).
-- The Ingreso test asserts "no categoría level" via the absence of an `h5`; a `data-` attribute on categoría panels would be sturdier (`PreviewMuestra.test.tsx:1136-1138`).
+Both suggestions from the review of `c0a56aa2` were closed later in commit `34139e87` (branch `test/preview-acordeon-guardas`):
+
+- Domain test pins that an assignable bucket always has categorías and never direct rows — the invariant behind `filasDirectasDeGrupo`. Mutation (treat Ahorro as Ingreso) → RED; restored → GREEN.
+- The Ingreso test checks structure (`closest('[data-grupo-categoria]')` is null) instead of the absence of an `h5`. Mutation (wrap Ingreso rows in a categoría container) → RED; restored → GREEN.
+- 1-lens review **approved**, acknowledged (lineage `review-c9d98582186b2547`). Its two suggestions were already answered by evidence (the attribute exists at `PreviewMuestra.tsx:545` and the mutation went RED; `tsc -b` passes, TS 5.5+ infers the filter's type guard). Checks: `tsc -b` 0; vitest 2276/2276; eslint clean.
 
 ## Delivery
 
