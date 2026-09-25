@@ -147,21 +147,17 @@ describe('aResumenViewModel', () => {
     expect(vm.periodo).toBe('2026-06');
   });
 
-  // US-047 WG5-13: renamed+inverted from "calcula la distribución de gasto
-  // (share-of-gasto) para el pie, excluyendo SinCategoria" — the view-model's
-  // `distribucionGasto` now INCLUDES SinCategoria as the ring's 4th member
-  // (BUCKETS_ANILLO, T2). With the default fixture's SinCategoria total at
-  // 0, the three spend shares are unchanged (0 doesn't dilute) — this test
-  // names the new behavior instead of leaving the old exclusion assertion's
-  // name on an inverted expectation.
-  it('incluye SinCategoria en distribucionGasto — con SinCategoria en 0 los tres buckets de gasto no se diluyen (WG5-13)', () => {
+  // Issue #778 tramo5b PR1 (apps/web): distribucionGasto no longer includes
+  // SinCategoria at all — the fixture's `buckets` array still carries a
+  // SinCategoria entry (the API is unchanged in this PR), but it never
+  // reaches the ring/legend.
+  it('distribucionGasto ignora la entrada SinCategoria del DTO — no aparece y no distorsiona los otros 3 buckets (issue #778)', () => {
     const vm = aResumenViewModel(dto());
-    // Necesidades 400k / Deseos 250k / Ahorro 350k / SinCategoria 0 → 40/25/35/0.
+    // Necesidades 400k / Deseos 250k / Ahorro 350k → 40/25/35, SinCategoria absent.
     expect(vm.distribucionGasto.map((t) => [t.bucket, t.porcentaje])).toEqual([
       ['Necesidades', 40],
       ['Deseos', 25],
       ['Ahorro', 35],
-      ['SinCategoria', 0],
     ]);
   });
 
@@ -246,9 +242,9 @@ describe('aResumenViewModel', () => {
     expect(vm.distribucionGasto).toEqual([]);
   });
 
-  // US-047 D-03: the 3-kind discriminated union legend, built from
-  // `distribucionGasto` (T2/WG5-01) + `formatearMontoConSigno` (T3) +
-  // `dto.totalIngreso`/`dto.cantidadSinCategoria` (WG5-05).
+  // US-047 D-03, narrowed to a 2-kind union in issue #778 tramo5b PR1: the
+  // legend, built from `distribucionGasto` (T2/WG5-01) +
+  // `formatearMontoConSigno` (T3) + `dto.totalIngreso`.
   describe('leyendaPrincipal / leyendaComplemento (D-03)', () => {
     it('leyendaPrincipal es exactamente los tres items 50/30/20 en orden canónico, kind: "gasto", montoLabel con prefijo "-"', () => {
       const vm = aResumenViewModel(dto());
@@ -274,39 +270,34 @@ describe('aResumenViewModel', () => {
       ]);
     });
 
-    it('leyendaComplemento es exactamente [ingreso(+), sinCategoria(-, cantidadLabel)] en ese orden', () => {
+    // Issue #778 tramo5b PR1: the `sinCategoria` row is RETIRED — the DTO
+    // still carries `cantidadSinCategoria`/a SinCategoria bucket entry (the
+    // API is unchanged in this PR), but leyendaComplemento never reads
+    // either one anymore.
+    it('leyendaComplemento es exactamente [ingreso(+)] — la fila sinCategoria fue retirada (issue #778)', () => {
       const vm = aResumenViewModel(dto());
       expect(vm.leyendaComplemento).toEqual([
         { kind: 'ingreso', montoLabel: '+$1.000.000' },
-        {
-          kind: 'sinCategoria',
-          bucket: 'SinCategoria',
-          montoLabel: '$0',
-          cantidadLabel: '3 tx',
-        },
       ]);
     });
 
-    it('cantidadSinCategoria: 0 mapea a cantidadLabel "0 tx" y la fila sigue existiendo en leyendaComplemento (nunca omitida, WG5-05)', () => {
-      const vm = aResumenViewModel(dto({ cantidadSinCategoria: 0 }));
-      const sinCategoria = vm.leyendaComplemento.find(
-        (item) => item.kind === 'sinCategoria',
-      );
-      expect(sinCategoria).toBeDefined();
-      expect(sinCategoria).toMatchObject({ cantidadLabel: '0 tx' });
+    it('cantidadSinCategoria no afecta leyendaComplemento sea cual sea su valor (issue #778)', () => {
+      const conCero = aResumenViewModel(dto({ cantidadSinCategoria: 0 }));
+      const conVarios = aResumenViewModel(dto({ cantidadSinCategoria: 7 }));
+      expect(conCero.leyendaComplemento).toEqual([
+        { kind: 'ingreso', montoLabel: '+$1.000.000' },
+      ]);
+      expect(conVarios.leyendaComplemento).toEqual(conCero.leyendaComplemento);
     });
 
-    // US-047 T11/PR3 (WG5-13, replaces the PR1/PR2 "renormaliza sobre los 3
-    // buckets" test): the renormalization shim (`distribucionGastoInterina`)
-    // is gone — `leyendaPrincipal` now sources its percentages DIRECTLY from
-    // the real 4-item `distribucionGasto`, filtered (not renormalized) to
-    // the 3 spend buckets. With the SAME nonzero-SinCategoria fixture this
-    // test used to prove renormalization (44/28/28, sum 100), the correct
-    // reading is now the DILUTED one — 40/25/25, sum 90 — because the same
-    // three amounts now share a denominator that also contains SinCategoria
-    // (400000+250000+250000+100000=1000000). This is the intended dilution
-    // becoming user-visible in the legend, not a regression.
-    it('leyendaPrincipal ya no renormaliza — refleja la dilución del anillo cuando SinCategoria tiene gasto (40/25/25, WG5-13)', () => {
+    // Issue #778 tramo5b PR1 (replaces the retired WG5-13 "ya no renormaliza
+    // — dilución" test, which asserted the now-reverted diluted 40/25/25
+    // reading): leyendaPrincipal sources its percentages from
+    // `distribucionGasto`, which no longer includes SinCategoria in its
+    // denominator — the SAME nonzero-SinCategoria fixture that used to prove
+    // dilution now proves the three spend percentages are UNDILUTED
+    // (44/28/28 over the 900000 spend total, SinCategoria's 100000 excluded).
+    it('leyendaPrincipal no se diluye por un SinCategoria con gasto — 44/28/28 sobre el denominador de 3 buckets (issue #778)', () => {
       const vm = aResumenViewModel(
         dto({
           buckets: [
@@ -338,16 +329,21 @@ describe('aResumenViewModel', () => {
         }),
       );
       expect(vm.leyendaPrincipal).toMatchObject([
-        { kind: 'gasto', porcentaje: 40 },
-        { kind: 'gasto', porcentaje: 25 },
-        { kind: 'gasto', porcentaje: 25 },
+        { kind: 'gasto', porcentaje: 44 },
+        { kind: 'gasto', porcentaje: 28 },
+        { kind: 'gasto', porcentaje: 28 },
+      ]);
+      expect(vm.distribucionGasto.map((t) => t.bucket)).toEqual([
+        'Necesidades',
+        'Deseos',
+        'Ahorro',
       ]);
       // WG5-03: "the legend performs no independent percentage computation
       // of its own; it reuses the ring's own value" — proven directly by
       // comparing against the same buckets read off `distribucionGasto`.
-      const porcentajesDelAnillo = vm.distribucionGasto
-        .filter((t) => t.bucket !== 'SinCategoria')
-        .map((t) => t.porcentaje);
+      const porcentajesDelAnillo = vm.distribucionGasto.map(
+        (t) => t.porcentaje,
+      );
       const porcentajesDeLaLeyenda = vm.leyendaPrincipal.map((item) =>
         item.kind === 'gasto' ? item.porcentaje : null,
       );

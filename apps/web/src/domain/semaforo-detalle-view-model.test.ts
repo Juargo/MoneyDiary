@@ -233,4 +233,19 @@ describe('aSemaforoDetalleViewModel', () => {
 
     expect(vm.buckets[0].metaLabel).toBe('Meta: 50%');
   });
+
+  // Issue #778 tramo5b PR1: `dto.sinCategoria` (the API still sends it,
+  // unchanged in this PR) is never surfaced on the view model — it used to
+  // drive `SemaforoDetallePage`'s Sin categoría banner, now retired.
+  it('no expone sinCategoria aunque el DTO lo traiga con datos (issue #778 tramo5b PR1)', () => {
+    const dto = detalleDto();
+    const dtoConSinCategoria: typeof dto = {
+      ...dto,
+      sinCategoria: { cantidad: 3, total: '15000' },
+    };
+
+    const vm = aSemaforoDetalleViewModel(dtoConSinCategoria);
+
+    expect(vm).not.toHaveProperty('sinCategoria');
+  });
 });

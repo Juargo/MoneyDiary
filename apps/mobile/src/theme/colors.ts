@@ -12,14 +12,6 @@ export const COLORS = {
   necesidades: '#464B69',
   gustos: '#E7E1BF',
   ahorro: '#3E9B52',
-  // US-050 (design §2 D-10): the 4th ring wedge (SinCategoria) — a neutral
-  // grey, same SEMANTICS as web's own SinCategoria color (uncategorized is
-  // not over-budget, so it must not borrow an accent), but a DIFFERENT hex:
-  // web's lib/bucket-colors.ts explicitly says not to port its migration to
-  // apps/mobile. Reuses the neutral this palette already has for "sin
-  // datos" (see `semaforoSinDatosIcon` below) instead of inventing a second
-  // near-identical grey.
-  sinCategoria: '#8A8F9C',
 
   // Semáforo — icon color + its tinted circle background.
   semaforoVerdeIcon: '#3E9B52',
@@ -56,12 +48,19 @@ export const COLORS = {
 /**
  * Domain bucket name → slice/dot color. Keyed by the backend's canonical
  * bucket names ('Deseos', not the UI label 'Gustos').
+ *
+ * Issue #778 tramo5b PR2 (apps/mobile): the dedicated `SinCategoria` entry
+ * is REMOVED, mirroring apps/web's own PR1 (`lib/bucket-colors.ts`'s
+ * `CLASE_RELLENO_BUCKET`/`CLASE_FONDO_BUCKET`) — the ring/legend never
+ * render a SinCategoria slice/dot anymore, so there is no fill left that
+ * needs it. Any unrecognized bucket key (including a literal `'SinCategoria'`,
+ * still reachable only via a direct `/bucket/SinCategoria` URL) falls back
+ * to `'#CCCCCC'` at each call site.
  */
 export const COLOR_BUCKET: Record<string, string> = {
   Necesidades: COLORS.necesidades,
   Deseos: COLORS.gustos,
   Ahorro: COLORS.ahorro,
-  SinCategoria: COLORS.sinCategoria,
 };
 
 /**
@@ -74,6 +73,14 @@ export const COLOR_BUCKET: Record<string, string> = {
  * `bucketId IS NULL`: no grupo, and therefore no categoría either. The web
  * twin in `apps/web/src/lib/bucket-colors.ts` carries the same map and the
  * full rationale; the two must stay in sync.
+ *
+ * Issue #778 tramo5b PR2: unlike `COLOR_BUCKET`/`COLOR_GLIFO_BUCKET` below,
+ * this entry STAYS — `ReclasificarMobileControl` still reads it to name the
+ * source bucket when reclassifying a movement OUT of SinCategoria, and
+ * `BucketDetalleScreen`'s header still reads it for the still-reachable
+ * `/bucket/SinCategoria` route (direct URL, no longer linked from the
+ * dashboard). Removing it would leak the raw internal key `"SinCategoria"`
+ * to that copy instead of degrading gracefully.
  */
 export const ETIQUETA_BUCKET: Record<string, string> = {
   Necesidades: 'Necesidades',
@@ -89,15 +96,19 @@ export const ETIQUETA_BUCKET: Record<string, string> = {
  * equivalent CSS token family, so this mints the two literal inks the
  * design already measured against each bucket fill (design.md "Contrast"):
  * white on the two darker fills (Necesidades 8.5:1, Ahorro 3.5:1), and
- * `COLORS.heading` on the two paler fills (Gustos 10.1:1, Sin categoría
- * 4.1:1). Ahorro's 3.5:1 barely clears the SC 1.4.11 floor and Gustos' own
- * fill measures only ~1.3:1 against a white page background, so neither
- * badge may rely on color alone — the glyph shape and the adjacent bucket
- * name both carry the information.
+ * `COLORS.heading` on the paler fill (Gustos 10.1:1). Ahorro's 3.5:1 barely
+ * clears the SC 1.4.11 floor and Gustos' own fill measures only ~1.3:1
+ * against a white page background, so neither badge may rely on color
+ * alone — the glyph shape and the adjacent bucket name both carry the
+ * information.
+ *
+ * Issue #778 tramo5b PR2: the dedicated `SinCategoria` entry is REMOVED,
+ * mirroring apps/web's own PR1 (`lib/pie-colors.ts`'s `CLASE_ETIQUETA_PIE`)
+ * — any unrecognized bucket key falls back to `COLORS.heading` at the call
+ * site (`IconoCategoriaBadge.tsx`).
  */
 export const COLOR_GLIFO_BUCKET: Record<string, string> = {
   Necesidades: '#FFFFFF',
   Deseos: COLORS.heading,
   Ahorro: '#FFFFFF',
-  SinCategoria: COLORS.heading,
 };

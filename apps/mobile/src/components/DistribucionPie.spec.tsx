@@ -2,22 +2,26 @@ import { render, screen } from '@testing-library/react-native';
 import { DistribucionPie } from './DistribucionPie';
 import type { TajadaGasto } from '../domain/distribucion-gasto';
 
-// US-050 PR4a: donut rewrite (design §1.7). The main ring now renders all 4
+// US-050 PR4a: donut rewrite (design §1.7). The main ring renders all
 // `BUCKETS_ANILLO` members (label-less, D-07) with a donut hole
 // (RATIO_INTERIOR = 0.58) and a white wedge separator (WCAG 1.4.11). The
 // IDEAL 50/30/20 reference inset, `slicesIdeales`, the `targets` prop, and
 // the on-wedge `%` labels are REMOVED (MOB-15, Closed Question 2).
+//
+// Issue #778 tramo5b PR2: `BUCKETS_ANILLO` dropped SinCategoria upstream
+// (`distribucion-gasto.ts`/`resumen-view-model.ts`) — this generic,
+// bucket-agnostic renderer never decides what it's fed, so the fixture
+// below just reflects the ring's real, current 3-item shape.
 const tajadas: readonly TajadaGasto[] = [
   { bucket: 'Necesidades', porcentaje: 44, fraccion: 0.44 },
   { bucket: 'Deseos', porcentaje: 28, fraccion: 0.28 },
-  { bucket: 'Ahorro', porcentaje: 18, fraccion: 0.18 },
-  { bucket: 'SinCategoria', porcentaje: 10, fraccion: 0.1 },
+  { bucket: 'Ahorro', porcentaje: 28, fraccion: 0.28 },
 ];
 
 describe('DistribucionPie', () => {
-  it('renders one wedge path per ring item, including Sin categoría', async () => {
+  it('renders one wedge path per ring item', async () => {
     await render(<DistribucionPie tajadas={tajadas} />);
-    expect(screen.getAllByTestId('pie-slice')).toHaveLength(4);
+    expect(screen.getAllByTestId('pie-slice')).toHaveLength(3);
   });
 
   it('renders a muted placeholder ring instead of dividing by zero when there is no spending', async () => {
@@ -36,8 +40,6 @@ describe('DistribucionPie', () => {
     await render(<DistribucionPie tajadas={tajadas} />);
     expect(screen.queryByText('44%')).toBeNull();
     expect(screen.queryByText('28%')).toBeNull();
-    expect(screen.queryByText('18%')).toBeNull();
-    expect(screen.queryByText('10%')).toBeNull();
   });
 
   it('keeps accessibilityLabel="Distribución del gasto" (Maestro anchor)', async () => {
