@@ -7,7 +7,7 @@ import { IconoCategoriaBadge } from './IconoCategoriaBadge';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
 import {
   agruparFilasPorBucketYCategoria,
-  type GrupoBucket,
+  type GrupoNivel1,
 } from '@/domain/agrupar-filas-por-categoria-sugerida';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { BUCKET_INGRESO } from '@/api/catalogo-constantes';
@@ -39,12 +39,18 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  *
  * ACCORDION SHAPE (2026-09-25 product decision, preview-acordeon-bucket):
  * - Level 1 — one entry per PRESENT bucket (Necesidades, Gustos, Ahorro,
- *   Ingreso), in that order; header = UI label + row count.
+ *   Ingreso), in that order, then a TRAILING "Revisar" entry (T2) for rows
+ *   the domain fn cannot place under a real bucket (`GrupoRevisar` —
+ *   `sugerido: null` or an unrecognized bucket) — present ONLY when at
+ *   least one such row exists; never visible in the normal flow, since the
+ *   API always sends a known bucket. Header = UI label (or literally
+ *   "Revisar") + row count.
  * - Level 2 — inside Necesidades/Gustos/Ahorro only: one entry per categoría
- *   of that bucket (`IconoCategoriaBadge` + name + row count). Ingreso has
- *   no categoría — its panel shows its rows DIRECTLY (no level 2), since
- *   `agruparFilasPorBucketYCategoria` always returns `categorias: []` for
- *   it.
+ *   of that bucket (`IconoCategoriaBadge` + name + row count). Ingreso and
+ *   Revisar have no categoría — their panels show their rows DIRECTLY (no
+ *   level 2), since `agruparFilasPorBucketYCategoria` always returns
+ *   `categorias: []` for Ingreso and `GrupoRevisar` has no `categorias`
+ *   field at all (`kind: 'revisar'` discriminates it from `GrupoBucket`).
  * - BOTH levels start COLLAPSED (assumption, feature doc: "al presionar se
  *   despliegue" — a bucket/categoría accordion is a drill-down, not a
  *   review list that must stay fully open like the old flat one).
@@ -85,11 +91,17 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * redundant — one is the one-line answer, the other is the depth.
  */
 
-/** Total row count under one `GrupoBucket` — `filasDirectas` for Ingreso, the sum of its categorías otherwise. */
-function conteoBucket(grupo: GrupoBucket): number {
+/** Total row count under one level-1 entry — `filas` for Revisar, `filasDirectas` for Ingreso, the sum of its categorías otherwise. */
+function conteoGrupo(grupo: GrupoNivel1): number {
+  if (grupo.kind === 'revisar') return grupo.filas.length;
   return grupo.categorias.length > 0
     ? grupo.categorias.reduce((total, c) => total + c.filas.length, 0)
     : grupo.filasDirectas.length;
+}
+
+/** Stable key for one level-1 entry's expand-state `Set` and DOM ids — the bucket name, or the fixed `'revisar'` sentinel for the Revisar entry (never a real bucket name). */
+function claveNivel1(grupo: GrupoNivel1): string {
+  return grupo.kind === 'revisar' ? 'revisar' : grupo.bucket;
 }
 
 function etiquetaConteo(n: number): string {
@@ -97,24 +109,30 @@ function etiquetaConteo(n: number): string {
 }
 
 /**
- * Locates which bucket / categoría `clave` currently holds `rowIndex` inside
- * `grupos` — used ONLY by the focus-continuity effect below to know which
- * (possibly just-created, still-collapsed) panels must open before a
+ * Locates which level-1 / categoría `clave` currently holds `rowIndex`
+ * inside `grupos` — used ONLY by the focus-continuity effect below to know
+ * which (possibly just-created, still-collapsed) panels must open before a
  * remounted trigger can regain focus. `categoriaClave: null` means the row
- * lives directly on a bucket's `filasDirectas` (Ingreso), with no level 2 to
- * expand.
+ * lives directly on a level-1 entry's flat row list (Ingreso's
+ * `filasDirectas`, or Revisar's `filas`), with no level 2 to expand.
  */
 function ubicarFila(
-  grupos: ReadonlyArray<GrupoBucket>,
+  grupos: ReadonlyArray<GrupoNivel1>,
   rowIndex: number,
-): { readonly bucket: string; readonly categoriaClave: string | null } | null {
+): { readonly clave: string; readonly categoriaClave: string | null } | null {
   for (const grupo of grupos) {
+    if (grupo.kind === 'revisar') {
+      if (grupo.filas.some((f) => f.rowIndex === rowIndex)) {
+        return { clave: claveNivel1(grupo), categoriaClave: null };
+      }
+      continue;
+    }
     if (grupo.filasDirectas.some((f) => f.rowIndex === rowIndex)) {
-      return { bucket: grupo.bucket, categoriaClave: null };
+      return { clave: grupo.bucket, categoriaClave: null };
     }
     for (const categoria of grupo.categorias) {
       if (categoria.filas.some((f) => f.rowIndex === rowIndex)) {
-        return { bucket: grupo.bucket, categoriaClave: categoria.clave };
+        return { clave: grupo.bucket, categoriaClave: categoria.clave };
       }
     }
   }
@@ -296,14 +314,14 @@ export function PreviewMuestra({
       return; // row no longer present in this render
     }
 
-    const bucketColapsado = !bucketsExpandidos.has(ubicacion.bucket);
+    const bucketColapsado = !bucketsExpandidos.has(ubicacion.clave);
     const categoriaColapsada =
       ubicacion.categoriaClave !== null &&
       !categoriasExpandidas.has(ubicacion.categoriaClave);
 
     if (bucketColapsado || categoriaColapsada) {
       if (bucketColapsado) {
-        setBucketsExpandidos((prev) => new Set(prev).add(ubicacion.bucket));
+        setBucketsExpandidos((prev) => new Set(prev).add(ubicacion.clave));
       }
       if (categoriaColapsada && ubicacion.categoriaClave !== null) {
         const clave = ubicacion.categoriaClave;
@@ -401,24 +419,36 @@ export function PreviewMuestra({
 
           <div className="flex flex-col gap-3 px-1 py-3 border-x">
             {grupos.map((grupo) => {
-              const bucketAbierto = bucketsExpandidos.has(grupo.bucket);
-              const idPanelBucket = `${idBase}-bucket-${grupo.bucket}`;
-              const conteo = conteoBucket(grupo);
-              const esIngreso = grupo.bucket === BUCKET_INGRESO;
+              const clave = claveNivel1(grupo);
+              const bucketAbierto = bucketsExpandidos.has(clave);
+              const idPanelBucket = `${idBase}-bucket-${clave}`;
+              const conteo = conteoGrupo(grupo);
+              // Ingreso and Revisar both render their rows DIRECTLY, no
+              // level 2 — `null` means "this entry has categorías" instead.
+              const filasPlano =
+                grupo.kind === 'revisar'
+                  ? grupo.filas
+                  : grupo.bucket === BUCKET_INGRESO
+                    ? grupo.filasDirectas
+                    : null;
+              const etiqueta =
+                grupo.kind === 'revisar'
+                  ? 'Revisar'
+                  : (ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket);
 
               return (
                 <div
-                  key={grupo.bucket}
-                  data-grupo-bucket={grupo.bucket}
+                  key={clave}
+                  data-grupo-bucket={clave}
                   data-abierto={bucketAbierto}
                   className="flex flex-col rounded-lg border border-border"
                 >
-                  {/* Level 1 (bucket) header = accordion toggle. The `h4`
-                  wraps the button (heading-with-button is the standard
-                  accordion header pattern) and its accessible name is
-                  "{Bucket label} · N movimientos" — the count is part of the
-                  heading on purpose: it's what tells the user how much work
-                  a collapsed bucket still holds. */}
+                  {/* Level 1 (bucket, or the trailing Revisar entry) header
+                  = accordion toggle. The `h4` wraps the button (heading-
+                  with-button is the standard accordion header pattern) and
+                  its accessible name is "{label} · N movimientos" — the
+                  count is part of the heading on purpose: it's what tells
+                  the user how much work a collapsed entry still holds. */}
                   <div
                     className={`flex items-center gap-2 bg-muted/40 px-3 py-1 ${bucketAbierto ? 'border-b border-border' : ''}`}
                   >
@@ -427,11 +457,11 @@ export function PreviewMuestra({
                         type="button"
                         aria-expanded={bucketAbierto}
                         aria-controls={idPanelBucket}
-                        onClick={() => handleToggleBucket(grupo.bucket)}
+                        onClick={() => handleToggleBucket(clave)}
                         className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-medium text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <span className="min-w-0 truncate">
-                          {ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket}{' '}
+                          {etiqueta}{' '}
                           <span className="font-normal text-muted-foreground">
                             · {etiquetaConteo(conteo)}
                           </span>
@@ -459,10 +489,10 @@ export function PreviewMuestra({
                       bucketAbierto ? 'flex flex-col gap-2 px-3 py-2' : 'hidden'
                     }
                   >
-                    {esIngreso ? (
-                      // Ingreso: no level 2 — its rows render DIRECTLY.
+                    {filasPlano !== null ? (
+                      // Ingreso / Revisar: no level 2 — rows render DIRECTLY.
                       <ul className="flex flex-col gap-2 divide-y divide-border">
-                        {grupo.filasDirectas.map((fila) => (
+                        {filasPlano.map((fila) => (
                           <FilaRevision
                             key={fila.rowIndex}
                             fila={fila}
@@ -478,7 +508,7 @@ export function PreviewMuestra({
                           />
                         ))}
                       </ul>
-                    ) : (
+                    ) : grupo.kind === 'bucket' ? (
                       grupo.categorias.map((categoria) => {
                         const categoriaAbierta = categoriasExpandidas.has(
                           categoria.clave,
@@ -555,7 +585,7 @@ export function PreviewMuestra({
                           </div>
                         );
                       })
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );

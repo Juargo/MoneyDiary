@@ -471,7 +471,8 @@ describe('PreviewMuestra', () => {
       expect(screen.getByText('sueldo')).toBeVisible();
     });
 
-    it('a row with no sugerido (dead code path since #778) is DROPPED — no group is created for it, and nothing crashes', () => {
+    it('a row with no sugerido goes to the trailing "Revisar" group, not dropped — no synthetic "Sin categoría" heading', async () => {
+      const user = userEvent.setup();
       const filas = [
         unaFilaPreview({
           rowIndex: 0,
@@ -496,15 +497,25 @@ describe('PreviewMuestra', () => {
         />,
       );
 
-      // Only the classified row's bucket renders — no "Sin categoría" bucket,
-      // no phantom heading of any kind for the dropped row.
-      expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(1);
+      // The classified row's bucket AND a trailing "Revisar" heading render
+      // — no "Sin categoría" heading of any kind for the unplaceable row.
+      expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(2);
       expect(
         screen.getByRole('heading', { level: 4, name: /^Necesidades ·/ }),
       ).toBeInTheDocument();
-      expect(screen.queryByText('sin sugerido')).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Revisar ·/ }),
+      ).toBeInTheDocument();
       expect(
         screen.queryByRole('heading', { name: /sin categoría/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('sin sugerido')).not.toBeVisible();
+
+      // Opening it shows the row DIRECTLY, no categoría heading in between.
+      await abrirGrupo(user, /^Revisar ·/);
+      expect(screen.getByText('sin sugerido')).toBeVisible();
+      expect(
+        screen.queryByRole('heading', { level: 5 }),
       ).not.toBeInTheDocument();
     });
 
@@ -598,6 +609,129 @@ describe('PreviewMuestra', () => {
       // But the row's own select DOES show the merged (edited) value.
       const categoriaSelect = screen.getByLabelText(/Fila 1: categoría/i);
       expect((categoriaSelect as HTMLSelectElement).value).toBe('cat-des-1');
+    });
+  });
+
+  // ── "Revisar" trailing entry (preview-acordeon-bucket T2, review
+  // warnings 1-2): rows the accordion cannot place (`sugerido: null`, or an
+  // unrecognized bucket) — never visible in the normal flow (the API always
+  // sends a known bucket), only when a row actually needs it. ─────────────
+  describe('"Revisar" entry for rows the accordion cannot place (T2)', () => {
+    it('does NOT render a "Revisar" heading when every row has a recognized sugerido', () => {
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[
+            unaFilaPreview({
+              sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+            }),
+          ]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('heading', { name: /^Revisar/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows a "Revisar" heading with the row count, and opening it reveals the rows\' own selects, for a row with an unrecognized bucket', async () => {
+      const user = userEvent.setup();
+      const filaBucketDesconocido = unaFilaPreview({
+        rowIndex: 0,
+        descripcion: 'bucket raro',
+        sugerido: { bucket: 'Otro', categoriaId: 'cat-cualquiera' },
+      });
+
+      render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[filaBucketDesconocido]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const encabezadoRevisar = screen.getByRole('heading', {
+        level: 4,
+        name: /^Revisar · 1 movimiento$/,
+      });
+      expect(encabezadoRevisar).toBeInTheDocument();
+      expect(screen.queryByText('bucket raro')).not.toBeVisible();
+
+      await abrirGrupo(user, /^Revisar ·/);
+
+      expect(screen.getByText('bucket raro')).toBeVisible();
+      // Fully interactive, like any other row — its own bucket/categoría
+      // selects are reachable so the user can classify it.
+      expect(screen.getByLabelText(/Fila 1: grupo/i)).toBeInTheDocument();
+    });
+
+    it('re-run moving the focused row into "Revisar" (a still-collapsed, previously nonexistent group) still restores focus to its trigger', async () => {
+      // FilaRevision only renders its "+" trigger once its OWN bucket
+      // `<select>` (`bucketUI`) has a value — seeded, in priority order, from
+      // the catalog group owning the MERGED categoriaId (edits win), or else
+      // `sugerido.bucket`. A row whose `sugerido` becomes `null` has neither
+      // on its own, so this scenario needs an EDIT that keeps a real,
+      // catalog-resolvable categoriaId across the re-run (a user who already
+      // reclassified the row before the backend stopped being able to
+      // classify it) — otherwise the trigger would never render on either
+      // side of the move, and the test would prove nothing about focus.
+      const user = userEvent.setup();
+      const filaClasificada = unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+      });
+      const edits = new Map<number, string | null>([[0, 'cat-nec-1']]);
+
+      const { rerender } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[filaClasificada]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={edits}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+
+      const trigger = screen.getByRole('button', {
+        name: /nueva categoría para fila 1/i,
+      });
+      trigger.focus();
+      expect(trigger).toHaveFocus();
+
+      // A re-run drops this row's SERVER sugerido entirely (e.g. the backend
+      // can no longer classify it) — since grouping keys off `sugerido`, not
+      // the merged edit, its whole subtree moves into a BRAND NEW,
+      // never-opened "Revisar" group, even though the row still shows the
+      // edited categoría via its own select.
+      rerender(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[{ ...filaClasificada, sugerido: null }]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={edits}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const triggerEnRevisar = screen.getByRole('button', {
+        name: /nueva categoría para fila 1/i,
+      });
+      expect(triggerEnRevisar).toHaveFocus();
+      expect(triggerEnRevisar).toBeVisible();
+      expect(
+        screen.getByRole('heading', { level: 4, name: /^Revisar ·/ }),
+      ).toBeInTheDocument();
     });
   });
 

@@ -208,11 +208,35 @@ export function buildPreviewStressFixture(rowCount: number): {
   }
 
   const duplicateCount = filas.filter((f) => f.esDuplicado).length;
+  // Mirrors `estaClasificada` (`apps/web/src/domain/clasificacion-preview.ts`)
+  // rather than importing it: that module (and `resolverCategoriaMerged`,
+  // which it depends on) imports `PreviewFilaDto` via the `@/api/types`
+  // alias, which `tsconfig.e2e.json` does not resolve (only `e2e/**` +
+  // `playwright.config.ts` are included, no `@/*` path — same constraint
+  // this file's own docblock already documents for the wire-shape literal
+  // below). The Ingreso half of the rule is identical: `sugerido.bucket ===
+  // 'Ingreso'` is SETTLED (immutable, `CommitIngestaUseCase` Rule 2), never
+  // "still needs work", regardless of its (always-null) `categoriaId`.
+  //
+  // `estaClasificada` itself has no notion of "Desconocido" — in production
+  // every non-null `categoriaId` (including that bucket's real `Desconocido`
+  // fallback) IS a resolved category. This FIXTURE's `CATEGORIA_DESCONOCIDO`
+  // stand-in exists specifically to represent "no pattern matched, real work
+  // still pending" (see its own docblock and the ~1/3-pre-classified /
+  // ~2/3-"sin clasificar" comment above) — a distinction the production rule
+  // has no reason to make but this measurement fixture's own documented
+  // intent depends on. So the previous `categoriaId != null` check (true for
+  // the Desconocido placeholder too, and false for the null-categoriaId
+  // Ingreso rows) had it backwards on BOTH counts.
+  const esClasificada = (f: PreviewStressFila): boolean =>
+    f.sugerido !== null &&
+    (f.sugerido.bucket === 'Ingreso' ||
+      f.sugerido.categoriaId !== CATEGORIA_DESCONOCIDO.categoriaId);
   const classifiedCount = filas.filter(
-    (f) => !f.esDuplicado && f.sugerido?.categoriaId != null,
+    (f) => !f.esDuplicado && esClasificada(f),
   ).length;
   const unclassifiedCount = filas.filter(
-    (f) => !f.esDuplicado && f.sugerido?.categoriaId == null,
+    (f) => !f.esDuplicado && !esClasificada(f),
   ).length;
 
   const fixture: PreviewStressFixture = {
