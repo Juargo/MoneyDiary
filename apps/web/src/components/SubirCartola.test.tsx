@@ -266,6 +266,20 @@ function elegirRevisarYEditar() {
   fireEvent.click(screen.getByRole('button', { name: /^revisar y editar$/i }));
 }
 
+// preview-acordeon-bucket T1: `PreviewMuestra`'s two-level accordion starts
+// BOTH levels collapsed, so any test reaching a row's own controls or a
+// categoría heading must open its bucket (level 1) and, unless the row
+// lives on Ingreso's `filasDirectas` (no level 2), its categoría (level 2)
+// first — pass only `nombreBucket` for Ingreso. Mirrors
+// `PreviewMuestra.test.tsx`'s own `abrirGrupo` helper; `fireEvent`, not
+// `userEvent`, to match this file's own `elegirRevisarYEditar` idiom.
+function abrirGrupo(nombreBucket: RegExp, nombreCategoria?: RegExp) {
+  fireEvent.click(screen.getByRole('button', { name: nombreBucket }));
+  if (nombreCategoria) {
+    fireEvent.click(screen.getByRole('button', { name: nombreCategoria }));
+  }
+}
+
 describe('SubirCartola (US-059 PR3 — commit flow)', () => {
   beforeEach(() => {
     // SubirCartola calls `useResumen` unconditionally every render
@@ -649,14 +663,16 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       ).toBeInTheDocument();
       // cartola-decision-agrupada: MuestraAgrupada renders a read-only
       // grouped accordion of the SAME filas, collapsed by default — the row
-      // exists in the DOM (inside its "Sin clasificar" group) but is not
-      // VISIBLE until that group is expanded. The editable review table
-      // (FilaRevision's controls) is still absent entirely.
+      // exists in the DOM (inside its "Necesidades · Supermercado" group,
+      // the default fixture's sugerido since #778 real rows are never
+      // unclassified) but is not VISIBLE until that group is expanded. The
+      // editable review table (FilaRevision's controls) is still absent
+      // entirely.
       expect(
         screen.getByRole('heading', { name: 'Movimientos por categoría' }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /^Sin clasificar/ }),
+        screen.getByRole('button', { name: /^Necesidades · Supermercado/ }),
       ).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByText('Supermercado Líder')).not.toBeVisible();
       expect(
@@ -941,7 +957,15 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
               rowIndex: 0,
               descripcion: 'Fila editable',
               esDuplicado: false,
-              sugerido: null,
+              // Post-#778 the backend never sends `sugerido: null` (dead
+              // path, dropped entirely by `agruparFilasPorBucketYCategoria`
+              // — see its docblock); an unresolvable categoriaId under a
+              // real bucket is the realistic "not yet manually classified"
+              // shape.
+              sugerido: {
+                bucket: 'Necesidades',
+                categoriaId: 'cat-desconocido',
+              },
             }),
           ],
         },
@@ -952,6 +976,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
     elegirRevisarYEditar();
+    abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
     // First pick a bucket (reveals the categoría select)
     const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
@@ -1029,7 +1054,14 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
               rowIndex: 3,
               descripcion: 'Fila editada',
               esDuplicado: false,
-              sugerido: null,
+              // Post-#778 the backend never sends `sugerido: null` (dropped
+              // entirely, see `agruparFilasPorBucketYCategoria`'s docblock)
+              // — an unresolvable categoriaId under a real bucket is the
+              // realistic shape for "not yet manually classified".
+              sugerido: {
+                bucket: 'Necesidades',
+                categoriaId: 'cat-desconocido',
+              },
             }),
           ],
           resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
@@ -1041,6 +1073,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
     );
     rerender(<SubirCartola />);
     elegirRevisarYEditar();
+    abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
     // Edit row 3 — pick bucket then categoría (userEvent for proper state flush)
     const bucketGroup = screen.getByLabelText(/Fila 4: grupo/i);
@@ -1160,7 +1193,17 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
             unaFilaPreview({
               rowIndex: 3,
               descripcion: 'Fila a clasificar por edición',
-              sugerido: null,
+              // Post-#778 the backend never sends `sugerido: null` for a
+              // row PreviewMuestra must actually render — dropped entirely
+              // otherwise (`agruparFilasPorBucketYCategoria`'s docblock).
+              // Row 2 (rowIndex 2) above stays `null`: it is never
+              // interacted with, and the discard-confirm count below reads
+              // straight off `filas`/`edits` (`resolverCategoriaMerged`),
+              // independent of what the accordion renders.
+              sugerido: {
+                bucket: 'Necesidades',
+                categoriaId: 'cat-desconocido',
+              },
             }),
           ],
           resumen: { totalFilas: 4, duplicadosDetectados: 1, nuevas: 3 },
@@ -1172,6 +1215,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
 
     render(<SubirCartola />);
     elegirRevisarYEditar();
+    abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
     // Classify row 4 (rowIndex 3) via the edit overlay — must count exactly
     // like a sugerido-derived classification (D-05).
@@ -3054,7 +3098,15 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
                 rowIndex: 0,
                 descripcion: 'COMPRA PETCO',
                 esDuplicado: false,
-                sugerido: null,
+                // Post-#778 the backend never sends `sugerido: null`
+                // (dropped entirely otherwise, see
+                // `agruparFilasPorBucketYCategoria`'s docblock) — an
+                // unresolvable categoriaId under a real bucket is the
+                // realistic "not yet manually classified" shape.
+                sugerido: {
+                  bucket: 'Necesidades',
+                  categoriaId: 'cat-desconocido',
+                },
               }),
             ],
             resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
@@ -3080,6 +3132,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       );
       rerender(<SubirCartola />);
       elegirRevisarYEditar();
+      abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
       const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
@@ -3234,6 +3287,12 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       );
       utils.rerender(<SubirCartola />);
       elegirRevisarYEditar();
+      // Every caller's single `filasIniciales[0]` carries the realistic
+      // "not yet manually classified" shape (Necesidades/an unresolvable
+      // categoriaId, since #778 the backend never sends `sugerido: null` —
+      // see `agruparFilasPorBucketYCategoria`'s docblock) — open its bucket
+      // and categoría once, here, instead of at every call site.
+      abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
       const bucketGroup = screen.getByLabelText(/Fila 1: grupo/i);
       await userEvent.selectOptions(bucketGroup, 'Necesidades');
@@ -3264,7 +3323,13 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
               rowIndex: 0,
               descripcion: 'COMPRA PETCO',
               esDuplicado: false,
-              sugerido: null,
+              // Post-#778 the backend never sends `sugerido: null` for a
+              // row the shared helper must open (see
+              // `llegarAPreviewYCrearCategoria`'s own comment).
+              sugerido: {
+                bucket: 'Necesidades',
+                categoriaId: 'cat-desconocido',
+              },
             }),
           ],
           resumenInicial: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
@@ -3317,19 +3382,23 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       const catalogoListo = unCatalogoDto();
 
       // Row 0 = originating row (creates the categoría). Row 1 = a row the
-      // user ALREADY manually classified before creating anything.
+      // user ALREADY manually classified before creating anything. Post-#778
+      // the backend never sends `sugerido: null` (dropped entirely, see
+      // `agruparFilasPorBucketYCategoria`'s docblock) — both share the same
+      // unresolvable Necesidades categoriaId so a single `abrirGrupo` below
+      // reaches both.
       const filasIniciales = [
         unaFilaPreview({
           rowIndex: 0,
           descripcion: 'COMPRA PETCO',
           esDuplicado: false,
-          sugerido: null,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-desconocido' },
         }),
         unaFilaPreview({
           rowIndex: 1,
           descripcion: 'Fila con override previo',
           esDuplicado: false,
-          sugerido: null,
+          sugerido: { bucket: 'Necesidades', categoriaId: 'cat-desconocido' },
         }),
       ];
       mockedUsePreviewIngesta.mockReturnValue(
@@ -3364,6 +3433,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       );
       rerender(<SubirCartola />);
       elegirRevisarYEditar();
+      abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
       // Manually classify row 2 (rowIndex 1) FIRST — the prior override.
       await userEvent.selectOptions(
@@ -3447,7 +3517,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
             rowIndex: 0,
             descripcion: 'COMPRA PETCO',
             esDuplicado: false,
-            sugerido: null,
+            // Post-#778 the backend never sends `sugerido: null` for a row
+            // the shared helper must open (see
+            // `llegarAPreviewYCrearCategoria`'s own comment).
+            sugerido: { bucket: 'Necesidades', categoriaId: 'cat-desconocido' },
           }),
         ],
         resumenInicial: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
@@ -3530,37 +3603,46 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         // Row 0 = originating. Row 1 = duplicate (must never count). Row 2 =
         // pre-existing manual override (must never count, even though its
         // sugerido also changes). Rows 3.. = candidates whose sugerido flips
-        // from null -> 'cat-nueva' — exactly `n` of them count.
+        // from the shared "not yet matched" placeholder -> 'cat-nueva' —
+        // exactly `n` of them count. Post-#778 the backend never sends
+        // `sugerido: null` (dropped entirely, see
+        // `agruparFilasPorBucketYCategoria`'s docblock) — every row shares
+        // the same unresolvable Necesidades categoriaId so a single
+        // `abirGrupo` below reaches all five.
+        const SUGERIDO_SIN_MATCH = {
+          bucket: 'Necesidades',
+          categoriaId: 'cat-desconocido',
+        };
         const filasIniciales = [
           unaFilaPreview({
             rowIndex: 0,
             descripcion: 'Originante',
             esDuplicado: false,
-            sugerido: null,
+            sugerido: SUGERIDO_SIN_MATCH,
           }),
           unaFilaPreview({
             rowIndex: 1,
             descripcion: 'Duplicada',
             esDuplicado: true,
-            sugerido: null,
+            sugerido: SUGERIDO_SIN_MATCH,
           }),
           unaFilaPreview({
             rowIndex: 2,
             descripcion: 'Override previo',
             esDuplicado: false,
-            sugerido: null,
+            sugerido: SUGERIDO_SIN_MATCH,
           }),
           unaFilaPreview({
             rowIndex: 3,
             descripcion: 'Candidata A',
             esDuplicado: false,
-            sugerido: null,
+            sugerido: SUGERIDO_SIN_MATCH,
           }),
           unaFilaPreview({
             rowIndex: 4,
             descripcion: 'Candidata B',
             esDuplicado: false,
-            sugerido: null,
+            sugerido: SUGERIDO_SIN_MATCH,
           }),
         ];
         const commitMutate = vi.fn();
@@ -3600,6 +3682,7 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
         );
         rerender(<SubirCartola />);
         elegirRevisarYEditar();
+        abrirGrupo(/^Necesidades ·/, /^Categoría no disponible ·/);
 
         // Pre-existing override on row 2 (rowIndex 2), BEFORE creating.
         await userEvent.selectOptions(
@@ -3697,7 +3780,10 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
             rowIndex: 0,
             descripcion: 'COMPRA PETCO',
             esDuplicado: false,
-            sugerido: null,
+            // Post-#778 the backend never sends `sugerido: null` for a row
+            // the shared helper must open (see
+            // `llegarAPreviewYCrearCategoria`'s own comment).
+            sugerido: { bucket: 'Necesidades', categoriaId: 'cat-desconocido' },
           }),
         ],
         resumenInicial: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
@@ -3753,7 +3839,13 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
               rowIndex: 0,
               descripcion: 'PETSHOP HUELLITAS',
               esDuplicado: false,
-              sugerido: null,
+              // Post-#778 the backend never sends `sugerido: null` for a
+              // row the shared helper must open (see
+              // `llegarAPreviewYCrearCategoria`'s own comment).
+              sugerido: {
+                bucket: 'Necesidades',
+                categoriaId: 'cat-desconocido',
+              },
             }),
           ],
           resumenInicial: {
@@ -3809,7 +3901,13 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
               rowIndex: 0,
               descripcion: 'PETSHOP HUELLITAS',
               esDuplicado: false,
-              sugerido: null,
+              // Post-#778 the backend never sends `sugerido: null` for a
+              // row the shared helper must open (see
+              // `llegarAPreviewYCrearCategoria`'s own comment).
+              sugerido: {
+                bucket: 'Necesidades',
+                categoriaId: 'cat-desconocido',
+              },
             }),
           ],
           resumenInicial: {

@@ -98,14 +98,37 @@ export interface PreviewStressMeta {
   readonly duplicateCount: number;
   readonly classifiedCount: number;
   readonly unclassifiedCount: number;
-  /** rowIndex forced non-duplicate + unclassified — the target for the
-   * per-row category-select interaction measurement (mid-list, ~row 150). */
+  /** rowIndex forced non-duplicate + unclassified (Desconocido placeholder)
+   * — the target for the per-row category-select interaction measurement
+   * (mid-list, ~row 150). */
   readonly midRowIndex: number;
+  /** rowIndex forced non-duplicate + classified (Necesidades/Supermercado)
+   * — preview-acordeon-bucket T1: the two-level accordion collapses
+   * EVERYTHING by default, so the "table fully rendered" readiness signal
+   * needs a deterministic bucket/categoría to open regardless of `rowCount`
+   * (the un-forced last row's classification depends on `rowCount % 3` /
+   * `% 23`, which the caller shouldn't have to re-derive). */
+  readonly lastRowIndex: number;
 }
 
 // cat-1/cat-2 mirror api-stubs.ts's CATALOGO_FIXTURE verbatim.
 const CATEGORIA_SUPERMERCADO = { bucket: 'Necesidades', categoriaId: 'cat-1' };
 const CATEGORIA_STREAMING = { bucket: 'Deseos', categoriaId: 'cat-2' };
+/**
+ * Stand-in for the account's real per-bucket "Desconocido" fallback
+ * category (#778): not present in `api-stubs.ts`'s `CATALOGO_FIXTURE`, so it
+ * resolves to the "Categoría no disponible" fallback label — the realistic
+ * shape for "no pattern matched yet" now that the backend never sends
+ * `sugerido: null` (`apps/api` `preview-ingesta.use-case.ts` step 4: every
+ * transacción is classified, INCLUDING duplicates, before the dedup mask is
+ * even computed).
+ */
+const CATEGORIA_DESCONOCIDO = {
+  bucket: 'Necesidades',
+  categoriaId: 'cat-desconocido-stress',
+};
+/** The backend's immutable Ingreso verdict — `categoriaId` always `null`. */
+const SUGERIDO_INGRESO = { bucket: 'Ingreso', categoriaId: null };
 
 // Deterministic amount generator — no real randomness needed, just
 // varied-looking CLP integers (1000-89999) so rows don't render identically.
@@ -118,23 +141,53 @@ export function buildPreviewStressFixture(rowCount: number): {
   readonly meta: PreviewStressMeta;
 } {
   const midRowIndex = Math.floor(rowCount / 2);
+  const lastRowIndex = rowCount - 1;
   const filas: PreviewStressFila[] = [];
 
   for (let i = 0; i < rowCount; i++) {
     // ~14/300 rows are duplicates (every 21st, 1-indexed) — realistic
-    // low-but-nonzero duplicate rate for a re-imported cartola tail.
+    // low-but-nonzero duplicate rate for a re-imported cartola tail. A
+    // duplicate row is classified exactly like any other (see
+    // `CATEGORIA_DESCONOCIDO`'s docblock) — `esDuplicado` never gates
+    // `sugerido`.
     const esDuplicado = i > 0 && i % 21 === 0;
     // ~1/3 of non-duplicate rows arrive pre-classified (i % 3 === 0),
     // alternating between the two catalog categories — leaves "Solo sin
     // clasificar" real work to do (the other ~2/3) without being all-or-
     // nothing.
     const seClasificaPorFormula = !esDuplicado && i % 3 === 0;
-    // ~1/23 unclassified rows are income (nómina/transferencia-shaped) —
-    // the catalog's two categories are both expense buckets, so income rows
-    // stay unclassified by construction, matching real-world cartola data.
+    // ~1/23 unclassified rows are income (nómina/transferencia-shaped).
     const esIngreso = !seClasificaPorFormula && i % 23 === 0;
 
-    const merchant = esIngreso
+    let filaEsDuplicado = esDuplicado;
+    let filaEsIngreso = esIngreso;
+    let sugerido: PreviewStressFilaSugerido = filaEsIngreso
+      ? SUGERIDO_INGRESO
+      : seClasificaPorFormula
+        ? i % 6 === 0
+          ? CATEGORIA_SUPERMERCADO
+          : CATEGORIA_STREAMING
+        : CATEGORIA_DESCONOCIDO;
+
+    // Force the mid-list row to a known, deterministic UNCLASSIFIED state
+    // (non-duplicate, Desconocido) so the per-row interaction measurement
+    // has a stable starting point regardless of the formulas above.
+    if (i === midRowIndex) {
+      filaEsDuplicado = false;
+      filaEsIngreso = false;
+      sugerido = CATEGORIA_DESCONOCIDO;
+    }
+
+    // Force the LAST row to a known, deterministic CLASSIFIED state — the
+    // e2e spec's readiness signal opens exactly this bucket/categoría,
+    // regardless of what `rowCount % 3` / `% 23` would otherwise compute.
+    if (i === lastRowIndex) {
+      filaEsDuplicado = false;
+      filaEsIngreso = false;
+      sugerido = CATEGORIA_SUPERMERCADO;
+    }
+
+    const merchant = filaEsIngreso
       ? 'TRANSFERENCIA RECIBIDA'
       : MERCHANTS[i % MERCHANTS.length];
 
@@ -143,37 +196,47 @@ export function buildPreviewStressFixture(rowCount: number): {
     const hour = String(8 + (i % 12)).padStart(2, '0');
     const fecha = `2026-07-${String(day).padStart(2, '0')}T${hour}:00:00.000Z`;
 
-    let sugerido: PreviewStressFilaSugerido | null = seClasificaPorFormula
-      ? i % 6 === 0
-        ? CATEGORIA_SUPERMERCADO
-        : CATEGORIA_STREAMING
-      : null;
-
-    // Force the mid-list row to a known, deterministic state (non-
-    // duplicate, unclassified) so the per-row interaction measurement has a
-    // stable starting point regardless of the formulas above.
-    const filaEsDuplicado = i === midRowIndex ? false : esDuplicado;
-    if (i === midRowIndex) {
-      sugerido = null;
-    }
-
     filas.push({
       rowIndex: i,
       fecha,
       descripcion: merchant,
-      cargo: filaEsDuplicado ? monto : esIngreso ? '0' : monto,
-      abono: filaEsDuplicado ? '0' : esIngreso ? monto : '0',
+      cargo: filaEsDuplicado ? monto : filaEsIngreso ? '0' : monto,
+      abono: filaEsDuplicado ? '0' : filaEsIngreso ? monto : '0',
       esDuplicado: filaEsDuplicado,
-      sugerido: filaEsDuplicado ? null : sugerido,
+      sugerido,
     });
   }
 
   const duplicateCount = filas.filter((f) => f.esDuplicado).length;
+  // Mirrors `estaClasificada` (`apps/web/src/domain/clasificacion-preview.ts`)
+  // rather than importing it: that module (and `resolverCategoriaMerged`,
+  // which it depends on) imports `PreviewFilaDto` via the `@/api/types`
+  // alias, which `tsconfig.e2e.json` does not resolve (only `e2e/**` +
+  // `playwright.config.ts` are included, no `@/*` path — same constraint
+  // this file's own docblock already documents for the wire-shape literal
+  // below). The Ingreso half of the rule is identical: `sugerido.bucket ===
+  // 'Ingreso'` is SETTLED (immutable, `CommitIngestaUseCase` Rule 2), never
+  // "still needs work", regardless of its (always-null) `categoriaId`.
+  //
+  // `estaClasificada` itself has no notion of "Desconocido" — in production
+  // every non-null `categoriaId` (including that bucket's real `Desconocido`
+  // fallback) IS a resolved category. This FIXTURE's `CATEGORIA_DESCONOCIDO`
+  // stand-in exists specifically to represent "no pattern matched, real work
+  // still pending" (see its own docblock and the ~1/3-pre-classified /
+  // ~2/3-"sin clasificar" comment above) — a distinction the production rule
+  // has no reason to make but this measurement fixture's own documented
+  // intent depends on. So the previous `categoriaId != null` check (true for
+  // the Desconocido placeholder too, and false for the null-categoriaId
+  // Ingreso rows) had it backwards on BOTH counts.
+  const esClasificada = (f: PreviewStressFila): boolean =>
+    f.sugerido !== null &&
+    (f.sugerido.bucket === 'Ingreso' ||
+      f.sugerido.categoriaId !== CATEGORIA_DESCONOCIDO.categoriaId);
   const classifiedCount = filas.filter(
-    (f) => !f.esDuplicado && f.sugerido !== null,
+    (f) => !f.esDuplicado && esClasificada(f),
   ).length;
   const unclassifiedCount = filas.filter(
-    (f) => !f.esDuplicado && f.sugerido === null,
+    (f) => !f.esDuplicado && !esClasificada(f),
   ).length;
 
   const fixture: PreviewStressFixture = {
@@ -198,6 +261,7 @@ export function buildPreviewStressFixture(rowCount: number): {
       classifiedCount,
       unclassifiedCount,
       midRowIndex,
+      lastRowIndex,
     },
   };
 }

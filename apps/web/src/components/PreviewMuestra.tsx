@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ChevronDown } from 'lucide-react';
 import { FilaRevision } from './FilaRevision';
@@ -6,15 +6,16 @@ import { ResumenCartola } from './ResumenCartola';
 import { IconoCategoriaBadge } from './IconoCategoriaBadge';
 import { resolverCategoriaMerged } from '@/domain/resolver-categoria-merged';
 import {
-  agruparFilasPorCategoriaSugerida,
-  type GrupoFilaPorCategoria,
+  agruparFilasPorBucketYCategoria,
+  type GrupoNivel1,
 } from '@/domain/agrupar-filas-por-categoria-sugerida';
 import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
+import { BUCKET_INGRESO } from '@/api/catalogo-constantes';
 import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
 /**
- * PreviewMuestra (US-059 PR2, D-12) — review table shell for the cartola
- * upload preview.
+ * PreviewMuestra (US-059 PR2, D-12; TWO-LEVEL accordion, preview-acordeon-
+ * bucket T1) — review table shell for the cartola upload preview.
  *
  * Receives the canonical preview response props (`filas`, `resumen`) along
  * with the edits overlay (`edits`, `onEditChange`) and the catalog state
@@ -22,12 +23,12 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * value (D-05: `edits` wins over `sugerido`).
  *
  * This component issues NO network requests and computes NO business values —
- * ADR-024 still holds: grouping by bucket · categoría
- * (`agruparFilasPorCategoriaSugerida`, preview-agrupacion-categoria T2) is
- * presentation, never a recomputation of amounts, dedup, or classification
- * rules. Product decision 4 renders the full list without pagination or
- * virtualization; a per-group accordion (below) makes that full list
- * navigable instead.
+ * ADR-024 still holds: grouping by bucket → categoría
+ * (`agruparFilasPorBucketYCategoria`, preview-acordeon-bucket T1, extends
+ * preview-agrupacion-categoria T2) is presentation, never a recomputation of
+ * amounts, dedup, or classification rules. Product decision 4 renders the
+ * full list without pagination or virtualization; a nested accordion (below)
+ * makes that full list navigable instead.
  *
  * Grouping key = the SERVER SUGGESTION (`fila.sugerido`), never the merged
  * edit — a row the user reclassifies via its own select STAYS in its
@@ -36,13 +37,35 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * merged value only feeds each row's own `categoriaId` prop, never the
  * group it lands in.
  *
+ * ACCORDION SHAPE (2026-09-25 product decision, preview-acordeon-bucket):
+ * - Level 1 — one entry per PRESENT bucket (Necesidades, Gustos, Ahorro,
+ *   Ingreso), in that order, then a TRAILING "Revisar" entry (T2) for rows
+ *   the domain fn cannot place under a real bucket (`GrupoRevisar` —
+ *   `sugerido: null` or an unrecognized bucket) — present ONLY when at
+ *   least one such row exists; never visible in the normal flow, since the
+ *   API always sends a known bucket. Header = UI label (or literally
+ *   "Revisar") + row count.
+ * - Level 2 — inside Necesidades/Gustos/Ahorro only: one entry per categoría
+ *   of that bucket (`IconoCategoriaBadge` + name + row count). Ingreso and
+ *   Revisar have no categoría — their panels show their rows DIRECTLY (no
+ *   level 2), since `agruparFilasPorBucketYCategoria` always returns
+ *   `categorias: []` for Ingreso and `GrupoRevisar` has no `categorias`
+ *   field at all (`kind: 'revisar'` discriminates it from `GrupoBucket`).
+ * - BOTH levels start COLLAPSED (assumption, feature doc: "al presionar se
+ *   despliegue" — a bucket/categoría accordion is a drill-down, not a
+ *   review list that must stay fully open like the old flat one).
+ *
  * Local state (all ephemeral UI, none of it NETWORK/business state):
  * - `filaCreando` — WHICH row's inline "+ Nueva categoría" form is open
  *   (`FilaRevision`'s own docblock covers that flow); a single value gives
  *   "at most one form open across the table" for free.
- * - `gruposColapsados` — the Set of collapsed group keys (bucket ·
- *   categoría, `GrupoFilaPorCategoria.clave`) behind the per-group accordion
- *   (2026-08-30 polish, re-keyed by category in T2); empty = all open.
+ * - `bucketsExpandidos` / `categoriasExpandidas` — the Sets of EXPANDED keys
+ *   (bucket name / categoría `clave`) for level 1 / level 2. Empty = ALL
+ *   COLLAPSED (inverted from the old T2 "Set of collapsed" scheme on
+ *   purpose: a two-level default-collapsed accordion needs "nothing here
+ *   yet" to mean closed, including for a bucket/categoría that only appears
+ *   after a re-run — it must start collapsed too, which falls out for free
+ *   from "not yet in the expanded set" without any extra seeding logic).
  *
  * D-07: when `catalogo.tag === 'cargando'` or `'error'`, the table still
  * renders (rows, amounts, Duplicado badges are backend data independent of the
@@ -68,20 +91,52 @@ import type { CategoriaDto, PreviewFilaDto, CatalogoEstado } from '@/api/types';
  * redundant — one is the one-line answer, the other is the depth.
  */
 
+/** Total row count under one level-1 entry — `filas` for Revisar, `filasDirectas` for Ingreso, the sum of its categorías otherwise. */
+function conteoGrupo(grupo: GrupoNivel1): number {
+  if (grupo.kind === 'revisar') return grupo.filas.length;
+  return grupo.categorias.length > 0
+    ? grupo.categorias.reduce((total, c) => total + c.filas.length, 0)
+    : grupo.filasDirectas.length;
+}
+
+/** Stable key for one level-1 entry's expand-state `Set` and DOM ids — the bucket name, or the fixed `'revisar'` sentinel for the Revisar entry (never a real bucket name). */
+function claveNivel1(grupo: GrupoNivel1): string {
+  return grupo.kind === 'revisar' ? 'revisar' : grupo.bucket;
+}
+
+function etiquetaConteo(n: number): string {
+  return `${n} ${n === 1 ? 'movimiento' : 'movimientos'}`;
+}
+
 /**
- * Group header text: "{Bucket label} · {Categoría nombre}" via
- * `ETIQUETA_BUCKET` (so Deseos reads "Gustos"), except for the two group
- * shapes with no real categoría (`categoriaId === null`: `ingreso` and
- * `sin-categoria`, `agrupar-filas-por-categoria-sugerida.ts`) — those show
- * just their own label ("Ingreso" / "Sin categoría"), never a "· Ingreso"
- * or "· Sin categoría" suffix on top of itself.
+ * Locates which level-1 / categoría `clave` currently holds `rowIndex`
+ * inside `grupos` — used ONLY by the focus-continuity effect below to know
+ * which (possibly just-created, still-collapsed) panels must open before a
+ * remounted trigger can regain focus. `categoriaClave: null` means the row
+ * lives directly on a level-1 entry's flat row list (Ingreso's
+ * `filasDirectas`, or Revisar's `filas`), with no level 2 to expand.
  */
-function etiquetaGrupo(grupo: GrupoFilaPorCategoria): string {
-  if (grupo.categoriaId === null) return grupo.categoriaNombre;
-  const etiquetaBucket = grupo.bucket
-    ? (ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket)
-    : '';
-  return `${etiquetaBucket} · ${grupo.categoriaNombre}`;
+function ubicarFila(
+  grupos: ReadonlyArray<GrupoNivel1>,
+  rowIndex: number,
+): { readonly clave: string; readonly categoriaClave: string | null } | null {
+  for (const grupo of grupos) {
+    if (grupo.kind === 'revisar') {
+      if (grupo.filas.some((f) => f.rowIndex === rowIndex)) {
+        return { clave: claveNivel1(grupo), categoriaClave: null };
+      }
+      continue;
+    }
+    if (grupo.filasDirectas.some((f) => f.rowIndex === rowIndex)) {
+      return { clave: grupo.bucket, categoriaClave: null };
+    }
+    for (const categoria of grupo.categorias) {
+      if (categoria.filas.some((f) => f.rowIndex === rowIndex)) {
+        return { clave: grupo.bucket, categoriaClave: categoria.clave };
+      }
+    }
+  }
+  return null;
 }
 
 export function PreviewMuestra({
@@ -110,8 +165,8 @@ export function PreviewMuestra({
    * (default no-op/false so pre-existing callers/tests keep compiling
    * unchanged). `filaCreando` — WHICH row's inline creation form is open —
    * is owned HERE, not in `SubirCartola`: same class of ephemeral table UI
-   * state as `gruposColapsados`, and a single value gives "at most one form
-   * open across the table" for free.
+   * state as the accordion Sets below, and a single value gives "at most
+   * one form open across the table" for free.
    */
   readonly esDemo?: boolean;
   readonly onCategoriaCreada?: (
@@ -120,26 +175,39 @@ export function PreviewMuestra({
   ) => void;
 }) {
   const [filaCreando, setFilaCreando] = useState<number | null>(null);
-  // Accordion state per date group (polish pass, 2026-08-30): the Set holds
-  // the keys of COLLAPSED groups, so the default (empty Set) is "everything
-  // open" — a review flow must never hide work by default; collapsing is
-  // the user's way of parking a date they're done with. Keyed by the same
-  // `${fecha}-${indiceGrupo}` string the group `key` uses, so a
-  // non-consecutive repeat of a date (see `agruparPorFecha`) collapses
-  // independently. Collapsed groups stay in the DOM (`hidden`, not
-  // unmounted) so each FilaRevision keeps its mid-cascade `bucketUI`.
-  const [gruposColapsados, setGruposColapsados] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
 
-  // Prefixes for the `aria-controls` ids of the per-group lists and the
+  // Two-level accordion state (preview-acordeon-bucket T1): Sets of
+  // EXPANDED keys — empty means "everything collapsed", the new default
+  // (see docblock). `categoriasExpandidas` is keyed by the categoría's own
+  // `clave` (already bucket-qualified, e.g. `categoria::Deseos::cat-1`), so
+  // one flat Set is enough across every bucket with no collision risk.
+  const [bucketsExpandidos, setBucketsExpandidos] = useState<
+    ReadonlySet<string>
+  >(new Set());
+  const [categoriasExpandidas, setCategoriasExpandidas] = useState<
+    ReadonlySet<string>
+  >(new Set());
+
+  // Prefixes for the `aria-controls` ids of the per-group panels and the
   // `aria-labelledby` of the Movimientos section (groups render in a map,
   // so a static id would collide across groups).
   const idBase = useId();
   const idTituloMovimientos = `${idBase}-movimientos`;
 
-  function handleToggleGrupoAbierto(clave: string) {
-    setGruposColapsados((prev) => {
+  function handleToggleBucket(bucket: string) {
+    setBucketsExpandidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(bucket)) {
+        next.delete(bucket);
+      } else {
+        next.add(bucket);
+      }
+      return next;
+    });
+  }
+
+  function handleToggleCategoria(clave: string) {
+    setCategoriasExpandidas((prev) => {
       const next = new Set(prev);
       if (next.has(clave)) {
         next.delete(clave);
@@ -162,19 +230,29 @@ export function PreviewMuestra({
 
   // Grouped by the SERVER SUGGESTION, never the merged edit above — see the
   // docblock's "Grouping key" paragraph.
-  const grupos = agruparFilasPorCategoriaSugerida(filas, catalogo);
+  const grupos = agruparFilasPorBucketYCategoria(filas, catalogo);
 
-  // Focus continuity across a group re-render (T2 + WEB-PRV-15/17): since
-  // grouping now keys off `sugerido`, a preview re-run that changes a row's
-  // suggested classification (e.g. right after creating a categoría from
-  // that row, WEB-PRV-15) moves the row's whole subtree to a DIFFERENT
-  // group's `<ul>` — a different React parent, which unmounts/remounts it
-  // regardless of its own `key` (React only preserves a keyed node across
-  // siblings of the SAME parent, never across parents). `FilaRevision`'s own
-  // `cerrarCreacionYRestaurarFoco` returns focus to that row's "+" trigger
-  // synchronously, right before the re-run it triggers — if the trigger's
-  // OLD node is torn down while still focused, the browser drops focus to
-  // `<body>` with nothing to restore it.
+  // Focus continuity across a group re-render (T2 + WEB-PRV-15/17, extended
+  // to two levels by T1): since grouping keys off `sugerido`, a preview
+  // re-run that changes a row's suggested classification (e.g. right after
+  // creating a categoría from that row, WEB-PRV-15) moves the row's whole
+  // subtree to a DIFFERENT bucket's and/or categoría's `<ul>` — a different
+  // React parent, which unmounts/remounts it regardless of its own `key`
+  // (React only preserves a keyed node across siblings of the SAME parent,
+  // never across parents). `FilaRevision`'s own `cerrarCreacionYRestaurarFoco`
+  // returns focus to that row's "+" trigger synchronously, right before the
+  // re-run it triggers — if the trigger's OLD node is torn down while still
+  // focused, the browser drops focus to `<body>` with nothing to restore it.
+  //
+  // Both destination panels may now be COLLAPSED by default (T1's new
+  // default), so restoring focus is no longer a single DOM lookup: the
+  // effect first EXPANDS the destination bucket (and, unless the row landed
+  // on Ingreso's `filasDirectas`, its destination categoría) if either is
+  // still collapsed, then — once that expansion has committed and the
+  // trigger is no longer hidden — focuses it. Expanding via `setState`
+  // triggers a re-render, and this effect re-runs on the next commit (its
+  // own dependency list includes `bucketsExpandidos`/`categoriasExpandidas`)
+  // to find the trigger no longer hidden.
   //
   // `filaEnfocadaAntes` is read from `document.activeElement` DURING render,
   // BEFORE this render's DOM mutations commit — the one point a function
@@ -203,14 +281,61 @@ export function PreviewMuestra({
     }
   }
 
+  // Survives the render-phase tracker above across the EXTRA render cycle
+  // that expanding a collapsed destination panel needs (T1): the very next
+  // render after the remount commits with focus still sitting on `<body>`
+  // (nothing has called `.focus()` yet) — the tracker above legitimately
+  // reads that as "nothing relevant is focused" and resets
+  // `filaEnfocadaAntes` to `null` for that render, even though restoration
+  // is still in progress. A ref is untouched by that render-phase logic, so
+  // it keeps the target rowIndex alive across the "expand" render and the
+  // following "focus" render, one plain object identity for the whole
+  // multi-render restoration instead of relying on state that gets
+  // legitimately clobbered mid-sequence.
+  const pendingFocoRowIndexRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (filaEnfocadaAntes === null) return;
-    if (document.activeElement !== document.body) return;
+    if (filaEnfocadaAntes !== null) {
+      pendingFocoRowIndexRef.current = filaEnfocadaAntes;
+    }
+    const rowIndexPendiente = pendingFocoRowIndexRef.current;
+    if (rowIndexPendiente === null) return;
+    if (document.activeElement !== document.body) {
+      // Focus is held somewhere real (still on the trigger, or the user
+      // moved it on purpose) — nothing to restore, and a stale pending
+      // rowIndex must not leak into a LATER, unrelated remount.
+      pendingFocoRowIndexRef.current = null;
+      return;
+    }
+
+    const ubicacion = ubicarFila(grupos, rowIndexPendiente);
+    if (ubicacion === null) {
+      pendingFocoRowIndexRef.current = null;
+      return; // row no longer present in this render
+    }
+
+    const bucketColapsado = !bucketsExpandidos.has(ubicacion.clave);
+    const categoriaColapsada =
+      ubicacion.categoriaClave !== null &&
+      !categoriasExpandidas.has(ubicacion.categoriaClave);
+
+    if (bucketColapsado || categoriaColapsada) {
+      if (bucketColapsado) {
+        setBucketsExpandidos((prev) => new Set(prev).add(ubicacion.clave));
+      }
+      if (categoriaColapsada && ubicacion.categoriaClave !== null) {
+        const clave = ubicacion.categoriaClave;
+        setCategoriasExpandidas((prev) => new Set(prev).add(clave));
+      }
+      return; // wait for the re-render with the expanded panel(s) committed
+    }
+
     const trigger = document.querySelector<HTMLElement>(
-      `[data-fila-trigger="${filaEnfocadaAntes}"]`,
+      `[data-fila-trigger="${rowIndexPendiente}"]`,
     );
     trigger?.focus();
-  }, [grupos, filaEnfocadaAntes]);
+    pendingFocoRowIndexRef.current = null;
+  }, [grupos, filaEnfocadaAntes, bucketsExpandidos, categoriasExpandidas]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -257,7 +382,7 @@ export function PreviewMuestra({
           {/* Sticky section header — plain visible text, no live region
             (SubirCartola's announcer owns state-entry announcements).
             Opens with the section title ("Movimientos", sibling `h3` of the
-            banco heading, above the per-date `h4`s) so the stuck header
+            banco heading, above the per-bucket `h4`s) so the stuck header
             still names what it controls. `bg-muted` is deliberately the
             OPAQUE token, not the `/40` wash the cartola block and the group
             headers use: this element sticks OVER the rows, and a
@@ -293,101 +418,175 @@ export function PreviewMuestra({
           </div>
 
           <div className="flex flex-col gap-3 px-1 py-3 border-x">
-            {grupos.map((grupo, indiceGrupo) => {
-              // T2: keyed by the group's own STABLE identity (bucket ·
-              // categoriaId, `GrupoFilaPorCategoria.clave`) instead of a
-              // date-derived index — a group's key no longer shifts when an
-              // edit changes which rows land elsewhere on the next preview
-              // run, and accordion open/closed state survives a re-render
-              // that adds/removes rows from OTHER groups.
-              const claveGrupo = grupo.clave;
-              const idListaGrupo = `${idBase}-grupo-${indiceGrupo}`;
-              const abierto = !gruposColapsados.has(claveGrupo);
-              const conteoGrupo = grupo.filas.length;
+            {grupos.map((grupo) => {
+              const clave = claveNivel1(grupo);
+              const bucketAbierto = bucketsExpandidos.has(clave);
+              const idPanelBucket = `${idBase}-bucket-${clave}`;
+              const conteo = conteoGrupo(grupo);
+              // Ingreso and Revisar both render their rows DIRECTLY, no
+              // level 2 — `null` means "this entry has categorías" instead.
+              const filasPlano =
+                grupo.kind === 'revisar'
+                  ? grupo.filas
+                  : grupo.bucket === BUCKET_INGRESO
+                    ? grupo.filasDirectas
+                    : null;
+              const etiqueta =
+                grupo.kind === 'revisar'
+                  ? 'Revisar'
+                  : (ETIQUETA_BUCKET[grupo.bucket] ?? grupo.bucket);
 
               return (
                 <div
-                  key={claveGrupo}
-                  data-grupo-categoria={claveGrupo}
-                  data-abierto={abierto}
+                  key={clave}
+                  data-grupo-bucket={clave}
+                  data-abierto={bucketAbierto}
                   className="flex flex-col rounded-lg border border-border"
                 >
-                  {/* Group header = accordion toggle. The `h4` wraps the
-                  button (heading-with-button is the standard accordion
-                  header pattern) and its accessible name is "{Bucket ·
-                  Categoría} · N movimientos" — the count is part of the
-                  heading on purpose: it's what tells the user how much work
-                  a collapsed group still holds. */}
-                  {/* Panel framing (2026-08-30): header + rows share ONE
-                      bordered frame so containment is unmistakable — the
-                      header is the frame's tinted top band, the rows sit
-                      inside it. Collapsed, the header drops its `border-b`
-                      (nothing below it to separate from); open, it draws
-                      the divider. (2026-08-31: the corner rounding that
-                      used to toggle here went away with the squared
-                      `--radius: 0` system.) No `overflow-hidden` on the frame: it
-                      would clip the toggle's focus ring. */}
+                  {/* Level 1 (bucket, or the trailing Revisar entry) header
+                  = accordion toggle. The `h4` wraps the button (heading-
+                  with-button is the standard accordion header pattern) and
+                  its accessible name is "{label} · N movimientos" — the
+                  count is part of the heading on purpose: it's what tells
+                  the user how much work a collapsed entry still holds. */}
                   <div
-                    className={`flex items-center gap-2 bg-muted/40 px-3 py-1 ${abierto ? 'border-b border-border' : ''}`}
+                    className={`flex items-center gap-2 bg-muted/40 px-3 py-1 ${bucketAbierto ? 'border-b border-border' : ''}`}
                   >
                     <h4 className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                      <IconoCategoriaBadge
-                        icono={grupo.icono}
-                        bucket={grupo.bucket ?? ''}
-                      />
                       <button
                         type="button"
-                        aria-expanded={abierto}
-                        aria-controls={idListaGrupo}
-                        onClick={() => handleToggleGrupoAbierto(claveGrupo)}
+                        aria-expanded={bucketAbierto}
+                        aria-controls={idPanelBucket}
+                        onClick={() => handleToggleBucket(clave)}
                         className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-medium text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <span className="min-w-0 truncate">
-                          {etiquetaGrupo(grupo)}{' '}
+                          {etiqueta}{' '}
                           <span className="font-normal text-muted-foreground">
-                            · {conteoGrupo}{' '}
-                            {conteoGrupo === 1 ? 'movimiento' : 'movimientos'}
+                            · {etiquetaConteo(conteo)}
                           </span>
                         </span>
                         <ChevronDown
                           aria-hidden="true"
                           className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${
-                            abierto ? '' : '-rotate-90'
+                            bucketAbierto ? '' : '-rotate-90'
                           }`}
                         />
                       </button>
                     </h4>
                   </div>
+
                   {/* Collapsed = `hidden`, NOT unmounted: FilaRevision's
                     mid-cascade `bucketUI` (bucket picked, categoría not yet)
-                    would be lost on remount. Tailwind v4's preflight makes
-                    `[hidden]` win over the `flex` utility (`!important`),
-                    and the class swap below is belt-and-braces for it. */}
-                  <ul
-                    id={idListaGrupo}
-                    hidden={!abierto}
+                    and every nested categoría's own expand state would be
+                    lost on remount. Tailwind v4's preflight makes `[hidden]`
+                    win over the `flex` utility (`!important`), and the class
+                    swap below is belt-and-braces for it. */}
+                  <div
+                    id={idPanelBucket}
+                    hidden={!bucketAbierto}
                     className={
-                      abierto
-                        ? 'flex flex-col gap-2 divide-y divide-border px-3'
-                        : 'hidden'
+                      bucketAbierto ? 'flex flex-col gap-2 px-3 py-2' : 'hidden'
                     }
                   >
-                    {grupo.filas.map((fila) => (
-                      <FilaRevision
-                        key={fila.rowIndex}
-                        fila={fila}
-                        categoriaId={
-                          categoriaMergedPorFila.get(fila.rowIndex) ?? null
-                        }
-                        catalogo={catalogo}
-                        onEditChange={onEditChange}
-                        esDemo={esDemo}
-                        onCategoriaCreada={onCategoriaCreada}
-                        filaCreando={filaCreando}
-                        onAbrirCreacion={setFilaCreando}
-                      />
-                    ))}
-                  </ul>
+                    {filasPlano !== null ? (
+                      // Ingreso / Revisar: no level 2 — rows render DIRECTLY.
+                      <ul className="flex flex-col gap-2 divide-y divide-border">
+                        {filasPlano.map((fila) => (
+                          <FilaRevision
+                            key={fila.rowIndex}
+                            fila={fila}
+                            categoriaId={
+                              categoriaMergedPorFila.get(fila.rowIndex) ?? null
+                            }
+                            catalogo={catalogo}
+                            onEditChange={onEditChange}
+                            esDemo={esDemo}
+                            onCategoriaCreada={onCategoriaCreada}
+                            filaCreando={filaCreando}
+                            onAbrirCreacion={setFilaCreando}
+                          />
+                        ))}
+                      </ul>
+                    ) : grupo.kind === 'bucket' ? (
+                      grupo.categorias.map((categoria) => {
+                        const categoriaAbierta = categoriasExpandidas.has(
+                          categoria.clave,
+                        );
+                        const idPanelCategoria = `${idBase}-cat-${categoria.clave}`;
+
+                        return (
+                          <div
+                            key={categoria.clave}
+                            data-grupo-categoria={categoria.clave}
+                            data-abierto={categoriaAbierta}
+                            className="flex flex-col rounded-md border border-border"
+                          >
+                            {/* Level 2 (categoría) header — icon + name +
+                            count, `h5` under the bucket's `h4`. */}
+                            <div
+                              className={`flex items-center gap-2 bg-muted/20 px-2 py-1 ${categoriaAbierta ? 'border-b border-border' : ''}`}
+                            >
+                              <h5 className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                                <IconoCategoriaBadge
+                                  icono={categoria.icono}
+                                  bucket={grupo.bucket}
+                                />
+                                <button
+                                  type="button"
+                                  aria-expanded={categoriaAbierta}
+                                  aria-controls={idPanelCategoria}
+                                  onClick={() =>
+                                    handleToggleCategoria(categoria.clave)
+                                  }
+                                  className="flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-1 text-left font-medium text-foreground tabular-nums hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                                >
+                                  <span className="min-w-0 truncate">
+                                    {categoria.categoriaNombre}{' '}
+                                    <span className="font-normal text-muted-foreground">
+                                      · {etiquetaConteo(categoria.filas.length)}
+                                    </span>
+                                  </span>
+                                  <ChevronDown
+                                    aria-hidden="true"
+                                    className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${
+                                      categoriaAbierta ? '' : '-rotate-90'
+                                    }`}
+                                  />
+                                </button>
+                              </h5>
+                            </div>
+                            <ul
+                              id={idPanelCategoria}
+                              hidden={!categoriaAbierta}
+                              className={
+                                categoriaAbierta
+                                  ? 'flex flex-col gap-2 divide-y divide-border px-3'
+                                  : 'hidden'
+                              }
+                            >
+                              {categoria.filas.map((fila) => (
+                                <FilaRevision
+                                  key={fila.rowIndex}
+                                  fila={fila}
+                                  categoriaId={
+                                    categoriaMergedPorFila.get(fila.rowIndex) ??
+                                    null
+                                  }
+                                  catalogo={catalogo}
+                                  onEditChange={onEditChange}
+                                  esDemo={esDemo}
+                                  onCategoriaCreada={onCategoriaCreada}
+                                  filaCreando={filaCreando}
+                                  onAbrirCreacion={setFilaCreando}
+                                />
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })
+                    ) : null}
+                  </div>
                 </div>
               );
             })}

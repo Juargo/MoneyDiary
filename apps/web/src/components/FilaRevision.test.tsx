@@ -183,7 +183,7 @@ describe('FilaRevision', () => {
   it('bucket control reachable by label; categoría reachable by label once a bucket is chosen (D-10)', async () => {
     render(
       <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 4 })}
+        fila={unaFilaPreview({ rowIndex: 4, sugerido: null })}
         categoriaId={null}
         catalogo={catalogoListo}
         onEditChange={vi.fn()}
@@ -529,7 +529,7 @@ describe('FilaRevision', () => {
   it('bulk-apply gotcha: an externally-changed categoriaId prop re-derives bucketUI (not stuck on stale local state)', () => {
     const { rerender } = render(
       <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 2 })}
+        fila={unaFilaPreview({ rowIndex: 2, sugerido: null })}
         categoriaId={null}
         catalogo={catalogoListo}
         onEditChange={vi.fn()}
@@ -548,7 +548,7 @@ describe('FilaRevision', () => {
     // user ever touching this row's own bucket/categoría controls.
     rerender(
       <FilaRevision
-        fila={unaFilaPreview({ rowIndex: 2 })}
+        fila={unaFilaPreview({ rowIndex: 2, sugerido: null })}
         categoriaId="cat-des-1"
         catalogo={catalogoListo}
         onEditChange={vi.fn()}
@@ -703,7 +703,11 @@ describe('FilaRevision', () => {
     it('bucket control is reachable by accessible label (getByLabelText); categoría is absent until a bucket is chosen', () => {
       render(
         <FilaRevision
-          fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
+          fila={unaFilaPreview({
+            rowIndex: 2,
+            esDuplicado: false,
+            sugerido: null,
+          })}
           categoriaId={null}
           catalogo={catalogoListo}
           onEditChange={vi.fn()}
@@ -812,19 +816,31 @@ describe('FilaRevision', () => {
         return (
           <>
             <FilaRevision
-              fila={unaFilaPreview({ rowIndex: 0, esDuplicado: false })}
+              fila={unaFilaPreview({
+                rowIndex: 0,
+                esDuplicado: false,
+                sugerido: null,
+              })}
               categoriaId={null}
               catalogo={catalogoListo}
               onEditChange={vi.fn()}
             />
             <FilaRevision
-              fila={unaFilaPreview({ rowIndex: 1, esDuplicado: true })}
+              fila={unaFilaPreview({
+                rowIndex: 1,
+                esDuplicado: true,
+                sugerido: null,
+              })}
               categoriaId={null}
               catalogo={catalogoListo}
               onEditChange={vi.fn()}
             />
             <FilaRevision
-              fila={unaFilaPreview({ rowIndex: 2, esDuplicado: false })}
+              fila={unaFilaPreview({
+                rowIndex: 2,
+                esDuplicado: false,
+                sugerido: null,
+              })}
               categoriaId={null}
               catalogo={catalogoListo}
               onEditChange={vi.fn()}
@@ -856,7 +872,7 @@ describe('FilaRevision', () => {
     it('is not rendered without a bucket chosen', () => {
       render(
         <FilaRevision
-          fila={unaFilaPreview({ rowIndex: 2 })}
+          fila={unaFilaPreview({ rowIndex: 2, sugerido: null })}
           categoriaId={null}
           catalogo={catalogoListo}
           onEditChange={vi.fn()}

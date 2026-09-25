@@ -5,6 +5,17 @@
  */
 import type { PreviewFilaDto, CatalogoEstado } from '@/api/types';
 
+/**
+ * Default `sugerido` (preview-acordeon-bucket, 2026-09-25): a real,
+ * resolvable `(bucket, categoriaId)` matching `unCatalogo()`'s default
+ * Necesidades/`cat-nec-1` category — since issue #778 the backend never
+ * sends `sugerido: null` (every non-Ingreso row gets at least that bucket's
+ * `Desconocido` fallback, `preview-ingesta.use-case.ts:104-110`), so a
+ * classified default is the realistic shape. Tests that specifically need
+ * the now-dead `sugerido: null` input (dropped by
+ * `agruparFilasPorBucketYCategoria`) or an `Ingreso` row still override it
+ * explicitly.
+ */
 export function unaFilaPreview(
   overrides: Partial<PreviewFilaDto> = {},
 ): PreviewFilaDto {
@@ -15,7 +26,7 @@ export function unaFilaPreview(
     cargo: '50000',
     abono: '0',
     esDuplicado: false,
-    sugerido: null,
+    sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
     ...overrides,
   };
 }
