@@ -13,6 +13,7 @@ import {
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
+  camposDeCategoriaPlantilla,
   claveCategoria,
   type CategoriaTemplateClave,
   type CategoriaTemplateNombre,
@@ -66,33 +67,22 @@ const CATEGORIA_CATALOG: Array<{
   // CATEGORIA_IDS está keyed por la clave compuesta bucket:nombre (ADR-042)
   // — cada fila de CATEGORIA_TEMPLATE trae ambos campos, así que claveCategoria
   // los correlaciona sin ambigüedad. El cast es seguro: la clave viene de la
-  // MISMA plantilla que define CategoriaTemplateClave.
+  // MISMA plantilla que define CategoriaTemplateClave. Es lo ÚNICO que el
+  // seed le agrega a la plantilla: ids fijos, porque su idempotencia es
+  // upsert-por-id (D-07) y no un shot por usuario nuevo.
   id: CATEGORIA_IDS[
     claveCategoria(categoria.bucket, categoria.nombre) as CategoriaTemplateClave
   ],
-  nombre: categoria.nombre,
-  // bucketId SIEMPRE derivado en el write site (ADR-037 D-02) — BUCKET_IDS
-  // sigue siendo la única autoridad de ids físicos, igual que
-  // copiarCatalogoTemplate.
-  bucketId: BUCKET_IDS[categoria.bucket],
-  // Default seed del allowlist curado (ADR-045 D-06) — usado SOLO en
-  // `create` más abajo (D-09): un usuario que edite su icono a mano no debe
-  // ver su elección pisada por un re-seed.
-  icono: categoria.icono,
-  // #778: el seed reconstruye el catálogo canónico desde la plantilla, así
-  // que tiene que copiar TODOS los campos que la plantilla define. Omitir
-  // `esInterna` dejaba las tres `Desconocido` del usuario bootstrap en
-  // `false` en toda BD recién seedeada — y desde que la ingesta rechaza un
-  // catálogo incompleto (`CatalogoIncompletoError`), eso rompía 16 e2e
-  // contra una base efímera. A diferencia de `icono`, este campo NO es
-  // editable por el usuario (las internas están protegidas por
-  // `CategoriaInternaProtegidaError`), así que va también en el `update`:
-  // un re-seed lo restaura en vez de dejarlo a la deriva.
-  // Mismo idioma que `copiarCatalogoTemplate` (catalogo-template.ts:569):
-  // el `in` y no `?? false`, porque con `as const` cada entrada es su propio
-  // tipo literal y las que no son internas NO tienen la propiedad — leerla
-  // directamente no compila.
-  esInterna: 'esInterna' in categoria ? categoria.esInterna : false,
+  // Todo lo demás lo define la plantilla, y se deriva en UN solo lugar
+  // (`camposDeCategoriaPlantilla`). Este map tenía su propia copia del
+  // mapeo y se olvidó de `esInterna` cuando ese campo se agregó, lo que
+  // dejaba las tres `Desconocido` sin marcar en toda BD recién seedeada.
+  // El spread cierra esa clase de error: no se puede omitir un campo.
+  //
+  // Qué se escribe de acá y dónde lo decide el upsert de más abajo: `icono`
+  // solo en `create` (ADR-045 D-09, el usuario puede editarlo), `esInterna`
+  // también en `update` (no es editable y es un invariante del sistema).
+  ...camposDeCategoriaPlantilla(categoria),
 }));
 
 /**
@@ -256,13 +246,16 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
     update: {},
   });
 
-  // ── US-012: 5 BucketPresupuesto con ids fijos (single-sourced via BUCKET_IDS) ──
+  // ── US-012: 4 BucketPresupuesto con ids fijos (single-sourced via BUCKET_IDS) ──
+  // issue #778 tramo 5b PR6: la fila física legacy 'bucket-sincategoria' ya
+  // no se siembra — la migración de datos (drop_bucket_sincategoria) migró
+  // toda fila real que la referenciaba a Deseos y borró esa
+  // BucketPresupuesto; sembrarla de nuevo aquí la resucitaría.
   const buckets: Array<{ id: string; nombre: string }> = [
     { id: BUCKET_IDS[Bucket.Necesidades], nombre: Bucket.Necesidades },
     { id: BUCKET_IDS[Bucket.Deseos], nombre: Bucket.Deseos },
     { id: BUCKET_IDS[Bucket.Ahorro], nombre: Bucket.Ahorro },
     { id: BUCKET_IDS[Bucket.Ingreso], nombre: Bucket.Ingreso },
-    { id: BUCKET_IDS[Bucket.SinCategoria], nombre: Bucket.SinCategoria },
   ];
 
   for (const bucket of buckets) {

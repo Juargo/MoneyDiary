@@ -60,16 +60,9 @@ const RESUMEN_DTO: ResumenMesDto = {
       porcentajeBp: 3500,
       estadoSemaforo: 'amarillo',
     },
-    {
-      bucket: 'SinCategoria',
-      total: '0',
-      porcentajeBp: 0,
-      estadoSemaforo: null,
-    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'amarillo',
-  cantidadSinCategoria: 0,
 };
 
 function resumenAnualDto(): ResumenAnualDto {

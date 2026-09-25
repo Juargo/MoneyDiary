@@ -61,7 +61,6 @@ const validDto: SemaforoDetalleDto = {
       },
     },
   ],
-  sinCategoria: { cantidad: 2, total: '10000' },
 };
 
 // `Wrapper.queryClient` es attached (mirrors `use-detalle-bucket-mes.test.tsx`'s

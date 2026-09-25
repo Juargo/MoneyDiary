@@ -27,27 +27,21 @@ import type {
 export const SIN_PORCENTAJE_LABEL = _SIN_PORCENTAJE_LABEL;
 
 /**
- * ItemLeyenda — US-050 (design §1.4a): 3-kind discriminated union, portada
- * verbatim de apps/web/src/domain/resumen-view-model.ts (US-047 D-03). El
- * wireframe fija formas de fila genuinamente distintas (`name · % · monto`
- * vs `name · N tx · monto` vs `name · monto`) — un solo kind con campos
- * opcionales dejaría representables filas ilegales (p. ej. un `'gasto'` con
- * `cantidadLabel`).
+ * ItemLeyenda — US-050 (design §1.4a), angostado a 2 kinds en issue #778
+ * tramo5b PR2: el kind `'sinCategoria'` (fila del bucket SinCategoria,
+ * `name · N tx · monto`) queda RETIRADO — la leyenda mobile deja de depender
+ * del bucket SinCategoria por completo, mirroring apps/web's PR1. El
+ * wireframe original fijaba formas de fila genuinamente distintas — un solo
+ * kind con campos opcionales dejaría representables filas ilegales (p. ej.
+ * un `'gasto'` con `cantidadLabel`).
  */
 export type ItemLeyenda =
   | {
       readonly kind: 'gasto';
       readonly bucket: string;
-      /** Share del anillo de `calcularDistribucionGasto` (apportionment de 4 items). */
+      /** Share del anillo de `calcularDistribucionGasto`. */
       readonly porcentaje: number;
       readonly montoLabel: string;
-    }
-  | {
-      readonly kind: 'sinCategoria';
-      readonly bucket: string;
-      readonly montoLabel: string;
-      /** Siempre presente, nunca opcional — p. ej. '0 tx', jamás omitido para un cero real. */
-      readonly cantidadLabel: string;
     }
   | {
       readonly kind: 'ingreso';
@@ -66,12 +60,12 @@ export interface ResumenViewModel {
   readonly totalIngreso: string;
   readonly sinIngreso: boolean;
   readonly buckets: readonly BucketViewModel[];
-  /** Share-of-spending split for the pie + legend (77/12/11-style), 4-item ring. */
+  /** Share-of-spending split for the pie + legend (77/12/11-style). */
   readonly distribucionGasto: readonly TajadaGasto[];
   readonly estadoGlobal: string | null;
   /** Necesidades, Deseos, Ahorro — siempre en ese orden, `kind: 'gasto'` (D-03). */
   readonly leyendaPrincipal: readonly ItemLeyenda[];
-  /** Ingresos, Sin categoría — siempre en ese orden (D-03). */
+  /** Solo Ingresos (issue #778 tramo5b PR2 retiró la fila Sin categoría). */
   readonly leyendaComplemento: readonly ItemLeyenda[];
 }
 
@@ -84,7 +78,7 @@ export interface MesAnualViewModel {
   readonly nombreAccesible: string;
   /** `!sinIngreso` del mes. */
   readonly tieneDatos: boolean;
-  /** Anillo de 4 items para la mini-torta del mes. */
+  /** Anillo del mes para la mini-torta. */
   readonly tajadas: readonly TajadaGasto[];
 }
 
@@ -129,17 +123,19 @@ function totalPorBucket(
 
 /**
  * `leyendaPrincipal` — los tres items 50/30/20, `kind: 'gasto'` (D-03).
- * Sourced directamente del `distribucionGasto` real de 4 items
- * (`BUCKETS_ANILLO`), filtrado a la membresía de `BUCKETS_5030` — SIN
- * renormalizar: los tres porcentajes de gasto se achican numéricamente
- * cuando SinCategoria carga un total no-cero, igual que las cuñas del
- * anillo (dilución WG5-13, ahora visible en ambos lugares a la vez, por
- * construcción). Filtrar (no renormalizar) es seguro acá específicamente
- * porque esta función solo lee `porcentaje` para mostrar — no maneja
- * ningún cálculo de ángulo, así que no hay riesgo de forzar el cierre a
- * 360° que sí existiría si la TORTA misma fuera filtrada post-hoc.
- * Preserva el orden canónico de `BUCKETS_ANILLO` (Necesidades, Deseos,
- * Ahorro) y naturalmente queda vacío cuando no hay gasto.
+ * Sourced directamente del `distribucionGasto` real (`BUCKETS_ANILLO`),
+ * filtrado a la membresía de `BUCKETS_5030`. WG5-03: "la leyenda no computa
+ * su propio porcentaje; reutiliza el del anillo".
+ *
+ * Issue #778 tramo5b PR2: `distribucionGasto` (vía el default de
+ * `BUCKETS_ANILLO` en `calcularDistribucionGasto`) ya no incluye una entrada
+ * SinCategoria — `BUCKETS_ANILLO` y `BUCKETS_5030` son ahora el mismo set de
+ * 3 items, así que este filtro queda redundante con la matemática del
+ * anillo de aguas arriba. Se mantiene como guarda defensiva (misma
+ * disciplina que el `?? '0'` de `totalPorBucket` y el guard de dinero de
+ * `montoSeguro`) en vez de confiar implícitamente en la membresía del
+ * anillo. Preserva el orden canónico (Necesidades, Deseos, Ahorro) y
+ * naturalmente queda vacío cuando no hay gasto.
  */
 function aLeyendaPrincipal(
   distribucionGasto: readonly TajadaGasto[],
@@ -160,26 +156,18 @@ function aLeyendaPrincipal(
 }
 
 /**
- * `leyendaComplemento` — siempre `[ingreso(+), sinCategoria(-, cantidadLabel)]`
- * en ese orden (D-03), sin importar el gasto: Ingresos debe seguir visible
- * incluso cuando `leyendaPrincipal` está vacío, y un `cantidadSinCategoria: 0`
- * real mapea a una fila `'0 tx'` genuina, renderizada — nunca una omisión
- * (WG5-05).
+ * `leyendaComplemento` — solo `[ingreso(+)]` (issue #778 tramo5b PR2 retiró
+ * la fila `sinCategoria` que esta función también construía, a partir de
+ * `dto.cantidadSinCategoria`/la entrada SinCategoria de `dto.buckets`; la
+ * API sigue mandando ambos, mobile simplemente ya no los lee acá). Ingresos
+ * se mantiene visible incluso cuando `leyendaPrincipal` está vacío (design
+ * §3 edge case).
  */
-function aLeyendaComplemento(dto: ResumenMesDto): ItemLeyenda[] {
+function aLeyendaComplemento(totalIngreso: string): ItemLeyenda[] {
   return [
     {
       kind: 'ingreso',
-      montoLabel: formatearMontoConSigno(dto.totalIngreso, '+'),
-    },
-    {
-      kind: 'sinCategoria',
-      bucket: 'SinCategoria',
-      montoLabel: formatearMontoConSigno(
-        totalPorBucket(dto.buckets, 'SinCategoria'),
-        '-',
-      ),
-      cantidadLabel: `${dto.cantidadSinCategoria} tx`,
+      montoLabel: formatearMontoConSigno(totalIngreso, '+'),
     },
   ];
 }
@@ -202,7 +190,7 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
     distribucionGasto,
     estadoGlobal: dto.estadoGlobal,
     leyendaPrincipal: aLeyendaPrincipal(distribucionGasto, dto.buckets),
-    leyendaComplemento: aLeyendaComplemento(dto),
+    leyendaComplemento: aLeyendaComplemento(dto.totalIngreso),
   };
 }
 

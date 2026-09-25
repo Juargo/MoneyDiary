@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ReclasificarCategoriaControl } from './ReclasificarCategoriaControl';
+import { BUCKETS_ASIGNABLES } from '@/api/catalogo-constantes';
+import { ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import type {
   CatalogoDto,
   CategoriaDto,
@@ -504,7 +506,7 @@ describe('ReclasificarCategoriaControl', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('a SinCategoria row starts with no categoría selected (placeholder)', async () => {
+  it('a row with no categoría assigned starts with no categoría selected (placeholder)', async () => {
     mockFetch({
       ok: true,
       status: 200,
@@ -516,7 +518,7 @@ describe('ReclasificarCategoriaControl', () => {
         transaccionId="tx-2"
         descripcion="Transferencia recibida"
         montoLabel="$0"
-        bucketActual="SinCategoria"
+        bucketActual="Deseos"
         categoriaActual={null}
         periodo="2026-07"
         onMovida={vi.fn()}
@@ -923,7 +925,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('a SinCategoria row shows the confirmation naming source AND full "{bucket} · {categoría}" destination, commits only on confirm, calls onMovida with that same label (D-07, issue #782)', async () => {
+  it('a row with no categoría assigned shows the confirmation naming source AND full "{bucket} · {categoría}" destination, commits only on confirm, calls onMovida with that same label (D-07, issue #782)', async () => {
     const fetchMock = mockFetch({
       ok: true,
       status: 200,
@@ -937,7 +939,7 @@ describe('ReclasificarCategoriaControl', () => {
         transaccionId="tx-2"
         descripcion="Transferencia recibida"
         montoLabel="$7.500"
-        bucketActual="SinCategoria"
+        bucketActual="Deseos"
         categoriaActual={null}
         periodo="2026-07"
         onMovida={onMovida}
@@ -958,7 +960,7 @@ describe('ReclasificarCategoriaControl', () => {
     // subcadena, pasaba igual con y sin la categoría — no podía ponerse
     // rojo por el bug que decía cubrir (issue #782).
     expect(dialog).toHaveTextContent(
-      'Esto mueve $7.500 de Sin grupo ni categoría a Necesidades · Transporte.',
+      'Esto mueve $7.500 de Gustos a Necesidades · Transporte.',
     );
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-2/categoria',
@@ -1475,6 +1477,97 @@ describe('ReclasificarCategoriaControl', () => {
     vi.stubGlobal('fetch', fetchMock);
     return fetchMock;
   }
+
+  // issue #779. `/buckets/Ingreso` renders these rows, but that bucket is
+  // not in `BUCKETS_ASIGNABLES` — so the creation
+  // shell used to seed its state with a value its own `<select>` does not
+  // offer. The DOM fell back to `selectedIndex = 0` while React state kept
+  // the page's bucket, and the form read STATE at submit: three values at
+  // once, and a POST the backend rejects with `BucketNoAsignableError`.
+  //
+  // These assertions are written against the select's LIVE value rather
+  // than a hardcoded "Necesidades": what matters is that the three readings
+  // agree and that the sent bucket is assignable, not which default we pick.
+  it.each(['Ingreso'])(
+    'desde el bucket no asignable %s, el panel de creación arranca en un bucket asignable y el select, la leyenda visible y el POST coinciden (#779)',
+    async (bucketNoAsignable) => {
+      const fetchMock = mockFetchConCreacion({
+        crearRespuesta: {
+          ok: true,
+          status: 201,
+          json: () =>
+            Promise.resolve({
+              id: 'cat-nueva',
+              nombre: 'Algo',
+              bucket: 'Necesidades',
+              patrones: [],
+              transaccionesCount: 0,
+            }),
+        },
+        categoriaCreada: {
+          id: 'cat-nueva',
+          nombre: 'Algo',
+          bucket: 'Necesidades',
+          patrones: [],
+          transaccionesCount: 0,
+        },
+      });
+      const user = userEvent.setup();
+
+      render(
+        <ReclasificarCategoriaControl
+          transaccionId="tx-1"
+          descripcion="Compra rara"
+          montoLabel="$1.000"
+          bucketActual={bucketNoAsignable}
+          categoriaActual={null}
+          periodo="2026-07"
+          onMovida={vi.fn()}
+        />,
+        { wrapper: crearWrapper() },
+      );
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Nueva categoría para Compra rara',
+        }),
+      );
+
+      const selectGrupo = screen.getByLabelText('Grupo') as HTMLSelectElement;
+      // 1. El select no puede quedar en un valor que no ofrece.
+      expect([...BUCKETS_ASIGNABLES]).toContain(selectGrupo.value);
+      // 2. La leyenda visible del formulario dice lo MISMO que el select.
+      //    Acotado al `<span>`: el texto de la etiqueta también vive en una
+      //    `<option>` del propio select, y `getByText` las encontraría a las
+      //    dos.
+      expect(
+        screen.getByText(ETIQUETA_BUCKET[selectGrupo.value], {
+          selector: 'span',
+        }),
+      ).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText('Nombre'), 'Algo');
+      await user.click(screen.getByRole('button', { name: 'Crear' }));
+
+      const llamadaPost = await waitFor(() => {
+        const llamada = fetchMock.mock.calls.find(
+          ([url, init]) =>
+            url === '/api/categorias' &&
+            (init as RequestInit | undefined)?.method === 'POST',
+        );
+        expect(llamada).toBeDefined();
+        return llamada as [string, RequestInit];
+      });
+
+      const enviado = JSON.parse(String(llamadaPost[1].body)) as {
+        bucket: string;
+      };
+      // 3. Lo enviado coincide con lo mostrado, y es asignable.
+      expect(enviado.bucket).toBe(selectGrupo.value);
+      expect([...BUCKETS_ASIGNABLES]).toContain(enviado.bucket);
+      expect(enviado.bucket).not.toBe(bucketNoAsignable);
+    },
+  );
 
   it('renders a "+" trigger beside the select that opens a creation form with an editable bucket field, preset to the row\'s current bucket', async () => {
     mockFetch({

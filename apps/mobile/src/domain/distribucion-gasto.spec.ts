@@ -46,10 +46,14 @@ describe('calcularDistribucionGasto', () => {
     expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 
-  // US-050 (design §1.2, WG5-13): inverted, not deleted — SinCategoria now
-  // DILUTES the three spend-bucket ring percentages instead of being
-  // excluded from the denominator. This is the semantic core of the change.
-  it('incluye SinCategoria en el anillo y en el denominador (WG5-13)', () => {
+  // Issue #778 tramo5b PR2 (apps/mobile): SinCategoria is no longer a ring
+  // member — a SinCategoria entry in `buckets` (the API still sends one) is
+  // excluded from BOTH the ring's numerator set and its denominator, exactly
+  // like any other bucket outside `BUCKETS_ANILLO`. Replaces the retired
+  // US-047 WG5-13 "incluye SinCategoria en el anillo y en el denominador"
+  // test, which asserted the now-reverted dilution behavior (mirrors
+  // apps/web's own PR1).
+  it('ignora un bucket SinCategoria en la entrada: no aparece en el anillo y no diluye el denominador (issue #778 tramo5b PR2)', () => {
     const tajadas = calcularDistribucionGasto([
       bucket('Necesidades', '500000'),
       bucket('Deseos', '300000'),
@@ -60,33 +64,34 @@ describe('calcularDistribucionGasto', () => {
       'Necesidades',
       'Deseos',
       'Ahorro',
-      'SinCategoria',
     ]);
-    // Diluted against the 4-item total (1_999_999), not the 3-item total
-    // (1_000_000) — 50/30/20 would be the OLD, excluded-denominator reading.
-    expect(tajadas.map((t) => t.porcentaje)).toEqual([25, 15, 10, 50]);
+    // Against the 3-item total (1_000_000), not diluted by SinCategoria's
+    // 999_999 — the pre-US-047 50/30/20 reading, now the ONLY reading.
+    expect(tajadas.map((t) => t.porcentaje)).toEqual([50, 30, 20]);
+    expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 
-  // US-050 (design §1.2/§2 D-05): ring order + membership pinned as a
-  // literal-array assertion, not an implementation detail.
-  it('BUCKETS_ANILLO termina en SinCategoria y BUCKETS_5030 la excluye', () => {
+  // US-050 (design §1.2/§2 D-05), updated for issue #778 tramo5b PR2:
+  // `BUCKETS_ANILLO` and `BUCKETS_5030` are now the SAME 3-item set — the
+  // ring dropped `SinCategoria` (previously its 4th, trailing member).
+  it('BUCKETS_ANILLO ya no incluye SinCategoria — es igual a BUCKETS_5030 (issue #778 tramo5b PR2)', () => {
     expect(BUCKETS_5030).toEqual(['Necesidades', 'Deseos', 'Ahorro']);
-    expect(BUCKETS_ANILLO).toEqual([
-      'Necesidades',
-      'Deseos',
-      'Ahorro',
-      'SinCategoria',
-    ]);
+    expect(BUCKETS_ANILLO).toEqual(['Necesidades', 'Deseos', 'Ahorro']);
+    expect(BUCKETS_ANILLO).toEqual(BUCKETS_5030);
   });
 
-  it('los cuatro porcentajes del anillo SIEMPRE suman 100, con SinCategoria no-cero', () => {
+  it('los tres porcentajes del anillo SIEMPRE suman 100, con una entrada SinCategoria ignorada no-cero', () => {
     const tajadas = calcularDistribucionGasto([
       bucket('Necesidades', '1'),
       bucket('Deseos', '1'),
       bucket('Ahorro', '1'),
       bucket('SinCategoria', '1'),
     ]);
-    expect(tajadas.map((t) => t.porcentaje)).toEqual([25, 25, 25, 25]);
+    expect(tajadas.map((t) => [t.bucket, t.porcentaje])).toEqual([
+      ['Necesidades', 34],
+      ['Deseos', 33],
+      ['Ahorro', 33],
+    ]);
     expect(tajadas.reduce((s, t) => s + t.porcentaje, 0)).toBe(100);
   });
 

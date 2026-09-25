@@ -493,7 +493,7 @@ export interface paths {
         };
         /**
          * Bucket detail grouped by category for a month
-         * @description Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the month×bucket detail GROUPED by category — a header with totals and % vs meta, and category groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). Accepts only the four spend buckets (Necesidades, Deseos, Ahorro, SinCategoria); Ingresos is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).
+         * @description Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the month×bucket detail GROUPED by category — a header with totals and % vs meta, and category groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). Accepts only the three spend buckets (Necesidades, Deseos, Ahorro); Ingreso is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).
          */
         readonly get: {
             readonly parameters: {
@@ -849,6 +849,13 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (issue #778 slice 5a-bis) — transient infrastructure fault, distinct from the permanent 409 below. Nothing is persisted (in the 5a-bis case, anything written during this request was deleted); retrying later may succeed. */
+                readonly 503: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         readonly delete?: never;
@@ -970,8 +977,15 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure (PersistenciaFallidaError / CategorizacionFallidaError). Retryable. */
+                /** @description Infrastructure fault (DB) — ensure, dedup, or persist failure (PersistenciaFallidaError). Retryable. */
                 readonly 500: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. Fail-closed: nothing is persisted (D-10); retrying later may succeed. */
+                readonly 503: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
@@ -1030,6 +1044,13 @@ export interface paths {
                 };
                 /** @description Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB). */
                 readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault. Preview rejects rather than showing a degraded suggestion set the commit could never honor. */
+                readonly 503: {
                     headers: {
                         readonly [name: string]: unknown;
                     };
@@ -1157,7 +1178,7 @@ export interface paths {
                         readonly tipo: "Ingreso";
                     } | {
                         /**
-                         * @description Required for Gasto. One of Necesidades | Deseos | Ahorro. Ingreso and SinCategoria are invalid here (D-12).
+                         * @description Required for Gasto. One of Necesidades | Deseos | Ahorro. Ingreso is invalid here (D-12).
                          * @enum {string}
                          */
                         readonly bucket: "Necesidades" | "Deseos" | "Ahorro";
@@ -1994,7 +2015,7 @@ export interface paths {
         readonly put?: never;
         /**
          * Re-run the caller's classification patterns over all transactions
-         * @description Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT pattern catalog against ALL of their persisted transactions — categorized or not, no period filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the existing categoria/bucket. A row that resolves to SinCategoria (no pattern matched) is left exactly as it is — never cleared. Rows whose determined classification already matches their current value are not re-written (transaccionesActualizadas counts real changes only). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
+         * @description Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT pattern catalog against ALL of their persisted transactions — categorized or not, no period filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the existing categoria/bucket. A row where no pattern matched is left exactly as it is — never cleared. Rows whose determined classification already matches their current value are not re-written (transaccionesActualizadas counts real changes only). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).
          */
         readonly post: {
             readonly parameters: {
@@ -2132,7 +2153,7 @@ export interface components {
             readonly metaBp: number | null;
             /** @description Resolved period, format YYYY-MM. */
             readonly periodo: string;
-            /** @description Basis-point percentage, round-half-up. null when the bucket has no meta rule (SinCategoria) or the month has no income (D-05). */
+            /** @description Basis-point percentage, round-half-up. null when the month has no income (D-05). */
             readonly porcentajeBp: number | null;
             /** @description BigInt-safe decimal string amount (never a JSON number). */
             readonly total: string;
@@ -2175,7 +2196,7 @@ export interface components {
             readonly transacciones: readonly {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly abono: string;
-                /** @description Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso|SinCategoria). Always present for commit rows — classification is resolved pre-persist (D-11). */
+                /** @description Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso). Always present for commit rows — classification is resolved pre-persist (D-11). */
                 readonly bucket: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly cargo: string;
@@ -2198,7 +2219,7 @@ export interface components {
                 readonly banco: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly cargo: string;
-                /** @description Folded category, or null for Ingreso/SinCategoria rows. */
+                /** @description Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket). */
                 readonly categoria: {
                     readonly id: string;
                     readonly nombre: string;
@@ -2282,7 +2303,7 @@ export interface components {
                 readonly bucket: string;
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly cargo: string;
-                /** @description Folded category, or null for Ingreso/SinCategoria rows. */
+                /** @description Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket). */
                 readonly categoria: {
                     readonly id: string;
                     readonly nombre: string;
@@ -2352,7 +2373,7 @@ export interface components {
         };
         /** @description POST /api/transacciones/reevaluar 200 — reevaluation outcome counts. */
         readonly ReevaluarCategoriasResponse: {
-            /** @description Rows whose categoria/bucket actually changed and were written. Rows that resolved to SinCategoria (no pattern matched) are left untouched and never counted here. */
+            /** @description Rows whose categoria/bucket actually changed and were written. Rows where no pattern matched are left untouched and never counted here. */
             readonly transaccionesActualizadas: number;
             /** @description Total transactions belonging to the caller that were evaluated. */
             readonly transaccionesEvaluadas: number;
@@ -2385,7 +2406,7 @@ export interface components {
         };
         /** @description GET /api/resumen — 50/30/20 monthly breakdown (US-015/016). */
         readonly ResumenMesResponse: {
-            /** @description Always 4 entries: Necesidades, Deseos, Ahorro, SinCategoria. */
+            /** @description Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape. */
             readonly buckets: readonly {
                 /** @description Bucket name (Bucket domain enum value). */
                 readonly bucket: string;
@@ -2396,8 +2417,6 @@ export interface components {
                 /** @description BigInt-safe decimal string amount (never a JSON number). */
                 readonly total: string;
             }[];
-            /** @description US-045: count of uncategorized cargo transactions (row count, not money). Always present. */
-            readonly cantidadSinCategoria: number;
             /** @description Worst traffic-light state across measured buckets, or null. */
             readonly estadoGlobal: ("verde" | "amarillo" | "rojo") | null;
             /** @description Resolved period, format YYYY-MM. */
@@ -2451,12 +2470,6 @@ export interface components {
             readonly estadoGlobal: ("verde" | "amarillo" | "rojo") | null;
             /** @description Resolved period, format YYYY-MM. */
             readonly periodo: string;
-            /** @description Re-exposed from /api/resumen, never recomputed independently (SEM-05). */
-            readonly sinCategoria: {
-                readonly cantidad: number;
-                /** @description BigInt-safe decimal string amount (never a JSON number). */
-                readonly total: string;
-            };
             readonly sinIngreso: boolean;
             /** @description BigInt-safe decimal string amount (never a JSON number). */
             readonly totalIngreso: string;

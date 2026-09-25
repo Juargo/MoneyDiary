@@ -20,7 +20,7 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     expect(DEMO_TRANSACCIONES.length).toBeLessThanOrEqual(35);
   });
 
-  it('cubre los 5 buckets existentes con al menos 1 transacción cada uno (DEMO-DATA-01)', () => {
+  it('cubre los 4 buckets del dominio, con al menos 1 transacción cada uno (DEMO-DATA-01)', () => {
     const bucketsCubiertos = new Set(
       DEMO_TRANSACCIONES.map((def) => def.bucketKey),
     );
@@ -58,12 +58,12 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     expect(porcentaje).toBeLessThanOrEqual(0.65);
   });
 
-  it('Deseos cae entre 15% y 25% del total de gastos (DEMO-DATA-02)', () => {
+  it('Deseos cae entre 15% y 30% del total de gastos (DEMO-DATA-02, issue #778 tramo 5b PR6: incluye las 2 ex-SinCategoria)', () => {
     const { deseos, totalGastos } = totalesPorBucket();
     const porcentaje = Number(deseos) / Number(totalGastos);
 
     expect(porcentaje).toBeGreaterThanOrEqual(0.15);
-    expect(porcentaje).toBeLessThanOrEqual(0.25);
+    expect(porcentaje).toBeLessThanOrEqual(0.3);
   });
 
   it('Ahorro cae entre 5% y 15% del total de gastos, con la transferencia ~$120K (DEMO-DATA-02)', () => {
@@ -87,7 +87,6 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
       [Bucket.Deseos]: 0n,
       [Bucket.Ahorro]: 0n,
       [Bucket.Ingreso]: 0n,
-      [Bucket.SinCategoria]: 0n,
     };
 
     for (const def of DEMO_TRANSACCIONES) {
@@ -95,10 +94,7 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     }
 
     const totalGastos =
-      sums[Bucket.Necesidades] +
-      sums[Bucket.Deseos] +
-      sums[Bucket.Ahorro] +
-      sums[Bucket.SinCategoria];
+      sums[Bucket.Necesidades] + sums[Bucket.Deseos] + sums[Bucket.Ahorro];
 
     return {
       necesidades: sums[Bucket.Necesidades],

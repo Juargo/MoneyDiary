@@ -224,7 +224,9 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       await seedTx({
         accountId: accountFijo,
         ingestaId: ingestaFijo,
-        bucketId: null, // uncategorized — cargo counted, D-07
+        // issue #778 tramo 5b: null bucketId now folds to Deseos (D-07 below
+        // asserts on Deseos' May total, not cantidadSinCategoria).
+        bucketId: null,
         cargo: 12_000n,
         abono: 0n,
         fecha: mayoFecha,
@@ -246,14 +248,20 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     for (const mes of res.body.meses) {
       expect(typeof mes.totalIngreso).toBe('string');
       expect(typeof mes.sinIngreso).toBe('boolean');
-      expect(mes.buckets).toHaveLength(4);
-      expect(typeof mes.cantidadSinCategoria).toBe('number');
+      // issue #778 tramo 5b PR5: SinCategoria removed, cantidadSinCategoria gone.
+      expect(mes.buckets).toHaveLength(3);
+      expect('cantidadSinCategoria' in mes).toBe(false);
     }
 
     if (ALLOW) {
-      // Index 4 = May — proves the annual reduce carries the REAL count
-      // through per-month, not a placeholder 0 (D-07).
-      expect(res.body.meses[4].cantidadSinCategoria).toBeGreaterThan(0);
+      // Index 4 = May — proves the annual reduce carries the REAL total
+      // through per-month, not a placeholder 0 (D-07). issue #778 tramo 5b:
+      // the null-bucket row folds to Deseos now, not SinCategoria — the
+      // non-placeholder proof is Deseos' total instead.
+      const mayoDeseos = res.body.meses[4].buckets.find(
+        (b: { bucket: string }) => b.bucket === Bucket.Deseos,
+      );
+      expect(BigInt(mayoDeseos.total)).toBeGreaterThan(0n);
     }
   });
 
@@ -295,8 +303,9 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     });
 
     // US-045/CA-08: 1 uncategorized cargo row for A, distinct from B's 3 —
-    // proves cantidadSinCategoria is isolated by userId at the annual
-    // endpoint boundary, not just totalIngreso/bucket totals.
+    // issue #778 tramo 5b: these fold to Deseos, not SinCategoria; proves
+    // Deseos' total is isolated by userId at the annual endpoint boundary,
+    // not just totalIngreso/other bucket totals.
     await seedTx({
       accountId: accountA,
       ingestaId: ingestaA,
@@ -338,9 +347,13 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     // isolation were broken, user B's 9M would leak in, either replacing or
     // summing with A's total, so an exact match rules out both failure modes.
     expect(BigInt(marzo.totalIngreso)).toBe(1_000_000n);
-    // US-045/CA-08: A's cantidadSinCategoria reflects only A's 1 uncategorized
-    // cargo row — never B's 3 (isolation at the annual endpoint boundary).
-    expect(marzo.cantidadSinCategoria).toBe(1);
+    // US-045/CA-08 (retargeted to Deseos): A's Deseos total reflects only
+    // A's 1 uncategorized cargo row (5_000) — never B's 3 rows
+    // (6_000+6_001+6_002=18_003) (isolation at the annual endpoint boundary).
+    const marzoDeseos = marzo.buckets.find(
+      (b: { bucket: string }) => b.bucket === Bucket.Deseos,
+    );
+    expect(BigInt(marzoDeseos.total)).toBe(5_000n);
   });
 
   // ── US-046/CA-02: months with no transactions are explicitly empty ─────────
@@ -387,7 +400,6 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     expect(diciembre.sinIngreso).toBe(true);
     expect(diciembre.estadoGlobal).toBeNull();
     expect(diciembre.totalIngreso).toBe('0');
-    expect(diciembre.cantidadSinCategoria).toBe(0);
     for (const bucket of diciembre.buckets) {
       expect(bucket.total).toBe('0');
       expect(bucket.porcentajeBp).toBeNull();

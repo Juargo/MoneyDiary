@@ -4,7 +4,6 @@ import { LeyendaGasto } from './LeyendaGasto';
 import { ResumenAnual } from './ResumenAnual';
 import type { ResumenViewModel } from '@/domain/resumen-view-model';
 import { anioDePeriodo } from '@/domain/periodo-anual';
-import { BUCKETS_ANILLO } from '@/domain/distribucion-gasto';
 import { DASHBOARD_CARD_CLASS } from '@/lib/dashboard-card';
 import { cn } from '@/lib/utils';
 
@@ -20,12 +19,14 @@ import { cn } from '@/lib/utils';
  *
  * Container-presentational split (CLAUDE.md): `DistribucionPie`/
  * `LeyendaGasto` stay pure props-in — their `onSelectBucket` keeps its
- * single-arg signature (D-06) and THIS screen owns the drill-down wiring:
- * `onSelectBucket(bucket, destacar?)` is threaded from the router
- * (`ResumenPage`); the `destacar` flag is set only for the Sin categoría
- * drill-down (WDM-04), which the route turns into `?destacar=sin-categoria`
- * so the month-scoped page arrives with the unassigned group highlighted.
- * Every other bucket drills down without it.
+ * single-arg signature (D-06). `onSelectBucket(bucket, destacar?)` is
+ * threaded straight through from the router (`ResumenPage`) unchanged: this
+ * screen no longer computes a `destacar` value of its own. Issue #778
+ * tramo5b PR1 retired the Sin categoría wedge/row — that was the ONLY case
+ * that ever passed `destacar: true` (WDM-04, `?destacar=sin-categoria`), so
+ * `onSelectBucket` is passed straight to both controls; TypeScript accepts
+ * this because a function's optional trailing parameter never has to be
+ * supplied by the caller.
  *
  * The annual 50/30/20 summary (US-030 Slice C, task 30.12) renders BELOW the
  * chart card — `ResumenAnual` is self-contained (owns its own
@@ -43,11 +44,12 @@ import { cn } from '@/lib/utils';
  * tripwire.
  *
  * US-047 T11/PR3: the PR1 shim (`distribucionGastoInterina`) is gone — the
- * pie renders the REAL 4-item `viewModel.distribucionGasto` (all
- * `BUCKETS_ANILLO` members, SinCategoria included) with its donut hole
+ * pie renders `viewModel.distribucionGasto` directly with its donut hole
  * enabled (`conInterior`, D-01). The legend reads the real, non-shim
- * `leyendaPrincipal`/`leyendaComplemento` fields (PR2 T5); WG5-13's
- * ring-percentage dilution is user-visible in both places at once.
+ * `leyendaPrincipal`/`leyendaComplemento` fields (PR2 T5). Issue #778
+ * tramo5b PR1: `distribucionGasto`/`leyendaComplemento` no longer include a
+ * SinCategoria member at all — the ring/legend show only the 3 spend
+ * buckets plus Ingresos.
  *
  * Design critique P0 fix (impeccable audit, PRODUCT.md principle 1 — "the
  * monthly verdict comes first"): the semáforo used to be a `text-xs` pill
@@ -88,17 +90,13 @@ export function ResumenScreen({
   readonly onSelectBucket: (bucket: string, destacar?: boolean) => void;
   readonly onSelectIngresos: () => void;
 }) {
-  // D-06: both chart controls keep their single-arg `onSelectBucket`; THIS
-  // screen owns the `destacar` flag — the Sin categoría drill-down carries
-  // it so the route can pin `?destacar=sin-categoria` (WDM-04, e2e case 4).
-  // Every other bucket drills down without it. Sin categoría is the ring's
-  // LAST member by construction (`BUCKETS_ANILLO` = [...BUCKETS_5030,
-  // 'SinCategoria']) — no raw literal here (DRY).
-  const onSeleccionarBucket = (bucket: string) =>
-    onSelectBucket(
-      bucket,
-      bucket === BUCKETS_ANILLO[BUCKETS_ANILLO.length - 1],
-    );
+  // Issue #778 tramo5b PR1: `onSelectBucket` used to receive a computed
+  // `destacar` flag here, set only when the clicked bucket was the ring's
+  // SinCategoria wedge (`?destacar=sin-categoria`, WDM-04, e2e case 4) — the
+  // ONLY drill-down that ever carried it. That wedge/row is retired, so
+  // there is no longer anything to compute: `onSelectBucket` is passed
+  // straight through to both chart controls below (D-06, single-arg
+  // signature), never invoked with a second argument from this screen.
 
   // `anio` still feeds `ResumenAnual` below (self-contained, owns its own
   // `useResumenAnual` query) — the income card's own derivations are gone.
@@ -148,13 +146,13 @@ export function ResumenScreen({
             <DistribucionPie
               tajadas={viewModel.distribucionGasto}
               targets={viewModel.targets}
-              onSelectBucket={onSeleccionarBucket}
+              onSelectBucket={onSelectBucket}
               conInterior
             />
             <LeyendaGasto
               principales={viewModel.leyendaPrincipal}
               complemento={viewModel.leyendaComplemento}
-              onSelectBucket={onSeleccionarBucket}
+              onSelectBucket={onSelectBucket}
               onSelectIngresos={onSelectIngresos}
             />
           </div>

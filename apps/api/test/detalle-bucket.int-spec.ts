@@ -25,10 +25,17 @@ import { categoriaIdDe } from './helpers/categoria-fixture';
  *
  *   1. Isolation: a user B transaction in the queried bucket/period NEVER
  *      appears in user A's result (row-identity assertion).
- *   2. Null-fold correctness: a user A transaction with bucketId = null
- *      appears when querying SinCategoria, and does NOT appear when
- *      querying any other bucket — guards the SC-03 fold mirrored from
+ *   2. Null-fold correctness (issue #778 tramo 5b, `Bucket.SinCategoria`
+ *      removed from the domain): a user A transaction with bucketId = null
+ *      appears when querying Deseos, and does NOT appear when querying any
+ *      other bucket — guards the SC-03 fold mirrored from
  *      prisma-resumen-mes.repository.ts (design's flagged HIGH-risk item).
+ *      (Issue #778 tramo 5b PR6 migrated every row that used to carry the
+ *      legacy physical id `bucket-sincategoria` and deleted that
+ *      `BucketPresupuesto` row — the FK now makes that id impossible to
+ *      write, so this suite no longer seeds it; see
+ *      drop-bucket-sincategoria-migration.int-spec.ts for the migration's
+ *      own coverage.)
  */
 
 const RUN_ID = `detbucketint-${Date.now()}`;
@@ -180,7 +187,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     expect(returnedIds).not.toContain(userBTx.id);
   });
 
-  it('null-fold: a user A transaction with bucketId=null appears when querying SinCategoria, not when querying another bucket', async () => {
+  it('null-fold: appears when querying Deseos, never under any other bucket (#778 tramo 5b)', async () => {
     const nullTx = await createTx(
       accountIdA,
       ingestaIdA,
@@ -191,26 +198,50 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       'Sin bucket asignado',
     );
 
-    const sinCategoriaRows = await repo.findByPeriodoYBucket(
-      TEST_USER_ID_A,
-      periodoJulio,
-      Bucket.SinCategoria,
-    );
-    const sinCategoriaIds = sinCategoriaRows.map((r) => r.id);
-    expect(sinCategoriaIds).toContain(nullTx.id);
+    const idsDe = async (bucket: Bucket) =>
+      (
+        await repo.findByPeriodoYBucket(TEST_USER_ID_A, periodoJulio, bucket)
+      ).map((r) => r.id);
 
-    const necesidadesRows = await repo.findByPeriodoYBucket(
-      TEST_USER_ID_A,
-      periodoJulio,
-      Bucket.Necesidades,
-    );
-    const necesidadesIds = necesidadesRows.map((r) => r.id);
+    const deseosIds = await idsDe(Bucket.Deseos);
+    expect(deseosIds).toContain(nullTx.id);
+    // Doesn't leak into an unrelated bucket's drill-down.
+    const necesidadesIds = await idsDe(Bucket.Necesidades);
     expect(necesidadesIds).not.toContain(nullTx.id);
   });
 
-  it('isolation on the null-fold path: a user B transaction with bucketId=null NEVER leaks into user A SinCategoria results', async () => {
-    // Regression guard for the highest-risk path: the SinCategoria OR-fold
-    // (bucketId IS NULL OR bucketId = 'bucket-sincategoria') must stay ANDed
+  it("null-fold: a bucketId=null row in the Deseos drill-down carries the user's internal Desconocido category (#778 tramo 5b)", async () => {
+    const desconocidoIdB = await categoriaIdDe(prisma, {
+      userId: TEST_USER_ID_B,
+      bucket: Bucket.Deseos,
+      nombre: 'Desconocido',
+    });
+    const nullTx = await createTx(
+      accountIdB,
+      ingestaIdB,
+      new Date('2026-07-16T00:00:00.000Z'),
+      null,
+      13000n,
+      0n,
+      'UserB sin bucket propio',
+    );
+
+    const rows = await repo.findByPeriodoYBucket(
+      TEST_USER_ID_B,
+      periodoJulio,
+      Bucket.Deseos,
+    );
+    const found = rows.find((r) => r.id === nullTx.id);
+    expect(found).toBeDefined();
+    expect(found!.categoria).toMatchObject({
+      id: desconocidoIdB,
+      nombre: 'Desconocido',
+    });
+  });
+
+  it('isolation on the null-fold path: a user B transaction with bucketId=null NEVER leaks into user A Deseos results', async () => {
+    // Regression guard for the highest-risk path: the Deseos OR-fold
+    // (bucketId IS NULL OR bucketId = 'bucket-deseos') must stay ANDed
     // under account.userId. A future refactor that floats the OR to the top
     // of the `where` would leak another user's null-bucket rows — this case
     // fails loudly if that happens.
@@ -224,13 +255,13 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       'UserB sin bucket',
     );
 
-    const sinCategoriaRows = await repo.findByPeriodoYBucket(
+    const deseosRows = await repo.findByPeriodoYBucket(
       TEST_USER_ID_A,
       periodoJulio,
-      Bucket.SinCategoria,
+      Bucket.Deseos,
     );
 
-    const returnedIds = sinCategoriaRows.map((r) => r.id);
+    const returnedIds = deseosRows.map((r) => r.id);
     expect(returnedIds).not.toContain(userBNullTx.id);
   });
 

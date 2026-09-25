@@ -57,7 +57,6 @@ function detalleDto(
       'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
     bucketsCriticos: [],
     buckets,
-    sinCategoria: { cantidad: 0, total: '0' },
   };
 }
 
@@ -232,5 +231,23 @@ describe('aSemaforoDetalleViewModel', () => {
     const vm = aSemaforoDetalleViewModel(dto);
 
     expect(vm.buckets[0].metaLabel).toBe('Meta: 50%');
+  });
+
+  // Issue #778 tramo5b PR1: `dto.sinCategoria` was never surfaced on the
+  // view model — it used to drive `SemaforoDetallePage`'s Sin categoría
+  // banner, now retired. Tramo5b PR5 (apps/api) later removed the field
+  // from the wire contract entirely; kept as a deploy-order-safety proof
+  // that a legacy payload still carrying it (cast, since the type no
+  // longer allows it) is still handled correctly.
+  it('no expone sinCategoria aunque el DTO lo traiga con datos (deploy-order safety, issue #778 tramo5b PR5)', () => {
+    const dto = detalleDto();
+    const dtoConSinCategoria = {
+      ...dto,
+      sinCategoria: { cantidad: 3, total: '15000' },
+    } as SemaforoDetalleDto;
+
+    const vm = aSemaforoDetalleViewModel(dtoConSinCategoria);
+
+    expect(vm).not.toHaveProperty('sinCategoria');
   });
 });

@@ -100,13 +100,15 @@ const API_VERSION_FIXTURE = {
 
 /**
  * `GET /api/resumen` (US-047 T15, design §4.3) — a literal `ResumenMesDto`
- * instance (`src/api/types.ts`) with a NONZERO total in all 4
- * `BUCKETS_ANILLO` items and a nonzero `totalIngreso`, so the dashboard
- * chart's non-empty-state markup renders: the 4-wedge donut ring, all 5
- * legend rows (3 spend + divider + Ingresos/Sin categoría), and the T1 grid
- * body — `ResumenPage` renders `<Empty />` instead whenever
- * `sinIngreso: true`, so this MUST stay `false` for `dashboard-donut.e2e.ts`
- * to exercise anything.
+ * instance (`src/api/types.ts`) with a NONZERO total in all 4 `buckets[]`
+ * entries (the API still sends a SinCategoria entry, unchanged) and a
+ * nonzero `totalIngreso`, so the dashboard chart's non-empty-state markup
+ * renders: the 3-wedge donut ring, all 4 legend rows (3 spend + divider +
+ * Ingresos — issue #778 tramo5b PR1 retired the Sin categoría row/wedge, so
+ * this fixture's SinCategoria bucket entry is now DELIBERATELY inert data,
+ * proving the dashboard ignores it), and the T1 grid body — `ResumenPage`
+ * renders `<Empty />` instead whenever `sinIngreso: true`, so this MUST stay
+ * `false` for `dashboard-donut.e2e.ts` to exercise anything.
  */
 const RESUMEN_MES_FIXTURE = {
   periodo: '2026-07',

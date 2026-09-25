@@ -108,8 +108,9 @@ export type CommitIngestaError =
   | CategoriaFueraDeCatalogoError
   // Catálogo disponible pero incompleto (409, issue #778 tramo 3/5)
   | CatalogoIncompletoError
-  // Infrastructure errors (500)
+  // Catálogo CAÍDO (503, issue #778 tramo 5a) — infra transitoria/reintentable.
   | CategorizacionFallidaError
+  // Otros errores de infraestructura (500)
   | PersistenciaFallidaError;
 
 // ---------------------------------------------------------------------------
@@ -480,16 +481,20 @@ export class CommitIngestaUseCase {
           };
         }
 
-        // No overlay — auto-classify. SinCategoria stays as Bucket.SinCategoria (not null)
-        // because commit always resolves classification pre-persist (D-11/j).
-        // The classifier itself resolves the #778 default on no-match now.
+        // No overlay — auto-classify. `categoriaPorDefecto` is non-nullable
+        // here (guard at step 6b), so `CategorizarTransaccionUseCase.execute`
+        // resolves the narrow overload: the result is ALWAYS
+        // `tipo: 'clasificada'` — `'sinCoincidencia'` is type-unreachable at
+        // this call site, never a `Bucket.SinCategoria` fail-safe (#778
+        // tramo 5b, see the use case's own docblock). Commit always resolves
+        // classification pre-persist (D-11/j).
         const autoResult = this.categorizarTransaccionUseCase
           .execute(tx, patrones, categoriaPorDefecto)
           .getValue();
 
         return {
           transaccion: tx,
-          bucket: autoResult.bucket, // Bucket.SinCategoria is a real FK via aPersistencia
+          bucket: autoResult.bucket, // a real FK via aPersistencia, never null
           categoriaId: autoResult.categoria?.id ?? null,
         };
       },

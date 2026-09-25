@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { renderConRouter } from '@/test/router-harness';
 import { ResumenAnual } from './ResumenAnual';
 import { mesCompletoLabel } from '@/domain/periodo-anual';
@@ -36,16 +42,9 @@ function mesConDatos(
         porcentajeBp: 2000,
         estadoSemaforo: 'verde',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal,
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -73,16 +72,9 @@ function mesSinDatos(periodo: string): ResumenMesDto {
         porcentajeBp: null,
         estadoSemaforo: null,
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -461,35 +453,43 @@ describe('ResumenAnual', () => {
     expect(grid.className).toMatch(/\blg:grid-cols-4\b/);
   });
 
-  // US-048 (design §4.1, WTA-01): the mini ring reads the full 4-item
-  // BUCKETS_ANILLO default (Necesidades, Deseos, Ahorro, SinCategoria) — the
-  // US-047 PR1 interim BUCKETS_5030 renormalization is retired. Reuses the
-  // eneroConSinCategoria fixture verbatim (nonzero SinCategoria total is the
-  // whole point — a zero-total fixture cannot distinguish diluted from
-  // renormalized). Fill classes, not just count, prove the 4th wedge is
-  // genuinely SinCategoria grey in BUCKETS_ANILLO ring order (`web-theme-
-  // switch` D3: token-backed classes, not hex, since PR4).
-  it('renders 4 mini-pie slices per month, including the SinCategoria wedge (WTA-01)', async () => {
+  // Issue #778 tramo5b PR1: the mini ring no longer includes SinCategoria —
+  // `calcularDistribucionGasto`'s `BUCKETS_ANILLO` default dropped it, so
+  // `ResumenAnual`'s `calcularDistribucionGasto(mes.buckets)` call
+  // automatically excludes it too, with no code change needed in this
+  // component. Tramo5b PR5 (apps/api) later removed `Bucket.SinCategoria`
+  // from the domain and the wire contract entirely — the API can no longer
+  // send that bucket at all. This test simulates the DEPLOY-ORDER SAFETY
+  // window (web deployed after the API contract changed, but a stale/cached
+  // or not-yet-migrated response still carries the OLD 4th bucket entry)
+  // and proves both halves of the contract still hold: (a) only 3 mini-pie
+  // slices render, and (b) the three spend fractions are NOT distorted by
+  // the legacy entry's presence — comparing wedge geometry (`d` attribute)
+  // against the SAME month with no legacy entry shows byte-identical paths.
+  it('renders only 3 mini-pie slices per month and ignores a legacy SinCategoria bucket entry without distorting the others (deploy-order safety, issue #778 tramo5b PR5)', async () => {
     const enero = mesConDatos('2026-01');
-    const eneroConSinCategoria: ResumenMesDto = {
+    const eneroConSinCategoriaLegacy: ResumenMesDto = {
       ...enero,
-      buckets: enero.buckets.map((b) =>
-        b.bucket === 'SinCategoria'
-          ? { ...b, total: '100000', porcentajeBp: 600 }
-          : b,
-      ),
-      cantidadSinCategoria: 2,
+      buckets: [
+        ...enero.buckets,
+        {
+          bucket: 'SinCategoria',
+          total: '100000',
+          porcentajeBp: 600,
+          estadoSemaforo: null,
+        },
+      ],
     };
-    const datos: ResumenAnualDto = {
+    const datosConSinCategoria: ResumenAnualDto = {
       anio: 2026,
       meses: anioTodoSinDatos().meses.map((mes, i) =>
-        i === 0 ? eneroConSinCategoria : mes,
+        i === 0 ? eneroConSinCategoriaLegacy : mes,
       ),
     };
     mockFetchAnual({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(datos),
+      json: () => Promise.resolve(datosConSinCategoria),
     });
 
     renderConRouter(
@@ -503,16 +503,40 @@ describe('ResumenAnual', () => {
 
     await screen.findByRole('button', { name: 'Ver enero 2026' });
     const slices = screen.getAllByTestId('mini-pie-slice');
-    expect(slices).toHaveLength(4);
-    const clasesEsperadas = [
-      'fill-necesidades',
-      'fill-gustos',
-      'fill-ahorro',
-      'fill-sin-categoria',
-    ];
-    slices.forEach((slice, i) => {
+    expect(slices).toHaveLength(3);
+    const clasesEsperadas = ['fill-necesidades', 'fill-gustos', 'fill-ahorro'];
+    const pathsConSinCategoria = slices.map((slice, i) => {
       expect(slice).toHaveClass(clasesEsperadas[i]);
+      return slice.getAttribute('d');
     });
+
+    // Same month, but with `mesConDatos` verbatim (no legacy SinCategoria
+    // entry at all) — if the legacy entry were still diluting the ring,
+    // the two renders' wedge geometry would differ.
+    cleanup();
+    const datosSinSinCategoria: ResumenAnualDto = {
+      anio: 2026,
+      meses: anioTodoSinDatos().meses.map((mes, i) => (i === 0 ? enero : mes)),
+    };
+    mockFetchAnual({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(datosSinSinCategoria),
+    });
+    renderConRouter(
+      <ResumenAnual
+        anio={2026}
+        periodoSeleccionado="2026-07"
+        onSelectPeriodo={vi.fn()}
+        ahora={AHORA}
+      />,
+    );
+    await screen.findByRole('button', { name: 'Ver enero 2026' });
+    const pathsSinSinCategoria = screen
+      .getAllByTestId('mini-pie-slice')
+      .map((slice) => slice.getAttribute('d'));
+
+    expect(pathsConSinCategoria).toEqual(pathsSinSinCategoria);
   });
 
   // web-theme-switch S3 flagged item (d): the wedge edge must touch the

@@ -116,7 +116,9 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const candidato = value as Partial<ResumenMesDto>;
+  const candidato = value as Partial<ResumenMesDto> & {
+    cantidadSinCategoria?: unknown;
+  };
   return (
     typeof candidato.totalIngreso === 'string' &&
     esMontoStringValido(candidato.totalIngreso) &&
@@ -124,15 +126,17 @@ function esResumenMesDto(value: unknown): value is ResumenMesDto {
     candidato.buckets.every(esBucketResumenDto) &&
     (typeof candidato.estadoGlobal === 'string' ||
       candidato.estadoGlobal === null) &&
-    // US-047 WG5-05: the legend now reads `cantidadSinCategoria` directly
-    // (Sin categoría row's transaction count) — a payload missing it, or
-    // carrying it as a non-number, must be rejected the same way any other
-    // structurally invalid ResumenMesDto already is. `esResumenAnualDto`
-    // reuses this guard unmodified for each of its 12 months (verified
-    // safe, design §3/§0 blast-radius note): the annual DTO always
-    // populates this field server-side, so no real payload is newly
-    // rejected there.
-    typeof candidato.cantidadSinCategoria === 'number'
+    // issue #778 tramo 5b PR5: the API removed `cantidadSinCategoria` and
+    // the 4th (SinCategoria) bucket entry from this contract — the web
+    // stopped reading either one back in tramo5b PR1
+    // (`resumen-view-model.ts`'s `aLeyendaComplemento`). Deploy-order
+    // safety: web (Vercel) and the API (Render) deploy independently from
+    // main, so this guard must ACCEPT both shapes during that window — the
+    // old one (4 buckets + cantidadSinCategoria present as a number) and
+    // the new one (3 buckets, field entirely absent). Never require the
+    // field; only reject it if present with the wrong type.
+    (candidato.cantidadSinCategoria === undefined ||
+      typeof candidato.cantidadSinCategoria === 'number')
   );
 }
 
@@ -202,7 +206,7 @@ export async function fetchResumen(
  * Guarda money-safety para `SemaforoDetalleDto` (US-049, design §1.7 "The DTO
  * guard is IN SCOPE — WG5-05 lesson"): valida exactamente lo que
  * `aSemaforoDetalleViewModel` (`domain/semaforo-detalle-view-model.ts`)
- * consume aguas abajo — `totalIngreso`/`sinCategoria.total` vía
+ * consume aguas abajo — `totalIngreso` vía
  * `esMontoStringValido` (mismo razonamiento que `esResumenMesDto`:
  * `formatearMontoCLP` lanza sobre `"12.5"`/`"abc"`/etc), `periodo`,
  * `sinIngreso`, `diagnostico`, `estadoGlobal`/`bucketsCriticos` (ambos
@@ -284,13 +288,24 @@ function esSemaforoBucketDetalleDto(
   );
 }
 
-function esSinCategoriaDto(
+/**
+ * Shape of the now-removed `sinCategoria` field (issue #778 tramo 5b PR5) —
+ * kept as a LOCAL type (no longer derivable from `SemaforoDetalleDto`) only
+ * so this guard can still validate an old-shaped response during the deploy
+ * window (see `esSemaforoDetalleDto` below).
+ */
+interface SinCategoriaLegacyDto {
+  readonly cantidad: number;
+  readonly total: string;
+}
+
+function esSinCategoriaLegacyDto(
   value: unknown,
-): value is SemaforoDetalleDto['sinCategoria'] {
+): value is SinCategoriaLegacyDto {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const candidato = value as Partial<SemaforoDetalleDto['sinCategoria']>;
+  const candidato = value as Partial<SinCategoriaLegacyDto>;
   return (
     typeof candidato.cantidad === 'number' &&
     typeof candidato.total === 'string' &&
@@ -302,7 +317,9 @@ function esSemaforoDetalleDto(value: unknown): value is SemaforoDetalleDto {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
-  const candidato = value as Partial<SemaforoDetalleDto>;
+  const candidato = value as Partial<SemaforoDetalleDto> & {
+    sinCategoria?: unknown;
+  };
   return (
     typeof candidato.totalIngreso === 'string' &&
     esMontoStringValido(candidato.totalIngreso) &&
@@ -314,7 +331,12 @@ function esSemaforoDetalleDto(value: unknown): value is SemaforoDetalleDto {
     typeof candidato.diagnostico === 'string' &&
     Array.isArray(candidato.buckets) &&
     candidato.buckets.every(esSemaforoBucketDetalleDto) &&
-    esSinCategoriaDto(candidato.sinCategoria)
+    // issue #778 tramo 5b PR5: the API removed the `sinCategoria` object
+    // from this contract. Deploy-order safety: ACCEPT both the old shape
+    // (present and valid) and the new one (absent entirely) during the
+    // independent-deploy window.
+    (candidato.sinCategoria === undefined ||
+      esSinCategoriaLegacyDto(candidato.sinCategoria))
   );
 }
 

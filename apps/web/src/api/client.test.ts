@@ -51,16 +51,9 @@ const validDto: ResumenMesDto = {
       porcentajeBp: 3500,
       estadoSemaforo: 'amarillo',
     },
-    {
-      bucket: 'SinCategoria',
-      total: '0',
-      porcentajeBp: 0,
-      estadoSemaforo: null,
-    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'amarillo',
-  cantidadSinCategoria: 0,
 };
 
 function mockFetchOnce(response: {
@@ -227,23 +220,53 @@ describe('fetchResumen', () => {
     expect(!result.ok && result.error.tag).toBe('parse');
   });
 
-  // US-047 WG5-05 (design §3 "DTO guard extension"): `esResumenMesDto` did
-  // not validate `cantidadSinCategoria` — a payload missing it, or carrying
-  // it as a non-number, used to pass the guard unchanged. The legend now
-  // reads the field directly, so either malformed shape must take the same
-  // pre-existing WAC-02 rejection path — no new error-handling branch.
-  it('mapea a {tag: "parse"} sin lanzar cuando cantidadSinCategoria falta o no es number (WG5-05)', async () => {
-    const { cantidadSinCategoria: _omitido, ...bodySinCantidadSinCategoria } =
-      validDto;
+  // issue #778 tramo 5b PR5: the API removed `cantidadSinCategoria` and the
+  // 4th (SinCategoria) bucket from this contract. Deploy-order safety: web
+  // (Vercel) and the API (Render) deploy independently from main, so
+  // `esResumenMesDto` must ACCEPT both the OLD shape (4 buckets +
+  // cantidadSinCategoria present as a number) and the NEW shape (3 buckets,
+  // field entirely absent) — never reject either one.
+  it('acepta el shape VIEJO: 4 buckets + cantidadSinCategoria como number (deploy-order safety)', async () => {
+    const bodyViejo = {
+      ...validDto,
+      buckets: [
+        ...validDto.buckets,
+        {
+          bucket: 'SinCategoria',
+          total: '0',
+          porcentajeBp: 0,
+          estadoSemaforo: null,
+        },
+      ],
+      cantidadSinCategoria: 7,
+    };
     mockFetchOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(bodySinCantidadSinCategoria),
+      json: () => Promise.resolve(bodyViejo),
     });
-    const resultadoFaltante = await fetchResumen();
-    expect(resultadoFaltante.ok).toBe(false);
-    expect(!resultadoFaltante.ok && resultadoFaltante.error.tag).toBe('parse');
 
+    const result = await fetchResumen();
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('acepta el shape NUEVO: 3 buckets, cantidadSinCategoria ausente (deploy-order safety)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validDto),
+    });
+
+    const result = await fetchResumen();
+
+    expect(result.ok).toBe(true);
+  });
+
+  // Un `cantidadSinCategoria` de tipo incorrecto SÍ debe rechazarse — la
+  // tolerancia es sobre AUSENCIA/presencia, nunca sobre el tipo cuando está
+  // presente.
+  it('mapea a {tag: "parse"} cuando cantidadSinCategoria está presente pero con el tipo incorrecto', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,
@@ -254,23 +277,9 @@ describe('fetchResumen', () => {
     expect(
       !resultadoTipoIncorrecto.ok && resultadoTipoIncorrecto.error.tag,
     ).toBe('parse');
-
-    mockFetchOnce({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ ...validDto, cantidadSinCategoria: null }),
-    });
-    const resultadoNull = await fetchResumen();
-    expect(resultadoNull.ok).toBe(false);
-    expect(!resultadoNull.ok && resultadoNull.error.tag).toBe('parse');
   });
 
-  // A legitimate zero must not be confused with a missing/invalid field by
-  // the guard itself (WG5-05) — `validDto` already carries
-  // `cantidadSinCategoria: 0` and every prior passing test in this describe
-  // block (e.g. the "resuelve {ok: true, value}" case) is the accept-path
-  // proof; this test names that proof explicitly for `cantidadSinCategoria`.
-  it('acepta cantidadSinCategoria: 0 — un cero legítimo no se confunde con un campo faltante (WG5-05)', async () => {
+  it('acepta cantidadSinCategoria: 0 cuando está presente — un cero legítimo no se confunde con un tipo inválido', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,
@@ -1677,7 +1686,7 @@ describe('previewIngesta', () => {
       json: () =>
         Promise.resolve({
           message:
-            'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+            'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
           code: 'CATALOGO_INCOMPLETO',
         }),
     });
@@ -1688,7 +1697,7 @@ describe('previewIngesta', () => {
     expect(!result.ok && result.error).toEqual({
       tag: 'invalid',
       message:
-        'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+        'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
       code: 'CATALOGO_INCOMPLETO',
     });
   });
@@ -2002,7 +2011,7 @@ describe('postCommitIngesta', () => {
       json: () =>
         Promise.resolve({
           message:
-            'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+            'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
           code: 'CATALOGO_INCOMPLETO',
         }),
     });
@@ -2013,7 +2022,7 @@ describe('postCommitIngesta', () => {
     expect(!result.ok && result.error).toEqual({
       tag: 'invalid',
       message:
-        'Tu catálogo de categorías está incompleto: falta la categoría Desconocido en Gustos. No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.',
+        'No pudimos clasificar los movimientos: falta la categoría Desconocido de Gustos en tu catálogo. Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. Tu archivo está bien y no se importó nada.',
       code: 'CATALOGO_INCOMPLETO',
     });
   });
@@ -2596,14 +2605,13 @@ const validSemaforoDetalleDto: SemaforoDetalleDto = {
       },
     },
   ],
-  sinCategoria: { cantidad: 2, total: '10000' },
 };
 
 // US-049 (design §1.7, T6.1): fetchSemaforoDetalle mirrors fetchResumen's
 // never-throw ApiResult<T> shape + status mapping (400/401/5xx/network/parse).
 // The extra "parse" cases pin the money-guard-at-the-boundary lesson (WG5-05):
-// a malformed consejo.monto/diagnostico/buckets/sinCategoria.total must never
-// reach formatearMontoCLP or downstream render code.
+// a malformed consejo.monto/diagnostico/buckets must never reach
+// formatearMontoCLP or downstream render code.
 describe('fetchSemaforoDetalle', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -2737,7 +2745,39 @@ describe('fetchSemaforoDetalle', () => {
     expect(!result.ok && result.error.tag).toBe('parse');
   });
 
-  it('mapea a {tag: "parse"} cuando sinCategoria.total está malformado', async () => {
+  // issue #778 tramo 5b PR5: the API removed the `sinCategoria` object from
+  // this contract. Deploy-order safety: `esSemaforoDetalleDto` must ACCEPT
+  // both the OLD shape (sinCategoria present and valid) and the NEW shape
+  // (absent entirely).
+  it('acepta el shape VIEJO: sinCategoria presente y válido (deploy-order safety)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          ...validSemaforoDetalleDto,
+          sinCategoria: { cantidad: 2, total: '10000' },
+        }),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('acepta el shape NUEVO: sinCategoria ausente (deploy-order safety)', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validSemaforoDetalleDto),
+    });
+
+    const result = await fetchSemaforoDetalle();
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('mapea a {tag: "parse"} cuando sinCategoria está presente pero malformado', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,

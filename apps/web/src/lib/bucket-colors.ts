@@ -28,37 +28,34 @@
  * Domain bucket name → user-facing label. The domain models the middle bucket
  * as "Deseos"; the product/UI surface calls it "Gustos" (mockup copy).
  *
- * `SinCategoria` reads "Sin grupo ni categoría", NOT "Sin categoría". That is
- * not verbosity — it disambiguates two DIFFERENT absences the UI shows at two
- * different levels, which used to share one label and confused users:
+ * Issue #778 tramo 5b PR5 (apps/api) removed `Bucket.SinCategoria` from the
+ * domain entirely: the backend never returns that string anywhere anymore
+ * (`resolverBucket` folds a null or unrecognized bucketId into `Deseos`
+ * before it ever reaches the wire), and `GET /api/buckets/SinCategoria` now
+ * 400s. The `SinCategoria` entry this map used to carry (label "Sin grupo ni
+ * categoría", kept through tramo5b PR1 for `ReclasificarCategoriaControl`'s
+ * confirmation dialog) is removed here too — there is no longer any reachable
+ * caller that can pass that literal key as a bucket name.
  *
- *   - THIS one (bucket level): `Transaccion.bucketId IS NULL`. The movement is
- *     in no grupo at all. It has no categoría either, because a categoría
- *     always carries its bucket — `categoriaId`/`bucketId` are written
- *     atomically (`transaccion-bucket-writer.port.ts`), so there is no
- *     "categoría without grupo" state. Hence "ni categoría".
- *   - The OTHER one (category level, still plain "Sin categoría"): the
- *     synthetic group the API builds inside a bucket detail for
- *     `categoriaId IS NULL` (`agrupar-detalle-por-categoria.ts`). Those
- *     movements DO have a grupo — reclassified by bucket (US-055), or their
- *     categoría was deleted (`eliminar-categoria.use-case.ts` nulls
- *     `categoriaId` and never touches `bucketId`).
+ * The category-level "Sin categoría" (a DIFFERENT, still-surviving absence —
+ * the synthetic group the API builds inside a bucket detail for
+ * `categoriaId IS NULL`, `agrupar-detalle-por-categoria.ts`) is unaffected:
+ * those movements DO have a real grupo (bucket) and are handled entirely
+ * without this map.
  *
- * Keep the two labels distinct. The mobile twin in `apps/mobile/src/theme/
- * colors.ts` carries the same map and must stay in sync.
+ * The mobile twin in `apps/mobile/src/theme/colors.ts` carries the same map
+ * and must stay in sync.
  *
  * Cross-workspace copy pin (US-049): `apps/api/src/domain/value-objects/
  * semaforo-detalle.ts`'s `ETIQUETA_BUCKET_COPY` duplicates this same
  * Deseos → 'Gustos' mapping for backend-generated diagnosis/advice copy — no
  * automated gate catches drift between the two maps (documented residual
- * risk, design §6). If you change this label, change that one too. That map
- * covers the 3 rule buckets only, so it carries no `SinCategoria` entry.
+ * risk, design §6). If you change this label, change that one too.
  */
 export const ETIQUETA_BUCKET: Record<string, string> = {
   Necesidades: 'Necesidades',
   Deseos: 'Gustos',
   Ahorro: 'Ahorro',
-  SinCategoria: 'Sin grupo ni categoría',
 };
 
 /**
@@ -141,7 +138,6 @@ const CLASE_RELLENO_BUCKET: Record<string, string> = {
   Necesidades: 'fill-necesidades',
   Deseos: 'fill-gustos',
   Ahorro: 'fill-ahorro',
-  SinCategoria: 'fill-sin-categoria',
 };
 
 export function claseRellenoBucket(bucket: string): string {
@@ -156,16 +152,19 @@ export function claseRellenoBucket(bucket: string): string {
  * against `claseRellenoBucket`'s fill, see design.md "Contrast"). Minting a
  * separate glyph-ink token family was rejected (D-08) precisely to avoid
  * this exact duplication — one set of measured values, two Tailwind
- * property axes (`fill-`/`text-`) pointed at it. `SinCategoria` is the
- * fallback for both the synthetic "Sin categoría" group AND any unrecognized
- * bucket key, same rationale as `claseEtiquetaPie`'s own fallback comment
- * (the three spend buckets share the same fallback family).
+ * property axes (`fill-`/`text-`) pointed at it.
+ *
+ * Issue #778 tramo5b PR1: the dedicated `SinCategoria` entry is REMOVED —
+ * any unrecognized bucket key falls back to the Necesidades-family class,
+ * same as `claseEtiquetaPie`'s own fallback. Tramo 5b PR5 (apps/api) later
+ * removed `Bucket.SinCategoria` from the domain entirely, so a literal
+ * `'SinCategoria'` key is no longer reachable at all — `GET
+ * /api/buckets/SinCategoria` now 400s.
  */
 const CLASE_GLIFO_BUCKET: Record<string, string> = {
   Necesidades: 'text-pie-etiqueta-necesidades',
   Deseos: 'text-pie-etiqueta-gustos',
   Ahorro: 'text-pie-etiqueta-ahorro',
-  SinCategoria: 'text-pie-etiqueta-sin-categoria',
 };
 
 export function claseGlifoBucket(bucket: string): string {
@@ -177,7 +176,6 @@ const CLASE_FONDO_BUCKET: Record<string, string> = {
   Necesidades: 'bg-necesidades',
   Deseos: 'bg-gustos',
   Ahorro: 'bg-ahorro',
-  SinCategoria: 'bg-sin-categoria',
 };
 
 export function claseFondoBucket(bucket: string): string {

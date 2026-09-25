@@ -166,7 +166,7 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
   });
 
-  it('una fila sin match aterriza en SinCategoria con categoriaId null (no inventa datos)', async () => {
+  it('una fila sin match aterriza en Deseos (BUCKET_POR_DEFECTO) con categoriaId null (no inventa datos, issue #778 tramo 5b PR6)', async () => {
     const { client, updateManyCalls, transacciones } = makeFakeClient(
       [PAT_LIDER],
       [
@@ -187,10 +187,10 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     expect(updateManyCalls[0]).toMatchObject({
       ids: ['tx-2'],
       categoriaId: null,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      bucketId: BUCKET_IDS[Bucket.Deseos],
     });
     expect(transacciones[0].categoriaId).toBeNull();
-    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
   });
 
   it('la regla Ingreso no consulta patrones y deriva bucket Ingreso con categoriaId null', async () => {
@@ -359,17 +359,20 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
     expect(summary.porCategoria['Streaming']).toBe(1);
   });
 
-  it('fila ya bucketeada como SinCategoria con cualquier match: se queda en SinCategoria, categoriaId null', async () => {
+  it('fila ya bucketeada (bucket preservado) con match a un bucket DISTINTO: se queda intacta, categoriaId null', async () => {
     const { client, updateManyCalls, transacciones } = makeFakeClient(
       [PAT_LIDER],
       [
         {
-          id: 'tx-sincategoria',
+          id: 'tx-otro-bucket',
           descripcion: 'Compra Lider',
           cargo: 9500n,
           abono: 0n,
           categoriaId: null,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          // PAT_LIDER matchea a Necesidades·Supermercado — un bucket previo
+          // DISTINTO (Ahorro) prueba la regla de preservación sin depender
+          // del extinto bucket físico legacy (issue #778 tramo 5b PR6).
+          bucketId: BUCKET_IDS[Bucket.Ahorro],
         },
       ],
     );
@@ -378,7 +381,7 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
 
     expect(updateManyCalls).toHaveLength(0);
     expect(transacciones[0].categoriaId).toBeNull();
-    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Ahorro]);
     expect(summary.categoriaAgregadaBucketPreservado).toBe(0);
     expect(summary.bucketChanges).toBe(0);
   });

@@ -3,11 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
+import { BUCKET_POR_DEFECTO } from '../src/application/services/categoria-por-defecto';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
-import {
-  agruparPorCategoriaBucket,
-  type AsignacionCategoriaBucket,
-} from '../src/application/services/agrupar-por-categoria-bucket';
 import {
   PatronClasificacion,
   MatchType,
@@ -131,6 +128,45 @@ export interface BackfillSummary {
 }
 
 /**
+ * Issue #778 tramo 5b PR6: el sentinel local `SIN_CATEGORIA_LEGACY` (y el
+ * tipo `BucketOLegacy`/`idFisicoLocal` que lo cargaban) se retiraron. Este
+ * script está congelado (bootstrap-user-only, ver docblock del archivo), y
+ * hasta esta PR una fila sin match Y sin bucket previo escribía el id físico
+ * legacy `bucket-sincategoria` — la migración de datos de esta PR BORRÓ esa
+ * fila de `BucketPresupuesto`, así que escribir ese literal ahora violaría
+ * la FK (`Transaccion.bucketId → BucketPresupuesto.id`) si este script
+ * congelado volviera a correr. El cambio mínimo correcto es plegar al MISMO
+ * destino que ya usa la ingesta real para "no match" —
+ * `BUCKET_POR_DEFECTO` (Deseos, `categoria-por-defecto.ts`) — en vez de
+ * inventar un reemplazo local: no hay más un concepto "legacy" que aislar,
+ * así que `agruparLocal`/`idFisicoLocal` dejan de existir y el script usa
+ * `BUCKET_IDS` directo, igual que cualquier otro caller.
+ */
+
+interface AsignacionLocal {
+  readonly id: string;
+  readonly categoriaId: string | null;
+  readonly bucket: Bucket;
+}
+
+/** Agrupación local por (categoriaId, bucket) — dos categorías distintas que derivan al mismo bucket deben seguir siendo grupos separados. */
+function agruparLocal(
+  asignaciones: ReadonlyArray<AsignacionLocal>,
+): Array<{ categoriaId: string | null; bucket: Bucket; ids: string[] }> {
+  const porGrupo = new Map<
+    string,
+    { categoriaId: string | null; bucket: Bucket; ids: string[] }
+  >();
+  for (const { id, categoriaId, bucket } of asignaciones) {
+    const key = `${categoriaId ?? ' '}::${bucket}`;
+    const grupo = porGrupo.get(key) ?? { categoriaId, bucket, ids: [] };
+    grupo.ids.push(id);
+    porGrupo.set(key, grupo);
+  }
+  return Array.from(porGrupo.values());
+}
+
+/**
  * Decide, para UNA fila ya clasificada, si corresponde escribir algo y qué.
  *
  * Regla de preservación (fix/backfill-preserve-bucket):
@@ -149,7 +185,7 @@ function decidirEscritura(c: {
   categoriaId: string | null;
   bucket: Bucket;
   bucketIdAnterior: string | null;
-}): AsignacionCategoriaBucket | null {
+}): AsignacionLocal | null {
   if (c.bucketIdAnterior === null) {
     return { id: c.id, categoriaId: c.categoriaId, bucket: c.bucket };
   }
@@ -215,14 +251,23 @@ export async function runBackfill(
   const clasificadas = rows.map((row) => {
     const descripcion = crypto.decrypt(row.descripcion);
     // #778: `null` a propósito — script legacy de bootstrap de un único
-    // usuario fijo, se preserva el comportamiento (SinCategoria) tal cual.
-    const { categoria, bucket } = useCase
+    // usuario fijo. `CategorizarTransaccionUseCase` no devuelve
+    // `Bucket.SinCategoria` como centinela de "sin coincidencia" (issue #778
+    // tramo 5b) — issue #778 tramo 5b PR6: una fila sin match ahora pliega a
+    // `BUCKET_POR_DEFECTO` (Deseos), el MISMO destino que ya usa la ingesta
+    // real (`categoria-por-defecto.ts`), en vez del bucket físico legacy
+    // retirado por la migración de esta PR.
+    const resultado = useCase
       .execute(
         { descripcion, cargo: row.cargo, abono: row.abono },
         patrones,
         null,
       )
       .getValue();
+    const categoria =
+      resultado.tipo === 'clasificada' ? resultado.categoria : null;
+    const bucket: Bucket =
+      resultado.tipo === 'clasificada' ? resultado.bucket : BUCKET_POR_DEFECTO;
     return {
       id: row.id,
       categoria,
@@ -238,7 +283,7 @@ export async function runBackfill(
   let categoriaAgregadaBucketPreservado = 0;
   let bucketAsignadoDesdeNulo = 0;
   let bucketChanges = 0;
-  const aEscribir: AsignacionCategoriaBucket[] = [];
+  const aEscribir: AsignacionLocal[] = [];
 
   for (const c of clasificadas) {
     const key = c.categoria?.nombre ?? 'null';
@@ -267,7 +312,7 @@ export async function runBackfill(
   // fila real del pattern que matcheó) — ADR-037/Q5, ya no hay lookup vía
   // un mapa de ids fijos.
   if (!options.dryRun && aEscribir.length > 0) {
-    const grupos = agruparPorCategoriaBucket(aEscribir);
+    const grupos = agruparLocal(aEscribir);
 
     const operaciones = grupos.map(({ categoriaId, bucket, ids }) =>
       prisma.transaccion.updateMany({

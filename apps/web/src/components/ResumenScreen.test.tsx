@@ -13,10 +13,11 @@ import type { ResumenAnualDto, ResumenMesDto } from '@/api/types';
 // and picking a bucket NAVIGATES to the month-scoped `/buckets/:bucket` page
 // instead of swapping an inline panel — the selection state
 // (`bucketElegido`, FIX 5 reset) is gone with it. `ResumenScreen` threads
-// the router's `onSelectBucket(bucket, destacar?)` down to
+// the router's `onSelectBucket(bucket, destacar?)` straight down to
 // `DistribucionPie`/`LeyendaGasto` unchanged (their `onSelectBucket`
-// signature stays single-arg; this screen adds the `destacar` flag for the
-// Sin categoría drill-down, WDM-04).
+// signature stays single-arg). Issue #778 tramo5b PR1: this screen no
+// longer computes a `destacar` value of its own — that flag used to be set
+// only for the now-retired Sin categoría drill-down (WDM-04).
 //
 // US-047 T11/PR3 (design §4.4): `renderScreen` now routes through
 // `renderConRouter` (T10's minimal memory-router harness) instead of a bare
@@ -53,15 +54,12 @@ const viewModel: ResumenViewModel = {
       estadoSemaforo: null,
     },
   ],
-  // US-047 T11/PR3: the real 4-item ring (`BUCKETS_ANILLO`) — SinCategoria's
-  // total is $0 in this fixture, so its share is 0% and the three spend
-  // shares are undiluted (50/30/20 — the same values the removed PR1 shim
-  // `distribucionGastoInterina` used to compute separately).
+  // Issue #778 tramo5b PR1: the ring is now exactly the 3 spend buckets —
+  // no SinCategoria member.
   distribucionGasto: [
     { bucket: 'Necesidades', porcentaje: 50, fraccion: 0.5 },
     { bucket: 'Deseos', porcentaje: 30, fraccion: 0.3 },
     { bucket: 'Ahorro', porcentaje: 20, fraccion: 0.2 },
-    { bucket: 'SinCategoria', porcentaje: 0, fraccion: 0 },
   ],
   // Necesidades has the largest raw total among the 4 buckets — the panel-era
   // default selection (task 30.10), retired with the panel (US-053 PR3).
@@ -69,8 +67,8 @@ const viewModel: ResumenViewModel = {
   estadoGlobal: 'verde',
   // `leyendaPrincipal`/`leyendaComplemento` (T5, D-03) — a hand-rolled
   // view-model (not built via `aResumenViewModel`), so these are written out
-  // directly; values match `distribucionGasto`/`buckets` above exactly
-  // (SinCategoria's 0% share doesn't dilute the three spend percentages).
+  // directly; values match `distribucionGasto`/`buckets` above exactly.
+  // Issue #778 tramo5b PR1: leyendaComplemento is now just [ingreso].
   leyendaPrincipal: [
     {
       kind: 'gasto',
@@ -91,27 +89,21 @@ const viewModel: ResumenViewModel = {
       montoLabel: '-$200.000',
     },
   ],
-  leyendaComplemento: [
-    { kind: 'ingreso', montoLabel: '+$1.000.000' },
-    {
-      kind: 'sinCategoria',
-      bucket: 'SinCategoria',
-      montoLabel: '$0',
-      cantidadLabel: '0 tx',
-    },
-  ],
+  leyendaComplemento: [{ kind: 'ingreso', montoLabel: '+$1.000.000' }],
 };
 
 /**
- * A REAL `ResumenMesDto` (all 4 canonical buckets, run through the actual
- * `aResumenViewModel` mapper) — unlike `viewModel` above, which is a
- * hand-rolled fixture whose `distribucionGasto` was trimmed to 3 items and
- * so could not have caught the PR1 regression: `calcularDistribucionGasto`
- * now apportions over all 4 `BUCKETS_ANILLO` members (SinCategoria
- * included, US-047 D-05), so a REAL view model's `distribucionGasto` also
- * has 4 items. Used by the shim regression test below.
+ * A REAL `ResumenMesDto` still carrying the LEGACY 4th bucket entry (run
+ * through the actual `aResumenViewModel` mapper) — issue #778 tramo5b PR5
+ * (apps/api) removed `Bucket.SinCategoria`/`cantidadSinCategoria` from the
+ * domain and the wire contract entirely, so a real API response can no
+ * longer send this shape. This fixture stays as a DEPLOY-ORDER SAFETY proof
+ * (web and the API deploy independently from main): even if a stale/cached
+ * response still carries the old nonzero SinCategoria bucket total, the
+ * resulting view model's ring/legend never show it and the three spend
+ * percentages are not distorted by its presence (see the test below).
  */
-function resumenMesDtoReal(): ResumenMesDto {
+function resumenMesDtoConSinCategoriaLegacy(): ResumenMesDto {
   return {
     periodo: '2026-07',
     totalIngreso: '1000000',
@@ -144,7 +136,6 @@ function resumenMesDtoReal(): ResumenMesDto {
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
-    cantidadSinCategoria: 2,
   };
 }
 
@@ -172,16 +163,9 @@ function mesSinDatos(periodo: string): ResumenAnualDto['meses'][number] {
         porcentajeBp: null,
         estadoSemaforo: null,
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -209,16 +193,9 @@ function mesConDatos(periodo: string): ResumenAnualDto['meses'][number] {
         porcentajeBp: 2000,
         estadoSemaforo: 'verde',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -291,16 +268,17 @@ describe('ResumenScreen', () => {
 
   // "Necesidades"/"Gustos"/"Ahorro" are each selectable in TWO places (pie
   // slice + legend row, both wired to the same `onSelectBucket`) — hence
-  // `getAllByRole` here. As of T11/PR3, "Sin categoría" JOINS them: it is
-  // now the ring's 4th wedge (WG5-01, `conInterior`) in addition to its
-  // pre-existing legend row — 1→2, same shape as the three spend buckets.
+  // `getAllByRole` here.
   //
   // The pie wedge's `aria-label` stays a concise bucket name ("Necesidades"),
   // while the legend row's accessible name includes its content (D-08
   // deliberate `aria-label` removal, T7) — e.g. "Necesidades 50%
   // -$500.000". A `^Necesidades\b` prefix match counts BOTH controls
   // without hardcoding the fixture's exact percentage/amount text here.
-  it('renders the "Distribución del gasto" pie + legend, with Sin categoría now navigable via both its wedge and its legend row (spec W1-02, WG5-01, task 30.9/30.10)', async () => {
+  //
+  // Issue #778 tramo5b PR1: Sin categoría is NO LONGER navigable from this
+  // screen at all — no wedge, no legend row.
+  it('renders the "Distribución del gasto" pie + legend with exactly the 3 spend buckets, no Sin categoría wedge or row (spec W1-02, issue #778)', async () => {
     mockFetchAnual();
     renderScreen();
     // FIX 2 (WCAG 4.1.2): the interactive main pie is a "group", not an
@@ -318,36 +296,39 @@ describe('ResumenScreen', () => {
       2,
     );
     expect(
-      screen.getAllByRole('button', { name: /^Sin grupo ni categoría\b/ }),
-    ).toHaveLength(2);
+      screen.queryByRole('button', { name: /Sin grupo ni categoría/ }),
+    ).not.toBeInTheDocument();
   });
 
-  // Regression test (judgment-day PR1 fix, updated for PR2/T7 and PR3/T11):
-  // a REAL `distribucionGasto` (built via `aResumenViewModel`, not the
-  // hand-rolled `viewModel` fixture above) has 4 items (SinCategoria
-  // included, US-047 D-05). Before the `tajadasInterinas` shim, the OLD
-  // `entradasLeyenda` spread that 4-item array AND manually appended a
-  // SECOND SinCategoria row — a duplicate legend row sharing the same React
-  // `key`, which triggered a duplicate-key console warning. `LeyendaGasto`
-  // renders 5 rows total (3 `leyendaPrincipal` + Ingresos + SinCategoria
-  // from `leyendaComplemento`, T7/WG5-03) — this asserts the
-  // duplicate-row/duplicate-key symptom stays gone. As of T11, the pie also
-  // renders the real 4-item ring, so Sin categoría resolves to 2 buttons
-  // (wedge + legend row), not 1 — see the button-count test above for the
-  // same 1→2 shape on the other three buckets.
-  it('renders exactly 5 legend rows (3 gasto + Ingresos + Sin categoría, no duplicate) from a REAL view model, without a React duplicate-key warning (PR1/PR2 shim regression, PR3/T11 4-wedge ring)', async () => {
+  // Regression test (issue #778 tramo5b PR1, extended for deploy-order
+  // safety by tramo5b PR5): feeds a REAL `ResumenMesDto` still carrying the
+  // LEGACY nonzero SinCategoria bucket entry (a shape the API can no longer
+  // send after PR5, but a stale/cached response during the independent
+  // web/API deploy window still could) through the real `aResumenViewModel`
+  // mapper, and asserts the rendered screen (a) never shows a Sin categoría
+  // wedge/row and (b) the three spend percentages are NOT distorted by the
+  // legacy entry's presence — they read 44/28/28 (over the 900000
+  // three-bucket total), not the diluted 40/25/25 a SinCategoria-inclusive
+  // denominator would produce. Also guards the historical duplicate-key
+  // regression (judgment-day PR1 fix): `LeyendaGasto` renders exactly 4 rows
+  // (3 gasto + Ingresos), no duplicate.
+  it('ignores a legacy SinCategoria bucket entry from a REAL view model — no wedge/row, spend percentages undistorted (deploy-order safety, issue #778 tramo5b PR5)', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
     mockFetchAnual();
-    const vmReal = aResumenViewModel(resumenMesDtoReal());
+    const vmReal = aResumenViewModel(resumenMesDtoConSinCategoriaLegacy());
 
     renderScreen(vmReal);
 
-    expect(await screen.findAllByTestId('leyenda-item')).toHaveLength(5);
+    expect(await screen.findAllByTestId('leyenda-item')).toHaveLength(4);
     expect(
-      screen.getAllByRole('button', { name: /^Sin grupo ni categoría\b/ }),
-    ).toHaveLength(2);
+      screen.queryByRole('button', { name: /Sin grupo ni categoría/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Necesidades 44% / }),
+    ).toBeInTheDocument();
+
     for (const mensaje of consoleErrorSpy.mock.calls.map((call) => call[0])) {
       expect(String(mensaje)).not.toContain('same key');
     }
@@ -419,7 +400,11 @@ describe('ResumenScreen', () => {
   // actually reaches it (the composed-screen half of the T6/T7 click
   // contracts, which survive unchanged — see LeyendaGasto.test.tsx /
   // DistribucionPie.test.tsx for the per-control halves).
-  it('clicking a legend row calls onSelectBucket with that bucket (D-06)', async () => {
+  // Issue #778 tramo5b PR1: `onSelectBucket` is called with just the bucket
+  // — this screen no longer computes a second (`destacar`) argument, since
+  // the only drill-down that ever carried one (the Sin categoría wedge,
+  // WDM-04) is retired.
+  it('clicking a legend row calls onSelectBucket with just that bucket (D-06, issue #778)', async () => {
     mockFetchAnual();
     const onSelectBucket = vi.fn();
     renderScreen(viewModel, vi.fn(), onSelectBucket);
@@ -431,25 +416,20 @@ describe('ResumenScreen', () => {
     // "Gustos" is the display label of the 'Deseos' bucket.
     fireEvent.click(screen.getByRole('button', { name: /^Gustos / }));
 
-    expect(onSelectBucket).toHaveBeenCalledWith('Deseos', false);
+    expect(onSelectBucket).toHaveBeenCalledWith('Deseos');
   });
 
-  // US-053 PR3 (WDM-04): the Sin categoría wedge carries the `destacar`
-  // flag — the route turns it into `?destacar=sin-categoria`, so the
-  // month-scoped page arrives with the unassigned group highlighted (e2e
-  // case 4). Every other bucket drills down without it (see above).
-  it('clicking the Sin categoría wedge calls onSelectBucket with destacar (WDM-04)', async () => {
+  // Issue #778 tramo5b PR1: there is no longer a Sin categoría wedge to
+  // click at all — replaces the retired WDM-04 "clicking the Sin categoría
+  // wedge calls onSelectBucket with destacar" test.
+  it('there is no Sin categoría wedge in the pie to click (issue #778 tramo5b PR1)', async () => {
     mockFetchAnual();
-    const onSelectBucket = vi.fn();
-    renderScreen(viewModel, vi.fn(), onSelectBucket);
+    renderScreen();
     await screen.findByTestId('semaforo-global');
 
-    // The wedge, by its exact bare `aria-label` ("Sin categoría").
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Sin grupo ni categoría' }),
-    );
-
-    expect(onSelectBucket).toHaveBeenCalledWith('SinCategoria', true);
+    expect(
+      screen.queryByRole('button', { name: 'Sin grupo ni categoría' }),
+    ).not.toBeInTheDocument();
   });
 
   // US-030 Slice C (task 30.12): the annual grid renders below the chart
@@ -536,8 +516,8 @@ describe('ResumenScreen', () => {
       screen.getByRole('button', { name: /^Necesidades / }),
       screen.getByRole('button', { name: /^Gustos / }),
       screen.getByRole('button', { name: /^Ahorro / }),
-      screen.getByRole('button', { name: /^Sin grupo ni categoría / }),
       // US-054 D-05: Ingresos is now a button — added to the focusable set.
+      // Issue #778 tramo5b PR1: Sin categoría no longer has a row/control.
       screen.getByRole('button', { name: /Ingresos/ }),
     ];
     for (const control of controlesEsperados) {

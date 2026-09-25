@@ -11,8 +11,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
  *
  * `runMarcarCategoriasInternas` solo depende de un subconjunto estructural
  * de PrismaClient (MarcarInternasClient); este fake reproduce
- * findMany/updateMany en memoria (mismo patrón que
- * backfill-desconocido.spec.ts).
+ * findMany/updateMany en memoria (mismo patrón que backfill-categorias.spec.ts).
  */
 
 const USER_ID = 'user-1';
@@ -23,7 +22,12 @@ interface FakeCategoriaRow {
   userId: string;
   nombre: string;
   esInterna: boolean;
-  bucket: Bucket;
+  // `Bucket | 'SinCategoria'` (not just `Bucket`): the real
+  // `MarcarInternasClient.categoria.findMany` reads `bucket.nombre` as a
+  // raw string off the DB, not a typed `Bucket` — a row can still carry the
+  // legacy literal `'SinCategoria'` (issue #778 tramo 5b PR5 removed the
+  // enum member, but the BucketPresupuesto row/data survive until PR 6).
+  bucket: Bucket | 'SinCategoria';
 }
 
 interface UpdateManyCall {
@@ -254,7 +258,7 @@ describe('runMarcarCategoriasInternas — nunca toca Ingreso ni SinCategoria', (
       userId: USER_ID,
       nombre: 'Desconocido',
       esInterna: false,
-      bucket: Bucket.SinCategoria,
+      bucket: 'SinCategoria',
     };
     const { client, getCategorias, updateManyCalls } = makeFakeClient({
       categorias: [...seed, desconocidoIngreso, desconocidoSinCategoria],

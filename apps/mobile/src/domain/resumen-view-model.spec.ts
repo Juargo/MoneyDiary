@@ -5,6 +5,13 @@ import {
 import type { ItemLeyenda } from './resumen-view-model';
 import type { ResumenAnualDto, ResumenMesDto } from './resumen.types';
 
+// issue #778 tramo 5b PR5 (apps/api) removed `Bucket.SinCategoria`/
+// `cantidadSinCategoria` from the domain and the wire contract entirely — a
+// real `ResumenMesDto` is now exactly 3 buckets, no `cantidadSinCategoria`
+// key. This fixture reflects the NEW shape; tests below that specifically
+// prove deploy-order-safety tolerance for the OLD (legacy) shape build their
+// own one-off payload and cast it, since `ResumenMesDto` no longer types
+// those fields.
 function dto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
   return {
     periodo: '2026-07',
@@ -29,16 +36,9 @@ function dto(overrides: Partial<ResumenMesDto> = {}): ResumenMesDto {
         porcentajeBp: 3500,
         estadoSemaforo: 'amarillo',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: 0,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'amarillo',
-    cantidadSinCategoria: 0,
     ...overrides,
   };
 }
@@ -61,13 +61,6 @@ function itemGasto(item: ItemLeyenda) {
   return item;
 }
 
-function itemSinCategoria(item: ItemLeyenda) {
-  if (item.kind !== 'sinCategoria') {
-    throw new Error(`Expected kind 'sinCategoria', got '${item.kind}'`);
-  }
-  return item;
-}
-
 describe('aResumenViewModel', () => {
   it('formatea totalIngreso como CLP', () => {
     const vm = aResumenViewModel(dto());
@@ -86,9 +79,32 @@ describe('aResumenViewModel', () => {
   });
 
   it('mapea porcentajeBp: 0 (verdadero cero) como "0%"', () => {
-    const vm = aResumenViewModel(dto());
-    const sinCategoria = vm.buckets.find((b) => b.bucket === 'SinCategoria');
-    expect(sinCategoria?.porcentajeLabel).toBe('0%');
+    const vm = aResumenViewModel(
+      dto({
+        buckets: [
+          {
+            bucket: 'Necesidades',
+            total: '400000',
+            porcentajeBp: 4000,
+            estadoSemaforo: 'verde',
+          },
+          {
+            bucket: 'Deseos',
+            total: '250000',
+            porcentajeBp: 2500,
+            estadoSemaforo: 'verde',
+          },
+          {
+            bucket: 'Ahorro',
+            total: '0',
+            porcentajeBp: 0,
+            estadoSemaforo: null,
+          },
+        ],
+      }),
+    );
+    const ahorro = vm.buckets.find((b) => b.bucket === 'Ahorro');
+    expect(ahorro?.porcentajeLabel).toBe('0%');
   });
 
   it('mapea porcentajeBp: null a una etiqueta distinta de "0%" (MOB-06)', () => {
@@ -115,12 +131,6 @@ describe('aResumenViewModel', () => {
             porcentajeBp: null,
             estadoSemaforo: null,
           },
-          {
-            bucket: 'SinCategoria',
-            total: '0',
-            porcentajeBp: null,
-            estadoSemaforo: null,
-          },
         ],
         estadoGlobal: null,
       }),
@@ -143,9 +153,35 @@ describe('aResumenViewModel', () => {
   });
 
   it('mapea estadoSemaforo: null por bucket', () => {
-    const vm = aResumenViewModel(dto());
-    const sinCategoria = vm.buckets.find((b) => b.bucket === 'SinCategoria');
-    expect(sinCategoria?.estadoSemaforo).toBeNull();
+    const vm = aResumenViewModel(
+      dto({
+        sinIngreso: true,
+        totalIngreso: '0',
+        buckets: [
+          {
+            bucket: 'Necesidades',
+            total: '0',
+            porcentajeBp: null,
+            estadoSemaforo: null,
+          },
+          {
+            bucket: 'Deseos',
+            total: '0',
+            porcentajeBp: null,
+            estadoSemaforo: null,
+          },
+          {
+            bucket: 'Ahorro',
+            total: '0',
+            porcentajeBp: null,
+            estadoSemaforo: null,
+          },
+        ],
+        estadoGlobal: null,
+      }),
+    );
+    const necesidades = vm.buckets.find((b) => b.bucket === 'Necesidades');
+    expect(necesidades?.estadoSemaforo).toBeNull();
   });
 
   it('propaga estadoGlobal al view model (nunca recomputado, ADR-024)', () => {
@@ -163,21 +199,32 @@ describe('aResumenViewModel', () => {
     expect(vm).not.toHaveProperty('periodoLabel');
   });
 
-  // US-050 PR1 (design §4 impact sweep — "blast radius is the returned
-  // array's length"): calcularDistribucionGasto now apportions over the
-  // 4-item BUCKETS_ANILLO (SinCategoria dilutes, WG5-13) instead of the old
-  // 3-item BUCKETS_GASTO. `distribucionGasto` is a direct passthrough here
-  // (no filtering in this file yet — that lands in PR3's leyendaPrincipal),
-  // so this pre-existing assertion is updated to the new, intentional
-  // 4-item shape. Production code in this file is unchanged.
-  it('calcula la distribución de gasto (share-of-gasto) para el pie, incluyendo SinCategoria en el anillo', () => {
-    const vm = aResumenViewModel(dto());
-    // Necesidades 400k / Deseos 250k / Ahorro 350k / SinCategoria 0 → 40/25/35/0.
+  // Issue #778 tramo5b PR2 (apps/mobile): distribucionGasto ya no incluye
+  // SinCategoria en absoluto. Tramo5b PR5 (apps/api) luego removió
+  // `Bucket.SinCategoria`/`cantidadSinCategoria` del contrato — una
+  // respuesta real ya no puede mandar esa entrada, pero una respuesta
+  // stale/cacheada durante la ventana de deploy independiente todavía
+  // podría. Este fixture LEGACY prueba que igual nunca llega al anillo
+  // (deploy-order safety).
+  it('calcula la distribución de gasto (share-of-gasto) para el pie, ignorando una entrada SinCategoria legacy del DTO (deploy-order safety, issue #778 tramo5b PR5)', () => {
+    const dtoConSinCategoriaLegacy = {
+      ...dto(),
+      buckets: [
+        ...dto().buckets,
+        {
+          bucket: 'SinCategoria',
+          total: '0',
+          porcentajeBp: 0,
+          estadoSemaforo: null,
+        },
+      ],
+    } as ResumenMesDto;
+    const vm = aResumenViewModel(dtoConSinCategoriaLegacy);
+    // Necesidades 400k / Deseos 250k / Ahorro 350k → 40/25/35, SinCategoria ausente.
     expect(vm.distribucionGasto.map((t) => [t.bucket, t.porcentaje])).toEqual([
       ['Necesidades', 40],
       ['Deseos', 25],
       ['Ahorro', 35],
-      ['SinCategoria', 0],
     ]);
   });
 
@@ -204,50 +251,68 @@ describe('aResumenViewModel', () => {
       );
     });
 
-    it('sus porcentajes son los del anillo diluido por SinCategoria, sin renormalizar (WG5-13)', () => {
+    // Issue #778 tramo5b PR2 (reemplaza el retirado test WG5-13 "diluido,
+    // sin renormalizar", que afirmaba la dilución ahora revertida): la MISMA
+    // fixture con SinCategoria cargando plata prueba que los tres
+    // porcentajes de gasto quedan SIN diluir (44/28/28 sobre el denominador
+    // de 3 buckets).
+    it('leyendaPrincipal no se diluye por un SinCategoria con gasto — 44/28/28 sobre el denominador de 3 buckets (issue #778)', () => {
       const vm = aResumenViewModel(
         dto({
           buckets: [
             {
               bucket: 'Necesidades',
-              total: '250000',
-              porcentajeBp: 2500,
+              total: '400000',
+              porcentajeBp: 4444,
               estadoSemaforo: 'verde',
             },
             {
               bucket: 'Deseos',
-              total: '150000',
-              porcentajeBp: 1500,
+              total: '250000',
+              porcentajeBp: 2778,
               estadoSemaforo: 'verde',
             },
             {
               bucket: 'Ahorro',
-              total: '100000',
-              porcentajeBp: 1000,
+              total: '250000',
+              porcentajeBp: 2778,
               estadoSemaforo: 'verde',
             },
             {
               bucket: 'SinCategoria',
-              total: '500000',
-              porcentajeBp: 5000,
+              total: '100000',
+              porcentajeBp: 0,
               estadoSemaforo: null,
             },
           ],
         }),
       );
-      // Gasto total = 250k+150k+100k+500k = 1.000.000 → 25/15/10/50. Las tres
-      // filas de gasto muestran la MISMA cifra diluida que el anillo, no una
-      // renormalización a 3 buckets (25+15+10=50, no 100).
+      // Gasto total = 400k+250k+250k = 900.000 (SinCategoria's 100k queda
+      // excluido) → 44/28/28. Comparado directamente contra el propio
+      // distribucionGasto (WG5-03: "la leyenda reutiliza el valor del
+      // anillo, no computa el suyo propio").
       expect(
         vm.leyendaPrincipal.map((item) => [
           itemGasto(item).bucket,
           itemGasto(item).porcentaje,
         ]),
       ).toEqual([
-        ['Necesidades', 25],
-        ['Deseos', 15],
-        ['Ahorro', 10],
+        ['Necesidades', 44],
+        ['Deseos', 28],
+        ['Ahorro', 28],
       ]);
+      expect(vm.distribucionGasto.map((t) => t.bucket)).toEqual([
+        'Necesidades',
+        'Deseos',
+        'Ahorro',
+      ]);
+      const porcentajesDelAnillo = vm.distribucionGasto.map(
+        (t) => t.porcentaje,
+      );
+      const porcentajesDeLaLeyenda = vm.leyendaPrincipal.map(
+        (item) => itemGasto(item).porcentaje,
+      );
+      expect(porcentajesDeLaLeyenda).toEqual(porcentajesDelAnillo);
     });
 
     it('queda vacío cuando no hay gasto, mientras leyendaComplemento se mantiene', () => {
@@ -274,85 +339,54 @@ describe('aResumenViewModel', () => {
               porcentajeBp: null,
               estadoSemaforo: null,
             },
-            {
-              bucket: 'SinCategoria',
-              total: '0',
-              porcentajeBp: null,
-              estadoSemaforo: null,
-            },
           ],
-          cantidadSinCategoria: 0,
           estadoGlobal: null,
         }),
       );
       expect(vm.leyendaPrincipal).toEqual([]);
-      expect(vm.leyendaComplemento).toHaveLength(2);
+      expect(vm.leyendaComplemento).toHaveLength(1);
     });
   });
 
   describe('leyendaComplemento', () => {
-    it('es siempre [ingreso, sinCategoria] en ese orden, sin importar el gasto', () => {
+    // Issue #778 tramo5b PR2: la fila `sinCategoria` fue RETIRADA — nunca se
+    // leyó `cantidadSinCategoria`/la entrada SinCategoria de `buckets` acá,
+    // aunque la API los mandara. Tramo5b PR5 (apps/api) luego removió ambos
+    // del contrato entero.
+    it('es exactamente [ingreso(+)] — la fila sinCategoria fue retirada (issue #778)', () => {
       const vm = aResumenViewModel(dto());
-      expect(vm.leyendaComplemento.map((item) => item.kind)).toEqual([
-        'ingreso',
-        'sinCategoria',
+      expect(vm.leyendaComplemento).toEqual([
+        { kind: 'ingreso', montoLabel: '+$1.000.000' },
       ]);
     });
 
-    it('cantidadSinCategoria: 0 produce una fila real "0 tx", nunca omitida (WG5-05)', () => {
-      const vm = aResumenViewModel(dto({ cantidadSinCategoria: 0 }));
-      const sinCategoria = itemSinCategoria(vm.leyendaComplemento[1]);
-      expect(sinCategoria.cantidadLabel).toBe('0 tx');
+    // issue #778 tramo 5b PR5 removió `cantidadSinCategoria` de
+    // `ResumenMesDto` por completo — se mantiene como prueba de
+    // deploy-order-safety de que un payload legacy que todavía lo trae
+    // (cast, porque el tipo ya no lo permite) sigue sin afectar
+    // leyendaComplemento.
+    it('cantidadSinCategoria (legacy) no afecta leyendaComplemento sea cual sea su valor (deploy-order safety, issue #778 tramo5b PR5)', () => {
+      const conCero = aResumenViewModel({
+        ...dto(),
+        cantidadSinCategoria: 0,
+      } as ResumenMesDto);
+      const conVarios = aResumenViewModel({
+        ...dto(),
+        cantidadSinCategoria: 7,
+      } as ResumenMesDto);
+      expect(conCero.leyendaComplemento).toEqual([
+        { kind: 'ingreso', montoLabel: '+$1.000.000' },
+      ]);
+      expect(conVarios.leyendaComplemento).toEqual(conCero.leyendaComplemento);
     });
 
-    it('el monto de ingreso lleva signo +, gasto lleva signo - (magnitud 0 nunca lleva signo)', () => {
+    it('el monto de ingreso lleva signo + y no depende de la entrada SinCategoria del DTO', () => {
       const vm = aResumenViewModel(dto());
-      const [ingreso, sinCategoria] = vm.leyendaComplemento;
-      expect(ingreso.montoLabel).toBe('+$1.000.000');
-      // SinCategoria total es '0' en el fixture base — magnitud 0 no lleva
-      // signo (contrato de formatearMontoConSigno, PR1), por eso '$0' y no
-      // '-$0'. El signo real de un sinCategoria con monto > 0 se ejerce vía
-      // formatearMontoConSigno('-') igual que un bucket de gasto.
-      expect(itemSinCategoria(sinCategoria).montoLabel).toBe('$0');
+      expect(vm.leyendaComplemento).toEqual([
+        { kind: 'ingreso', montoLabel: '+$1.000.000' },
+      ]);
       const necesidades = itemGasto(vm.leyendaPrincipal[0]);
       expect(necesidades.montoLabel).toBe('-$400.000');
-    });
-
-    it('un sinCategoria con monto > 0 sí lleva signo -', () => {
-      const vm = aResumenViewModel(
-        dto({
-          buckets: [
-            {
-              bucket: 'Necesidades',
-              total: '400000',
-              porcentajeBp: 4000,
-              estadoSemaforo: 'verde',
-            },
-            {
-              bucket: 'Deseos',
-              total: '250000',
-              porcentajeBp: 2500,
-              estadoSemaforo: 'verde',
-            },
-            {
-              bucket: 'Ahorro',
-              total: '350000',
-              porcentajeBp: 3500,
-              estadoSemaforo: 'amarillo',
-            },
-            {
-              bucket: 'SinCategoria',
-              total: '150000',
-              porcentajeBp: 1500,
-              estadoSemaforo: null,
-            },
-          ],
-          cantidadSinCategoria: 3,
-        }),
-      );
-      const sinCategoria = itemSinCategoria(vm.leyendaComplemento[1]);
-      expect(sinCategoria.montoLabel).toBe('-$150.000');
-      expect(sinCategoria.cantidadLabel).toBe('3 tx');
     });
   });
 });
@@ -400,13 +434,16 @@ describe('aResumenAnualViewModel', () => {
     expect(vm.meses[0].tieneDatos).toBe(true);
   });
 
-  it('las tajadas de cada mes usan el anillo de 4 items (design §1.4c)', () => {
+  // Issue #778 tramo5b PR2: el anillo mensual ya no incluye SinCategoria — el
+  // fixture anual sigue mandando una entrada SinCategoria por mes (la API no
+  // cambia en este PR), pero cada mini-torta la ignora igual que el mes
+  // principal.
+  it('las tajadas de cada mes usan el anillo de 3 items, ignorando la entrada SinCategoria (issue #778)', () => {
     const vm = aResumenAnualViewModel(dtoAnual());
     expect(vm.meses[0].tajadas.map((t) => t.bucket)).toEqual([
       'Necesidades',
       'Deseos',
       'Ahorro',
-      'SinCategoria',
     ]);
   });
 

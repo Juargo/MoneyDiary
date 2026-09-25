@@ -30,12 +30,13 @@ export interface ReevaluarCategoriasResult {
  * del usuario autenticado — categorizadas o no, sin filtro de período.
  *
  * Semántica por fila (CRÍTICO):
- *   - Clasificación DETERMINADA (matcheó un patrón, o aplicó la regla
- *     Ingreso) → se escribe, SOBRESCRIBIENDO lo que hubiera antes.
- *   - `Bucket.SinCategoria` (ningún patrón matcheó) → la fila se deja
+ *   - Clasificación DETERMINADA (`tipo: 'clasificada'` — matcheó un patrón, o
+ *     aplicó la regla Ingreso) → se escribe, SOBRESCRIBIENDO lo que hubiera
+ *     antes.
+ *   - `tipo: 'sinCoincidencia'` (ningún patrón matcheó) → la fila se deja
  *     EXACTAMENTE como está. Sin este corte, un catálogo de patrones
- *     incompleto vaciaría a SinCategoria todo lo que hoy tiene una
- *     categoría asignada.
+ *     incompleto vaciaría a la categoría por defecto todo lo que hoy tiene
+ *     una categoría asignada.
  *
  * Además, una fila cuya clasificación determinada COINCIDE con su
  * `categoriaIdActual`/`bucketActual` no se re-envía al writer — evita
@@ -45,12 +46,14 @@ export interface ReevaluarCategoriasResult {
  * Demo gate: una sesión demo corta ANTES de tocar catálogo, reader o writer
  * (mismo patrón que `EliminarMovimientoManualUseCase`/`ProcessIngestaUseCase`).
  *
- * Un fallo al cargar el catálogo aborta la operación completa (a diferencia
- * de la isla degradable de `ProcessIngestaUseCase`): esta es una acción
- * explícita disparada por el usuario, no un paso best-effort de un pipeline
- * de ingesta — sin catálogo confiable, reevaluar podría escribir resultados
- * incompletos silenciosamente. Nunca lanza: retorna `Result.fail` con el
- * mismo `CategorizacionFallidaError` que produjo el reader del catálogo.
+ * Un fallo al cargar el catálogo aborta la operación completa (mismo
+ * criterio de rechazo que `ProcessIngestaUseCase` desde el tramo 5a/5a-bis
+ * de issue #778 — ya NO queda ninguna isla degradable en ese pipeline):
+ * esta es una acción explícita disparada por el usuario, no un paso
+ * best-effort de un pipeline de ingesta — sin catálogo confiable, reevaluar
+ * podría escribir resultados incompletos silenciosamente. Nunca lanza:
+ * retorna `Result.fail` con el mismo `CategorizacionFallidaError` que
+ * produjo el reader del catálogo.
  */
 export class ReevaluarCategoriasUseCase {
   constructor(
@@ -87,17 +90,19 @@ export class ReevaluarCategoriasUseCase {
     }> = [];
 
     for (const t of transacciones) {
-      // #778: se pasa `null` a propósito, NUNCA la categoría por defecto real.
-      // Acá `Bucket.SinCategoria` no es un destino — es el CENTINELA de "ningún
-      // patrón matcheó" que el guard de abajo usa para dejar la fila intacta.
-      // Si se inyectara el default real, ese guard dejaría de dispararse (el
-      // resultado ya no sería SinCategoria) y la reevaluación pisaría
+      // #778 tramo 3/5b: se pasa `null` a propósito, NUNCA la categoría por
+      // defecto real — eso selecciona el overload de
+      // `CategorizarTransaccionUseCase.execute` cuyo resultado puede ser
+      // `tipo: 'sinCoincidencia'`, el CENTINELA de "ningún patrón matcheó"
+      // que el guard de abajo usa para dejar la fila intacta. Si se
+      // inyectara el default real, ese guard dejaría de dispararse (el
+      // resultado siempre sería `'clasificada'`) y la reevaluación pisaría
       // clasificaciones manuales: un usuario que clasificó a mano un
       // movimiento como Necesidades/Salud, tras editar cualquier patrón,
       // vería ese movimiento reescrito a Gustos/Desconocido. Llevar el default
       // real a este flujo es otro tramo de #778 (requiere replantear el guard
       // de abajo, no solo el parámetro).
-      const { categoria, bucket } = this.categorizarTransaccionUseCase
+      const resultado = this.categorizarTransaccionUseCase
         .execute(
           { descripcion: t.descripcion, cargo: t.cargo, abono: t.abono },
           patrones,
@@ -106,8 +111,9 @@ export class ReevaluarCategoriasUseCase {
         .getValue();
 
       // Ningún patrón matcheó → la fila NO se toca (crítico, ver docstring).
-      if (bucket === Bucket.SinCategoria) continue;
+      if (resultado.tipo === 'sinCoincidencia') continue;
 
+      const { categoria, bucket } = resultado;
       const categoriaId = categoria?.id ?? null;
 
       // Sin cambio real → no re-enviar al writer (evita updates no-op).

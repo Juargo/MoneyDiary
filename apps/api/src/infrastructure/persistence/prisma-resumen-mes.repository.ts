@@ -13,10 +13,14 @@ import { resolverBucket } from './bucket-ids';
  * Implements IResumenMesReader. Uses Prisma groupBy to sum cargo/abono per
  * bucket, plus a second scoped groupBy to count cargo-only rows (US-045
  * D-05), both batched in one `$transaction` array-form call (one snapshot
- * for both queries). Folds bucketId=null (and unrecognized bucketIds) into
- * Bucket.SinCategoria — BOTH a null group AND a real SinCategoria group can
- * coexist and MUST be added, never overwritten (SC-03, highest-risk), now
- * for counts too.
+ * for both queries). Folds bucketId=null AND any unrecognized bucketId
+ * (integrity anomaly — `Bucket.SinCategoria` no longer exists in the domain,
+ * issue #778 tramo 5b) into `Bucket.Deseos` via `resolverBucket` (see its
+ * docblock in bucket-ids.ts).
+ * `Object.values(Bucket)` below now enumerates exactly the 4 real buckets,
+ * so every row — however it folds — lands in one of those 4 accumulator
+ * slots (SC-03: within EACH slot, sums/counts still ADD across every
+ * matching row, never overwrite).
  *
  * User isolation is structural: `account: { userId }` in the WHERE clause.
  * Amounts stay BigInt; no number, no float here. `cantidadCargos` is a plain
@@ -67,7 +71,7 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
       queryCargo,
     ]);
 
-    // Initialize accumulator with 0n/0 for ALL 5 buckets so empty months
+    // Initialize accumulator with 0n/0 for ALL 4 buckets so empty months
     // always return a full set of rows.
     const accum = new Map<
       Bucket,
@@ -84,9 +88,10 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
       const cargo = grupo._sum.cargo ?? 0n;
       const abono = grupo._sum.abono ?? 0n;
 
-      // CRITICAL: ADD into accumulator — do NOT overwrite.
-      // Both a bucketId=null group AND a bucket-sincategoria group can coexist
-      // in the same Prisma groupBy result, and both must contribute to the sum.
+      // CRITICAL: ADD into accumulator — do NOT overwrite. Several distinct
+      // physical bucketId values (or null) can fold into the SAME domain
+      // bucket in one Prisma groupBy result (e.g. null AND 'bucket-deseos'
+      // both fold to Deseos) and all of them must contribute to the sum.
       const current = accum.get(bucket)!;
       accum.set(bucket, {
         ...current,
@@ -107,7 +112,7 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
       });
     }
 
-    // Return all 5 bucket rows (including Ingreso — use case reads Ingreso.totalAbono as base)
+    // Return all 4 bucket rows (including Ingreso — use case reads Ingreso.totalAbono as base)
     return Array.from(accum.entries()).map(([bucket, sums]) => ({
       bucket,
       totalCargo: sums.totalCargo,

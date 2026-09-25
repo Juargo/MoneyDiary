@@ -12,6 +12,7 @@ import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-i
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
+import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
@@ -24,7 +25,7 @@ import { PersistTransactionsUseCase } from './persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { IRegistrarIngestaFallidaWriter } from '../ports/registrar-ingesta-fallida.port';
-import { Bucket } from '../../domain/value-objects/bucket';
+import { IRevertirIngestaFallidaWriter } from '../ports/revertir-ingesta-fallida.port';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { ILogger } from '../ports/logger.port';
 import {
@@ -40,10 +41,17 @@ export interface ProcessIngestaInput {
   esDemo: boolean;
 }
 
-/** Resumen opcional del paso de categorización (non-breaking). */
+/**
+ * Resumen opcional del paso de categorización (non-breaking). `sinCategoria`
+ * fue removido (issue #778 tramo 5b PR5): con `categoriaPorDefecto` siempre
+ * resuelto antes de llegar a `runCategorizacion`, el resultado del
+ * categorizador es SIEMPRE `tipo: 'clasificada'` (tramo 5a-bis) — el conteo
+ * de filas sin bucket ya no puede ser distinto de 0, así que dejó de ser
+ * información. Nunca estuvo expuesto por HTTP (`IngestaResponseDto` no lo
+ * incluye) — solo alimentaba un log de debug.
+ */
 export interface CategorizacionResumen {
   asignadas: number;
-  sinCategoria: number;
 }
 
 /** Salida agregada: todo lo que CLI/HTTP necesitan para reportar el resultado. */
@@ -86,34 +94,61 @@ export type ProcessIngestaError =
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
   | SinMovimientosError
-  | CatalogoIncompletoError;
+  | CatalogoIncompletoError
+  | CategorizacionFallidaError;
 
 /**
  * ProcessIngestaUseCase — orquesta el pipeline completo de ingesta:
  *   IngestFile → DetectBank → AccountRepository.ensure
- *     → ValidateStructure → NormalizeTransactions → PersistTransactionsUseCase
- *     → CategorizarTransacciones (best-effort, degradable)
+ *     → ValidateStructure → NormalizeTransactions → ResolverCatálogo
+ *     → PersistTransactionsUseCase
+ *     → CategorizarTransacciones (post-persist; si el WRITER de buckets
+ *       falla, YA NO degrada — revierte la ingesta ENTERA, issue #778
+ *       tramo 5a-bis)
  *
  * CLI y HTTP comparten genuinamente este único pipeline. Cualquier fallo
  * en cualquier paso hasta persistir corta la cadena y retorna Result.fail.
- * El paso de categorización (post-persist) es un "try/catch island": NUNCA
- * falla la ingesta, solo degrada los buckets cuando el WRITER falla.
+ * El paso de categorización (post-persist) YA NO es una isla degradable
+ * (tramo 5a-bis cierra la última que quedaba, tramo 5a había cerrado la del
+ * catálogo caído): si el WRITER de buckets
+ * (`ITransaccionBucketWriter.asignarCategorizacion`) falla, o cualquier
+ * excepción imprevista impide completar la clasificación DESPUÉS de que las
+ * transacciones ya fueron persistidas, `runPipeline` revierte esa
+ * persistencia (borra las transacciones de esta ingesta, deja la `Ingesta`
+ * FALLIDA) y retorna `Result.fail(CategorizacionFallidaError)` — ver
+ * `revertirYRechazar`. Riesgo residual CONOCIDO: si la reversión MISMA
+ * falla, las filas quedan con `bucketId = null` de forma indefinida —
+ * exactamente lo que este tramo existe para evitar; ese caso se loguea a
+ * nivel `error` (nunca se tapa) para que un operador lo detecte.
  *
  * #778 tramo 3/5: resolver la categoría por defecto (`Desconocido` de
  * `BUCKET_POR_DEFECTO`) YA NO es parte de esa isla — se hace ANTES de
  * persistir (`runPipeline`, tras el dedup) precisamente porque, si el
  * catálogo está DISPONIBLE pero incompleto (sin esa fila), la ingesta tiene
- * que RECHAZAR (`CatalogoIncompletoError`) sin escribir nada: el tramo 5
- * elimina `Bucket.SinCategoria`, así que un catálogo incompleto ya no tiene
- * destino de degradación. Un catálogo CAÍDO (fallo de infraestructura) sigue
- * siendo la isla degradable histórica descrita abajo — NO rechaza.
+ * que RECHAZAR (`CatalogoIncompletoError`, 409) sin escribir nada: el tramo
+ * 5 elimina `Bucket.SinCategoria`, así que un catálogo incompleto ya no
+ * tiene destino de degradación.
  *
- * Reconciliación Ingreso (R-08): cuando el catálogo falla, se pasa [] como
- * patrones → la Ingreso rule aún corre (abono>0, cargo=0 → Ingreso). Solo
- * el matching por catálogo degrada.
+ * #778 tramo 5a: un catálogo CAÍDO (fallo de infraestructura —
+ * `findAll`/`buscarCategoriaPorDefecto` de `ICatalogoClasificacion`
+ * devuelven `Result.fail`) TAMBIÉN rechaza ahora, con
+ * `CategorizacionFallidaError` (503, transitorio/reintentable), ANTES de
+ * persistir nada — ni siquiera las filas de Ingreso. Antes de este tramo,
+ * esa caída degradaba: se escribían solo las filas de Ingreso y el resto
+ * quedaba `bucketId = null` "pendiente de reintento". Esa isla se elimina
+ * porque nada rescata de forma confiable un `bucketId` nulo que después no
+ * matchea ningún patrón (con dinero de por medio, una ingesta a medias es
+ * peor que ninguna — ver `apps/api/CLAUDE.md`).
+ *
+ * #778 tramo 5a-bis: la ÚNICA isla que quedaba (el WRITER post-persist
+ * fallando) se cierra con el mismo criterio — rechazar en vez de degradar.
+ * A diferencia del tramo 5a (que rechaza ANTES de persistir), acá las
+ * transacciones YA existen en BD cuando se detecta el fallo, así que
+ * "rechazar" implica revertir esa escritura explícitamente (ver
+ * `IRevertirIngestaFallidaWriter`).
  *
  * NUNCA lanza — cualquier excepción de un colaborador se captura y se traduce
- * a Result.fail (pasos hard) o se registra y degrada (paso de categorización).
+ * a Result.fail. Ya no hay ningún paso que "degrade" silenciosamente.
  *
  * Routing PDF vs Excel (Sprint 4, sprint4-pdf-ingesta, design.md decisión #1
  * "Option B, fixed"): un único branch en `archivo.extension` DENTRO de este
@@ -126,6 +161,30 @@ export type ProcessIngestaError =
  * `validate`/`normalize` no reciben el nombre del archivo: un router
  * compuesto no tendría de dónde leer la extensión.
  */
+
+/**
+ * Outcome interno de `runPipeline` — además del `Result` que ve el caller,
+ * lleva `fallidaYaRegistrada` para que `execute()` sepa si esta corrida YA
+ * marcó una `Ingesta` existente como FALLIDA (issue #778 tramo 5a-bis, vía
+ * `revertirYRechazar`) — en ese caso, `registrarFallo` (que SIEMPRE CREA una
+ * fila nueva) NO debe correr, o crearía una FALLIDA duplicada.
+ */
+interface RunPipelineOutcome {
+  readonly result: Result<ProcessIngestaResult, ProcessIngestaError>;
+  readonly fallidaYaRegistrada: boolean;
+}
+
+/**
+ * Outcome interno de `runCategorizacion` (issue #778 tramo 5a-bis) — ya NO
+ * puede tragar silenciosamente el fallo del WRITER (o de cualquier
+ * excepción imprevista dentro de la isla) devolviendo `undefined`: el
+ * caller (`runPipeline`) necesita distinguir ese fallo de un éxito con
+ * resumen para decidir si revertir.
+ */
+type CategorizacionOutcome =
+  | { readonly ok: true; readonly resumen: CategorizacionResumen }
+  | { readonly ok: false };
+
 export class ProcessIngestaUseCase {
   constructor(
     /** US-057 D-01: shared front pipeline (ingest→detect→validate→normalize). */
@@ -138,6 +197,11 @@ export class ProcessIngestaUseCase {
     private readonly txParaClasificarReader: ITransaccionParaClasificarReader,
     private readonly detectarDuplicadosUseCase: DetectarDuplicadosUseCase,
     private readonly ingestaFallidaWriter: IRegistrarIngestaFallidaWriter,
+    /** Issue #778 tramo 5a-bis: revierte una PROCESADA cuando el WRITER de
+     * buckets falla post-persist — distinto de `ingestaFallidaWriter`
+     * (ese CREA una FALLIDA nueva; este UPDATEa una PROCESADA existente,
+     * ver docblock de `IRevertirIngestaFallidaWriter`). */
+    private readonly revertirIngestaFallidaWriter: IRevertirIngestaFallidaWriter,
     private readonly logger: ILogger,
   ) {}
 
@@ -151,8 +215,8 @@ export class ProcessIngestaUseCase {
     }
 
     try {
-      const result = await this.runPipeline(input);
-      if (result.isFail()) {
+      const { result, fallidaYaRegistrada } = await this.runPipeline(input);
+      if (result.isFail() && !fallidaYaRegistrada) {
         // NO hay carve-out D-09 acá (a diferencia de CommitIngestaUseCase) —
         // decisión deliberada: `ProcessIngestaInput` no gana un campo
         // `password` (D-02), así que un PDF protegido en el endpoint
@@ -163,6 +227,14 @@ export class ProcessIngestaUseCase {
         // password, el carve-out de D-09 se traslada acá.
         await this.registrarFallo(input, result.getError().message);
       }
+      // `fallidaYaRegistrada` (issue #778 tramo 5a-bis): true cuando
+      // `runPipeline` YA marcó esta Ingesta como FALLIDA vía
+      // `revertirYRechazar` (UPDATE de la fila PROCESADA que el mismo
+      // request creó) — `registrarFallo` NO debe correr en ese caso: es el
+      // ÚNICO escritor de filas FALLIDA NUEVAS (single-writer-per-state,
+      // design.md §3.2), y correrlo acá crearía una segunda fila FALLIDA
+      // huérfana además de la que ya se actualizó.
+      //
       // El error ORIGINAL de runPipeline se preserva verbatim — el registro
       // de la falla nunca lo reemplaza (single-writer boundary, US-004
       // design.md §3.2).
@@ -220,14 +292,17 @@ export class ProcessIngestaUseCase {
 
   private async runPipeline(
     input: ProcessIngestaInput,
-  ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
+  ): Promise<RunPipelineOutcome> {
     // US-057 D-01: delegate the shared front (ingest→detect→validate→normalize)
     // to EjecutarPipelineIngestaUseCase. ensure() + dedup + persist tail stay here.
     const pipelineResult = await this.ejecutarPipelineUseCase.execute({
       fileReader: input.fileReader,
     });
     if (pipelineResult.isFail()) {
-      return Result.fail(pipelineResult.getError());
+      return {
+        result: Result.fail(pipelineResult.getError()),
+        fallidaYaRegistrada: false,
+      };
     }
     const { banco, estructura, transacciones, nombreArchivo } =
       pipelineResult.getValue();
@@ -255,7 +330,10 @@ export class ProcessIngestaUseCase {
       banco,
     );
     if (accountResult.isFail()) {
-      return Result.fail(accountResult.getError());
+      return {
+        result: Result.fail(accountResult.getError()),
+        fallidaYaRegistrada: false,
+      };
     }
     const { accountId } = accountResult.getValue();
 
@@ -271,66 +349,63 @@ export class ProcessIngestaUseCase {
       transacciones,
     });
     if (dedupeResult.isFail()) {
-      return Result.fail(dedupeResult.getError());
+      return {
+        result: Result.fail(dedupeResult.getError()),
+        fallidaYaRegistrada: false,
+      };
     }
     const { nuevas, duplicadas } = dedupeResult.getValue();
 
-    // --- Resolver catálogo de clasificación ANTES de persistir (#778 tramo 3/5) ---
+    // --- Resolver catálogo de clasificación ANTES de persistir (#778 tramo 3/5/5a) ---
     //
     // Se adelanta acá — y ya NO dentro de `runCategorizacion` (post-persist) —
-    // porque, si el catálogo está DISPONIBLE pero le falta la `Desconocido`
-    // del bucket por defecto, la ingesta tiene que RECHAZAR sin escribir
-    // nada: el tramo 5 elimina `Bucket.SinCategoria`, así que ese catálogo
-    // incompleto ya no tiene un destino de degradación al que caer. Un
-    // catálogo CAÍDO (fallo de infraestructura) sigue siendo la isla
-    // degradable histórica — NO rechaza, solo se escriben las filas de
-    // Ingreso más abajo (ver `apps/api/CLAUDE.md`).
-    let patrones: ReadonlyArray<PatronClasificacion> = [];
-    let catalogoDisponible = true;
+    // porque CUALQUIER fallo al resolver el catálogo (caído O incompleto)
+    // tiene que RECHAZAR sin escribir nada: el tramo 5 elimina
+    // `Bucket.SinCategoria`, así que ya no queda ningún destino de
+    // degradación disponible.
+    //
+    // Tramo 5a (issue #778): un catálogo CAÍDO (`findAll` devuelve
+    // `Result.fail`, fallo de infraestructura) rechaza igual que uno
+    // incompleto. Antes de este tramo degradaba: se escribían solo las
+    // filas de Ingreso y el resto quedaba `bucketId = null` "pendiente de
+    // reintento" — esa isla queda eliminada (ver `apps/api/CLAUDE.md`).
     const catalogResult = await this.catalogoClasificacion.findAll(
       input.userId,
     );
-    if (catalogResult.isOk()) {
-      patrones = catalogResult.getValue();
-    } else {
-      catalogoDisponible = false;
-      this.logger.error(
-        'catálogo de clasificación no disponible; solo se escriben filas de Ingreso, el resto queda null',
-        { errorName: catalogResult.getError().constructor.name },
-      );
+    if (catalogResult.isFail()) {
+      return {
+        result: Result.fail(catalogResult.getError()),
+        fallidaYaRegistrada: false,
+      };
     }
+    const patrones = catalogResult.getValue();
 
-    // Categoría por defecto (#778) — SOLO se resuelve si el catálogo mismo
-    // respondió (`catalogoDisponible`): si ya está caído, no tiene sentido
-    // consultar una fila puntual de ese mismo catálogo, y el resto del
-    // pipeline ya sabe degradar con `categoriaPorDefecto = null`.
-    let categoriaPorDefecto: CategoriaPorDefecto | null = null;
-    if (catalogoDisponible) {
-      const categoriaPorDefectoResult =
-        await this.catalogoClasificacion.buscarCategoriaPorDefecto(
-          input.userId,
-        );
-      if (categoriaPorDefectoResult.isFail()) {
-        // Fallo ESTRUCTURAL de esta consulta puntual (no "no hay fila", sino
-        // que la consulta en sí falló) — degrada igual que un catálogo caído,
-        // NO rechaza. `categoriaPorDefecto` queda en `null` y el resto del
-        // pipeline conserva el fail-safe histórico del clasificador.
-        this.logger.error(
-          'no se pudo resolver la categoría por defecto; se degrada igual que un catálogo caído',
-          {
-            errorName: categoriaPorDefectoResult.getError().constructor.name,
-          },
-        );
-      } else if (categoriaPorDefectoResult.getValue() === null) {
-        // Catálogo DISPONIBLE pero INCOMPLETO: la consulta respondió `null`
-        // porque el usuario no tiene la `Desconocido` de `BUCKET_POR_DEFECTO`
-        // (Gustos). Rechazo adelantado — nada se persiste todavía en este
-        // punto del pipeline.
-        return Result.fail(new CatalogoIncompletoError(BUCKET_POR_DEFECTO));
-      } else {
-        categoriaPorDefecto = categoriaPorDefectoResult.getValue();
-      }
+    // Categoría por defecto (#778) — misma consulta puntual del catálogo. Un
+    // fallo ESTRUCTURAL acá (`Result.fail`, la consulta en sí falló) es la
+    // MISMA clase de caída de infraestructura que `findAll` de arriba —
+    // mismo rechazo (tramo 5a), no una degradación distinta.
+    const categoriaPorDefectoResult =
+      await this.catalogoClasificacion.buscarCategoriaPorDefecto(input.userId);
+    if (categoriaPorDefectoResult.isFail()) {
+      return {
+        result: Result.fail(categoriaPorDefectoResult.getError()),
+        fallidaYaRegistrada: false,
+      };
     }
+    const categoriaPorDefectoEncontrada = categoriaPorDefectoResult.getValue();
+    if (categoriaPorDefectoEncontrada === null) {
+      // Catálogo DISPONIBLE pero INCOMPLETO: la consulta respondió `null`
+      // porque el usuario no tiene la `Desconocido` de `BUCKET_POR_DEFECTO`
+      // (Gustos). Rechazo adelantado — nada se persiste todavía en este
+      // punto del pipeline. Distinto del rechazo de arriba: este es un error
+      // de CONFIGURACIÓN (409), no de infraestructura (503).
+      return {
+        result: Result.fail(new CatalogoIncompletoError(BUCKET_POR_DEFECTO)),
+        fallidaYaRegistrada: false,
+      };
+    }
+    const categoriaPorDefecto: CategoriaPorDefecto =
+      categoriaPorDefectoEncontrada;
 
     // US-057 D-11: wrap each nueva row as TransaccionAPersistir with
     // bucket: null, categoriaId: null — byte-for-byte identical persisted result
@@ -349,18 +424,26 @@ export class ProcessIngestaUseCase {
       duplicadosOmitidos: duplicadas,
     });
     if (persistResult.isFail()) {
-      return Result.fail(persistResult.getError());
+      return {
+        result: Result.fail(persistResult.getError()),
+        fallidaYaRegistrada: false,
+      };
     }
     const { ingestaId, total, duplicadosOmitidos } = persistResult.getValue();
 
-    // --- Paso de categorización (try/catch island — nunca falla la ingesta) ---
-    const categorizacion = await this.runCategorizacion(
+    // --- Paso de categorización post-persist (issue #778 tramo 5a-bis: ya
+    // NO es una isla degradable — un fallo acá revierte la ingesta ENTERA
+    // y rechaza, ver `revertirYRechazar`) ---
+    const categorizacionOutcome = await this.runCategorizacion(
       ingestaId,
       input.userId,
       patrones,
-      catalogoDisponible,
       categoriaPorDefecto,
     );
+    if (!categorizacionOutcome.ok) {
+      return this.revertirYRechazar(input.userId, ingestaId);
+    }
+    const categorizacion = categorizacionOutcome.resumen;
 
     // `estructura` trae campos distintos por trio (Excel: filas de hoja de
     // cálculo; PDF: página + rangos X, sin conteo de filas propio — ese
@@ -391,46 +474,113 @@ export class ProcessIngestaUseCase {
       duplicadosOmitidos,
     });
 
-    return Result.ok({
-      archivo: {
-        originalName: archivo.originalName,
-        sizeInBytes: archivo.sizeInBytes,
-        extension: archivo.extension,
-      },
-      banco,
-      estructura: estructuraResumen,
-      ingestaId,
-      total,
-      // `nuevas` (no el `transacciones` crudo pre-dedup): total/transacciones
-      // reflejan lo REALMENTE importado (US-005) — `estructuraResumen` arriba
-      // sí usa el batch crudo porque describe la estructura del ARCHIVO, no
-      // lo persistido.
-      transacciones: nuevas,
-      duplicadosOmitidos,
-      categorizacion,
-    });
+    return {
+      result: Result.ok({
+        archivo: {
+          originalName: archivo.originalName,
+          sizeInBytes: archivo.sizeInBytes,
+          extension: archivo.extension,
+        },
+        banco,
+        estructura: estructuraResumen,
+        ingestaId,
+        total,
+        // `nuevas` (no el `transacciones` crudo pre-dedup): total/transacciones
+        // reflejan lo REALMENTE importado (US-005) — `estructuraResumen` arriba
+        // sí usa el batch crudo porque describe la estructura del ARCHIVO, no
+        // lo persistido.
+        transacciones: nuevas,
+        duplicadosOmitidos,
+        categorizacion,
+      }),
+      fallidaYaRegistrada: false,
+    };
   }
 
   /**
-   * Categorización post-persistencia (best-effort).
+   * revertirYRechazar — issue #778 tramo 5a-bis: cuando la isla de
+   * categorización post-persist (`runCategorizacion`) no puede garantizar
+   * que `bucketId`/`categoriaId` quedaron correctamente asignados (el
+   * WRITER de buckets falla, o cualquier excepción imprevista impide
+   * terminar la clasificación), la decisión YA NO es degradar (dejar
+   * `bucketId = null` "pendiente de reintento") — se revierte la
+   * persistencia de ESTA corrida (borra sus transacciones, deja la
+   * `Ingesta` FALLIDA) y se rechaza: nada queda a medias.
    *
-   * `patrones`, `catalogoDisponible` y `categoriaPorDefecto` ya vienen
-   * resueltos por `runPipeline` ANTES de persistir (#778 tramo 3/5): un
-   * catálogo disponible pero incompleto (sin `Desconocido` del bucket por
-   * defecto) rechaza la ingesta entera más arriba, así que este método
-   * nunca ve ese caso — solo recibe el resultado YA degradado cuando el
-   * catálogo estuvo genuinamente CAÍDO (fallo de infraestructura).
+   * `CategorizacionFallidaError` es el error elegido para el rechazo (en
+   * vez de `PersistenciaFallidaError`): la CAUSA raíz siempre es la isla de
+   * categorización (el mismo error que ya usa el tramo 5a para un catálogo
+   * caído), y ya mapea a 503 CATALOGO_NO_DISPONIBLE (transitorio,
+   * reintentable) con el mismo mensaje seguro de usuario final — el
+   * significado para el usuario es correcto sin cambios en la capa HTTP:
+   * "no pudimos completar tu importación, tu archivo está bien, no se
+   * guardó nada". Un `PersistenciaFallidaError` (500, no reintentable de la
+   * misma forma) describiría mal la causa — la persistencia en sí NO
+   * falló, lo que falló fue poder categorizar lo persistido.
    *
-   * Flujo de degradación (catálogo caído, NO tocado por este cambio):
-   *   - `catalogoDisponible === false` → la Ingreso rule (dominio puro)
-   *     TODAVÍA corre (abono>0, cargo=0 → Ingreso), pero SOLO se escriben
-   *     las filas de Ingreso. El resto queda bucketId=null
-   *     (pendiente/reintentable), NUNCA SinCategoria: así US-013 distingue
-   *     "no se pudo consultar el catálogo" de "no matcheó".
-   *   - Writer falla → deja bucketId en null en BD; log + continúa.
-   *   - Cualquier excepción imprevista → captura, degrada, continúa.
+   * Riesgo residual CONOCIDO, documentado (no tapado, ver docblock de
+   * clase): si la reversión MISMA falla, la `Ingesta` queda como estaba
+   * (PROCESADA, con transacciones `bucketId = null`) — exactamente el
+   * estado que este tramo existe para evitar. Ese caso se loguea acá a
+   * nivel `error` (`userId` + `ingestaId`, NUNCA descripción/montos,
+   * ADR-013) para que un operador lo detecte — `fallidaYaRegistrada:
+   * false` deja que `execute()` igual registre una fila FALLIDA aparte vía
+   * `registrarFallo` (best-effort, mismo mecanismo que cualquier otro
+   * fallo de este pipeline), aunque la PROCESADA original con buckets
+   * nulos quede como residuo a limpiar manualmente.
+   */
+  private async revertirYRechazar(
+    userId: string,
+    ingestaId: string,
+  ): Promise<RunPipelineOutcome> {
+    const motivo =
+      'la categorización post-persistencia falló (WRITER de buckets o excepción imprevista); la ingesta se revirtió';
+    const revertResult =
+      await this.revertirIngestaFallidaWriter.revertirYMarcarFallida(
+        userId,
+        ingestaId,
+        motivo,
+      );
+
+    if (revertResult.isFail()) {
+      this.logger.error(
+        'la reversión de la ingesta falló tras el error de categorización — riesgo residual: pueden quedar transacciones con bucketId nulo',
+        { userId, ingestaId },
+      );
+    }
+
+    return {
+      result: Result.fail(
+        new CategorizacionFallidaError(
+          'no se pudo completar la categorización tras persistir; la ingesta fue revertida',
+        ),
+      ),
+      fallidaYaRegistrada: revertResult.isOk(),
+    };
+  }
+
+  /**
+   * Categorización post-persistencia.
    *
-   * Retorna el resumen opcional (undefined si algo impide terminar).
+   * `patrones` y `categoriaPorDefecto` ya vienen resueltos por `runPipeline`
+   * ANTES de persistir (#778 tramo 3/5/5a): un catálogo incompleto (409) o
+   * CAÍDO (503, tramo 5a) rechaza la ingesta entera más arriba, sin escribir
+   * nada — este método nunca ve ninguno de los dos casos.
+   * `categoriaPorDefecto` llega siempre resuelto (tipo NO nullable): eso
+   * selecciona el overload de `CategorizarTransaccionUseCase.execute` cuyo
+   * resultado es SIEMPRE `tipo: 'clasificada'` — `'sinCoincidencia'` es el
+   * CENTINELA exclusivo de `ReevaluarCategoriasUseCase` ("no matcheó"), no
+   * se usa acá (#778 tramo 5b).
+   *
+   * Issue #778 tramo 5a-bis: esto YA NO es una isla degradable. Antes, si el
+   * WRITER de buckets fallaba DESPUÉS de que las transacciones ya fueron
+   * persistidas, este método tragaba el fallo (`return undefined`) y la
+   * ingesta quedaba PROCESADA con `bucketId = null` "pendiente de
+   * reintento" — sin garantía de que `reevaluar-categorias` alguna vez lo
+   * rescatara. Ahora retorna `{ ok: false }` (writer fallido, O cualquier
+   * excepción imprevista en este método) para que `runPipeline` revierta la
+   * persistencia entera y rechace (`revertirYRechazar`) — la ÚLTIMA isla de
+   * degradación de este pipeline queda cerrada.
    *
    * @param userId - dueño de las transacciones a categorizar (US-037:
    *   catálogo per-user; ya resuelto aguas arriba, solo threading acá).
@@ -439,9 +589,8 @@ export class ProcessIngestaUseCase {
     ingestaId: string,
     userId: string,
     patrones: ReadonlyArray<PatronClasificacion>,
-    catalogoDisponible: boolean,
-    categoriaPorDefecto: CategoriaPorDefecto | null,
-  ): Promise<CategorizacionResumen | undefined> {
+    categoriaPorDefecto: CategoriaPorDefecto,
+  ): Promise<CategorizacionOutcome> {
     try {
       // 2. Leer transacciones persistidas de ESTA ingesta (scope isolation R-07)
       const txsParaClasificar =
@@ -449,11 +598,9 @@ export class ProcessIngestaUseCase {
 
       if (txsParaClasificar.length === 0) {
         this.logger.debug('process-ingesta: categorization pass completed', {
-          catalogoDisponible,
           asignadas: 0,
-          sinCategoria: 0,
         });
-        return { asignadas: 0, sinCategoria: 0 };
+        return { ok: true, resumen: { asignadas: 0 } };
       }
 
       // 3. Clasificar cada transacción (nunca lanza, siempre retorna Result.ok)
@@ -472,51 +619,47 @@ export class ProcessIngestaUseCase {
         };
       });
 
-      // 4. Elegir qué escribir:
-      //    - catálogo disponible → todo (SinCategoria es estado definitivo).
-      //    - catálogo caído → solo filas de Ingreso; el resto queda null (pendiente).
-      const asignaciones = catalogoDisponible
-        ? clasificadas
-        : clasificadas.filter((a) => a.bucket === Bucket.Ingreso);
+      // 4. El catálogo ya está garantizado disponible (rechazado más arriba
+      // si no lo estaba, tramo 5a) — TODO se escribe.
 
-      // SinCategoria solo se cuenta con el catálogo disponible: en la degradación
-      // las filas no escritas no son SinCategoria, son null pendiente.
-      const sinCategoria = catalogoDisponible
-        ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
-        : 0;
-
-      // 5. Escribir categoría+bucket en BD, atómico por fila (fallo → deja
-      // null, log + continúa). ingestaId threads through for structural
-      // scope isolation (RNF-SEC-006).
+      // 5. Escribir categoría+bucket en BD, atómico por lote (issue #778
+      // tramo 5a-bis: un fallo acá YA NO degrada — `runPipeline` revierte
+      // la ingesta ENTERA ante `{ ok: false }`, ver docblock del método).
+      // ingestaId threads through for structural scope isolation
+      // (RNF-SEC-006).
       const writeResult =
         await this.transaccionBucketWriter.asignarCategorizacion(
           userId,
           ingestaId,
-          asignaciones,
+          clasificadas,
         );
       if (writeResult.isFail()) {
         this.logger.error(
-          'no se pudieron escribir los buckets de categorización (degradando)',
+          'no se pudieron escribir los buckets de categorización (revirtiendo la ingesta)',
           { errorName: writeResult.getError().constructor.name },
         );
-        return undefined;
+        return { ok: false };
       }
 
       // Aggregate del pase de categorización — nunca descripción/montos de
-      // las transacciones clasificadas, solo conteos + el flag de
-      // degradación (ADR-013).
+      // las transacciones clasificadas, solo conteos (ADR-013).
       this.logger.debug('process-ingesta: categorization pass completed', {
-        catalogoDisponible,
         asignadas: writeResult.getValue().actualizadas,
-        sinCategoria,
       });
-      return { asignadas: writeResult.getValue().actualizadas, sinCategoria };
+      return {
+        ok: true,
+        resumen: {
+          asignadas: writeResult.getValue().actualizadas,
+        },
+      };
     } catch {
-      // Cualquier excepción imprevista en la isla de categorización no propaga.
-      // Raw error is NOT logged — it may contain Prisma SQL/table details or
-      // sensitive amounts from transaction data. Fixed message only.
-      this.logger.error('categorización falló; ingesta continúa PROCESADA');
-      return undefined;
+      // Cualquier excepción imprevista en la isla de categorización no
+      // propaga — pero (tramo 5a-bis) tampoco degrada: `runPipeline`
+      // revierte la ingesta ante `{ ok: false }`. Raw error is NOT logged —
+      // it may contain Prisma SQL/table details or sensitive amounts from
+      // transaction data. Fixed message only.
+      this.logger.error('categorización falló; revirtiendo la ingesta');
+      return { ok: false };
     }
   }
 }

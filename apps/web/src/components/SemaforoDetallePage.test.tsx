@@ -79,7 +79,6 @@ function detalleDto(
       }),
       ahorroBucketDto({ estadoSemaforo: 'verde', porcentajeBp: 2500 }),
     ],
-    sinCategoria: { cantidad: 0, total: '0' },
     ...overrides,
   };
 }
@@ -297,34 +296,26 @@ describe('SemaforoDetallePage', () => {
     ).toBeInTheDocument();
   });
 
-  it('a nonzero Sin categoría count shows count, total, and a link to /buckets/SinCategoria carrying periodo (CA-06)', async () => {
-    const dto = detalleDto({ sinCategoria: { cantidad: 3, total: '15000' } });
+  // Issue #778 tramo5b PR1 (replaces the retired CA-06 test, which asserted
+  // this banner/link WAS shown), extended for deploy-order safety by tramo5b
+  // PR5 (apps/api): `sinCategoria` was removed from the wire contract
+  // entirely, so a real response can no longer send it — but a stale/cached
+  // response during the independent web/API deploy window still could. The
+  // web must never render the banner or the drill-down link to
+  // `/buckets/SinCategoria` for it, whether the field is present or absent.
+  it('never renders a Sin categoría banner or link, even when the DTO carries a legacy nonzero sinCategoria count (deploy-order safety, issue #778 tramo5b PR5)', async () => {
+    const dto: SemaforoDetalleDto = {
+      ...detalleDto(),
+      sinCategoria: { cantidad: 3, total: '15000' },
+    } as SemaforoDetalleDto;
     renderPage(successQuery(dto), '2026-07');
     await screen.findByRole('heading', { name: 'Semáforo' });
-    // `toHaveTextContent` sobre el `<p>` entero, NO dos `getByText` sueltos.
-    // Las dos cifras viven ahora en spans `font-mono tabular-nums` (DESIGN.md
-    // exige mono para toda cifra, también dentro de una oración), y
-    // `getByText` compara contra `getNodeText`, que junta SÓLO los nodos de
-    // texto directos de un elemento: apenas una cifra se muda a un span hijo,
-    // deja de verla. Es la misma trampa que el docblock de `GrupoMovimientos`
-    // documenta para su encabezado de grupo. `toHaveTextContent` usa
-    // `textContent` completo, así que atraviesa los spans — y de paso fija la
-    // oración entera en vez de dos fragmentos sueltos.
-    const aviso = screen.getByText(/sin grupo ni categoría por/).closest('p');
-    expect(aviso).toHaveTextContent(
-      '3 movimientos sin grupo ni categoría por $15.000.',
-    );
-    const link = screen.getByRole('link', {
-      name: /sin grupo ni categoría/i,
-    });
-    expect(link).toHaveAttribute(
-      'href',
-      expect.stringContaining('/buckets/SinCategoria'),
-    );
-    expect(link).toHaveAttribute(
-      'href',
-      expect.stringContaining('periodo=2026-07'),
-    );
+    expect(
+      screen.queryByText(/sin grupo ni categoría/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /sin grupo ni categoría/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('sinIngreso renders the no-income explanation, no empty bucket percentages (CA-07)', async () => {
@@ -387,7 +378,7 @@ describe('SemaforoDetallePage', () => {
     expect(screen.getByText('65–100%')).toBeInTheDocument();
   });
 
-  it('a zero-count Sin categoría (WSEM-05) shows no warning block, no link', async () => {
+  it('a zero-count Sin categoría (WSEM-05) also shows no warning block, no link', async () => {
     renderPage(successQuery(detalleDto()));
     await screen.findByRole('heading', { name: 'Semáforo' });
     expect(

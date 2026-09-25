@@ -9,21 +9,24 @@ import { esMontoStringValido } from './formatear-monto';
  * set it meant (no alias — deleting the old name makes `tsc` fail loudly
  * instead of silently keeping a stale membership).
  *
- * `BUCKETS_5030` — the three spending buckets, canonical display order. Still
- * the IDEAL 50/30/20 inset's set (`DistribucionPie`'s `slicesIdeales`): the
- * inset indexes `targets`, which has no `SinCategoria` key, so it must NOT
- * grow to the 4-item ring set.
+ * `BUCKETS_5030` — the three spending buckets, canonical display order. The
+ * IDEAL 50/30/20 inset's set (`DistribucionPie`'s `slicesIdeales`): the inset
+ * indexes `targets`, which has no `SinCategoria` key.
  */
 export const BUCKETS_5030 = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 
 /**
- * `BUCKETS_ANILLO` — the four ring members (WG5-01/WG5-13): the three spend
- * buckets plus `SinCategoria`, in ring order. `calcularDistribucionGasto`
- * apportions over these 4 items, so an uncategorized amount now dilutes the
- * three spend-bucket ring percentages instead of being excluded from the
- * denominator — the semantic core of US-047, not a regression.
+ * `BUCKETS_ANILLO` — the ring members apportioned by `calcularDistribucionGasto`'s
+ * default. Issue #778 tramo5b PR1 (apps/web): `SinCategoria` is REMOVED from
+ * this set — the web dashboard's ring/legend stop depending on that bucket
+ * entirely. Tramo5b PR5 (apps/api) later removed `Bucket.SinCategoria`/
+ * `cantidadSinCategoria` from the wire contract too, so there is nothing
+ * left to send. `BUCKETS_ANILLO` is therefore byte-identical to
+ * `BUCKETS_5030` today; the two names stay distinct (not aliased) because
+ * they document different INTENTS — "the ring's own membership" vs. "the
+ * 50/30/20 spend set" — even though their current values coincide.
  */
-export const BUCKETS_ANILLO = [...BUCKETS_5030, 'SinCategoria'] as const;
+export const BUCKETS_ANILLO = BUCKETS_5030;
 
 const PRECISION = 1_000_000n;
 
@@ -64,14 +67,18 @@ function montoSeguro(montoStr: string): bigint {
  * instead of dividing by zero.
  *
  * `bucketsIncluidos` (US-047 PR1 shim, judgment-day round 2 CRITICAL fix): a
- * trailing optional param, `BUCKETS_ANILLO` by default (byte-identical to the
- * pre-fix signature). Passing `BUCKETS_5030` apportions ONLY over the 3 spend
- * buckets — SinCategoria drops out of BOTH the numerator set and the
- * denominator, so the returned percentages sum to exactly 100 again. Without
- * this, a caller that filtered the 4-item `BUCKETS_ANILLO` result down to 3
- * items post-hoc would keep the DILUTED percentages (e.g. 40/25/25 instead of
- * 44/28/28), which don't sum to 100 — and `calcularAngulos`'s forced-360
- * closure would silently stretch the last wedge to absorb the missing share.
+ * trailing optional param, `BUCKETS_ANILLO` by default. Any `buckets` entry
+ * outside `bucketsIncluidos` — e.g. a legacy `SinCategoria` entry, which a
+ * stale/cached response could still carry during the independent web/API
+ * deploy window even though the API stopped sending it for good (issue
+ * #778 tramo5b PR5) and `BUCKETS_ANILLO` no longer includes it — is
+ * excluded from BOTH the numerator set and the denominator, so the
+ * returned percentages always sum to exactly 100. The
+ * math (largest-remainder, BigInt ratios) stays in the domain layer
+ * (ADR-024) instead of a component-side filter-without-renormalize shim,
+ * which would keep DILUTED percentages that don't sum to 100 and let
+ * `calcularAngulos`'s forced-360 closure silently stretch the last wedge to
+ * absorb the missing share.
  */
 export function calcularDistribucionGasto(
   buckets: ReadonlyArray<EntradaBucket>,

@@ -28,16 +28,9 @@ const validDto: ResumenMesDto = {
       porcentajeBp: 3500,
       estadoSemaforo: 'amarillo',
     },
-    {
-      bucket: 'SinCategoria',
-      total: '0',
-      porcentajeBp: 0,
-      estadoSemaforo: null,
-    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'amarillo',
-  cantidadSinCategoria: 0,
 };
 
 const validMeDto: MeDto = {
@@ -199,6 +192,53 @@ describe('fetchResumen', () => {
   });
 
   it('resolves {ok: true, value} on a valid 2xx body', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(validDto),
+    });
+    const { fetchResumen } = requireClient();
+
+    const result = await fetchResumen();
+
+    expect(result).toEqual({ ok: true, value: validDto });
+  });
+
+  // issue #778 tramo 5b PR5 (apps/api) removed `Bucket.SinCategoria`/
+  // `cantidadSinCategoria` from the wire contract: `buckets` is now always 3
+  // entries instead of 4, and `cantidadSinCategoria` is gone entirely.
+  // Deploy-order safety: the API (Render) and mobile deploy independently,
+  // and an already-installed mobile build cannot be force-upgraded, so
+  // `esResumenMesDto` must ACCEPT both the OLD shape (4 buckets +
+  // cantidadSinCategoria present) and the NEW shape (3 buckets, field
+  // absent) — never reject either one.
+  it('accepts the OLD shape: 4 buckets + cantidadSinCategoria present as a number (deploy-order safety)', async () => {
+    const bodyViejo = {
+      ...validDto,
+      buckets: [
+        ...validDto.buckets,
+        {
+          bucket: 'SinCategoria',
+          total: '0',
+          porcentajeBp: 0,
+          estadoSemaforo: null,
+        },
+      ],
+      cantidadSinCategoria: 7,
+    };
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(bodyViejo),
+    });
+    const { fetchResumen } = requireClient();
+
+    const result = await fetchResumen();
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts the NEW shape: 3 buckets, cantidadSinCategoria absent (deploy-order safety)', async () => {
     mockFetchOnce({
       ok: true,
       status: 200,

@@ -15,8 +15,9 @@
  *     Bearer transport, upgraded to the CA-08 pattern from
  *     `resumen-anual.e2e-spec.ts` (the house's stronger idiom): each variant
  *     authenticates AS a fresh, credentialed user with a fully KNOWN state
- *     and asserts EXACT matches on diagnostico/bucketsCriticos/consejo/
- *     sinCategoria — not just totalIngreso/bucket-total inequalities
+ *     and asserts EXACT matches on diagnostico/bucketsCriticos/consejo and
+ *     the Deseos total (which absorbs uncategorized rows since #778 tramo
+ *     5b) — not just totalIngreso/bucket-total inequalities
  *     (judgment-day round 1 finding, see tasks.md T8.2 correction note)
  */
 import request from 'supertest';
@@ -229,9 +230,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     }
     expect(typeof res.body.diagnostico).toBe('string');
     expect(res.body.diagnostico.length).toBeGreaterThan(0);
-    expect(res.body.sinCategoria).toBeDefined();
-    expect(typeof res.body.sinCategoria.cantidad).toBe('number');
-    expect(typeof res.body.sinCategoria.total).toBe('string');
+    // issue #778 tramo 5b: the SinCategoria bucket no longer exists, so the
+    // US-049 `sinCategoria` block is gone from the contract.
+    expect(res.body).not.toHaveProperty('sinCategoria');
   });
 
   // ── empty month → sinIngreso shape ─────────────────────────────────────
@@ -263,13 +264,13 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
   // per `resumen-anual.e2e-spec.ts`'s stronger precedent): each variant
   // authenticates AS a fresh, credentialed user with a FULLY KNOWN state and
   // asserts EXACT matches on the new US-049 fields — diagnostico,
-  // bucketsCriticos, per-bucket consejo (monto/mensaje), and sinCategoria —
+  // bucketsCriticos, and per-bucket consejo (monto/mensaje) —
   // not just totalIngreso/bucket-total inequalities. The alien user gets a
   // DIFFERENT known state (different driving bucket, different uncategorized
   // rows) so an exact match on the authenticated user's numbers is only
   // possible if isolation actually held.
 
-  it('aislamiento de dos usuarios (cookie transport, CA-08): diagnostico/bucketsCriticos/consejo/sinCategoria son exactamente los de A, nunca los de B', async () => {
+  it('aislamiento de dos usuarios (cookie transport, CA-08): diagnostico/bucketsCriticos/consejo/Deseos son exactamente los de A, nunca los de B', async () => {
     if (!ALLOW) return; // Skip if no real DB
 
     const PASSWORD_A = 'iso-cookie-userA-password-123';
@@ -323,14 +324,14 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     await seedTx({
       accountId: accountA,
       ingestaId: ingestaA,
-      bucketId: null, // uncategorized
+      bucketId: null, // uncategorized — issue #778 tramo 5b: folds into Deseos
       cargo: 7_000n,
       abono: 0n,
     });
     await seedTx({
       accountId: accountA,
       ingestaId: ingestaA,
-      bucketId: null, // uncategorized
+      bucketId: null, // uncategorized — issue #778 tramo 5b: folds into Deseos
       cargo: 3_000n,
       abono: 0n,
     });
@@ -396,13 +397,18 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     const deseos = res.body.buckets.find(
       (b: { bucket: string }) => b.bucket === Bucket.Deseos,
     );
-    expect(deseos.total).toBe('500000');
+    // issue #778 tramo 5b: Deseos' total now INCLUDES A's 2 uncategorized
+    // rows (500_000 + 7_000 + 3_000 = 510_000) — the null-bucket fold target
+    // moved from SinCategoria to Deseos. This also doubles as the isolation
+    // proof formerly carried by res.body.sinCategoria below: 510_000 is
+    // EXACTLY A's own money, never touched by the alien's 4 rows.
+    expect(deseos.total).toBe('510000');
     expect(deseos.estadoSemaforo).toBe('rojo');
     // A's exact CLP-to-Verde advice — computable from the known seed
-    // (montoMaximoConBpHasta(1_000_000n, 3000n) = 300_049n; 500_000 - 300_049).
+    // (montoMaximoConBpHasta(1_000_000n, 3000n) = 300_049n; 510_000 - 300_049).
     expect(deseos.consejo).toEqual({
       direccion: 'reducir',
-      monto: '199951',
+      monto: '209951',
       mensaje:
         'Para volver a Muy Saludable, reduce {monto} en Gustos este mes.',
     });
@@ -414,8 +420,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     expect(ahorro.estadoSemaforo).toBe('verde');
     expect(ahorro.consejo).toBeNull();
 
-    // A's exact uncategorized count/total — never B's (4 rows, ~4006 total).
-    expect(res.body.sinCategoria).toEqual({ cantidad: 2, total: '10000' });
+    // issue #778 tramo 5b: `sinCategoria` (US-049) left the contract; the
+    // uncategorized isolation proof moved to deseos.total above.
+    expect(res.body).not.toHaveProperty('sinCategoria');
 
     // Coarse secondary net: the alien's id must never appear on the wire.
     expect(JSON.stringify(res.body)).not.toContain(alienUserId);
@@ -550,10 +557,17 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     const deseos = res.body.buckets.find(
       (b: { bucket: string }) => b.bucket === Bucket.Deseos,
     );
+    // issue #778 tramo 5b: Deseos' total now INCLUDES C's 3 uncategorized
+    // rows (400_000 + 5_000 + 5_001 + 5_002 = 415_003) — still comfortably
+    // Verde (bp≈2075 < verdeMax 3000), so consejo stays null. This is also
+    // the isolation proof formerly carried by res.body.sinCategoria below:
+    // 415_003 is EXACTLY C's own money, never the alien's 9_000.
+    expect(deseos.total).toBe('415003');
     expect(deseos.consejo).toBeNull();
 
-    // C's exact uncategorized count/total — never the alien's (1 row, 9000).
-    expect(res.body.sinCategoria).toEqual({ cantidad: 3, total: '15003' });
+    // issue #778 tramo 5b: `sinCategoria` (US-049) left the contract; the
+    // uncategorized isolation proof moved to deseos.total above.
+    expect(res.body).not.toHaveProperty('sinCategoria');
 
     expect(JSON.stringify(res.body)).not.toContain(alienUserId);
   });

@@ -7,7 +7,7 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  * seedDemoTransacciones — mapea las definiciones estáticas de `demo-data.ts`
  * a filas insertables (`Prisma.TransaccionCreateManyInput`), resolviendo
  * `bucketKey → bucketId` vía `bucketIds` en tiempo de ejecución (DEMO-DATA-05
- * — nunca hardcodea ids, así el seed sobrevive a migraciones de bucket) y
+ * — nunca hardcodea ids, así el seed demo sobrevive a migraciones de bucket) y
  * `daysAgo → fecha` absoluta relativa a `ahora`.
  *
  * `descripcion` se cifra at rest a través del `ICryptoService` inyectado —

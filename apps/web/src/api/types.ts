@@ -45,9 +45,10 @@ export type { ResumenAnualDto } from '@moneydiary/api-client';
  * completo (`toISOString()`).
  *
  * `categoria` (US-013 CATAPI-05, mirrored web-side S6a): `{ id, nombre } |
- * null`, ya foldeado por el backend — `null` para filas Ingreso/SinCategoria
- * o una categoría no reconocida. Campo aditivo, no rompe el contrato
- * existente.
+ * null`, ya foldeado por el backend — `null` para filas Ingreso, sin
+ * categoría asignada, o una categoría no reconocida (issue #778 tramo 5b:
+ * `SinCategoria` ya no existe como bucket). Campo aditivo, no rompe el
+ * contrato existente.
  */
 export type {
   DetalleBucketDto,
@@ -274,10 +275,11 @@ export type {
  * backend-generated Spanish `diagnostico`, and per-bucket CLP-to-Verde
  * `consejo` (`{ direccion, monto, mensaje }` or `null`).
  *
- * `buckets` is always exactly 3 entries (Necesidades, Deseos, Ahorro) —
- * SinCategoria has no band/estado/target, its count+total travel in the
- * separate `sinCategoria` object instead (D-03). `consejo.mensaje` ships the
- * literal `{monto}` placeholder — the client substitutes it with
+ * `buckets` is always exactly 3 entries (Necesidades, Deseos, Ahorro).
+ * `SinCategoria` (and the separate `sinCategoria` count+total object it used
+ * to travel in) was removed from this contract by issue #778 tramo 5b PR5
+ * (apps/api) — the domain no longer has that bucket at all. `consejo.mensaje`
+ * ships the literal `{monto}` placeholder — the client substitutes it with
  * `formatearMontoCLP(consejo.monto)` before rendering (D-05, SEM-10).
  */
 export type {

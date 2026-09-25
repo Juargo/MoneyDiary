@@ -8,9 +8,14 @@
  * Covered scenarios:
  *   - Single-query aggregation (SC-01): per-(month, bucket) cargo/abono sums
  *     across the whole year, in one repository call.
- *   - null→SinCategoria fold (SC-03): same fold rule as the monthly repo —
- *     null-bucket and real SinCategoria rows MUST be ADDED, not overwritten.
- *   - Empty year (SC-05): no rows → all 12 months × 5 buckets return 0n.
+ *   - null→Deseos fold (SC-03, issue #778 tramo 5b): same fold rule as the
+ *     monthly repo — a `bucketId IS NULL` row folds into Deseos; within a
+ *     group, rows still ADD, never overwrite. (Issue #778 tramo 5b PR6
+ *     migrated every row that used to carry the legacy physical id
+ *     `bucket-sincategoria` and deleted that `BucketPresupuesto` row — the
+ *     FK now makes that id impossible to write, so this suite no longer
+ *     seeds it.)
+ *   - Empty year (SC-05): no rows → all 12 months × 4 buckets return 0n.
  *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into
  *     user A's annual query.
  */
@@ -162,9 +167,9 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     expect(junio?.cantidadCargos).toBe(1);
   });
 
-  // ─── SC-03: null→SinCategoria fold (HIGHEST RISK) ─────────────────────────
+  // ─── SC-03: null→Deseos fold (issue #778 tramo 5b) ──────────
 
-  it('SC-03: null bucketId AND real SinCategoria both fold into SinCategoria for that month (ADDED, not overwritten)', async () => {
+  it('SC-03: null bucketId folds into Deseos for that month, adding with the real Deseos row', async () => {
     if (!ALLOW) return;
 
     const accountId = await seedAccount('sc03');
@@ -183,32 +188,36 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     await seedTransaccion({
       accountId,
       ingestaId,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
-      cargo: 50_000n,
+      bucketId: BUCKET_IDS[Bucket.Deseos],
+      cargo: 20_000n,
       abono: 0n,
       fecha,
     });
 
     const rows = await repo.sumarPorBucketAnual(userId, anioVO);
-    const marzo = rows.find(
-      (r) => r.mes === `${ANIO}-03` && r.bucket === Bucket.SinCategoria,
+    const marzoDeseos = rows.find(
+      (r) => r.mes === `${ANIO}-03` && r.bucket === Bucket.Deseos,
     );
 
-    expect(marzo?.totalCargo).toBe(200_000n);
+    // CRITICAL: Deseos = 150_000 (null-fold) + 20_000 (real Deseos) = 170_000.
+    expect(marzoDeseos?.totalCargo).toBe(170_000n);
     // US-045 D-07: both cargo rows fold into the same (month, bucket) key
     // and must ADD their counts too — 2, not 1.
-    expect(marzo?.cantidadCargos).toBe(2);
+    expect(marzoDeseos?.cantidadCargos).toBe(2);
+    // No 5th bucket appears for March — every row landed in one of the 4 real buckets.
+    const marzoRows = rows.filter((r) => r.mes === `${ANIO}-03`);
+    expect(marzoRows).toHaveLength(4);
   });
 
   // ─── SC-05: empty year ─────────────────────────────────────────────────────
 
-  it('SC-05: empty year → all 12 months × 5 buckets return 0n', async () => {
+  it('SC-05: empty year → all 12 months × 4 buckets return 0n', async () => {
     if (!ALLOW) return;
 
     const userId = `${RUN_ID}-user-sc05-nonexistent`;
     const rows = await repo.sumarPorBucketAnual(userId, anioVO);
 
-    expect(rows).toHaveLength(60); // 12 months × 5 buckets
+    expect(rows).toHaveLength(48); // 12 months × 4 buckets
     for (const row of rows) {
       expect(row.totalCargo).toBe(0n);
       expect(row.totalAbono).toBe(0n);

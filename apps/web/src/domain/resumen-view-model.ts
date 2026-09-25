@@ -14,32 +14,21 @@ import type { BucketResumenDto, ResumenMesDto } from '../api/types';
 export { SIN_PORCENTAJE_LABEL } from './porcentaje';
 
 /**
- * ItemLeyenda — US-047 (design D-03): a 3-kind discriminated union, not two
- * kinds with an optional field. The wireframe pins Sin categoría's row shape
- * as `name · N tx · −CLP amount` (no `%`) while the three spend buckets show
- * `name · % · CLP amount` — a real shape difference. Making `porcentaje`/
- * `cantidadLabel` optional on a shared kind would let a caller construct a
- * `'gasto'` item with a `cantidadLabel`, or omit `porcentaje` from Sin
- * categoría — states the type system should make unrepresentable. No
- * `esClickeable` field either: interactivity is derived from `kind` in
- * presentation (`'gasto'`/`'sinCategoria'` → button + chevron, `'ingreso'` →
- * inert `<li>`) — a boolean with exactly one possible value per kind is a
- * flag that is never toggled.
+ * ItemLeyenda — US-047 (design D-03), narrowed to 2 kinds in issue #778
+ * tramo5b PR1: the `'sinCategoria'` kind (SinCategoria bucket row, `name ·
+ * N tx · −CLP amount`) is REMOVED — the web legend no longer depends on the
+ * SinCategoria bucket at all. No `esClickeable` field: interactivity is
+ * derived from `kind` in presentation (`'gasto'` → button + chevron,
+ * `'ingreso'` → its own button) — a boolean with exactly one possible value
+ * per kind is a flag that is never toggled.
  */
 export type ItemLeyenda =
   | {
       readonly kind: 'gasto';
       readonly bucket: string;
-      /** Ring share from `calcularDistribucionGasto`'s 4-item apportionment. */
+      /** Ring share from `calcularDistribucionGasto`'s apportionment. */
       readonly porcentaje: number;
       readonly montoLabel: string;
-    }
-  | {
-      readonly kind: 'sinCategoria';
-      readonly bucket: string;
-      readonly montoLabel: string;
-      /** Always present, never optional — e.g. '0 tx', never omitted for a real zero. */
-      readonly cantidadLabel: string;
     }
   | {
       readonly kind: 'ingreso';
@@ -75,7 +64,7 @@ export interface ResumenViewModel {
   readonly estadoGlobal: string | null;
   /** Necesidades, Deseos, Ahorro — always in that order, `kind: 'gasto'` (D-03). */
   readonly leyendaPrincipal: ReadonlyArray<ItemLeyenda>;
-  /** Ingresos, Sin categoría — always in that order (D-03). */
+  /** Just Ingresos (issue #778 tramo5b PR1 retired the Sin categoría row). */
   readonly leyendaComplemento: ReadonlyArray<ItemLeyenda>;
 }
 
@@ -105,20 +94,18 @@ function totalPorBucket(
 
 /**
  * `leyendaPrincipal` — the three 50/30/20 items, `kind: 'gasto'` (D-03).
- * Sourced directly from the real 4-item `distribucionGasto` (`BUCKETS_ANILLO`,
- * T2), filtered to `BUCKETS_5030` membership — the PR1 renormalization shim
- * (`distribucionGastoInterina`) is gone as of T11/PR3. WG5-03: "the legend
- * performs no independent percentage computation of its own; it reuses the
- * ring's own value" — no renormalization here means the 3 spend-bucket
- * percentages numerically shrink whenever SinCategoria carries a nonzero
- * total, exactly like the ring's own wedges (WG5-13's dilution, now
- * user-visible in both places at once, by construction). Filtering (not
- * renormalizing) is safe here specifically because this function only reads
- * `porcentaje` for display — it does not drive any angle math, so there is
- * no forced-360-closure risk the way there would be if the PIE itself were
- * filtered post-hoc (that failure mode is why PR1's shim existed at all;
- * the pie now renders the unfiltered 4-item ring directly, see
- * `ResumenScreen.tsx`). Filtering preserves `BUCKETS_ANILLO`'s own canonical
+ * Sourced directly from `distribucionGasto` (T2), filtered to `BUCKETS_5030`
+ * membership. WG5-03: "the legend performs no independent percentage
+ * computation of its own; it reuses the ring's own value".
+ *
+ * Issue #778 tramo5b PR1: `distribucionGasto` (via `calcularDistribucionGasto`'s
+ * `BUCKETS_ANILLO` default) no longer includes a SinCategoria entry at all —
+ * `BUCKETS_ANILLO` and `BUCKETS_5030` are now the same 3-item set, so this
+ * filter is redundant with the upstream ring math today. It stays as a
+ * defensive, belt-and-suspenders guard (same discipline as `totalPorBucket`'s
+ * `?? '0'` fallback and `montoSeguro`'s money guard) rather than trusting the
+ * ring's membership implicitly — a cheap safeguard if a future caller ever
+ * passes a custom `bucketsIncluidos` here. Filtering preserves canonical
  * order (Necesidades, Deseos, Ahorro) and naturally empties when there is no
  * spending (design §3 edge case).
  */
@@ -141,26 +128,18 @@ function aLeyendaPrincipal(
 }
 
 /**
- * `leyendaComplemento` — always `[ingreso(+), sinCategoria(-, cantidadLabel)]`
- * in that order (D-03), regardless of spending: Ingresos must stay visible
- * even when `leyendaPrincipal` is empty (design §3 edge case), and a real
- * `cantidadSinCategoria: 0` maps to a genuine, rendered `'0 tx'` row — never
- * an omission (WG5-05).
+ * `leyendaComplemento` — just `[ingreso(+)]` (issue #778 tramo5b PR1 retired
+ * the `sinCategoria` row this used to also carry, built from
+ * `dto.cantidadSinCategoria`/the SinCategoria entry of `dto.buckets`; tramo5b
+ * PR5, apps/api, later removed both from the wire contract entirely — the
+ * web already never read them here). Ingresos stays visible even when
+ * `leyendaPrincipal` is empty (design §3 edge case).
  */
-function aLeyendaComplemento(dto: ResumenMesDto): ItemLeyenda[] {
+function aLeyendaComplemento(totalIngreso: string): ItemLeyenda[] {
   return [
     {
       kind: 'ingreso',
-      montoLabel: formatearMontoConSigno(dto.totalIngreso, '+'),
-    },
-    {
-      kind: 'sinCategoria',
-      bucket: 'SinCategoria',
-      montoLabel: formatearMontoConSigno(
-        totalPorBucket(dto.buckets, 'SinCategoria'),
-        '-',
-      ),
-      cantidadLabel: `${dto.cantidadSinCategoria} tx`,
+      montoLabel: formatearMontoConSigno(totalIngreso, '+'),
     },
   ];
 }
@@ -184,6 +163,6 @@ export function aResumenViewModel(dto: ResumenMesDto): ResumenViewModel {
     targets: dto.targets,
     estadoGlobal: dto.estadoGlobal,
     leyendaPrincipal: aLeyendaPrincipal(distribucionGasto, dto.buckets),
-    leyendaComplemento: aLeyendaComplemento(dto),
+    leyendaComplemento: aLeyendaComplemento(dto.totalIngreso),
   };
 }
