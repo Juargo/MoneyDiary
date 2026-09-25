@@ -46,7 +46,13 @@ import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
  * resolved names and the "Categoría no disponible" fallback uniformly, a
  * deliberate simplification versus the decision-step summary's two-tier
  * sort (named categorías before "no disponible" ones): T2's product
- * decisions never asked for that finer split.
+ * decisions never asked for that finer split. `clave` is the FINAL tiebreak
+ * (T2 review S1 fix) — several groups can legitimately share the same
+ * `categoriaNombre` (two unresolvable categoriaIds both falling back to
+ * "Categoría no disponible", or the whole catalog in `cargando`/`error`),
+ * and without a further tiebreak that left the sort's stability exposing
+ * Map insertion order — i.e. file order — as an accidental, non-contractual
+ * ordering.
  *
  * Rows inside every group: `fecha` ascending (ISO-8601 strings compare
  * lexicographically in chronological order), `rowIndex` as a stable
@@ -82,12 +88,35 @@ function resolverCategoria(
   return null;
 }
 
-function claveDe(fila: PreviewFilaDto): string {
-  if (fila.sugerido === null) return CLAVE_SIN_CATEGORIA;
+/**
+ * Resolves one fila's grouping key AND its original `bucket`/`categoriaId`
+ * in a single pass (T2 review S2 fix). Previously the `bucket`/`categoriaId`
+ * used to build a `categoria::...` group were re-derived by splitting
+ * `clave` on `'::'` — that truncated any bucket or categoriaId that itself
+ * contained `'::'` (`clave.split('::')` has no way to tell a literal `'::'`
+ * inside an id apart from the separator). Carrying them alongside the clave
+ * from the one place that already knows them avoids that ambiguity entirely.
+ */
+function resolverGrupoDeFila(fila: PreviewFilaDto): {
+  readonly clave: string;
+  readonly bucket: string | null;
+  readonly categoriaId: string | null;
+} {
+  if (fila.sugerido === null) {
+    return { clave: CLAVE_SIN_CATEGORIA, bucket: null, categoriaId: null };
+  }
   const { bucket, categoriaId } = fila.sugerido;
-  if (bucket === BUCKET_INGRESO) return CLAVE_INGRESO;
-  if (categoriaId === null) return CLAVE_SIN_CATEGORIA;
-  return `categoria::${bucket}::${categoriaId}`;
+  if (bucket === BUCKET_INGRESO) {
+    return { clave: CLAVE_INGRESO, bucket: BUCKET_INGRESO, categoriaId: null };
+  }
+  if (categoriaId === null) {
+    return { clave: CLAVE_SIN_CATEGORIA, bucket: null, categoriaId: null };
+  }
+  return {
+    clave: `categoria::${bucket}::${categoriaId}`,
+    bucket,
+    categoriaId,
+  };
 }
 
 /** Canonical bucket order index: the three asignables, then Ingreso, then "everything else". */
@@ -107,19 +136,26 @@ export function agruparFilasPorCategoriaSugerida(
   filas: ReadonlyArray<PreviewFilaDto>,
   catalogo: CatalogoEstado,
 ): ReadonlyArray<GrupoFilaPorCategoria> {
-  const porClave = new Map<string, PreviewFilaDto[]>();
+  const porClave = new Map<
+    string,
+    {
+      readonly bucket: string | null;
+      readonly categoriaId: string | null;
+      readonly filas: PreviewFilaDto[];
+    }
+  >();
   for (const fila of filas) {
-    const clave = claveDe(fila);
-    const filasExistentes = porClave.get(clave);
-    if (filasExistentes) {
-      filasExistentes.push(fila);
+    const { clave, bucket, categoriaId } = resolverGrupoDeFila(fila);
+    const entrada = porClave.get(clave);
+    if (entrada) {
+      entrada.filas.push(fila);
     } else {
-      porClave.set(clave, [fila]);
+      porClave.set(clave, { bucket, categoriaId, filas: [fila] });
     }
   }
 
   const grupos: GrupoFilaPorCategoria[] = [];
-  for (const [clave, filasGrupo] of porClave) {
+  for (const [clave, { bucket, categoriaId, filas: filasGrupo }] of porClave) {
     const filasOrdenadas = [...filasGrupo].sort(compararFilas);
 
     if (clave === CLAVE_SIN_CATEGORIA) {
@@ -146,7 +182,6 @@ export function agruparFilasPorCategoriaSugerida(
       continue;
     }
 
-    const [, bucket, categoriaId] = clave.split('::');
     const categoria = resolverCategoria(catalogo, categoriaId ?? '');
     grupos.push({
       clave,
@@ -164,6 +199,16 @@ export function agruparFilasPorCategoriaSugerida(
     const ordenB =
       b.bucket === null ? Number.MAX_SAFE_INTEGER : ordenBucket(b.bucket);
     if (ordenA !== ordenB) return ordenA - ordenB;
-    return a.categoriaNombre.localeCompare(b.categoriaNombre, 'es');
+    const ordenNombre = a.categoriaNombre.localeCompare(
+      b.categoriaNombre,
+      'es',
+    );
+    // S1 fix: `categoriaNombre` alone leaves ties (several unresolvable
+    // categoriaIds sharing the "Categoría no disponible" fallback, or a
+    // catalog in `cargando`/`error`) to fall back to Map insertion order —
+    // i.e. file order, which is not a deterministic contract. `clave` is
+    // always unique per group, so it is a safe final tiebreak.
+    if (ordenNombre !== 0) return ordenNombre;
+    return a.clave.localeCompare(b.clave, 'es');
   });
 }

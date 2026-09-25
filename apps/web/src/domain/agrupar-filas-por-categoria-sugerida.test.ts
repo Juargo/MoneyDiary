@@ -275,6 +275,53 @@ describe('agruparFilasPorCategoriaSugerida', () => {
     ]);
   });
 
+  it('S1: con el mismo categoriaNombre en el mismo bucket (dos categoriaId no resolubles), el desempate final es por clave — orden idéntico sin importar el orden del archivo', () => {
+    const filaX = unaFilaPreview({
+      rowIndex: 0,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-x' },
+    });
+    const filaY = unaFilaPreview({
+      rowIndex: 1,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-y' },
+    });
+
+    const gruposXY = agruparFilasPorCategoriaSugerida([filaX, filaY], catalogo);
+    const gruposYX = agruparFilasPorCategoriaSugerida([filaY, filaX], catalogo);
+
+    expect(gruposXY.map((g) => g.clave)).toEqual(gruposYX.map((g) => g.clave));
+    expect(gruposXY.map((g) => g.clave)).toEqual([
+      'categoria::Necesidades::cat-x',
+      'categoria::Necesidades::cat-y',
+    ]);
+  });
+
+  it('S2: un categoriaId que contiene "::" igual resuelve su nombre del catálogo (ya no se trunca al hacer clave.split)', () => {
+    const catalogoConIdRaro = unCatalogo({
+      grupos: [
+        {
+          bucket: 'Necesidades',
+          categorias: [
+            {
+              id: 'cat::raro',
+              nombre: 'Rareza',
+              bucket: 'Necesidades',
+              patrones: [],
+              transaccionesCount: 0,
+            },
+          ],
+        },
+      ],
+    });
+    const fila = unaFilaPreview({
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat::raro' },
+    });
+
+    const grupos = agruparFilasPorCategoriaSugerida([fila], catalogoConIdRaro);
+
+    expect(grupos[0]?.categoriaNombre).toBe('Rareza');
+    expect(grupos[0]?.categoriaId).toBe('cat::raro');
+  });
+
   it('dentro de un grupo, las filas quedan ordenadas por fecha ascendente', () => {
     const filaTardia = unaFilaPreview({
       rowIndex: 0,
