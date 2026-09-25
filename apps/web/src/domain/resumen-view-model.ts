@@ -130,9 +130,10 @@ function aLeyendaPrincipal(
 /**
  * `leyendaComplemento` — just `[ingreso(+)]` (issue #778 tramo5b PR1 retired
  * the `sinCategoria` row this used to also carry, built from
- * `dto.cantidadSinCategoria`/the SinCategoria entry of `dto.buckets`; the API
- * still sends both, the web now simply never reads them here). Ingresos
- * stays visible even when `leyendaPrincipal` is empty (design §3 edge case).
+ * `dto.cantidadSinCategoria`/the SinCategoria entry of `dto.buckets`; tramo5b
+ * PR5, apps/api, later removed both from the wire contract entirely — the
+ * web already never read them here). Ingresos stays visible even when
+ * `leyendaPrincipal` is empty (design §3 edge case).
  */
 function aLeyendaComplemento(totalIngreso: string): ItemLeyenda[] {
   return [

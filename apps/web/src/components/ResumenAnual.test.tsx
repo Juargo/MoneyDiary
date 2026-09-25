@@ -42,16 +42,9 @@ function mesConDatos(
         porcentajeBp: 2000,
         estadoSemaforo: 'verde',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal,
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -79,16 +72,9 @@ function mesSinDatos(periodo: string): ResumenMesDto {
         porcentajeBp: null,
         estadoSemaforo: null,
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -471,27 +457,33 @@ describe('ResumenAnual', () => {
   // `calcularDistribucionGasto`'s `BUCKETS_ANILLO` default dropped it, so
   // `ResumenAnual`'s `calcularDistribucionGasto(mes.buckets)` call
   // automatically excludes it too, with no code change needed in this
-  // component. This test feeds a REAL DTO still carrying a NONZERO
-  // SinCategoria bucket entry (the API is unchanged in this PR) and proves
-  // both halves of the contract: (a) only 3 mini-pie slices render, and (b)
-  // the three spend fractions are NOT distorted by SinCategoria's presence —
-  // comparing wedge geometry (`d` attribute) against the SAME month with no
-  // SinCategoria total shows byte-identical paths.
-  it('renders only 3 mini-pie slices per month and ignores a nonzero SinCategoria bucket entry without distorting the others (issue #778 tramo5b PR1)', async () => {
+  // component. Tramo5b PR5 (apps/api) later removed `Bucket.SinCategoria`
+  // from the domain and the wire contract entirely — the API can no longer
+  // send that bucket at all. This test simulates the DEPLOY-ORDER SAFETY
+  // window (web deployed after the API contract changed, but a stale/cached
+  // or not-yet-migrated response still carries the OLD 4th bucket entry)
+  // and proves both halves of the contract still hold: (a) only 3 mini-pie
+  // slices render, and (b) the three spend fractions are NOT distorted by
+  // the legacy entry's presence — comparing wedge geometry (`d` attribute)
+  // against the SAME month with no legacy entry shows byte-identical paths.
+  it('renders only 3 mini-pie slices per month and ignores a legacy SinCategoria bucket entry without distorting the others (deploy-order safety, issue #778 tramo5b PR5)', async () => {
     const enero = mesConDatos('2026-01');
-    const eneroConSinCategoria: ResumenMesDto = {
+    const eneroConSinCategoriaLegacy: ResumenMesDto = {
       ...enero,
-      buckets: enero.buckets.map((b) =>
-        b.bucket === 'SinCategoria'
-          ? { ...b, total: '100000', porcentajeBp: 600 }
-          : b,
-      ),
-      cantidadSinCategoria: 2,
+      buckets: [
+        ...enero.buckets,
+        {
+          bucket: 'SinCategoria',
+          total: '100000',
+          porcentajeBp: 600,
+          estadoSemaforo: null,
+        },
+      ],
     };
     const datosConSinCategoria: ResumenAnualDto = {
       anio: 2026,
       meses: anioTodoSinDatos().meses.map((mes, i) =>
-        i === 0 ? eneroConSinCategoria : mes,
+        i === 0 ? eneroConSinCategoriaLegacy : mes,
       ),
     };
     mockFetchAnual({
@@ -518,8 +510,8 @@ describe('ResumenAnual', () => {
       return slice.getAttribute('d');
     });
 
-    // Same month, but with `mesConDatos` verbatim (SinCategoria total left
-    // at its default '0') — if SinCategoria were still diluting the ring,
+    // Same month, but with `mesConDatos` verbatim (no legacy SinCategoria
+    // entry at all) — if the legacy entry were still diluting the ring,
     // the two renders' wedge geometry would differ.
     cleanup();
     const datosSinSinCategoria: ResumenAnualDto = {

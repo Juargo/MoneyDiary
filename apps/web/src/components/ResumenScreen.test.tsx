@@ -93,14 +93,17 @@ const viewModel: ResumenViewModel = {
 };
 
 /**
- * A REAL `ResumenMesDto` (all 4 API-sent buckets — SinCategoria included,
- * the API is unchanged in this PR — run through the actual
- * `aResumenViewModel` mapper), used to prove issue #778 tramo5b PR1: even
- * though the DTO still carries a nonzero SinCategoria total, the resulting
- * view model's ring/legend never show it and the three spend percentages
- * are not distorted by its presence (see the test below).
+ * A REAL `ResumenMesDto` still carrying the LEGACY 4th bucket entry (run
+ * through the actual `aResumenViewModel` mapper) — issue #778 tramo5b PR5
+ * (apps/api) removed `Bucket.SinCategoria`/`cantidadSinCategoria` from the
+ * domain and the wire contract entirely, so a real API response can no
+ * longer send this shape. This fixture stays as a DEPLOY-ORDER SAFETY proof
+ * (web and the API deploy independently from main): even if a stale/cached
+ * response still carries the old nonzero SinCategoria bucket total, the
+ * resulting view model's ring/legend never show it and the three spend
+ * percentages are not distorted by its presence (see the test below).
  */
-function resumenMesDtoReal(): ResumenMesDto {
+function resumenMesDtoConSinCategoriaLegacy(): ResumenMesDto {
   return {
     periodo: '2026-07',
     totalIngreso: '1000000',
@@ -133,7 +136,6 @@ function resumenMesDtoReal(): ResumenMesDto {
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
-    cantidadSinCategoria: 2,
   };
 }
 
@@ -161,16 +163,9 @@ function mesSinDatos(periodo: string): ResumenAnualDto['meses'][number] {
         porcentajeBp: null,
         estadoSemaforo: null,
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: null,
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -198,16 +193,9 @@ function mesConDatos(periodo: string): ResumenAnualDto['meses'][number] {
         porcentajeBp: 2000,
         estadoSemaforo: 'verde',
       },
-      {
-        bucket: 'SinCategoria',
-        total: '0',
-        porcentajeBp: null,
-        estadoSemaforo: null,
-      },
     ],
     targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
     estadoGlobal: 'verde',
-    cantidadSinCategoria: 0,
   };
 }
 
@@ -312,23 +300,24 @@ describe('ResumenScreen', () => {
     ).not.toBeInTheDocument();
   });
 
-  // Regression test (issue #778 tramo5b PR1): feeds a REAL `ResumenMesDto`
-  // still carrying a NONZERO SinCategoria bucket entry and
-  // `cantidadSinCategoria` (the API is unchanged in this PR) through the
-  // real `aResumenViewModel` mapper, and asserts the rendered screen (a)
-  // never shows a Sin categoría wedge/row and (b) the three spend
-  // percentages are NOT distorted by SinCategoria's presence — they read
-  // 44/28/28 (over the 900000 three-bucket total), not the diluted
-  // 40/25/25 a SinCategoria-inclusive denominator would produce. Also
-  // guards the historical duplicate-key regression (judgment-day PR1 fix):
-  // `LeyendaGasto` renders exactly 4 rows (3 gasto + Ingresos), no
-  // duplicate.
-  it('ignores a nonzero SinCategoria bucket entry from a REAL view model — no wedge/row, spend percentages undistorted (issue #778 tramo5b PR1)', async () => {
+  // Regression test (issue #778 tramo5b PR1, extended for deploy-order
+  // safety by tramo5b PR5): feeds a REAL `ResumenMesDto` still carrying the
+  // LEGACY nonzero SinCategoria bucket entry (a shape the API can no longer
+  // send after PR5, but a stale/cached response during the independent
+  // web/API deploy window still could) through the real `aResumenViewModel`
+  // mapper, and asserts the rendered screen (a) never shows a Sin categoría
+  // wedge/row and (b) the three spend percentages are NOT distorted by the
+  // legacy entry's presence — they read 44/28/28 (over the 900000
+  // three-bucket total), not the diluted 40/25/25 a SinCategoria-inclusive
+  // denominator would produce. Also guards the historical duplicate-key
+  // regression (judgment-day PR1 fix): `LeyendaGasto` renders exactly 4 rows
+  // (3 gasto + Ingresos), no duplicate.
+  it('ignores a legacy SinCategoria bucket entry from a REAL view model — no wedge/row, spend percentages undistorted (deploy-order safety, issue #778 tramo5b PR5)', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
     mockFetchAnual();
-    const vmReal = aResumenViewModel(resumenMesDtoReal());
+    const vmReal = aResumenViewModel(resumenMesDtoConSinCategoriaLegacy());
 
     renderScreen(vmReal);
 

@@ -504,7 +504,7 @@ describe('ReclasificarCategoriaControl', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('a SinCategoria row starts with no categoría selected (placeholder)', async () => {
+  it('a row with no categoría assigned starts with no categoría selected (placeholder)', async () => {
     mockFetch({
       ok: true,
       status: 200,
@@ -516,7 +516,7 @@ describe('ReclasificarCategoriaControl', () => {
         transaccionId="tx-2"
         descripcion="Transferencia recibida"
         montoLabel="$0"
-        bucketActual="SinCategoria"
+        bucketActual="Deseos"
         categoriaActual={null}
         periodo="2026-07"
         onMovida={vi.fn()}
@@ -923,7 +923,7 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it('a SinCategoria row shows the confirmation naming source AND full "{bucket} · {categoría}" destination, commits only on confirm, calls onMovida with that same label (D-07, issue #782)', async () => {
+  it('a row with no categoría assigned shows the confirmation naming source AND full "{bucket} · {categoría}" destination, commits only on confirm, calls onMovida with that same label (D-07, issue #782)', async () => {
     const fetchMock = mockFetch({
       ok: true,
       status: 200,
@@ -937,7 +937,7 @@ describe('ReclasificarCategoriaControl', () => {
         transaccionId="tx-2"
         descripcion="Transferencia recibida"
         montoLabel="$7.500"
-        bucketActual="SinCategoria"
+        bucketActual="Deseos"
         categoriaActual={null}
         periodo="2026-07"
         onMovida={onMovida}
@@ -958,7 +958,7 @@ describe('ReclasificarCategoriaControl', () => {
     // subcadena, pasaba igual con y sin la categoría — no podía ponerse
     // rojo por el bug que decía cubrir (issue #782).
     expect(dialog).toHaveTextContent(
-      'Esto mueve $7.500 de Sin grupo ni categoría a Necesidades · Transporte.',
+      'Esto mueve $7.500 de Gustos a Necesidades · Transporte.',
     );
     expect(fetchMock).not.toHaveBeenCalledWith(
       '/api/transacciones/tx-2/categoria',

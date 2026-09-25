@@ -49,11 +49,11 @@ export interface BucketSemaforoViewModel {
 }
 
 /**
- * Issue #778 tramo5b PR1 (apps/web): NO `sinCategoria` field — the API's
- * `SemaforoDetalleDto.sinCategoria` (the SinCategoria bucket's count/total,
- * unchanged in this PR) is deliberately never read here. It used to drive
- * `SemaforoDetallePage`'s "N movimientos sin grupo ni categoría" banner,
- * which is retired.
+ * Issue #778 tramo5b PR1 (apps/web): NO `sinCategoria` field — was
+ * deliberately never read here even while the API still sent it. It used to
+ * drive `SemaforoDetallePage`'s "N movimientos sin grupo ni categoría"
+ * banner, which is retired. Tramo5b PR5 (apps/api) later removed the field
+ * from the wire contract entirely.
  */
 export interface SemaforoDetalleViewModel {
   readonly periodo: string;

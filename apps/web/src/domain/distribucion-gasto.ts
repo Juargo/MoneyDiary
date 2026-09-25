@@ -19,12 +19,12 @@ export const BUCKETS_5030 = ['Necesidades', 'Deseos', 'Ahorro'] as const;
  * `BUCKETS_ANILLO` — the ring members apportioned by `calcularDistribucionGasto`'s
  * default. Issue #778 tramo5b PR1 (apps/web): `SinCategoria` is REMOVED from
  * this set — the web dashboard's ring/legend stop depending on that bucket
- * entirely (the API still sends it in `buckets[]`/`cantidadSinCategoria`; the
- * web simply never reads it downstream of this constant). `BUCKETS_ANILLO`
- * is therefore byte-identical to `BUCKETS_5030` today; the two names stay
- * distinct (not aliased) because they document different INTENTS — "the
- * ring's own membership" vs. "the 50/30/20 spend set" — even though their
- * current values coincide.
+ * entirely. Tramo5b PR5 (apps/api) later removed `Bucket.SinCategoria`/
+ * `cantidadSinCategoria` from the wire contract too, so there is nothing
+ * left to send. `BUCKETS_ANILLO` is therefore byte-identical to
+ * `BUCKETS_5030` today; the two names stay distinct (not aliased) because
+ * they document different INTENTS — "the ring's own membership" vs. "the
+ * 50/30/20 spend set" — even though their current values coincide.
  */
 export const BUCKETS_ANILLO = BUCKETS_5030;
 
@@ -68,10 +68,12 @@ function montoSeguro(montoStr: string): bigint {
  *
  * `bucketsIncluidos` (US-047 PR1 shim, judgment-day round 2 CRITICAL fix): a
  * trailing optional param, `BUCKETS_ANILLO` by default. Any `buckets` entry
- * outside `bucketsIncluidos` — e.g. a `SinCategoria` entry, which the API
- * still sends (issue #778 tramo5b) even though `BUCKETS_ANILLO` no longer
- * includes it — is excluded from BOTH the numerator set and the
- * denominator, so the returned percentages always sum to exactly 100. The
+ * outside `bucketsIncluidos` — e.g. a legacy `SinCategoria` entry, which a
+ * stale/cached response could still carry during the independent web/API
+ * deploy window even though the API stopped sending it for good (issue
+ * #778 tramo5b PR5) and `BUCKETS_ANILLO` no longer includes it — is
+ * excluded from BOTH the numerator set and the denominator, so the
+ * returned percentages always sum to exactly 100. The
  * math (largest-remainder, BigInt ratios) stays in the domain layer
  * (ADR-024) instead of a component-side filter-without-renormalize shim,
  * which would keep DILUTED percentages that don't sum to 100 and let

@@ -37,16 +37,9 @@ const dataDto: ResumenMesDto = {
       porcentajeBp: 2000,
       estadoSemaforo: 'verde',
     },
-    {
-      bucket: 'SinCategoria',
-      total: '0',
-      porcentajeBp: null,
-      estadoSemaforo: null,
-    },
   ],
   targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
   estadoGlobal: 'verde',
-  cantidadSinCategoria: 0,
 };
 
 const emptyDto: ResumenMesDto = {
@@ -106,12 +99,6 @@ function mockFetchAnual() {
                 },
                 {
                   bucket: 'Ahorro',
-                  total: '0',
-                  porcentajeBp: null,
-                  estadoSemaforo: null,
-                },
-                {
-                  bucket: 'SinCategoria',
                   total: '0',
                   porcentajeBp: null,
                   estadoSemaforo: null,
