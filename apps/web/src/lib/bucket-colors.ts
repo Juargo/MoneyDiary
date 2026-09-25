@@ -44,6 +44,17 @@
  *     categoría was deleted (`eliminar-categoria.use-case.ts` nulls
  *     `categoriaId` and never touches `bucketId`).
  *
+ * Issue #778 tramo5b PR1 (apps/web): the dashboard ring/legend/semáforo stop
+ * DEPENDING on the SinCategoria bucket (they never render it), but this entry
+ * itself stays — `ReclasificarCategoriaControl`'s confirmation dialog still
+ * reads it to name the source bucket when reclassifying a movement OUT of
+ * SinCategoria (`bucketActual="SinCategoria"`, still a real, reachable case
+ * via `/buckets/SinCategoria`, D-07/issue #782). Removing this entry would
+ * leak the raw internal key `"SinCategoria"` to that dialog's copy instead of
+ * degrading gracefully. `claseRellenoBucket`/`claseGlifoBucket`/
+ * `claseFondoBucket` below DO drop their SinCategoria entries — those are
+ * ring/pie/dot-only concerns with no equivalent surviving consumer.
+ *
  * Keep the two labels distinct. The mobile twin in `apps/mobile/src/theme/
  * colors.ts` carries the same map and must stay in sync.
  *
@@ -141,7 +152,6 @@ const CLASE_RELLENO_BUCKET: Record<string, string> = {
   Necesidades: 'fill-necesidades',
   Deseos: 'fill-gustos',
   Ahorro: 'fill-ahorro',
-  SinCategoria: 'fill-sin-categoria',
 };
 
 export function claseRellenoBucket(bucket: string): string {
@@ -156,16 +166,18 @@ export function claseRellenoBucket(bucket: string): string {
  * against `claseRellenoBucket`'s fill, see design.md "Contrast"). Minting a
  * separate glyph-ink token family was rejected (D-08) precisely to avoid
  * this exact duplication — one set of measured values, two Tailwind
- * property axes (`fill-`/`text-`) pointed at it. `SinCategoria` is the
- * fallback for both the synthetic "Sin categoría" group AND any unrecognized
- * bucket key, same rationale as `claseEtiquetaPie`'s own fallback comment
- * (the three spend buckets share the same fallback family).
+ * property axes (`fill-`/`text-`) pointed at it.
+ *
+ * Issue #778 tramo5b PR1: the dedicated `SinCategoria` entry is REMOVED —
+ * any unrecognized bucket key (including a literal `'SinCategoria'`, still
+ * reachable only via a direct `/buckets/SinCategoria` URL, never from any
+ * in-app link) falls back to the Necesidades-family class, same as
+ * `claseEtiquetaPie`'s own fallback.
  */
 const CLASE_GLIFO_BUCKET: Record<string, string> = {
   Necesidades: 'text-pie-etiqueta-necesidades',
   Deseos: 'text-pie-etiqueta-gustos',
   Ahorro: 'text-pie-etiqueta-ahorro',
-  SinCategoria: 'text-pie-etiqueta-sin-categoria',
 };
 
 export function claseGlifoBucket(bucket: string): string {
@@ -177,7 +189,6 @@ const CLASE_FONDO_BUCKET: Record<string, string> = {
   Necesidades: 'bg-necesidades',
   Deseos: 'bg-gustos',
   Ahorro: 'bg-ahorro',
-  SinCategoria: 'bg-sin-categoria',
 };
 
 export function claseFondoBucket(bucket: string): string {

@@ -3,13 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { LeyendaGasto } from './LeyendaGasto';
 import type { ItemLeyenda } from '@/domain/resumen-view-model';
 
-// US-047 (design D-03/D-08): the legend now takes two ordered
-// `ItemLeyenda[]` groups instead of one flat `LeyendaTajada[]` — a
-// structural divider sits between them (viewport-conditional, D-09/T13
-// owns the Playwright visibility proof; this file only proves the element
-// exists at the right DOM position). The accessible name is now
-// content-derived (the row's own visible text), not a bucket-only
-// `aria-label` (R-8/D-08 deliberate removal).
+// US-047 (design D-03/D-08): the legend takes two ordered `ItemLeyenda[]`
+// groups instead of one flat `LeyendaTajada[]` — a structural divider sits
+// between them (viewport-conditional, D-09/T13 owns the Playwright
+// visibility proof; this file only proves the element exists at the right
+// DOM position). The accessible name is content-derived (the row's own
+// visible text), not a bucket-only `aria-label` (R-8/D-08 deliberate
+// removal). Issue #778 tramo5b PR1: `complemento` is now just `[ingreso]` —
+// the `'sinCategoria'` kind is retired from `ItemLeyenda` entirely.
 const principales: ReadonlyArray<ItemLeyenda> = [
   {
     kind: 'gasto',
@@ -22,12 +23,6 @@ const principales: ReadonlyArray<ItemLeyenda> = [
 ];
 const complemento: ReadonlyArray<ItemLeyenda> = [
   { kind: 'ingreso', montoLabel: '+$1.500.000' },
-  {
-    kind: 'sinCategoria',
-    bucket: 'SinCategoria',
-    montoLabel: '-$45.000',
-    cantidadLabel: '7 tx',
-  },
 ];
 
 function renderLeyenda(
@@ -45,9 +40,9 @@ function renderLeyenda(
 }
 
 describe('LeyendaGasto', () => {
-  it('renders three 50/30/20 rows, a separator, then Ingresos and Sin categoría (US-047 WG5-03)', () => {
+  it('renders three 50/30/20 rows, a separator, then Ingresos (issue #778 tramo5b PR1 retired the Sin categoría row)', () => {
     renderLeyenda();
-    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(5);
+    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(4);
   });
 
   it('each spend-bucket row announces name, percentage, and amount via a content-derived accessible name (US-047 D-08, aria-label removed)', () => {
@@ -73,7 +68,7 @@ describe('LeyendaGasto', () => {
       />,
     );
     expect(screen.getByText('Ingresos')).toBeInTheDocument();
-    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(2);
+    expect(screen.getAllByTestId('leyenda-item')).toHaveLength(1);
   });
 
   // US-054 T-14 (D-05, WG5-03/06): the Ingresos row IS now a button —
@@ -96,39 +91,20 @@ describe('LeyendaGasto', () => {
     expect(screen.getByText('+$1.500.000')).toBeInTheDocument();
   });
 
-  it('the Sin categoría row IS a button and shows its transaction count, amount, and chevron, activating the same drill-down (US-047 WG5-03)', () => {
-    const onSelectBucket = vi.fn();
-    renderLeyenda({ onSelectBucket });
-    const boton = screen.getByRole('button', {
-      name: 'Sin grupo ni categoría 7 transacciones sin grupo ni categoría -$45.000',
-    });
-    expect(boton).toBeInTheDocument();
-    fireEvent.click(boton);
-    expect(onSelectBucket).toHaveBeenCalledWith('SinCategoria');
-  });
-
-  // CRITICAL fix (judgment-day, WCAG 4.1.2/ADR-018, tasks.md T7, design §5):
-  // "tx" is a visual abbreviation an AT user shouldn't have to guess — the
-  // accessible name must spell it out. Pattern: the visible "7 tx" stays
-  // `aria-hidden`, a `sr-only` sibling REPLACES it in the accessible name
-  // (not a duplicate of the digit) — same discipline as this repo's other
-  // `sr-only` usages (`rg "sr-only" apps/web/src`).
-  it('replaces the "tx" abbreviation with an sr-only expansion in the accessible name, while the visible text stays the concise "N tx" (WCAG 4.1.2)', () => {
+  // Issue #778 tramo5b PR1: the Sin categoría row (SinCategoria bucket,
+  // "N tx" + alert cue + drill-down to `/buckets/SinCategoria`) is RETIRED.
+  // `ItemLeyenda` no longer even has a `'sinCategoria'` kind (a compile-time
+  // guarantee, not just a runtime one), so `complemento` can only ever be
+  // `[ingreso]` — this asserts nothing resembling that old row renders.
+  it('never renders a Sin categoría row, its alert icon, or a drill-down to SinCategoria (issue #778 tramo5b PR1)', () => {
     renderLeyenda();
-    // Visible text is unchanged — still the concise abbreviation.
-    expect(screen.getByText('7 tx')).toBeInTheDocument();
-    // The digit-bearing visible text is aria-hidden — the accessible name
-    // for that segment comes ONLY from the sr-only expansion below.
-    expect(screen.getByText('7 tx')).toHaveAttribute('aria-hidden', 'true');
-    const expansion = screen.getByText(
-      '7 transacciones sin grupo ni categoría',
-    );
-    expect(expansion).toHaveClass('sr-only');
     expect(
-      screen.getByRole('button', {
-        name: 'Sin grupo ni categoría 7 transacciones sin grupo ni categoría -$45.000',
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /Sin grupo ni categoría/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/ tx$/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('leyenda-alerta-sin-categoria'),
+    ).not.toBeInTheDocument();
   });
 
   it('the chevron is aria-hidden and never appears in a row accessible name (US-047 WG5-12)', () => {
@@ -192,17 +168,14 @@ describe('LeyendaGasto', () => {
   //
   // `web-theme-switch` PR4 (D3): the dot is now a token-backed `bg-*` class
   // (`claseFondoBucket`, `lib/bucket-colors.ts`), not an inline
-  // `backgroundColor` hex. Four dots render: the three `principales` rows
-  // plus `complemento`'s `sinCategoria` row (Ingresos has no dot).
-  it('applies the resolved fill class to each color dot, including the Sin categoría dedicated grey class, never the muted-foreground fallback', () => {
+  // `backgroundColor` hex. Issue #778 tramo5b PR1: only 3 dots render now —
+  // the three `principales` rows (Ingresos has no dot, and `complemento`'s
+  // retired `sinCategoria` row used to add a 4th).
+  it('applies the resolved fill class to each color dot, never the muted-foreground fallback', () => {
     renderLeyenda();
     const dots = screen.getAllByTestId('leyenda-dot');
-    const clasesEsperadas = [
-      'bg-necesidades',
-      'bg-gustos',
-      'bg-ahorro',
-      'bg-sin-categoria',
-    ];
+    const clasesEsperadas = ['bg-necesidades', 'bg-gustos', 'bg-ahorro'];
+    expect(dots).toHaveLength(3);
     dots.forEach((dot, i) => {
       expect(dot).toHaveClass(clasesEsperadas[i]);
       expect(dot).not.toHaveClass('bg-muted-foreground');
@@ -222,55 +195,22 @@ describe('LeyendaGasto', () => {
   // (`formatearMontoConSigno`: '-' for spend, '+' for income, no sign for a
   // zero amount), so the color reads it straight from `montoLabel` — no money
   // parsing. Zero stays neutral, per the `--color-cargo-foreground` docstring.
-  it('colors negative amounts with the expense ink, positive amounts with the income ink, and leaves a zero amount neutral', () => {
-    renderLeyenda({
-      complemento: [
-        { kind: 'ingreso', montoLabel: '+$1.500.000' },
-        {
-          kind: 'sinCategoria',
-          bucket: 'SinCategoria',
-          montoLabel: '$0',
-          cantidadLabel: '0 tx',
-        },
-      ],
-    });
+  it('colors negative amounts with the expense ink, positive amounts with the income ink', () => {
+    renderLeyenda();
     expect(screen.getByText('-$624.500')).toHaveClass('text-cargo-foreground');
     expect(screen.getByText('-$300.000')).toHaveClass('text-cargo-foreground');
     expect(screen.getByText('+$1.500.000')).toHaveClass(
       'text-ingreso-foreground',
     );
+  });
+
+  it('leaves a zero amount neutral', () => {
+    renderLeyenda({
+      complemento: [{ kind: 'ingreso', montoLabel: '$0' }],
+    });
     const cero = screen.getByText('$0');
     expect(cero).toHaveClass('text-foreground');
     expect(cero).not.toHaveClass('text-cargo-foreground');
     expect(cero).not.toHaveClass('text-ingreso-foreground');
-  });
-
-  it('shows a minimal decorative alert icon next to Sin categoría when there are uncategorized transactions, without changing the accessible name', () => {
-    renderLeyenda();
-    const alerta = screen.getByTestId('leyenda-alerta-sin-categoria');
-    expect(alerta).toHaveAttribute('aria-hidden', 'true');
-    expect(alerta).toHaveClass('text-warning-foreground');
-    expect(
-      screen.getByRole('button', {
-        name: 'Sin grupo ni categoría 7 transacciones sin grupo ni categoría -$45.000',
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it('omits the Sin categoría alert icon when there are no uncategorized transactions', () => {
-    renderLeyenda({
-      complemento: [
-        { kind: 'ingreso', montoLabel: '+$1.500.000' },
-        {
-          kind: 'sinCategoria',
-          bucket: 'SinCategoria',
-          montoLabel: '$0',
-          cantidadLabel: '0 tx',
-        },
-      ],
-    });
-    expect(
-      screen.queryByTestId('leyenda-alerta-sin-categoria'),
-    ).not.toBeInTheDocument();
   });
 });
