@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PreviewMuestra } from './PreviewMuestra';
-import type { PreviewFilaDto } from '@/api/types';
+import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
 
 // crear-categoria-desde-preview PR3: opening a row's creation form mounts
 // `NuevaCategoriaDesdeFilaForm`, which owns a `useCrearCategoria()` mutation
@@ -352,6 +352,24 @@ describe('PreviewMuestra', () => {
         }),
       ];
 
+      // Supermercado carries an icon; Restaurantes keeps the fixture's
+      // missing icono so the same render also pins the fallback glyph.
+      const catalogoBase = unCatalogo();
+      const catalogo: CatalogoEstado =
+        catalogoBase.tag === 'listo'
+          ? {
+              ...catalogoBase,
+              grupos: catalogoBase.grupos.map((grupo) => ({
+                ...grupo,
+                categorias: grupo.categorias.map((categoria) =>
+                  categoria.id === 'cat-nec-1'
+                    ? { ...categoria, icono: 'shopping-cart' }
+                    : categoria,
+                ),
+              })),
+            }
+          : catalogoBase;
+
       const { container } = render(
         <PreviewMuestra
           banco="BancoEstado"
@@ -359,7 +377,7 @@ describe('PreviewMuestra', () => {
           resumen={{ totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 }}
           edits={new Map()}
           onEditChange={vi.fn()}
-          catalogo={unCatalogo()}
+          catalogo={catalogo}
         />,
       );
 
@@ -376,10 +394,13 @@ describe('PreviewMuestra', () => {
       });
       expect(grupoNecesidades).toBeInTheDocument();
       expect(grupoGustos).toBeInTheDocument();
-      // Each group heading carries the category's icon badge.
+      // Each group heading carries its category's own glyph. Match the lucide
+      // class, not any aria-hidden svg: the heading also holds the accordion
+      // chevron, which would satisfy a generic query with no badge at all.
       expect(
-        grupoNecesidades.querySelector('svg[aria-hidden="true"]'),
+        grupoNecesidades.querySelector('svg.lucide-shopping-cart'),
       ).toBeInTheDocument();
+      expect(grupoGustos.querySelector('svg.lucide-tag')).toBeInTheDocument();
     });
 
     it('an Ingreso row groups alone under a plain "Ingreso" heading, no "· Ingreso" suffix', () => {

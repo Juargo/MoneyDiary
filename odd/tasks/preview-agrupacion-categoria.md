@@ -43,7 +43,9 @@
   - Adjust `e2e/preview-stress.e2e.ts` (filter + "N de M clasificadas" steps).
   - Update `openspec/specs/web-import-preview/spec.md` WEB-PRV-16 (drop the progress-readout clause).
   - Checks: `npx tsc -b`, `npx vitest run`, eslint on touched files.
-- [x] **T2 — Group preview by bucket · category with icon** (route: delegated writer)
+- [x] **T2 — Group preview by bucket · category with icon** (route: delegated writer) · commit `f2f1539a` · RDD assess (base `dfd85b1e`): medium, `slice_budget_reached` → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-2f4c58f24ddbaf89`, authority burned). Reviewed boundary → `f2f1539a`.
+  - Advisory (non-blocking) follow-ups: **W1** icon test `PreviewMuestra.test.tsx:381` is vacuous (the h4 also holds the aria-hidden ChevronDown svg); S1 group-order tiebreak by `clave`; S2 carry bucket/categoriaId instead of splitting `clave` on `::`; S3 component-level test for the focus-continuity guard.
+  - W1 fixed (user-authorized 2026-09-25): icon assertion now matches `svg.lucide-shopping-cart` (catalog override) + `svg.lucide-tag` fallback. Mutation proof: removing `<IconoCategoriaBadge>` → test RED (1 failed); restored → GREEN. Checks: `tsc -b` 0; `PreviewMuestra.test.tsx` 26/26; eslint clean. S1–S3 remain later work.
   - T1 review follow-ups (non-blocking, advisory): F1 delete the vacuous `data-columnas-header` test (`PreviewMuestra.test.tsx:469-474`, asserts on a removed element); F2 `ResumenCartola` note should read the bucket label from `ETIQUETA_BUCKET` instead of hardcoding "Gustos"; F3 docblock wording "describe block" in `PreviewMuestra.tsx:25-27`. Not taken: e2e completion signal (`preview-stress.e2e.ts:130`) — recorded as later work.
   - RED: unit tests for a pure `agruparPreviewPorCategoria` in `apps/web/src/domain/` — key from `sugerido` (bucket + categoriaId), rows date-ordered (stable by `rowIndex`), deterministic group order, Ingreso and no-suggestion rows handled, edits do NOT move rows.
   - RED: `PreviewMuestra.test.tsx` — group header shows icon + "Bucket · Categoría" + count; editing a row keeps it in its group; accordion keys stable.
@@ -71,4 +73,4 @@
 
 ## Next step
 
-RDD review of the T2 commit; then PR 1 (T1) → main and PR 2 (T2) stacked, when the user decides to deliver.
+Then PR 1 (T1) → main and PR 2 (T2) stacked, when the user decides to deliver.
