@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.12.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.11.0...web-v0.12.0) (2026-09-25)
+
+
+### Features
+
+* **web:** drop bulk selection, filter and progress readout from import preview ([8004b69](https://github.com/Juargo/MoneyDiary/commit/8004b693b1c10482ff5c81b09291fd60dc727e69))
+* **web:** drop bulk selection, filter and progress readout from import preview ([dfd85b1](https://github.com/Juargo/MoneyDiary/commit/dfd85b1e726acfd0ec6def60c6680343627e97f4))
+* **web:** group import preview rows by suggested bucket and category ([68795a2](https://github.com/Juargo/MoneyDiary/commit/68795a2a6099e419f8f69025228b10235553b825))
+* **web:** group import preview rows by suggested bucket and category ([f2f1539](https://github.com/Juargo/MoneyDiary/commit/f2f1539a1bc5df27b122f120d94d0d866d31fe13))
+* **web:** nest the import preview in a bucket then category accordion ([ec4630a](https://github.com/Juargo/MoneyDiary/commit/ec4630a112cfdcb7ad0f07dd6adeede89499dcb3))
+* **web:** nest the import preview in a bucket then category accordion ([3641266](https://github.com/Juargo/MoneyDiary/commit/364126684fcfb5cea5bb7499b70aa575785f038c))
+
+
+### Bug Fixes
+
+* **web:** make the preview group tiebreak ordinal ([1b125a7](https://github.com/Juargo/MoneyDiary/commit/1b125a7e9feea29941113c0c590da0f3a1fde11e))
+* **web:** route unplaceable preview rows to a Revisar entry ([8c3a1a1](https://github.com/Juargo/MoneyDiary/commit/8c3a1a15c94a64c4a4a38e9cf09f96aa9eab6f9c))
+
+
+### Refactors
+
+* **web:** dedupe preview row rendering and rename the grouping module ([345fa4f](https://github.com/Juargo/MoneyDiary/commit/345fa4f667559c9d3c93f03e7897c607052eec3d))
+* **web:** dedupe preview row rendering and rename the grouping module ([c0a56aa](https://github.com/Juargo/MoneyDiary/commit/c0a56aa27317327664807be2950ae992e43a97d8))
+* **web:** make preview category groups order-stable and pin focus guard ([5b1f49c](https://github.com/Juargo/MoneyDiary/commit/5b1f49c5aa224e33a492a5904cb45e8d31d47f48))
+* **web:** make preview category groups order-stable and pin focus guard ([73a661f](https://github.com/Juargo/MoneyDiary/commit/73a661fc4de5701ebf168c2aee5dbf0b26b86486))
+
 ## [0.11.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.10.0...web-v0.11.0) (2026-09-25)
 
 
