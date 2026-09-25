@@ -520,7 +520,31 @@ function CrearCategoriaDesdeSelector({
   readonly onCancelar: () => void;
   readonly onCreada: (categoria: CategoriaDto) => void;
 }) {
-  const [bucket, setBucket] = useState(bucketInicial);
+  // `bucketInicial` is the PAGE's bucket, and that can be one this select
+  // does not offer: `/buckets/Ingreso` renders these rows too, but
+  // `BUCKETS_ASIGNABLES` deliberately excludes it — a computed bucket owns
+  // no categorías, so none can be created in it.
+  //
+  // Seeding state with such a value split the component in three (issue
+  // #779): a controlled `<select>` whose `value` matches no `<option>`
+  // falls back to `selectedIndex = 0` in the DOM ("Necesidades"), React
+  // never fires `onChange`, so state stayed `"Ingreso"` — and THAT is
+  // what `NuevaCategoriaDesdeFilaForm` read at submit time, producing a
+  // `POST /api/categorias` the backend rejects with `BucketNoAsignableError`
+  // (`crear-categoria.use-case.ts`). Meanwhile the form's own visible
+  // caption showed a THIRD value, the `ETIQUETA_BUCKET` label of the
+  // page's bucket.
+  //
+  // Clamping here makes the state agree with what the `<select>` already
+  // renders, so all three read the same bucket from the first paint. The
+  // select stays fully visible and editable (`srOnly` hides the label TEXT
+  // only, never the control), so this default is a starting point the user
+  // can change — not a silent decision.
+  const [bucket, setBucket] = useState(() =>
+    (BUCKETS_ASIGNABLES as ReadonlyArray<string>).includes(bucketInicial)
+      ? bucketInicial
+      : BUCKETS_ASIGNABLES[0],
+  );
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-md">
@@ -530,7 +554,9 @@ function CrearCategoriaDesdeSelector({
           second visible "Bucket" caption right above it would be
           redundant. The accessible name stays "Bucket" either way
           (`getByLabelText('Bucket')`, `CampoSelect`'s `srOnly` still nests
-          the text inside the wrapping `<label>`). */}
+          the text inside the wrapping `<label>`).
+          That mirroring is only true because of the clamp above; before
+          #779 the caption and this select disagreed on screen. */}
       <CampoSelect
         label="Grupo"
         srOnly

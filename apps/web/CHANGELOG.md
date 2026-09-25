@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.11.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.10.0...web-v0.11.0) (2026-09-25)
+
+
+### Features
+
+* **mobile:** el anillo y la leyenda dejan de incluir SinCategoria en el dominio ([5504f69](https://github.com/Juargo/MoneyDiary/commit/5504f69d7a663ff87b4fe9cbf34d46c2b87cad4a))
+* **mobile:** el anillo y la leyenda dejan de mostrar SinCategoria ([160d7f5](https://github.com/Juargo/MoneyDiary/commit/160d7f5d607e2dcd0bceef1bc41d2cf7a959aec5))
+* **web:** el anillo y el semáforo dejan de mostrar SinCategoria ([f60ce30](https://github.com/Juargo/MoneyDiary/commit/f60ce304ad9234f7c248cafb6e609438c201fffa))
+* **web:** el anillo, la leyenda y el semáforo dejan de mostrar SinCategoria ([7c74a94](https://github.com/Juargo/MoneyDiary/commit/7c74a9439c567e9afa7ca4ce1c53a036145d6473))
+* **web:** el dominio deja de incluir SinCategoria en el anillo y las leyendas ([35dbfc6](https://github.com/Juargo/MoneyDiary/commit/35dbfc63affda83440a16ffad7aa1182a978d5b4))
+* **web:** tolerate resumen/semaforo contract without SinCategoria ([5cca0eb](https://github.com/Juargo/MoneyDiary/commit/5cca0ebfc980f9811a1ff78737634094bfe62926))
+
+
+### Bug Fixes
+
+* **api:** el mensaje de catalogo incompleto deja de pedir algo imposible ([30ab231](https://github.com/Juargo/MoneyDiary/commit/30ab2315703b55c47ffb00e67e0b6dfc785f2f21))
+* **api:** el mensaje de catálogo incompleto deja de pedir algo imposible ([12fbeb3](https://github.com/Juargo/MoneyDiary/commit/12fbeb3b066049e6e6f821d00b8f3aec69506a24)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **web:** acota el bucket inicial del panel de nueva categoría a uno asignable ([ea40233](https://github.com/Juargo/MoneyDiary/commit/ea4023313cd1c897355a341ed5a7a40892443e8f))
+* **web:** acota el bucket inicial del panel de nueva categoría a uno asignable ([bdbeb7a](https://github.com/Juargo/MoneyDiary/commit/bdbeb7afa40f5a4b4ae55a5891a20acdcca21de1)), closes [#779](https://github.com/Juargo/MoneyDiary/issues/779)
+
 ## [0.10.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.9.0...web-v0.10.0) (2026-09-23)
 
 
