@@ -2,7 +2,7 @@
 
 **Locator:** `odd/tasks/preview-agrupacion-categoria.md` · Engram mirror: `odd/preview-agrupacion-categoria/tasks`
 **Branch:** `feature/design-subir`
-**Mirror status:** PENDING — `mem_save` failed 2026-09-25 (multiple active runtime sessions match the project); resync when available.
+**Mirror status:** saved 2026-09-25 via `engram save` CLI (#1351); the MCP `mem_save` fails with ambiguous sessions.
 
 ## Objective
 
@@ -78,8 +78,5 @@
 
 ## Later work (not scheduled)
 
-- S1: tiebreak group order by `clave` (`agrupar-filas-por-categoria-sugerida.ts:167`).
-- S2: carry bucket/categoriaId instead of splitting `clave` on `::` (`:149`).
-- S3: component-level test for the focus-continuity guard (`PreviewMuestra.tsx:206-213`).
+- S1–S3: done in `odd/tasks/preview-agrupacion-sugerencias.md`.
 - T1 review: `preview-stress.e2e.ts:130` completion signal is weak (select value, not the rendered state).
-- Engram mirror still PENDING (see header).

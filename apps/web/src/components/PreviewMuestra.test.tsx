@@ -688,6 +688,108 @@ describe('PreviewMuestra', () => {
     });
   });
 
+  // ── Focus continuity across a group re-render (T2 review S3,
+  // PreviewMuestra.tsx:206-213) ─────────────────────────────────────────
+  //
+  // This behavior is ALREADY implemented (the positive case is also
+  // exercised end-to-end in `SubirCartola.test.tsx`, "focus continuity
+  // across a preview re-run"); these two tests pin it at the component
+  // level, including the negative case that was previously untested
+  // anywhere: a deliberate blur to `<body>` must not be undone by a later
+  // render.
+  describe('focus continuity across a group re-render (S3)', () => {
+    function unaFilaConTrigger(overrides: Partial<PreviewFilaDto> = {}) {
+      return unaFilaPreview({
+        rowIndex: 0,
+        sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+        ...overrides,
+      });
+    }
+
+    it('a focused trigger keeps focus after a re-render moves its row to another group', () => {
+      const { rerender } = render(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[unaFilaConTrigger()]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      const trigger = screen.getByRole('button', {
+        name: /nueva categoría para fila 1/i,
+      });
+      trigger.focus();
+      expect(trigger).toHaveFocus();
+
+      // The row's own SERVER SUGGESTION changes bucket · categoría — since
+      // grouping keys off `sugerido` (component docblock), this moves the
+      // row's whole subtree to a DIFFERENT group's `<ul>` (a different React
+      // parent), unmounting/remounting the "+" trigger even though its
+      // `data-fila-trigger` (rowIndex) never changes.
+      rerender(
+        <PreviewMuestra
+          banco="BancoEstado"
+          filas={[
+            unaFilaConTrigger({
+              sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-1' },
+            }),
+          ]}
+          resumen={{ totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 }}
+          edits={new Map()}
+          onEditChange={vi.fn()}
+          catalogo={unCatalogo()}
+        />,
+      );
+
+      expect(
+        screen.getByRole('button', { name: /nueva categoría para fila 1/i }),
+      ).toHaveFocus();
+    });
+
+    it('a user who deliberately blurs to <body> does NOT get focus pulled back to the trigger by a later re-render', () => {
+      const fila = unaFilaConTrigger();
+      const props = {
+        banco: 'BancoEstado',
+        filas: [fila],
+        resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
+        onEditChange: vi.fn(),
+        catalogo: unCatalogo(),
+      } as const;
+
+      const { rerender } = render(
+        <PreviewMuestra {...props} edits={new Map()} />,
+      );
+
+      const trigger = screen.getByRole('button', {
+        name: /nueva categoría para fila 1/i,
+      });
+      trigger.focus();
+      expect(trigger).toHaveFocus();
+
+      // A render while the trigger is genuinely focused, with the row
+      // staying in the SAME group (no remount) — this is what makes
+      // `PreviewMuestra` remember rowIndex 0 as "the row that had focus",
+      // exactly like a real edit-driven re-render would.
+      rerender(<PreviewMuestra {...props} edits={new Map()} />);
+      expect(trigger).toHaveFocus();
+
+      // The user now deliberately moves focus away to <body> (e.g. Escape,
+      // or clicking outside) with NO React render in between.
+      trigger.blur();
+      expect(document.activeElement).toBe(document.body);
+
+      // A later, unrelated re-render (an `edits` change, row stays in the
+      // same group) must not undo that deliberate blur.
+      const edits = new Map<number, string | null>([[0, 'cat-des-1']]);
+      rerender(<PreviewMuestra {...props} edits={edits} />);
+
+      expect(document.activeElement).toBe(document.body);
+    });
+  });
+
   // crear-categoria-desde-preview PR3 (D-08/D-10, WEB-PRV-12): `filaCreando`
   // is ephemeral table UI state owned HERE (single value ⇒ "at most one
   // form open" falls out for free). `onCategoriaCreada`/`esDemo` are pure
