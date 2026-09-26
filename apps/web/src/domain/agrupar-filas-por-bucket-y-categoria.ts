@@ -16,14 +16,21 @@ import type { CatalogoEstado, PreviewFilaDto } from '@/api/types';
  * function takes no `edits` parameter at all: there is nothing here for an
  * edit to change.
  *
- * Distinct from the READ-ONLY decision-step summary
- * (`agrupar-preview-por-categoria.ts`, `agruparPreviewPorCategoria`,
- * WEB-PRV-19, out of scope for this change): that one groups the SAME kind
- * of data for a different screen (post-decision, five group shapes incl. a
- * dedicated "Duplicadas" bucket). Here, a duplicate row groups by its
- * `sugerido` like any other row — the editable table already renders
- * duplicates inline, greyed with a badge (WEB-PRV-04), so pulling them into
- * a separate group would split one visual "Movimientos" list into two.
+ * Also reused, since `resumen-acordeon-bucket` (WEB-PRV-19), by the
+ * READ-ONLY decision-step summary (`MuestraAgrupada`) for its NON-duplicate
+ * rows — the old separate `agrupar-preview-por-categoria.ts` module (five
+ * flat group shapes) is gone, and both screens now share this exact
+ * bucket→categoría breakdown (DRY). The two screens still differ in ONE way:
+ * `MuestraAgrupada` carves duplicate rows OUT before calling this function
+ * and renders them as its own trailing "Duplicadas (no se importan)" entry
+ * (status quo, WEB-PRV-19 — duplicates are never committed, so they don't
+ * belong in a bucket/categoría breakdown of what WILL be imported). Here, in
+ * the EDITABLE table, a duplicate row groups by its `sugerido` like any
+ * other row instead — the table already renders duplicates inline, greyed
+ * with a badge (WEB-PRV-04), so pulling them into a separate group would
+ * split one visual "Movimientos" list into two. This function itself stays
+ * unaware of `esDuplicado` either way; the caller decides what to do with
+ * duplicate rows before or after calling it.
  *
  * Level 1 (bucket): one entry per PRESENT bucket among `BUCKETS_ASIGNABLES`
  * (Necesidades, Deseos, Ahorro) in that order, then `BUCKET_INGRESO` last.
@@ -129,7 +136,13 @@ function resolverCategoria(
   return null;
 }
 
-function compararFilas(a: PreviewFilaDto, b: PreviewFilaDto): number {
+/**
+ * Exported so callers that add their own trailing group (`MuestraAgrupada`'s
+ * "Duplicadas" entry) can sort its rows the SAME way this module sorts every
+ * other group's rows, instead of re-implementing the fecha/rowIndex
+ * tiebreak rule.
+ */
+export function compararFilas(a: PreviewFilaDto, b: PreviewFilaDto): number {
   if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
   return a.rowIndex - b.rowIndex;
 }
