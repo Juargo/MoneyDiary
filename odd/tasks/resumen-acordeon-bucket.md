@@ -46,10 +46,12 @@ The read-only decision-step summary (`MuestraAgrupada`, "Movimientos por categor
 - 2026-09-26: created.
 - 2026-09-26: T1 implemented (writer). `MuestraAgrupada` rewritten as a two-level read-only accordion reusing `agruparFilasPorBucketYCategoria` (non-duplicates) + trailing "Duplicadas (no se importan)" (rows direct); `compararFilas` exported for reuse. h3 → h4 (level 1) → h5 (categoría + `IconoCategoriaBadge`). No shared chrome with `PreviewMuestra` (its header is entangled with focus continuity and inline creation). Old `agrupar-preview-por-categoria.ts` (+12 tests) removed — no other importer. Behavior change: the summary's "Sin clasificar" and top-level "Categoría no disponible" groups are gone; unresolved ids nest under their real bucket, unplaceable rows go to "Revisar" (matches WEB-PRV-20). RED: new test file against old component 5 failed / 5 passed → GREEN 10/10. Spec WEB-PRV-19 rewritten; mobile spec wording fixed (dead path). e2e unaffected (subir-tal-cual asserts no group labels; the other two act after "Revisar y editar"). Writer: tsc -b 0; vitest 2272/2272 (2280 − 12 removed + 4 new); eslint clean; Playwright 7 passed / 5 skipped / 0 failed. Parent spot check: tsc -b 0; MuestraAgrupada + SubirCartola tests 114/114.
 
+- 2026-09-26: commit `5dbe4ba1`. RDD assess (base `main`): medium, `slice_budget_reached` → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-c8a5d1ac9e9b32d9`). W (direct rows dropped for an asignable bucket) already covered by the domain invariant test from #815. S (no component test for the "Categoría no disponible" fallback) fixed: `it.each` over loading / error / stale id — pinned GREEN, mutation (hide the badge for the fallback) → 3 RED, restored → GREEN. Spec WEB-PRV-19 corrected to the real behavior: fallback shows the generic glyph (not "no icon") and sorts alphabetically with the other categorías (same as WEB-PRV-20), not last. Checks: tsc -b 0; vitest 2275/2275; eslint clean.
+
 ## Delivery
 
-- Forecast ~300–500 authored lines; single PR (ask if it grows well past 400).
+- Actual +541/−701 (mostly the removed summary-only module and its tests); no cohesive split. User chose (2026-09-26) single PR with `size:exception`.
 
 ## Next step
 
-Commit, RDD assess, PR.
+PR open with `size:exception`; merge after CI.

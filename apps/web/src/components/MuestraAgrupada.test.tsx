@@ -180,6 +180,42 @@ describe('MuestraAgrupada', () => {
     ).not.toBeInTheDocument();
   });
 
+  // A categoriaId the summary cannot resolve (catalog loading, in error, or an
+  // id missing from a loaded catalog) stays under its REAL bucket with the
+  // fallback name and the badge's generic glyph — never a separate top-level
+  // group, never dropped.
+  it.each<[string, CatalogoEstado, string]>([
+    ['catalog loading', { tag: 'cargando' }, 'cat-nec-1'],
+    ['catalog in error', { tag: 'error' }, 'cat-nec-1'],
+    ['stale id in a loaded catalog', unCatalogo(), 'cat-borrada'],
+  ])(
+    'unresolvable categoría (%s) nests under its bucket as "Categoría no disponible" with the generic glyph',
+    async (_caso, catalogoCaso, categoriaId) => {
+      const user = userEvent.setup();
+      const fila = unaFilaPreview({
+        rowIndex: 0,
+        descripcion: 'Compra sin catálogo',
+        sugerido: { bucket: 'Necesidades', categoriaId },
+      });
+
+      render(<MuestraAgrupada filas={[fila]} catalogo={catalogoCaso} />);
+
+      expect(
+        screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent),
+      ).toEqual([expect.stringMatching(/^Necesidades · 1 movimiento/)]);
+
+      await abrirGrupo(user, /^Necesidades ·/);
+      const encabezado = screen.getByRole('heading', {
+        level: 5,
+        name: /^Categoría no disponible · 1 movimiento$/,
+      });
+      expect(encabezado.querySelector('svg.lucide-tag')).toBeInTheDocument();
+
+      await abrirGrupo(user, /^Categoría no disponible ·/);
+      expect(screen.getByText('Compra sin catálogo')).toBeVisible();
+    },
+  );
+
   it('an Ingreso row groups alone under a plain "Ingreso" heading, no level 2, rows direct', async () => {
     const user = userEvent.setup();
     const filaIngreso = unaFilaIngreso();
