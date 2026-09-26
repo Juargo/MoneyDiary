@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.13.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.12.0...web-v0.13.0) (2026-09-26)
+
+
+### Features
+
+* **web:** nest the upload summary in a bucket then category accordion ([8be2937](https://github.com/Juargo/MoneyDiary/commit/8be2937b9b6ec88368af3532c5fa38808644963b))
+* **web:** nest the upload summary in a bucket then category accordion ([5dbe4ba](https://github.com/Juargo/MoneyDiary/commit/5dbe4ba1cb589825224711bb48a6cbc3f2608f0d))
+
+
+### Bug Fixes
+
+* **api:** reject demo sessions on manual transaction reclassification ([5ec7d97](https://github.com/Juargo/MoneyDiary/commit/5ec7d9701eba41b254b975e0ee761aa27b363f93))
+* **api:** reject demo sessions on manual transaction reclassification ([280254a](https://github.com/Juargo/MoneyDiary/commit/280254a55ea4f0f946aed0eaed49b24b5bdc0df1)), closes [#597](https://github.com/Juargo/MoneyDiary/issues/597)
+* **web:** explain the demo reclassify restriction once per page ([9ff8bf1](https://github.com/Juargo/MoneyDiary/commit/9ff8bf1301c32ad36e1228c7232ed2557e3c6ae3))
+
 ## [0.12.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.11.0...web-v0.12.0) (2026-09-25)
 
 
