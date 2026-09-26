@@ -2032,8 +2032,11 @@ describe('ReclasificarCategoriaControl', () => {
   // explains why, same UI-honesty precedent as `MENSAJE_DEMO_ELIMINAR` /
   // `ReevaluarPatronesControl`'s `MENSAJE_DEMO_REEVALUAR`.
   describe('demo session (esDemo)', () => {
-    it('disables the select + the "+" trigger, shows an explanatory note, and never fires the PATCH', async () => {
-      const fetchMock = mockFetch({
+    // The explanation lives ONCE at page level (`BucketDetalleMesPage`), not
+    // per row: every ledger row renders this control, and an absolutely
+    // positioned note under each fixed-height row would overlap the next one.
+    it('disables the select and the "+" trigger, and renders no per-row note', async () => {
+      mockFetch({
         ok: true,
         status: 200,
         json: () => Promise.resolve(dtoDestino),
@@ -2060,11 +2063,7 @@ describe('ReclasificarCategoriaControl', () => {
       expect(
         screen.getByRole('button', { name: /Nueva categoría/i }),
       ).toBeDisabled();
-      expect(screen.getByRole('note')).toHaveTextContent(/demostraci[oó]n/i);
-
-      expect(
-        fetchMock.mock.calls.some(([url]) => url !== '/api/categorias'),
-      ).toBe(false);
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
     });
 
     it('esDemo=false (default) leaves the select enabled and renders no note', async () => {

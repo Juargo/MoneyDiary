@@ -13,9 +13,6 @@ import { OfrecerPatronControl } from '@/components/OfrecerPatronControl';
 import { CLASE_BOTON_ICONO } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
-const MENSAJE_DEMO_RECLASIFICAR =
-  'Estás en una cuenta de demostración. Crea una cuenta real para reclasificar movimientos.';
-
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
 }
@@ -176,10 +173,10 @@ export function ReclasificarCategoriaControl({
    * Demo gate (issue #597): the server rejects a demo PATCH with 403
    * DEMO_SOLO_LECTURA regardless (`reclasificarCategoria`'s docstring, same
    * gate `ReclasificarTransaccionUseCase` enforces) — this just disables the
-   * select + the "+" trigger proactively and explains why, avoiding the
-   * round-trip. Same UI-honesty precedent as `MENSAJE_DEMO_ELIMINAR`
-   * (`BucketDetalleMesPage`) / `ReevaluarPatronesControl`'s
-   * `MENSAJE_DEMO_REEVALUAR`.
+   * select + the "+" trigger proactively, avoiding the round-trip. The
+   * explanation is NOT rendered here: `BucketDetalleMesPage` shows one
+   * page-level note (`MENSAJE_DEMO_ELIMINAR`, which covers reclassifying
+   * too), since a note per ledger row would overlap the next row.
    */
   readonly esDemo?: boolean;
   /**
@@ -453,27 +450,18 @@ export function ReclasificarCategoriaControl({
         </button>
       </div>
       {/* Absolute, not stacked in flow: the ledger row (`GrupoMovimientos`'s
-          `<li>`) has a FIXED 44px height, so an error/confirm popup must
-          never push it taller. Demo and error are mutually exclusive here —
-          a disabled control never reaches `commit()`, so `errorMensaje`
-          never fires while `esDemo` is true — but the note reuses the same
-          absolute slot regardless. */}
-      {esDemo ? (
+          `<li>`) has a FIXED 44px height, so an error popup must never push
+          it taller. In demo there is deliberately NO per-row note: every row
+          renders this control, and a note under each fixed-height row would
+          overlap the next one. `BucketDetalleMesPage` explains the demo
+          restriction once, at page level. */}
+      {errorMensaje && (
         <p
-          role="note"
-          className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-muted-foreground"
+          role="alert"
+          className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-error-foreground"
         >
-          {MENSAJE_DEMO_RECLASIFICAR}
+          {errorMensaje}
         </p>
-      ) : (
-        errorMensaje && (
-          <p
-            role="alert"
-            className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-error-foreground"
-          >
-            {errorMensaje}
-          </p>
-        )
       )}
       {pendiente && (
         <InlineConfirm

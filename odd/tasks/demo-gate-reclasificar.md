@@ -40,6 +40,7 @@ Policy inconsistency, not a cross-tenant leak: each demo session owns its own `U
 
 - 2026-09-25: created.
 - 2026-09-25: T1+T2 implemented (writer). New `ReclasificarDemoSoloLecturaError` (own class, mirrors siblings). RED→GREEN: error module missing → created; use case `esDemo=true` did not fail → fail-fast before `writer.reasignar` (asserted not called); route 6 failures (no `esDemo` in payload, 500 instead of 403) → `esDemoDeSesion(req)` + 403 `DEMO_SOLO_LECTURA` via `responderErrorTraducido`; web control `+` not disabled → `esDemo` prop disables select and `+`, shows `role="note"` `MENSAJE_DEMO_RECLASIFICAR`; caller wiring test first proved a false positive (catalog-loading disabled state) under mutation, rewritten, genuine RED → GREEN. Stale fixture fixed: `app.transacciones.spec.ts` session mock lacked `esDemo` (fail-closed middleware treated it as demo). OpenAPI 403 documented; `openapi.json` + `packages/api-client/src/types.gen.ts` regenerated. Writer: api vitest 2927/2927, build tsc 0, eslint clean, env:example:check + openapi:check OK; web tsc -b 0, vitest 2279/2279, eslint clean. Parent spot check: 3 api test files 22/22; openapi:check OK; web tsc -b 0.
+- 2026-09-25: commit `280254a5`. RDD assess (base `main`): medium, under budget; PR slice with no further commits → consent **granted** → 1-lens (reliability) review **approved**, acknowledged (lineage `review-a5921f657e99c618`). Advisory W (real, verified in code): the demo note was absolutely positioned under EVERY ledger row (fixed 44px) and overlapped the next row. Fixed: no per-row note; the single page-level note in `BucketDetalleMesPage` now reads "reclasificar o eliminar movimientos". RED: page test (exactly one reclassify note) and control test (no per-row note) failed → GREEN. Advisory S: the control test claimed "never fires the PATCH" without interacting — renamed and the vacuous fetch assertion dropped. Checks: web tsc -b 0; vitest 2280/2280; eslint clean.
 - Out of scope, noted: mobile `mensajeDeErrorReclasificar` has no 403 `DEMO_SOLO_LECTURA` branch (falls to generic copy). Demo is not surfaced on mobile, so it is defensive only.
 
 ## Delivery
@@ -48,4 +49,4 @@ Policy inconsistency, not a cross-tenant leak: each demo session owns its own `U
 
 ## Next step
 
-Commit, RDD assess, PR (`Closes #597`).
+PR (`Closes #597`).
