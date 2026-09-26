@@ -661,18 +661,18 @@ describe('SubirCartola (US-059 PR3 — commit flow)', () => {
       expect(
         screen.getByRole('button', { name: /^descartar$/i }),
       ).toBeInTheDocument();
-      // cartola-decision-agrupada: MuestraAgrupada renders a read-only
-      // grouped accordion of the SAME filas, collapsed by default — the row
-      // exists in the DOM (inside its "Necesidades · Supermercado" group,
-      // the default fixture's sugerido since #778 real rows are never
-      // unclassified) but is not VISIBLE until that group is expanded. The
-      // editable review table (FilaRevision's controls) is still absent
-      // entirely.
+      // resumen-acordeon-bucket: MuestraAgrupada renders a read-only
+      // TWO-LEVEL accordion (bucket → categoría) of the SAME filas, both
+      // levels collapsed by default — the row exists in the DOM (inside its
+      // "Necesidades" bucket, the default fixture's sugerido since #778 real
+      // rows are never unclassified) but is not VISIBLE until that bucket
+      // AND its categoría are expanded. The editable review table
+      // (FilaRevision's controls) is still absent entirely.
       expect(
         screen.getByRole('heading', { name: 'Movimientos por categoría' }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /^Necesidades · Supermercado/ }),
+        screen.getByRole('button', { name: /^Necesidades ·/ }),
       ).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByText('Supermercado Líder')).not.toBeVisible();
       expect(

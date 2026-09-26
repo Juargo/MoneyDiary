@@ -7,20 +7,37 @@ import {
   unaFilaPreview,
   unCatalogo,
 } from '@/test-utils/preview-fixtures';
+import type { CatalogoEstado } from '@/api/types';
 
 /**
- * MuestraAgrupada (cartola-decision-agrupada, WEB-PRV-19) — the read-only
- * grouped accordion the `decidiendo` decision step shows. Groups come from
- * `agruparPreviewPorCategoria` (own test suite covers the grouping rules
- * exhaustively); this suite covers the ACCORDION itself: collapsed by
- * default, expand-on-click, headings with counts, and that NO editing
- * control is ever rendered here (that stays exclusive to the review table,
- * `PreviewMuestra`/`FilaRevision`, mounted only after "Revisar y editar").
+ * MuestraAgrupada (resumen-acordeon-bucket, WEB-PRV-19) — the read-only
+ * TWO-LEVEL accordion (bucket → categoría) the `decidiendo` decision step
+ * shows, matching `PreviewMuestra`'s shape (WEB-PRV-20). Non-duplicate rows
+ * come from `agruparFilasPorBucketYCategoria` (own test suite covers the
+ * grouping rules exhaustively); this suite covers the ACCORDION itself: both
+ * levels collapsed by default, expand-on-click, headings with counts, the
+ * categoría icon badge, the Ingreso/Revisar/Duplicadas direct-row entries,
+ * and that NO editing control is ever rendered here (that stays exclusive to
+ * the review table, `PreviewMuestra`/`FilaRevision`, mounted only after
+ * "Revisar y editar").
  */
+
+/** Both accordion levels start collapsed — open bucket then (optionally) categoría. */
+async function abrirGrupo(
+  user: ReturnType<typeof userEvent.setup>,
+  nombreBucket: string | RegExp,
+  nombreCategoria?: string | RegExp,
+) {
+  await user.click(screen.getByRole('button', { name: nombreBucket }));
+  if (nombreCategoria !== undefined) {
+    await user.click(screen.getByRole('button', { name: nombreCategoria }));
+  }
+}
+
 describe('MuestraAgrupada', () => {
   const catalogo = unCatalogo();
 
-  it('renders a heading and one group per (bucket, categoría), all collapsed by default', () => {
+  it('level 1 shows only bucket headers, collapsed — no rows, no categoría headers visible', () => {
     const filaNec = unaFilaPreview({
       rowIndex: 0,
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
@@ -31,28 +48,226 @@ describe('MuestraAgrupada', () => {
       sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-1' },
     });
 
-    render(<MuestraAgrupada filas={[filaNec, filaDes]} catalogo={catalogo} />);
+    const { container } = render(
+      <MuestraAgrupada filas={[filaNec, filaDes]} catalogo={catalogo} />,
+    );
 
     expect(
       screen.getByRole('heading', { name: 'Movimientos por categoría' }),
     ).toBeInTheDocument();
 
-    const botonNecesidades = screen.getByRole('button', {
-      name: /Necesidades · Supermercado/,
+    const botonNecesidades = screen.getByRole('heading', {
+      level: 4,
+      name: /^Necesidades ·/,
     });
-    const botonDeseos = screen.getByRole('button', {
-      name: /Gustos · Restaurantes/,
+    const botonDeseos = screen.getByRole('heading', {
+      level: 4,
+      name: /^Gustos ·/,
     });
-    expect(botonNecesidades).toHaveAttribute('aria-expanded', 'false');
-    expect(botonDeseos).toHaveAttribute('aria-expanded', 'false');
+    expect(botonNecesidades).toBeInTheDocument();
+    expect(botonDeseos).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Necesidades ·/ }),
+    ).toHaveAttribute('aria-expanded', 'false');
 
-    // Collapsed: row description text is not rendered as visible content —
-    // panel is `hidden`, not unmounted (a11y/testing-library still finds it
-    // in the DOM, but `toBeVisible()` fails while `hidden` is set).
+    // Level 1 is reachable, but nothing below it is: no categoría heading
+    // (level 5) and no row text visible while both buckets are collapsed.
+    expect(screen.queryByRole('heading', { level: 5 })).not.toBeInTheDocument();
     expect(screen.getByText(filaNec.descripcion)).not.toBeVisible();
+    expect(container.querySelectorAll('[data-grupo-bucket]')).toHaveLength(2);
   });
 
-  it('shows the row count in each group heading, singular/plural agreement', () => {
+  it('opening a bucket reveals its categoría headers with the specific icon and count', async () => {
+    const user = userEvent.setup();
+    const filaConIcono = unaFilaPreview({
+      rowIndex: 0,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+    const filaSinIcono = unaFilaPreview({
+      rowIndex: 1,
+      descripcion: 'Restaurante Don Juan',
+      sugerido: { bucket: 'Deseos', categoriaId: 'cat-des-1' },
+    });
+
+    const catalogoBase = unCatalogo();
+    const catalogoConIcono: CatalogoEstado =
+      catalogoBase.tag === 'listo'
+        ? {
+            ...catalogoBase,
+            grupos: catalogoBase.grupos.map((grupo) => ({
+              ...grupo,
+              categorias: grupo.categorias.map((categoria) =>
+                categoria.id === 'cat-nec-1'
+                  ? { ...categoria, icono: 'shopping-cart' }
+                  : categoria,
+              ),
+            })),
+          }
+        : catalogoBase;
+
+    render(
+      <MuestraAgrupada
+        filas={[filaConIcono, filaSinIcono]}
+        catalogo={catalogoConIcono}
+      />,
+    );
+
+    await abrirGrupo(user, /^Necesidades ·/);
+    await abrirGrupo(user, /^Gustos ·/);
+
+    const grupoSupermercado = screen.getByRole('heading', {
+      level: 5,
+      name: /^Supermercado · 1 movimiento$/,
+    });
+    const grupoRestaurantes = screen.getByRole('heading', {
+      level: 5,
+      name: /^Restaurantes · 1 movimiento$/,
+    });
+    // Matches the lucide glyph class, not any aria-hidden svg — the heading
+    // also holds the accordion chevron, which would satisfy a generic query
+    // even with no badge at all.
+    expect(
+      grupoSupermercado.querySelector('svg.lucide-shopping-cart'),
+    ).toBeInTheDocument();
+    expect(
+      grupoRestaurantes.querySelector('svg.lucide-tag'),
+    ).toBeInTheDocument();
+  });
+
+  it('opening a categoría reveals its rows, date-ascending, and no editing control', async () => {
+    const user = userEvent.setup();
+    const filaTardia = unaFilaPreview({
+      rowIndex: 0,
+      fecha: '2026-07-20T00:00:00.000Z',
+      descripcion: 'Supermercado Jumbo',
+      cargo: '10000',
+      abono: '0',
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+    const filaTemprana = unaFilaPreview({
+      rowIndex: 1,
+      fecha: '2026-07-15T00:00:00.000Z',
+      descripcion: 'Supermercado Líder',
+      cargo: '50000',
+      abono: '0',
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+
+    const { container } = render(
+      <MuestraAgrupada
+        filas={[filaTardia, filaTemprana]}
+        catalogo={catalogo}
+      />,
+    );
+
+    await abrirGrupo(user, /^Necesidades ·/, /^Supermercado ·/);
+
+    expect(screen.getByText('Supermercado Líder')).toBeVisible();
+    expect(screen.getByText('Supermercado Jumbo')).toBeVisible();
+    expect(screen.getByText('2026-07-15')).toBeVisible();
+    expect(screen.getByText('-$50.000')).toBeVisible();
+
+    const descripciones = Array.from(container.querySelectorAll('li')).map(
+      (li) => li.textContent,
+    );
+    expect(descripciones[0]).toContain('Supermercado Líder');
+    expect(descripciones[1]).toContain('Supermercado Jumbo');
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Nueva categoría/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('an Ingreso row groups alone under a plain "Ingreso" heading, no level 2, rows direct', async () => {
+    const user = userEvent.setup();
+    const filaIngreso = unaFilaIngreso();
+
+    render(<MuestraAgrupada filas={[filaIngreso]} catalogo={catalogo} />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 4,
+        name: /^Ingreso · 1 movimiento$/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 5 })).not.toBeInTheDocument();
+
+    await abrirGrupo(user, /^Ingreso ·/);
+    expect(screen.getByText(filaIngreso.descripcion)).toBeVisible();
+  });
+
+  it('a row the domain fn cannot place under a real bucket lands on the trailing "Revisar" entry', () => {
+    const filaSinSugerido = unaFilaPreview({ rowIndex: 0, sugerido: null });
+
+    render(<MuestraAgrupada filas={[filaSinSugerido]} catalogo={catalogo} />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 4,
+        name: /^Revisar · 1 movimiento$/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('omits "Revisar" entirely when every row lands on a real bucket', () => {
+    const fila = unaFilaPreview({ rowIndex: 0 });
+
+    render(<MuestraAgrupada filas={[fila]} catalogo={catalogo} />);
+
+    expect(
+      screen.queryByRole('heading', { name: /^Revisar/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('carves duplicate rows into a trailing "Duplicadas (no se importan)" entry with rows direct, excluded from their bucket', async () => {
+    const user = userEvent.setup();
+    const filaNormal = unaFilaPreview({
+      rowIndex: 0,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+    const filaDuplicada = unaFilaPreview({
+      rowIndex: 1,
+      descripcion: 'Cargo repetido',
+      esDuplicado: true,
+      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
+    });
+
+    render(
+      <MuestraAgrupada
+        filas={[filaNormal, filaDuplicada]}
+        catalogo={catalogo}
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        level: 4,
+        name: /^Necesidades · 1 movimiento$/,
+      }),
+    ).toBeInTheDocument();
+    const encabezadoDuplicadas = screen.getByRole('heading', {
+      level: 4,
+      name: /^Duplicadas \(no se importan\) · 1 movimiento$/,
+    });
+    expect(encabezadoDuplicadas).toBeInTheDocument();
+
+    await abrirGrupo(user, /^Duplicadas/);
+    expect(screen.getByText('Cargo repetido')).toBeVisible();
+  });
+
+  it('omits "Duplicadas" entirely when there are no duplicates', () => {
+    const fila = unaFilaPreview({ rowIndex: 0 });
+
+    render(<MuestraAgrupada filas={[fila]} catalogo={catalogo} />);
+
+    expect(
+      screen.queryByRole('heading', { name: /^Duplicadas/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('singular/plural agreement in group headings', () => {
     const fila1 = unaFilaPreview({
       rowIndex: 0,
       sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
@@ -71,69 +286,10 @@ describe('MuestraAgrupada', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: /· 2 movimientos/ }),
+      screen.getByRole('heading', { level: 4, name: /· 2 movimientos$/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Duplicadas.*· 1 movimiento\b/ }),
-    ).toBeInTheDocument();
-  });
-
-  it('expands a group on click, revealing its rows (fecha, descripción, monto) and no editing control', async () => {
-    const user = userEvent.setup();
-    const fila = unaFilaPreview({
-      rowIndex: 0,
-      fecha: '2026-07-15T00:00:00.000Z',
-      descripcion: 'Supermercado Líder',
-      cargo: '50000',
-      abono: '0',
-      sugerido: { bucket: 'Necesidades', categoriaId: 'cat-nec-1' },
-    });
-
-    render(<MuestraAgrupada filas={[fila]} catalogo={catalogo} />);
-
-    const boton = screen.getByRole('button', {
-      name: /Necesidades · Supermercado/,
-    });
-    await user.click(boton);
-
-    expect(boton).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Supermercado Líder')).toBeVisible();
-    expect(screen.getByText('2026-07-15')).toBeVisible();
-    expect(screen.getByText('-$50.000')).toBeVisible();
-
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Nueva categoría/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('groups Ingreso rows on their own, headline without a "Sin categoría" suffix', () => {
-    const filaIngreso = unaFilaIngreso();
-
-    render(<MuestraAgrupada filas={[filaIngreso]} catalogo={catalogo} />);
-
-    expect(
-      screen.getByRole('button', { name: /^Ingreso · 1 movimiento$/ }),
-    ).toBeInTheDocument();
-  });
-
-  it('groups unclassified rows under "Sin clasificar" and duplicates under "Duplicadas (no se importan)"', () => {
-    const filaSinClasificar = unaFilaPreview({ rowIndex: 0, sugerido: null });
-    const filaDuplicada = unaFilaPreview({ rowIndex: 1, esDuplicado: true });
-
-    render(
-      <MuestraAgrupada
-        filas={[filaSinClasificar, filaDuplicada]}
-        catalogo={catalogo}
-      />,
-    );
-
-    expect(
-      screen.getByRole('button', { name: /^Sin clasificar/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /^Duplicadas \(no se importan\)/ }),
+      screen.getByRole('heading', { name: /Duplicadas.*· 1 movimiento$/ }),
     ).toBeInTheDocument();
   });
 
