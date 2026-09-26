@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/Juargo/MoneyDiary/compare/api-v0.10.0...api-v0.10.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **api:** reject demo sessions on manual transaction reclassification ([5ec7d97](https://github.com/Juargo/MoneyDiary/commit/5ec7d9701eba41b254b975e0ee761aa27b363f93))
+* **api:** reject demo sessions on manual transaction reclassification ([280254a](https://github.com/Juargo/MoneyDiary/commit/280254a55ea4f0f946aed0eaed49b24b5bdc0df1)), closes [#597](https://github.com/Juargo/MoneyDiary/issues/597)
+
 ## [0.10.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.9.0...api-v0.10.0) (2026-09-25)
 
 
