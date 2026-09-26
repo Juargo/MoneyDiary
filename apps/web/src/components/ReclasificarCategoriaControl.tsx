@@ -13,6 +13,9 @@ import { OfrecerPatronControl } from '@/components/OfrecerPatronControl';
 import { CLASE_BOTON_ICONO } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
+const MENSAJE_DEMO_RECLASIFICAR =
+  'Estás en una cuenta de demostración. Crea una cuenta real para reclasificar movimientos.';
+
 function etiqueta(bucket: string): string {
   return ETIQUETA_BUCKET[bucket] ?? bucket;
 }
@@ -159,6 +162,7 @@ export function ReclasificarCategoriaControl({
   bucketActual,
   categoriaActual,
   periodo,
+  esDemo = false,
   onMovida,
   onPatronCreado,
 }: {
@@ -168,6 +172,16 @@ export function ReclasificarCategoriaControl({
   readonly bucketActual: string;
   readonly categoriaActual: { id: string; nombre: string } | null;
   readonly periodo: string | undefined;
+  /**
+   * Demo gate (issue #597): the server rejects a demo PATCH with 403
+   * DEMO_SOLO_LECTURA regardless (`reclasificarCategoria`'s docstring, same
+   * gate `ReclasificarTransaccionUseCase` enforces) — this just disables the
+   * select + the "+" trigger proactively and explains why, avoiding the
+   * round-trip. Same UI-honesty precedent as `MENSAJE_DEMO_ELIMINAR`
+   * (`BucketDetalleMesPage`) / `ReevaluarPatronesControl`'s
+   * `MENSAJE_DEMO_REEVALUAR`.
+   */
+  readonly esDemo?: boolean;
   /**
    * Fires on a successful reclassify — cross-bucket with the full
    * destination label "{bucket} · {categoría}" (issue #782), same-bucket
@@ -386,7 +400,7 @@ export function ReclasificarCategoriaControl({
           id={selectId}
           ref={selectRef}
           value={valor}
-          disabled={mutacion.isPending || data === undefined}
+          disabled={mutacion.isPending || data === undefined || esDemo}
           aria-busy={catalogoCargandoInicial}
           aria-label={`Categoría de ${descripcion}: ${etiquetaOpcionActual()}`}
           onChange={alCambiar}
@@ -430,7 +444,7 @@ export function ReclasificarCategoriaControl({
         <button
           ref={crearTriggerRef}
           type="button"
-          disabled={mutacion.isPending}
+          disabled={mutacion.isPending || esDemo}
           aria-label={`Nueva categoría para ${descripcion}`}
           onClick={abrirCreacion}
           className={cn(CLASE_BOTON_ICONO, 'shrink-0 text-muted-foreground')}
@@ -440,14 +454,26 @@ export function ReclasificarCategoriaControl({
       </div>
       {/* Absolute, not stacked in flow: the ledger row (`GrupoMovimientos`'s
           `<li>`) has a FIXED 44px height, so an error/confirm popup must
-          never push it taller. */}
-      {errorMensaje && (
+          never push it taller. Demo and error are mutually exclusive here —
+          a disabled control never reaches `commit()`, so `errorMensaje`
+          never fires while `esDemo` is true — but the note reuses the same
+          absolute slot regardless. */}
+      {esDemo ? (
         <p
-          role="alert"
-          className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-error-foreground"
+          role="note"
+          className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-muted-foreground"
         >
-          {errorMensaje}
+          {MENSAJE_DEMO_RECLASIFICAR}
         </p>
+      ) : (
+        errorMensaje && (
+          <p
+            role="alert"
+            className="absolute top-full right-0 z-10 mt-1 w-max max-w-xs text-xs text-error-foreground"
+          >
+            {errorMensaje}
+          </p>
+        )
       )}
       {pendiente && (
         <InlineConfirm

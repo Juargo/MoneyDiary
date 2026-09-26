@@ -314,6 +314,33 @@ describe('GrupoMovimientos', () => {
     ).toBeDisabled();
   });
 
+  it('issue #597: esDemo disables ReclasificarCategoriaControl for every row', async () => {
+    mockFetch();
+
+    render(
+      <GrupoMovimientos
+        grupo={GRUPO_FIXTURE}
+        destacar={false}
+        bucketActual="Necesidades"
+        periodo="2026-07"
+        periodoLabel="JUL 2026"
+        onMovida={vi.fn()}
+        esDemo
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    expandirGrupo();
+    const select = await screen.findByLabelText(
+      'Categoría de Compra en Líder: Necesidades · Supermercado',
+    );
+    // Wait past the catalog's own mid-flight disabled window (`data ===
+    // undefined`) before asserting — otherwise this would pass on the
+    // transient loading-disabled state instead of the demo gate.
+    await screen.findByRole('option', { name: 'Gustos · Streaming' });
+    expect(select).toBeDisabled();
+  });
+
   it('threads onMovida to ReclasificarCategoriaControl and fires it on a cross-bucket confirm (D-07)', async () => {
     mockFetch();
     const onMovida = vi.fn();
