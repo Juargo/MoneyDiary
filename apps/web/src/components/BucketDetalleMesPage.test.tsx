@@ -1404,6 +1404,34 @@ describe('BucketDetalleMesPage', () => {
       ).toBe(true);
     });
 
+    // Issue #597: reclassifying is also disabled in demo. The explanation is
+    // a single page-level note shared with deleting — never one per row.
+    it('esDemo: a single page-level note explains both reclassifying and deleting, with no per-row notes', async () => {
+      stubFetchInteraccion();
+
+      renderData(
+        <BucketDetalleMesPage
+          query={mockQuery({ data: dtoCompleto })}
+          periodo="2026-07"
+          onPeriodoChange={() => {}}
+          destacar={false}
+          esDemo
+        />,
+      );
+
+      await expandirGrupo(/Sin categoría/);
+      await screen.findByRole('button', {
+        name: /Eliminar movimiento Algo sin categorizar/i,
+      });
+      const notasReclasificar = screen
+        .getAllByRole('note')
+        .filter((nota) => /reclasificar/i.test(nota.textContent ?? ''));
+      expect(notasReclasificar).toHaveLength(1);
+      expect(notasReclasificar[0]).toHaveTextContent(
+        /reclasificar o eliminar movimientos/i,
+      );
+    });
+
     it('esDemo=false (default) renders no explanatory note', async () => {
       stubFetchInteraccion();
 

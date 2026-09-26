@@ -89,7 +89,7 @@ import type {
  * transactions fetch never double-renders an alert for the catalog.
  */
 const MENSAJE_DEMO_ELIMINAR =
-  'Estás en una cuenta de demostración. Crea una cuenta real para eliminar movimientos.';
+  'Estás en una cuenta de demostración. Crea una cuenta real para reclasificar o eliminar movimientos.';
 
 export function BucketDetalleMesPage({
   query,

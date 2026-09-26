@@ -1956,7 +1956,7 @@ export interface paths {
         readonly head?: never;
         /**
          * Reclassify a transaction
-         * @description Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+         * @description Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA, issue #597).
          */
         readonly patch: {
             readonly parameters: {
@@ -1988,6 +1988,13 @@ export interface paths {
                 };
                 /** @description Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name). */
                 readonly 400: {
+                    headers: {
+                        readonly [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The calling session is a demo session (issue #597). Nothing is written. */
+                readonly 403: {
                     headers: {
                         readonly [name: string]: unknown;
                     };

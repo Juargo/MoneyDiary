@@ -344,6 +344,7 @@ export function GrupoMovimientos({
                       : { id: grupo.categoriaId, nombre: grupo.nombre }
                   }
                   periodo={periodo}
+                  esDemo={esDemo}
                   onMovida={onMovida}
                   onPatronCreado={onPatronCreado}
                 />

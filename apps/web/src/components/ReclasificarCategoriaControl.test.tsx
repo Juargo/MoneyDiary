@@ -2026,4 +2026,71 @@ describe('ReclasificarCategoriaControl', () => {
       ),
     );
   });
+
+  // ── issue #597: demo gate — the server rejects a demo PATCH with 403
+  // DEMO_SOLO_LECTURA regardless; this control disables proactively and
+  // explains why, same UI-honesty precedent as `MENSAJE_DEMO_ELIMINAR` /
+  // `ReevaluarPatronesControl`'s `MENSAJE_DEMO_REEVALUAR`.
+  describe('demo session (esDemo)', () => {
+    // The explanation lives ONCE at page level (`BucketDetalleMesPage`), not
+    // per row: every ledger row renders this control, and an absolutely
+    // positioned note under each fixed-height row would overlap the next one.
+    it('disables the select and the "+" trigger, and renders no per-row note', async () => {
+      mockFetch({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(dtoDestino),
+      });
+
+      render(
+        <ReclasificarCategoriaControl
+          transaccionId="tx-1"
+          descripcion="Uber"
+          montoLabel="$5.000"
+          bucketActual="Necesidades"
+          categoriaActual={{ id: 'cat-transporte', nombre: 'Transporte' }}
+          periodo="2026-07"
+          onMovida={vi.fn()}
+          esDemo
+        />,
+        { wrapper: crearWrapper() },
+      );
+
+      const select = await screen.findByLabelText(
+        'Categoría de Uber: Necesidades · Transporte',
+      );
+      await waitFor(() => expect(select).toBeDisabled());
+      expect(
+        screen.getByRole('button', { name: /Nueva categoría/i }),
+      ).toBeDisabled();
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    });
+
+    it('esDemo=false (default) leaves the select enabled and renders no note', async () => {
+      mockFetch({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(dtoDestino),
+      });
+
+      render(
+        <ReclasificarCategoriaControl
+          transaccionId="tx-1"
+          descripcion="Uber"
+          montoLabel="$5.000"
+          bucketActual="Necesidades"
+          categoriaActual={{ id: 'cat-transporte', nombre: 'Transporte' }}
+          periodo="2026-07"
+          onMovida={vi.fn()}
+        />,
+        { wrapper: crearWrapper() },
+      );
+
+      const select = await screen.findByLabelText(
+        'Categoría de Uber: Necesidades · Transporte',
+      );
+      await waitFor(() => expect(select).not.toBeDisabled());
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    });
+  });
 });
