@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.13.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.12.0...web-v0.13.0) (2026-09-27)
+
+
+### Features
+
+* hide manual entry and the pattern offer for the final delivery ([925a6c9](https://github.com/Juargo/MoneyDiary/commit/925a6c9b840ae9cb892465d3ba93f6a8ba4f7ee0))
+* **web,mobile:** disable the pattern offer after reclassifying for now ([#826](https://github.com/Juargo/MoneyDiary/issues/826)) ([1e0113c](https://github.com/Juargo/MoneyDiary/commit/1e0113cfe4be312ec31270f49ab557d17bae6a9f))
+* **web:** hide manual transaction entry for now ([#825](https://github.com/Juargo/MoneyDiary/issues/825)) ([2f0efc0](https://github.com/Juargo/MoneyDiary/commit/2f0efc0452896db839ca177f24ba10cb6c02f8b7))
+* **web:** nest the upload summary in a bucket then category accordion ([8be2937](https://github.com/Juargo/MoneyDiary/commit/8be2937b9b6ec88368af3532c5fa38808644963b))
+* **web:** nest the upload summary in a bucket then category accordion ([5dbe4ba](https://github.com/Juargo/MoneyDiary/commit/5dbe4ba1cb589825224711bb48a6cbc3f2608f0d))
+
+
+### Bug Fixes
+
+* **api:** reject demo sessions on manual transaction reclassification ([5ec7d97](https://github.com/Juargo/MoneyDiary/commit/5ec7d9701eba41b254b975e0ee761aa27b363f93))
+* **api:** reject demo sessions on manual transaction reclassification ([280254a](https://github.com/Juargo/MoneyDiary/commit/280254a55ea4f0f946aed0eaed49b24b5bdc0df1)), closes [#597](https://github.com/Juargo/MoneyDiary/issues/597)
+* **web:** explain the demo reclassify restriction once per page ([9ff8bf1](https://github.com/Juargo/MoneyDiary/commit/9ff8bf1301c32ad36e1228c7232ed2557e3c6ae3))
+* **web:** render la torta de gasto sin agujero (WG5-01) ([0f54d7e](https://github.com/Juargo/MoneyDiary/commit/0f54d7e03ab73833d8655b1d02e7714b50d24b76))
+* **web:** render the spending chart as a full pie ([e13e6f3](https://github.com/Juargo/MoneyDiary/commit/e13e6f3ef1bcc7af2128c417736185438f36bf7b))
+
 ## [0.12.0](https://github.com/Juargo/MoneyDiary/compare/web-v0.11.0...web-v0.12.0) (2026-09-25)
 
 
