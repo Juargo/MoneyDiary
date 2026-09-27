@@ -759,8 +759,12 @@ describe('BucketDetalleScreen', () => {
    * or the groups subtree — `cargar` (bucket/periodo change, manual retry)
    * still unmounts that subtree, so the offer still needs a home that
    * survives every fase, not just this one refresh path.
+   *
+   * Disabled for now (#826): the render site below is commented out in
+   * production source, so this whole suite is skipped. Uncomment to
+   * restore (see the source file's own `#826` marker).
    */
-  describe('OfrecerPatronMobileControl integration (issue #745)', () => {
+  describe.skip('OfrecerPatronMobileControl integration (issue #745)', () => {
     it('a successful reclassify offers to create a pattern for the destination categoría', async () => {
       mockFetchDetalleBucketMes.mockResolvedValue({
         ok: true,
@@ -1001,5 +1005,31 @@ describe('BucketDetalleScreen', () => {
         'Movida a Gustos.',
       );
     });
+  });
+
+  // ── pattern offer disabled for now (issue #826) ──
+
+  it('a successful reclassify does NOT offer to create a pattern (disabled for now, issue #826)', async () => {
+    mockFetchDetalleBucketMes.mockResolvedValue({
+      ok: true,
+      value: makeDto(),
+    });
+
+    await render(
+      <BucketDetalleScreen
+        bucket="Deseos"
+        onChangePeriodo={jest.fn()}
+        onBack={jest.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('grupo-movimientos-cat-1')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('mock-ofrecer-patron-trigger-cat-1'));
+    });
+
+    expect(screen.queryByTestId('ofrecer-patron')).toBeNull();
   });
 });

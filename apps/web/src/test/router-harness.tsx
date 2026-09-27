@@ -97,15 +97,10 @@ export function renderConRouter(
       <div data-testid="subir-sentinel">Subir (stub de prueba)</div>
     ),
   });
-  // AyudaPage's "¿Dónde hago…?" section links to these three — same
+  // AyudaPage's "¿Dónde hago…?" section links to these two — same
   // sentinel treatment as `/subir` above, added for that page's tests.
-  const registrarRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/registrar',
-    component: () => (
-      <div data-testid="registrar-sentinel">Registrar (stub de prueba)</div>
-    ),
-  });
+  // (The `/registrar` sentinel was removed alongside #825: AyudaPage no
+  // longer links there.)
   const ingestasRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/ingestas',
@@ -140,7 +135,6 @@ export function renderConRouter(
     semaforoRoute,
     bucketRoute,
     subirRoute,
-    registrarRoute,
     ingestasRoute,
     configuracionRoute,
     ayudaRoute,

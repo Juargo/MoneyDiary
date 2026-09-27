@@ -378,7 +378,8 @@ describe('GrupoMovimientos', () => {
     expect(onMovida).toHaveBeenCalledWith('Gustos · Streaming');
   });
 
-  it('threads onPatronCreado to ReclasificarCategoriaControl and fires it once a pattern is created from the offer (issue #745)', async () => {
+  // Disabled for now (#826) — re-enable with the pattern offer.
+  it.skip('threads onPatronCreado to ReclasificarCategoriaControl and fires it once a pattern is created from the offer (issue #745)', async () => {
     mockFetch();
     const onPatronCreado = vi.fn();
     const user = userEvent.setup();

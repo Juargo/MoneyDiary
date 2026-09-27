@@ -101,7 +101,8 @@ import { ETIQUETA_BUCKET } from '../../theme/colors';
 import { SelectorPeriodoMes } from '../SelectorPeriodoMes';
 import { GrupoMovimientosMobile } from './GrupoMovimientosMobile';
 import { AgregarCategoriaControl } from './AgregarCategoriaControl';
-import { OfrecerPatronMobileControl } from './OfrecerPatronMobileControl';
+// Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+// import { OfrecerPatronMobileControl } from './OfrecerPatronMobileControl';
 import { copiaPorApiError } from '../../domain/api-error';
 import type { BucketAsignable } from '../../domain/catalogo-constantes';
 import type { DetalleBucketMesDto } from '../../domain/detalle.types';
@@ -293,25 +294,27 @@ export function BucketDetalleScreen({
   // patrón-desde-movimiento (issue #745): fixed-position overlay, rendered
   // as a stable sibling in ALL THREE fase branches below (same discipline
   // as `statusRegion`) — see this file's docblock for why.
-  const ofrecerPatronOverlay = ofrecerPatron ? (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        padding: 16,
-      }}
-    >
-      <OfrecerPatronMobileControl
-        descripcion={ofrecerPatron.descripcion}
-        categoriaId={ofrecerPatron.categoriaId}
-        onCreado={handlePatronCreado}
-        onCerrar={() => setOfrecerPatron(null)}
-      />
-    </View>
-  ) : null;
+  // Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+  // const ofrecerPatronOverlay = ofrecerPatron ? (
+  //   <View
+  //     pointerEvents="box-none"
+  //     style={{
+  //       position: 'absolute',
+  //       left: 0,
+  //       right: 0,
+  //       bottom: 0,
+  //       padding: 16,
+  //     }}
+  //   >
+  //     <OfrecerPatronMobileControl
+  //       descripcion={ofrecerPatron.descripcion}
+  //       categoriaId={ofrecerPatron.categoriaId}
+  //       onCreado={handlePatronCreado}
+  //       onCerrar={() => setOfrecerPatron(null)}
+  //     />
+  //   </View>
+  // ) : null;
+  const ofrecerPatronOverlay = null;
 
   // status-reclasificar live-region: OUTSIDE groups map — stable sibling (D-20/MDET-05).
   // Rendered in ALL states so it is never unmounted by a state transition.
