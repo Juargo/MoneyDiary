@@ -44,8 +44,8 @@ import { cn } from '@/lib/utils';
  * tripwire.
  *
  * US-047 T11/PR3: the PR1 shim (`distribucionGastoInterina`) is gone — the
- * pie renders `viewModel.distribucionGasto` directly with its donut hole
- * enabled (`conInterior`, D-01). The legend reads the real, non-shim
+ * pie renders `viewModel.distribucionGasto` directly, as a filled pie
+ * (WG5-01). The legend reads the real, non-shim
  * `leyendaPrincipal`/`leyendaComplemento` fields (PR2 T5). Issue #778
  * tramo5b PR1: `distribucionGasto`/`leyendaComplemento` no longer include a
  * SinCategoria member at all — the ring/legend show only the 3 spend
@@ -147,7 +147,6 @@ export function ResumenScreen({
               tajadas={viewModel.distribucionGasto}
               targets={viewModel.targets}
               onSelectBucket={onSelectBucket}
-              conInterior
             />
             <LeyendaGasto
               principales={viewModel.leyendaPrincipal}

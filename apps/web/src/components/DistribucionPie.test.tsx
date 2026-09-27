@@ -152,6 +152,24 @@ describe('DistribucionPie', () => {
     expect(screen.queryByText('3%')).not.toBeInTheDocument();
   });
 
+  // Characterisation pin (this change, Phase 3): every on-wedge label sits at
+  // half the radius (`r / 2`). Pinned here BEFORE the Phase 4 refactor so it
+  // cannot silently change the label geometry. `size = 240` → `cx = cy = r =
+  // 120`, label radius `60`; mid-angles from `calcularAngulos([0.5, 0.3, 0.2])`.
+  it("places each on-wedge % label at half the radius on its wedge's mid-angle", () => {
+    renderPie();
+    const posiciones: ReadonlyArray<[string, number, number]> = [
+      ['50%', 180, 120], // Necesidades, 0°-180°, mid-angle 90°
+      ['30%', 71.459, 155.267], // Deseos, 180°-288°, mid-angle 234°
+      ['20%', 84.733, 71.459], // Ahorro, 288°-360°, mid-angle 324°
+    ];
+    for (const [texto, x, y] of posiciones) {
+      const etiqueta = screen.getByText(texto);
+      expect(Number(etiqueta.getAttribute('x'))).toBeCloseTo(x, 3);
+      expect(Number(etiqueta.getAttribute('y'))).toBeCloseTo(y, 3);
+    }
+  });
+
   it('renders the nested IDEAL reference pie (50/30/20) with its own accessible name', () => {
     renderPie();
     expect(
@@ -248,32 +266,9 @@ describe('DistribucionPie', () => {
     expect(screen.getAllByRole('button')).toHaveLength(3);
   });
 
-  // US-047 T6/D-01: the main ring is a DONUT ONLY when `conInterior` is
-  // opted in — wedges never start at the SVG centre and carry TWO arc
-  // commands (outer arc + inner arc = the hole), vs. a filled wedge's single
-  // arc. (Judgment-day fix: `conInterior` defaults to `false` — see the
-  // "renders a filled pie by default" test below for the un-opted-in case.)
-  it('main-ring wedge paths do not start at the centre and carry an outer + inner arc — the donut hole when conInterior is enabled (US-047 CA-01 donut proof)', () => {
-    renderPie({
-      size: 240,
-      conInterior: true,
-    });
-    for (const path of screen.getAllByTestId('pie-slice')) {
-      const d = path.getAttribute('d') ?? '';
-      expect(d.startsWith('M 120 120')).toBe(false);
-      expect(d.match(/A /g)).toHaveLength(2);
-    }
-  });
-
-  // Judgment-day fix: the donut hole was applied unconditionally, which
-  // meant any standalone consumer feeding fewer than the full ring got a
-  // hole with a visibly incomplete ring: worse than the pre-US-047 filled
-  // pie. The hole is now opt-in via
-  // `conInterior` (default `false`), so a caller that hasn't wired the 4th
-  // wedge yet keeps the byte-identical filled-pie shape `main` already
-  // ships — same single-arc, `M cx cy`-starting path this function always
-  // returned before this change (T1's own regression contract).
-  it('renders the filled pie (no hole) by default — the donut hole is opt-in via conInterior (US-047 PR2 judgment fix)', () => {
+  // WG5-01: the main pie renders as a FILLED pie — no inner hole. Every
+  // wedge starts at the SVG centre and carries exactly one arc command.
+  it('renders a filled pie: every main wedge starts at the centre with a single arc', () => {
     renderPie({ size: 240 });
     for (const path of screen.getAllByTestId('pie-slice')) {
       const d = path.getAttribute('d') ?? '';
@@ -282,10 +277,10 @@ describe('DistribucionPie', () => {
     }
   });
 
-  // US-047 T6/D-02: the IDEAL inset keeps the OLD filled-wedge shape (no
-  // hole) — it did not inherit the donut ring's rInterior. Filled wedges
-  // start `M cx cy L ...` (single arc); this is the structural proof, not a
-  // literal-coordinate pin (idealSize/2 carries float imprecision).
+  // The IDEAL inset shares the same filled-wedge shape as the main pie.
+  // Filled wedges start `M cx cy L ...` (single arc); this is the structural
+  // proof, not a literal-coordinate pin (idealSize/2 carries float
+  // imprecision).
   it("the IDEAL inset's wedges still start at the centre and still number 3 (US-047 D-02, kept the 50/30/20 set, no hole)", () => {
     renderPie();
     const idealPaths = screen.getAllByTestId('pie-ideal-slice');
