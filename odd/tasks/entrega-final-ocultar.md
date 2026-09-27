@@ -41,7 +41,7 @@ The user wants the delivered product to leave out manual transaction entry and t
     - `pnpm --filter @moneydiary/web exec tsc -b`
     - `pnpm web lint`
     - `pnpm web test:e2e`
-- [ ] **T2** — Disable the pattern popup (web + mobile). Route: delegated direct, because it touches 2+ non-trivial files across two apps.
+- [x] **T2** — Disable the pattern popup (web + mobile). Route: delegated direct, because it touches 2+ non-trivial files across two apps.
   - RED: after a successful reclassify, no "Crear patrón" offer appears (web `ReclasificarCategoriaControl`, mobile `BucketDetalleScreen`).
   - Checks:
     - web suite
@@ -78,6 +78,70 @@ See #825 and #826.
     pre-hook backup stash against the final commit and confirmed it made zero additional
     changes beyond what was already staged.
 
+- 2026-09-27: T2 done, commit `1e0113cfe4be312ec31270f49ab557d17bae6a9f` on
+  `feat/entrega-final-ocultar`.
+  - RED confirmed first, against unmodified production source: a new web test
+    in `ReclasificarCategoriaControl.test.tsx` ("no pattern offer appears")
+    failed (found the "próximas cartolas" text); a new mobile test in
+    `ReclasificarMobileControl.spec.tsx` ("never calls onOfrecerPatron")
+    failed (`onOfrecerPatron` was called); a new mobile test in
+    `BucketDetalleScreen.spec.tsx` ("does NOT offer to create a pattern")
+    failed (found `testID="ofrecer-patron"`).
+  - Web: in `ReclasificarCategoriaControl.tsx`, commented out the
+    `OfrecerPatronControl` import, the `ofrecerPatron`/`setOfrecerPatron`
+    state, all three `setOfrecerPatron(...)` call sites (commit's onSuccess,
+    `alCambiar`, `abrirCreacion`), and the offer's render block — each with a
+    `// Disabled for now (#826)...` marker. `onPatronCreado` stays in the
+    prop's inline type (so `GrupoMovimientos`/`BucketDetalleMesPage` keep
+    threading it unchanged) but is no longer destructured, since web's
+    `@typescript-eslint/no-unused-vars` (`argsIgnorePattern: '^_'`, error
+    level) flags an unused destructured prop — verified empirically with a
+    throwaway scratch file before relying on it. No changes were needed in
+    `GrupoMovimientos.tsx`/`BucketDetalleMesPage.tsx`: the only real
+    trigger/render lived in `ReclasificarCategoriaControl`, so the prop
+    plumbing stays dead-but-harmless.
+  - Mobile: in `ReclasificarMobileControl.tsx`, commented out the
+    `onOfrecerPatron({...})` call inside `commit()`. In
+    `BucketDetalleScreen.tsx`, commented out the `OfrecerPatronMobileControl`
+    import and the `ofrecerPatronOverlay` JSX block, hardcoding
+    `ofrecerPatronOverlay = null`. Confirmed mobile's
+    `@typescript-eslint/no-unused-vars` is `warn`-level with `args: 'none'`
+    (eslint-config-expo), so the now-unused `onOfrecerPatron` param and the
+    `ofrecerPatron`/`handlePatronCreado` leftovers produce only warnings
+    (0 errors, `pnpm --filter @moneydiary/mobile lint` exits 0) — left as
+    dead-but-harmless per the task's "minimal disable point" guidance rather
+    than chasing warning-level noise.
+  - Pre-existing tests marked `it.skip`/`describe.skip` with
+    `// Disabled for now (#826) — re-enable with the pattern offer.`:
+    5 tests in `ReclasificarCategoriaControl.test.tsx` (issue #745 section),
+    1 in `BucketDetalleMesPage.test.tsx`, 1 in `GrupoMovimientos.test.tsx`,
+    the `onOfrecerPatron (issue #745)` describe (3 tests) in
+    `ReclasificarMobileControl.spec.tsx`, and the
+    `OfrecerPatronMobileControl integration (issue #745)` describe (5 tests)
+    in `BucketDetalleScreen.spec.tsx`. `OfrecerPatronControl.test.tsx` and
+    `OfrecerPatronMobileControl.spec.tsx` were left untouched and still run.
+  - `rg -n "Crear patrón|Ahora no|próximas cartolas" apps/web/e2e` found
+    nothing — no e2e assertion of the offer's copy needed updating.
+  - Checks observed:
+    - `pnpm web test` → 162 files / 2269 passed, 7 skipped, 0 failed.
+    - `pnpm --filter @moneydiary/web exec tsc -b` → clean, no errors.
+    - `pnpm web lint` → clean, no errors.
+    - `pnpm --filter @moneydiary/mobile test` → 92 suites / 1022 passed,
+      8 skipped, 0 failed.
+    - `pnpm --filter @moneydiary/mobile exec tsc --noEmit` → clean, no errors.
+    - `pnpm --filter @moneydiary/mobile lint` → 0 errors, 4 warnings (2
+      pre-existing `no-require-imports` warnings in
+      `BucketDetalleScreen.spec.tsx`, unrelated to this change; 2 new
+      `no-unused-vars` warnings — `ofrecerPatron`/`handlePatronCreado` in
+      `BucketDetalleScreen.tsx` — accepted as dead-but-harmless, see above).
+  - Reclassification itself and its "Movida a…" announcement (#749) still
+    pass in both apps' full suites (not touched by this change).
+  - Pre-commit hook ran `eslint --fix` on staged files (same as T1); diffed
+    the resulting commit against the pre-hook edits and confirmed no
+    unexpected changes beyond what was staged.
+
 ## Next step
 
-T2.
+None — both T1 and T2 are done. Ready for the PR closing #825 and #826
+(per Delivery: one PR for both tasks; not opened yet — pushing/PR creation
+is the user's call).
