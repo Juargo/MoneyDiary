@@ -134,33 +134,33 @@ apply.
 
 ## Phase 6: Visual acceptance check — temporary, uncommitted (design Decision 6 and its procedure)
 
-- [ ] 6.1 Create `apps/web/e2e/tmp-torta-sesgada.e2e.ts` (temporary, not committed to the final PR). In
+- [x] 6.1 Create `apps/web/e2e/tmp-torta-sesgada.e2e.ts` (temporary, not committed to the final PR). In
       each test: call `stubApi(page)`, then register `page.route('**/api/resumen*', ...)` with a literal
       `ResumenMesDto` (same shape as `RESUMEN_MES_FIXTURE`, `sinIngreso: false`) — Playwright matches the
       most recently registered route first, so the override wins. Add three skewed cases: 80/15/5
       (Necesidades mid-angle 144°, the main target case), 64/26/10 (Necesidades mid-angle ≈115°, the
       user's originally reported `64%` case), and 10/75/15 (Deseos spans 36°-306°, mid-angle 171°).
-- [ ] 6.2 In each test, `page.goto('/?periodo=2026-07')`, wait for `'Toca un ítem del gráfico o la
+- [x] 6.2 In each test, `page.goto('/?periodo=2026-07')`, wait for `'Toca un ítem del gráfico o la
       leyenda'`, scope to `page.getByRole('group', { name: 'Distribución del gasto' })`, collect each
       `text` element's `boundingBox()` and the IDEAL inset's box from `page.getByRole('img', { name:
       'Distribución ideal 50/30/20' })`. Assert no label box intersects the inset box. Take
       `page.screenshot()` into the scratchpad directory (not the repo).
-- [ ] 6.3 Run `pnpm web test:e2e tmp-torta-sesgada` on all 3 projects, with `movil` (360px, narrowest
+- [x] 6.3 Run `pnpm web test:e2e tmp-torta-sesgada` on all 3 projects, with `movil` (360px, narrowest
       column) as the most important signal. Record the pass/fail outcome per case and per project.
-- [ ] 6.4 Delete `apps/web/e2e/tmp-torta-sesgada.e2e.ts` (it must not be committed). If any case shows an
+- [x] 6.4 Delete `apps/web/e2e/tmp-torta-sesgada.e2e.ts` (it must not be committed). If any case shows an
       overlap, do not fix it here (moving/resizing the IDEAL inset is out of scope) — record it as a
       follow-up issue referencing the case, project, and screenshot; attach the deleted spec's content to
       that issue for reuse as its RED test.
 
 ## Phase 7: Close out
 
-- [ ] 7.1 Re-run `pnpm web test`, `pnpm --filter @moneydiary/web exec tsc -b`, and `pnpm web lint` one
+- [x] 7.1 Re-run `pnpm web test`, `pnpm --filter @moneydiary/web exec tsc -b`, and `pnpm web lint` one
       final time after all edits (Phases 4-6) to confirm a clean state before committing.
-- [ ] 7.2 Confirm the spec delta at
+- [x] 7.2 Confirm the spec delta at
       `openspec/changes/distribucion-torta-completa/specs/web-app/spec.md` (already written) matches the
       shipped behavior: filled 3-wedge pie for `WG5-01`, no donut/ring shape wording in `WG5-12`. No edit
       expected — read-only confirmation.
-- [ ] 7.3 Commit the work unit on a feature branch off `main` (e.g. `fix/web-distribucion-torta-completa`,
+- [x] 7.3 Commit the work unit on a feature branch off `main` (e.g. `fix/web-distribucion-torta-completa`,
       branching first since `main` is protected), as one or more Conventional Commits (no AI attribution),
       keeping tests alongside the behavior they pin (RED/GREEN/pins/refactor may be one or several commits
       as long as each commit's tests match its code). Record the commit SHA(s) as evidence of completion.
