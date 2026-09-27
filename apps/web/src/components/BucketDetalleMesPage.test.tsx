@@ -1214,8 +1214,9 @@ describe('BucketDetalleMesPage', () => {
   });
 
   // ── "patrón desde movimiento" offer (issue #745) ──
+  // Disabled for now (#826) — re-enable with the pattern offer.
 
-  it('creating a pattern from the post-reclassify offer announces it in the SAME shared anuncio region as "Movida a…" (issue #745)', async () => {
+  it.skip('creating a pattern from the post-reclassify offer announces it in the SAME shared anuncio region as "Movida a…" (issue #745)', async () => {
     stubFetchInteraccion();
     const user = userEvent.setup();
 

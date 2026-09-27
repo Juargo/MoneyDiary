@@ -304,7 +304,8 @@ export function ReclasificarMobileControl({
     // `onReclasificado`, so the offer is already part of the SAME render
     // that shows the loading state, instead of appearing on this
     // (about-to-unmount) control and being lost.
-    onOfrecerPatron({ descripcion: tx.descripcion, categoriaId });
+    // Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+    // onOfrecerPatron({ descripcion: tx.descripcion, categoriaId });
   }
 
   function handleSelectCategoria(
