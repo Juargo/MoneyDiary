@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/landing-v0.3.2...landing-v0.4.0) (2026-09-27)
+
+
+### Features
+
+* **landing:** drop hero CTAs and show real app screenshots ([250523f](https://github.com/Juargo/MoneyDiary/commit/250523f55e393b0b51abcc311cd90a1f5ca02eb1))
+* **landing:** drop hero CTAs, show real screenshots and remove contact email ([c9c9f64](https://github.com/Juargo/MoneyDiary/commit/c9c9f644db95436caadc1b8811001a5d85fb8a58))
+* **landing:** explain needs, wants and savings under how-it-works ([b31965a](https://github.com/Juargo/MoneyDiary/commit/b31965ae009f67e95f2820704280129af1e5138a))
+* **landing:** explain needs, wants and savings under how-it-works ([5890989](https://github.com/Juargo/MoneyDiary/commit/5890989dc948aedc9c05dca980cf7b0db5723d00))
+* **landing:** remove every contact email reference ([da1ba75](https://github.com/Juargo/MoneyDiary/commit/da1ba75f1c1a02b452de47f0efec188cfd095c4e))
+
 ## [0.3.2](https://github.com/Juargo/MoneyDiary/compare/landing-v0.3.1...landing-v0.3.2) (2026-09-21)
 
 
