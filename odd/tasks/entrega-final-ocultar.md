@@ -140,8 +140,11 @@ See #825 and #826.
     the resulting commit against the pre-hook edits and confirmed no
     unexpected changes beyond what was staged.
 
+- 2026-09-27: native review of the T1+T2 slice (base b31965ae, committed-only).
+  - T1 assess: medium, under_budget (pending in slice). After T2: medium, slice_budget_reached, so the review was due.
+  - Consent granted by the user. Lens: reliability. Outcome: approved and acknowledged (authority burned).
+  - Two informational suggestions: the skipped #745 suites may rot, and the web negative test asserts right after the select value settles. The RED run proved that test fails with the offer present.
+
 ## Next step
 
-None — both T1 and T2 are done. Ready for the PR closing #825 and #826
-(per Delivery: one PR for both tasks; not opened yet — pushing/PR creation
-is the user's call).
+Push the branch and open one PR closing #825 and #826 (user decision).
