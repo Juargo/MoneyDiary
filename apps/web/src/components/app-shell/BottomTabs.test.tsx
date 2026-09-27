@@ -77,7 +77,7 @@ describe('BottomTabs', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders exactly the 5 expected mobile tabs, in order', async () => {
+  it('renders exactly the 4 expected mobile tabs, in order', async () => {
     await renderBottomTabs();
 
     const nav = screen.getByRole('navigation', {
@@ -87,10 +87,19 @@ describe('BottomTabs', () => {
     expect(links.map((link) => link.textContent)).toEqual([
       'Resumen',
       'Subir',
-      'Registrar',
       'Cartolas',
       'Config',
     ]);
+  });
+
+  // #825: manual transaction entry hidden from navigation (implementation
+  // retained, see RegistrarMovimientoForm.tsx's top-of-file note).
+  it('does not render "Registrar" — manual entry is hidden for now (#825)', async () => {
+    await renderBottomTabs();
+
+    expect(
+      screen.queryByRole('link', { name: 'Registrar' }),
+    ).not.toBeInTheDocument();
   });
 
   it('exposes a navigation landmark distinct from the sidebar', async () => {

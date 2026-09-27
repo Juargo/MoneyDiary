@@ -89,7 +89,7 @@ describe('AyudaPage', () => {
     expect(columna).not.toHaveClass('max-w-2xl');
   });
 
-  it('maps the 4 main tasks to their nav destinations as links', async () => {
+  it('maps the 3 main tasks to their nav destinations as links', async () => {
     await renderAyudaPage();
 
     expect(screen.getByRole('link', { name: 'Subir cartola' })).toHaveAttribute(
@@ -97,14 +97,21 @@ describe('AyudaPage', () => {
       '/subir',
     );
     expect(
-      screen.getByRole('link', { name: 'Registrar movimiento' }),
-    ).toHaveAttribute('href', '/registrar');
-    expect(
       screen.getByRole('link', { name: 'Gestionar cartolas' }),
     ).toHaveAttribute('href', '/ingestas');
     expect(screen.getByRole('link', { name: 'Configuración' })).toHaveAttribute(
       'href',
       '/configuracion',
     );
+  });
+
+  // #825: manual transaction entry hidden from navigation and help (kept in
+  // the codebase — see RegistrarMovimientoForm.tsx's top-of-file note).
+  it('does not link to "Registrar movimiento" — hidden for now (#825)', async () => {
+    await renderAyudaPage();
+
+    expect(
+      screen.queryByRole('link', { name: 'Registrar movimiento' }),
+    ).not.toBeInTheDocument();
   });
 });
