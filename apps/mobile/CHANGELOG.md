@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.6.0...mobile-v0.7.0) (2026-09-27)
+
+
+### Features
+
+* hide manual entry and the pattern offer for the final delivery ([925a6c9](https://github.com/Juargo/MoneyDiary/commit/925a6c9b840ae9cb892465d3ba93f6a8ba4f7ee0))
+* **web,mobile:** disable the pattern offer after reclassifying for now ([#826](https://github.com/Juargo/MoneyDiary/issues/826)) ([1e0113c](https://github.com/Juargo/MoneyDiary/commit/1e0113cfe4be312ec31270f49ab557d17bae6a9f))
+
 ## [0.6.0](https://github.com/Juargo/MoneyDiary/compare/mobile-v0.5.0...mobile-v0.6.0) (2026-09-25)
 
 
