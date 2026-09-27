@@ -128,19 +128,10 @@ lint scope, the accessible-name rule, and every keyboard-operability rule are ot
 
 ### Requirement: WG5-01 — Main chart renders as a 3-wedge donut, proportions from a client-side share-of-spending apportionment, not from `porcentajeBp` (CA-01, CA-06, ADR-024)
 
-(Reason: The chart no longer renders as a ring/donut with an inner hole; it renders as a filled 3-wedge
-pie. The heading itself asserted the removed donut shape, so it cannot remain a `MODIFIED` match — see
-`ADDED` "WG5-01 — Main chart renders as a filled 3-wedge pie ...".)
-(Migration: The requirement's ID and every apportionment/data-set rule — the share-of-spending ratio, the
-`porcentajeBp` exclusion, the Ingresos exclusion, the legacy `SinCategoria` exclusion — carry forward
-unchanged into the `ADDED` replacement above; only the shape wording and one new no-hole scenario change.)
+(Reason: The chart no longer renders as a ring/donut with an inner hole; it renders as a filled 3-wedge pie. The heading itself asserted the removed donut shape, so it cannot remain a `MODIFIED` match — see `ADDED` "WG5-01 — Main chart renders as a filled 3-wedge pie ...".)
+(Migration: The requirement's ID and every apportionment/data-set rule — the share-of-spending ratio, the `porcentajeBp` exclusion, the Ingresos exclusion, the legacy `SinCategoria` exclusion — carry forward unchanged into the `ADDED` replacement above; only the shape wording and one new no-hole scenario change.)
 
 ### Requirement: WG5-12 — New/touched files pass `eslint-jsx-a11y` at `error` scope; the donut, legend, and semáforo tag are keyboard-operable and accessible (CA-06, WCAG 2.2 AA, ADR-018)
 
-(Reason: The heading and one scenario referred to "the donut ring," which no longer exists as a shape —
-the chart is a filled pie (`WG5-01`). The heading's shape wording is stale, so it cannot remain a
-`MODIFIED` match — see `ADDED` "WG5-12 — ... the chart, legend, and semáforo tag are keyboard-operable and
-accessible ...".)
-(Migration: The lint-scope rule, the accessible-name rule, and every keyboard-operability rule carry
-forward unchanged into the `ADDED` replacement above, including the trailing `WG5-13` retirement note;
-only "donut ring" becomes "chart" in the heading and in one scenario's title/body.)
+(Reason: The heading and one scenario referred to "the donut ring," which no longer exists as a shape — the chart is a filled pie (`WG5-01`). The heading's shape wording is stale, so it cannot remain a `MODIFIED` match — see `ADDED` "WG5-12 — ... the chart, legend, and semáforo tag are keyboard-operable and accessible ...".)
+(Migration: The lint-scope rule, the accessible-name rule, and every keyboard-operability rule carry forward unchanged into the `ADDED` replacement above, including the trailing `WG5-13` retirement note; only "donut ring" becomes "chart" in the heading and in one scenario's title/body.)
