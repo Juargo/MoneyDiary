@@ -1,8 +1,4 @@
-import {
-  calcularAngulos,
-  arcoPath,
-  radioEtiqueta,
-} from '@/domain/pie-geometry';
+import { calcularAngulos, arcoPath } from '@/domain/pie-geometry';
 import { claseRellenoBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { CLASE_SEPARADOR_PIE, claseEtiquetaPie } from '@/lib/pie-colors';
 // The IDEAL inset indexes `targets`, which has no `SinCategoria` key, so it
@@ -25,17 +21,13 @@ function centroidLabel(
   cx: number,
   cy: number,
   r: number,
-  rInterior: number,
   inicio: number,
   fin: number,
 ) {
-  // US-047 (design D-01): the label sits at the RING's mid-band radius, not
-  // a hardcoded `r * 0.62` — with a hole at `RATIO_INTERIOR` that constant
-  // would land inside the hole. `radioEtiqueta` degrades to `r * 0.62`-ish
-  // territory automatically when `rInterior` is `0` (the IDEAL inset stays
-  // unaffected: `(r + 0) / 2` is `r / 2`, close enough to the old constant
-  // for a small non-interactive reference chart with no on-slice labels).
-  const radio = radioEtiqueta(r, rInterior);
+  // Half the radius: the middle of a filled wedge. It also keeps labels away
+  // from the IDEAL inset in the bottom-right corner (the old donut band sat
+  // at ~0.79 r).
+  const radio = r / 2;
   const medio = ((inicio + fin) / 2) * (Math.PI / 180);
   return {
     x: cx + radio * Math.sin(medio),
@@ -66,15 +58,12 @@ function Pie({
   showLabels = false,
   sliceTestId,
   onSelectSlice,
-  rInterior = 0,
 }: {
   readonly slices: ReadonlyArray<Slice>;
   readonly size: number;
   readonly showLabels?: boolean;
   readonly sliceTestId: string;
   readonly onSelectSlice?: (bucket: string) => void;
-  /** Donut hole radius, absolute px (US-047 D-01) — `0` = filled wedge (IDEAL inset). */
-  readonly rInterior?: number;
 }) {
   const cx = size / 2;
   const cy = size / 2;
@@ -97,14 +86,7 @@ function Pie({
   return (
     <>
       {slices.map((slice, i) => {
-        const d = arcoPath(
-          cx,
-          cy,
-          r,
-          tramos[i].inicio,
-          tramos[i].fin,
-          rInterior,
-        );
+        const d = arcoPath(cx, cy, r, tramos[i].inicio, tramos[i].fin);
 
         if (!onSelectSlice) {
           return (
@@ -186,7 +168,6 @@ function Pie({
             cx,
             cy,
             r,
-            rInterior,
             tramos[i].inicio,
             tramos[i].fin,
           );
@@ -268,31 +249,19 @@ function slicesIdeales(targets: ResumenViewModel['targets']): Slice[] {
  * the interaction contract. The `bucketSeleccionado`/`aria-pressed` selection
  * state is gone with the retired transactions panel (ResumenScreen).
  *
- * US-047 (design D-01, judgment-day fix): the main ring's donut hole is
- * OPT-IN via `conInterior` (default `false`, filled pie — byte-identical to
- * this component's pre-US-047 shape). A caller only opts in once it feeds
- * the full `BUCKETS_ANILLO` ring; a hole around an incomplete ring would
- * visibly regress the standalone chart.
+ * The main ring renders as a filled pie — every wedge starts at the centre,
+ * with no inner hole (WG5-01; see `arcoPath`'s docblock).
  */
 export function DistribucionPie({
   tajadas,
   targets,
   onSelectBucket,
   size = 240,
-  conInterior = false,
 }: {
   readonly tajadas: ReadonlyArray<TajadaGasto>;
   readonly targets: ResumenViewModel['targets'];
   readonly onSelectBucket: (bucket: string) => void;
   readonly size?: number;
-  /**
-   * Opt-in donut hole for the main ring (US-047 D-01). Default `false` —
-   * judgment-day fix: a caller feeding fewer than the full `BUCKETS_ANILLO`
-   * set would otherwise get a hole around an incomplete ring, visibly worse
-   * than the pre-US-047 filled pie. `ResumenScreen` opts in with the real
-   * `distribucionGasto` (T11).
-   */
-  readonly conInterior?: boolean;
 }) {
   const idealSize = size * 0.34;
   // FIX 2 (WCAG 4.1.2): role="img" flattens the whole subtree for assistive
@@ -301,15 +270,6 @@ export function DistribucionPie({
   // placeholder ring (no spending) has nothing to flatten, so it keeps
   // role="img".
   const esInteractivo = tajadas.length > 0;
-  // US-047 (design D-01): the main ring's donut-hole ratio — a VISUAL
-  // choice, so it lives here (component), not in `domain/pie-geometry.ts`
-  // (pure math over absolute px). The IDEAL inset stays `rInterior = 0`
-  // (filled, D-02) — it never receives this. Judgment-day fix: the hole
-  // itself is opt-in (`conInterior` prop, default `false`) — see that
-  // prop's docblock for why an unconditional hole was a regression for a
-  // caller still feeding fewer than the full ring.
-  const RATIO_INTERIOR = 0.58;
-  const rInteriorAnillo = conInterior ? (size / 2) * RATIO_INTERIOR : 0;
 
   return (
     <div
@@ -328,13 +288,12 @@ export function DistribucionPie({
           showLabels
           sliceTestId="pie-slice"
           onSelectSlice={onSelectBucket}
-          rInterior={rInteriorAnillo}
         />
       </svg>
 
       {/* IDEAL reference inset — bottom-right, matching the mockup. */}
       <div className="absolute right-1 bottom-0 flex flex-col items-center">
-        {/* Cut-out ring that lifts the IDEAL inset off the main donut behind
+        {/* Cut-out ring that lifts the IDEAL inset off the main pie behind
             it. `bg-card`/`border-card` TOKENS here, not a `pie-colors`
             literal: the literal rule exists because SVG `fill`/`stroke`
             attributes cannot take Tailwind classes — this is a plain <div>

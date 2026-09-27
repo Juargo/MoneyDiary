@@ -335,6 +335,32 @@ describe('ResumenScreen', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  // WG5-01 (this change): the main chart must render as a FILLED pie — no
+  // inner hole — so every wedge path starts at the SVG centre with a single
+  // arc, and its on-wedge `%` label sits at half the radius (not the donut's
+  // ~0.79 r mid-band). Default `size = 240` → `cx = cy = r = 120`, label
+  // radius `60`. Scoped to the main chart's own `group` because the legend
+  // and the annual grid also render `%` text.
+  it('renders the spending chart as a filled pie with on-wedge labels at half the radius (WG5-01)', async () => {
+    mockFetchAnual();
+    renderScreen();
+    const grafico = within(
+      await screen.findByRole('group', { name: 'Distribución del gasto' }),
+    );
+
+    for (const path of grafico.getAllByTestId('pie-slice')) {
+      const d = path.getAttribute('d') ?? '';
+      expect(d.startsWith('M 120 120')).toBe(true);
+      expect(d.match(/A /g)).toHaveLength(1);
+    }
+
+    // Necesidades (50%, wedge 0°-180°, mid-angle 90°) — label at radius 60:
+    // x = 120 + 60*sin(90°) = 180, y = 120 - 60*cos(90°) = 120.
+    const etiqueta = grafico.getByText('50%');
+    expect(Number(etiqueta.getAttribute('x'))).toBeCloseTo(180, 3);
+    expect(Number(etiqueta.getAttribute('y'))).toBeCloseTo(120, 3);
+  });
+
   // US-047 T11/PR3 (design D-06/WG5-07, CA-03 composition-level proof): the
   // static `SemaforoBadge` (`role="img"`) in the card header is replaced by
   // the clickable `SemaforoTag` (`role="link"`) — the `semaforo-global`
