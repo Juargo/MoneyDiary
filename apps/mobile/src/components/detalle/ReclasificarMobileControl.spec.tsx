@@ -1091,6 +1091,31 @@ describe('ReclasificarMobileControl', () => {
     });
   });
 
+  // ── pattern offer disabled for now (issue #826) ──
+
+  it('a successful same-bucket commit never calls onOfrecerPatron (disabled for now, issue #826)', async () => {
+    mockReclasificarCategoria.mockResolvedValueOnce({
+      ok: true,
+      value: makeReclasificarDto('Deseos', 'Entretenimiento'),
+    });
+    const onOfrecerPatron = jest.fn();
+    const props = defaultProps({ onOfrecerPatron });
+    await render(<ReclasificarMobileControl {...props} />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('reclasificar-trigger-tx-1'));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('reclasificar-modal')).toBeTruthy(),
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('reclasificar-opcion-cat-deseos'));
+    });
+
+    await waitFor(() => expect(props.onReclasificado).toHaveBeenCalled());
+    expect(onOfrecerPatron).not.toHaveBeenCalled();
+  });
+
   /**
    * patrón-desde-movimiento (issue #745): every successful reclassify —
    * same-bucket AND cross-bucket alike — offers to turn the just-picked
@@ -1098,8 +1123,12 @@ describe('ReclasificarMobileControl', () => {
    * description and the DESTINATION categoría id, AFTER the PATCH settles
    * (same settled-announcement discipline as `onMovida`), and never fires
    * on a failed PATCH.
+   *
+   * Disabled for now (#826): the trigger below is commented out in
+   * production source, so this whole suite is skipped. Uncomment to
+   * restore (see the source file's own `#826` marker).
    */
-  describe('onOfrecerPatron (issue #745)', () => {
+  describe.skip('onOfrecerPatron (issue #745)', () => {
     it('same-bucket commit calls onOfrecerPatron with the description and destination categoriaId', async () => {
       mockReclasificarCategoria.mockResolvedValueOnce({
         ok: true,

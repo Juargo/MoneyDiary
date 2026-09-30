@@ -9,7 +9,8 @@ import { construirOpcionesBucket, ETIQUETA_BUCKET } from '@/lib/bucket-colors';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { CampoSelect } from '@/components/configuracion/categorias/CampoSelect';
 import { NuevaCategoriaDesdeFilaForm } from '@/components/preview/NuevaCategoriaDesdeFilaForm';
-import { OfrecerPatronControl } from '@/components/OfrecerPatronControl';
+// Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+// import { OfrecerPatronControl } from '@/components/OfrecerPatronControl';
 import { CLASE_BOTON_ICONO } from '@/components/configuracion/estilos';
 import { cn } from '@/lib/utils';
 
@@ -161,7 +162,11 @@ export function ReclasificarCategoriaControl({
   periodo,
   esDemo = false,
   onMovida,
-  onPatronCreado,
+  // Disabled for now (#826): pattern offer after reclassify. `onPatronCreado`
+  // stays in the type below (so callers threading it through, e.g.
+  // GrupoMovimientos/BucketDetalleMesPage, keep compiling unchanged) but is
+  // not destructured here since nothing in this component calls it anymore.
+  // Uncomment to restore.
 }: {
   readonly transaccionId: string;
   readonly descripcion: string;
@@ -192,6 +197,10 @@ export function ReclasificarCategoriaControl({
    * the caller announces it via the page's shared status region, same
    * pattern as `onMovida`. Optional: omitting it just skips that
    * announcement, the offer/creation flow itself works either way.
+   *
+   * Disabled for now (#826): the offer never mounts, so this never fires.
+   * Kept in the type (not destructured, see above) so callers threading it
+   * through stay unchanged. Uncomment the offer below to restore.
    */
   readonly onPatronCreado?: (patron: string) => void;
 }) {
@@ -215,9 +224,10 @@ export function ReclasificarCategoriaControl({
   // reclassify commits successfully, targeting the categoría it just
   // committed TO — never the row's previous one. `null` means no offer is
   // showing (initial state, or dismissed/completed).
-  const [ofrecerPatron, setOfrecerPatron] = useState<{
-    categoriaId: string;
-  } | null>(null);
+  // Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+  // const [ofrecerPatron, setOfrecerPatron] = useState<{
+  //   categoriaId: string;
+  // } | null>(null);
   const mutacion = useReclasificarCategoria(periodo, bucketActual);
   const { data, isFetching: catalogoEnVuelo } = useCategorias();
   // Initial load only (WCAT-04 delta): `data === undefined` while
@@ -275,7 +285,8 @@ export function ReclasificarCategoriaControl({
       {
         onSuccess: () => {
           onSuccess?.();
-          setOfrecerPatron({ categoriaId });
+          // Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+          // setOfrecerPatron({ categoriaId });
         },
         onError: (error) => {
           setErrorMensaje(error.message);
@@ -300,7 +311,8 @@ export function ReclasificarCategoriaControl({
     // component's own "latest pick wins" discipline extended, issue #745):
     // an offer that still names the ROW's PREVIOUS categoría after a second
     // reclassify would create a pattern for the wrong target.
-    setOfrecerPatron(null);
+    // Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+    // setOfrecerPatron(null);
     const categoriaSeleccionada = data?.categorias.find(
       (c) => c.id === categoriaId,
     );
@@ -360,7 +372,8 @@ export function ReclasificarCategoriaControl({
   function abrirCreacion() {
     // Opening "+" mid-offer (rare, but possible) supersedes it — same
     // "latest action wins" discipline as `alCambiar` above.
-    setOfrecerPatron(null);
+    // Disabled for now (#826): pattern offer after reclassify. Uncomment to restore.
+    // setOfrecerPatron(null);
     setCreandoCategoria(true);
   }
 
@@ -495,8 +508,11 @@ export function ReclasificarCategoriaControl({
           `InlineConfirm`/alertdialog: this is a low-stakes, non-blocking
           offer, not a destructive/money-moving confirmation, so it must NOT
           steal focus on mount (a11y) — it just becomes reachable in the
-          natural tab order right after this row's own controls. */}
-      {ofrecerPatron && (
+          natural tab order right after this row's own controls.
+
+          Disabled for now (#826): pattern offer after reclassify. Uncomment
+          to restore (along with the state/import/trigger calls above). */}
+      {/* {ofrecerPatron && (
         <div className="absolute top-full right-0 z-20 mt-1 w-72 max-w-[90vw]">
           <OfrecerPatronControl
             descripcion={descripcion}
@@ -508,7 +524,7 @@ export function ReclasificarCategoriaControl({
             onCerrar={() => setOfrecerPatron(null)}
           />
         </div>
-      )}
+      )} */}
     </div>
   );
 }

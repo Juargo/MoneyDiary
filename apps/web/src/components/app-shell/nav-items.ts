@@ -2,7 +2,6 @@ import {
   Files,
   HelpCircle,
   LayoutDashboard,
-  PencilLine,
   Settings,
   Upload,
   type LucideIcon,
@@ -32,17 +31,17 @@ export type NavItemModel = {
   /**
    * Shorter label for the `bottom-tab` presentation only (`NavItem.tsx`).
    * `Sidebar` always renders `label` in full — the bottom bar is the one
-   * surface tight enough (5 tabs across 360px) that a label like "Subir
+   * surface tight enough (4 tabs across 360px) that a label like "Subir
    * nuevo archivo" wraps into multiple lines instead of fitting one. Omit
    * this field when `label` is already short enough to work in both
-   * places (e.g. "Resumen", "Registrar").
+   * places (e.g. "Resumen").
    */
   readonly shortLabel?: string;
   readonly to: NavRoute;
   readonly icon: LucideIcon;
   /**
    * When true, `BottomTabs` skips this item — it still renders in
-   * `Sidebar`. Introduced for "Ayuda": 6 items across a 360px bottom bar
+   * `Sidebar`. Introduced for "Ayuda": a 5-item bottom bar at 360px
    * violates the 3-5 tab convention, and Ayuda is the one item mobile
    * users can reach a beat later without losing the task at hand (it gets
    * its own entry inside the Configuración screen instead, see
@@ -56,20 +55,23 @@ export type NavItemModel = {
  * `BottomTabs` both render this exact list (DRY: define the nav once,
  * present it per breakpoint instead of duplicating it).
  *
- * All six items are nav-worthy routes that exist today under
+ * All five items are nav-worthy routes that exist today under
  * `_authenticated` (`/buckets/$bucket` is a drill-down destination reached
  * from within the dashboard, not a primary nav target). "Subir nuevo
  * archivo", "Gestionar cartolas", and "Configuración" (US-042, WCFG-01) were
  * each a `'placeholder'` until their route landed. "Ayuda" (WDS-03) was the
  * last placeholder — it now points at `/ayuda`, a real help page, closing
  * out the discriminated union's dead `'placeholder'` arm (see
- * `NavItemModel`'s docstring above).
+ * `NavItemModel`'s docstring above). "Registrar" (manual transaction entry)
+ * was removed for the final delivery (#825) — its route, form, hook, and API
+ * client stay in the codebase unrouted; see `RegistrarMovimientoForm.tsx`'s
+ * top-of-file note for how to re-enable it.
  *
- * `Sidebar` still renders all six; `BottomTabs` renders only the five whose
+ * `Sidebar` still renders all five; `BottomTabs` renders only the four whose
  * `hideFromBottomTabs` is not set (mobile bottom-nav redesign, Impeccable
- * critique P1) — six tabs at 360px exceeded the 3-5 tab convention and
- * forced long labels to wrap across lines. `shortLabel` keeps the bottom
- * bar's labels to one line without inventing a second nav list.
+ * critique P1) — a 5-tab bar at 360px was already at the edge of the 3-5 tab
+ * convention and forced long labels to wrap across lines. `shortLabel` keeps
+ * the bottom bar's labels to one line without inventing a second nav list.
  */
 export const NAV_ITEMS: readonly NavItemModel[] = [
   { kind: 'link', label: 'Resumen', to: '/', icon: LayoutDashboard },
@@ -80,7 +82,6 @@ export const NAV_ITEMS: readonly NavItemModel[] = [
     to: '/subir',
     icon: Upload,
   },
-  { kind: 'link', label: 'Registrar', to: '/registrar', icon: PencilLine },
   {
     kind: 'link',
     label: 'Gestionar cartolas',

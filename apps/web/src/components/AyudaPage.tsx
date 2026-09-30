@@ -143,15 +143,6 @@ export function AyudaPage() {
           </li>
           <li>
             <Link
-              to="/registrar"
-              className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              Registrar movimiento
-            </Link>{' '}
-            — para un ingreso o gasto que no viene de una cartola.
-          </li>
-          <li>
-            <Link
               to="/ingestas"
               className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             >

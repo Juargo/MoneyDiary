@@ -1785,6 +1785,7 @@ describe('ReclasificarCategoriaControl', () => {
   });
 
   // ── patrón desde movimiento (issue #745) ──
+  // Disabled for now (#826) — re-enable with the pattern offer.
 
   /**
    * Routes `/api/patrones` (the offer's own POST) alongside the existing
@@ -1826,7 +1827,8 @@ describe('ReclasificarCategoriaControl', () => {
     return fetchMock;
   }
 
-  it('after a same-bucket reclassify commits, offers to create a pattern from the movement', async () => {
+  // Disabled for now (#826) — re-enable with the pattern offer.
+  it.skip('after a same-bucket reclassify commits, offers to create a pattern from the movement', async () => {
     mockFetchConPatron();
     const user = userEvent.setup();
 
@@ -1853,7 +1855,8 @@ describe('ReclasificarCategoriaControl', () => {
     expect(await screen.findByText(/próximas cartolas/i)).toBeInTheDocument();
   });
 
-  it('dismissing the pattern offer leaves the reclassification intact and fires no pattern request', async () => {
+  // Disabled for now (#826) — re-enable with the pattern offer.
+  it.skip('dismissing the pattern offer leaves the reclassification intact and fires no pattern request', async () => {
     const fetchMock = mockFetchConPatron();
     const user = userEvent.setup();
 
@@ -1889,7 +1892,8 @@ describe('ReclasificarCategoriaControl', () => {
     );
   });
 
-  it("confirming the offer POSTs to /api/patrones with the ROW'S NEWLY ASSIGNED categoriaId, the literal selected words, and CONTAINS, and announces the created pattern via onPatronCreado", async () => {
+  // Disabled for now (#826) — re-enable with the pattern offer.
+  it.skip("confirming the offer POSTs to /api/patrones with the ROW'S NEWLY ASSIGNED categoriaId, the literal selected words, and CONTAINS, and announces the created pattern via onPatronCreado", async () => {
     const fetchMock = mockFetchConPatron();
     const onPatronCreado = vi.fn();
     const user = userEvent.setup();
@@ -1938,7 +1942,8 @@ describe('ReclasificarCategoriaControl', () => {
     expect(screen.queryByText(/próximas cartolas/i)).not.toBeInTheDocument();
   });
 
-  it('a failed pattern creation surfaces inline and does not undo the reclassification', async () => {
+  // Disabled for now (#826) — re-enable with the pattern offer.
+  it.skip('a failed pattern creation surfaces inline and does not undo the reclassification', async () => {
     mockFetchConPatron({
       patronRespuesta: {
         ok: false,
@@ -1982,7 +1987,8 @@ describe('ReclasificarCategoriaControl', () => {
     expect(select.value).toBe('cat-transporte');
   });
 
-  it('after confirming a CROSS-BUCKET reclassify, the pattern offer targets the DESTINATION categoría, not the original', async () => {
+  // Disabled for now (#826) — re-enable with the pattern offer.
+  it.skip('after confirming a CROSS-BUCKET reclassify, the pattern offer targets the DESTINATION categoría, not the original', async () => {
     const fetchMock = mockFetchConPatron();
     const user = userEvent.setup();
 
@@ -2025,6 +2031,42 @@ describe('ReclasificarCategoriaControl', () => {
         }),
       ),
     );
+  });
+
+  // ── pattern offer disabled for now (issue #826) ──
+
+  it('after a successful reclassify commit, no pattern offer appears (disabled for now, issue #826)', async () => {
+    mockFetchConPatron();
+    const user = userEvent.setup();
+
+    render(
+      <ReclasificarCategoriaControl
+        transaccionId="tx-1"
+        descripcion="Supermercado Líder"
+        montoLabel="$10.000"
+        bucketActual="Necesidades"
+        categoriaActual={{ id: 'cat-supermercado', nombre: 'Supermercado' }}
+        periodo="2026-07"
+        onMovida={vi.fn()}
+      />,
+      { wrapper: crearWrapper() },
+    );
+
+    const select = screen.getByLabelText(
+      'Categoría de Supermercado Líder: Necesidades · Supermercado',
+    ) as HTMLSelectElement;
+    await waitFor(() => expect(select).not.toBeDisabled());
+
+    await user.selectOptions(select, 'Necesidades · Transporte');
+    await waitFor(() => expect(select.value).toBe('cat-transporte'));
+
+    expect(screen.queryByText(/próximas cartolas/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Crear patrón' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Ahora no' }),
+    ).not.toBeInTheDocument();
   });
 
   // ── issue #597: demo gate — the server rejects a demo PATCH with 403

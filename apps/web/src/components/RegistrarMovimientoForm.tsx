@@ -1,4 +1,14 @@
 /**
+ * NOTE (#825, final delivery): intentionally unrouted as of this change.
+ * The `/registrar` route, the "Registrar" nav item, and the "Registrar
+ * movimiento" Ayuda link were removed so manual entry is hidden from the
+ * delivered product — but this form, `useRegistrarMovimiento`, and the
+ * `apps/web/src/api/movimientos.ts` client are kept intact, tests and all.
+ * To re-enable: restore `routes/_authenticated/registrar.tsx` (see git
+ * history for its last content), regenerate `routeTree.gen.ts` (`tsr
+ * generate`), and re-add the "Registrar" item to `NAV_ITEMS`
+ * (`app-shell/nav-items.ts`) and the Ayuda link (`AyudaPage.tsx`).
+ *
  * RegistrarMovimientoForm — US-060 (D-01 through D-15).
  *
  * Type-first stateful form for manual movement registration.
