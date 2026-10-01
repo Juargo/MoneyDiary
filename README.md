@@ -1,4 +1,5 @@
 # MoneyDiary
+<img width="1195" height="695" alt="image" src="https://github.com/user-attachments/assets/744f3143-5170-4f0a-b94c-20b8ff62f3f7" />
 
 App de finanzas personales para consolidar y analizar movimientos bancarios chilenos (Banco de Chile, BancoEstado, BCI, Santander) importados desde archivos `.xlsx`. Clasifica el gasto con el método **50/30/20** (Necesidades / Deseos / Ahorro) y responde de un vistazo *"¿estoy bien este mes?"* mediante un semáforo verde/amarillo/rojo.
 
@@ -100,6 +101,8 @@ Fuentes de verdad por tipo:
 - **[apps/api/README.md](./apps/api/README.md)** — modo mono-usuario y seguridad de base de datos.
 - **[apps/api/docs/](./apps/api/docs/)** y **[docs/](./docs/)** — runbooks operativos (DB local de test, lanzamiento mobile, etc.).
 - **Vault Obsidian** — solo proceso (Definition of Done, DoR, ceremonias); ya NO es fuente de verdad de ADRs/US/sprints.
+
+
 
 ### Artefactos visuales (Claude Artifacts)
 
