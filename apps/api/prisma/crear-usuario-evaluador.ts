@@ -106,8 +106,9 @@ export async function runCrearUsuarioEvaluador(
 
   const passwordResult = Password.crear(input.password);
   if (passwordResult.isFail()) {
+    // Mensaje fijo a propósito: no se interpola nada que venga de `passwordResult`.
     throw new Error(
-      `EVALUADOR_PASSWORD inválida: ${passwordResult.getError().message} Abortando sin escribir.`,
+      'EVALUADOR_PASSWORD inválida: no cumple la política de contraseñas. Abortando sin escribir.',
     );
   }
   const password = passwordResult.getValue();

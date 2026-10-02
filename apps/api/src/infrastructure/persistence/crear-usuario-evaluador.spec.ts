@@ -253,13 +253,19 @@ describe('runCrearUsuarioEvaluador — creación del usuario evaluador TFM (unit
     const { hasher, hashMock } = makeHasher();
     const passwordCorta = 'corta1';
 
-    await expect(
-      runCrearUsuarioEvaluador(
-        prisma,
-        { email: EMAIL_VALIDO, password: passwordCorta },
-        { crypto: makeCrypto(), blindIndex: makeBlindIndex(), hasher },
-      ),
-    ).rejects.toThrow(/contraseñ/i);
+    const error: unknown = await runCrearUsuarioEvaluador(
+      prisma,
+      { email: EMAIL_VALIDO, password: passwordCorta },
+      { crypto: makeCrypto(), blindIndex: makeBlindIndex(), hasher },
+    ).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    const mensaje = (error as Error).message;
+    // Mensaje fijo: no interpola nada derivado de la password.
+    expect(mensaje).toBe(
+      'EVALUADOR_PASSWORD inválida: no cumple la política de contraseñas. Abortando sin escribir.',
+    );
+    expect(mensaje).not.toContain(passwordCorta);
 
     expect(transactionMock).not.toHaveBeenCalled();
     expect(hashMock).not.toHaveBeenCalled();
