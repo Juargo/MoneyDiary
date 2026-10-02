@@ -1,5 +1,7 @@
 # MoneyDiary
 
+<img width="1195" height="695" alt="Dashboard de MoneyDiary" src="https://github.com/user-attachments/assets/744f3143-5170-4f0a-b94c-20b8ff62f3f7" />
+
 Aplicación de finanzas personales para consolidar y analizar movimientos bancarios chilenos.
 
 - **Web:** [app.moneydiary.cl](https://app.moneydiary.cl) · **Landing:** [moneydiary.cl](https://moneydiary.cl) · **API:** `api.moneydiary.cl`
